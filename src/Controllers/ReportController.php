@@ -35,7 +35,7 @@ final class ReportController
         ];
     }
 
-    private static function branding(): array
+    public static function branding(): array
     {
         return [
             'company' => Settings::get('company_name') ?: 'Mountaineer IT',

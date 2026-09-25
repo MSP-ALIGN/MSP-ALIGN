@@ -18,7 +18,7 @@
   <div class="container-report d-flex flex-wrap align-items-center">
     <a href="/" class="btn btn-sm btn-light mr-2" data-back><i class="fas fa-arrow-left mr-1"></i>Back</a>
     <form class="form-inline small mr-auto" method="get">
-      <?php foreach (['costs' => 'Costs', 'inventory' => 'Full inventory', 'virtual' => 'Virtual machines', 'notes' => 'Notes'] as $k => $l): if (!array_key_exists($k, $opt ?? [])) continue; ?>
+      <?php foreach (['costs' => 'Costs', 'inventory' => 'Full inventory', 'virtual' => 'Virtual machines', 'details' => 'Line items', 'notes' => 'Notes'] as $k => $l): if (!array_key_exists($k, $opt ?? [])) continue; ?>
         <input type="hidden" name="<?= $k ?>" value="0">
         <div class="custom-control custom-checkbox mr-3"><input type="checkbox" class="custom-control-input" id="opt-<?= $k ?>" name="<?= $k ?>" value="1" <?= $opt[$k] ? 'checked' : '' ?> data-autosubmit-check><label class="custom-control-label text-white" for="opt-<?= $k ?>"><?= $l ?></label></div>
       <?php endforeach; ?>

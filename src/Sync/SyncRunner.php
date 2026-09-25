@@ -63,6 +63,9 @@ final class SyncRunner
         if ($itflowOk) {
             $this->step('ITFlow assets (' . (ItflowSync::twoWay() ? 'two-way' : 'one-way') . ')', fn() => ItflowSync::run($itflow, fn($m) => $this->info($m)));
         }
+        if ($itflowOk && Settings::get('budget_msp_estimate', '1') === '1') {
+            $this->step('Managed-services estimate (ITFlow invoices)', fn() => \Align\Budget\Billing::syncFromItflow($itflow));
+        }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
         if ($itflowOk && Settings::get('itflow_writeback', 'off') !== 'off') {
             $this->step('Write warranty dates to ITFlow', fn() => $this->writeBack($itflow));

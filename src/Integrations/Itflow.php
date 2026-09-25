@@ -85,6 +85,12 @@ final class Itflow
         return $this->readAll('software');
     }
 
+    /** Invoices (used to estimate each client's monthly managed-services amount). */
+    public function invoices(): array
+    {
+        return $this->readAll('invoices');
+    }
+
     public function vendors(): array
     {
         return $this->readAll('vendors');

@@ -246,6 +246,19 @@ switch (true) {
                 $all[] = ($st['software_updates'][(string) $id] ?? []) + $row;
             }
             $rows = array_slice($all, $offset, $limit);
+        } elseif ($path === '/api/v1/invoices/read.php') {
+            $inv = [];
+            $n = 5000;
+            for ($m = 0; $m <= 4; $m++) {
+                $d = date('Y-m-05', strtotime("first day of -$m months"));
+                // Client 1: recurring managed services (from a recurring invoice) + a one-off project invoice
+                $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 1, 'invoice_date' => $d, 'invoice_amount' => 1850.00, 'invoice_status' => 'Paid', 'invoice_recurring_invoice_id' => 12];
+                // Client 2: no recurring link, plain monthly invoices
+                $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 2, 'invoice_date' => $d, 'invoice_amount' => 975.00, 'invoice_status' => 'Sent', 'invoice_recurring_invoice_id' => 0];
+            }
+            $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 1, 'invoice_date' => date('Y-m-15', strtotime('first day of -2 months')), 'invoice_amount' => 4200.00, 'invoice_status' => 'Paid', 'invoice_recurring_invoice_id' => 0];
+            $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 2, 'invoice_date' => date('Y-m-20', strtotime('first day of -1 months')), 'invoice_amount' => 300.00, 'invoice_status' => 'Draft', 'invoice_recurring_invoice_id' => 0];
+            $rows = array_slice($inv, $offset, $limit);
         } elseif ($path === '/api/v1/vendors/read.php') {
             $rows = array_slice([
                 ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],

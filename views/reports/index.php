@@ -14,6 +14,7 @@
               <select class="form-control" id="report-type">
                 <option value="assets">Asset &amp; lifecycle report</option>
                 <option value="roadmap">3-year technology roadmap</option>
+                <option value="budget">Technology budget</option>
               </select></div>
           </div>
           <div class="d-flex flex-wrap small mb-3">

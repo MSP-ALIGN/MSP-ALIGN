@@ -213,3 +213,27 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .report-client-logo { max-height: 56px; max-width: 170px; object-fit: contain; }
 .client-header-info { flex: 1 1 320px; min-width: 0; }
 .client-header-info .text-muted.small { line-height: 1.7; }
+
+/* Technology budget — categorical palette slots, fixed order (see Budget::CATEGORIES) */
+:root { --bud-1: #2a78d6; --bud-2: #eb6834; --bud-3: #1baf7a; --bud-4: #eda100; --bud-5: #e87ba4; --bud-6: #008300; --bud-7: #4a3aa7; --bud-8: #e34948; }
+.bud-c1 { fill: var(--bud-1); background: var(--bud-1); } .bud-c2 { fill: var(--bud-2); background: var(--bud-2); }
+.bud-c3 { fill: var(--bud-3); background: var(--bud-3); } .bud-c4 { fill: var(--bud-4); background: var(--bud-4); }
+.bud-c5 { fill: var(--bud-5); background: var(--bud-5); } .bud-c6 { fill: var(--bud-6); background: var(--bud-6); }
+.bud-c7 { fill: var(--bud-7); background: var(--bud-7); } .bud-c8 { fill: var(--bud-8); background: var(--bud-8); }
+.budget-chart { width: 100%; height: auto; display: block; }
+.budget-chart text { font-size: 11px; fill: #52514e; text-anchor: middle; }
+.budget-chart .bar-val { fill: #0b0b0b; font-weight: 600; }
+.budget-chart .year-lbl { font-weight: 700; fill: #343a40; font-size: 12px; }
+.budget-chart .axis { stroke: #ced4da; }
+.budget-chart .year-sep { stroke: #e9ecef; stroke-dasharray: 3 3; }
+.budget-chart .dim { opacity: .35; }
+.budget-chart g.q:hover rect, .budget-chart g.q:hover path { filter: brightness(1.08); }
+.budget-chart .hit { fill: transparent; }
+.bud-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+.budget-legend span.item { margin-right: 14px; white-space: nowrap; }
+.budget-table .cat-row th { background: #f4f6f9; }
+.budget-table .total-row th { border-top: 2px solid #343a40; }
+.budget-table td.num, .budget-table th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.budget-table .tentative { font-style: italic; color: #6c757d; }
+.budget-table .line-name { padding-left: 1.4rem; }
+.budget-client-col { min-width: 220px; }

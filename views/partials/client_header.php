@@ -48,6 +48,7 @@ $cid = (int) $client['id'];
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets" target="_blank"><i class="fas fa-fw fa-desktop mr-2"></i>Asset &amp; lifecycle report</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets?inventory=0" target="_blank"><i class="fas fa-fw fa-file-lines mr-2"></i>Asset summary (no inventory)</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-fw fa-road mr-2"></i>3-year roadmap</a>
+          <a class="dropdown-item" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-fw fa-coins mr-2"></i>Technology budget</a>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/export"><i class="fas fa-fw fa-file-csv mr-2"></i>Device list (CSV)</a>
         </div>
