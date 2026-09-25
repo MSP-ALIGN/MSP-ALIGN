@@ -13,6 +13,32 @@ header('Content-Type: application/json');
 $json = fn($v) => print(json_encode($v));
 mt_srand(42);
 
+// ITFlow side keeps edits between requests so two-way sync can be tested.
+$stateFile = sys_get_temp_dir() . '/itflow-mock-state.json';
+$loadState = fn() => json_decode((string) @file_get_contents($stateFile), true) ?: ['updates' => [], 'created' => [], 'deleted' => [], 'next_id' => 20000];
+$saveState = fn(array $st) => file_put_contents($stateFile, json_encode($st), LOCK_EX);
+if ($path === '/mock/reset') {
+    @unlink($stateFile);
+    @unlink(sys_get_temp_dir() . '/itflow-updates.log');
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
+    // Simulates someone editing (or deleting) an asset inside ITFlow.
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $loadState();
+    $aid = (string) (int) $in['asset_id'];
+    if ($path === '/mock/itflow-delete') {
+        $st['deleted'][] = (int) $aid;
+    } else {
+        $st['updates'][$aid] = ($in['fields'] ?? []) + ($st['updates'][$aid] ?? []);
+        $st['updates'][$aid]['asset_updated_at'] = $in['at'] ?? date('Y-m-d H:i:s');
+    }
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
+
 $clients = [
     ['client_id' => 1, 'client_name' => 'Cedar Ridge Family Dental, Inc.', 'client_archived_at' => null],
     ['client_id' => 2, 'client_name' => 'Northfield Hardware & Supply', 'client_archived_at' => null],
@@ -127,6 +153,7 @@ switch (true) {
                     'asset_purchase_date' => $d['id'] % 12 === 0 ? '2019-03-15' : null,
                     'asset_warranty_expire' => $d['system']['manufacturer'] === 'HP' ? '2025-06-30' : null,
                     'asset_install_date' => null, 'asset_status' => 'Deployed', 'asset_archived_at' => null,
+                    'asset_updated_at' => '2026-01-01 00:00:00',
                 ];
             }
             // Network gear, printers and UPS that only exist in ITFlow
@@ -143,12 +170,33 @@ switch (true) {
                 [2, 'Display', 'Lobby TV', 'Samsung', 'QM55', 'SAMTV1', null, '2022-01-01', null, null, 21],
                 // Same serial as a NinjaOne device -> should be skipped as a duplicate
                 [1, 'Switch', 'PC-0014', 'Dell Inc.', 'OptiPlex 7090', 'SN00014', null, null, null, null, 11],
+                // Types Align doesn't know -> Unassigned
+                [2, 'Tablet', 'Front counter iPad', 'Apple', 'iPad (10th gen)', 'DMPIPAD1', null, '2023-05-01', null, 'iPadOS 18', 21],
+                [1, 'Door Controller', 'Door access hub', 'Ubiquiti', 'UniFi Access Hub', 'UAHUB1', '10.0.0.40', '2024-02-01', null, null, 12],
             ];
             foreach ($extra as $n => [$cid, $type, $name, $make, $model, $serial, $ip, $purchase, $warranty, $os, $loc]) {
                 $all[] = ['asset_id' => 9000 + $n, 'asset_client_id' => $cid, 'asset_name' => $name, 'asset_type' => $type,
                     'asset_make' => $make, 'asset_model' => $model, 'asset_serial' => $serial, 'asset_os' => $os,
                     'asset_purchase_date' => $purchase, 'asset_warranty_expire' => $warranty, 'asset_install_date' => null,
-                    'asset_status' => 'Deployed', 'asset_archived_at' => null, 'asset_location_id' => $loc, 'interface_ip' => $ip, 'interface_mac' => null];
+                    'asset_status' => 'Deployed', 'asset_archived_at' => null, 'asset_location_id' => $loc, 'interface_ip' => $ip, 'interface_mac' => null,
+                    'asset_updated_at' => '2026-01-01 00:00:00'];
+            }
+            $st = $loadState();
+            foreach ($st['created'] as $c) {
+                $all[] = $c;
+            }
+            $all = array_values(array_filter(array_map(function ($r) use ($st) {
+                if (in_array((int) $r['asset_id'], $st['deleted'], true)) {
+                    return null;
+                }
+                $u = $st['updates'][(string) $r['asset_id']] ?? [];
+                if (isset($u['asset_ip'])) {
+                    $r['interface_ip'] = $u['asset_ip'];
+                }
+                return $u + $r;
+            }, $all)));
+            if (isset($_GET['asset_id'])) {
+                $all = array_values(array_filter($all, fn($r) => (int) $r['asset_id'] === (int) $_GET['asset_id']));
             }
             $rows = array_slice($all, $offset, $limit);
         } elseif ($path === '/api/v1/locations/read.php') {
@@ -159,7 +207,28 @@ switch (true) {
             ], $offset, $limit);
         } elseif ($path === '/api/v1/assets/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode($body) . "\n", FILE_APPEND);
+            $st = $loadState();
+            $aid = (string) (int) ($body['asset_id'] ?? 0);
+            $fields = array_filter($body, fn($k) => str_starts_with((string) $k, 'asset_') && $k !== 'asset_id', ARRAY_FILTER_USE_KEY);
+            $st['updates'][$aid] = $fields + ['asset_updated_at' => date('Y-m-d H:i:s')] + ($st['updates'][$aid] ?? []);
+            $st['updates'][$aid]['asset_updated_at'] = date('Y-m-d H:i:s');
+            $saveState($st);
             $json(['success' => 'True', 'count' => 1]);
+            break;
+        } elseif ($path === '/api/v1/assets/create.php' && $method === 'POST') {
+            file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['create' => $body]) . "\n", FILE_APPEND);
+            $st = $loadState();
+            $id = $st['next_id']++;
+            $row = ['asset_id' => $id, 'asset_client_id' => (int) ($body['client_id'] ?? 0), 'asset_archived_at' => null,
+                'asset_created_at' => date('Y-m-d H:i:s'), 'asset_updated_at' => date('Y-m-d H:i:s')];
+            foreach ($body as $k => $v) {
+                if (str_starts_with((string) $k, 'asset_')) {
+                    $row[$k] = $v;
+                }
+            }
+            $st['created'][] = $row;
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1, 'data' => [['insert_id' => $id]]]);
             break;
         } else {
             $rows = [];

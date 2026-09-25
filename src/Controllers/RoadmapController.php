@@ -13,6 +13,13 @@ use Align\View;
 
 final class RoadmapController
 {
+    /** Local path to return to after saving (projects page or the client roadmap). */
+    private static function back(int $clientId): string
+    {
+        $b = post('back');
+        return str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : "/clients/$clientId/roadmap";
+    }
+
     public static function show(int $id): void
     {
         Auth::require();
@@ -30,6 +37,19 @@ final class RoadmapController
             'plan' => Roadmap::build($id, $devices),
             'lanes' => $lanes,
         ]);
+    }
+
+    /** Add a project from the global Projects page (client picked in the form). */
+    public static function createGlobal(): void
+    {
+        Auth::requireRole('tech');
+        $cid = (int) post('client_id');
+        if (!$cid || !DB::one('SELECT id FROM clients WHERE id = ?', [$cid])) {
+            flash('error', 'Choose a client for the project.');
+            redirect('/projects');
+        }
+        $_POST['back'] = post('back') ?: '/projects';
+        self::create($cid);
     }
 
     private static function fields(): array
@@ -58,13 +78,13 @@ final class RoadmapController
         $client = ClientController::load($id);
         $f = self::fields();
         if ($f['title'] === '') {
-            flash('error', 'Give the roadmap item a title.');
-            redirect("/clients/$id/roadmap");
+            flash('error', 'Give the project a name.');
+            redirect(self::back($id));
         }
         DB::insert('roadmap_items', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
         Audit::log('roadmap.create', "{$client['name']}: {$f['title']}");
-        flash('success', 'Added to the roadmap.');
-        redirect("/clients/$id/roadmap");
+        flash('success', "Added \"{$f['title']}\" to {$client['name']}'s plan.");
+        redirect(self::back($id));
     }
 
     public static function update(int $id, int $item): void
@@ -78,8 +98,8 @@ final class RoadmapController
         if (post('action') === 'delete') {
             DB::run('DELETE FROM roadmap_items WHERE id = ?', [$item]);
             Audit::log('roadmap.delete', "{$client['name']}: {$row['title']}");
-            flash('success', 'Removed from the roadmap.');
-            redirect("/clients/$id/roadmap");
+            flash('success', 'Project deleted.');
+            redirect(self::back($id));
         }
         $f = self::fields();
         if ($f['title'] === '') {
@@ -88,7 +108,7 @@ final class RoadmapController
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
         Audit::log('roadmap.update', "{$client['name']}: {$f['title']}");
-        flash('success', 'Roadmap item saved.');
-        redirect("/clients/$id/roadmap");
+        flash('success', 'Project saved.');
+        redirect(self::back($id));
     }
 }

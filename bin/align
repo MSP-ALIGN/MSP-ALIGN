@@ -12,6 +12,7 @@ use Align\Audit;
 use Align\Controllers\UserController;
 use Align\DB;
 use Align\Migrator;
+use Align\Sync\ItflowSync;
 use Align\Sync\SyncRunner;
 
 $args = array_slice($argv, 1);
@@ -41,6 +42,19 @@ try {
             $runner = new SyncRunner($trigger, $userId ?: null, $quiet ? null : $say);
             $result = $runner->run();
             exit($result['status'] === 'failed' ? 2 : 0);
+
+        case 'itflow:poll':
+            if (Align\Settings::get('itflow_url') === null || Align\Settings::get('itflow_url') === '' || !Align\Settings::hasSecret('itflow_api_key')) {
+                exit(0); // ITFlow not set up yet: nothing to do
+            }
+            if (SyncRunner::isRunning()) {
+                exit(0); // the hourly sync covers ITFlow assets too
+            }
+            $result = ItflowSync::run(Align\Integrations\Itflow::fromSettings(), isset($opts['quiet']) ? null : $say);
+            if (!isset($opts['quiet'])) {
+                $say($result);
+            }
+            break;
 
         case 'user:create':
             $email = strtolower((string) ($opts['email'] ?? ''));
@@ -98,6 +112,7 @@ try {
             $say('Usage: align <command> [options]');
             $say('  migrate                         Apply database migrations');
             $say('  sync [--quiet]                  Run a full sync now');
+            $say('  itflow:poll [--quiet]           Two-way ITFlow asset sync (runs every 2 minutes)');
             $say('  user:create --email=E [--name=N] [--role=admin|tech|viewer] [--password-stdin]');
             $say('  user:reset-password --email=E [--clear-2fa]');
             $say('  check                           Verify config and database');

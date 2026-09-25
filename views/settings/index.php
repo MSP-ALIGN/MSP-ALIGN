@@ -60,6 +60,20 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <p class="small text-muted">Admin → API Keys → Create. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs write access to Support if you turn on write-back.</p>
           <div class="form-group"><label>ITFlow URL</label><input type="url" name="itflow_url" class="form-control" value="<?= e($v['itflow_url']) ?>" placeholder="https://itflow.example.com"></div>
           <?= $secret('itflow_api_key', 'API key') ?>
+          <div class="form-group">
+            <label>Two-way asset sync</label>
+            <input type="hidden" name="itflow_sync_present" value="1">
+            <div class="custom-control custom-switch">
+              <input type="checkbox" class="custom-control-input" id="itflow_two_way" name="itflow_two_way" value="1" <?= ($v['itflow_two_way'] ?? '1') === '1' ? 'checked' : '' ?>>
+              <label class="custom-control-label font-weight-normal" for="itflow_two_way">Keep assets in step both ways: edits in Align go to ITFlow immediately, and ITFlow edits come in every 2 minutes</label>
+            </div>
+            <div class="custom-control custom-switch">
+              <input type="checkbox" class="custom-control-input" id="itflow_create_assets" name="itflow_create_assets" value="1" <?= ($v['itflow_create_assets'] ?? '1') === '1' ? 'checked' : '' ?>>
+              <label class="custom-control-label font-weight-normal" for="itflow_create_assets">Create devices added in Align as ITFlow assets (for clients linked to ITFlow)</label>
+            </div>
+            <small class="text-muted">If the same field changes on both sides between syncs, the most recent edit wins and the other value is kept in the device's sync history. Retiring a device in Align marks the ITFlow asset Retired; deleting or archiving an asset in ITFlow retires the device in Align. Nothing is permanently deleted by sync. The API key's user needs write access to Support (assets).
+            <?php if (!empty($poll)): ?><br>Last ITFlow check: <?= $poll['last_run'] ? e(rel_time($poll['last_run'])) . ' · ' . e($poll['last_result']) : 'not run yet' ?><?php endif; ?></small>
+          </div>
           <div class="form-group"><label>Bring in ITFlow assets that NinjaOne doesn't manage</label>
             <input type="hidden" name="itflow_import_present" value="1">
             <?php $imp = array_filter(explode(',', (string) ($v['itflow_import_types'] ?? ''))); ?>
@@ -68,7 +82,7 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
                 <div class="col-sm-6"><div class="custom-control custom-checkbox"><input type="checkbox" class="custom-control-input" id="imp-<?= $k ?>" name="itflow_import[]" value="<?= $k ?>" <?= in_array($k, $imp, true) ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="imp-<?= $k ?>"><?= e($label) ?></label></div></div>
               <?php endforeach; ?>
             </div>
-            <small class="text-muted">Assets already matched to a NinjaOne or hand-added device (by serial or name) are skipped, so nothing is counted twice. UPS units are recognized by make/model (APC, CyberPower, Eaton, Tripp Lite, Vertiv…) even when typed "Other".</small>
+            <small class="text-muted">Assets already matched to a NinjaOne or hand-added device (by serial or name) are skipped, so nothing is counted twice. Types Align doesn't recognize go to <a href="/devices/unassigned">Unassigned hardware</a> to be categorized. UPS units are recognized by make/model (APC, CyberPower, Eaton, Tripp Lite, Vertiv…) even when typed "Other".</small>
           </div>
           <div class="form-group mb-0"><label>Write warranty dates back to ITFlow assets</label>
             <select name="itflow_writeback" class="form-control">

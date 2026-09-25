@@ -218,7 +218,7 @@ final class ClientController
             'client' => $client,
             'clientNav' => 'overview',
             'summary' => Lifecycle::summarize($devices),
-            'forecast' => $lc->forecast($devices),
+            'forecast' => \Align\Roadmap\Roadmap::withProjects($lc->forecast($devices), $id),
             'byType' => $byType,
             'frameworks' => $frameworks,
             'indicators' => Compliance::indicators($devices),
@@ -245,6 +245,7 @@ final class ClientController
                 'manual' => $d['source'] === 'manual',
                 'itflow' => $d['source'] === 'itflow',
                 'virtual' => (bool) $d['is_virtual'],
+                'unassigned' => $d['type'] === Lifecycle::UNASSIGNED,
                 default => true,
             };
         }));

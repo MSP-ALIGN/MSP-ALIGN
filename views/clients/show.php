@@ -17,7 +17,8 @@ $cid = (int) $client['id'];
 
 <div class="row">
   <div class="col-lg-8">
-    <?php $forecastLink = '/clients/' . $cid . '/roadmap'; require __DIR__ . '/../partials/forecast.php'; ?>
+    <?php $forecastLink = '/clients/' . $cid . '/roadmap'; $addProject = \Align\Auth::can('tech'); require __DIR__ . '/../partials/forecast.php'; ?>
+    <?php if ($addProject) echo \Align\View::fetch('roadmap/_modal', ['it' => null, 'cid' => $cid, 'back' => '/clients/' . $cid]); ?>
 
     <div class="card card-dark">
       <div class="card-header py-2">

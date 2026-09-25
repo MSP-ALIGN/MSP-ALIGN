@@ -320,7 +320,7 @@ fi
 log "Installing scheduled jobs"
 install -m 644 "$APP_DIR"/deploy/systemd/*.service "$APP_DIR"/deploy/systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-backup.timer
+systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-backup.timer mountaineer-align-itflow.timer
 
 ln -sf "$APP_DIR/scripts/update.sh" /usr/local/sbin/mountaineer-align-update
 cat >/usr/local/bin/align <<EOF

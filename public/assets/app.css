@@ -190,3 +190,9 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .doc-editor .ql-editor h3, .doc-readonly h3 { font-size: 1.08rem; font-weight: 700; margin: 1rem 0 .35rem; }
 .doc-editor .ql-editor li, .doc-readonly li { margin-bottom: .2rem; }
 .doc-editor .ql-editor ol, .doc-editor .ql-editor ul { margin-bottom: .6rem; }
+
+/* Projects in the 3-year IT plan */
+.forecast-chart .bar-proj { fill: #6f42c1; }
+.legend-proj { background: #6f42c1; }
+.proj-quarter th { background: #f4f6f9; }
+.proj-row .proj-desc { max-width: 520px; }

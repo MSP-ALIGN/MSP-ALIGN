@@ -167,6 +167,37 @@ final class Roadmap
         ];
     }
 
+    /**
+     * Adds planned projects (roadmap items with a budget) to Lifecycle::forecast() buckets.
+     * $clientId null = every client in planning. Declined items are left out; overdue open items
+     * roll into the current quarter, the same way the roadmap shows them.
+     */
+    public static function withProjects(array $forecast, ?int $clientId = null): array
+    {
+        foreach ($forecast as &$b) {
+            $b += ['proj_cost' => 0.0, 'proj_count' => 0];
+        }
+        unset($b);
+        $sql = "SELECT r.target_quarter, r.cost, r.status FROM roadmap_items r JOIN clients c ON c.id = r.client_id
+            WHERE r.status <> 'declined' AND r.target_quarter IS NOT NULL";
+        $params = [];
+        if ($clientId !== null) {
+            $sql .= ' AND r.client_id = ?';
+            $params[] = $clientId;
+        } else {
+            $sql .= ' AND c.is_archived = 0 AND c.planning_excluded = 0';
+        }
+        foreach (DB::all($sql, $params) as $it) {
+            $i = Plan::indexFor($it['target_quarter'], $it['status'] !== 'done');
+            if ($i === null || !isset($forecast[$i])) {
+                continue;
+            }
+            $forecast[$i]['proj_cost'] += (float) $it['cost'];
+            $forecast[$i]['proj_count']++;
+        }
+        return $forecast;
+    }
+
     public static function category(string $c): array
     {
         return self::CATEGORIES[$c] ?? ['Other', 'fa-tag', 'secondary'];

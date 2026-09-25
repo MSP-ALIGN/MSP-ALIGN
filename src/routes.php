@@ -37,6 +37,8 @@ $r->post('/clients/{id}', [ClientController::class, 'update']);
 $r->post('/clients/bulk', [ClientController::class, 'bulk']);
 $r->post('/clients/{id}/planning', [ClientController::class, 'planning']);
 $r->post('/clients/{id}/delete', [ClientController::class, 'delete']);
+$r->get('/projects', [\Align\Controllers\ProjectController::class, 'index']);
+$r->post('/projects', [RoadmapController::class, 'createGlobal']);
 $r->get('/clients/{id}/roadmap', [RoadmapController::class, 'show']);
 $r->post('/clients/{id}/roadmap', [RoadmapController::class, 'create']);
 $r->post('/clients/{id}/roadmap/{item}', [RoadmapController::class, 'update']);
@@ -54,7 +56,12 @@ $r->post('/clients/{id}/compliance/{fw}/remove', [ComplianceController::class, '
 $r->get('/clients/{id}/compliance/{fw}/export', [ComplianceController::class, 'export']);
 
 // Devices
+$r->get('/devices/unassigned', [DeviceController::class, 'unassigned']);
+$r->post('/devices/bulk-type', [DeviceController::class, 'bulkType']);
 $r->get('/devices/{id}', [DeviceController::class, 'show']);
+$r->post('/devices/{id}/push', [DeviceController::class, 'push']);
+$r->post('/devices/{id}/itflow-sync', [DeviceController::class, 'toggleSync']);
+$r->post('/devices/{id}/restore', [DeviceController::class, 'restore']);
 $r->post('/devices/{id}', [DeviceController::class, 'save']);
 $r->post('/devices/{id}/delete', [DeviceController::class, 'delete']);
 

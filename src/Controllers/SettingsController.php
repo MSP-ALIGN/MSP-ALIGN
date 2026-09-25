@@ -30,7 +30,7 @@ final class SettingsController
     {
         Auth::requireRole('admin');
         $values = [];
-        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback', 'plan_start', 'itflow_import_types']) as $k) {
+        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback', 'plan_start', 'itflow_import_types', 'itflow_two_way', 'itflow_create_assets']) as $k) {
             $values[$k] = Settings::get($k);
         }
         $secrets = [];
@@ -42,6 +42,7 @@ final class SettingsController
             'nav' => 'settings',
             'v' => $values,
             'secrets' => $secrets,
+            'poll' => \Align\DB::one('SELECT * FROM itflow_poll_state WHERE id = 1'),
         ]);
     }
 
@@ -74,6 +75,15 @@ final class SettingsController
             if ($val !== (string) Settings::get('itflow_import_types')) {
                 Settings::set('itflow_import_types', $val);
                 $changed[] = 'itflow_import_types';
+            }
+        }
+        if (isset($_POST['itflow_sync_present'])) {
+            foreach (['itflow_two_way', 'itflow_create_assets'] as $k) {
+                $val = isset($_POST[$k]) ? '1' : '0';
+                if ($val !== (string) Settings::get($k, '1')) {
+                    Settings::set($k, $val);
+                    $changed[] = $k;
+                }
             }
         }
         $ps = post('plan_start');

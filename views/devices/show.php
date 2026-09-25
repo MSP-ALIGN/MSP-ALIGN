@@ -1,8 +1,13 @@
 <?php
 use Align\Auth;
 
+use Align\Sync\ItflowSync;
+
 $canEdit = Auth::can('tech');
-$manual = $d['source'] === 'manual';
+$manual = ItflowSync::owns($d); // hardware fields editable in Align (hand-added or ITFlow-imported)
+$linked = (bool) $d['itflow_asset_id'];
+$alignOnly = (int) $syncRow['itflow_sync'] === 0;
+$retired = (bool) $syncRow['retired_at'];
 $srcLabel = ['ninja' => 'NinjaOne', 'itflow' => 'ITFlow', 'manual' => 'Added manually'][$d['source']] ?? $d['source'];
 $ninjaBase = str_contains($ninjaInstance, '://') ? rtrim($ninjaInstance, '/') : 'https://' . $ninjaInstance;
 $row = fn(string $k, string $v) => '<tr><th class="text-muted font-weight-normal w-40">' . e($k) . '</th><td>' . $v . '</td></tr>';
@@ -15,12 +20,18 @@ if ($client) {
   <div class="mr-auto">
     <?php require __DIR__ . '/../partials/status.php'; ?>
     <span class="badge badge-light border"><?= $d['source'] === 'ninja' ? '<i class="fas fa-user-ninja mr-1"></i>' : ($d['source'] === 'itflow' ? '<i class="fas fa-screwdriver-wrench mr-1"></i>' : '') ?><?= e($srcLabel) ?></span>
-    <?php if ($d['removed_at']): ?><span class="badge badge-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
+    <?php if ($retired): ?><span class="badge badge-dark"><i class="fas fa-box-archive mr-1"></i>Retired <?= e(fmt_date($syncRow['retired_at'])) ?></span>
+    <?php elseif ($d['removed_at']): ?><span class="badge badge-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
+    <?php if ($linked && !$alignOnly && $twoWay): ?><span class="badge badge-success"><i class="fas fa-arrows-rotate mr-1"></i>Synced with ITFlow</span>
+    <?php elseif ($alignOnly): ?><span class="badge badge-secondary">Align only</span><?php endif; ?>
   </div>
   <div class="btn-group btn-group-sm">
     <?php if ($d['source'] === 'ninja'): ?><a class="btn btn-default" href="<?= e($ninjaBase . '/#/deviceDashboard/' . (int) $d['ninja_device_id'] . '/overview') ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>NinjaOne</a><?php endif; ?>
     <?php if ($d['itflow_asset_id'] && $itflowUrl): ?>
       <a class="btn btn-default" href="<?= e(rtrim($itflowUrl, '/') . '/agent/asset.php?client_id=' . (int) $d['itflow_client_id'] . '&asset_id=' . (int) $d['itflow_asset_id']) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>ITFlow asset</a>
+    <?php endif; ?>
+    <?php if ($canEdit && $retired): ?>
+      <form method="post" action="/devices/<?= (int) $d['id'] ?>/restore" class="d-inline"><?= csrf_field() ?><button class="btn btn-sm btn-success rounded-0"><i class="fas fa-rotate-left mr-1"></i>Restore</button></form>
     <?php endif; ?>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-device-edit"><i class="fas fa-pen mr-1"></i>Edit</button><?php endif; ?>
   </div>
@@ -42,7 +53,7 @@ if ($client) {
           <?= $row('Operating system', e($d['os_name'] ?? '—') . ($d['os_build'] ? ' <span class="small text-muted">build ' . e($d['os_build']) . '</span>' : '')) ?>
           <?php if ($d['os_name']) echo $row('OS support ends', $d['os_rule'] ? e(fmt_date($d['os_rule']['eos_date'])) . ' <span class="small text-muted">(' . e($d['os_rule']['label']) . ')</span>' : '<span class="text-muted">No matching rule — <a href="/settings/os">OS support dates</a></span>'); ?>
           <?php if ($d['source'] === 'ninja') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
-          <?= $row('ITFlow asset', $d['itflow_asset_id'] ? 'Linked (#' . (int) $d['itflow_asset_id'] . ')' : '<span class="text-muted">Not matched</span>') ?>
+          <?= $row('ITFlow asset', $d['itflow_asset_id'] ? 'Linked (#' . (int) $d['itflow_asset_id'] . ')' : '<span class="text-muted">Not linked</span>') ?>
         </table>
       </div>
     </div>
@@ -66,6 +77,76 @@ if ($client) {
   </div>
 </div>
 
+<?php
+$labels = array_map(fn($f) => $f[0], ItflowSync::FIELDS);
+$pendingFields = array_map(fn($p) => $labels[$p['field']] ?? $p['field'], $sync['pending']);
+$pendingErr = $sync['pending'][0]['last_error'] ?? null;
+$poll = $sync['poll'];
+?>
+<div class="card card-dark">
+  <div class="card-header py-2">
+    <h3 class="card-title mt-1"><i class="fas fa-fw fa-arrows-rotate mr-2"></i>ITFlow sync</h3>
+    <?php if ($canEdit): ?>
+    <div class="card-tools">
+      <?php if (!$alignOnly && $twoWay && ($linked || ($d['source'] === 'manual' && $clientInItflow))): ?>
+        <form method="post" action="/devices/<?= (int) $d['id'] ?>/push" class="d-inline"><?= csrf_field() ?><button class="btn btn-tool" title="Send any queued changes and pull the latest from ITFlow"><i class="fas fa-rotate mr-1"></i>Sync now</button></form>
+      <?php endif; ?>
+      <?php if ($d['source'] !== 'ninja' || $linked): ?>
+      <form method="post" action="/devices/<?= (int) $d['id'] ?>/itflow-sync" class="d-inline"><?= csrf_field() ?>
+        <input type="hidden" name="on" value="<?= $alignOnly ? '1' : '0' ?>">
+        <button class="btn btn-tool" <?= $alignOnly ? '' : 'data-confirm="Stop syncing this device with ITFlow? Changes on either side will no longer be copied."' ?>><?= $alignOnly ? '<i class="fas fa-link mr-1"></i>Sync with ITFlow' : '<i class="fas fa-link-slash mr-1"></i>Make Align-only' ?></button>
+      </form>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
+  </div>
+  <div class="card-body py-2 small">
+    <?php if ($alignOnly): ?>
+      <p class="mb-1"><i class="fas fa-circle-minus text-secondary mr-1"></i>Align-only: this device isn't sent to or updated from ITFlow.</p>
+    <?php elseif (!$twoWay): ?>
+      <p class="mb-1"><i class="fas fa-arrow-down text-info mr-1"></i>Two-way sync is off in Settings, so ITFlow changes are copied in but Align changes stay in Align.</p>
+    <?php elseif ($linked): ?>
+      <p class="mb-1"><i class="fas fa-check-circle text-success mr-1"></i>Changes made here go to ITFlow as soon as you save. Changes made in ITFlow show up here within about 2 minutes<?= $poll && $poll['last_ok'] ? ' (last checked ' . e(rel_time($poll['last_ok'])) . ')' : '' ?>. If both sides change the same field, the newest edit wins.
+      <?php if ($d['source'] === 'ninja'): ?><br><span class="text-muted">Hardware details are owned by NinjaOne; the type, purchase date and warranty date you set in Align are sent to ITFlow.</span><?php endif; ?></p>
+    <?php elseif ($d['source'] === 'manual' && $clientInItflow): ?>
+      <p class="mb-1"><i class="fas fa-hourglass-half text-warning mr-1"></i>Not in ITFlow yet. It will be created there on the next sync, or use <b>Sync now</b>.</p>
+    <?php elseif ($d['source'] === 'manual'): ?>
+      <p class="mb-1 text-muted"><i class="fas fa-circle-info mr-1"></i>This client isn't linked to an ITFlow client, so the device stays in Align. Link the client under <a href="/mapping">Client mapping</a> to sync it.</p>
+    <?php else: ?>
+      <p class="mb-1 text-muted"><i class="fas fa-circle-info mr-1"></i>No matching ITFlow asset (matched by serial number, then name).</p>
+    <?php endif; ?>
+    <?php if ($pendingFields && !$alignOnly): ?>
+      <div class="alert alert-warning py-1 px-2 mb-1"><i class="fas fa-clock mr-1"></i>Waiting to send to ITFlow: <?= e(implode(', ', $pendingFields)) ?><?= $pendingErr ? ' — ' . e($pendingErr) : '' ?>. It retries automatically.</div>
+    <?php endif; ?>
+  </div>
+  <?php if ($sync['history']): ?>
+  <div class="card-body p-0 border-top">
+    <table class="table table-sm mb-0 small sync-history">
+      <thead><tr><th>When</th><th>Direction</th><th>Field</th><th>Change</th></tr></thead>
+      <tbody>
+      <?php foreach ($sync['history'] as $h): $f = $h['field']; ?>
+        <tr class="<?= $h['conflict'] ? 'table-warning' : '' ?>">
+          <td class="text-nowrap" title="<?= e(fmt_datetime($h['created_at'])) ?>"><?= e(rel_time($h['created_at'])) ?></td>
+          <td class="text-nowrap"><?= match ($h['direction']) {
+              'to_itflow' => '<i class="fas fa-arrow-right text-primary mr-1"></i>To ITFlow' . ($h['user_name'] ? ' <span class="text-muted">(' . e($h['user_name']) . ')</span>' : ''),
+              'from_itflow' => '<i class="fas fa-arrow-left text-info mr-1"></i>From ITFlow',
+              default => '<i class="fas fa-plus text-success mr-1"></i>Created',
+          } ?></td>
+          <td><?= e($h['direction'] === 'created' ? 'Asset' : ($labels[$f] ?? $f)) ?></td>
+          <td>
+            <?php if ($h['direction'] !== 'created'): ?>
+              <span class="text-muted"><?= e(ItflowSync::display($f, $h['old_value']) ?: '(empty)') ?></span> <i class="fas fa-arrow-right-long mx-1 text-muted"></i> <?= e(ItflowSync::display($f, $h['new_value']) ?: '(empty)') ?>
+            <?php endif; ?>
+            <?php if ($h['note']): ?><div class="text-muted"><?= $h['conflict'] ? '<i class="fas fa-code-merge text-warning mr-1"></i>' : '' ?><?= e($h['note']) ?></div><?php endif; ?>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+  <?php endif; ?>
+</div>
+
 <?php if ($canEdit): ?>
 <div class="modal fade" id="modal-device-edit" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -77,12 +158,17 @@ if ($client) {
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <?php if (!$manual): ?><p class="small text-muted">Hardware details come from <?= e($srcLabel) ?> — edit them there. Values here override ITFlow and vendor dates; leave blank to use the synced value.</p><?php endif; ?>
-          <?= \Align\View::fetch('partials/device_fields', ['d' => $d, 'manual' => $manual]) ?>
+          <?php if (!$manual): ?><p class="small text-muted">Hardware details come from <?= e($srcLabel) ?>. Edit them there. Values here override ITFlow and vendor dates; leave blank to use the synced value.<?= $linked && $twoWay && !$alignOnly ? ' Type and dates you set are sent to ITFlow.' : '' ?></p>
+          <?php elseif ($linked && $twoWay && !$alignOnly): ?><p class="small text-muted"><i class="fas fa-arrows-rotate mr-1"></i>Saving sends your changes to the ITFlow asset. IP address and location come from ITFlow.</p><?php endif; ?>
+          <?= \Align\View::fetch('partials/device_fields', ['d' => $d, 'manual' => $manual, 'pullOnly' => $linked && $twoWay && !$alignOnly]) ?>
         </div>
         <div class="modal-footer">
-          <?php if ($manual): ?>
-            <button class="btn btn-outline-danger mr-auto" formaction="/devices/<?= (int) $d['id'] ?>/delete" formnovalidate data-confirm="Delete <?= e($d['name']) ?>? This can't be undone."><i class="fas fa-trash mr-1"></i>Delete</button>
+          <?php if ($manual && !$retired): ?>
+            <?php if ($d['source'] === 'manual' && !$linked): ?>
+              <button class="btn btn-outline-danger mr-auto" formaction="/devices/<?= (int) $d['id'] ?>/delete" formnovalidate data-confirm="Delete <?= e($d['name']) ?>? This can't be undone."><i class="fas fa-trash mr-1"></i>Delete</button>
+            <?php else: ?>
+              <button class="btn btn-outline-danger mr-auto" formaction="/devices/<?= (int) $d['id'] ?>/delete" formnovalidate data-confirm="Retire <?= e($d['name']) ?>? It's hidden from plans and reports<?= $linked && $twoWay && !$alignOnly ? ' and the ITFlow asset is marked Retired' : '' ?>. You can restore it later."><i class="fas fa-box-archive mr-1"></i>Retire</button>
+            <?php endif; ?>
           <?php endif; ?>
           <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
           <button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save</button>

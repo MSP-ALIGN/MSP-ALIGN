@@ -61,11 +61,7 @@ final class SyncRunner
             $this->step('NinjaOne devices', fn() => $this->syncNinjaDevices($ninja));
         }
         if ($itflowOk) {
-            $assetsOk = $this->step('ITFlow assets', fn() => $this->syncItflowAssets($itflow));
-            if ($assetsOk) {
-                $this->step('Match devices to ITFlow assets', fn() => $this->matchAssets());
-                $this->step('Import ITFlow assets', fn() => $this->importItflowAssets());
-            }
+            $this->step('ITFlow assets (' . (ItflowSync::twoWay() ? 'two-way' : 'one-way') . ')', fn() => ItflowSync::run($itflow, fn($m) => $this->info($m)));
         }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
         if ($itflowOk && Settings::get('itflow_writeback', 'off') !== 'off') {
@@ -241,163 +237,6 @@ final class SyncRunner
         return count($devices) . ' devices' . ($removed ? ", $removed no longer in NinjaOne" : '');
     }
 
-    private function syncItflowAssets(Itflow $itflow): string
-    {
-        $assets = $itflow->assets();
-        $locations = [];
-        try {
-            foreach ($itflow->locations() as $l) {
-                $locations[(int) ($l['location_id'] ?? 0)] = (string) ($l['location_name'] ?? '');
-            }
-        } catch (\Throwable $e) {
-            $this->info('ITFlow locations not readable (' . $e->getMessage() . '); continuing without them');
-        }
-        $now = date('Y-m-d H:i:s');
-        $d = fn($v) => ($v && $v !== '0000-00-00') ? substr((string) $v, 0, 10) : null;
-        DB::transaction(function () use ($assets, $now, $d, $locations) {
-            foreach ($assets as $a) {
-                if (empty($a['asset_id'])) {
-                    continue;
-                }
-                DB::upsert('itflow_assets', [
-                    'itflow_asset_id' => (int) $a['asset_id'],
-                    'itflow_client_id' => (int) ($a['asset_client_id'] ?? 0),
-                    'name' => $a['asset_name'] ?? null,
-                    'type' => $a['asset_type'] ?? null,
-                    'make' => $a['asset_make'] ?? null,
-                    'model' => $a['asset_model'] ?? null,
-                    'serial' => normalize_serial($a['asset_serial'] ?? null),
-                    'purchase_date' => $d($a['asset_purchase_date'] ?? null),
-                    'warranty_expire' => $d($a['asset_warranty_expire'] ?? null),
-                    'install_date' => $d($a['asset_install_date'] ?? null),
-                    'status' => $a['asset_status'] ?? null,
-                    'is_archived' => empty($a['asset_archived_at']) ? 0 : 1,
-                    'ip_address' => mb_substr((string) ($a['interface_ip'] ?? ''), 0, 64) ?: null,
-                    'mac' => mb_substr((string) ($a['interface_mac'] ?? ''), 0, 64) ?: null,
-                    'os' => mb_substr((string) ($a['asset_os'] ?? ''), 0, 255) ?: null,
-                    'description' => $a['asset_description'] ?? null,
-                    'location_id' => (int) ($a['asset_location_id'] ?? 0) ?: null,
-                    'location_name' => $locations[(int) ($a['asset_location_id'] ?? 0)] ?? null,
-                    'synced_at' => $now,
-                ], ['itflow_asset_id']);
-            }
-            DB::run('DELETE FROM itflow_assets WHERE synced_at < ?', [$now]);
-            DB::run('UPDATE itflow_assets SET location_name = NULL WHERE location_id IS NULL');
-        });
-        return count($assets) . ' assets';
-    }
-
-    private function matchAssets(): string
-    {
-        $assets = DB::all('SELECT itflow_asset_id, itflow_client_id, name, serial FROM itflow_assets WHERE is_archived = 0');
-        $bySerial = [];
-        $byName = [];
-        foreach ($assets as $a) {
-            if ($a['serial']) {
-                $bySerial[$a['itflow_client_id']][$a['serial']][] = (int) $a['itflow_asset_id'];
-            }
-            if ($a['name']) {
-                $byName[$a['itflow_client_id']][strtolower(trim($a['name']))][] = (int) $a['itflow_asset_id'];
-            }
-        }
-        $devices = DB::all('SELECT d.id, d.serial, d.display_name, d.system_name,
-                COALESCE(cm.itflow_client_id, cn.itflow_client_id) AS itflow_client_id
-            FROM devices d ' . \Align\Lifecycle\Lifecycle::CLIENT_JOIN . "
-            WHERE d.removed_at IS NULL AND d.source IN ('ninja','manual')");
-        $matched = 0;
-        foreach ($devices as $dv) {
-            $cid = $dv['itflow_client_id'];
-            $assetId = null;
-            if ($cid) {
-                if ($dv['serial'] && count($bySerial[$cid][$dv['serial']] ?? []) === 1) {
-                    $assetId = $bySerial[$cid][$dv['serial']][0];
-                } else {
-                    foreach ([$dv['system_name'], $dv['display_name']] as $n) {
-                        $k = strtolower(trim((string) $n));
-                        if ($k !== '' && count($byName[$cid][$k] ?? []) === 1) {
-                            $assetId = $byName[$cid][$k][0];
-                            break;
-                        }
-                    }
-                }
-            }
-            DB::run('UPDATE devices SET itflow_asset_id = ? WHERE id = ?', [$assetId, $dv['id']]);
-            if ($assetId) {
-                $matched++;
-            }
-        }
-        return "$matched of " . count($devices) . ' devices linked to an ITFlow asset';
-    }
-
-    /**
-     * Creates devices from ITFlow assets NinjaOne doesn't manage: network gear, printers, UPS, etc.
-     * Skips any asset already linked to a NinjaOne or hand-added device, so nothing is counted twice.
-     */
-    private function importItflowAssets(): string
-    {
-        $cats = array_filter(array_map('trim', explode(',', (string) Settings::get('itflow_import_types', 'network,printer,ups,storage'))));
-        if (!$cats) {
-            DB::run("UPDATE devices SET removed_at = NOW() WHERE source = 'itflow' AND removed_at IS NULL");
-            return 'turned off in Settings';
-        }
-        $linked = array_flip(array_map('intval', array_column(DB::all(
-            "SELECT DISTINCT itflow_asset_id FROM devices WHERE source IN ('ninja','manual') AND removed_at IS NULL AND itflow_asset_id IS NOT NULL"
-        ), 'itflow_asset_id')));
-        $clients = array_column(DB::all('SELECT id, itflow_client_id FROM clients WHERE itflow_client_id IS NOT NULL'), 'id', 'itflow_client_id');
-        $existing = [];
-        foreach (DB::all("SELECT id, itflow_asset_id FROM devices WHERE source = 'itflow'") as $r) {
-            $existing[(int) $r['itflow_asset_id']] = (int) $r['id'];
-        }
-        $now = date('Y-m-d H:i:s');
-        $counts = [];
-        $skipped = 0;
-        DB::transaction(function () use ($cats, $linked, $clients, $existing, $now, &$counts, &$skipped) {
-            foreach (DB::all('SELECT * FROM itflow_assets WHERE is_archived = 0') as $a) {
-                $aid = (int) $a['itflow_asset_id'];
-                [$type, $cat] = Itflow::mapType((string) $a['type'], (string) $a['make'], (string) $a['model'], (string) $a['name'], (string) $a['os']);
-                if (!in_array($cat, $cats, true) || !isset($clients[$a['itflow_client_id']])) {
-                    continue;
-                }
-                if (isset($linked[$aid])) {
-                    $skipped++;
-                    continue;
-                }
-                [$class, , $virtual] = \Align\Lifecycle\Lifecycle::TYPES[$type];
-                $computer = in_array($cat, ['server', 'workstation', 'vm'], true);
-                $row = [
-                    'source' => 'itflow',
-                    'itflow_asset_id' => $aid,
-                    'client_id' => (int) $clients[$a['itflow_client_id']],
-                    'display_name' => $a['name'] ?: "ITFlow asset $aid",
-                    'device_type' => $type,
-                    'device_class' => $class,
-                    'is_virtual' => $virtual ? 1 : 0,
-                    'manufacturer' => $a['make'] ?: null,
-                    'model' => $a['model'] ?: null,
-                    'serial' => $a['serial'] ?: null,
-                    'ip_address' => $a['ip_address'],
-                    'location' => $a['location_name'],
-                    'firmware' => $computer ? null : $a['os'],
-                    'os_name' => $computer ? $a['os'] : null,
-                    'synced_at' => $now,
-                    'removed_at' => null,
-                ];
-                if (isset($existing[$aid])) {
-                    $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($row)));
-                    DB::run("UPDATE devices SET $sets WHERE id = ?", [...array_values($row), $existing[$aid]]);
-                } else {
-                    DB::insert('devices', $row + ['created_at' => $now]);
-                }
-                $counts[$type] = ($counts[$type] ?? 0) + 1;
-            }
-            DB::run("UPDATE devices SET removed_at = ? WHERE source = 'itflow' AND removed_at IS NULL AND (synced_at IS NULL OR synced_at < ?)", [$now, $now]);
-        });
-        arsort($counts);
-        $parts = array_map(fn($t, $n) => "$n " . strtolower($t), array_keys($counts), $counts);
-        return (array_sum($counts) ? array_sum($counts) . ' imported (' . implode(', ', $parts) . ')' : 'nothing to import')
-            . ($skipped ? ", $skipped already covered by NinjaOne/manual devices" : '');
-    }
-
     public static function vendorFor(?string $manufacturer): ?string
     {
         $m = strtolower((string) $manufacturer);
@@ -520,6 +359,12 @@ final class SyncRunner
                         'UPDATE itflow_assets SET warranty_expire = COALESCE(?, warranty_expire), purchase_date = COALESCE(?, purchase_date) WHERE itflow_asset_id = ?',
                         [$fields['asset_warranty_expire'] ?? null, $fields['asset_purchase_date'] ?? null, $r['itflow_asset_id']]
                     );
+                    // Align wrote these, so the two-way sync shouldn't report them as ITFlow edits.
+                    foreach (['asset_warranty_expire' => 'warranty', 'asset_purchase_date' => 'purchase'] as $k => $f) {
+                        if (isset($fields[$k])) {
+                            ItflowSync::acknowledge((int) $r['id'], $f, (string) $fields[$k]);
+                        }
+                    }
                     $updated++;
                 } else {
                     $failed++;

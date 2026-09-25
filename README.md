@@ -2,10 +2,13 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**What's in it (0.6.0):**
+**What's in it (0.7.0):**
 
 - **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence (yearly by default) and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
 - **Devices & assets:** from three sources. NinjaOne supplies computers, servers and anything it monitors. ITFlow assets NinjaOne doesn't manage are imported too: firewalls/routers, switches, access points, printers, UPS units (recognized by make/model) and NAS by default, with more types available in Settings. You can also add devices by hand. Anything already matched to a NinjaOne or hand-added device is skipped. Virtual machines group with **Servers** (server OS) or **Desktops as VDI** (desktop OS) and are tracked for OS support only. You can change the type of any device.
+- **Two-way ITFlow asset sync:** edits in Align (name, type, make, model, serial, OS, purchase and warranty dates, retired status) go to the ITFlow asset as soon as you save. Edits made in ITFlow come into Align within about 2 minutes, via a `mountaineer-align-itflow` timer, because ITFlow has no webhooks. IP address and location come from ITFlow. If both sides change the same field, the most recent edit wins and the other value is kept in the device's sync history. Devices added in Align are created in ITFlow for clients linked to ITFlow, and any device can be set to Align-only. Retiring a device in Align marks the ITFlow asset Retired; deleting, archiving or retiring an asset in ITFlow retires the device in Align, and it can be restored. Sync never permanently deletes anything. For NinjaOne devices, NinjaOne owns the hardware facts; only the type and dates you set in Align are sent to ITFlow.
+- **Unassigned hardware:** ITFlow assets whose type Align doesn't recognize ("Other", Display, Tablet, custom types) are imported as *Unassigned*. Categorize them in bulk under Integrations → Unassigned hardware, and the ITFlow asset type is updated to match.
+- **Projects:** add projects to any client's IT plan with a target quarter, budget, recurring cost, priority, status and description. You can add them from the global Projects page, the client overview or the client roadmap. Project budgets are stacked with hardware replacements in the 3-year IT plan on the dashboard and client overview.
 - **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a 3-year replacement budget by quarter with a total for each year. Calendar or fiscal years, set in Settings.
 - **3-year roadmap per client:** a quarter-by-quarter board with a total for each year. It combines planned items you add (category, cost, monthly recurring cost, priority, status) with what the data says is coming: hardware reaching end of life, OS support ending, warranties expiring, meetings and compliance due dates.
 - **Printable reports:** asset & lifecycle report, 3-year roadmap, and an all-clients portfolio summary. Use Print → Save as PDF; costs, full inventory and notes can be turned on or off.
@@ -54,7 +57,7 @@ Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus 
 
 1. Sign in, then go to **Account → Set up two-factor**.
 2. **Settings → NinjaOne:** Administration → Apps → API → Client app IDs → Add. Choose *API Services (machine-to-machine)*, scope *Monitoring*, grant type *Client credentials*. Align only reads from NinjaOne.
-3. **Settings → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs write access to Support if you turn on warranty write-back.
+3. **Settings → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs write access to Support (assets) for two-way sync and warranty write-back.
 4. Optional: **Dell TechDirect** warranty API key and **Lenovo** ClientID for automatic warranty dates.
 5. Use each **Test** button, then **Sync → Run sync now**.
 6. **Client mapping:** clients with matching names link automatically; link the rest by hand.
@@ -72,9 +75,10 @@ This backs up, pulls the latest `main`, installs any new packages, applies datab
 | Task | Command |
 |---|---|
 | Run a sync now | `sudo align sync` |
+| Check ITFlow for asset changes now | `sudo align itflow:poll` (runs every 2 minutes on its own) |
 | Reset a locked-out user | `sudo align user:reset-password --email=you@example.com --clear-2fa` |
 | Health check | `sudo align check` |
-| Sync timer status / logs | `systemctl list-timers mountaineer-align*` · `journalctl -u mountaineer-align-sync` |
+| Sync timer status / logs | `systemctl list-timers mountaineer-align*` · `journalctl -u mountaineer-align-sync` · `journalctl -u mountaineer-align-itflow` |
 | App errors | `/var/log/apache2/mountaineer-align-error.log` |
 | Backups | `/var/backups/mountaineer-align/` (nightly, 14 days) |
 

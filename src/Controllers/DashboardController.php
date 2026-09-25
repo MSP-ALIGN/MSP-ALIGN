@@ -18,7 +18,7 @@ final class DashboardController
         $lc = new Lifecycle();
         $devices = array_filter($lc->devices(), fn($d) => $d['client_id'] !== null && !$d['client_inactive']);
         $summary = Lifecycle::summarize($devices);
-        $forecast = $lc->forecast($devices);
+        $forecast = \Align\Roadmap\Roadmap::withProjects($lc->forecast($devices));
 
         $byClient = [];
         foreach ($devices as $d) {

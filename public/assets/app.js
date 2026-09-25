@@ -176,3 +176,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('logo-img').src = url;
   });
 });
+
+// Bulk categorize (Unassigned hardware)
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('bulk-type-form');
+  if (!form) return;
+  const all = document.getElementById('select-all');
+  const apply = document.getElementById('bulk-apply');
+  const boxes = () => Array.from(form.querySelectorAll('.row-check'));
+  const sync = () => {
+    const n = boxes().filter((b) => b.checked).length;
+    if (apply) { apply.disabled = n === 0; apply.innerHTML = '<i class="fas fa-check mr-1"></i>Apply' + (n ? ' to ' + n : ''); }
+    if (all) all.checked = n > 0 && n === boxes().length;
+  };
+  if (all) all.addEventListener('change', () => { boxes().forEach((b) => { b.checked = all.checked; }); sync(); });
+  form.addEventListener('change', (e) => { if (e.target.classList.contains('row-check')) sync(); });
+});

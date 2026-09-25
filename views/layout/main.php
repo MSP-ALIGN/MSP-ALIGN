@@ -10,13 +10,17 @@ $v = e(APP_VERSION);
 $mainNav = [
     ['dashboard', '/', 'Dashboard', 'fa-gauge-high', 'viewer'],
     ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
+    ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
     ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
     ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
     ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
     ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
     ['reports', '/reports', 'Reports', 'fa-print', 'viewer'],
 ];
+$unassignedCount = $u ? (int) \Align\DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
+    WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0") : 0;
 $integrationNav = [
+    ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
     ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
     ['sync', '/sync', 'Sync', 'fa-rotate', 'viewer'],
 ];
@@ -37,8 +41,9 @@ $clientMenu = $client ? [
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
+    $badge = !empty($i[5]) ? ' <span class="badge badge-warning right">' . (int) $i[5] . '</span>' : '';
     return '<li class="nav-item"><a href="' . e($href) . '" class="nav-link' . ($active === $key ? ' active' : '') . '">'
-        . '<i class="nav-icon fas ' . e($icon) . '"></i><p>' . e($label) . '</p></a></li>';
+        . '<i class="nav-icon fas ' . e($icon) . '"></i><p>' . e($label) . $badge . '</p></a></li>';
 };
 ?><!doctype html>
 <html lang="en">
@@ -128,10 +133,10 @@ $item = function (array $i, string $active) {
   <div class="content-wrapper">
     <section class="content">
       <div class="container-fluid pt-3 pb-4">
-        <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info'][$f['type']] ?? 'info'; ?>
+        <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
           <div class="alert alert-<?= $t ?> alert-dismissible fade show">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button>
-            <i class="fas fa-<?= $t === 'success' ? 'check' : ($t === 'danger' ? 'exclamation-triangle' : 'info-circle') ?> mr-2"></i><?= e($f['message']) ?>
+            <i class="fas fa-<?= $t === 'success' ? 'check' : ($t === 'danger' || $t === 'warning' ? 'exclamation-triangle' : 'info-circle') ?> mr-2"></i><?= e($f['message']) ?>
           </div>
         <?php endforeach; ?>
         <?= $content ?>

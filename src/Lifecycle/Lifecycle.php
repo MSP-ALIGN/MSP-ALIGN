@@ -47,7 +47,11 @@ final class Lifecycle
         'Phone' => ['other', 'fa-phone', false],
         'Camera / NVR' => ['other', 'fa-video', false],
         'Other' => ['other', 'fa-tag', false],
+        'Unassigned' => ['other', 'fa-circle-question', false],
     ];
+
+    /** Type given to ITFlow assets whose type doesn't map to anything in Align yet. */
+    public const UNASSIGNED = 'Unassigned';
 
     public const DEFAULT_TYPE = [
         'desktop' => 'Desktop', 'laptop' => 'Laptop', 'server' => 'Server', 'network' => 'Switch',
@@ -330,12 +334,17 @@ final class Lifecycle
         foreach ($years as $y => &$yr) {
             $yr['cost'] = 0.0;
             $yr['count'] = 0;
+            $yr['proj_cost'] = 0.0;
+            $yr['proj_count'] = 0;
             foreach ($forecast as $b) {
                 if ($b['year'] === $y) {
                     $yr['cost'] += $b['cost'];
                     $yr['count'] += $b['count'];
+                    $yr['proj_cost'] += $b['proj_cost'] ?? 0;
+                    $yr['proj_count'] += $b['proj_count'] ?? 0;
                 }
             }
+            $yr['total'] = $yr['cost'] + $yr['proj_cost'];
         }
         return $years;
     }

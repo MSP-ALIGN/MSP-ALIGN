@@ -4,6 +4,7 @@ use Align\Lifecycle\Lifecycle;
 /** Device form fields. $d = existing evaluated device or null; $manual = hardware fields editable. */
 $d = $d ?? null;
 $manual = $manual ?? true;
+$pullOnly = $pullOnly ?? false; // IP and location are maintained in ITFlow for synced devices
 $ro = $manual ? '' : 'readonly';
 $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
 $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
@@ -29,8 +30,8 @@ $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
   <div class="form-group col-md-4"><label>Serial number</label><input name="serial" class="form-control" value="<?= e($d['serial'] ?? '') ?>"></div>
 </div>
 <div class="form-row">
-  <div class="form-group col-md-4"><label>IP address</label><input name="ip_address" class="form-control" value="<?= e($d['ip_address'] ?? '') ?>"></div>
-  <div class="form-group col-md-4"><label>Location</label><input name="location" class="form-control" value="<?= e($d['location'] ?? '') ?>" placeholder="Server closet, 2nd floor…"></div>
+  <div class="form-group col-md-4"><label>IP address<?= $pullOnly ? ' <small class="text-muted">(from ITFlow)</small>' : '' ?></label><input name="ip_address" class="form-control" value="<?= e($d['ip_address'] ?? '') ?>" <?= $pullOnly ? 'readonly' : '' ?>></div>
+  <div class="form-group col-md-4"><label>Location<?= $pullOnly ? ' <small class="text-muted">(from ITFlow)</small>' : '' ?></label><input name="location" class="form-control" value="<?= e($d['location'] ?? '') ?>" placeholder="Server closet, 2nd floor…" <?= $pullOnly ? 'readonly' : '' ?>></div>
   <div class="form-group col-md-4"><label>Firmware / version</label><input name="firmware" class="form-control" value="<?= e($d['firmware'] ?? '') ?>"></div>
 </div>
 <div class="form-row">

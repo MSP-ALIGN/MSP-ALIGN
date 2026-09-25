@@ -24,7 +24,7 @@ foreach ($plan['backlog'] as $it) {
   <h1 class="h4 mb-0 mr-auto"><i class="fas fa-road mr-2 text-secondary"></i>3-year technology roadmap</h1>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
     <a class="btn btn-default" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-print mr-1"></i>Print roadmap</a>
-    <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-roadmap" data-quarter=""><i class="fas fa-plus mr-1"></i>Add roadmap item</button><?php endif; ?>
+    <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-roadmap" data-quarter=""><i class="fas fa-plus mr-1"></i>Add project</button><?php endif; ?>
   </div>
 </div>
 

@@ -4,7 +4,7 @@ use Align\Lifecycle\Lifecycle;
 
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
-$filters = ['' => 'All', 'attention' => 'Needs attention', 'replace' => 'Replace / plan', 'os' => 'OS support', 'warranty' => 'Warranty', 'stale' => 'Stale', 'virtual' => 'Virtual', 'itflow' => 'From ITFlow', 'manual' => 'Added manually'];
+$filters = ['' => 'All', 'attention' => 'Needs attention', 'replace' => 'Replace / plan', 'os' => 'OS support', 'warranty' => 'Warranty', 'stale' => 'Stale', 'virtual' => 'Virtual', 'itflow' => 'From ITFlow', 'manual' => 'Added manually', 'unassigned' => 'Unassigned'];
 $classes = ['' => 'All types'] + Lifecycle::CLASSES;
 $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_filter(array_merge(['filter' => $filter, 'class' => $class], $over)));
 ?>
@@ -41,6 +41,7 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
           <td class="text-nowrap">
             <i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><a href="/devices/<?= (int) $d['id'] ?>" class="font-weight-bold"><?= e($d['name']) ?></a>
             <?php if ($d['source'] === 'manual'): ?><span class="badge badge-light border" title="Added in Align">manual</span><?php elseif ($d['source'] === 'itflow'): ?><span class="badge badge-light border" title="Imported from ITFlow assets">ITFlow</span><?php endif; ?>
+            <?php if ($d['type'] === \Align\Lifecycle\Lifecycle::UNASSIGNED): ?><span class="badge badge-warning" title="Pick a type on the device or under Unassigned hardware">unassigned</span><?php endif; ?>
             <?php if ($d['is_virtual']): ?><span class="badge badge-light border" title="Virtual: OS support only">virtual</span><?php endif; ?>
             <?php if ($d['ip_address']): ?><div class="small text-muted ml-4"><?= e($d['ip_address']) ?></div><?php endif; ?>
           </td>
@@ -76,6 +77,12 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
         <div class="modal-body">
           <p class="small text-muted">For gear NinjaOne doesn't manage: printers, switches, firewalls, access points, NAS, UPS, hypervisor hosts. Dell and Lenovo serials get warranty lookups too.</p>
           <?= \Align\View::fetch('partials/device_fields', ['d' => null, 'manual' => true]) ?>
+          <?php if (\Align\Sync\ItflowSync::createsAssets() && !empty($client['itflow_client_id'])): ?>
+            <div class="custom-control custom-checkbox mt-1">
+              <input type="checkbox" class="custom-control-input" id="align-only" name="align_only" value="1">
+              <label class="custom-control-label font-weight-normal" for="align-only">Align only: don't create this device in ITFlow</label>
+            </div>
+          <?php endif; ?>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
