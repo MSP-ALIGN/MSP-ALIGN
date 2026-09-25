@@ -17,7 +17,7 @@
       <tbody>
       <?php foreach ($users as $u): ?>
         <tr class="<?= $u['is_active'] ? '' : 'text-muted' ?>">
-          <td class="align-middle"><span class="user-initials mr-2"><?= e(initials($u['name'])) ?></span><?= e($u['name']) ?><?= $u['is_active'] ? '' : ' <span class="badge badge-secondary">disabled</span>' ?></td>
+          <td class="align-middle"><?= user_avatar($u, 'user-initials', 'mr-2') ?><?= e($u['name']) ?><?= $u['is_active'] ? '' : ' <span class="badge badge-secondary">disabled</span>' ?></td>
           <td class="align-middle"><?= e($u['email']) ?></td>
           <td class="align-middle">
             <form method="post" action="/users/<?= (int) $u['id'] ?>" class="d-inline"><?= csrf_field() ?>

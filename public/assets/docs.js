@@ -198,10 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const { json } = await post('/documents/' + id + '/presence', { editing });
       presence.innerHTML = '';
       (json.others || []).forEach((o) => {
-        const s = document.createElement('span');
-        s.className = 'presence-dot' + (o.editing ? ' is-editing' : '');
+        const s = document.createElement(o.avatar ? 'img' : 'span');
+        s.className = 'presence-dot' + (o.editing ? ' is-editing' : '') + (o.avatar ? ' avatar-img' : '');
         s.title = o.name + (o.editing ? ' is editing' : ' is viewing');
-        s.textContent = o.initials;
+        if (o.avatar) { s.src = o.avatar; s.alt = o.name; } else { s.textContent = o.initials; }
         presence.appendChild(s);
       });
       if ((json.others || []).length) {

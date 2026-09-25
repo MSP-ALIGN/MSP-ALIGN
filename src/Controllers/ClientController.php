@@ -72,7 +72,7 @@ final class ClientController
 
     public static function load(int $id): array
     {
-        $client = DB::one('SELECT c.*, o.name AS org_name, u.name AS vcio_name FROM clients c
+        $client = DB::one('SELECT c.*, o.name AS org_name, u.name AS vcio_name, u.avatar_file AS vcio_avatar_file FROM clients c
             LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$id]);
         if (!$client) {
             http_response_code(404);
@@ -103,6 +103,34 @@ final class ClientController
         return $f;
     }
 
+    /** Saves or removes the client logo from the edit form. Returns an error message or null. */
+    private static function handleLogo(int $id, ?string $current): ?string
+    {
+        if (isset($_POST['remove_logo'])) {
+            \Align\Images::delete('clients', $current);
+            DB::run('UPDATE clients SET logo_file = NULL WHERE id = ?', [$id]);
+            return null;
+        }
+        if (empty($_FILES['logo']) || ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        [$err, $name] = \Align\Images::store($_FILES['logo'], 'clients', 'client' . $id, 600, 240);
+        if ($err) {
+            return $err;
+        }
+        DB::run('UPDATE clients SET logo_file = ? WHERE id = ?', [$name, $id]);
+        \Align\Images::delete('clients', $current);
+        Audit::log('client.logo', "Logo uploaded for client #$id");
+        return null;
+    }
+
+    /** Serves a client's logo (signed-in users only). */
+    public static function logo(int $id): void
+    {
+        Auth::require();
+        \Align\Images::serve('clients', DB::value('SELECT logo_file FROM clients WHERE id = ?', [$id]) ?: null);
+    }
+
     public static function create(): void
     {
         Auth::requireRole('tech');
@@ -117,6 +145,10 @@ final class ClientController
         }
         $id = DB::insert('clients', $f + ['source' => 'manual']);
         Audit::log('client.create', $f['name']);
+        if ($err = self::handleLogo($id, null)) {
+            flash('error', "Client added, but the logo wasn't saved: $err");
+            redirect("/clients/$id");
+        }
         flash('success', "Added {$f['name']}. If it's later created in ITFlow with the same name, the sync links them automatically.");
         redirect("/clients/$id");
     }
@@ -134,6 +166,10 @@ final class ClientController
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE clients SET $sets WHERE id = ?", [...array_values($f), $id]);
         Audit::log('client.update', $client['name']);
+        if ($err = self::handleLogo($id, $client['logo_file'] ?? null)) {
+            flash('error', "Details saved, but the logo wasn't: $err");
+            redirect("/clients/$id");
+        }
         flash('success', 'Client saved.');
         redirect("/clients/$id");
     }
@@ -167,6 +203,7 @@ final class ClientController
             flash('error', 'Type the client name exactly to confirm deletion.');
             redirect("/clients/$id");
         }
+        \Align\Images::delete('clients', $client['logo_file'] ?? null);
         DB::transaction(function () use ($id) {
             DB::run('DELETE FROM meetings WHERE client_id = ?', [$id]);
             DB::run('DELETE FROM devices WHERE client_id = ?', [$id]);

@@ -2,7 +2,7 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**What's in it (0.7.0):**
+**What's in it (0.8.0):**
 
 - **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence (yearly by default) and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
 - **Devices & assets:** from three sources. NinjaOne supplies computers, servers and anything it monitors. ITFlow assets NinjaOne doesn't manage are imported too: firewalls/routers, switches, access points, printers, UPS units (recognized by make/model) and NAS by default, with more types available in Settings. You can also add devices by hand. Anything already matched to a NinjaOne or hand-added device is skipped. Virtual machines group with **Servers** (server OS) or **Desktops as VDI** (desktop OS) and are tracked for OS support only. You can change the type of any device.
@@ -19,6 +19,7 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
 - **Documents:** per-client and internal documents edited in the app. Changes autosave as you type, and Ctrl/Cmd+S saves immediately. You can see who else has a document open, and their saved changes appear live. If two people edit at once, the second save gets a warning to load the other version or overwrite it, so no one's work is silently lost. Full version history lets you view or restore any version and save a named version. Each document has a category, a status (draft, active or archived), a review date, and Print / Save as PDF with a DRAFT watermark on drafts.
 - **Templates:** built-in WISP (FTC), Incident Response Plan, Acceptable Use Policy and Data Retention & Disposal templates fill in the client's name, contact, address, your company details and today's date automatically. You can edit templates, add your own, or save any document as a template.
 - **Evidence links:** any compliance checklist item can link to one of the client's documents, for example the WISP item to the client's WISP. The link appears on the checklist, on the document page and in the CSV export.
+- **Client logos & profile pictures:** upload a logo for each client from the client's Edit form. It shows in the client header, the client list and on that client's printed reports next to your own logo. Each user can add a profile picture under Account; it shows in the top bar, the user list, next to the vCIO's name, and when they have a document open. Images are resized and re-encoded on upload (PNG/JPG/WebP/GIF, 5 MB max; SVG is refused) and are only served to signed-in users.
 - **Branding:** under Admin → Branding you can set the portal name, upload a logo (PNG/JPG/WebP, also used as the browser icon and on printed reports), pick a brand color and a light or dark sidebar, and edit the sign-in page message. There's a live preview.
 - **UI:** built on AdminLTE 3 / Bootstrap 4 / Font Awesome, the same kit ITFlow uses. It's bundled locally, with no CDN.
 

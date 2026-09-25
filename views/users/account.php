@@ -1,4 +1,26 @@
 <h1 class="h3 mb-3">Your account <small class="text-muted h6"><?= e($u['email']) ?> · <?= e($u['role']) ?></small></h1>
+<div class="card card-dark">
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-id-badge mr-2"></i>Profile picture</h3></div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-center">
+      <div class="mr-4 mb-2" data-logo-preview><?= user_avatar($u, 'avatar-lg') ?></div>
+      <div class="flex-grow-1 mb-2">
+        <form method="post" action="/account/avatar" enctype="multipart/form-data" class="form-inline">
+          <?= csrf_field() ?>
+          <div class="custom-file mr-2 mb-1 avatar-file">
+            <input type="file" class="custom-file-input" id="avatar" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif" required data-logo-input>
+            <label class="custom-file-label" for="avatar">Choose a photo…</label>
+          </div>
+          <button class="btn btn-primary mb-1"><i class="fas fa-upload mr-1"></i>Upload</button>
+        </form>
+        <?php if (avatar_url($u)): ?>
+          <form method="post" action="/account/avatar" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><button class="btn btn-link btn-sm text-danger px-0">Remove picture</button></form>
+        <?php endif; ?>
+        <p class="small text-muted mb-0">PNG, JPG, WebP or GIF up to 5 MB. It's cropped to a square and shown in the top bar, the user list, next to your name as vCIO, and when you have a document open.</p>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="row">
   <div class="col-lg-4">
     <div class="card card-dark">

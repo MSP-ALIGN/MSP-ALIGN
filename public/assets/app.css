@@ -196,3 +196,18 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .legend-proj { background: #6f42c1; }
 .proj-quarter th { background: #f4f6f9; }
 .proj-row .proj-desc { max-width: 520px; }
+
+/* Client logos & profile pictures */
+.avatar-img { object-fit: cover; padding: 0; background: #fff; }
+.user-initials.avatar-img { border-radius: 50%; }
+.avatar-xs { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #6c757d; color: #fff; font-size: .55rem; font-weight: 700; vertical-align: -4px; object-fit: cover; }
+.avatar-lg { width: 96px; height: 96px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #6c757d; color: #fff; font-size: 2rem; font-weight: 700; object-fit: cover; box-shadow: 0 0 0 3px #fff, 0 0 0 4px #dee2e6; }
+.client-logo { height: 56px; max-width: 180px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 4px 8px; }
+.client-logo img { max-height: 46px; max-width: 164px; object-fit: contain; }
+.client-logo-sm { height: 22px; max-width: 60px; object-fit: contain; vertical-align: middle; }
+.client-logo-preview { width: 150px; height: 64px; border: 1px dashed #ced4da; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff; flex: 0 0 150px; overflow: hidden; }
+.client-logo-preview img { max-width: 140px; max-height: 56px; object-fit: contain; }
+.client-logo-preview.is-empty span { font-weight: 700; color: #6c757d; font-size: 1.2rem; }
+.avatar-file { max-width: 320px; }
+.presence-dot.avatar-img { padding: 0; object-fit: cover; }
+.report-client-logo { max-height: 56px; max-width: 170px; object-fit: contain; }

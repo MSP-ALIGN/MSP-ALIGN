@@ -57,7 +57,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
         <tr class="<?= $c['planning_excluded'] ? 'text-muted' : '' ?>">
           <?php if ($canEdit): ?><td><input type="checkbox" name="ids[]" value="<?= (int) $c['id'] ?>" class="row-check" aria-label="Select <?= e($c['name']) ?>"></td><?php endif; ?>
           <td>
-            <a href="/clients/<?= (int) $c['id'] ?>" class="font-weight-bold"><?= e($c['name']) ?></a>
+            <?php if ($lg = client_logo_url($c)): ?><img src="<?= e($lg) ?>" alt="" class="client-logo-sm mr-1"><?php endif; ?><a href="/clients/<?= (int) $c['id'] ?>" class="font-weight-bold"><?= e($c['name']) ?></a>
             <?php if ($c['source'] === 'manual'): ?><span class="badge badge-light border" title="Added in Align">manual</span><?php endif; ?>
             <?php if ($c['is_archived']): ?><span class="badge badge-dark">archived</span><?php endif; ?>
             <?php if ($c['planning_excluded']): ?><span class="badge badge-secondary" title="<?= e($c['excluded_reason'] ?? '') ?>">removed<?= $c['excluded_reason'] ? ': ' . e($c['excluded_reason']) : '' ?></span><?php endif; ?>

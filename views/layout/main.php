@@ -93,7 +93,7 @@ $item = function (array $i, string $active) {
       <?php endif; ?>
       <li class="nav-item dropdown user-menu">
         <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-          <span class="user-initials"><?= e(initials($u['name'] ?? '')) ?></span>
+          <?= user_avatar($u ?? [], 'user-initials') ?>
           <span class="d-none d-md-inline ml-1"><?= e($u['name'] ?? '') ?></span>
         </a>
         <div class="dropdown-menu dropdown-menu-right">

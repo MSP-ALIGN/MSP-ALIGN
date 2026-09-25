@@ -102,6 +102,13 @@ final class UserController
         redirect('/users');
     }
 
+    /** Serves a user's profile picture (signed-in users only). */
+    public static function avatar(int $id): void
+    {
+        Auth::require();
+        \Align\Images::serve('avatars', DB::value('SELECT avatar_file FROM users WHERE id = ?', [$id]) ?: null);
+    }
+
     public static function randomPassword(): string
     {
         $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';

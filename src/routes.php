@@ -39,6 +39,7 @@ $r->post('/clients/{id}/planning', [ClientController::class, 'planning']);
 $r->post('/clients/{id}/delete', [ClientController::class, 'delete']);
 $r->get('/projects', [\Align\Controllers\ProjectController::class, 'index']);
 $r->post('/projects', [RoadmapController::class, 'createGlobal']);
+$r->get('/clients/{id}/logo', [ClientController::class, 'logo']);
 $r->get('/clients/{id}/roadmap', [RoadmapController::class, 'show']);
 $r->post('/clients/{id}/roadmap', [RoadmapController::class, 'create']);
 $r->post('/clients/{id}/roadmap/{item}', [RoadmapController::class, 'update']);
@@ -128,6 +129,8 @@ $r->get('/audit', [AuditController::class, 'index']);
 
 $r->get('/account', [AccountController::class, 'show']);
 $r->post('/account/password', [AccountController::class, 'password']);
+$r->post('/account/avatar', [AccountController::class, 'avatar']);
+$r->get('/users/{id}/avatar', [UserController::class, 'avatar']);
 $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
 
 return $r;

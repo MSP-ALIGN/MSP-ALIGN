@@ -166,6 +166,30 @@ function initials(string $name): string
     return $i ?: '?';
 }
 
+/** URL of a client's logo, or null when none is uploaded. */
+function client_logo_url(array $c): ?string
+{
+    $f = $c['logo_file'] ?? null;
+    return $f && preg_match('/-([a-f0-9]{16})\./', $f, $m) ? '/clients/' . (int) $c['id'] . '/logo?v=' . substr($m[1], 0, 8) : null;
+}
+
+/** URL of a user's profile picture, or null. $u needs id + avatar_file. */
+function avatar_url(array $u): ?string
+{
+    $f = $u['avatar_file'] ?? null;
+    return $f && preg_match('/-([a-f0-9]{16})\./', $f, $m) ? '/users/' . (int) $u['id'] . '/avatar?v=' . substr($m[1], 0, 8) : null;
+}
+
+/** Profile picture, or initials when there isn't one. $class sets size/style (e.g. user-initials). */
+function user_avatar(array $u, string $class = 'user-initials', string $extra = ''): string
+{
+    $name = (string) ($u['name'] ?? $u['user_name'] ?? '');
+    $url = avatar_url($u);
+    return $url
+        ? '<img src="' . e($url) . '" alt="" class="' . e($class) . ' avatar-img ' . e($extra) . '" title="' . e($name) . '">'
+        : '<span class="' . e($class) . ' ' . e($extra) . '" title="' . e($name) . '">' . e(initials($name)) . '</span>';
+}
+
 /** Compact OS name for tight report columns ("Windows 11 Professional Edition" -> "Windows 11 Pro"). */
 function short_os(?string $os): string
 {

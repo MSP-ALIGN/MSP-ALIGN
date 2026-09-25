@@ -35,6 +35,7 @@
         <h1 class="report-title"><?= e($reportTitle ?? $title) ?></h1>
         <?php if (!empty($reportSubtitle)): ?><div class="report-sub"><?= e($reportSubtitle) ?></div><?php endif; ?>
       </div>
+      <?php if (!empty($client['id']) && ($clientLogo = client_logo_url($client))): ?><img src="<?= e($clientLogo) ?>" alt="<?= e($client['name']) ?>" class="report-client-logo ml-3"><?php endif; ?>
       <div class="text-right small report-meta">
         <div><b>Prepared</b> <?= e(date('F j, Y')) ?></div>
         <?php if ($brand['preparedBy']): ?><div><b>By</b> <?= e($brand['preparedBy']) ?></div><?php endif; ?>

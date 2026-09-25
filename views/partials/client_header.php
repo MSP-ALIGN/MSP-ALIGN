@@ -17,7 +17,11 @@ $cid = (int) $client['id'];
 <?php endif; ?>
 <div class="card card-body client-header mb-3">
   <div class="d-flex flex-wrap align-items-center">
-    <div class="client-avatar mr-3"><?= e(initials($client['name'])) ?></div>
+    <?php if ($logoUrl = client_logo_url($client)): ?>
+      <div class="client-logo mr-3"><img src="<?= e($logoUrl) ?>" alt="<?= e($client['name']) ?> logo"></div>
+    <?php else: ?>
+      <div class="client-avatar mr-3"><?= e(initials($client['name'])) ?></div>
+    <?php endif; ?>
     <div class="mr-auto">
       <h4 class="mb-0"><?= e($client['name']) ?>
         <?php if ($client['source'] === 'manual'): ?><span class="badge badge-secondary align-middle ml-1">Added in Align</span><?php endif; ?>
@@ -29,7 +33,7 @@ $cid = (int) $client['id'];
         <?php if ($client['contact_phone']): ?><i class="fas fa-phone mr-1"></i><?= e($client['contact_phone']) ?><span class="mx-2">·</span><?php endif; ?>
         <?php if ($client['contact_email']): ?><i class="fas fa-envelope mr-1"></i><a href="mailto:<?= e($client['contact_email']) ?>"><?= e($client['contact_email']) ?></a><span class="mx-2">·</span><?php endif; ?>
         <i class="fas fa-rotate mr-1"></i>Meets <?= e(strtolower(Meetings::CADENCES[$client['meeting_cadence']][0])) ?>
-        <?php if ($client['vcio_name']): ?><span class="mx-2">·</span><i class="fas fa-user-tie mr-1"></i>vCIO: <?= e($client['vcio_name']) ?><?php endif; ?>
+        <?php if ($client['vcio_name']): ?><span class="mx-2">·</span><?= user_avatar(['id' => $client['vcio_user_id'], 'name' => $client['vcio_name'], 'avatar_file' => $client['vcio_avatar_file'] ?? null], 'avatar-xs', 'mr-1') ?>vCIO: <?= e($client['vcio_name']) ?><?php endif; ?>
       </div>
     </div>
     <div class="btn-group mt-2 mt-md-0">

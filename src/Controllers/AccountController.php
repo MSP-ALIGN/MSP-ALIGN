@@ -26,6 +26,28 @@ final class AccountController
         ]);
     }
 
+    /** Upload or remove your profile picture. */
+    public static function avatar(): void
+    {
+        $u = Auth::require();
+        if (post('action') === 'remove') {
+            \Align\Images::delete('avatars', $u['avatar_file'] ?? null);
+            DB::run('UPDATE users SET avatar_file = NULL WHERE id = ?', [$u['id']]);
+            flash('success', 'Profile picture removed.');
+            redirect('/account');
+        }
+        [$err, $name] = \Align\Images::store($_FILES['avatar'] ?? [], 'avatars', 'user' . (int) $u['id'], 256, 256, true);
+        if ($err) {
+            flash('error', $err);
+            redirect('/account');
+        }
+        DB::run('UPDATE users SET avatar_file = ? WHERE id = ?', [$name, $u['id']]);
+        \Align\Images::delete('avatars', $u['avatar_file'] ?? null);
+        Audit::log('account.avatar', $u['email']);
+        flash('success', 'Profile picture updated.');
+        redirect('/account');
+    }
+
     public static function password(): void
     {
         $u = Auth::require();

@@ -216,7 +216,8 @@ final class DocumentController
             'version' => (int) $doc['version'],
             'updated_by' => $doc['updated_by_name'],
             'updated_ago' => rel_time($doc['updated_at']),
-            'others' => array_map(fn($p) => ['name' => $p['name'], 'initials' => initials($p['name']), 'editing' => (bool) $p['editing']], Documents::presence($id)),
+            'others' => array_map(fn($p) => ['name' => $p['name'], 'initials' => initials($p['name']), 'editing' => (bool) $p['editing'],
+                'avatar' => avatar_url(['id' => $p['user_id'], 'avatar_file' => $p['avatar_file']])], Documents::presence($id)),
         ]);
     }
 

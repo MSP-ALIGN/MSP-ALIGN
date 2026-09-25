@@ -99,7 +99,7 @@ final class Documents
     public static function presence(int $docId): array
     {
         DB::run('DELETE FROM document_presence WHERE last_seen < ?', [date('Y-m-d H:i:s', time() - 120)]);
-        return DB::all('SELECT p.user_id, p.editing, p.last_seen, u.name FROM document_presence p JOIN users u ON u.id = p.user_id
+        return DB::all('SELECT p.user_id, p.editing, p.last_seen, u.name, u.avatar_file FROM document_presence p JOIN users u ON u.id = p.user_id
             WHERE p.document_id = ? AND p.user_id <> ? AND p.last_seen >= ?', [$docId, (int) Auth::id(), date('Y-m-d H:i:s', time() - 45)]);
     }
 }

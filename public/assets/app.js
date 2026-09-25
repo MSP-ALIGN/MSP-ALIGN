@@ -192,3 +192,24 @@ document.addEventListener('DOMContentLoaded', () => {
   if (all) all.addEventListener('change', () => { boxes().forEach((b) => { b.checked = all.checked; }); sync(); });
   form.addEventListener('change', (e) => { if (e.target.classList.contains('row-check')) sync(); });
 });
+
+// Image pickers (client logo, profile picture): show the file name and a live preview
+document.addEventListener('change', (e) => {
+  const input = e.target;
+  if (!input.matches || !input.matches('[data-logo-input]') || !input.files || !input.files[0]) return;
+  const f = input.files[0];
+  const label = input.nextElementSibling;
+  if (label && label.classList.contains('custom-file-label')) label.textContent = f.name;
+  const scope = input.closest('.modal-body, .card-body, form');
+  const box = scope && (scope.querySelector('[data-logo-preview]') || (scope.parentElement && scope.parentElement.querySelector('[data-logo-preview]')));
+  if (!box) return;
+  const url = URL.createObjectURL(f);
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = 'Preview';
+  const old = box.querySelector('img, span');
+  if (old && old.className) img.className = old.className.replace(/\b(user-initials)\b/, '$1') + ' avatar-img';
+  box.classList.remove('is-empty');
+  box.innerHTML = '';
+  box.appendChild(img);
+});

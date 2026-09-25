@@ -123,3 +123,4 @@ body.report { background: #e9ecef; color: #1f2d3d; font-size: 12.5px; }
 .doc-print li { margin-bottom: .15rem; }
 .doc-draft-mark { position: fixed; top: 45%; left: 0; right: 0; text-align: center; font-size: 110px; font-weight: 800; color: rgba(200, 35, 51, .08); transform: rotate(-25deg); pointer-events: none; z-index: 0; }
 @media print { .doc-print h2, .doc-print h3 { break-after: avoid; page-break-after: avoid; } .doc-print li, .doc-print p { orphans: 3; widows: 3; } }
+.report-client-logo { flex: 0 0 auto; max-height: 56px; max-width: 170px; object-fit: contain; }

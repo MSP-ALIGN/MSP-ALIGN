@@ -9,7 +9,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
 <div class="modal fade" id="modal-client" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= $c ? '/clients/' . (int) $c['id'] : '/clients' ?>">
+      <form method="post" action="<?= $c ? '/clients/' . (int) $c['id'] : '/clients' ?>" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <div class="modal-header bg-dark">
           <h5 class="modal-title"><i class="fas fa-fw fa-user-plus mr-2"></i><?= $c ? 'Edit ' . e($c['name']) : 'New client' ?></h5>
@@ -51,6 +51,27 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
                 <option value="">—</option>
                 <?php foreach ($users as $u): ?><option value="<?= (int) $u['id'] ?>" <?= $sel($u['id'], $c['vcio_user_id'] ?? '') ?>><?= e($u['name']) ?></option><?php endforeach; ?>
               </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Logo <small class="text-muted">(PNG, JPG, WebP or GIF, up to 5 MB; shown on the client's pages and printed reports)</small></label>
+            <div class="d-flex align-items-center">
+              <?php $logo = $c ? client_logo_url($c) : null; ?>
+              <div class="client-logo-preview mr-3<?= $logo ? '' : ' is-empty' ?>" data-logo-preview>
+                <?php if ($logo): ?><img src="<?= e($logo) ?>" alt="Current logo"><?php else: ?><span><?= e(initials($c['name'] ?? '?')) ?></span><?php endif; ?>
+              </div>
+              <div class="flex-grow-1">
+                <div class="custom-file">
+                  <input type="file" class="custom-file-input" id="client-logo-<?= (int) ($c['id'] ?? 0) ?>" name="logo" accept="image/png,image/jpeg,image/webp,image/gif" data-logo-input>
+                  <label class="custom-file-label" for="client-logo-<?= (int) ($c['id'] ?? 0) ?>"><?= $logo ? 'Replace logo…' : 'Choose logo…' ?></label>
+                </div>
+                <?php if ($logo): ?>
+                  <div class="custom-control custom-checkbox mt-1">
+                    <input type="checkbox" class="custom-control-input" id="remove-logo-<?= (int) $c['id'] ?>" name="remove_logo" value="1">
+                    <label class="custom-control-label font-weight-normal small" for="remove-logo-<?= (int) $c['id'] ?>">Remove logo</label>
+                  </div>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
           <div class="form-group"><label>Address</label><textarea name="address" class="form-control" rows="2"><?= e($c['address'] ?? '') ?></textarea></div>
