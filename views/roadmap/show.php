@@ -21,7 +21,8 @@ foreach ($plan['backlog'] as $it) {
 }
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-auto"><i class="fas fa-road mr-2 text-secondary"></i>3-year technology roadmap</h1>
+  <div class="mr-auto"><h1 class="h4 mb-0"><i class="fas fa-road mr-2 text-secondary"></i>Roadmap &amp; projects</h1>
+    <div class="small text-muted">Where everything lands over the next three years: your projects plus hardware end of life, OS end of support, warranties, meetings and compliance due dates. Costs roll into the <a href="/clients/<?= $cid ?>/budget">budget</a>.</div></div>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
     <a class="btn btn-default" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-print mr-1"></i>Print roadmap</a>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-roadmap" data-quarter=""><i class="fas fa-plus mr-1"></i>Add project</button><?php endif; ?>

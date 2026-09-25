@@ -7,44 +7,57 @@ $client = $client ?? null;
 $clientNav = $clientNav ?? '';
 $v = e(APP_VERSION);
 
-$mainNav = [
-    ['dashboard', '/', 'Dashboard', 'fa-gauge-high', 'viewer'],
-    ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
-    ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
-    ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
-    ['licenses', '/licenses', 'Licensing', 'fa-key', 'viewer'],
-    ['budget', '/budget', 'Budgets', 'fa-coins', 'viewer'],
-    ['renewals', '/renewals', 'Renewals', 'fa-calendar-check', 'viewer'],
-    ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
-    ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
-    ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
-    ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
-    ['reports', '/reports', 'Reports', 'fa-print', 'viewer'],
-];
 $unassignedCount = $u ? (int) \Align\DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
     WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0") : 0;
-$integrationNav = [
-    ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
-    ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
-    ['sync', '/sync', 'Sync', 'fa-rotate', 'viewer'],
+// Global menu, grouped by the vCIO workflow: know the client -> plan -> meet and report -> stay compliant.
+$navSections = [
+    '' => [
+        ['dashboard', '/', 'Dashboard', 'fa-gauge-high', 'viewer'],
+        ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
+    ],
+    'PLANNING' => [
+        ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
+        ['budget', '/budget', 'Budgets', 'fa-coins', 'viewer'],
+        ['licenses', '/licenses', 'Licensing', 'fa-key', 'viewer'],
+        ['renewals', '/renewals', 'Renewals', 'fa-calendar-check', 'viewer'],
+    ],
+    'MEETINGS & REPORTING' => [
+        ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
+        ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
+        ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
+        ['reports', '/reports', 'Reports', 'fa-print', 'viewer'],
+    ],
+    'COMPLIANCE' => [
+        ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
+        ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
+    ],
+    'INTEGRATIONS' => [
+        ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
+        ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
+        ['sync', '/sync', 'Sync', 'fa-rotate', 'viewer'],
+    ],
+    'ADMIN' => [
+        ['settings', '/settings', 'Settings', 'fa-gear', 'admin'],
+        ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
+        ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
+        ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
+        ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
+    ],
+    'HELP' => [
+        ['help', '/help', 'Help & workflow', 'fa-circle-info', 'viewer'],
+    ],
 ];
-$adminNav = [
-    ['settings', '/settings', 'Settings', 'fa-gear', 'admin'],
-    ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
-    ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
-    ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
-    ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
-];
+// Client menu in workflow order: who they are and what they have -> compliance -> plan -> meet.
 $clientMenu = $client ? [
     ['overview', '/clients/' . (int) $client['id'], 'Overview', 'fa-tachometer-alt'],
     ['contacts', '/clients/' . (int) $client['id'] . '/contacts', 'Contacts', 'fa-address-book'],
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
-    ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', '3-year roadmap', 'fa-road'],
     ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],
-    ['budget', '/clients/' . (int) $client['id'] . '/budget', 'Budget', 'fa-coins'],
-    ['meetings', '/clients/' . (int) $client['id'] . '/meetings', 'Meetings', 'fa-handshake'],
     ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
     ['documents', '/clients/' . (int) $client['id'] . '/documents', 'Documents', 'fa-file-lines'],
+    ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', 'Roadmap & projects', 'fa-road'],
+    ['budget', '/clients/' . (int) $client['id'] . '/budget', 'Budget', 'fa-coins'],
+    ['meetings', '/clients/' . (int) $client['id'] . '/meetings', 'Meetings', 'fa-handshake'],
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
@@ -105,6 +118,7 @@ $item = function (array $i, string $active) {
         </a>
         <div class="dropdown-menu dropdown-menu-right">
           <span class="dropdown-item-text small text-muted"><?= e($u['email'] ?? '') ?> · <?= e($u['role'] ?? '') ?></span>
+          <a href="/help" class="dropdown-item"><i class="fas fa-fw fa-circle-info mr-2"></i>Help &amp; workflow</a>
           <div class="dropdown-divider"></div>
           <a href="/account" class="dropdown-item"><i class="fas fa-fw fa-user-gear mr-2"></i>Account &amp; 2FA</a>
           <form method="post" action="/logout"><?= csrf_field() ?><button class="dropdown-item"><i class="fas fa-fw fa-right-from-bracket mr-2"></i>Sign out</button></form>
@@ -122,16 +136,23 @@ $item = function (array $i, string $active) {
       <nav class="mt-2">
         <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
           <?php if ($client): ?>
-            <li class="nav-item"><a href="/clients" class="nav-link"><i class="nav-icon fas fa-arrow-left"></i><p>Back to clients</p></a></li>
+            <li class="nav-item"><a href="/clients" class="nav-link"><i class="nav-icon fas fa-arrow-left"></i><p>All clients</p></a></li>
             <li class="nav-header text-truncate"><?= e(mb_strtoupper($client['name'])) ?></li>
             <?php foreach ($clientMenu as $i) echo $item($i, $clientNav); ?>
-            <li class="nav-header">GLOBAL</li>
+            <li class="nav-item has-treeview mt-2">
+              <a href="#" class="nav-link"><i class="nav-icon fas fa-grip"></i><p>All tools<i class="right fas fa-angle-left"></i><?= $unassignedCount ? ' <span class="badge badge-warning ml-1" title="Unassigned hardware">' . (int) $unassignedCount . '</span>' : '' ?></p></a>
+              <ul class="nav nav-treeview">
+                <?php foreach ($navSections as $sec => $items) foreach ($items as $i) if (Auth::can($i[4]) && $i[0] !== 'clients') echo $item($i, ''); ?>
+              </ul>
+            </li>
+          <?php else: ?>
+            <?php foreach ($navSections as $sec => $items):
+                $visible = array_filter($items, fn($i) => Auth::can($i[4]));
+                if (!$visible) continue;
+                if ($sec !== '') echo '<li class="nav-header">' . e($sec) . '</li>';
+                foreach ($visible as $i) echo $item($i, $nav);
+            endforeach; ?>
           <?php endif; ?>
-          <?php foreach ($mainNav as $i) if (Auth::can($i[4]) && !($client && $i[0] === 'clients')) echo $item($i, $client ? '' : $nav); ?>
-          <?php if (Auth::can('viewer')): ?><li class="nav-header">INTEGRATIONS</li><?php endif; ?>
-          <?php foreach ($integrationNav as $i) if (Auth::can($i[4])) echo $item($i, $nav); ?>
-          <?php if (Auth::can('admin')): ?><li class="nav-header">ADMIN</li><?php endif; ?>
-          <?php foreach ($adminNav as $i) if (Auth::can($i[4])) echo $item($i, $nav); ?>
         </ul>
       </nav>
     </div>

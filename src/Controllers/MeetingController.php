@@ -81,6 +81,7 @@ final class MeetingController
             'clients' => DB::all('SELECT id, name FROM clients WHERE (is_archived = 0 AND planning_excluded = 0) OR id = ? ORDER BY name', [(int) $m['client_id']]),
             'users' => ClientController::users(),
             'series' => $m['series_id'] ? DB::all("SELECT id, starts_at, status FROM meetings WHERE series_id = ? ORDER BY starts_at", [$m['series_id']]) : [],
+            'prep' => $client ? self::prep((int) $client['id'], $client) : null,
         ]);
     }
 
@@ -228,6 +229,20 @@ final class MeetingController
             'users' => ClientController::users(),
             'feedUrl' => self::feedUrl($u),
         ]);
+    }
+
+    /** What to bring to a client meeting: reports, readiness and talking points. */
+    private static function prep(int $clientId, array $client): array
+    {
+        $proposed = DB::all("SELECT title, cost FROM roadmap_items WHERE client_id = ? AND status = 'proposed' ORDER BY target_quarter IS NULL, target_quarter LIMIT 5", [$clientId]);
+        $gaps = (int) DB::value("SELECT COUNT(*) FROM client_control_status s JOIN client_frameworks cf ON cf.client_id = s.client_id
+            JOIN compliance_controls c ON c.id = s.control_id AND c.framework_id = cf.framework_id WHERE s.client_id = ? AND s.status IN ('not_met','partial')", [$clientId]);
+        return [
+            'readiness' => \Align\Workflow\Readiness::client($client),
+            'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($clientId, 120), fn($d) => $d['urgency'] !== 'later')),
+            'proposed' => $proposed,
+            'gaps' => $gaps,
+        ];
     }
 
     public static function events(): void

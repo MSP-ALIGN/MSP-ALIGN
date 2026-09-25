@@ -338,14 +338,19 @@ final class SyncRunner
         $devices = $ninja->devicesDetailed();
         $now = date('Y-m-d H:i:s');
         DB::transaction(function () use ($devices, $now) {
+            $ids = [];
             foreach ($devices as $d) {
                 if (!isset($d['id'])) {
                     continue;
                 }
                 $row = NinjaOne::mapDevice($d) + ['synced_at' => $now, 'removed_at' => null];
                 DB::upsert('devices', $row, ['ninja_device_id']);
+                $ids[] = (int) $d['id'];
             }
-            DB::run("UPDATE devices SET removed_at = ? WHERE source = 'ninja' AND removed_at IS NULL AND (synced_at IS NULL OR synced_at < ?)", [$now, $now]);
+            // Devices NinjaOne no longer returns (matched by ID, not timestamp)
+            if ($ids) {
+                DB::run("UPDATE devices SET removed_at = ? WHERE source = 'ninja' AND removed_at IS NULL AND ninja_device_id NOT IN (" . implode(',', $ids) . ')', [$now]);
+            }
         });
         $removed = (int) DB::value('SELECT COUNT(*) FROM devices WHERE removed_at = ?', [$now]);
         return count($devices) . ' devices' . ($removed ? ", $removed no longer in NinjaOne" : '');

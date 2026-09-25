@@ -6,6 +6,8 @@ use Align\Meetings\Meetings;
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 ?>
+<?= \Align\View::fetch('partials/readiness', ['r' => $readiness, 'title' => 'Planning checklist', 'id' => 'readiness-' . $cid,
+    'intro' => 'The steps that make this client\'s roadmap, budget and reports complete. Click a step to go straight to it.']) ?>
 <div class="row">
   <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-desktop"></i></span><div class="info-box-content"><span class="info-box-text">Devices</span><span class="info-box-number"><?= (int) $summary['total'] ?></span></div></div></div>
   <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['replace'] ? 'danger' : 'success' ?>"><i class="fas fa-recycle"></i></span><div class="info-box-content"><span class="info-box-text">Replace now</span><span class="info-box-number"><?= (int) $summary['replace'] ?></span></div></div></div>
@@ -17,7 +19,7 @@ $cid = (int) $client['id'];
 
 <div class="row">
   <div class="col-lg-8">
-    <?php $forecastLink = '/clients/' . $cid . '/roadmap'; $addProject = \Align\Auth::can('tech'); require __DIR__ . '/../partials/forecast.php'; ?>
+    <?php $forecastLink = '/clients/' . $cid . '/roadmap'; $budgetLink = '/clients/' . $cid . '/budget'; $addProject = \Align\Auth::can('tech'); require __DIR__ . '/../partials/forecast.php'; ?>
     <?php if ($addProject) echo \Align\View::fetch('roadmap/_modal', ['it' => null, 'cid' => $cid, 'back' => '/clients/' . $cid]); ?>
 
     <div class="card card-dark">

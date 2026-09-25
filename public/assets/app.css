@@ -238,3 +238,13 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .budget-table .line-name { padding-left: 1.4rem; }
 .budget-client-col { min-width: 220px; }
 .contract-box { background: #fbfcfd; }
+
+/* Planning / setup checklist */
+.readiness-card .card-header { cursor: pointer; background: #fff; border-bottom: 1px solid #e9ecef; }
+.readiness-card .card-title { font-size: 1rem; }
+.readiness-step { border: 1px solid #e9ecef; border-radius: 6px; padding: .45rem .6rem; height: 100%; background: #fff; }
+.readiness-step:hover { border-color: #adb5bd; background: #f8f9fa; text-decoration: none; }
+.readiness-step.is-done { background: #f6fbf7; border-color: #d4edda; }
+.readiness-step .step-icon { font-size: 1.05rem; line-height: 1.3; }
+.help-num { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; background: var(--brand, #007bff); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.help-step h5 { font-size: 1rem; font-weight: 700; }

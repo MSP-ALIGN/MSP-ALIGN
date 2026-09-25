@@ -257,6 +257,7 @@ final class ClientController
         }
         unset($fw);
         View::render('clients/show', [
+            'readiness' => \Align\Workflow\Readiness::client($client, $devices),
             'title' => $client['name'],
             'nav' => 'clients',
             'client' => $client,

@@ -17,12 +17,8 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
   </span>
 </div>
 
-<?php if (!$configured): ?>
-  <div class="callout callout-info">
-    <h5><i class="fas fa-rocket mr-2"></i>Finish setup</h5>
-    <p class="mb-0">Add your NinjaOne and ITFlow API keys under <a href="/settings">Settings</a>, run a <a href="/sync">sync</a>, then link any leftover clients on <a href="/mapping">Client mapping</a>. You can also <a href="/clients?add=1">add clients by hand</a>.</p>
-  </div>
-<?php endif; ?>
+<?php if ($setup['done'] < $setup['total']) echo \Align\View::fetch('partials/readiness', ['r' => $setup, 'title' => 'Getting set up', 'id' => 'setup-checklist',
+    'intro' => 'Finish these once and the portal keeps itself up to date. New here? Open Help & workflow in the sidebar for the full walkthrough.']); ?>
 <?php if ($unmapped || $unassigned): ?>
   <div class="alert alert-light border small py-2">
     <i class="fas fa-link mr-1 text-primary"></i>
@@ -42,7 +38,7 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
 
 <div class="row">
   <div class="col-lg-8">
-    <?php require __DIR__ . '/partials/forecast.php'; ?>
+    <?php $budgetLink = '/budget'; require __DIR__ . '/partials/forecast.php'; ?>
 
     <div class="card card-dark">
       <div class="card-header py-2">
@@ -50,7 +46,7 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
         <div class="card-tools"><a href="/clients" class="btn btn-tool">All clients</a></div>
       </div>
       <div class="card-body p-0">
-        <table class="table table-sm table-striped table-borderless table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-striped table-borderless table-hover mb-0">
           <thead class="text-dark"><tr><th>Client</th><th class="text-right">Devices</th><th class="text-right">Replace / unsupported</th><th class="text-right">Need attention</th></tr></thead>
           <tbody>
           <?php foreach ($topClients as $c): ?>
@@ -63,12 +59,31 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
           <?php endforeach; ?>
           <?php if (!$topClients): ?><tr><td colspan="4" class="text-muted p-3">Nothing flagged.</td></tr><?php endif; ?>
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   </div>
 
   <div class="col-lg-4">
+    <?php $incomplete = array_filter($planning, fn($p) => $p['done'] < $p['total']); ?>
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check mr-2"></i>Client planning</h3>
+        <div class="card-tools"><span class="badge badge-light"><?= count($planning) - count($incomplete) ?>/<?= count($planning) ?> complete</span></div></div>
+      <?php if (!$planning): ?><div class="card-body small text-muted">No clients in planning yet.</div>
+      <?php elseif (!$incomplete): ?><div class="card-body small text-success"><i class="fas fa-circle-check mr-1"></i>Every client's planning checklist is complete.</div>
+      <?php else: ?>
+      <ul class="list-group list-group-flush small">
+        <?php foreach (array_slice($incomplete, 0, 6) as $p): $pct = (int) round($p['done'] / max(1, $p['total']) * 100); ?>
+          <li class="list-group-item py-2">
+            <div class="d-flex align-items-center"><a class="font-weight-bold mr-auto text-truncate" href="/clients/<?= (int) $p['client']['id'] ?>"><?= e($p['client']['name']) ?></a><span class="text-muted ml-2"><?= (int) $p['done'] ?>/<?= (int) $p['total'] ?></span></div>
+            <div class="progress progress-xxs my-1"><div class="progress-bar bg-primary" style="width: <?= $pct ?>%"></div></div>
+            <?php if ($p['next']): ?><a href="<?= e($p['next']['link']) ?>" class="text-muted">Next: <?= e($p['next']['label']) ?> <i class="fas fa-arrow-right"></i></a><?php endif; ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+      <?php if (count($incomplete) > 6): ?><div class="card-footer py-1 small text-muted"><?= count($incomplete) - 6 ?> more clients to finish. Open a client to see its checklist.</div><?php endif; ?>
+      <?php endif; ?>
+    </div>
     <?php if (!empty($contractDates)) echo \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Contracts & renewals (90 days)', 'showClient' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90']); ?>
     <div class="card card-dark">
       <div class="card-header py-2">

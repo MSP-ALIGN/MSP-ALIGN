@@ -47,6 +47,30 @@ $past = strtotime($m['ends_at']) < time();
         <?php if ($m['attendees']): ?><p class="mb-0"><i class="fas fa-fw fa-users mr-2 text-muted"></i><?= e($m['attendees']) ?></p><?php endif; ?>
       </div>
     </div>
+    <?php if ($prep): $cid = (int) $client['id']; $r = $prep['readiness']; ?>
+      <div class="card card-outline card-primary">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clipboard-list mr-2"></i>Prepare for this meeting</h3></div>
+        <div class="card-body py-2 small">
+          <div class="font-weight-bold mb-1">Bring these reports</div>
+          <div class="d-flex flex-wrap mb-2">
+            <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/assets" target="_blank"><i class="fas fa-desktop mr-1"></i>Assets &amp; lifecycle</a>
+            <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-road mr-1"></i>Roadmap</a>
+            <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-coins mr-1"></i>Budget</a>
+          </div>
+          <div class="font-weight-bold mb-1">Talking points</div>
+          <ul class="pl-3 mb-2">
+            <?php foreach ($prep['proposed'] as $p): ?><li>Approve: <a href="/clients/<?= $cid ?>/roadmap"><?= e($p['title']) ?></a><?= $p['cost'] ? ' (' . money($p['cost']) . ')' : '' ?></li><?php endforeach; ?>
+            <?php foreach (array_slice($prep['dates'], 0, 4) as $d): ?><li><?= e($d['label']) ?> <?= e(fmt_date($d['date'])) ?>: <a href="<?= e($d['link']) ?>"><?= e($d['name']) ?></a></li><?php endforeach; ?>
+            <?php if ($prep['gaps']): ?><li><a href="/clients/<?= $cid ?>/compliance"><?= (int) $prep['gaps'] ?> compliance item<?= $prep['gaps'] === 1 ? '' : 's' ?></a> not met or partial</li><?php endif; ?>
+            <?php if (!$prep['proposed'] && !$prep['dates'] && !$prep['gaps']): ?><li class="text-muted">No proposed projects, upcoming renewals or open compliance gaps.</li><?php endif; ?>
+          </ul>
+          <div class="font-weight-bold mb-1">Planning checklist <span class="font-weight-normal text-muted"><?= (int) $r['done'] ?>/<?= (int) $r['total'] ?></span></div>
+          <?php $todo = array_filter($r['steps'], fn($x) => $x['ok'] === false); ?>
+          <?php if ($todo): ?><ul class="pl-3 mb-0"><?php foreach (array_slice($todo, 0, 4) as $t): ?><li><a href="<?= e($t['link']) ?>"><?= e($t['label']) ?></a> <span class="text-muted">— <?= e($t['detail']) ?></span></li><?php endforeach; ?></ul>
+          <?php else: ?><p class="text-success mb-0"><i class="fas fa-circle-check mr-1"></i>Everything's in place.</p><?php endif; ?>
+        </div>
+      </div>
+    <?php endif; ?>
     <?php if (count($series) > 1): ?>
       <div class="card card-dark">
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-repeat mr-2"></i>Series</h3></div>

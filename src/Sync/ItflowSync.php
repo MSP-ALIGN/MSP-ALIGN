@@ -583,12 +583,17 @@ final class ItflowSync
             }
             $now = date('Y-m-d H:i:s');
             DB::transaction(function () use ($assets, $now, $locations) {
+                $ids = [];
                 foreach ($assets as $a) {
                     if (!empty($a['asset_id'])) {
                         DB::upsert('itflow_assets', self::cacheRow($a, $now, $locations), ['itflow_asset_id']);
+                        $ids[] = (int) $a['asset_id'];
                     }
                 }
-                DB::run('DELETE FROM itflow_assets WHERE synced_at < ?', [$now]);
+                // Anything ITFlow no longer returns is gone (by ID, so two runs in the same second can't miss it)
+                if ($ids) {
+                    DB::run('DELETE FROM itflow_assets WHERE itflow_asset_id NOT IN (' . implode(',', $ids) . ')');
+                }
             });
             $parts = [count($assets) . ' assets read'];
             try {
@@ -768,6 +773,9 @@ final class ItflowSync
             if (!$r['present']) {
                 $d = self::loadDevice($id);
                 if (self::owns($d)) {
+                    if ($d['retired_at'] && $d['source'] === 'itflow') {
+                        continue; // already retired on an earlier run
+                    }
                     if (!$d['retired_at']) {
                         DB::run('UPDATE devices SET retired_at = NOW(), removed_at = COALESCE(removed_at, NOW()) WHERE id = ?', [$id]);
                         self::log($id, 'retired', '0', '1', 'from_itflow', false, "ITFlow asset #{$r['itflow_asset_id']} was deleted in ITFlow");

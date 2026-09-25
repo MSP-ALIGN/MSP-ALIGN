@@ -45,6 +45,7 @@ $r->post('/clients/{id}/licenses', [\Align\Controllers\LicenseController::class,
 $r->get('/licenses', [\Align\Controllers\LicenseController::class, 'index']);
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
 $r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
+$r->get('/help', [\Align\Controllers\HelpController::class, 'show']);
 $r->get('/contacts', [\Align\Controllers\ContactController::class, 'index']);
 $r->post('/contacts/{id}', [\Align\Controllers\ContactController::class, 'update']);
 $r->get('/clients/{id}/contacts', [\Align\Controllers\ContactController::class, 'clientIndex']);
