@@ -137,3 +137,42 @@ document.addEventListener('DOMContentLoaded', () => {
     setAction();
   }
 });
+
+// ---- 0.5.0: branding page live preview ----
+document.addEventListener('DOMContentLoaded', () => {
+  const preview = document.getElementById('brand-preview');
+  if (!preview) return;
+  const color = document.getElementById('brand_primary');
+  const picker = document.querySelector('[data-color-for="brand_primary"]');
+  const textFor = (hex) => {
+    const c = hex.replace('#', '');
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const [r, g, b] = [0, 2, 4].map((i) => lin(parseInt(c.substr(i, 2), 16)));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#1f2d3d' : '#ffffff';
+  };
+  const applyColor = (hex) => {
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+    preview.style.setProperty('--bp-color', hex);
+    preview.style.setProperty('--bp-text', textFor(hex));
+  };
+  applyColor(color.value);
+  color.addEventListener('input', () => { applyColor(color.value); if (/^#[0-9a-fA-F]{6}$/.test(color.value)) picker.value = color.value; });
+  picker.addEventListener('input', () => { color.value = picker.value; applyColor(picker.value); });
+  document.querySelectorAll('[data-swatch]').forEach((b) => b.addEventListener('click', () => {
+    color.value = b.dataset.swatch; picker.value = b.dataset.swatch; applyColor(b.dataset.swatch);
+  }));
+  const nameIn = document.querySelector('[data-preview="name"]');
+  const nameOut = document.getElementById('bp-name');
+  nameIn.addEventListener('input', () => { nameOut.textContent = nameIn.value || preview.dataset.defaultName; });
+  document.querySelector('[data-preview="logo-only"]').addEventListener('change', (e) => nameOut.classList.toggle('d-none', e.target.checked));
+  document.querySelector('[data-preview="sidebar"]').addEventListener('change', (e) => document.getElementById('bp-side').classList.toggle('is-light', e.target.value === 'light'));
+  const file = document.getElementById('logo');
+  file.addEventListener('change', () => {
+    const f = file.files[0];
+    if (!f) return;
+    file.nextElementSibling.textContent = f.name;
+    const url = URL.createObjectURL(f);
+    document.getElementById('bp-logo').src = url;
+    document.getElementById('logo-img').src = url;
+  });
+});

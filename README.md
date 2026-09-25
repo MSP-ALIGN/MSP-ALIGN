@@ -2,7 +2,7 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**What's in it (0.4.0):**
+**What's in it (0.5.0):**
 
 - **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence (yearly by default) and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
 - **Devices & assets:** from three sources. NinjaOne supplies computers, servers and anything it monitors. ITFlow assets NinjaOne doesn't manage are imported too: firewalls/routers, switches, access points, printers, UPS units (recognized by make/model) and NAS by default, with more types available in Settings. You can also add devices by hand. Anything already matched to a NinjaOne or hand-added device is skipped. Virtual machines group with **Servers** (server OS) or **Desktops as VDI** (desktop OS) and are tracked for OS support only. You can change the type of any device.
@@ -12,6 +12,7 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
 - **Planning scope:** remove any client from planning (bulk or one at a time, with a reason). Removed clients stay hidden through syncs. Clients added by hand can be deleted.
 - **Meetings & calendar:** QBRs and other meetings, repeating series, agenda and notes, a flag for clients due for a meeting, a month/week/list calendar, `.ics` invites, and a private feed you can subscribe to in Outlook.
 - **Compliance:** built-in frameworks (MSP Security Baseline, Cyber Insurance Readiness, CIS Controls v8 IG1, HIPAA Security Rule) assigned per client, with a checklist (status, owner, due date, notes, evidence), scores, device-data hints, review dates and CSV export. Frameworks can be edited or copied.
+- **Branding:** under Admin → Branding you can set the portal name, upload a logo (PNG/JPG/WebP, also used as the browser icon and on printed reports), pick a brand color and a light or dark sidebar, and edit the sign-in page message. There's a live preview.
 - **UI:** built on AdminLTE 3 / Bootstrap 4 / Font Awesome, the same kit ITFlow uses. It's bundled locally, with no CDN.
 
 **Planned:** QBR slide/PDF packs combining roadmap, lifecycle and compliance.

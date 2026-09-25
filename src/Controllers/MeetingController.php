@@ -302,6 +302,6 @@ final class MeetingController
         ]);
         header('Content-Type: text/calendar; charset=utf-8');
         header('Cache-Control: private, max-age=900');
-        echo Ics::calendar($rows, 'Mountaineer Align meetings');
+        echo Ics::calendar($rows, \Align\Branding::name() . ' meetings');
     }
 }

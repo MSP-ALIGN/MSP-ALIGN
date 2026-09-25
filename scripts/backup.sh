@@ -9,5 +9,6 @@ umask 077
 mkdir -p "$DEST"
 mariadb-dump --single-transaction --quick --routines mountaineer_align | gzip -9 >"$DEST/db-$STAMP.sql.gz"
 cp /etc/mountaineer-align/config.php "$DEST/config-$STAMP.php"
-find "$DEST" -type f \( -name 'db-*.sql.gz' -o -name 'config-*.php' \) -mtime +"$KEEP_DAYS" -delete
+if [ -d /var/lib/mountaineer-align/uploads ]; then tar -czf "$DEST/uploads-$STAMP.tar.gz" -C /var/lib/mountaineer-align uploads; fi
+find "$DEST" -type f \( -name 'db-*.sql.gz' -o -name 'config-*.php' -o -name 'uploads-*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
 echo "Backup written: $DEST/db-$STAMP.sql.gz"

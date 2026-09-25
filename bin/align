@@ -94,7 +94,7 @@ try {
             break;
 
         default:
-            $say(APP_NAME . ' ' . APP_VERSION);
+            $say(Align\Branding::name() . ' ' . APP_VERSION);
             $say('Usage: align <command> [options]');
             $say('  migrate                         Apply database migrations');
             $say('  sync [--quiet]                  Run a full sync now');

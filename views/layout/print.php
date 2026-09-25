@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title ?? 'Report') ?></title>
-<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/print.css?v=<?= e(APP_VERSION) ?>">
 <script src="/assets/print.js?v=<?= e(APP_VERSION) ?>" defer></script>
+<?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
 <body class="report">
 <div class="report-toolbar no-print">
@@ -27,6 +28,7 @@
 <div class="container-report report-page">
   <header class="report-header">
     <div class="d-flex align-items-start">
+      <?php if (\Align\Branding::hasLogo()): ?><img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="" class="report-logo mr-3"><?php endif; ?>
       <div class="mr-auto">
         <div class="report-kicker"><?= e($brand['company']) ?></div>
         <h1 class="report-title"><?= e($reportTitle ?? $title) ?></h1>

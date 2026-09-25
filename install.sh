@@ -129,6 +129,7 @@ EOF
 install -d -m 750 -o root -g www-data "$CONF_DIR"
 install -d -m 750 -o www-data -g www-data "$DATA_DIR"
 install -d -m 700 -o www-data -g www-data "$DATA_DIR/sessions"
+install -d -m 750 -o www-data -g www-data "$DATA_DIR/uploads"
 install -d -m 700 -o root -g root "$BACKUP_DIR"
 
 if [[ -n "${GH_TOKEN:-}" ]]; then
@@ -189,6 +190,7 @@ return [
     'fqdn' => '$ALIGN_FQDN',
     'trusted_proxies' => $PROXIES,
     'session_path' => '$DATA_DIR/sessions',
+    'upload_path' => '$DATA_DIR/uploads',
     'php_cli' => '/usr/bin/php',
     'debug' => false,
 ];

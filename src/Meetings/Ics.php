@@ -8,7 +8,7 @@ use Align\Config;
 /** Builds iCalendar (RFC 5545) output for meetings. Times are written in UTC. */
 final class Ics
 {
-    public static function calendar(array $meetings, string $name = 'Mountaineer Align'): string
+    public static function calendar(array $meetings, string $name = 'Meetings'): string
     {
         $lines = [
             'BEGIN:VCALENDAR',

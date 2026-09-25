@@ -1,4 +1,4 @@
-<p class="login-box-msg">Sign in to continue</p>
+<p class="login-box-msg"><?= e(\Align\Branding::loginMessage()) ?></p>
 <form method="post" action="/login">
   <?= csrf_field() ?>
   <input type="hidden" name="next" value="<?= e($next) ?>">

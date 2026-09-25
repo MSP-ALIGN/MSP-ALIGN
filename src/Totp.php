@@ -13,8 +13,9 @@ final class Totp
         return self::base32Encode(random_bytes($bytes));
     }
 
-    public static function uri(string $secret, string $account, string $issuer = APP_NAME): string
+    public static function uri(string $secret, string $account, ?string $issuer = null): string
     {
+        $issuer ??= Branding::name();
         return sprintf(
             'otpauth://totp/%s:%s?secret=%s&issuer=%s&digits=6&period=30',
             rawurlencode($issuer),

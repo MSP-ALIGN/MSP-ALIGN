@@ -21,6 +21,7 @@ $integrationNav = [
 ];
 $adminNav = [
     ['settings', '/settings', 'Settings', 'fa-gear', 'admin'],
+    ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
     ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
     ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
     ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
@@ -43,8 +44,8 @@ $item = function (array $i, string $active) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php if (!empty($refresh)): ?><meta http-equiv="refresh" content="5"><?php endif; ?>
-<title><?= e($title ?? '') ?> | <?= e(APP_NAME) ?></title>
-<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<title><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
+<link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">
@@ -53,6 +54,7 @@ $item = function (array $i, string $active) {
 <script src="/vendor/adminlte/adminlte.min.js?v=<?= $v ?>" defer></script>
 <?php if (!empty($calendar)): ?><script src="/vendor/fullcalendar/index.global.min.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
+<?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm">
 <div class="wrapper">
@@ -96,10 +98,10 @@ $item = function (array $i, string $active) {
     </ul>
   </nav>
 
-  <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <a href="/" class="brand-link">
-      <img src="/assets/icon.svg" alt="" class="brand-image" width="33" height="33">
-      <span class="brand-text font-weight-light">Mountaineer <b>Align</b></span>
+  <aside class="main-sidebar sidebar-<?= \Align\Branding::sidebar() ?>-primary elevation-4">
+    <a href="/" class="brand-link<?= \Align\Branding::logoOnly() ? ' brand-logo-only' : '' ?>" title="<?= e(\Align\Branding::name()) ?>">
+      <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="brand-image">
+      <?php if (!\Align\Branding::logoOnly()): ?><span class="brand-text font-weight-bold"><?= e(\Align\Branding::name()) ?></span><?php endif; ?>
     </a>
     <div class="sidebar">
       <nav class="mt-2">
@@ -135,7 +137,7 @@ $item = function (array $i, string $active) {
   </div>
 
   <footer class="main-footer text-sm">
-    <span class="text-muted">Mountaineer Align v<?= $v ?> · Mountaineer IT</span>
+    <span class="text-muted"><?= e(\Align\Branding::name()) ?> v<?= $v ?><?= \Align\Settings::get('company_name') ? ' · ' . e(\Align\Settings::get('company_name')) : '' ?></span>
   </footer>
 </div>
 <?php if (Auth::can('tech') && empty($noMeetingModal)): ?>
