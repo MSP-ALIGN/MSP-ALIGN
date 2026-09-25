@@ -23,6 +23,18 @@ if ($path === '/mock/reset') {
     $json(['ok' => true]);
     return;
 }
+if ($path === '/mock/software-edit' || $path === '/mock/software-delete') {
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $loadState();
+    if ($path === '/mock/software-delete') {
+        $st['deleted_software'][] = (int) $in['software_id'];
+    } else {
+        $st['software_updates'][(string) (int) $in['software_id']] = ($in['fields'] ?? []) + ($st['software_updates'][(string) (int) $in['software_id']] ?? []);
+    }
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
 if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     // Simulates someone editing (or deleting) an asset inside ITFlow.
     $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
@@ -208,6 +220,36 @@ switch (true) {
                     'location_phone' => '(555) 010-1100', 'location_archived_at' => null],
                 ['location_id' => 21, 'location_client_id' => 2, 'location_name' => 'Northfield store', 'location_primary' => 1,
                     'location_address' => '200 Market St', 'location_city' => 'Springfield', 'location_state' => 'CA', 'location_zip' => '00000', 'location_phone' => '(555) 010-2200', 'location_archived_at' => null],
+            ], $offset, $limit);
+        } elseif ($path === '/api/v1/software/read.php') {
+            $sw = [
+                [101, 1, 'Microsoft 365 Business Premium', '', 'SaaS', 'User', 14, 1, '2025-11-01', '2026-11-01', 'Annual commitment, billed monthly'],
+                [102, 1, 'Dentrix G7', 'G7.4', 'Desktop', 'Device', 8, 2, '2021-04-15', '2027-04-15', ''],
+                [103, 1, 'Datto SIRIS cloud retention', '', 'SaaS', 'Site', 1, 3, '2024-02-01', '2026-10-15', '1 year cloud retention'],
+                [104, 1, 'SentinelOne Control', '', 'SaaS', 'Device', 16, 4, null, null, ''],
+                [105, 1, 'Adobe Acrobat Pro', '2024', 'SaaS', 'User', 3, 0, '2024-06-01', '2025-06-01', 'Lapsed?'],
+                [106, 1, 'Old fax software', '', 'Desktop', 'Device', 2, 0, null, null, ''],
+                [201, 2, 'QuickBooks Desktop Enterprise', '24.0', 'Desktop', 'User', 5, 0, '2025-09-01', '2026-09-01', ''],
+                [202, 2, 'Microsoft 365 Business Standard', '', 'SaaS', 'User', 9, 1, null, null, ''],
+                [301, 3, 'Clio Manage', '', 'SaaS', 'User', 6, 0, null, '2027-01-31', ''],
+                [901, 9, 'Unmapped client software', '', 'SaaS', 'User', 1, 0, null, null, ''],
+            ];
+            $st = $loadState();
+            $all = [];
+            foreach ($sw as [$id, $cid, $name, $ver, $type, $lt, $seats, $vendor, $purchase, $expire, $notes]) {
+                $row = ['software_id' => $id, 'software_client_id' => $cid, 'software_name' => $name, 'software_version' => $ver, 'software_type' => $type,
+                    'software_license_type' => $lt, 'software_seats' => $seats, 'software_vendor_id' => $vendor, 'software_purchase' => $purchase,
+                    'software_expire' => $expire, 'software_notes' => $notes, 'software_key' => 'XXXX-SECRET', 'software_archived_at' => $id === 106 ? '2025-01-01 00:00:00' : null];
+                if (in_array($id, $st['deleted_software'] ?? [], true)) {
+                    continue;
+                }
+                $all[] = ($st['software_updates'][(string) $id] ?? []) + $row;
+            }
+            $rows = array_slice($all, $offset, $limit);
+        } elseif ($path === '/api/v1/vendors/read.php') {
+            $rows = array_slice([
+                ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],
+                ['vendor_id' => 3, 'vendor_name' => 'Datto / Kaseya'], ['vendor_id' => 4, 'vendor_name' => 'SentinelOne'],
             ], $offset, $limit);
         } elseif ($path === '/api/v1/contacts/read.php') {
             $rows = array_slice([

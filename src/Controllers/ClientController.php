@@ -264,6 +264,7 @@ final class ClientController
             'summary' => Lifecycle::summarize($devices),
             'forecast' => \Align\Roadmap\Roadmap::withProjects($lc->forecast($devices), $id),
             'unplanned' => Lifecycle::unplanned($devices),
+            'licensing' => \Align\Licensing\Licenses::totals(\Align\Licensing\Licenses::load($id)),
             'byType' => $byType,
             'frameworks' => $frameworks,
             'indicators' => Compliance::indicators($devices),

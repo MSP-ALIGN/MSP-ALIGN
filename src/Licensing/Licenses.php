@@ -1,0 +1,206 @@
+<?php
+declare(strict_types=1);
+
+namespace Align\Licensing;
+
+use Align\DB;
+use Align\Integrations\Itflow;
+
+/** Client licensing: cost math, categories and the ITFlow Software sync (ITFlow's API is read-only for software). */
+final class Licenses
+{
+    public const CATEGORIES = [
+        'productivity' => ['Productivity / M365', 'fa-briefcase', 'primary'],
+        'security' => ['Security', 'fa-shield-halved', 'danger'],
+        'backup' => ['Backup & DR', 'fa-database', 'success'],
+        'lob' => ['Line of business', 'fa-cubes', 'purple'],
+        'infrastructure' => ['Infrastructure', 'fa-network-wired', 'info'],
+        'communication' => ['Phones / communication', 'fa-phone', 'teal'],
+        'rmm' => ['RMM / management', 'fa-screwdriver-wrench', 'secondary'],
+        'other' => ['Other', 'fa-tag', 'secondary'],
+    ];
+    public const CYCLES = [
+        'monthly' => ['Monthly', 1],
+        'quarterly' => ['Quarterly', 3],
+        'annual' => ['Annual', 12],
+        'one_time' => ['One-time', 0],
+    ];
+    public const TYPES = ['user' => 'Per user', 'device' => 'Per device', 'site' => 'Site / tenant', 'other' => 'Other'];
+
+    /** Fields ITFlow manages for synced licenses (read-only in Align). */
+    public const ITFLOW_FIELDS = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date', 'notes'];
+
+    /** Cost per billing period. */
+    public static function cycleCost(array $l): float
+    {
+        if ($l['unit_price'] === null || $l['unit_price'] === '') {
+            return 0.0;
+        }
+        $qty = $l['pricing'] === 'per_seat' ? (int) ($l['seats'] ?? 0) : 1;
+        return round((float) $l['unit_price'] * $qty, 2);
+    }
+
+    /** Recurring cost normalized to a month (0 for one-time purchases). */
+    public static function monthly(array $l): float
+    {
+        $m = self::CYCLES[$l['billing_cycle']][1] ?? 1;
+        return $m ? self::cycleCost($l) / $m : 0.0;
+    }
+
+    public static function annual(array $l): float
+    {
+        return self::monthly($l) * 12;
+    }
+
+    public static function priced(array $l): bool
+    {
+        return $l['unit_price'] !== null && $l['unit_price'] !== '';
+    }
+
+    /** Adds computed cost fields. */
+    public static function enrich(array $l): array
+    {
+        $today = date('Y-m-d');
+        $soon = date('Y-m-d', strtotime('+90 days'));
+        return $l + [
+            'cycle_cost' => self::cycleCost($l),
+            'monthly' => self::monthly($l),
+            'annual' => self::annual($l),
+            'priced' => self::priced($l),
+            'renewal' => !$l['expire_date'] ? null : ($l['expire_date'] < $today ? 'expired' : ($l['expire_date'] <= $soon ? 'soon' : 'ok')),
+            'over' => $l['seats_used'] !== null && $l['seats'] !== null && (int) $l['seats_used'] > (int) $l['seats'],
+        ];
+    }
+
+    /** Active (or all) licenses for a client, or every client in planning when $clientId is null. */
+    public static function load(?int $clientId, bool $includeRetired = false): array
+    {
+        $where = [];
+        $p = [];
+        if ($clientId !== null) {
+            $where[] = 'l.client_id = ?';
+            $p[] = $clientId;
+        } else {
+            $where[] = 'c.is_archived = 0 AND c.planning_excluded = 0';
+        }
+        if (!$includeRetired) {
+            $where[] = 'l.retired_at IS NULL';
+        }
+        $rows = DB::all('SELECT l.*, c.name AS client_name FROM licenses l JOIN clients c ON c.id = l.client_id WHERE '
+            . implode(' AND ', $where) . ' ORDER BY c.name, l.category, l.name', $p);
+        return array_map([self::class, 'enrich'], $rows);
+    }
+
+    /** Totals for a list of enriched licenses. */
+    public static function totals(array $ls): array
+    {
+        $active = array_filter($ls, fn($l) => !$l['retired_at']);
+        $soon = array_filter($active, fn($l) => in_array($l['renewal'], ['soon', 'expired'], true));
+        usort($soon, fn($a, $b) => $a['expire_date'] <=> $b['expire_date']);
+        return [
+            'count' => count($active),
+            'monthly' => array_sum(array_column($active, 'monthly')),
+            'annual' => array_sum(array_column($active, 'annual')),
+            'one_time' => array_sum(array_map(fn($l) => $l['billing_cycle'] === 'one_time' ? $l['cycle_cost'] : 0, $active)),
+            'unpriced' => count(array_filter($active, fn($l) => !$l['priced'])),
+            'seats' => array_sum(array_map(fn($l) => (int) $l['seats'], $active)),
+            'renewals' => array_values($soon),
+        ];
+    }
+
+    /** Best-guess category from the product name (only used when a license is first imported). */
+    public static function guessCategory(string $name, string $type = ''): string
+    {
+        $n = strtolower("$name $type");
+        return match (true) {
+            (bool) preg_match('/microsoft 365|office 365|\bm365\b|\bo365\b|exchange|google workspace|g suite|business (basic|standard|premium)|adobe|acrobat/', $n) => 'productivity',
+            (bool) preg_match('/defender|sentinel|crowdstrike|sentinelone|huntress|sophos|bitdefender|eset|malware|antivirus|\bedr\b|\bmdr\b|duo|mfa|knowbe4|firewall|umbrella|dns ?filter|mimecast|proofpoint|security/', $n) => 'security',
+            (bool) preg_match('/backup|datto|veeam|acronis|axcient|cove|carbonite|\bdr\b|disaster/', $n) => 'backup',
+            (bool) preg_match('/voip|3cx|teams phone|ringcentral|zoom|8x8|dialpad|phone/', $n) => 'communication',
+            (bool) preg_match('/ninja|rmm|n-able|connectwise|kaseya|intune|autotask/', $n) => 'rmm',
+            (bool) preg_match('/windows server|vmware|hyper-v|cal\b|sql server|azure|aws|meraki|unifi|fortinet/', $n) => 'infrastructure',
+            (bool) preg_match('/quickbooks|dentrix|eaglesoft|open ?dental|clio|avimark|cornerstone|sage|epic|practice|emr|ehr|pms/', $n) => 'lob',
+            default => 'other',
+        };
+    }
+
+    /**
+     * Pulls licenses from ITFlow's Software module. ITFlow owns the license details; price,
+     * billing cycle, category and seats in use stay in Align. Licenses archived or deleted in
+     * ITFlow are retired in Align (and come back if restored there).
+     */
+    public static function syncFromItflow(Itflow $it): string
+    {
+        $rows = $it->software();
+        $vendors = [];
+        try {
+            foreach ($it->vendors() as $v) {
+                $vendors[(int) ($v['vendor_id'] ?? 0)] = (string) ($v['vendor_name'] ?? '');
+            }
+        } catch (\Throwable) {
+            // vendor names are optional
+        }
+        $clients = array_column(DB::all('SELECT id, itflow_client_id FROM clients WHERE itflow_client_id IS NOT NULL'), 'id', 'itflow_client_id');
+        $existing = [];
+        foreach (DB::all("SELECT id, itflow_software_id, retired_at, retired_reason FROM licenses WHERE itflow_software_id IS NOT NULL") as $r) {
+            $existing[(int) $r['itflow_software_id']] = $r;
+        }
+        $d = fn($v) => ($v && !str_starts_with((string) $v, '0000')) ? substr((string) $v, 0, 10) : null;
+        $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len) ?: null;
+        $now = date('Y-m-d H:i:s');
+        $seen = [];
+        $added = 0;
+        $retired = 0;
+        foreach ($rows as $r) {
+            $sid = (int) ($r['software_id'] ?? 0);
+            $clientId = $clients[(int) ($r['software_client_id'] ?? 0)] ?? null;
+            if (!$sid || !$clientId) {
+                continue;
+            }
+            $seen[$sid] = true;
+            $lt = strtolower(trim((string) ($r['software_license_type'] ?? '')));
+            $vals = [
+                'client_id' => (int) $clientId,
+                'name' => $t($r['software_name'] ?? '', 255) ?? "ITFlow software $sid",
+                'version' => $t($r['software_version'] ?? '', 100),
+                'software_type' => $t($r['software_type'] ?? '', 60),
+                'license_type' => match (true) { str_contains($lt, 'device') => 'device', str_contains($lt, 'user') => 'user', str_contains($lt, 'site'), str_contains($lt, 'tenant') => 'site', default => 'other' },
+                'seats' => isset($r['software_seats']) && is_numeric($r['software_seats']) ? max(0, (int) $r['software_seats']) : null,
+                'vendor' => $t($vendors[(int) ($r['software_vendor_id'] ?? 0)] ?? '') ,
+                'purchase_date' => $d($r['software_purchase'] ?? null),
+                'expire_date' => $d($r['software_expire'] ?? null),
+                'notes' => $t($r['software_notes'] ?? '', 5000),
+                'synced_at' => $now,
+            ];
+            $archived = !empty($r['software_archived_at']);
+            $ex = $existing[$sid] ?? null;
+            if ($ex) {
+                if ($archived && !$ex['retired_at']) {
+                    $vals += ['retired_at' => $now, 'retired_reason' => 'itflow'];
+                    $retired++;
+                } elseif (!$archived && $ex['retired_reason'] === 'itflow') {
+                    $vals += ['retired_at' => null, 'retired_reason' => null];
+                }
+                $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($vals)));
+                DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($vals), $ex['id']]);
+            } elseif (!$archived) {
+                DB::insert('licenses', $vals + [
+                    'source' => 'itflow', 'itflow_software_id' => $sid,
+                    'category' => self::guessCategory((string) $vals['name'], (string) $vals['software_type']),
+                    'pricing' => $vals['license_type'] === 'site' ? 'flat' : 'per_seat',
+                ]);
+                $added++;
+            }
+        }
+        // Deleted in ITFlow: retire (never delete; costs and notes are kept)
+        foreach ($existing as $sid => $ex) {
+            if (!isset($seen[$sid]) && !$ex['retired_at']) {
+                DB::run("UPDATE licenses SET retired_at = ?, retired_reason = 'itflow' WHERE id = ?", [$now, $ex['id']]);
+                $retired++;
+            }
+        }
+        $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses WHERE retired_at IS NULL AND unit_price IS NULL');
+        return count($seen) . ' licenses' . ($added ? ", $added new" : '') . ($retired ? ", $retired retired in ITFlow" : '')
+            . ($unpriced ? ", $unpriced need a price" : '');
+    }
+}

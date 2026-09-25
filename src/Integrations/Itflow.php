@@ -79,6 +79,17 @@ final class Itflow
         return $this->readAll('assets');
     }
 
+    /** Software / licenses (ITFlow's API only supports reading these). */
+    public function software(): array
+    {
+        return $this->readAll('software');
+    }
+
+    public function vendors(): array
+    {
+        return $this->readAll('vendors');
+    }
+
     /** Client contacts (the primary contact fills the client's contact details). */
     public function contacts(): array
     {

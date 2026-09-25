@@ -213,3 +213,27 @@ document.addEventListener('change', (e) => {
   box.innerHTML = '';
   box.appendChild(img);
 });
+
+// License form: live cost preview (per period, per month, per year)
+document.addEventListener('DOMContentLoaded', () => {
+  const fmt = (n) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const months = { monthly: 1, quarterly: 3, annual: 12, one_time: 0 };
+  const calc = (form) => {
+    const q = (k) => form.querySelector('[data-lic="' + k + '"]');
+    const out = q('out');
+    if (!out) return;
+    const price = parseFloat(q('price').value);
+    if (isNaN(price)) { out.textContent = 'No price yet'; return; }
+    const qty = q('pricing').value === 'per_seat' ? (parseInt(q('seats').value, 10) || 0) : 1;
+    const per = price * qty;
+    const m = months[q('cycle').value];
+    out.innerHTML = '<b>' + fmt(per) + '</b> ' + q('cycle').selectedOptions[0].text.toLowerCase()
+      + (m ? '<br><span class="text-muted">' + fmt(per / m) + '/mo · ' + fmt(per / m * 12) + '/yr</span>' : '');
+  };
+  document.querySelectorAll('[data-lic="out"]').forEach((o) => {
+    const form = o.closest('form');
+    calc(form);
+    form.addEventListener('input', () => calc(form));
+    form.addEventListener('change', () => calc(form));
+  });
+});

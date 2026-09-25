@@ -71,6 +71,23 @@ $cid = (int) $client['id'];
       </div>
     </div>
 
+    <?php $lt = $licensing; ?>
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-key mr-2"></i>Licensing</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/licenses" class="btn btn-tool">Open</a></div></div>
+      <div class="card-body py-2">
+        <?php if ($lt['count']): ?>
+          <div class="d-flex text-center mb-1">
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= money($lt['monthly']) ?></div><div class="small text-muted">per month</div></div>
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= money($lt['annual']) ?></div><div class="small text-muted">per year</div></div>
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= (int) $lt['count'] ?></div><div class="small text-muted">licenses</div></div>
+          </div>
+          <?php if ($lt['unpriced']): ?><div class="small text-warning"><i class="fas fa-tag mr-1"></i><?= (int) $lt['unpriced'] ?> without a price</div><?php endif; ?>
+          <?php foreach (array_slice($lt['renewals'], 0, 3) as $r): ?><div class="small"><i class="fas fa-rotate mr-1 text-<?= $r['renewal'] === 'expired' ? 'danger' : 'warning' ?>"></i><?= e($r['name']) ?> <?= $r['renewal'] === 'expired' ? 'expired' : 'renews' ?> <?= e(fmt_date($r['expire_date'])) ?></div><?php endforeach; ?>
+        <?php else: ?><p class="small text-muted mb-1">No licenses yet. They sync from ITFlow's Software section, or add them on the Licensing page.</p><?php endif; ?>
+      </div>
+    </div>
+
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group mr-2"></i>Devices by type</h3>
         <div class="card-tools"><a href="/clients/<?= $cid ?>/devices" class="btn btn-tool">All</a></div></div>

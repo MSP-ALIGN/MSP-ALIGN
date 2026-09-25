@@ -96,6 +96,13 @@ function money(float|int|string|null $v): string
     return '$' . number_format((float) $v, 0);
 }
 
+/** Money with cents when there are any ($4.50, $22, $1,234.56); for unit prices and license costs. */
+function money_exact(float|int|string|null $v): string
+{
+    $f = round((float) $v, 2);
+    return '$' . number_format($f, fmod($f, 1.0) == 0.0 ? 0 : 2);
+}
+
 function fmt_date(?string $d): string
 {
     if (!$d) {

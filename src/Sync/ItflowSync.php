@@ -596,6 +596,12 @@ final class ItflowSync
             } catch (\Throwable $e) {
                 $say('Client details not refreshed: ' . $e->getMessage());
             }
+            try {
+                $parts[] = \Align\Licensing\Licenses::syncFromItflow($it);
+            } catch (\Throwable $e) {
+                $say('Licenses not refreshed: ' . $e->getMessage());
+                $parts[] = 'licenses not refreshed (' . $e->getMessage() . ')';
+            }
             $parts[] = self::linkDevices();
             $parts[] = self::importAssets();
             $parts[] = self::reconcileAll($it);
