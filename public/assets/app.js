@@ -314,3 +314,23 @@ document.addEventListener('DOMContentLoaded', () => {
     load();
   });
 });
+
+// Copy-to-clipboard buttons (data-copy="#input") and the portal invite contact picker
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-copy]').forEach((btn) => btn.addEventListener('click', () => {
+    const el = document.querySelector(btn.dataset.copy);
+    if (!el) return;
+    el.select();
+    const done = () => { const t = btn.innerHTML; btn.textContent = 'Copied'; setTimeout(() => { btn.innerHTML = t; }, 1500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(el.value).then(done, () => { document.execCommand('copy'); done(); });
+    else { document.execCommand('copy'); done(); }
+  }));
+  const email = document.getElementById('invite-email');
+  const name = document.getElementById('invite-name');
+  if (email && name) {
+    email.addEventListener('input', () => {
+      const opt = [...document.querySelectorAll('#invite-contacts option')].find((o) => o.value === email.value);
+      if (opt && !name.value) name.value = opt.dataset.name;
+    });
+  }
+});

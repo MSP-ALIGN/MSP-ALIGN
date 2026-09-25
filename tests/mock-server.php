@@ -264,8 +264,32 @@ switch (true) {
                 ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],
                 ['vendor_id' => 3, 'vendor_name' => 'Datto / Kaseya'], ['vendor_id' => 4, 'vendor_name' => 'SentinelOne'],
             ], $offset, $limit);
+        } elseif ($path === '/api/v1/contacts/update.php' && $method === 'POST') {
+            file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['contact_update' => $body]) . "\n", FILE_APPEND);
+            $st = $loadState();
+            $kid = (string) (int) ($body['contact_id'] ?? 0);
+            $fields = array_filter($body, fn($k) => str_starts_with((string) $k, 'contact_') && $k !== 'contact_id', ARRAY_FILTER_USE_KEY);
+            $st['contact_updates'][$kid] = $fields + ($st['contact_updates'][$kid] ?? []);
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1]);
+            break;
+        } elseif ($path === '/api/v1/contacts/create.php' && $method === 'POST') {
+            file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['contact_create' => $body]) . "\n", FILE_APPEND);
+            $st = $loadState();
+            $id = 100000 + (int) (microtime(true) * 10) % 900000;
+            $row = ['contact_id' => $id, 'contact_client_id' => (int) ($body['client_id'] ?? 0), 'contact_archived_at' => null];
+            foreach ($body as $k => $v) {
+                if (str_starts_with((string) $k, 'contact_')) {
+                    $row[$k] = $v;
+                }
+            }
+            $st['contacts_created'][] = $row;
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1, 'data' => [['insert_id' => $id]]]);
+            break;
         } elseif ($path === '/api/v1/contacts/read.php') {
-            $rows = array_slice([
+            $st = $loadState();
+            $rows = array_slice(array_merge(array_map(fn($r) => ($st['contact_updates'][(string) $r['contact_id']] ?? []) + $r, [
                 ['contact_id' => 1, 'contact_client_id' => 1, 'contact_name' => 'Front desk', 'contact_email' => 'frontdesk@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_primary' => 0, 'contact_billing' => 1, 'contact_department' => 'Reception', 'contact_location_id' => 12, 'contact_archived_at' => null],
                 ['contact_id' => 6, 'contact_client_id' => 1, 'contact_name' => 'Sam Rivera', 'contact_title' => 'Office manager', 'contact_email' => 'sam@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_extension' => '15', 'contact_technical' => 1, 'contact_important' => 1, 'contact_department' => 'Operations', 'contact_location_id' => 12, 'contact_notes' => 'Point person for IT tickets', 'contact_archived_at' => null],
                 ['contact_id' => 2, 'contact_client_id' => 1, 'contact_name' => 'Dr. Jordan Ellis', 'contact_title' => 'Owner / DDS', 'contact_email' => 'jordan@cedarridgedental.example',
@@ -273,7 +297,7 @@ switch (true) {
                 ['contact_id' => 3, 'contact_client_id' => 2, 'contact_name' => 'Pat Quinn', 'contact_title' => 'Store manager', 'contact_email' => 'pat@northfieldhardware.example', 'contact_phone' => '(555) 010-2200', 'contact_important' => 1, 'contact_archived_at' => null],
                 ['contact_id' => 4, 'contact_client_id' => 3, 'contact_name' => 'Old Partner', 'contact_email' => 'gone@hplg.example', 'contact_primary' => 1, 'contact_archived_at' => '2025-01-01 00:00:00'],
                 ['contact_id' => 5, 'contact_client_id' => 3, 'contact_name' => 'Robin Hale', 'contact_title' => 'Office administrator', 'contact_email' => 'robin@hplg.example', 'contact_phone' => '555-010-3300', 'contact_archived_at' => null],
-            ], $offset, $limit);
+            ]), $st['contacts_created'] ?? []), $offset, $limit);
         } elseif ($path === '/api/v1/assets/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode($body) . "\n", FILE_APPEND);
             $st = $loadState();

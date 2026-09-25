@@ -193,14 +193,22 @@ function days_from_now(?string $date): string
 function client_logo_url(array $c): ?string
 {
     $f = $c['logo_file'] ?? null;
-    return $f && preg_match('/-([a-f0-9]{16})\./', $f, $m) ? '/clients/' . (int) $c['id'] . '/logo?v=' . substr($m[1], 0, 8) : null;
+    if (!$f || !preg_match('/-([a-f0-9]{16})\./', $f, $m)) {
+        return null;
+    }
+    // Portal users can only load their own client's logo, through the portal
+    return (defined('IS_PORTAL') && IS_PORTAL ? '/portal/logo' : '/clients/' . (int) $c['id'] . '/logo') . '?v=' . substr($m[1], 0, 8);
 }
 
 /** URL of a user's profile picture, or null. $u needs id + avatar_file. */
 function avatar_url(array $u): ?string
 {
     $f = $u['avatar_file'] ?? null;
-    return $f && preg_match('/-([a-f0-9]{16})\./', $f, $m) ? '/users/' . (int) $u['id'] . '/avatar?v=' . substr($m[1], 0, 8) : null;
+    if (!$f || !preg_match('/-([a-f0-9]{16})\./', $f, $m)) {
+        return null;
+    }
+    // In the portal, only the client's own vCIO picture is served (/portal/vcio-photo)
+    return (defined('IS_PORTAL') && IS_PORTAL ? '/portal/vcio-photo' : '/users/' . (int) $u['id'] . '/avatar') . '?v=' . substr($m[1], 0, 8);
 }
 
 /** Profile picture, or initials when there isn't one. $class sets size/style (e.g. user-initials). */

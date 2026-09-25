@@ -22,6 +22,11 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
+          <?php if ($it && !empty($it['decided_by_name'])): ?>
+            <div class="alert alert-<?= $it['status'] === 'declined' ? 'secondary' : 'success' ?> small py-2"><i class="fas fa-door-open mr-1"></i>
+              <b><?= $it['status'] === 'declined' ? 'Declined' : 'Approved' ?> by <?= e($it['decided_by_name']) ?></b> (client portal) on <?= e(fmt_date($it['decided_at'])) ?>.
+              <?php if ($it['decision_comment']): ?><div class="mt-1">&ldquo;<?= e($it['decision_comment']) ?>&rdquo;</div><?php endif; ?></div>
+          <?php endif; ?>
           <?php if ($pickClients && !$it): ?>
             <div class="form-group"><label>Client</label>
               <select name="client_id" class="form-control" required>

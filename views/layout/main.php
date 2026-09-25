@@ -41,6 +41,7 @@ $navSections = [
         ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
         ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
         ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
+        ['portal-users', '/portal-users', 'Client portal users', 'fa-door-open', 'tech'],
         ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
     ],
     'HELP' => [
@@ -58,6 +59,7 @@ $clientMenu = $client ? [
     ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', 'Roadmap & projects', 'fa-road'],
     ['budget', '/clients/' . (int) $client['id'] . '/budget', 'Budget', 'fa-coins'],
     ['meetings', '/clients/' . (int) $client['id'] . '/meetings', 'Meetings', 'fa-handshake'],
+    ...(Auth::can('tech') ? [['portal', '/clients/' . (int) $client['id'] . '/portal', 'Client portal', 'fa-door-open']] : []),
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;

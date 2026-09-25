@@ -19,6 +19,9 @@ final class Documents
         'other' => ['Other', 'fa-file-lines', 'dark'],
     ];
 
+    /** Categories shared in the client portal by default when a document is created. */
+    public const PORTAL_DEFAULT = ['wisp', 'policy', 'procedure', 'plan'];
+
     public const STATUSES = [
         'draft' => ['Draft', 'secondary'],
         'active' => ['Active', 'success'],

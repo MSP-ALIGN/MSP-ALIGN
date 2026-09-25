@@ -43,15 +43,20 @@ final class ReportController
             'email' => Settings::get('company_email'),
             'website' => Settings::get('company_website'),
             'footer' => Settings::get('report_footer'),
-            'preparedBy' => Auth::user()['name'] ?? '',
+            'preparedBy' => defined('IS_PORTAL') && IS_PORTAL ? '' : (Auth::user()['name'] ?? ''),
         ];
     }
 
     public static function assets(int $id): void
     {
         Auth::require();
-        $client = ClientController::load($id);
-        $opt = self::options();
+        self::renderAssets(ClientController::load($id), self::options());
+    }
+
+    /** Asset report for one client; also used by the client portal. */
+    public static function renderAssets(array $client, array $opt): void
+    {
+        $id = (int) $client['id'];
         $lc = new Lifecycle();
         $devices = $lc->devices($id);
         if (!$opt['virtual']) {
@@ -83,8 +88,22 @@ final class ReportController
     public static function roadmap(int $id): void
     {
         Auth::require();
-        $client = ClientController::load($id);
-        $opt = array_intersect_key(self::options(), ['costs' => 1, 'notes' => 1]);
+        self::renderRoadmap(ClientController::load($id), array_intersect_key(self::options(), ['costs' => 1, 'notes' => 1]));
+    }
+
+    /** Reports go to the client: leave internal meetings off the roadmap. */
+    private static function clientFacing(array $plan): array
+    {
+        foreach ($plan['quarters'] as &$q) {
+            $q['meetings'] = array_values(array_filter($q['meetings'], fn($m) => $m['type'] !== 'internal'));
+        }
+        return $plan;
+    }
+
+    /** Roadmap report for one client; also used by the client portal. */
+    public static function renderRoadmap(array $client, array $opt): void
+    {
+        $id = (int) $client['id'];
         $devices = (new Lifecycle())->devices($id);
         $frameworks = DB::all('SELECT f.id, f.name FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? ORDER BY f.name', [$id]);
         foreach ($frameworks as &$fw) {
@@ -98,7 +117,7 @@ final class ReportController
             'client' => $client,
             'opt' => $opt,
             'brand' => self::branding(),
-            'plan' => Roadmap::build($id, $devices),
+            'plan' => self::clientFacing(Roadmap::build($id, $devices)),
             'summary' => Lifecycle::summarize($devices),
             'frameworks' => $frameworks,
         ], 'layout/print');

@@ -7,7 +7,7 @@
       <?php foreach ($rows as $r): ?>
         <tr>
           <td class="text-nowrap small"><?= e(date('M j, Y g:i a', strtotime($r['created_at']))) ?></td>
-          <td class="small"><?= e($r['user_name'] ?? '—') ?></td>
+          <td class="small"><?php if ($r['portal_user_id']): ?><?= e($r['portal_name'] ?? 'Deleted portal user') ?> <span class="badge badge-light border" title="Client portal user<?= $r['portal_client'] ? ' at ' . e($r['portal_client']) : '' ?>">client<?= $r['portal_client'] ? ' · ' . e($r['portal_client']) : '' ?></span><?php else: ?><?= e($r['user_name'] ?? '—') ?><?php endif; ?></td>
           <td><code><?= e($r['action']) ?></code></td>
           <td class="small text-break"><?= e($r['detail']) ?></td>
           <td class="small text-muted"><?= e($r['ip']) ?></td>

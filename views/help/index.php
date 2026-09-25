@@ -25,7 +25,8 @@ $step = function (int $n, string $icon, string $title, string $body, array $link
         <?= $step(7, 'fa-clipboard-check', 'Compliance & documents', 'Assign the frameworks the client must meet (including WISP / FTC Safeguards), work the checklist, and link written policies from Documents as evidence.', ['Compliance' => '/compliance', 'Documents' => '/documents']) ?>
         <?= $step(8, 'fa-road', 'Roadmap & projects', 'Add projects with a target quarter, budget and description. Hardware reaching end of life, OS end of support and warranty dates appear on the roadmap automatically.', ['Projects' => '/projects']) ?>
         <?= $step(9, 'fa-coins', 'Budget', 'The budget builds itself from licensing, hardware, projects and managed services. Add a <b>Managed services</b> line with your agreement amount, plus internet, phones, cloud and other costs.', ['Budgets' => '/budget']) ?>
-        <?= $step(10, 'fa-handshake', 'Meet and report', 'Schedule the review; the meeting page lists talking points and links the Assets, Roadmap and Budget reports (Print → Save as PDF).', ['Meetings' => '/meetings', 'Reports' => '/reports']) ?>
+        <?= $step(10, 'fa-door-open', 'Client portal (optional)', 'Invite the owner or office manager from the client\'s <b>Client portal</b> page. Choose what they can see (roadmap, budget, devices, documents) and do (approve projects, update contacts). They sign in at <b>/portal</b> and only ever see their own company. Their approvals show on the roadmap and the dashboard.', ['Client portal users' => '/portal-users']) ?>
+        <?= $step(11, 'fa-handshake', 'Meet and report', 'Schedule the review; the meeting page lists talking points and links the Assets, Roadmap and Budget reports (Print → Save as PDF).', ['Meetings' => '/meetings', 'Reports' => '/reports']) ?>
       </div>
     </div>
   </div>
@@ -34,7 +35,8 @@ $step = function (int $n, string $icon, string $title, string $body, array $link
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-arrows-rotate mr-2"></i>Where data comes from</h3></div>
       <div class="card-body small">
         <table class="table table-sm mb-0">
-          <tr><th>Clients, address, contacts</th><td>ITFlow (read-only in Align)</td></tr>
+          <tr><th>Clients &amp; address</th><td>ITFlow (read-only in Align)</td></tr>
+          <tr><th>Contacts</th><td>ITFlow, <b>two-way</b>: detail edits (in Align or the client portal) go back to ITFlow</td></tr>
           <tr><th>Computers &amp; servers</th><td>NinjaOne</td></tr>
           <tr><th>Network gear, printers, UPS…</th><td>ITFlow assets, <b>two-way</b>: edits in either place sync</td></tr>
           <tr><th>Licenses</th><td>ITFlow Software (read-only); prices and contracts in Align</td></tr>
@@ -54,7 +56,8 @@ $step = function (int $n, string $icon, string $title, string $body, array $link
           <dt>Planning checklist</dt><dd>On each client's overview: what's done and what's next before their plan and budget are complete.</dd>
           <dt>Unassigned</dt><dd>An ITFlow asset whose type needs choosing.</dd>
           <dt>Retired / archived</dt><dd>Hidden but kept. Sync never permanently deletes anything.</dd>
-          <dt>Roles</dt><dd><b>Viewer</b> reads, <b>Tech</b> edits clients and plans, <b>Admin</b> also manages settings and users.</dd>
+          <dt>Roles</dt><dd><b>Viewer</b> reads, <b>Tech</b> edits clients and plans and manages client portal access, <b>Admin</b> also manages settings and users.</dd>
+          <dt>Client portal user</dt><dd>A sign-in for someone at a client. Separate from staff accounts; limited to one client and the sections you tick.</dd>
         </dl>
       </div>
     </div>

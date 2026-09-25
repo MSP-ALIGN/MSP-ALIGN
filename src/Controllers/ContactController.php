@@ -64,13 +64,18 @@ final class ContactController
         return str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : "/clients/$clientId/contacts";
     }
 
-    private static function fields(bool $itflow): array
+    private static function fields(bool $itflow, bool $details = false): array
     {
         $f = [
             'decision_maker' => isset($_POST['decision_maker']) ? 1 : 0,
             'qbr' => isset($_POST['qbr']) ? 1 : 0,
             'align_notes' => mb_substr(post('align_notes'), 0, 5000) ?: null,
         ];
+        if ($itflow && $details) { // two-way: details are pushed to ITFlow, flags and location stay managed there
+            $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
+            $f += ['name' => mb_substr(post('name'), 0, 190), 'title' => $s('title'), 'department' => $s('department'),
+                'email' => filter_var(post('email'), FILTER_VALIDATE_EMAIL) ?: null, 'phone' => $s('phone', 60), 'extension' => $s('extension', 20), 'mobile' => $s('mobile', 60)];
+        }
         if (!$itflow) {
             $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
             $f += [
@@ -94,9 +99,16 @@ final class ContactController
             flash('error', 'Contact name is required.');
             redirect(self::back($id));
         }
-        DB::insert('contacts', $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()]);
+        $row = $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()];
+        $note = '';
+        if (\Align\Contacts\Contacts::canPush($client)) { // two-way: create it in ITFlow so the next sync doesn't duplicate it
+            [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['itflow_client_id']);
+            $row = $itId ? ['source' => 'itflow', 'itflow_contact_id' => $itId] + $row : $row;
+            $note = $itId ? ' Created in ITFlow too.' : " Saved in Align only; ITFlow refused it ($err).";
+        }
+        DB::insert('contacts', $row);
         Audit::log('contact.create', "{$client['name']}: {$f['name']}");
-        flash('success', "Added {$f['name']}.");
+        flash($note && !str_contains($note, 'refused') || !$note ? 'success' : 'warning', "Added {$f['name']}.$note");
         redirect(self::back($id));
     }
 
@@ -128,9 +140,15 @@ final class ContactController
                 flash('success', "Deleted {$k['name']}.");
                 redirect($back);
         }
-        $f = self::fields($itflow);
-        if (!$itflow && $f['name'] === '') {
+        $client = DB::one('SELECT * FROM clients WHERE id = ?', [$k['client_id']]);
+        $push = $itflow && \Align\Contacts\Contacts::canPush($client);
+        $f = self::fields($itflow, $push);
+        if (array_key_exists('name', $f) && $f['name'] === '') {
             $f['name'] = $k['name'];
+        }
+        if ($push && ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['itflow_client_id']))) {
+            flash('error', "Not saved: ITFlow did not accept the change ($err).");
+            redirect($back);
         }
         $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));
         DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($f), $id]);

@@ -84,6 +84,19 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
       <?php if (count($incomplete) > 6): ?><div class="card-footer py-1 small text-muted"><?= count($incomplete) - 6 ?> more clients to finish. Open a client to see its checklist.</div><?php endif; ?>
       <?php endif; ?>
     </div>
+    <?php if (!empty($clientActivity)): $icon = ['portal.project_approved' => 'fa-circle-check text-success', 'portal.project_declined' => 'fa-circle-xmark text-secondary']; ?>
+      <div class="card card-outline card-info">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-door-open mr-2 text-info"></i>Client portal activity</h3></div>
+        <ul class="list-group list-group-flush small">
+          <?php foreach ($clientActivity as $a): $isProj = str_starts_with($a['action'], 'portal.project_'); ?>
+            <li class="list-group-item py-2"><i class="fas fa-fw <?= $icon[$a['action']] ?? 'fa-address-book text-muted' ?> mr-1"></i>
+              <b><?= e($a['portal_name']) ?></b> <?= e(\Align\Controllers\AuditController::portalLabel($a['action'])) ?>:
+              <a href="/clients/<?= (int) $a['client_id'] ?>/<?= $isProj ? 'roadmap' : 'contacts' ?>"><?= e(preg_replace('/^' . preg_quote($a['client_name'], '/') . ':\s*/', '', (string) $a['detail'])) ?></a>
+              <div class="text-muted"><?= e($a['client_name']) ?> · <?= e(rel_time($a['created_at'])) ?></div></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+    <?php endif; ?>
     <?php if (!empty($contractDates)) echo \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Contracts & renewals (90 days)', 'showClient' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90']); ?>
     <div class="card card-dark">
       <div class="card-header py-2">

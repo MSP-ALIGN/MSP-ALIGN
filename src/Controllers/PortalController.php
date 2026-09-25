@@ -1,0 +1,504 @@
+<?php
+declare(strict_types=1);
+
+namespace Align\Controllers;
+
+use Align\Audit;
+use Align\Budget\Budget;
+use Align\Budget\Contracts;
+use Align\Compliance\Compliance;
+use Align\Contacts\Contacts;
+use Align\Crypto;
+use Align\DB;
+use Align\Licensing\Licenses;
+use Align\Lifecycle\Lifecycle;
+use Align\Portal\PortalAuth;
+use Align\Roadmap\Plan;
+use Align\Roadmap\Roadmap;
+use Align\Settings;
+use Align\Totp;
+use Align\View;
+
+/**
+ * The client portal. Every page takes the client from the signed-in portal user's own record
+ * (never from the URL), checks that user's section permission, and leaves out internal notes.
+ */
+final class PortalController
+{
+    private static function render(string $view, array $vars, array $pu): void
+    {
+        View::render('portal/' . $view, $vars + ['pu' => $pu, 'provider' => self::provider($pu)], 'portal/layout');
+    }
+
+    /** "Your IT team" details shown in the portal. */
+    private static function provider(array $pu): array
+    {
+        $vcio = DB::one('SELECT u.name, u.email, u.id, u.avatar_file FROM clients c JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$pu['client_id']]);
+        return [
+            'company' => Settings::get('company_name') ?: \Align\Branding::name(),
+            'phone' => Settings::get('company_phone'),
+            'email' => Settings::get('company_email'),
+            'website' => Settings::get('company_website'),
+            'vcio' => $vcio,
+        ];
+    }
+
+    /** Contract dates with links pointed at portal pages instead of staff pages. */
+    private static function portalDates(int $cid, int $days = 366): array
+    {
+        return array_map(fn($d) => ['link' => str_ends_with($d['link'], '/licenses') ? '/portal/licensing' : '/portal/budget'] + $d, Contracts::upcoming($cid, $days));
+    }
+
+    private static function client(array $pu): array
+    {
+        return DB::one('SELECT * FROM clients WHERE id = ?', [$pu['client_id']]);
+    }
+
+    // ---- Sign-in ------------------------------------------------------------------------------
+
+    public static function loginForm(): void
+    {
+        if (PortalAuth::user()) {
+            redirect('/portal');
+        }
+        View::render('portal/login', ['title' => 'Client sign in'], 'layout/bare');
+    }
+
+    public static function login(): void
+    {
+        switch (PortalAuth::attempt(post('email'), (string) ($_POST['password'] ?? ''))) {
+            case 'ok':
+                redirect('/portal');
+            case '2fa':
+                redirect('/portal/login/2fa');
+            case 'locked':
+                flash('error', 'Too many failed attempts. Wait 15 minutes and try again.');
+                break;
+            default:
+                flash('error', 'Email or password is incorrect.');
+        }
+        redirect('/portal/login');
+    }
+
+    public static function twoFactorForm(): void
+    {
+        if (empty($_SESSION['portal_pending_2fa'])) {
+            redirect('/portal/login');
+        }
+        View::render('portal/twofactor', ['title' => 'Two-factor code'], 'layout/bare');
+    }
+
+    public static function twoFactor(): void
+    {
+        $r = PortalAuth::verifySecondFactor(post('code'));
+        if ($r === 'ok') {
+            redirect('/portal');
+        }
+        flash('error', match ($r) { 'expired' => 'That sign-in took too long. Start again.', 'locked' => 'Too many failed attempts. Wait 15 minutes.', default => 'That code is not valid.' });
+        redirect($r === 'expired' ? '/portal/login' : '/portal/login/2fa');
+    }
+
+    public static function logout(): void
+    {
+        Audit::log('portal.logout');
+        PortalAuth::logout();
+        redirect('/portal/login');
+    }
+
+    /** Invite / reset link: set a password, then sign in. */
+    public static function inviteForm(string $token): void
+    {
+        $u = PortalAuth::findByToken($token);
+        View::render('portal/invite', ['title' => 'Set your password', 'invitee' => $u, 'token' => $token], 'layout/bare');
+    }
+
+    public static function invite(string $token): void
+    {
+        $u = PortalAuth::findByToken($token);
+        if (!$u) {
+            flash('error', 'That link has expired or was already used. Ask your IT provider for a new one.');
+            redirect('/portal/login');
+        }
+        $pw = (string) ($_POST['password'] ?? '');
+        if ($err = \Align\Auth::validatePassword($pw)) {
+            flash('error', $err);
+            redirect('/portal/invite/' . $token);
+        }
+        if ($pw !== (string) ($_POST['confirm'] ?? '')) {
+            flash('error', 'The passwords do not match.');
+            redirect('/portal/invite/' . $token);
+        }
+        DB::run('UPDATE portal_users SET password_hash = ?, invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?',
+            [password_hash($pw, PASSWORD_DEFAULT), $u['id']]);
+        Audit::log('portal.password_set', $u['email'], null, (int) $u['id']);
+        PortalAuth::completeLogin((int) $u['id']);
+        flash('success', 'Welcome! Your password is set.');
+        redirect('/portal');
+    }
+
+    // ---- Pages --------------------------------------------------------------------------------
+
+    public static function home(): void
+    {
+        $pu = PortalAuth::require();
+        $cid = (int) $pu['client_id'];
+        $data = [
+            'client' => self::client($pu),
+            'nextMeeting' => $pu['can_documents'] ? DB::one("SELECT * FROM meetings WHERE client_id = ? AND type <> 'internal' AND status = 'scheduled' AND starts_at >= NOW() ORDER BY starts_at LIMIT 1", [$cid]) : null,
+            'pending' => $pu['can_roadmap'] ? DB::all("SELECT * FROM roadmap_items WHERE client_id = ? AND status = 'proposed' ORDER BY target_quarter IS NULL, target_quarter, title", [$cid]) : [],
+            'budget' => null, 'licensing' => null, 'dates' => [], 'summary' => null, 'frameworks' => [],
+        ];
+        if ($pu['can_budget']) {
+            $b = Budget::build($cid);
+            $data['budget'] = ['year' => $b['years'][Plan::quarters()[Plan::currentIndex()]['year']], 'runRate' => $b['runRate']];
+            $data['dates'] = array_values(array_filter(self::portalDates($cid, 120), fn($d) => $d['urgency'] !== 'later'));
+        }
+        if ($pu['can_devices']) {
+            $data['summary'] = Lifecycle::summarize((new Lifecycle())->devices($cid));
+            $data['frameworks'] = self::frameworks($cid);
+        }
+        self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
+    }
+
+    private static function frameworks(int $cid): array
+    {
+        $fws = DB::all('SELECT f.id, f.name, f.description FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? ORDER BY f.name', [$cid]);
+        foreach ($fws as &$fw) {
+            $fw['score'] = Compliance::score($cid, (int) $fw['id']);
+        }
+        return $fws;
+    }
+
+    public static function roadmap(): void
+    {
+        $pu = PortalAuth::require('can_roadmap');
+        $cid = (int) $pu['client_id'];
+        $items = DB::all("SELECT r.*, r.decided_by_name AS decided_by FROM roadmap_items r
+            WHERE r.client_id = ? ORDER BY FIELD(r.status,'proposed','approved','scheduled','done','declined'), r.target_quarter IS NULL, r.target_quarter, r.title", [$cid]);
+        self::render('roadmap', [
+            'title' => 'Roadmap & projects', 'nav' => 'roadmap',
+            'plan' => Roadmap::build($cid, (new Lifecycle())->devices($cid)),
+            'items' => $items,
+            'showCosts' => (bool) $pu['can_budget'],
+        ], $pu);
+    }
+
+    /** Approve or decline a proposed project. */
+    public static function decide(int $id): void
+    {
+        $pu = PortalAuth::require('can_roadmap');
+        if (!$pu['can_approve']) {
+            http_response_code(403);
+            exit('Not allowed');
+        }
+        $item = DB::one("SELECT * FROM roadmap_items WHERE id = ? AND client_id = ?", [$id, $pu['client_id']]);
+        if (!$item || $item['status'] !== 'proposed') {
+            flash('error', 'That project is no longer waiting for a decision.');
+            redirect('/portal/roadmap');
+        }
+        $decision = post('decision') === 'approve' ? 'approved' : (post('decision') === 'decline' ? 'declined' : null);
+        if (!$decision) {
+            redirect('/portal/roadmap');
+        }
+        DB::run('UPDATE roadmap_items SET status = ?, decided_by_portal_user_id = ?, decided_by_name = ?, decided_at = NOW(), decision_comment = ? WHERE id = ?',
+            [$decision, $pu['id'], $pu['name'], mb_substr(post('comment'), 0, 2000) ?: null, $id]);
+        Audit::log('portal.project_' . ($decision === 'approved' ? 'approved' : 'declined'), "{$pu['client_name']}: {$item['title']}" . (post('comment') ? ' — ' . post('comment') : ''));
+        flash('success', ($decision === 'approved' ? 'Approved' : 'Declined') . " \"{$item['title']}\". Your IT provider has been notified in their dashboard.");
+        redirect('/portal/roadmap');
+    }
+
+    public static function budget(): void
+    {
+        $pu = PortalAuth::require('can_budget');
+        $cid = (int) $pu['client_id'];
+        $y = query('year');
+        $year = ctype_digit($y) && (int) $y < 3 ? (int) $y : Plan::quarters()[Plan::currentIndex()]['year'];
+        self::render('budget', ['title' => 'Technology budget', 'nav' => 'budget', 'b' => Budget::build($cid), 'year' => $year,
+            'dates' => self::portalDates($cid)], $pu);
+    }
+
+    public static function licensing(): void
+    {
+        $pu = PortalAuth::require('can_budget');
+        $ls = Licenses::load((int) $pu['client_id']);
+        self::render('licensing', ['title' => 'Licensing', 'nav' => 'licensing', 'licenses' => $ls, 'totals' => Licenses::totals($ls)], $pu);
+    }
+
+    public static function devices(): void
+    {
+        $pu = PortalAuth::require('can_devices');
+        $all = array_values(array_filter((new Lifecycle())->devices((int) $pu['client_id']), fn($d) => $d['status'] !== 'excluded'));
+        $filter = in_array(query('filter'), ['attention', 'virtual'], true) ? query('filter') : '';
+        $rows = array_values(array_filter($all, fn($d) => match ($filter) {
+            'attention' => in_array($d['status_tone'], ['bad', 'warn'], true),
+            'virtual' => (bool) $d['is_virtual'],
+            default => true,
+        }));
+        self::render('devices', ['title' => 'Devices', 'nav' => 'devices', 'devices' => $rows, 'summary' => Lifecycle::summarize($all),
+            'filter' => $filter, 'showCosts' => (bool) $pu['can_budget']], $pu);
+    }
+
+    public static function compliance(): void
+    {
+        $pu = PortalAuth::require('can_devices');
+        self::render('compliance', ['title' => 'Compliance', 'nav' => 'compliance', 'frameworks' => self::frameworks((int) $pu['client_id'])], $pu);
+    }
+
+    public static function complianceFramework(int $id): void
+    {
+        $pu = PortalAuth::require('can_devices');
+        $cid = (int) $pu['client_id'];
+        $fw = DB::one('SELECT f.* FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? AND f.id = ?', [$cid, $id]);
+        if (!$fw) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That framework is not assigned to your organization.'], $pu);
+            return;
+        }
+        // Status, owner, due date and linked document only; internal notes and evidence text stay private.
+        $controls = DB::all("SELECT c.id, c.ref, c.title, c.section, c.guidance, COALESCE(s.status, 'not_assessed') AS status, s.owner, s.due_date,
+                s.document_id, d.title AS doc_title, d.status AS doc_status, d.portal_shared AS doc_shared
+            FROM compliance_controls c LEFT JOIN client_control_status s ON s.control_id = c.id AND s.client_id = ?
+            LEFT JOIN documents d ON d.id = s.document_id AND d.client_id = ?
+            WHERE c.framework_id = ? ORDER BY c.sort, c.id", [$cid, $cid, $id]);
+        $sections = [];
+        foreach ($controls as $c) {
+            $sections[$c['section'] ?: 'General'][] = $c;
+        }
+        self::render('compliance_framework', ['title' => $fw['name'], 'nav' => 'compliance', 'fw' => $fw, 'sections' => $sections,
+            'score' => Compliance::score($cid, $id)], $pu);
+    }
+
+    public static function documents(): void
+    {
+        $pu = PortalAuth::require('can_documents');
+        $docs = DB::all("SELECT id, title, category, updated_at, review_due FROM documents WHERE client_id = ? AND status = 'active' AND portal_shared = 1 ORDER BY category, title", [$pu['client_id']]);
+        self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs], $pu);
+    }
+
+    public static function document(int $id): void
+    {
+        $pu = PortalAuth::require('can_documents');
+        $doc = DB::one("SELECT * FROM documents WHERE id = ? AND client_id = ? AND status = 'active' AND portal_shared = 1", [$id, $pu['client_id']]);
+        if (!$doc) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That document is not available.'], $pu);
+            return;
+        }
+        Audit::log('portal.document_view', $doc['title']);
+        if (query('print') === '1') {
+            View::render('documents/print', ['title' => $doc['title'], 'doc' => $doc, 'client' => self::client($pu), 'docPrint' => true,
+                'reportTitle' => $doc['title'], 'brand' => ReportController::branding()], 'layout/print');
+            return;
+        }
+        self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc], $pu);
+    }
+
+    public static function contacts(): void
+    {
+        $pu = PortalAuth::require('can_documents');
+        self::render('contacts', ['title' => 'Contacts', 'nav' => 'contacts', 'contacts' => Contacts::load((int) $pu['client_id']),
+            'itflowEditable' => Contacts::canPush(self::client($pu))], $pu);
+    }
+
+    private static function contactFields(): array
+    {
+        $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
+        return [
+            'name' => mb_substr(post('name'), 0, 190), 'title' => $s('title'), 'department' => $s('department'),
+            'email' => filter_var(post('email'), FILTER_VALIDATE_EMAIL) ?: null, 'phone' => $s('phone', 60), 'extension' => $s('extension', 20),
+            'mobile' => $s('mobile', 60),
+            'decision_maker' => isset($_POST['decision_maker']) ? 1 : 0, 'qbr' => isset($_POST['qbr']) ? 1 : 0,
+        ];
+    }
+
+    private static function requireContactEdit(): array
+    {
+        $pu = PortalAuth::require('can_documents');
+        if (!$pu['can_contacts']) {
+            http_response_code(403);
+            self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can view contacts but not change them.'], $pu);
+            exit;
+        }
+        return $pu;
+    }
+
+    /** New contact: created in ITFlow too when two-way sync is on, so it is not duplicated by the next sync. */
+    public static function contactCreate(): void
+    {
+        $pu = self::requireContactEdit();
+        $client = self::client($pu);
+        $f = self::contactFields();
+        if ($f['name'] === '') {
+            flash('error', 'Name is required.');
+            redirect('/portal/contacts');
+        }
+        $row = $f + ['client_id' => (int) $pu['client_id'], 'source' => 'manual', 'created_by_portal_user_id' => (int) $pu['id']];
+        if (Contacts::canPush($client)) {
+            [$itId, $err] = Contacts::pushCreate($f, (int) $client['itflow_client_id']);
+            if ($itId) {
+                $row = ['source' => 'itflow', 'itflow_contact_id' => $itId] + $row;
+            } else {
+                error_log('Portal contact create in ITFlow failed: ' . $err);
+            }
+        }
+        DB::insert('contacts', $row);
+        Audit::log('portal.contact_added', "{$pu['client_name']}: {$f['name']}");
+        flash('success', "Added {$f['name']}.");
+        redirect('/portal/contacts');
+    }
+
+    public static function contactUpdate(int $id): void
+    {
+        $pu = self::requireContactEdit();
+        $client = self::client($pu);
+        // Scoped to the portal user's own client, so IDs from other clients simply are not found
+        $k = DB::one('SELECT * FROM contacts WHERE id = ? AND client_id = ? AND archived_at IS NULL', [$id, $pu['client_id']]);
+        if (!$k) {
+            flash('error', 'That contact was not found.');
+            redirect('/portal/contacts');
+        }
+        $itflow = $k['source'] === 'itflow';
+        if (post('action') === 'remove') {
+            // Removing hides the contact in Align; ITFlow contacts are archived by the IT provider in ITFlow
+            DB::run("UPDATE contacts SET archived_at = NOW(), archived_reason = 'align' WHERE id = ?", [$id]);
+            Audit::log('portal.contact_removed', "{$pu['client_name']}: {$k['name']}");
+            flash('success', "Removed {$k['name']}." . ($itflow ? ' Your IT provider has been notified.' : ''));
+            redirect('/portal/contacts');
+        }
+        $f = self::contactFields();
+        if ($f['name'] === '') {
+            $f['name'] = $k['name'];
+        }
+        if ($itflow) {
+            if (!Contacts::canPush($client)) {
+                $f = array_intersect_key($f, ['decision_maker' => 1, 'qbr' => 1]); // details are managed in ITFlow
+            } elseif ($err = Contacts::pushUpdate($k, $f, (int) $client['itflow_client_id'])) {
+                error_log("Portal contact update in ITFlow failed for contact {$k['id']}: $err");
+                flash('error', 'We could not save those details right now. Please try again, or contact your IT provider.');
+                redirect('/portal/contacts');
+            }
+        }
+        $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));
+        DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($f), $id]);
+        Audit::log('portal.contact_updated', "{$pu['client_name']}: {$k['name']}");
+        flash('success', "Saved {$f['name']}.");
+        redirect('/portal/contacts');
+    }
+
+    public static function meetings(): void
+    {
+        $pu = PortalAuth::require('can_documents');
+        $cid = (int) $pu['client_id'];
+        self::render('meetings', [
+            'title' => 'Meetings', 'nav' => 'meetings',
+            // Internal meetings and meeting notes are never shown to the client
+            'upcoming' => DB::all("SELECT m.*, u.name AS owner_name FROM meetings m LEFT JOIN users u ON u.id = m.owner_id
+                WHERE m.client_id = ? AND m.type <> 'internal' AND m.status = 'scheduled' AND m.ends_at >= NOW() ORDER BY m.starts_at", [$cid]),
+            'past' => DB::all("SELECT m.*, u.name AS owner_name FROM meetings m LEFT JOIN users u ON u.id = m.owner_id
+                WHERE m.client_id = ? AND m.type <> 'internal' AND m.status <> 'cancelled' AND (m.status = 'completed' OR m.ends_at < NOW()) ORDER BY m.starts_at DESC LIMIT 12", [$cid]),
+        ], $pu);
+    }
+
+    /** Printable reports the user has access to. */
+    public static function report(string $kind): void
+    {
+        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget'][$kind] ?? null;
+        if (!$perm) {
+            http_response_code(404);
+            exit;
+        }
+        $pu = PortalAuth::require($perm);
+        $client = ClientController::loadRow((int) $pu['client_id']);
+        match ($kind) {
+            // Internal device notes are never included; costs only with budget access
+            'assets' => ReportController::renderAssets($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '1') === '1', 'virtual' => query('virtual') === '1', 'notes' => false, '_hide' => $pu['can_budget'] ? ['notes'] : ['costs', 'notes']]),
+            'roadmap' => ReportController::renderRoadmap($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'notes' => query('notes', '1') === '1', '_hide' => $pu['can_budget'] ? [] : ['costs']]),
+            'budget' => BudgetController::renderReport($client, ctype_digit(query('year')) && (int) query('year') < 3 ? (int) query('year') : Plan::quarters()[Plan::currentIndex()]['year'],
+                ['details' => query('details', '1') === '1', 'notes' => true, '_hide' => ['notes']]),
+        };
+    }
+
+    public static function logo(): void
+    {
+        $pu = PortalAuth::require();
+        \Align\Images::serve('clients', $pu['logo_file'] ?: null);
+    }
+
+    /** Photo of this client's own vCIO (no other staff pictures are reachable from the portal). */
+    public static function vcioPhoto(): void
+    {
+        $pu = PortalAuth::require();
+        $f = DB::value('SELECT u.avatar_file FROM clients c JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$pu['client_id']]);
+        \Align\Images::serve('avatars', $f ?: null);
+    }
+
+    // ---- Account ------------------------------------------------------------------------------
+
+    public static function account(): void
+    {
+        $pu = PortalAuth::require();
+        $pending = $_SESSION['portal_totp_setup'] ?? null;
+        self::render('account', ['title' => 'Your account', 'nav' => 'account', 'setupSecret' => $pending,
+            'setupUri' => $pending ? Totp::uri($pending, $pu['email']) : null], $pu);
+    }
+
+    public static function password(): void
+    {
+        $pu = PortalAuth::require();
+        if (!password_verify((string) ($_POST['current'] ?? ''), (string) $pu['password_hash'])) {
+            flash('error', 'Current password is incorrect.');
+            redirect('/portal/account');
+        }
+        $new = (string) ($_POST['new'] ?? '');
+        if ($err = \Align\Auth::validatePassword($new)) {
+            flash('error', $err);
+            redirect('/portal/account');
+        }
+        if ($new !== (string) ($_POST['confirm'] ?? '')) {
+            flash('error', 'The new passwords do not match.');
+            redirect('/portal/account');
+        }
+        DB::run('UPDATE portal_users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $pu['id']]);
+        Audit::log('portal.password_changed');
+        flash('success', 'Password changed.');
+        redirect('/portal/account');
+    }
+
+    public static function twoFactorSetup(): void
+    {
+        $pu = PortalAuth::require();
+        switch (post('action')) {
+            case 'begin':
+                $_SESSION['portal_totp_setup'] = Totp::generateSecret();
+                break;
+            case 'confirm':
+                $secret = $_SESSION['portal_totp_setup'] ?? null;
+                if (!$secret || !Totp::verify($secret, post('code'))) {
+                    flash('error', 'That code did not match. Check the time on your phone and try again.');
+                    break;
+                }
+                DB::run('UPDATE portal_users SET totp_secret_enc = ?, totp_enabled = 1 WHERE id = ?', [Crypto::encrypt($secret), $pu['id']]);
+                unset($_SESSION['portal_totp_setup']);
+                Audit::log('portal.2fa_enabled');
+                flash('success', 'Two-factor sign-in is on.');
+                break;
+            case 'cancel':
+                unset($_SESSION['portal_totp_setup']);
+                break;
+            case 'disable':
+                if ($pu['portal_require_2fa']) {
+                    flash('error', 'Your organization requires two-factor sign-in.');
+                    break;
+                }
+                if (!password_verify((string) ($_POST['password'] ?? ''), (string) $pu['password_hash'])) {
+                    flash('error', 'Password is incorrect.');
+                    break;
+                }
+                DB::run('UPDATE portal_users SET totp_secret_enc = NULL, totp_enabled = 0 WHERE id = ?', [$pu['id']]);
+                Audit::log('portal.2fa_disabled');
+                flash('success', 'Two-factor sign-in is off.');
+                break;
+        }
+        redirect('/portal/account');
+    }
+}

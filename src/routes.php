@@ -12,6 +12,8 @@ use Align\Controllers\DeviceController;
 use Align\Controllers\DocumentController;
 use Align\Controllers\MappingController;
 use Align\Controllers\MeetingController;
+use Align\Controllers\PortalAdminController;
+use Align\Controllers\PortalController;
 use Align\Controllers\ReportController;
 use Align\Controllers\RoadmapController;
 use Align\Controllers\SettingsController;
@@ -106,6 +108,7 @@ $r->post('/documents/{id}/save', [DocumentController::class, 'save']);
 $r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
 $r->get('/documents/{id}/content', [DocumentController::class, 'content']);
 $r->get('/documents/{id}/print', [DocumentController::class, 'print']);
+$r->post('/documents/{id}/portal', [DocumentController::class, 'portalShare']);
 $r->post('/documents/{id}/delete', [DocumentController::class, 'delete']);
 $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
 $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
@@ -148,5 +151,41 @@ $r->post('/account/password', [AccountController::class, 'password']);
 $r->post('/account/avatar', [AccountController::class, 'avatar']);
 $r->get('/users/{id}/avatar', [UserController::class, 'avatar']);
 $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
+
+// Client portal access (staff side)
+$r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);
+$r->post('/clients/{id}/portal', [PortalAdminController::class, 'create']);
+$r->post('/clients/{id}/portal/settings', [PortalAdminController::class, 'settings']);
+$r->post('/portal-users/{id}', [PortalAdminController::class, 'update']);
+$r->get('/portal-users', [PortalAdminController::class, 'index']);
+
+// Client portal (separate session; every page is scoped to the signed-in client user's own client)
+$r->get('/portal/login', [PortalController::class, 'loginForm']);
+$r->post('/portal/login', [PortalController::class, 'login']);
+$r->get('/portal/login/2fa', [PortalController::class, 'twoFactorForm']);
+$r->post('/portal/login/2fa', [PortalController::class, 'twoFactor']);
+$r->post('/portal/logout', [PortalController::class, 'logout']);
+$r->get('/portal/invite/{token:str}', [PortalController::class, 'inviteForm']);
+$r->post('/portal/invite/{token:str}', [PortalController::class, 'invite']);
+$r->get('/portal', [PortalController::class, 'home']);
+$r->get('/portal/roadmap', [PortalController::class, 'roadmap']);
+$r->post('/portal/projects/{id}/decide', [PortalController::class, 'decide']);
+$r->get('/portal/budget', [PortalController::class, 'budget']);
+$r->get('/portal/licensing', [PortalController::class, 'licensing']);
+$r->get('/portal/devices', [PortalController::class, 'devices']);
+$r->get('/portal/compliance', [PortalController::class, 'compliance']);
+$r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);
+$r->get('/portal/documents', [PortalController::class, 'documents']);
+$r->get('/portal/documents/{id}', [PortalController::class, 'document']);
+$r->get('/portal/contacts', [PortalController::class, 'contacts']);
+$r->post('/portal/contacts', [PortalController::class, 'contactCreate']);
+$r->post('/portal/contacts/{id}', [PortalController::class, 'contactUpdate']);
+$r->get('/portal/meetings', [PortalController::class, 'meetings']);
+$r->get('/portal/report/{kind:str}', [PortalController::class, 'report']);
+$r->get('/portal/logo', [PortalController::class, 'logo']);
+$r->get('/portal/vcio-photo', [PortalController::class, 'vcioPhoto']);
+$r->get('/portal/account', [PortalController::class, 'account']);
+$r->post('/portal/account/password', [PortalController::class, 'password']);
+$r->post('/portal/account/2fa', [PortalController::class, 'twoFactorSetup']);
 
 return $r;

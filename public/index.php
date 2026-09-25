@@ -11,8 +11,12 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; form-action 'self'; frame-ancestors 'none'");
 
+$reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+define('IS_PORTAL', $reqPath === '/portal' || str_starts_with($reqPath, '/portal/'));
+
 try {
-    Auth::startSession();
+    // Client portal and staff app use separate session cookies, so neither can act as the other.
+    IS_PORTAL ? Align\Portal\PortalAuth::startSession() : Auth::startSession();
     $router = require APP_ROOT . '/src/routes.php';
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $router->dispatch($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);

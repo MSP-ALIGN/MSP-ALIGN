@@ -19,7 +19,7 @@
   <div class="card card-outline card-primary">
     <div class="card-body login-card-body">
       <?php foreach (take_flashes() as $f): ?>
-        <div class="alert alert-<?= $f['type'] === 'error' ? 'danger' : 'success' ?> py-2"><?= e($f['message']) ?></div>
+        <div class="alert alert-<?= $f['type'] === 'error' ? 'danger' : e($f['type']) ?> py-2"><?= e($f['message']) ?></div>
       <?php endforeach; ?>
       <?= $content ?>
     </div>

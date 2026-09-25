@@ -73,7 +73,14 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
           <div class="mb-1"><span class="text-muted">Version</span> <b id="doc-version-label"><?= (int) $doc['version'] ?></b></div>
           <div class="mb-1"><span class="text-muted">Last saved</span> <span id="doc-updated"><?= e(rel_time($doc['updated_at'])) ?><?= $doc['updated_by_name'] ? ' by ' . e($doc['updated_by_name']) : '' ?></span></div>
           <div class="mb-1"><span class="text-muted">Created</span> <?= e(fmt_date($doc['created_at'])) ?><?= $doc['created_by_name'] ? ' by ' . e($doc['created_by_name']) : '' ?></div>
-          <?php if ($doc['client_id']): ?><div><span class="text-muted">Client</span> <a href="/clients/<?= (int) $doc['client_id'] ?>"><?= e($doc['client_name']) ?></a></div><?php endif; ?>
+          <?php if ($doc['client_id']): ?><div><span class="text-muted">Client</span> <a href="/clients/<?= (int) $doc['client_id'] ?>"><?= e($doc['client_name']) ?></a></div>
+            <div class="mt-2 pt-2 border-top d-flex align-items-center">
+              <span class="mr-auto"><i class="fas fa-door-open mr-1 text-muted"></i>Client portal:
+                <b class="<?= $doc['portal_shared'] ? 'text-success' : 'text-muted' ?>"><?= $doc['portal_shared'] ? ($doc['status'] === 'active' ? 'Shared' : 'Shared once Active') : 'Not shared' ?></b></span>
+              <?php if ($canEdit): ?><form method="post" action="/documents/<?= $id ?>/portal"><?= csrf_field() ?><input type="hidden" name="shared" value="<?= $doc['portal_shared'] ? '0' : '1' ?>">
+                <button class="btn btn-xs btn-default"><?= $doc['portal_shared'] ? 'Hide' : 'Share' ?></button></form><?php endif; ?>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
 

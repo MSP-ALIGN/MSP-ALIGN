@@ -27,7 +27,7 @@ final class Contacts
         if (!$includeArchived) {
             $where[] = 'k.archived_at IS NULL';
         }
-        return DB::all('SELECT k.*, c.name AS client_name FROM contacts k JOIN clients c ON c.id = k.client_id WHERE ' . implode(' AND ', $where)
+        return DB::all('SELECT k.*, c.name AS client_name, c.itflow_client_id AS client_itflow_id FROM contacts k JOIN clients c ON c.id = k.client_id WHERE ' . implode(' AND ', $where)
             . ' ORDER BY c.name, k.is_primary DESC, k.decision_maker DESC, k.is_important DESC, k.name');
     }
 
@@ -35,6 +35,59 @@ final class Contacts
     public static function key(int $clientId): array
     {
         return array_values(array_filter(self::load($clientId), fn($k) => $k['is_primary'] || $k['decision_maker'] || $k['qbr'] || $k['is_important']));
+    }
+
+    /** Contact details that are kept in sync with ITFlow. */
+    public const PUSH_FIELDS = ['name' => 'contact_name', 'title' => 'contact_title', 'department' => 'contact_department',
+        'email' => 'contact_email', 'phone' => 'contact_phone', 'extension' => 'contact_extension', 'mobile' => 'contact_mobile'];
+
+    /** True when contact details can be edited in Align and pushed to ITFlow (two-way sync on and the client is linked). */
+    public static function canPush(array $client): bool
+    {
+        return !empty($client['itflow_client_id']) && \Align\Sync\ItflowSync::twoWay() && \Align\Settings::get('itflow_url') && \Align\Settings::secret('itflow_api_key');
+    }
+
+    private static function itflowPayload(array $f): array
+    {
+        $out = [];
+        foreach (self::PUSH_FIELDS as $ours => $theirs) {
+            if (array_key_exists($ours, $f)) {
+                $out[$theirs] = (string) ($f[$ours] ?? '');
+            }
+        }
+        return $out;
+    }
+
+    /** Pushes the details of an ITFlow contact. Returns null on success, or an error message. */
+    public static function pushUpdate(array $k, array $f, int $itflowClientId): ?string
+    {
+        // Send the full set of details (not just the difference) so ITFlow ends up matching what the user saw and saved
+        $changed = self::itflowPayload($f);
+        if (!$changed) {
+            return null;
+        }
+        try {
+            return \Align\Integrations\Itflow::fromSettings()->updateContact($itflowClientId, (int) $k['itflow_contact_id'], $changed)
+                ? null : 'ITFlow did not accept the change';
+        } catch (\Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+
+    /** Creates the contact in ITFlow. Returns [itflow_contact_id|null, error|null]. */
+    public static function pushCreate(array $f, int $itflowClientId): array
+    {
+        try {
+            $flags = [];
+            foreach (['is_important' => 'contact_important', 'is_billing' => 'contact_billing', 'is_technical' => 'contact_technical'] as $ours => $theirs) {
+                if (!empty($f[$ours])) {
+                    $flags[$theirs] = 1;
+                }
+            }
+            return [\Align\Integrations\Itflow::fromSettings()->createContact($itflowClientId, self::itflowPayload($f) + $flags), null];
+        } catch (\Throwable $e) {
+            return [null, $e->getMessage()];
+        }
     }
 
     public static function phone(array $k): string

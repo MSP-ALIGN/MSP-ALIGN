@@ -70,10 +70,16 @@ final class ClientController
         return DB::all("SELECT id, name FROM users WHERE is_active = 1 AND role IN ('admin','tech') ORDER BY name");
     }
 
+    /** Client row with vCIO and NinjaOne org names, or null. */
+    public static function loadRow(int $id): ?array
+    {
+        return DB::one('SELECT c.*, o.name AS org_name, u.name AS vcio_name, u.avatar_file AS vcio_avatar_file FROM clients c
+            LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$id]);
+    }
+
     public static function load(int $id): array
     {
-        $client = DB::one('SELECT c.*, o.name AS org_name, u.name AS vcio_name, u.avatar_file AS vcio_avatar_file FROM clients c
-            LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$id]);
+        $client = self::loadRow($id);
         if (!$client) {
             http_response_code(404);
             View::render('error', ['title' => 'Client not found', 'message' => 'That client does not exist.']);

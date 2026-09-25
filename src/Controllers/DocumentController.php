@@ -106,6 +106,7 @@ final class DocumentController
                 'category' => $category,
                 'body_html' => $body,
                 'template_id' => $tpl['id'] ?? null,
+                'portal_shared' => $clientId && in_array($category, Documents::PORTAL_DEFAULT, true) ? 1 : 0,
                 'review_due' => date('Y-m-d', strtotime('+1 year')),
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
@@ -137,6 +138,21 @@ final class DocumentController
                 WHERE s.document_id = ? ORDER BY f.name, c.sort', [$id]),
             'editor' => true,
         ]);
+    }
+
+    /** Share or hide a client document in the client portal. */
+    public static function portalShare(int $id): void
+    {
+        Auth::requireRole('tech');
+        $doc = self::find($id);
+        if (!$doc['client_id']) {
+            redirect("/documents/$id");
+        }
+        $on = post('shared') === '1' ? 1 : 0;
+        DB::run('UPDATE documents SET portal_shared = ? WHERE id = ?', [$on, $id]);
+        Audit::log('document.portal_' . ($on ? 'shared' : 'hidden'), $doc['title']);
+        flash('success', $on ? 'Shared in the client portal. Client users with document access can read it once it is Active.' : 'Hidden from the client portal.');
+        redirect("/documents/$id");
     }
 
     /** JSON autosave with optimistic concurrency (base_version must match unless force=1). */

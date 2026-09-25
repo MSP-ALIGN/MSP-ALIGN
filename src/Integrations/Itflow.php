@@ -220,6 +220,34 @@ final class Itflow
         return ($r['json']['success'] ?? 'False') === 'True';
     }
 
+    /** Updates a contact; ITFlow keeps existing values for fields not sent. */
+    public function updateContact(int $clientId, int $contactId, array $fields): bool
+    {
+        $r = $this->http->request('POST', "{$this->baseUrl}/api/v1/contacts/update.php", [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ], json_encode($fields + ['api_key' => $this->apiKey, 'client_id' => $clientId, 'contact_id' => $contactId]));
+        return ($r['json']['success'] ?? 'False') === 'True';
+    }
+
+    /** Creates a contact and returns its ITFlow ID. */
+    public function createContact(int $clientId, array $fields): int
+    {
+        $r = $this->http->request('POST', "{$this->baseUrl}/api/v1/contacts/create.php", [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ], json_encode($fields + ['api_key' => $this->apiKey, 'client_id' => $clientId]));
+        $j = $r['json'] ?? [];
+        if (($j['success'] ?? 'False') !== 'True') {
+            throw new \RuntimeException('ITFlow refused the new contact: ' . ($j['message'] ?? 'unknown error'));
+        }
+        $id = (int) ($j['data'][0]['insert_id'] ?? $j['data'][0]['contact_id'] ?? $j['insert_id'] ?? 0);
+        if (!$id) {
+            throw new \RuntimeException('ITFlow created the contact but did not return its ID.');
+        }
+        return $id;
+    }
+
     public function test(): string
     {
         $rows = $this->read('clients', ['limit' => 1]);

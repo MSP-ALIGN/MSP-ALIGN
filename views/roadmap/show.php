@@ -75,6 +75,7 @@ foreach ($plan['backlog'] as $it) {
                 <div class="d-flex"><i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> mr-1 mt-1"></i><span class="font-weight-bold mr-auto"><?= e($it['title']) ?></span><?= (float) $it['cost'] ? '<span class="ml-1 text-nowrap">' . money($it['cost']) . '</span>' : '' ?></div>
                 <div class="small ml-4">
                   <span class="badge badge-<?= Roadmap::STATUSES[$it['status']][1] ?> border"><?= e(Roadmap::STATUSES[$it['status']][0]) ?></span>
+                  <?php if (!empty($it['decided_by_name'])): ?><span class="badge badge-light border" title="<?= e(($it['status'] === 'declined' ? 'Declined' : 'Approved') . ' by ' . $it['decided_by_name'] . ' in the client portal, ' . fmt_date($it['decided_at']) . ($it['decision_comment'] ? ': ' . $it['decision_comment'] : '')) ?>"><i class="fas fa-door-open"></i> client</span><?php endif; ?>
                   <span class="badge badge-<?= Roadmap::PRIORITIES[$it['priority']][1] ?>"><?= e(Roadmap::PRIORITIES[$it['priority']][0]) ?></span>
                   <?= $it['overdue'] ? '<span class="badge badge-outline-danger">carried over</span>' : '' ?>
                   <?= (float) $it['recurring_monthly'] ? '<span class="text-muted">+' . money($it['recurring_monthly']) . '/mo</span>' : '' ?>

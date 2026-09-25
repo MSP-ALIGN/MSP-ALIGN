@@ -2,8 +2,10 @@
 /** @var ?array $k contact (null = new); $cid; $back */
 $k = $k ?? null;
 $itflow = $k && $k['source'] === 'itflow';
+$push = $itflow && \Align\Contacts\Contacts::canPush(['itflow_client_id' => $k['client_itflow_id'] ?? null]);
 $id = $k ? 'modal-contact-' . (int) $k['id'] : 'modal-contact';
-$ro = $itflow ? 'readonly' : '';
+$ro = $itflow && !$push ? 'readonly' : '';
+$roFixed = $itflow ? 'readonly' : '';
 $tag = $itflow ? ' <span class="badge badge-light border font-weight-normal" title="Managed in ITFlow">ITFlow</span>' : '';
 $box = function (string $name, string $label, bool $locked) use ($k, $id) {
     return '<div class="custom-control custom-checkbox mr-3"><input type="checkbox" class="custom-control-input" id="' . $id . '-' . $name . '" name="' . $name . '" value="1"'
@@ -21,9 +23,10 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <?php if ($itflow): ?><div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This contact comes from ITFlow. Its details and ITFlow flags update automatically, so edit those in ITFlow. Decision maker, meeting invitee and notes are kept in Align.</div><?php endif; ?>
+          <?php if ($push): ?><div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This contact comes from ITFlow. Changes to name, title, department, email and phones are saved to ITFlow too. Location and ITFlow flags are managed in ITFlow.</div>
+          <?php elseif ($itflow): ?><div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This contact comes from ITFlow. Its details and ITFlow flags update automatically, so edit those in ITFlow. Decision maker, meeting invitee and notes are kept in Align.</div><?php endif; ?>
           <div class="form-row">
-            <div class="form-group col-md-4"><label>Name<?= $tag ?></label><input name="name" class="form-control" value="<?= e($k['name'] ?? '') ?>" <?= $itflow ? 'readonly' : 'required' ?>></div>
+            <div class="form-group col-md-4"><label>Name<?= $tag ?></label><input name="name" class="form-control" value="<?= e($k['name'] ?? '') ?>" <?= $ro ?: 'required' ?>></div>
             <div class="form-group col-md-4"><label>Title<?= $tag ?></label><input name="title" class="form-control" value="<?= e($k['title'] ?? '') ?>" <?= $ro ?>></div>
             <div class="form-group col-md-4"><label>Department<?= $tag ?></label><input name="department" class="form-control" value="<?= e($k['department'] ?? '') ?>" <?= $ro ?>></div>
           </div>
@@ -34,7 +37,7 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
             <div class="form-group col-md-3"><label>Mobile<?= $tag ?></label><input name="mobile" class="form-control" value="<?= e($k['mobile'] ?? '') ?>" <?= $ro ?>></div>
           </div>
           <div class="form-row">
-            <div class="form-group col-md-4"><label>Location<?= $tag ?></label><input name="location" class="form-control" value="<?= e($k['location'] ?? '') ?>" <?= $ro ?>></div>
+            <div class="form-group col-md-4"><label>Location<?= $tag ?></label><input name="location" class="form-control" value="<?= e($k['location'] ?? '') ?>" <?= $roFixed ?>></div>
             <div class="form-group col-md-8"><label>ITFlow flags<?= $tag ?></label>
               <div class="d-flex flex-wrap pt-2"><?= $box('is_primary', 'Primary', $itflow) ?><?= $box('is_important', 'Important', $itflow) ?><?= $box('is_billing', 'Billing', $itflow) ?><?= $box('is_technical', 'Technical', $itflow) ?></div></div>
           </div>

@@ -81,6 +81,11 @@ final class DashboardController
             'configured' => DB::value("SELECT COUNT(*) FROM settings WHERE name IN ('ninja_client_secret','itflow_api_key')") == 2,
             'upcoming' => DB::all("SELECT m.*, c.name AS client_name FROM meetings m LEFT JOIN clients c ON c.id = m.client_id
                 WHERE m.status = 'scheduled' AND m.starts_at >= NOW() AND m.starts_at < ? ORDER BY m.starts_at LIMIT 8", [date('Y-m-d', strtotime('+30 days'))]),
+            // Things clients did in the portal that staff should act on (last 30 days)
+            'clientActivity' => DB::all("SELECT a.action, a.detail, a.created_at, p.name AS portal_name, p.client_id, c.name AS client_name FROM audit_log a
+                JOIN portal_users p ON p.id = a.portal_user_id JOIN clients c ON c.id = p.client_id
+                WHERE a.action IN ('portal.project_approved','portal.project_declined','portal.contact_added','portal.contact_updated','portal.contact_removed')
+                AND a.created_at >= ? ORDER BY a.id DESC LIMIT 8", [date('Y-m-d', strtotime('-30 days'))]),
             'overdueMeetings' => array_slice($overdue, 0, 8),
             'overdueCount' => count($overdue),
             'clientCount' => count($names),

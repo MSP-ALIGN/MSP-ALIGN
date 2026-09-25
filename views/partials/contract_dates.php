@@ -4,11 +4,11 @@ $showClient = $showClient ?? false;
 $limit = $limit ?? 12;
 $icons = ['renegotiate' => 'fa-handshake-angle', 'contract_end' => 'fa-file-signature', 'expires' => 'fa-rotate'];
 ?>
-<div class="card card-dark">
+<div class="card <?= e($cardClass ?? 'card-dark') ?>">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-check mr-2"></i><?= e($title ?? 'Upcoming contract dates') ?></h3>
     <?php if (!empty($moreLink)): ?><div class="card-tools"><a href="<?= e($moreLink) ?>" class="btn btn-tool">All</a></div><?php endif; ?></div>
   <?php if (!$dates): ?>
-    <div class="card-body small text-muted">No contract end, renegotiation or renewal dates in the next 12 months. Add terms and dates on licenses and budget lines to track them here.</div>
+    <div class="card-body small text-muted"><?= e($emptyText ?? 'No contract end, renegotiation or renewal dates in the next 12 months. Add terms and dates on licenses and budget lines to track them here.') ?></div>
   <?php else: ?>
   <ul class="list-group list-group-flush small">
     <?php foreach (array_slice($dates, 0, $limit) as $d): $tone = ['past' => 'danger', 'soon' => 'warning', 'later' => 'secondary'][$d['urgency']]; ?>

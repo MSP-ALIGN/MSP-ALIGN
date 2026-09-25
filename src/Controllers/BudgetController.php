@@ -132,9 +132,13 @@ final class BudgetController
     public static function report(int $id): void
     {
         Auth::require();
-        $client = ClientController::load($id);
-        $year = self::year();
-        $opt = ['details' => query('details', '1') === '1', 'notes' => query('notes', '1') === '1'];
+        self::renderReport(ClientController::load($id), self::year(), ['details' => query('details', '1') === '1', 'notes' => query('notes', '1') === '1']);
+    }
+
+    /** Budget report for one client; also used by the client portal. */
+    public static function renderReport(array $client, int $year, array $opt): void
+    {
+        $id = (int) $client['id'];
         Audit::log('report.budget', $client['name']);
         $b = Budget::build($id);
         $yr = $b['years'][$year];
