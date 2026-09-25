@@ -85,7 +85,7 @@ final class BudgetController
     private static function back(int $clientId): string
     {
         $b = post('back');
-        return str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : "/clients/$clientId/budget";
+        return \Align\Security::safePath($b, "/clients/$clientId/budget");
     }
 
     public static function create(int $id): void

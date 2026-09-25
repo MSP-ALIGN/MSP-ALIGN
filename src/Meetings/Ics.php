@@ -8,7 +8,7 @@ use Align\Config;
 /** Builds iCalendar (RFC 5545) output for meetings. Times are written in UTC. */
 final class Ics
 {
-    public static function calendar(array $meetings, string $name = 'Meetings'): string
+    public static function calendar(array $meetings, string $name = 'Meetings', bool $minimal = false): string
     {
         $lines = [
             'BEGIN:VCALENDAR',
@@ -21,7 +21,7 @@ final class Ics
             'X-PUBLISHED-TTL:PT1H',
         ];
         foreach ($meetings as $m) {
-            array_push($lines, ...self::event($m));
+            array_push($lines, ...self::event($minimal ? ['agenda' => null, 'attendees' => null, 'video_url' => null, 'location' => null] + $m : $m));
         }
         $lines[] = 'END:VCALENDAR';
         return implode("\r\n", array_map([self::class, 'fold'], $lines)) . "\r\n";

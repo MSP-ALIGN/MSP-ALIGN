@@ -9,7 +9,17 @@ use Align\View;
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; form-action 'self'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=()');
+header('Cross-Origin-Opener-Policy: same-origin');
+header('Cross-Origin-Resource-Policy: same-origin');
+header('X-Permitted-Cross-Domain-Policies: none');
+// Pages can contain client data: never store them in browser or proxy caches (images override this)
+header('Cache-Control: no-store, private');
+header('Pragma: no-cache');
+if (is_https()) {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
 
 $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 define('IS_PORTAL', $reqPath === '/portal' || str_starts_with($reqPath, '/portal/'));

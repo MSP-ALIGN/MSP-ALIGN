@@ -115,6 +115,7 @@ final class PortalAdminController
                 redirect("/clients/{$u['client_id']}/portal");
             case 'disable':
                 DB::run('UPDATE portal_users SET is_active = 0, invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?', [$id]);
+                PortalAuth::revokeSessions($id);
                 Audit::log('portal_user.disable', $label);
                 flash('success', "Disabled {$u['name']}. They are signed out and can't sign in.");
                 redirect($back);
@@ -124,9 +125,10 @@ final class PortalAdminController
                 flash('success', "Enabled {$u['name']}." . ($u['password_hash'] ? '' : ' Send them a new invite link.'));
                 redirect($back);
             case 'reset2fa':
-                DB::run('UPDATE portal_users SET totp_enabled = 0, totp_secret_enc = NULL WHERE id = ?', [$id]);
+                DB::run('UPDATE portal_users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$id]);
+                PortalAuth::revokeSessions($id);
                 Audit::log('portal_user.reset_2fa', $label);
-                flash('success', "Two-factor sign-in reset for {$u['name']}. They'll set it up again on next sign-in if it's required.");
+                flash('success', "Two-factor sign-in reset for {$u['name']} and their sessions ended. They'll set it up again at their next sign-in.");
                 redirect($back);
             case 'delete':
                 DB::run('DELETE FROM portal_users WHERE id = ?', [$id]);
@@ -140,17 +142,5 @@ final class PortalAdminController
         Audit::log('portal_user.update', $label);
         flash('success', "Saved access for $name.");
         redirect($back);
-    }
-
-    /** Client-wide portal settings. */
-    public static function settings(int $id): void
-    {
-        Auth::requireRole('tech');
-        $client = ClientController::load($id);
-        $on = isset($_POST['portal_require_2fa']) ? 1 : 0;
-        DB::run('UPDATE clients SET portal_require_2fa = ? WHERE id = ?', [$on, $id]);
-        Audit::log('portal.require_2fa_' . ($on ? 'on' : 'off'), $client['name']);
-        flash('success', $on ? 'Two-factor sign-in is now required. Users without it will be asked to set it up before they can continue.' : 'Two-factor sign-in is now optional for this client.');
-        redirect("/clients/$id/portal");
     }
 }

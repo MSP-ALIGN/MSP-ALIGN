@@ -29,7 +29,8 @@
         <form method="post" action="/account/password">
           <?= csrf_field() ?>
           <div class="form-group"><label>Current password</label><input type="password" name="current" class="form-control" autocomplete="current-password" required></div>
-          <div class="form-group"><label>New password <small class="text-muted">(12+ characters)</small></label><input type="password" name="new" class="form-control" autocomplete="new-password" minlength="12" required></div>
+          <?php if ($u['must_change_password']): ?><div class="alert alert-warning small py-2">Your password was set by an administrator. Choose your own to continue.</div><?php endif; ?>
+          <div class="form-group"><label>New password <small class="text-muted">(12+ characters, not a common password)</small></label><input type="password" name="new" class="form-control" autocomplete="new-password" minlength="12" required></div>
           <div class="form-group"><label>Confirm new password</label><input type="password" name="confirm" class="form-control" autocomplete="new-password" minlength="12" required></div>
           <button class="btn btn-primary">Change password</button>
         </form>
@@ -41,13 +42,11 @@
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved mr-2"></i>Two-factor sign-in</h3></div>
       <div class="card-body">
         <?php if ($u['totp_enabled']): ?>
-          <p><span class="badge badge-success">On</span> You'll be asked for a code at each sign-in.</p>
-          <form method="post" action="/account/2fa">
-            <?= csrf_field() ?><input type="hidden" name="action" value="disable">
-            <div class="form-group"><label>Confirm your password to turn it off</label><input type="password" name="password" class="form-control" required></div>
-            <button class="btn btn-outline-danger">Turn off two-factor</button>
-          </form>
-        <?php elseif ($setupSecret): ?>
+          <p><span class="badge badge-success">On</span> You'll be asked for a code at each sign-in. It's required for all staff accounts.</p>
+          <form method="post" action="/account/2fa" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-sm btn-default">Replace authenticator (new phone)</button></form>
+          <form method="post" action="/account/2fa" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="signout_all"><button class="btn btn-sm btn-default" data-confirm="Sign out of every other browser and device?">Sign out everywhere else</button></form>
+        <?php endif; ?>
+        <?php if ($setupSecret): ?>
           <ol class="small pl-3">
             <li>In your authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…) add an account and choose <b>enter a setup key</b>.</li>
             <li>Account: <b><?= e($u['email']) ?></b>, time-based.</li>
@@ -60,8 +59,8 @@
             <button class="btn btn-primary">Turn on</button>
             <button class="btn btn-light" name="action" value="cancel" formnovalidate>Cancel</button>
           </form>
-        <?php else: ?>
-          <p class="text-muted">Off. Recommended for every account, since Align holds API keys for your RMM and PSA.</p>
+        <?php elseif (!$u['totp_enabled']): ?>
+          <p class="text-danger"><b>Required.</b> Every staff account needs two-factor sign-in before it can open client data.</p>
           <form method="post" action="/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-primary">Set up two-factor</button></form>
         <?php endif; ?>
       </div>
@@ -72,8 +71,13 @@
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-rss mr-2"></i>Calendar feed</h3></div>
       <div class="card-body small">
         <?php if ($feedUrl): ?>
-          <p>Subscribe to this in Outlook (<b>Add calendar → Subscribe from web</b>) to see Align meetings alongside your own.</p>
+          <p>Subscribe to this in Outlook (<b>Add calendar → Subscribe from web</b>) to see Align meetings alongside your own. <b>Copy it now:</b> it's shown only once.</p>
           <input class="form-control form-control-sm mb-2 select-all" readonly value="<?= e($feedUrl) ?>">
+          <p class="text-muted">Only titles, times and client names are included, never agendas or attendees.</p>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
+        <?php elseif ($feedOn): ?>
+          <p><span class="badge badge-success">On</span> Your feed link is active. For security it isn't shown again; make a new link if you need it (the old one stops working).</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
         <?php else: ?>

@@ -58,7 +58,8 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <div class="card-tools"><button class="btn btn-xs btn-light" form="test-itflow">Test</button></div></div>
         <div class="card-body">
           <p class="small text-muted">Admin → API Keys → Create. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs write access to Support if you turn on write-back.</p>
-          <div class="form-group"><label>ITFlow URL</label><input type="url" name="itflow_url" class="form-control" value="<?= e($v['itflow_url']) ?>" placeholder="https://itflow.example.com"></div>
+          <div class="form-group"><label>ITFlow URL</label><input type="url" name="itflow_url" class="form-control" value="<?= e($v['itflow_url']) ?>" placeholder="https://itflow.example.com">
+            <?php if (str_starts_with(strtolower((string) $v['itflow_url']), 'http://')): ?><small class="text-danger"><i class="fas fa-triangle-exclamation mr-1"></i>Not encrypted: the API key and client data cross the network in plain text. Switch ITFlow to https://.</small><?php endif; ?></div>
           <?= $secret('itflow_api_key', 'API key') ?>
           <div class="form-group">
             <label>Two-way asset sync</label>
@@ -90,6 +91,16 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
               <option value="fill_empty" <?= $v['itflow_writeback'] === 'fill_empty' ? 'selected' : '' ?>>Fill empty fields only</option>
               <option value="overwrite" <?= $v['itflow_writeback'] === 'overwrite' ? 'selected' : '' ?>>Keep ITFlow in sync (overwrite)</option>
             </select></div>
+        </div>
+      </div>
+      <div class="card card-dark">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-lock mr-2"></i>Security</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="col-md-6"><?= $num('session_idle_minutes', 'Sign out after inactivity (5–60)', '', 'min') ?></div>
+            <div class="col-md-6"><?= $num('session_max_hours', 'Sign out after, however active (1–24)', '', 'hours') ?></div>
+          </div>
+          <p class="small text-muted mb-0">Defaults: <?= \Align\Security::IDLE_DEFAULT_MIN ?> minutes and <?= \Align\Security::MAX_DEFAULT_HOURS ?> hours. Applies to staff and client portal users. Two-factor sign-in is always required for both, sign-ins lock for 15 minutes after 5 failures, and the <a href="/audit">audit log</a> is hash-chained and kept <?= \Align\AuditChain::RETENTION_YEARS ?> years.</p>
         </div>
       </div>
       <div class="card card-dark">

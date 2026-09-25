@@ -17,7 +17,7 @@ final class RoadmapController
     private static function back(int $clientId): string
     {
         $b = post('back');
-        return str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : "/clients/$clientId/roadmap";
+        return \Align\Security::safePath($b, "/clients/$clientId/roadmap");
     }
 
     public static function show(int $id): void

@@ -75,7 +75,7 @@ try {
                 $say("User $email already exists (use user:reset-password).");
                 break;
             }
-            DB::insert('users', ['email' => $email, 'name' => $name, 'role' => $role, 'password_hash' => password_hash($password, PASSWORD_DEFAULT)]);
+            DB::insert('users', ['email' => $email, 'name' => $name, 'role' => $role, 'password_hash' => \Align\Security::hashPassword($password), 'must_change_password' => 1]);
             Audit::log('user.create', "$email ($role) via CLI");
             $say("Created $role $email");
             if (!isset($opts['password-stdin'])) {
@@ -87,12 +87,31 @@ try {
             $email = strtolower((string) ($opts['email'] ?? ''));
             $u = DB::one('SELECT id FROM users WHERE email = ?', [$email]) ?? $fail("No user $email");
             $password = UserController::randomPassword();
-            DB::run('UPDATE users SET password_hash = ?, is_active = 1 WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $u['id']]);
+            DB::run('UPDATE users SET password_hash = ?, is_active = 1, must_change_password = 1, session_version = session_version + 1 WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
             if (isset($opts['clear-2fa'])) {
-                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL WHERE id = ?', [$u['id']]);
+                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$u['id']]);
             }
             Audit::log('user.reset_password', "$email via CLI");
             $say("New password for $email: $password");
+            break;
+
+        case 'audit:verify':
+            $r = Align\AuditChain::verify();
+            // The head hash goes to the system journal too, as an outside checkpoint of the log's state
+            $line = $r['ok'] ? "Audit log intact: {$r['checked']} entries, head #{$r['head_id']} {$r['head_hash']}"
+                : "AUDIT LOG TAMPERING DETECTED at entry #{$r['broken_at']}: {$r['reason']} (checked {$r['checked']})";
+            $say($line);
+            if (!$r['ok']) {
+                exit(2);
+            }
+            break;
+
+        case 'audit:prune':
+            $n = Align\AuditChain::prune();
+            if ($n) {
+                Audit::log('audit.pruned', "$n entries older than " . Align\AuditChain::RETENTION_YEARS . ' years removed');
+            }
+            $say("Pruned $n audit entries older than " . Align\AuditChain::RETENTION_YEARS . ' years.');
             break;
 
         case 'check':
@@ -115,6 +134,8 @@ try {
             $say('  itflow:poll [--quiet]           Two-way ITFlow asset sync (runs every 2 minutes)');
             $say('  user:create --email=E [--name=N] [--role=admin|tech|viewer] [--password-stdin]');
             $say('  user:reset-password --email=E [--clear-2fa]');
+            $say('  audit:verify                    Check the audit log hash chain for tampering');
+            $say('  audit:prune                     Remove audit entries past the 6-year retention period');
             $say('  check                           Verify config and database');
             $say('  version');
     }

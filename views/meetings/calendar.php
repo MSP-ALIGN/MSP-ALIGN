@@ -40,7 +40,11 @@ use Align\Meetings\Meetings;
         <?php if ($feedUrl): ?>
           <p>Add this link in Outlook under <b>Add calendar → Subscribe from web</b> (or Google/Apple "From URL"). It shows every Align meeting and refreshes on its own.</p>
           <input class="form-control form-control-sm mb-2 select-all" readonly value="<?= e($feedUrl) ?>">
-          <p class="text-muted">Treat the link like a password: anyone with it can see meeting titles and times.</p>
+          <p class="text-muted"><b>Copy it now:</b> it's shown only once. Treat it like a password: anyone with it can see meeting titles and times (never agendas or attendees).</p>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
+        <?php elseif (!empty($feedOn)): ?>
+          <p><span class="badge badge-success">On</span> Your feed link is active. It isn't shown again; make a new one if you need it.</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
         <?php else: ?>

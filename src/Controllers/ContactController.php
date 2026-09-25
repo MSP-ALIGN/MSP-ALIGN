@@ -15,6 +15,7 @@ final class ContactController
     {
         Auth::require();
         $client = ClientController::load($id);
+        \Align\Audit::access('contacts', "#$id {$client['name']}");
         $showArchived = query('archived') === '1';
         $all = Contacts::load($id, true);
         View::render('contacts/client', [
@@ -61,7 +62,7 @@ final class ContactController
     private static function back(int $clientId): string
     {
         $b = post('back');
-        return str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : "/clients/$clientId/contacts";
+        return \Align\Security::safePath($b, "/clients/$clientId/contacts");
     }
 
     private static function fields(bool $itflow, bool $details = false): array

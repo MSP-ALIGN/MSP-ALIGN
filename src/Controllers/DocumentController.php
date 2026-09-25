@@ -123,6 +123,7 @@ final class DocumentController
         $u = Auth::require();
         $doc = self::find($id);
         $client = $doc['client_id'] ? ClientController::load((int) $doc['client_id']) : null;
+        Audit::access('document', "#$id {$doc['title']}" . ($client ? " ({$client['name']})" : ''));
         DB::upsert('document_presence', ['document_id' => $id, 'user_id' => $u['id'], 'last_seen' => date('Y-m-d H:i:s'), 'editing' => 0], ['document_id', 'user_id']);
         View::render('documents/show', [
             'title' => $doc['title'],

@@ -61,13 +61,10 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_contacts' => 'Edits c
   <div class="col-lg-5">
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved mr-2"></i>Security</h3></div>
-      <form method="post" action="/clients/<?= $cid ?>/portal/settings" class="card-body">
-        <?= csrf_field() ?>
-        <div class="custom-control custom-switch mb-2"><input type="checkbox" class="custom-control-input" id="req2fa" name="portal_require_2fa" value="1" <?= $client['portal_require_2fa'] ? 'checked' : '' ?> data-autosubmit-check>
-          <label class="custom-control-label" for="req2fa">Require two-factor sign-in for this client's users</label></div>
-        <p class="small text-muted mb-0">When on, users must set up an authenticator app before they can see anything. Sign-ins lock for 15 minutes after 5 failed attempts. Sessions end after 2 hours idle.</p>
-        <noscript><button class="btn btn-sm btn-default mt-2">Save</button></noscript>
-      </form>
+      <div class="card-body">
+        <p class="mb-2"><i class="fas fa-lock text-success mr-1"></i><b>Two-factor sign-in is required</b> for every portal user. They set up an authenticator app right after choosing a password.</p>
+        <p class="small text-muted mb-0">Sign-ins lock for 15 minutes after 5 failed attempts. Sessions end after <?= (int) (\Align\Security::idleSeconds() / 60) ?> minutes of inactivity (Settings &rarr; Security) and after <?= (int) (\Align\Security::maxSeconds() / 3600) ?> hours regardless. Changing a password or resetting two-factor signs the user out everywhere.</p>
+      </div>
     </div>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-eye mr-2"></i>What clients see</h3></div>

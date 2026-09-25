@@ -29,6 +29,7 @@ final class DeviceController
         Auth::require();
         $d = self::find($id);
         $client = $d['client_id'] ? ClientController::load((int) $d['client_id']) : null;
+        \Align\Audit::access('device', "#$id {$d['name']}" . ($client ? " ({$client['name']})" : ''));
         View::render('devices/show', [
             'title' => $d['name'],
             'nav' => 'clients',
@@ -205,7 +206,7 @@ final class DeviceController
         Auth::requireRole('tech');
         $type = post('device_type');
         $ids = array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])));
-        $back = str_starts_with(post('back'), '/') && !str_starts_with(post('back'), '//') ? post('back') : '/devices/unassigned';
+        $back = \Align\Security::safePath(post('back'), '/devices/unassigned');
         if (!isset(Lifecycle::TYPES[$type]) || !$ids) {
             flash('error', 'Pick one or more devices and a type.');
             redirect($back);

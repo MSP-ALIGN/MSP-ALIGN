@@ -9,7 +9,7 @@ namespace Align;
  */
 final class Crypto
 {
-    private static function key(): string
+    public static function key(): string
     {
         $raw = (string) Config::get('app_key', '');
         if (str_starts_with($raw, 'base64:')) {

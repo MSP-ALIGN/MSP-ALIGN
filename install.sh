@@ -14,6 +14,7 @@
 #    GH_TOKEN  ALIGN_FQDN  ALIGN_TLS (selfsigned|letsencrypt|proxy)  ALIGN_LE_EMAIL
 #    ALIGN_PROXY_IP  ALIGN_ADMIN_EMAIL  ALIGN_ADMIN_NAME  ALIGN_TZ
 #    ALIGN_REPO (owner/name)  ALIGN_BRANCH  ALIGN_FORCE=1 (skip OS check)
+#    ALIGN_FIREWALL=0 (don't manage ufw)  ALIGN_DB_ENCRYPT=0 (skip MariaDB encryption at rest)
 # =============================================================================
 set -Eeuo pipefail
 
@@ -113,7 +114,7 @@ log "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd
-      mariadb-server git ca-certificates curl openssl unattended-upgrades)
+      mariadb-server git ca-certificates curl openssl unattended-upgrades age fail2ban ufw)
 [[ "${ALIGN_TLS:-}" == "letsencrypt" ]] && PKGS+=(certbot python3-certbot-apache)
 apt-get install -y -qq "${PKGS[@]}" >/dev/null
 PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
@@ -124,6 +125,8 @@ cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
+# Accurate clocks matter for audit timestamps and two-factor codes
+timedatectl set-ntp true 2>/dev/null || true
 
 # ------------------------------------------------------------- directories --
 install -d -m 750 -o root -g www-data "$CONF_DIR"
@@ -131,6 +134,27 @@ install -d -m 750 -o www-data -g www-data "$DATA_DIR"
 install -d -m 700 -o www-data -g www-data "$DATA_DIR/sessions"
 install -d -m 750 -o www-data -g www-data "$DATA_DIR/uploads"
 install -d -m 700 -o root -g root "$BACKUP_DIR"
+
+# ----------------------------------------------------- backup encryption key --
+# Backups are encrypted to an age public key. The private key is shown once and must be stored
+# offline (password manager / safe); only the public key stays on this server.
+BACKUP_PRIV_SHOWN=""
+if [[ ! -s "$CONF_DIR/backup-recipient.txt" ]]; then
+  log "Creating backup encryption key"
+  KEYTMP=$(mktemp)
+  rm -f "$KEYTMP"
+  age-keygen -o "$KEYTMP" 2>/dev/null
+  age-keygen -y "$KEYTMP" >"$CONF_DIR/backup-recipient.txt"
+  chmod 640 "$CONF_DIR/backup-recipient.txt"
+  install -m 600 "$KEYTMP" /root/mountaineer-align-backup-key.txt
+  rm -f "$KEYTMP"
+  BACKUP_PRIV_SHOWN=1
+  # Encrypt backups made before encryption was turned on
+  for f in "$BACKUP_DIR"/db-*.sql.gz "$BACKUP_DIR"/config-*.php "$BACKUP_DIR"/uploads-*.tar.gz; do
+    [[ -f "$f" ]] || continue
+    age -R "$CONF_DIR/backup-recipient.txt" -o "$f.age" "$f" && { shred -u "$f" 2>/dev/null || rm -f "$f"; }
+  done
+fi
 
 if [[ -n "${GH_TOKEN:-}" ]]; then
   umask 077; printf '%s' "$GH_TOKEN" >"$TOKEN_FILE"; umask 022
@@ -221,10 +245,16 @@ max_execution_time = 120
 upload_max_filesize = 8M
 post_max_size = 8M
 session.cookie_httponly = 1
+session.cookie_samesite = Lax
 session.use_strict_mode = 1
+session.use_only_cookies = 1
+session.use_trans_sid = 0
 session.gc_probability = 1
 session.gc_divisor = 100
-session.gc_maxlifetime = 28800
+session.gc_maxlifetime = 86400
+allow_url_fopen = Off
+allow_url_include = Off
+disable_functions = passthru,shell_exec,system,proc_open,popen,pcntl_exec,dl
 INI
 
 # ------------------------------------------------------------------ Apache --
@@ -232,10 +262,34 @@ log "Configuring Apache ($ALIGN_TLS)"
 a2enmod -q headers ssl rewrite >/dev/null
 a2dissite -q 000-default >/dev/null 2>&1 || true
 
+a2enmod -q reqtimeout >/dev/null 2>&1 || true
 cat >/etc/apache2/conf-available/mountaineer-align-hardening.conf <<'EOF'
+# Managed by the Mountaineer Align installer (rewritten on every update)
 ServerTokens Prod
 ServerSignature Off
 TraceEnable Off
+FileETag None
+LimitRequestBody 10485760
+Timeout 60
+Header always unset X-Powered-By
+
+# TLS 1.2+ with forward-secret AEAD ciphers only (Mozilla "intermediate")
+<IfModule mod_ssl.c>
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    SSLCipherSuite ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305
+    SSLHonorCipherOrder off
+    SSLSessionTickets off
+    SSLCompression off
+    SSLUseStapling on
+    SSLStaplingCache "shmcb:${APACHE_RUN_DIR}/ssl_stapling(32768)"
+</IfModule>
+
+# HSTS on every HTTPS response
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+
+# Keep secret links (calendar feed tokens, invite links) out of the access log
+SetEnvIf Request_URI "^/ics/" align_secret_url
+SetEnvIf Request_URI "^/portal/invite/" align_secret_url
 EOF
 a2enconf -q mountaineer-align-hardening >/dev/null
 
@@ -254,7 +308,7 @@ APP_BLOCK=$(cat <<EOF
         Require all denied
     </FilesMatch>
     ErrorLog \${APACHE_LOG_DIR}/mountaineer-align-error.log
-    CustomLog \${APACHE_LOG_DIR}/mountaineer-align-access.log combined
+    CustomLog \${APACHE_LOG_DIR}/mountaineer-align-access.log combined env=!align_secret_url
 EOF
 )
 VHOST=/etc/apache2/sites-available/$SITE.conf
@@ -305,6 +359,21 @@ $APP_BLOCK
 EOF
     ;;
 esac
+# Older vhosts: stop logging secret URLs (the vhost itself is only written on first install)
+[[ -f "$VHOST" ]] && sed -i -E 's#(CustomLog .*mountaineer-align-access\.log combined)$#\1 env=!align_secret_url#' "$VHOST"
+
+# Proxy mode: only the reverse proxy (and this machine) may talk to Apache, so nobody can bypass
+# the proxy's TLS and WAF by connecting to port 80 directly.
+if [[ "$ALIGN_TLS" == "proxy" && -n "${ALIGN_PROXY_IP:-}" ]]; then
+  PROXY_LIST=$(echo "$ALIGN_PROXY_IP" | tr ',' ' ')
+  cat >/etc/apache2/conf-available/mountaineer-align-proxy-only.conf <<EOF
+# Managed by the Mountaineer Align installer
+<Location "/">
+    Require ip $PROXY_LIST 127.0.0.1 ::1
+</Location>
+EOF
+  a2enconf -q mountaineer-align-proxy-only >/dev/null
+fi
 a2ensite -q "$SITE" >/dev/null
 apache2ctl configtest 2>&1 | grep -v "Syntax OK" || true
 systemctl enable -q apache2
@@ -314,6 +383,91 @@ if [[ "$ALIGN_TLS" == "letsencrypt" && ! -d "/etc/letsencrypt/live/$ALIGN_FQDN" 
   log "Requesting Let's Encrypt certificate"
   certbot --apache -d "$ALIGN_FQDN" -m "$ALIGN_LE_EMAIL" --agree-tos --non-interactive --redirect \
     || warn "certbot failed - the site is on plain HTTP until you run: certbot --apache -d $ALIGN_FQDN"
+fi
+
+# ----------------------------------------------------------------- MariaDB --
+log "Hardening MariaDB"
+MYCNF=/etc/mysql/mariadb.conf.d/60-mountaineer-align.cnf
+KEYDIR=/etc/mysql/encryption
+NEED_RESTART=0
+{
+  echo "# Managed by the Mountaineer Align installer"
+  echo "[mariadbd]"
+  echo "bind-address = 127.0.0.1"
+  echo "local-infile = 0"
+} >"$MYCNF.new"
+# Encryption at rest (HIPAA 164.312(a)(2)(iv)): InnoDB tables, redo log, temp files and Aria tables
+# are encrypted with a key file readable only by the mysql user. Backups are logical dumps
+# (encrypted separately with age), so restoring never needs this key.
+if [[ "${ALIGN_DB_ENCRYPT:-1}" == "1" ]]; then
+  if [[ ! -s "$KEYDIR/keyfile" ]]; then
+    install -d -m 750 -o mysql -g mysql "$KEYDIR"
+    ( umask 077; echo "1;$(openssl rand -hex 32)" >"$KEYDIR/keyfile" )
+    chown mysql:mysql "$KEYDIR/keyfile"; chmod 400 "$KEYDIR/keyfile"
+  fi
+  cat >>"$MYCNF.new" <<EOF
+plugin_load_add = file_key_management
+file_key_management_filename = $KEYDIR/keyfile
+file_key_management_encryption_algorithm = AES_CTR
+innodb_encrypt_tables = ON
+innodb_encrypt_log = ON
+innodb_encrypt_temporary_tables = ON
+innodb_encryption_threads = 2
+encrypt_tmp_files = ON
+encrypt_tmp_disk_tables = ON
+aria_encrypt_tables = ON
+EOF
+fi
+if ! cmp -s "$MYCNF.new" "$MYCNF" 2>/dev/null; then mv "$MYCNF.new" "$MYCNF"; NEED_RESTART=1; else rm -f "$MYCNF.new"; fi
+if [[ $NEED_RESTART == 1 ]]; then
+  systemctl restart mariadb || { warn "MariaDB failed to start with the new settings - reverting them"; rm -f "$MYCNF"; systemctl restart mariadb; }
+fi
+if [[ "${ALIGN_DB_ENCRYPT:-1}" == "1" && -f "$MYCNF" ]]; then
+  # Rebuild existing tables so data written before encryption was turned on is encrypted too
+  for t in $(mariadb -N -e "SELECT NAME FROM information_schema.INNODB_TABLESPACES_ENCRYPTION WHERE NAME LIKE '$DB_NAME/%' AND ENCRYPTION_SCHEME = 0" 2>/dev/null | sed "s#^$DB_NAME/##"); do
+    mariadb "$DB_NAME" -e "ALTER TABLE \`$t\` ENCRYPTED=YES" >/dev/null 2>&1 || true
+  done
+fi
+
+# --------------------------------------------------------- fail2ban & firewall --
+cat >/etc/fail2ban/filter.d/mountaineer-align.conf <<'EOF'
+# Failed Mountaineer Align sign-ins (staff and client portal), logged by the app with the real client IP
+[Definition]
+failregex = \[mountaineer-align\] auth failure kind=\S+ ip=<HOST>
+ignoreregex =
+EOF
+if [[ "$ALIGN_TLS" != "proxy" ]]; then
+  cat >/etc/fail2ban/jail.d/mountaineer-align.conf <<'EOF'
+[mountaineer-align]
+enabled  = true
+port     = http,https
+filter   = mountaineer-align
+logpath  = /var/log/apache2/mountaineer-align-error.log
+backend  = auto
+maxretry = 10
+findtime = 10m
+bantime  = 1h
+EOF
+else
+  # Behind a proxy every request comes from the proxy's IP, so ban at the proxy/WAF instead.
+  rm -f /etc/fail2ban/jail.d/mountaineer-align.conf
+fi
+systemctl enable -q fail2ban 2>/dev/null || true
+systemctl restart fail2ban 2>/dev/null || warn "fail2ban did not start - check: journalctl -u fail2ban"
+
+if [[ "${ALIGN_FIREWALL:-1}" == "1" ]] && command -v ufw >/dev/null; then
+  log "Configuring firewall (ufw)"
+  SSH_PORTS=$(sshd -T 2>/dev/null | awk '/^port /{print $2}' | sort -u)
+  for p in ${SSH_PORTS:-22}; do ufw limit "$p/tcp" >/dev/null; done
+  if [[ "$ALIGN_TLS" == "proxy" ]]; then
+    for ip in $(echo "${ALIGN_PROXY_IP:-}" | tr ',' ' '); do ufw allow from "$ip" to any port 80 proto tcp >/dev/null; done
+  else
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+  fi
+  ufw default deny incoming >/dev/null
+  ufw default allow outgoing >/dev/null
+  ufw --force enable >/dev/null
 fi
 
 # ----------------------------------------------------------------- systemd --
@@ -340,11 +494,21 @@ echo "  URL:       ${SCHEME%% *}://$ALIGN_FQDN/"
 if [[ -n "$ADMIN_PASS" ]]; then
   echo "  Admin:     $ALIGN_ADMIN_EMAIL"
   echo "  Password:  $ADMIN_PASS"
-  printf '%s  Save this password now - it is not shown again. Turn on 2FA under Account after signing in.%s\n' "$c_warn" "$c_0"
+  printf '%s  Save this password now - it is not shown again. The first sign-in asks you to change it\n  and set up two-factor sign-in (required for every account).%s\n' "$c_warn" "$c_0"
 fi
 echo
 echo "  Next:      Settings -> add NinjaOne + ITFlow API keys -> Test -> Sync"
 echo "  Update:    sudo mountaineer-align-update"
 echo "  CLI:       sudo align help"
-echo "  Backups:   $BACKUP_DIR (nightly; includes config.php, which holds the encryption key)"
+echo "  Backups:   $BACKUP_DIR (nightly, encrypted with age; includes config.php)"
+if [[ -n "$BACKUP_PRIV_SHOWN" ]]; then
+  echo
+  printf '%s  BACKUP DECRYPTION KEY - store it offline now (password manager or safe).%s\n' "$c_warn$c_b" "$c_0"
+  echo "  Without it the backups cannot be restored. It is also saved in /root/mountaineer-align-backup-key.txt;"
+  echo "  delete that file once you have a copy:  sudo shred -u /root/mountaineer-align-backup-key.txt"
+  echo
+  grep '^AGE-SECRET-KEY' /root/mountaineer-align-backup-key.txt | sed 's/^/    /'
+elif [[ -f /root/mountaineer-align-backup-key.txt ]]; then
+  warn "The backup private key is still on this server (/root/mountaineer-align-backup-key.txt). Store it offline, then shred it."
+fi
 echo

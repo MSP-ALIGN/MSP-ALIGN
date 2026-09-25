@@ -24,6 +24,7 @@ final class SettingsController
         'cost_printer' => [0, 1000000], 'cost_storage' => [0, 1000000], 'cost_power' => [0, 1000000], 'cost_other' => [0, 1000000],
         'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
+        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24],
     ];
 
     public static function index(): void
@@ -54,8 +55,10 @@ final class SettingsController
             $val = post($k);
             if ($k === 'itflow_url' && $val !== '') {
                 $val = rtrim($val, '/');
-                if (!filter_var($val, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $val)) {
-                    flash('error', 'ITFlow URL must look like https://itflow.example.com');
+                // HTTPS only: the ITFlow API key travels with every request
+                $scheme = \Align\Config::get('allow_insecure_integrations', false) ? 'https?' : 'https';
+                if (!filter_var($val, FILTER_VALIDATE_URL) || !preg_match('#^' . $scheme . '://#i', $val)) {
+                    flash('error', 'ITFlow URL must start with https:// (for example https://itflow.example.com)');
                     redirect('/settings');
                 }
             }

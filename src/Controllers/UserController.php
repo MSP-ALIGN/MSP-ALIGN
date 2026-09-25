@@ -48,7 +48,8 @@ final class UserController
             'email' => $email,
             'name' => $name,
             'role' => $role,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'password_hash' => \Align\Security::hashPassword($password),
+            'must_change_password' => 1,
         ]);
         Audit::log('user.create', "$email ($role)");
         $_SESSION['new_password'] = ['email' => $email, 'password' => $password];
@@ -84,19 +85,22 @@ final class UserController
                     break;
                 }
                 DB::run('UPDATE users SET is_active = 1 - is_active WHERE id = ?', [$id]);
+                Auth::revokeSessions($id);
                 Audit::log($u['is_active'] ? 'user.disable' : 'user.enable', $u['email']);
                 flash('success', $u['is_active'] ? 'User disabled.' : 'User enabled.');
                 break;
             case 'reset':
                 $password = self::randomPassword();
-                DB::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $id]);
+                DB::run('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [\Align\Security::hashPassword($password), $id]);
+                Auth::revokeSessions($id);
                 Audit::log('user.reset_password', $u['email']);
                 $_SESSION['new_password'] = ['email' => $u['email'], 'password' => $password];
                 break;
             case 'reset_2fa':
-                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL WHERE id = ?', [$id]);
+                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$id]);
+                Auth::revokeSessions($id);
                 Audit::log('user.reset_2fa', $u['email']);
-                flash('success', 'Two-factor removed. They can set it up again under Account.');
+                flash('success', 'Two-factor removed and their sessions ended. They must set it up again at their next sign-in.');
                 break;
         }
         redirect('/users');

@@ -90,7 +90,7 @@ final class Html
                     }
                     break;
                 case $name === 'href' && $tag === 'a':
-                    if (preg_match('#^(https?://|mailto:|tel:|/(?!/)|\#)#i', $value) && !preg_match('/[\x00-\x1f]/', $value)) {
+                    if (preg_match('#^(https?://|mailto:|tel:|/(?![/\\\\])|\#)#i', $value) && !preg_match('/[\x00-\x1f]/', $value)) {
                         $keep['href'] = $value;
                     }
                     break;

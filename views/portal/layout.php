@@ -20,6 +20,7 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<?php if ($pu): ?><meta name="align-idle" content="<?= \Align\Security::idleSeconds() ?>" data-ping="/portal/session/ping" data-logout="/portal/logout" data-login="/portal/login" data-csrf="<?= e(csrf_token()) ?>"><?php endif; ?>
 <title><?= e($title ?? '') ?> | <?= e($pu['client_name'] ?? \Align\Branding::name()) ?></title>
 <link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">

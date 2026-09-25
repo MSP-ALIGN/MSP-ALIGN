@@ -15,5 +15,7 @@ return [
     'trusted_proxies' => [],
     'session_path' => null,
     'php_cli' => '/usr/bin/php',
-    'debug' => true,
+    'debug' => true,          // never true in production: shows error details
+    // Development only: allow an http:// ITFlow URL (e.g. a local mock). Production requires https://.
+    'allow_insecure_integrations' => false,
 ];

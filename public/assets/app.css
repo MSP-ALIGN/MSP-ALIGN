@@ -265,3 +265,4 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 @media (min-width: 1200px) { .portal .navbar-nav .nav-link { padding-left: .55rem; padding-right: .55rem; } }
 .portal .navbar .nav-link.active { background: rgba(255,255,255,.15); border-radius: .25rem; }
 @media (max-width: 575.98px) { .portal .navbar-brand .brand-text { max-width: 150px; } .portal .navbar-brand .portal-brand-img { max-height: 26px; } }
+.idle-warning { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 2000; max-width: 92vw; }

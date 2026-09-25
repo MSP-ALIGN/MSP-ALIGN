@@ -334,3 +334,52 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// Automatic logoff (HIPAA 164.312(a)(2)(iii)): signs out after the configured idle time, with a
+// one-minute warning. Activity (keys, clicks, scrolling) keeps the server session alive via a ping.
+document.addEventListener('DOMContentLoaded', () => {
+  const meta = document.querySelector('meta[name="align-idle"]');
+  if (!meta) return;
+  const idle = parseInt(meta.content, 10) * 1000;
+  if (!idle) return;
+  let lastActive = Date.now();
+  let lastPing = Date.now();
+  let banner = null;
+  let done = false;
+  const mark = () => { lastActive = Date.now(); if (banner) { banner.remove(); banner = null; ping(true); } };
+  ['keydown', 'mousedown', 'wheel', 'touchstart', 'scroll'].forEach((ev) => document.addEventListener(ev, mark, { passive: true, capture: true }));
+  let lastMove = 0;
+  document.addEventListener('mousemove', () => { const n = Date.now(); if (n - lastMove > 5000) { lastMove = n; mark(); } }, { passive: true });
+  const ping = (active) => {
+    lastPing = Date.now();
+    fetch(meta.dataset.ping + (active ? '?active=1' : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then((r) => { if (r.status === 401) signOut(false); })
+      .catch(() => {});
+  };
+  const signOut = (post) => {
+    if (done) return;
+    done = true;
+    const go = () => { window.location.href = meta.dataset.login; };
+    if (!post) { go(); return; }
+    const body = new URLSearchParams({ _csrf: meta.dataset.csrf });
+    fetch(meta.dataset.logout, { method: 'POST', credentials: 'same-origin', body }).finally(go);
+  };
+  setInterval(() => {
+    const now = Date.now();
+    const quiet = now - lastActive;
+    if (quiet >= idle) { signOut(true); return; }
+    if (quiet >= idle - 60000 && !banner) {
+      banner = document.createElement('div');
+      banner.className = 'idle-warning alert alert-warning shadow';
+      banner.setAttribute('role', 'alertdialog');
+      const msg = document.createElement('span');
+      msg.textContent = 'You will be signed out in a minute because of inactivity. ';
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn btn-sm btn-dark ml-2'; btn.textContent = 'Stay signed in';
+      btn.addEventListener('click', mark);
+      banner.append(msg, btn);
+      document.body.appendChild(banner);
+    }
+    if (lastActive > lastPing && now - lastPing > 60000) ping(true);
+  }, 5000);
+});

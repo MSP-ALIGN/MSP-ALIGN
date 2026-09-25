@@ -88,7 +88,7 @@ final class LicenseController
     private static function back(string $default): string
     {
         $b = post('back');
-        return str_starts_with($b, '/') && !str_starts_with($b, '//') ? $b : $default;
+        return \Align\Security::safePath($b, $default);
     }
 
     private static function fields(bool $itflow): array

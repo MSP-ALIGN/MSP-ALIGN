@@ -73,6 +73,7 @@ $item = function (array $i, string $active) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php if (!empty($refresh)): ?><meta http-equiv="refresh" content="5"><?php endif; ?>
+<?php if ($u): ?><meta name="align-idle" content="<?= \Align\Security::idleSeconds() ?>" data-ping="/session/ping" data-logout="/logout" data-login="/login" data-csrf="<?= e(csrf_token()) ?>"><?php endif; ?>
 <title><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
 <link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">

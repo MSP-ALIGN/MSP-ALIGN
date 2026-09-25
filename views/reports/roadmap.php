@@ -73,6 +73,7 @@ foreach ($plan['backlog'] as $it) {
 </table>
 <?php endif; ?>
 
+<?php if ($summary): ?>
 <h2>Current position</h2>
 <div class="kpis">
   <div class="kpi"><b><?= (int) $summary['total'] ?></b><span>Devices tracked</span></div>
@@ -80,6 +81,7 @@ foreach ($plan['backlog'] as $it) {
   <div class="kpi <?= $summary['os_eos'] ? 'bad' : '' ?>"><b><?= (int) $summary['os_eos'] ?></b><span>Unsupported OS</span></div>
   <div class="kpi <?= $summary['warranty_expired'] ? 'warn' : '' ?>"><b><?= (int) $summary['warranty_expired'] ?></b><span>Out of warranty</span></div>
 </div>
+<?php endif; ?>
 <?php if ($frameworks): ?>
   <table class="rtable rtable-fixed fw">
     <colgroup><col class="c-fw"><col><col><col><col><col></colgroup>

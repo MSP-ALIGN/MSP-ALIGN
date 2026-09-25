@@ -22,7 +22,8 @@ final class AccountController
             'u' => $u,
             'setupSecret' => $pending,
             'setupUri' => $pending ? Totp::uri($pending, $u['email']) : null,
-            'feedUrl' => MeetingController::feedUrl($u),
+            'feedUrl' => MeetingController::freshFeedUrl(),
+            'feedOn' => !empty($u['ics_token']),
         ]);
     }
 
@@ -56,7 +57,7 @@ final class AccountController
             redirect('/account');
         }
         $new = (string) ($_POST['new'] ?? '');
-        if ($err = Auth::validatePassword($new)) {
+        if ($err = Auth::validatePassword($new, [$u['email'], $u['name']])) {
             flash('error', $err);
             redirect('/account');
         }
@@ -64,9 +65,14 @@ final class AccountController
             flash('error', 'New passwords do not match.');
             redirect('/account');
         }
-        DB::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $u['id']]);
+        if (password_verify($new, $u['password_hash'])) {
+            flash('error', 'Choose a password different from your current one.');
+            redirect('/account');
+        }
+        DB::run('UPDATE users SET password_hash = ?, must_change_password = 0, password_changed_at = NOW() WHERE id = ?', [\Align\Security::hashPassword($new), $u['id']]);
+        Auth::revokeSessions((int) $u['id'], true);
         Audit::log('account.password');
-        flash('success', 'Password changed.');
+        flash('success', 'Password changed. Any other signed-in sessions were signed out.');
         redirect('/account');
     }
 
@@ -79,26 +85,28 @@ final class AccountController
                 break;
             case 'confirm':
                 $secret = $_SESSION['totp_setup'] ?? null;
-                if (!$secret || !Totp::verify($secret, post('code'))) {
+                $step = $secret ? Totp::verifyStep($secret, post('code')) : null;
+                if ($step === null) {
                     flash('error', 'That code did not match. Check the time on your phone and try again.');
                     break;
                 }
-                DB::run('UPDATE users SET totp_secret_enc = ?, totp_enabled = 1 WHERE id = ?', [Crypto::encrypt($secret), $u['id']]);
+                $replacing = (bool) $u['totp_enabled'];
+                DB::run('UPDATE users SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ? WHERE id = ?', [Crypto::encrypt($secret), $step, $u['id']]);
                 unset($_SESSION['totp_setup']);
-                Audit::log('account.2fa_enabled');
-                flash('success', 'Two-factor sign-in is on.');
+                Auth::revokeSessions((int) $u['id'], true);
+                Audit::log($replacing ? 'account.2fa_replaced' : 'account.2fa_enabled');
+                flash('success', $replacing ? 'Your new authenticator is set up. The old one no longer works.' : 'Two-factor sign-in is on.');
                 break;
             case 'cancel':
                 unset($_SESSION['totp_setup']);
                 break;
             case 'disable':
-                if (!password_verify((string) ($_POST['password'] ?? ''), $u['password_hash'])) {
-                    flash('error', 'Password is incorrect.');
-                    break;
-                }
-                DB::run('UPDATE users SET totp_secret_enc = NULL, totp_enabled = 0 WHERE id = ?', [$u['id']]);
-                Audit::log('account.2fa_disabled');
-                flash('success', 'Two-factor sign-in is off.');
+                flash('error', 'Two-factor sign-in is required for staff accounts. Use "Replace authenticator" to move it to a new phone.');
+                break;
+            case 'signout_all':
+                Auth::revokeSessions((int) $u['id'], true);
+                Audit::log('account.signout_all');
+                flash('success', 'Signed out of every other browser and device.');
                 break;
         }
         redirect('/account');

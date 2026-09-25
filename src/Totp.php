@@ -38,6 +38,29 @@ final class Totp
         return str_pad((string) ($value % 1000000), 6, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Verifies a code and returns the time-step it matched, or null. Pass the last step accepted for
+     * this user to refuse replays: a code (or an older one) can only be used once.
+     */
+    public static function verifyStep(string $secret, string $code, ?int $lastStep = null, int $window = 1): ?int
+    {
+        $code = preg_replace('/\D/', '', $code) ?? '';
+        if (strlen($code) !== 6) {
+            return null;
+        }
+        $now = intdiv(time(), 30);
+        for ($i = -$window; $i <= $window; $i++) {
+            $step = $now + $i;
+            if ($lastStep !== null && $step <= $lastStep) {
+                continue;
+            }
+            if (hash_equals(self::code($secret, $step * 30), $code)) {
+                return $step;
+            }
+        }
+        return null;
+    }
+
     public static function verify(string $secret, string $code, int $window = 1): bool
     {
         $code = preg_replace('/\D/', '', $code) ?? '';

@@ -1,3 +1,8 @@
+<?php if ($chain['ok']): ?>
+  <div class="alert alert-light border small py-2"><i class="fas fa-link text-success mr-1"></i><b>Tamper check passed.</b> All <?= number_format($chain['checked']) ?> entries are intact (each is sealed with a hash of the one before it, so edits or deletions would show here). Entries are kept <?= \Align\AuditChain::RETENTION_YEARS ?> years.</div>
+<?php else: ?>
+  <div class="alert alert-danger"><i class="fas fa-triangle-exclamation mr-1"></i><b>The audit log has been altered.</b> The check failed at entry #<?= (int) $chain['broken_at'] ?>: <?= e($chain['reason']) ?>. Treat this as a security incident: preserve the server and backups, and review who has database access.</div>
+<?php endif; ?>
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock-rotate-left mr-2"></i>Audit log</h3></div>
   <div class="card-body p-0">

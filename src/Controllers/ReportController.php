@@ -118,8 +118,9 @@ final class ReportController
             'opt' => $opt,
             'brand' => self::branding(),
             'plan' => self::clientFacing(Roadmap::build($id, $devices)),
-            'summary' => Lifecycle::summarize($devices),
-            'frameworks' => $frameworks,
+            // The portal passes 'position' => false for users without Devices & compliance access
+            'summary' => ($opt['position'] ?? true) ? Lifecycle::summarize($devices) : null,
+            'frameworks' => ($opt['position'] ?? true) ? $frameworks : [],
         ], 'layout/print');
     }
 

@@ -5,7 +5,6 @@ namespace Align;
 
 final class Auth
 {
-    private const IDLE_TIMEOUT = 8 * 3600;
     private const MAX_FAILURES = 5;
     private const FAILURE_WINDOW_MIN = 15;
 
@@ -16,7 +15,7 @@ final class Auth
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
-        session_name('ALIGNSESS');
+        session_name(Security::cookieName('ALIGNSESS', true));
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
@@ -31,18 +30,21 @@ final class Auth
         }
         session_start();
 
-        if (isset($_SESSION['uid'], $_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > self::IDLE_TIMEOUT) {
+        if (!Security::enforceTimeouts('uid')) {
+            $uid = (int) $_SESSION['uid'];
             self::logout();
             session_start();
+            $_SESSION['timed_out'] = true;
+            Audit::log('logout.timeout', '', $uid);
         }
-        $_SESSION['last_seen'] = time();
     }
 
     public static function user(): ?array
     {
         if (self::$user === null && !empty($_SESSION['uid'])) {
             $u = DB::one('SELECT * FROM users WHERE id = ? AND is_active = 1', [$_SESSION['uid']]);
-            if (!$u) {
+            // A password change, 2FA reset or "sign out everywhere" bumps session_version and ends other sessions
+            if (!$u || (int) $u['session_version'] !== (int) ($_SESSION['sv'] ?? -1)) {
                 self::logout();
                 return null;
             }
@@ -87,14 +89,16 @@ final class Auth
         }
         $u = DB::one('SELECT * FROM users WHERE email = ? AND is_active = 1', [$email]);
         // Always run a hash check to keep response timing consistent.
-        $hash = $u['password_hash'] ?? '$2y$12$r9fR6IH/X8FpJMzyfGkOxOMHqrRiq1mTm/lxmEvv6.SEc7AqboZZG';
+        $hash = ($u['password_hash'] ?? null) ?: \Align\Security::dummyHash();
         if (!password_verify($password, $hash) || !$u) {
             self::recordAttempt($email, false);
-            Audit::log('login.failed', $email, $u['id'] ?? null);
+            // Only log the email when it is one (never whatever was typed, which could be a password)
+            Audit::log('login.failed', filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '(not an email address)', $u['id'] ?? null);
+            Security::logAuthFailure('staff');
             return 'invalid';
         }
-        if (password_needs_rehash($u['password_hash'], PASSWORD_DEFAULT)) {
-            DB::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $u['id']]);
+        if (Security::needsRehash($u['password_hash'])) {
+            DB::run('UPDATE users SET password_hash = ? WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
         }
         if ($u['totp_enabled']) {
             session_regenerate_id(true);
@@ -119,11 +123,14 @@ final class Auth
             return 'locked';
         }
         $secret = Crypto::decrypt($u['totp_secret_enc']);
-        if (!$secret || !Totp::verify($secret, $code)) {
+        $step = $secret ? Totp::verifyStep($secret, $code, $u['totp_last_step'] !== null ? (int) $u['totp_last_step'] : null) : null;
+        if ($step === null) {
             self::recordAttempt($u['email'], false);
             Audit::log('login.2fa_failed', $u['email'], (int) $u['id']);
+            Security::logAuthFailure('staff-2fa');
             return 'invalid';
         }
+        DB::run('UPDATE users SET totp_last_step = ? WHERE id = ?', [$step, $u['id']]);
         unset($_SESSION['pending_2fa']);
         self::recordAttempt($u['email'], true);
         self::completeLogin((int) $u['id']);
@@ -133,8 +140,11 @@ final class Auth
     private static function completeLogin(int $uid): void
     {
         session_regenerate_id(true);
+        unset($_SESSION['_csrf'], $_SESSION['timed_out']); // fresh CSRF token for the signed-in session
         $_SESSION['uid'] = $uid;
+        $_SESSION['sv'] = (int) DB::value('SELECT session_version FROM users WHERE id = ?', [$uid]);
         $_SESSION['last_seen'] = time();
+        $_SESSION['login_at'] = time();
         DB::run('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$uid]);
         Audit::log('login.success', '', $uid);
     }
@@ -152,9 +162,33 @@ final class Auth
     {
         $u = self::user();
         if (!$u) {
+            if (!empty($_SESSION['timed_out'])) {
+                flash('info', 'You were signed out after a period of inactivity.');
+                unset($_SESSION['timed_out']);
+            }
             redirect('/login', ['next' => $_SERVER['REQUEST_URI'] ?? '/']);
         }
+        // Before anything else: a temporary password must be changed, and every staff account needs 2FA
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+        $setupPage = $path === '/account' || str_starts_with($path, '/account/') || $path === '/session/ping';
+        if (!$setupPage && ($u['must_change_password'] || !$u['totp_enabled'])) {
+            flash('warning', $u['must_change_password']
+                ? 'Set a new password to continue (your current one was issued by an administrator).'
+                : 'Two-factor sign-in is required for all staff accounts. Set it up to continue.');
+            redirect('/account');
+        }
         return $u;
+    }
+
+    /** Ends every other session for this user (after a password change, 2FA change or admin action). */
+    public static function revokeSessions(int $uid, bool $keepCurrent = false): void
+    {
+        DB::run('UPDATE users SET session_version = session_version + 1 WHERE id = ?', [$uid]);
+        if ($keepCurrent && (int) ($_SESSION['uid'] ?? 0) === $uid) {
+            $_SESSION['sv'] = (int) DB::value('SELECT session_version FROM users WHERE id = ?', [$uid]);
+            session_regenerate_id(true);
+            self::$user = null;
+        }
     }
 
     /** Role hierarchy: viewer < tech < admin */
@@ -176,11 +210,8 @@ final class Auth
         return $u;
     }
 
-    public static function validatePassword(string $pw): ?string
+    public static function validatePassword(string $pw, array $context = []): ?string
     {
-        if (strlen($pw) < 12) {
-            return 'Password must be at least 12 characters.';
-        }
-        return null;
+        return Security::passwordProblem($pw, $context);
     }
 }

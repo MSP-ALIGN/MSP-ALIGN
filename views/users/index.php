@@ -2,7 +2,7 @@
   <div class="callout callout-success">
     <h5>Temporary password for <?= e($newPassword['email']) ?></h5>
     <p class="mb-1"><code class="h5 select-all"><?= e($newPassword['password']) ?></code></p>
-    <p class="small text-muted mb-0">Shown once. Send it securely and have them change it under Account.</p>
+    <p class="small text-muted mb-0">Shown once. Send it securely. They must change it, and set up two-factor sign-in, the first time they sign in.</p>
   </div>
 <?php endif; ?>
 

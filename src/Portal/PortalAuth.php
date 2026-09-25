@@ -15,7 +15,6 @@ use Align\Totp;
  */
 final class PortalAuth
 {
-    private const IDLE_TIMEOUT = 2 * 3600;
     private const MAX_FAILURES = 5;
     private const FAILURE_WINDOW_MIN = 15;
     public const INVITE_DAYS = 7;
@@ -37,7 +36,7 @@ final class PortalAuth
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
-        session_name('ALIGNPORTAL');
+        session_name(\Align\Security::cookieName('ALIGNPORTAL', false));
         session_set_cookie_params(['lifetime' => 0, 'path' => '/portal', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Lax']);
         ini_set('session.use_strict_mode', '1');
         $savePath = \Align\Config::get('session_path');
@@ -45,11 +44,13 @@ final class PortalAuth
             session_save_path($savePath);
         }
         session_start();
-        if (isset($_SESSION['portal_uid'], $_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > self::IDLE_TIMEOUT) {
+        if (!\Align\Security::enforceTimeouts('portal_uid')) {
+            $id = (int) $_SESSION['portal_uid'];
             self::logout();
             session_start();
+            $_SESSION['timed_out'] = true;
+            Audit::log('portal.logout_timeout', '', null, $id);
         }
-        $_SESSION['last_seen'] = time();
     }
 
     /** The signed-in portal user, joined with their client (null if not signed in, disabled, or the client is archived). */
@@ -58,7 +59,7 @@ final class PortalAuth
         if (self::$user === null && !empty($_SESSION['portal_uid'])) {
             $u = DB::one('SELECT p.*, c.name AS client_name, c.logo_file, c.portal_require_2fa, c.is_archived AS client_archived
                 FROM portal_users p JOIN clients c ON c.id = p.client_id WHERE p.id = ? AND p.is_active = 1', [$_SESSION['portal_uid']]);
-            if (!$u || $u['client_archived']) {
+            if (!$u || $u['client_archived'] || (int) $u['session_version'] !== (int) ($_SESSION['sv'] ?? -1)) {
                 self::logout();
                 return null;
             }
@@ -76,11 +77,16 @@ final class PortalAuth
     {
         $u = self::user();
         if (!$u) {
+            if (!empty($_SESSION['timed_out'])) {
+                unset($_SESSION['timed_out']);
+                flash('info', 'You were signed out after a period of inactivity.');
+            }
             redirect('/portal/login');
         }
-        // Client requires two-factor: nothing else until it's set up
-        if ($u['portal_require_2fa'] && !$u['totp_enabled'] && !str_starts_with(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '', '/portal/account')) {
-            flash('warning', 'Your organization requires two-factor sign-in. Set it up to continue.');
+        // Two-factor sign-in is required for every portal user: nothing else until it's set up
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+        if (!$u['totp_enabled'] && !str_starts_with($path, '/portal/account') && $path !== '/portal/session/ping') {
+            flash('warning', 'Two-factor sign-in is required to protect your organization\'s information. Set it up to continue.');
             redirect('/portal/account');
         }
         if ($permission !== null && empty($u[$permission])) {
@@ -117,11 +123,15 @@ final class PortalAuth
             return 'locked';
         }
         $u = DB::one('SELECT p.*, c.is_archived AS client_archived FROM portal_users p JOIN clients c ON c.id = p.client_id WHERE p.email = ? AND p.is_active = 1', [$email]);
-        $hash = $u['password_hash'] ?? '$2y$12$r9fR6IH/X8FpJMzyfGkOxOMHqrRiq1mTm/lxmEvv6.SEc7AqboZZG';
+        $hash = ($u['password_hash'] ?? null) ?: \Align\Security::dummyHash();
         if (!password_verify($password, $hash) || !$u || !$u['password_hash'] || $u['client_archived']) {
             self::recordAttempt($email, false);
-            Audit::log('portal.login_failed', $email, null, $u['id'] ?? null);
+            Audit::log('portal.login_failed', filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '(not an email address)', null, $u['id'] ?? null);
+            \Align\Security::logAuthFailure('portal');
             return 'invalid';
+        }
+        if (\Align\Security::needsRehash($u['password_hash'])) {
+            DB::run('UPDATE portal_users SET password_hash = ? WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
         }
         if ($u['totp_enabled']) {
             session_regenerate_id(true);
@@ -145,10 +155,14 @@ final class PortalAuth
             return 'locked';
         }
         $secret = Crypto::decrypt((string) $u['totp_secret_enc']);
-        if (!$secret || !Totp::verify($secret, $code)) {
+        $step = $secret ? Totp::verifyStep($secret, $code, $u['totp_last_step'] !== null ? (int) $u['totp_last_step'] : null) : null;
+        if ($step === null) {
             self::recordAttempt($u['email'], false);
+            Audit::log('portal.2fa_failed', $u['email'], null, (int) $u['id']);
+            \Align\Security::logAuthFailure('portal-2fa');
             return 'invalid';
         }
+        DB::run('UPDATE portal_users SET totp_last_step = ? WHERE id = ?', [$step, $u['id']]);
         unset($_SESSION['portal_pending_2fa']);
         self::recordAttempt($u['email'], true);
         self::completeLogin((int) $u['id']);
@@ -158,11 +172,32 @@ final class PortalAuth
     public static function completeLogin(int $id): void
     {
         session_regenerate_id(true);
+        unset($_SESSION['_csrf'], $_SESSION['timed_out']);
         $_SESSION['portal_uid'] = $id;
+        $_SESSION['sv'] = (int) DB::value('SELECT session_version FROM portal_users WHERE id = ?', [$id]);
         $_SESSION['last_seen'] = time();
+        $_SESSION['login_at'] = time();
         DB::run('UPDATE portal_users SET last_login_at = NOW() WHERE id = ?', [$id]);
         self::$user = null;
         Audit::log('portal.login', '', null, $id);
+    }
+
+    /** Ends every session of a portal user (password change, 2FA reset, disabled). */
+    public static function revokeSessions(int $id, bool $keepCurrent = false): void
+    {
+        DB::run('UPDATE portal_users SET session_version = session_version + 1 WHERE id = ?', [$id]);
+        if ($keepCurrent && (int) ($_SESSION['portal_uid'] ?? 0) === $id) {
+            $_SESSION['sv'] = (int) DB::value('SELECT session_version FROM portal_users WHERE id = ?', [$id]);
+            session_regenerate_id(true);
+            self::$user = null;
+        }
+    }
+
+    /** Invite link used on an account that already has two-factor: continue to the code step, don't sign in. */
+    public static function beginSecondFactor(int $id): void
+    {
+        session_regenerate_id(true);
+        $_SESSION['portal_pending_2fa'] = ['uid' => $id, 'at' => time()];
     }
 
     public static function logout(): void

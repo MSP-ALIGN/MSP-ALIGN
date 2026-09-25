@@ -11,7 +11,7 @@ final class AuthController
 {
     private static function safeNext(string $next): string
     {
-        return (str_starts_with($next, '/') && !str_starts_with($next, '//')) ? $next : '/';
+        return \Align\Security::safePath($next);
     }
 
     public static function loginForm(): void
@@ -65,6 +65,18 @@ final class AuthController
         }
         flash('error', $result === 'locked' ? 'Too many failed attempts. Wait 15 minutes.' : 'That code is not valid.');
         redirect('/login/2fa');
+    }
+
+    /** Keep-alive / status for the automatic logoff timer in app.js. */
+    public static function ping(): void
+    {
+        header('Content-Type: application/json');
+        if (!Auth::user()) {
+            http_response_code(401);
+            echo '{"signedIn":false}';
+            return;
+        }
+        echo json_encode(['signedIn' => true, 'idle' => \Align\Security::idleSeconds()]);
     }
 
     public static function logout(): void

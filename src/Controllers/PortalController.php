@@ -27,6 +27,7 @@ final class PortalController
 {
     private static function render(string $view, array $vars, array $pu): void
     {
+        Audit::access('portal_' . ($vars['nav'] ?? $view), (string) $pu['client_name']);
         View::render('portal/' . $view, $vars + ['pu' => $pu, 'provider' => self::provider($pu)], 'portal/layout');
     }
 
@@ -98,6 +99,17 @@ final class PortalController
         redirect($r === 'expired' ? '/portal/login' : '/portal/login/2fa');
     }
 
+    public static function ping(): void
+    {
+        header('Content-Type: application/json');
+        if (!PortalAuth::user()) {
+            http_response_code(401);
+            echo '{"signedIn":false}';
+            return;
+        }
+        echo json_encode(['signedIn' => true, 'idle' => \Align\Security::idleSeconds()]);
+    }
+
     public static function logout(): void
     {
         Audit::log('portal.logout');
@@ -120,7 +132,7 @@ final class PortalController
             redirect('/portal/login');
         }
         $pw = (string) ($_POST['password'] ?? '');
-        if ($err = \Align\Auth::validatePassword($pw)) {
+        if ($err = \Align\Auth::validatePassword($pw, [$u['email'], $u['name']])) {
             flash('error', $err);
             redirect('/portal/invite/' . $token);
         }
@@ -128,12 +140,19 @@ final class PortalController
             flash('error', 'The passwords do not match.');
             redirect('/portal/invite/' . $token);
         }
-        DB::run('UPDATE portal_users SET password_hash = ?, invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?',
-            [password_hash($pw, PASSWORD_DEFAULT), $u['id']]);
+        DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW(), invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?',
+            [\Align\Security::hashPassword($pw), $u['id']]);
+        PortalAuth::revokeSessions((int) $u['id']);
         Audit::log('portal.password_set', $u['email'], null, (int) $u['id']);
+        if ($u['totp_enabled']) {
+            // A reset link alone must not get past two-factor
+            PortalAuth::beginSecondFactor((int) $u['id']);
+            flash('success', 'Your password is set. Enter the code from your authenticator app to sign in.');
+            redirect('/portal/login/2fa');
+        }
         PortalAuth::completeLogin((int) $u['id']);
-        flash('success', 'Welcome! Your password is set.');
-        redirect('/portal');
+        flash('success', 'Welcome! Your password is set. Next, set up two-factor sign-in.');
+        redirect('/portal/account');
     }
 
     // ---- Pages --------------------------------------------------------------------------------
@@ -412,7 +431,7 @@ final class PortalController
         match ($kind) {
             // Internal device notes are never included; costs only with budget access
             'assets' => ReportController::renderAssets($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '1') === '1', 'virtual' => query('virtual') === '1', 'notes' => false, '_hide' => $pu['can_budget'] ? ['notes'] : ['costs', 'notes']]),
-            'roadmap' => ReportController::renderRoadmap($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'notes' => query('notes', '1') === '1', '_hide' => $pu['can_budget'] ? [] : ['costs']]),
+            'roadmap' => ReportController::renderRoadmap($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'notes' => query('notes', '1') === '1', 'position' => (bool) $pu['can_devices'], '_hide' => $pu['can_budget'] ? [] : ['costs']]),
             'budget' => BudgetController::renderReport($client, ctype_digit(query('year')) && (int) query('year') < 3 ? (int) query('year') : Plan::quarters()[Plan::currentIndex()]['year'],
                 ['details' => query('details', '1') === '1', 'notes' => true, '_hide' => ['notes']]),
         };
@@ -450,7 +469,7 @@ final class PortalController
             redirect('/portal/account');
         }
         $new = (string) ($_POST['new'] ?? '');
-        if ($err = \Align\Auth::validatePassword($new)) {
+        if ($err = \Align\Auth::validatePassword($new, [$pu['email'], $pu['name']])) {
             flash('error', $err);
             redirect('/portal/account');
         }
@@ -458,9 +477,10 @@ final class PortalController
             flash('error', 'The new passwords do not match.');
             redirect('/portal/account');
         }
-        DB::run('UPDATE portal_users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $pu['id']]);
+        DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?', [\Align\Security::hashPassword($new), $pu['id']]);
+        PortalAuth::revokeSessions((int) $pu['id'], true);
         Audit::log('portal.password_changed');
-        flash('success', 'Password changed.');
+        flash('success', 'Password changed. Any other signed-in sessions were signed out.');
         redirect('/portal/account');
     }
 
@@ -473,30 +493,26 @@ final class PortalController
                 break;
             case 'confirm':
                 $secret = $_SESSION['portal_totp_setup'] ?? null;
-                if (!$secret || !Totp::verify($secret, post('code'))) {
+                $step = $secret ? Totp::verifyStep($secret, post('code')) : null;
+                if ($step === null) {
                     flash('error', 'That code did not match. Check the time on your phone and try again.');
                     break;
                 }
-                DB::run('UPDATE portal_users SET totp_secret_enc = ?, totp_enabled = 1 WHERE id = ?', [Crypto::encrypt($secret), $pu['id']]);
+                $replacing = (bool) $pu['totp_enabled'];
+                DB::run('UPDATE portal_users SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ? WHERE id = ?', [Crypto::encrypt($secret), $step, $pu['id']]);
                 unset($_SESSION['portal_totp_setup']);
-                Audit::log('portal.2fa_enabled');
-                flash('success', 'Two-factor sign-in is on.');
+                PortalAuth::revokeSessions((int) $pu['id'], true);
+                Audit::log($replacing ? 'portal.2fa_replaced' : 'portal.2fa_enabled');
+                flash('success', $replacing ? 'Your new authenticator is set up.' : 'Two-factor sign-in is on. You\'re all set.');
+                if (!$replacing) {
+                    redirect('/portal');
+                }
                 break;
             case 'cancel':
                 unset($_SESSION['portal_totp_setup']);
                 break;
             case 'disable':
-                if ($pu['portal_require_2fa']) {
-                    flash('error', 'Your organization requires two-factor sign-in.');
-                    break;
-                }
-                if (!password_verify((string) ($_POST['password'] ?? ''), (string) $pu['password_hash'])) {
-                    flash('error', 'Password is incorrect.');
-                    break;
-                }
-                DB::run('UPDATE portal_users SET totp_secret_enc = NULL, totp_enabled = 0 WHERE id = ?', [$pu['id']]);
-                Audit::log('portal.2fa_disabled');
-                flash('success', 'Two-factor sign-in is off.');
+                flash('error', 'Two-factor sign-in is required and can\'t be turned off. Use "Replace authenticator" to move it to a new phone.');
                 break;
         }
         redirect('/portal/account');

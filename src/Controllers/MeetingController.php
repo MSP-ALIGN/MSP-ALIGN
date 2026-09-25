@@ -72,6 +72,7 @@ final class MeetingController
         Auth::require();
         $m = self::load($id);
         $client = $m['client_id'] ? ClientController::load((int) $m['client_id']) : null;
+        Audit::access('meeting', "#$id {$m['title']}" . ($client ? " ({$client['name']})" : ''));
         View::render('meetings/show', [
             'title' => $m['title'],
             'nav' => $client ? 'clients' : 'meetings',
@@ -123,7 +124,7 @@ final class MeetingController
     private static function back(?int $clientId): string
     {
         $r = post('return');
-        return (str_starts_with($r, '/') && !str_starts_with($r, '//')) ? $r : ($clientId ? "/clients/$clientId/meetings" : '/meetings');
+        return \Align\Security::safePath($r, ($clientId ? "/clients/$clientId/meetings" : '/meetings'));
     }
 
     public static function create(): void
@@ -227,7 +228,8 @@ final class MeetingController
             'calendar' => true,
             'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
             'users' => ClientController::users(),
-            'feedUrl' => self::feedUrl($u),
+            'feedUrl' => self::freshFeedUrl(),
+            'feedOn' => !empty($u['ics_token']),
         ]);
     }
 
@@ -293,25 +295,26 @@ final class MeetingController
         echo json_encode($out);
     }
 
-    public static function feedUrl(array $u): ?string
+    /** The feed link, shown once right after it's created (only a hash of the token is stored). */
+    public static function freshFeedUrl(): ?string
     {
-        if (empty($u['ics_token'])) {
-            return null;
-        }
-        $base = rtrim((string) \Align\Config::get('base_url', ''), '/');
-        return ($base ?: (is_https() ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost')) . '/ics/' . $u['ics_token'] . '.ics';
+        $url = $_SESSION['new_feed_url'] ?? null;
+        unset($_SESSION['new_feed_url']);
+        return $url;
     }
 
     public static function feedToken(): void
     {
-        $u = Auth::require();
+        $u = Auth::requireRole('tech');
         $action = post('action');
         if ($action === 'revoke') {
             DB::run('UPDATE users SET ics_token = NULL WHERE id = ?', [$u['id']]);
             Audit::log('calendar.feed_revoked');
             flash('success', 'Calendar feed link turned off.');
         } else {
-            DB::run('UPDATE users SET ics_token = ? WHERE id = ?', [bin2hex(random_bytes(24)), $u['id']]);
+            $token = bin2hex(random_bytes(32));
+            DB::run('UPDATE users SET ics_token = ?, ics_created_at = NOW() WHERE id = ?', [hash('sha256', $token), $u['id']]);
+            $_SESSION['new_feed_url'] = \Align\Portal\PortalAuth::baseUrl() . '/ics/' . $token . '.ics';
             Audit::log('calendar.feed_created');
             flash('success', 'New calendar feed link created. Any old link stops working.');
         }
@@ -322,7 +325,7 @@ final class MeetingController
     public static function feed(string $token): void
     {
         $token = preg_replace('/\.ics$/', '', $token);
-        $u = strlen($token) >= 32 ? DB::one('SELECT * FROM users WHERE ics_token = ? AND is_active = 1', [$token]) : null;
+        $u = preg_match('/^[a-f0-9]{48,64}$/', $token) ? DB::one("SELECT * FROM users WHERE ics_token = ? AND is_active = 1 AND role IN ('tech','admin')", [hash('sha256', $token)]) : null;
         if (!$u) {
             http_response_code(404);
             header('Content-Type: text/plain');
@@ -335,6 +338,7 @@ final class MeetingController
         ]);
         header('Content-Type: text/calendar; charset=utf-8');
         header('Cache-Control: private, max-age=900');
-        echo Ics::calendar($rows, \Align\Branding::name() . ' meetings');
+        // Calendar providers store feeds, so the feed carries only titles and times: no agendas or attendees
+        echo Ics::calendar($rows, \Align\Branding::name() . ' meetings', true);
     }
 }

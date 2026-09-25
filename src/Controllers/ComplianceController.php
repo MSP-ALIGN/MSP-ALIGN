@@ -90,6 +90,7 @@ final class ComplianceController
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         $f = self::framework($fw);
+        \Align\Audit::access('compliance', "{$client['name']} / {$f['name']}");
         DB::run('DELETE FROM client_frameworks WHERE client_id = ? AND framework_id = ?', [$id, $fw]);
         // Answers are kept, so re-adding the framework restores them.
         Audit::log('compliance.unassign', "{$f['name']} ← {$client['name']}");
@@ -151,6 +152,7 @@ final class ComplianceController
                 if (!isset($valid[$cid]) || !is_array($row)) {
                     continue;
                 }
+                $row = array_map(fn($v) => is_scalar($v) ? (string) $v : '', $row); // ignore malformed (array) input
                 $status = isset(Compliance::STATUSES[$row['status'] ?? '']) ? $row['status'] : 'not_assessed';
                 $due = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($row['due_date'] ?? '')) ? $row['due_date'] : null;
                 $new = [
@@ -204,7 +206,7 @@ final class ComplianceController
         $out = fopen('php://output', 'w');
         fputcsv($out, ['Section', 'Ref', 'Control', 'Status', 'Owner', 'Due', 'Notes', 'Evidence', 'Evidence document', 'Last updated'], escape: '');
         foreach ($rows as $r) {
-            fputcsv($out, [$r['section'], $r['ref'], $r['title'], Compliance::STATUSES[$r['status']][0], $r['owner'], $r['due_date'], $r['notes'], $r['evidence'], $r['doc_title'], $r['updated_at']], escape: '');
+            fputcsv($out, array_map([\Align\Security::class, 'csvCell'], [$r['section'], $r['ref'], $r['title'], Compliance::STATUSES[$r['status']][0], $r['owner'], $r['due_date'], $r['notes'], $r['evidence'], $r['doc_title'], $r['updated_at']]), escape: '');
         }
         fclose($out);
     }

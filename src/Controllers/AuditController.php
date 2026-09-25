@@ -36,6 +36,7 @@ final class AuditController
                 ORDER BY a.id DESC LIMIT ' . $per . ' OFFSET ' . (($page - 1) * $per)),
             'page' => $page,
             'hasMore' => (int) DB::value('SELECT COUNT(*) FROM audit_log') > $page * $per,
+            'chain' => \Align\AuditChain::verify(),
         ]);
     }
 }

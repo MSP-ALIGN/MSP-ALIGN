@@ -28,6 +28,7 @@ $r->post('/login', [AuthController::class, 'login']);
 $r->get('/login/2fa', [AuthController::class, 'twoFactorForm']);
 $r->post('/login/2fa', [AuthController::class, 'twoFactor']);
 $r->post('/logout', [AuthController::class, 'logout']);
+$r->get('/session/ping', [AuthController::class, 'ping']);
 
 $r->get('/', [DashboardController::class, 'index']);
 
@@ -155,7 +156,6 @@ $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
 // Client portal access (staff side)
 $r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);
 $r->post('/clients/{id}/portal', [PortalAdminController::class, 'create']);
-$r->post('/clients/{id}/portal/settings', [PortalAdminController::class, 'settings']);
 $r->post('/portal-users/{id}', [PortalAdminController::class, 'update']);
 $r->get('/portal-users', [PortalAdminController::class, 'index']);
 
@@ -165,6 +165,7 @@ $r->post('/portal/login', [PortalController::class, 'login']);
 $r->get('/portal/login/2fa', [PortalController::class, 'twoFactorForm']);
 $r->post('/portal/login/2fa', [PortalController::class, 'twoFactor']);
 $r->post('/portal/logout', [PortalController::class, 'logout']);
+$r->get('/portal/session/ping', [PortalController::class, 'ping']);
 $r->get('/portal/invite/{token:str}', [PortalController::class, 'inviteForm']);
 $r->post('/portal/invite/{token:str}', [PortalController::class, 'invite']);
 $r->get('/portal', [PortalController::class, 'home']);
