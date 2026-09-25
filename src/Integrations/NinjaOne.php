@@ -152,7 +152,8 @@ final class NinjaOne
             'display_name' => $d['displayName'] ?? null,
             'system_name' => $d['systemName'] ?? ($d['dnsName'] ?? null),
             'node_class' => $nodeClass ?: null,
-            'device_class' => self::classify($nodeClass, $chassis, $model, $isVirtual),
+            'device_class' => $class = self::classify($nodeClass, $chassis, $model, $isVirtual),
+            'device_type' => self::type($nodeClass, $class),
             'manufacturer' => $manufacturer ?: null,
             'model' => $model ?: null,
             'serial' => normalize_serial($sys['serialNumber'] ?? null) ?? normalize_serial($sys['biosSerialNumber'] ?? null),
@@ -177,7 +178,14 @@ final class NinjaOne
             return 'server';
         }
         if (str_starts_with($nc, 'NMS_')) {
-            return 'network';
+            return match ($nc) {
+                'NMS_PRINTER', 'NMS_SCANNER' => 'printer',
+                'NMS_SERVER', 'NMS_VM_HOST' => 'server',
+                'NMS_COMPUTER' => 'desktop',
+                'NMS_VIRTUAL_MACHINE' => 'virtual',
+                'NMS_PHONE', 'NMS_OTHER', 'NMS_APPLIANCE' => 'other',
+                default => 'network',
+            };
         }
         if (str_contains($nc, 'WORKSTATION') || $nc === 'MAC') {
             if (in_array($chassis, ['LAPTOP', 'NOTEBOOK', 'PORTABLE', 'TABLET', 'CONVERTIBLE', 'DETACHABLE'], true)) {
@@ -190,6 +198,21 @@ final class NinjaOne
             return preg_match($laptopHints, $model) === 1 ? 'laptop' : 'desktop';
         }
         return 'other';
+    }
+
+    /** Friendly device type for display (see Lifecycle::TYPES). */
+    public static function type(string $nodeClass, string $class): string
+    {
+        $nc = strtoupper($nodeClass);
+        return match (true) {
+            in_array($nc, ['VMWARE_VM_HOST', 'HYPERV_VMM_HOST', 'NMS_VM_HOST'], true) => 'Hypervisor host',
+            $nc === 'NMS_FIREWALL' => 'Firewall',
+            in_array($nc, ['NMS_ROUTER', 'NMS_PRIVATE_NETWORK_GATEWAY'], true) => 'Router',
+            $nc === 'NMS_SWITCH' => 'Switch',
+            $nc === 'NMS_WAP' => 'Access point',
+            $nc === 'NMS_PHONE' => 'Phone',
+            default => \Align\Lifecycle\Lifecycle::DEFAULT_TYPE[$class] ?? 'Other',
+        };
     }
 
     private static function ts(mixed $v): ?string

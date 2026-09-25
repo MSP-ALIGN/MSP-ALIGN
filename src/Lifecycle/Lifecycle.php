@@ -12,7 +12,42 @@ use Align\Settings;
  */
 final class Lifecycle
 {
-    public const HARDWARE_CLASSES = ['desktop', 'laptop', 'server', 'network'];
+    /** Lifecycle policy buckets (each has a lifespan + replacement cost in Settings). */
+    public const CLASSES = [
+        'desktop' => 'Desktops',
+        'laptop' => 'Laptops',
+        'server' => 'Servers & hosts',
+        'network' => 'Network gear',
+        'printer' => 'Printers',
+        'storage' => 'Storage / NAS',
+        'power' => 'UPS / power',
+        'other' => 'Other hardware',
+    ];
+    public const HARDWARE_CLASSES = ['desktop', 'laptop', 'server', 'network', 'printer', 'storage', 'power', 'other'];
+
+    /** Device types shown in the UI => [policy class, Font Awesome icon] */
+    public const TYPES = [
+        'Desktop' => ['desktop', 'fa-desktop'],
+        'Laptop' => ['laptop', 'fa-laptop'],
+        'Server' => ['server', 'fa-server'],
+        'Hypervisor host' => ['server', 'fa-cubes'],
+        'Virtual machine' => ['virtual', 'fa-cloud'],
+        'Firewall' => ['network', 'fa-shield-halved'],
+        'Router' => ['network', 'fa-route'],
+        'Switch' => ['network', 'fa-network-wired'],
+        'Access point' => ['network', 'fa-wifi'],
+        'Printer' => ['printer', 'fa-print'],
+        'NAS / Storage' => ['storage', 'fa-hard-drive'],
+        'UPS' => ['power', 'fa-car-battery'],
+        'Phone' => ['other', 'fa-phone'],
+        'Camera / NVR' => ['other', 'fa-video'],
+        'Other' => ['other', 'fa-tag'],
+    ];
+
+    public const DEFAULT_TYPE = [
+        'desktop' => 'Desktop', 'laptop' => 'Laptop', 'server' => 'Server', 'network' => 'Switch',
+        'printer' => 'Printer', 'storage' => 'NAS / Storage', 'power' => 'UPS', 'virtual' => 'Virtual machine', 'other' => 'Other',
+    ];
 
     public const STATUS = [
         'replace' => ['Replace now', 'bad'],
@@ -31,23 +66,21 @@ final class Lifecycle
 
     public function __construct()
     {
+        $defaults = [
+            'desktop' => [5, 1100], 'laptop' => [4, 1500], 'server' => [6, 9000], 'network' => [7, 1200],
+            'printer' => [5, 800], 'storage' => [5, 2500], 'power' => [4, 600], 'other' => [5, 500],
+        ];
         $this->policy = [
-            'lifespan' => [
-                'desktop' => Settings::int('lifespan_desktop', 5),
-                'laptop' => Settings::int('lifespan_laptop', 4),
-                'server' => Settings::int('lifespan_server', 6),
-                'network' => Settings::int('lifespan_network', 7),
-            ],
-            'cost' => [
-                'desktop' => Settings::float('cost_desktop', 1100),
-                'laptop' => Settings::float('cost_laptop', 1500),
-                'server' => Settings::float('cost_server', 9000),
-                'network' => Settings::float('cost_network', 1200),
-            ],
+            'lifespan' => [],
+            'cost' => [],
             'warranty_warn_days' => Settings::int('warranty_warn_days', 90),
             'eol_plan_months' => Settings::int('eol_plan_months', 12),
             'stale_days' => Settings::int('stale_days', 45),
         ];
+        foreach ($defaults as $class => [$life, $cost]) {
+            $this->policy['lifespan'][$class] = Settings::int("lifespan_$class", $life);
+            $this->policy['cost'][$class] = Settings::float("cost_$class", $cost);
+        }
         $this->osRules = DB::all('SELECT * FROM os_support');
         usort($this->osRules, fn($a, $b) => strlen($b['name_contains']) <=> strlen($a['name_contains']));
     }
@@ -57,38 +90,57 @@ final class Lifecycle
         return $this->policy;
     }
 
+    public static function icon(?string $type): string
+    {
+        return self::TYPES[$type ?? ''][1] ?? 'fa-tag';
+    }
+
+    /**
+     * SQL fragment that resolves a device's client: manual devices carry client_id,
+     * NinjaOne devices resolve through their organization's mapping.
+     */
+    public const CLIENT_JOIN = 'LEFT JOIN clients cm ON cm.id = d.client_id
+            LEFT JOIN clients cn ON d.client_id IS NULL AND cn.ninja_org_id = d.ninja_org_id';
+
     /** Loads devices joined with everything lifecycle needs. $clientId null = all clients. */
-    public function devices(?int $clientId = null, bool $includeRemoved = false): array
+    public function devices(?int $clientId = null, bool $includeRemoved = false, ?int $deviceId = null): array
     {
         $where = ['1=1'];
         $params = [];
         if ($clientId !== null) {
-            $where[] = 'c.id = ?';
+            $where[] = 'COALESCE(cm.id, cn.id) = ?';
             $params[] = $clientId;
+        }
+        if ($deviceId !== null) {
+            $where[] = 'd.id = ?';
+            $params[] = $deviceId;
         }
         if (!$includeRemoved) {
             $where[] = 'd.removed_at IS NULL';
         }
-        $rows = DB::all('SELECT d.*, c.id AS client_id, c.name AS client_name, c.itflow_client_id,
+        $rows = DB::all('SELECT d.*, COALESCE(cm.id, cn.id) AS client_id, COALESCE(cm.name, cn.name) AS client_name,
+                COALESCE(cm.itflow_client_id, cn.itflow_client_id) AS itflow_client_id,
                 a.purchase_date AS itf_purchase, a.warranty_expire AS itf_warranty, a.install_date AS itf_install,
                 w.ship_date AS w_ship, w.warranty_start AS w_start, w.warranty_end AS w_end, w.status AS w_status,
                 w.description AS w_desc, w.looked_up_at AS w_checked,
                 o.purchase_date AS o_purchase, o.warranty_end AS o_warranty, o.replacement_cost AS o_cost,
-                o.lifespan_years AS o_lifespan, o.excluded AS o_excluded, o.notes AS o_notes
+                o.lifespan_years AS o_lifespan, o.excluded AS o_excluded, o.notes AS o_notes, o.device_type AS o_type
             FROM devices d
-            LEFT JOIN clients c ON c.ninja_org_id = d.ninja_org_id
+            ' . self::CLIENT_JOIN . '
             LEFT JOIN itflow_assets a ON a.itflow_asset_id = d.itflow_asset_id
             LEFT JOIN warranty_lookups w ON w.serial = d.serial AND w.status = \'ok\'
             LEFT JOIN device_overrides o ON o.device_id = d.id
             WHERE ' . implode(' AND ', $where) . '
-            ORDER BY c.name, d.display_name, d.system_name', $params);
+            ORDER BY client_name, d.display_name, d.system_name', $params);
         return array_map(fn($r) => $this->evaluate($r), $rows);
     }
 
     public function evaluate(array $d): array
     {
         $today = date('Y-m-d');
-        $class = $d['device_class'];
+        $type = $d['o_type'] ?: ($d['device_type'] ?: (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other'));
+        $class = $d['o_type'] && isset(self::TYPES[$d['o_type']]) ? self::TYPES[$d['o_type']][0] : $d['device_class'];
+        $d['device_class'] = $class;
         $isHardware = in_array($class, self::HARDWARE_CLASSES, true);
 
         // Start of life: override > ITFlow purchase > vendor ship > vendor warranty start > ITFlow install > first seen in NinjaOne
@@ -170,7 +222,9 @@ final class Lifecycle
         }
 
         return $d + [
-            'name' => $d['display_name'] ?: ($d['system_name'] ?: 'Device ' . $d['ninja_device_id']),
+            'name' => $d['display_name'] ?: ($d['system_name'] ?: 'Device ' . $d['id']),
+            'type' => $type,
+            'icon' => self::icon($type),
             'is_hardware' => $isHardware,
             'start_date' => $start,
             'start_source' => $startSource,

@@ -1,64 +1,97 @@
 <?php
-$filters = ['' => 'All', 'attention' => 'Needs attention', 'replace' => 'Replace / plan', 'os' => 'OS support', 'warranty' => 'Warranty', 'stale' => 'Stale'];
-$classes = ['' => 'All types', 'desktop' => 'Desktops', 'laptop' => 'Laptops', 'server' => 'Servers', 'network' => 'Network', 'virtual' => 'Virtual', 'other' => 'Other'];
-$link = fn(array $over) => '/clients/' . (int) $client['id'] . '?' . http_build_query(array_filter(array_merge(['filter' => $filter, 'class' => $class], $over)));
+use Align\Compliance\Compliance;
+use Align\Lifecycle\Lifecycle;
+use Align\Meetings\Meetings;
+
+require __DIR__ . '/../partials/client_header.php';
+$cid = (int) $client['id'];
 ?>
-<header class="page-head">
-  <div>
-    <div class="crumbs"><a href="/clients">Clients</a></div>
-    <h1><?= e($client['name']) ?></h1>
-    <div class="muted small">
-      NinjaOne: <?= $client['org_name'] ? e($client['org_name']) : '<a href="/mapping">not linked</a>' ?>
-      <?php if ($itflowUrl): ?> · <a href="<?= e(rtrim($itflowUrl, '/') . '/agent/client_overview.php?client_id=' . (int) $client['itflow_client_id']) ?>" target="_blank" rel="noopener">Open in ITFlow ↗</a><?php endif; ?>
+<div class="row">
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-desktop"></i></span><div class="info-box-content"><span class="info-box-text">Devices</span><span class="info-box-number"><?= (int) $summary['total'] ?></span></div></div></div>
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['replace'] ? 'danger' : 'success' ?>"><i class="fas fa-recycle"></i></span><div class="info-box-content"><span class="info-box-text">Replace now</span><span class="info-box-number"><?= (int) $summary['replace'] ?></span></div></div></div>
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['os_eos'] ? 'danger' : 'success' ?>"><i class="fab fa-windows"></i></span><div class="info-box-content"><span class="info-box-text">Unsupported OS</span><span class="info-box-number"><?= (int) $summary['os_eos'] ?></span></div></div></div>
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['plan'] ? 'warning' : 'success' ?>"><i class="fas fa-calendar-plus"></i></span><div class="info-box-content"><span class="info-box-text">Plan (12 mo)</span><span class="info-box-number"><?= (int) $summary['plan'] ?></span></div></div></div>
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['warranty_expired'] + $summary['warranty_soon'] ? 'warning' : 'success' ?>"><i class="fas fa-shield-halved"></i></span><div class="info-box-content"><span class="info-box-text">Warranty issues</span><span class="info-box-number"><?= (int) ($summary['warranty_expired'] + $summary['warranty_soon']) ?></span></div></div></div>
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-dollar-sign"></i></span><div class="info-box-content"><span class="info-box-text">Overdue cost</span><span class="info-box-number"><?= money($summary['overdue_cost']) ?></span></div></div></div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <?php require __DIR__ . '/../partials/forecast.php'; ?>
+
+    <div class="card card-dark">
+      <div class="card-header py-2">
+        <h3 class="card-title mt-1"><i class="fas fa-fw fa-clipboard-check mr-2"></i>Compliance</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/compliance" class="btn btn-tool">Open</a></div>
+      </div>
+      <div class="card-body">
+        <?php foreach ($frameworks as $fw): $s = $fw['score']; ?>
+          <div class="mb-3">
+            <div class="d-flex"><a href="/clients/<?= $cid ?>/compliance/<?= (int) $fw['id'] ?>" class="font-weight-bold mr-auto"><?= e($fw['name']) ?></a>
+              <span class="small text-muted"><?= $s['met'] ?> met · <?= $s['partial'] ?> partial · <?= $s['not_met'] ?> not met · <?= $s['assessed'] ?>% assessed</span></div>
+            <div class="progress progress-sm mt-1"><div class="progress-bar bg-<?= $s['tone'] ?>" style="width: <?= $s['score'] ?>%"><?= $s['score'] ?>%</div></div>
+          </div>
+        <?php endforeach; ?>
+        <?php if (!$frameworks): ?><p class="text-muted mb-2">No frameworks assigned yet.</p><?php endif; ?>
+        <div class="row small">
+          <?php foreach ($indicators as $ind): ?>
+            <div class="col-md-6 mb-1">
+              <i class="fas fa-fw <?= $ind['unknown'] ? 'fa-circle-question text-secondary' : ($ind['ok'] ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger') ?> mr-1"></i>
+              <b><?= e($ind['label']) ?>:</b> <span class="text-muted"><?= e($ind['text']) ?></span>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
     </div>
   </div>
-  <a class="btn" href="/clients/<?= (int) $client['id'] ?>/export">Export CSV</a>
-</header>
 
-<section class="tiles">
-  <div class="tile"><div class="tile-val"><?= (int) $summary['total'] ?></div><div class="tile-lbl">Devices</div></div>
-  <div class="tile <?= $summary['replace'] ? 'tone-bad' : '' ?>"><div class="tile-val"><?= (int) $summary['replace'] ?></div><div class="tile-lbl">Replace now</div></div>
-  <div class="tile <?= $summary['os_eos'] ? 'tone-bad' : '' ?>"><div class="tile-val"><?= (int) $summary['os_eos'] ?></div><div class="tile-lbl">Unsupported OS</div></div>
-  <div class="tile <?= $summary['plan'] ? 'tone-warn' : '' ?>"><div class="tile-val"><?= (int) $summary['plan'] ?></div><div class="tile-lbl">Plan replacement</div></div>
-  <div class="tile <?= $summary['warranty_expired'] + $summary['warranty_soon'] ? 'tone-warn' : '' ?>"><div class="tile-val"><?= (int) ($summary['warranty_expired'] + $summary['warranty_soon']) ?></div><div class="tile-lbl">Warranty issues</div></div>
-  <div class="tile"><div class="tile-val"><?= money($summary['overdue_cost']) ?></div><div class="tile-lbl">Overdue replacement cost</div></div>
-</section>
-
-<?php require __DIR__ . '/../partials/forecast.php'; ?>
-
-<div class="card flush">
-  <div class="card-head pad">
-    <div class="chips">
-      <?php foreach ($filters as $k => $label): ?>
-        <a class="chip <?= $filter === $k ? 'on' : '' ?>" href="<?= e($link(['filter' => $k])) ?>"><?= e($label) ?></a>
-      <?php endforeach; ?>
+  <div class="col-lg-4">
+    <div class="card card-dark">
+      <div class="card-header py-2">
+        <h3 class="card-title mt-1"><i class="fas fa-fw fa-handshake mr-2"></i>Meetings</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/meetings" class="btn btn-tool">All</a></div>
+      </div>
+      <div class="card-body p-0">
+        <?php if ($cadence && $cadence['overdue']): ?>
+          <div class="alert alert-warning rounded-0 mb-0 py-2 small"><i class="fas fa-clock mr-1"></i><?= e(Meetings::CADENCES[$client['meeting_cadence']][0]) ?> meeting is due<?= $cadence['last'] ? ' (last ' . e(fmt_date($cadence['last'])) . ')' : '' ?>.</div>
+        <?php endif; ?>
+        <ul class="list-group list-group-flush">
+          <?php foreach ($upcoming as $m): ?>
+            <li class="list-group-item py-2"><a href="/meetings/<?= (int) $m['id'] ?>" class="d-flex text-dark">
+              <div class="date-chip mr-3"><span><?= e(date('M', strtotime($m['starts_at']))) ?></span><b><?= e(date('j', strtotime($m['starts_at']))) ?></b></div>
+              <div><div class="font-weight-bold"><?= e($m['title']) ?></div><div class="small text-muted"><?= e(date('D g:i a', strtotime($m['starts_at']))) ?> · <?= e(Meetings::typeLabel($m['type'])) ?></div></div>
+            </a></li>
+          <?php endforeach; ?>
+          <?php if (!$upcoming): ?><li class="list-group-item text-muted small">Nothing scheduled.</li><?php endif; ?>
+          <?php foreach ($recent as $m): ?>
+            <li class="list-group-item py-2 small"><a href="/meetings/<?= (int) $m['id'] ?>" class="text-muted"><i class="fas fa-check mr-1"></i><?= e(fmt_date($m['starts_at'])) ?> — <?= e($m['title']) ?></a></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
     </div>
-    <div class="chips">
-      <?php foreach ($classes as $k => $label): ?>
-        <a class="chip <?= $class === $k ? 'on' : '' ?>" href="<?= e($link(['class' => $k])) ?>"><?= e($label) ?></a>
-      <?php endforeach; ?>
+
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group mr-2"></i>Devices by type</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/devices" class="btn btn-tool">All</a></div></div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          <?php foreach ($byType as $type => $n): ?>
+            <li class="list-group-item py-2 d-flex"><span class="mr-auto"><i class="fas fa-fw <?= e(Lifecycle::icon($type)) ?> text-muted mr-2"></i><?= e($type) ?></span><span class="badge badge-light border"><?= (int) $n ?></span></li>
+          <?php endforeach; ?>
+          <?php if (!$byType): ?><li class="list-group-item text-muted small">No devices yet.</li><?php endif; ?>
+        </ul>
+      </div>
     </div>
+
+    <?php if ($client['notes'] || $client['address'] || $client['website']): ?>
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-circle-info mr-2"></i>Details</h3></div>
+      <div class="card-body small">
+        <?php if ($client['website']): ?><p class="mb-2"><i class="fas fa-globe mr-1 text-muted"></i><?= e($client['website']) ?></p><?php endif; ?>
+        <?php if ($client['address']): ?><p class="mb-2 pre-line"><i class="fas fa-location-dot mr-1 text-muted"></i><?= e($client['address']) ?></p><?php endif; ?>
+        <?php if ($client['notes']): ?><p class="mb-0 pre-line"><?= e($client['notes']) ?></p><?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
   </div>
-  <table class="table">
-    <thead><tr>
-      <th>Device</th><th>Type</th><th>Model</th><th>OS</th><th>In service</th><th>Warranty</th><th>End of life</th><th>Status</th><th class="num">Est. cost</th>
-    </tr></thead>
-    <tbody>
-    <?php foreach ($devices as $d): ?>
-      <tr>
-        <td class="nowrap"><a href="/devices/<?= (int) $d['id'] ?>"><?= e($d['name']) ?></a><div class="muted small"><?= e($d['serial'] ?? '') ?></div></td>
-        <td><?= e(ucfirst($d['device_class'])) ?></td>
-        <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="muted">—</span>' ?></td>
-        <td><?= e($d['os_name'] ?? '') ?><?php if ($d['os_rule']): ?><div class="muted small">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
-        <td><?= e(fmt_date($d['start_date'])) ?><?php if ($d['start_estimated']): ?> <span class="muted small" title="<?= e($d['start_source']) ?>">est.</span><?php endif; ?>
-          <?php if ($d['age_years'] !== null): ?><div class="muted small"><?= e($d['age_years']) ?> yrs</div><?php endif; ?></td>
-        <td><?= e(fmt_date($d['warranty_end'])) ?></td>
-        <td><?= e(fmt_date($d['eol_date'])) ?></td>
-        <td><?php require __DIR__ . '/../partials/status.php'; ?></td>
-        <td class="num"><?= $d['is_hardware'] && $d['status'] !== 'excluded' ? money($d['replacement_cost']) : '<span class="muted">—</span>' ?></td>
-      </tr>
-    <?php endforeach; ?>
-    <?php if (!$devices): ?><tr><td colspan="9" class="muted">No devices match.</td></tr><?php endif; ?>
-    </tbody>
-  </table>
 </div>

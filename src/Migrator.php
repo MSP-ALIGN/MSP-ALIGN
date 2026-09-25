@@ -15,17 +15,22 @@ final class Migrator
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
         $done = array_flip(array_column(DB::all('SELECT version FROM schema_migrations'), 'version'));
-        $files = glob(APP_ROOT . '/db/migrations/*.sql') ?: [];
-        sort($files, SORT_STRING);
+        $files = glob(APP_ROOT . '/db/migrations/*.{sql,php}', GLOB_BRACE) ?: [];
+        usort($files, fn($a, $b) => strcmp(basename($a), basename($b)));
         $count = 0;
         foreach ($files as $file) {
-            $version = basename($file, '.sql');
+            $version = pathinfo($file, PATHINFO_FILENAME);
             if (isset($done[$version])) {
                 continue;
             }
             $out("Applying $version");
-            foreach (self::splitStatements((string) file_get_contents($file)) as $stmt) {
-                $pdo->exec($stmt);
+            if (str_ends_with($file, '.php')) {
+                $fn = require $file;
+                $fn();
+            } else {
+                foreach (self::splitStatements((string) file_get_contents($file)) as $stmt) {
+                    $pdo->exec($stmt);
+                }
             }
             DB::insert('schema_migrations', ['version' => $version]);
             $count++;

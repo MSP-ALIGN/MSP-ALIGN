@@ -1,7 +1,14 @@
-<form method="post" action="/login" class="stack">
+<p class="login-box-msg">Sign in to continue</p>
+<form method="post" action="/login">
   <?= csrf_field() ?>
   <input type="hidden" name="next" value="<?= e($next) ?>">
-  <label>Email<input type="email" name="email" autocomplete="username" required autofocus></label>
-  <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
-  <button class="btn primary">Sign in</button>
+  <div class="input-group mb-3">
+    <input type="email" name="email" class="form-control" placeholder="Email" autocomplete="username" required autofocus>
+    <div class="input-group-append"><div class="input-group-text"><span class="fas fa-envelope"></span></div></div>
+  </div>
+  <div class="input-group mb-3">
+    <input type="password" name="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
+    <div class="input-group-append"><div class="input-group-text"><span class="fas fa-lock"></span></div></div>
+  </div>
+  <button class="btn btn-primary btn-block">Sign in</button>
 </form>

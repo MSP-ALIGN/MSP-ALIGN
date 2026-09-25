@@ -2,8 +2,16 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**Phase 1 (this release):** sync, client mapping, lifecycle and warranty tracking, replacement forecast, CSV export, users with roles and 2FA, audit log.
-**Planned:** alignment standards and scoring, roadmap/recommendations with budgets, QBR report PDFs.
+**What's in it (0.2.0):**
+
+- **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
+- **Devices & assets:** synced from NinjaOne, plus hand-added gear NinjaOne doesn't manage (printers, switches, firewalls, access points, NAS, UPS, hypervisor hosts). You can change the type of any device.
+- **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a replacement budget forecast by quarter.
+- **Meetings & calendar:** QBRs and other meetings, repeating series, agenda and notes, a flag for clients due for a meeting, a month/week/list calendar, `.ics` invites, and a private feed you can subscribe to in Outlook.
+- **Compliance:** built-in frameworks (MSP Security Baseline, Cyber Insurance Readiness, CIS Controls v8 IG1, HIPAA Security Rule) assigned per client, with a checklist (status, owner, due date, notes, evidence), scores, device-data hints, review dates and CSV export. Frameworks can be edited or copied.
+- **UI:** built on AdminLTE 3 / Bootstrap 4 / Font Awesome, the same kit ITFlow uses. It's bundled locally, with no CDN.
+
+**Planned:** roadmap/recommendations with budgets, QBR report PDFs.
 
 ---
 
@@ -88,4 +96,4 @@ php -S 127.0.0.1:8080 -t public tests/dev-router.php
 
 To point at the mocks, set `ninja_instance`, `itflow_url`, `dell_api_base` and `lenovo_api_base` to `http://127.0.0.1:8099` in the `settings` table. The mock credentials are `ninja-id` / `ninja-secret` and `itflow-key`.
 
-Layout: `public/` web root · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.
+Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, jQuery, Font Awesome, FullCalendar; see their LICENSE files) · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.

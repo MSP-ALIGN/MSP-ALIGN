@@ -22,6 +22,7 @@ final class AccountController
             'u' => $u,
             'setupSecret' => $pending,
             'setupUri' => $pending ? Totp::uri($pending, $u['email']) : null,
+            'feedUrl' => MeetingController::feedUrl($u),
         ]);
     }
 

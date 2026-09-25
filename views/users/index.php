@@ -1,55 +1,63 @@
-<header class="page-head"><h1>Users</h1></header>
-
 <?php if ($newPassword): ?>
-  <div class="card callout">
-    <h2>Temporary password for <?= e($newPassword['email']) ?></h2>
-    <p><code class="big"><?= e($newPassword['password']) ?></code></p>
-    <p class="muted small">Shown once. Send it securely and have them change it under Account.</p>
+  <div class="callout callout-success">
+    <h5>Temporary password for <?= e($newPassword['email']) ?></h5>
+    <p class="mb-1"><code class="h5 select-all"><?= e($newPassword['password']) ?></code></p>
+    <p class="small text-muted mb-0">Shown once. Send it securely and have them change it under Account.</p>
   </div>
 <?php endif; ?>
 
-<div class="card flush">
-  <table class="table">
-    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>2FA</th><th>Last sign-in</th><th></th></tr></thead>
-    <tbody>
-    <?php foreach ($users as $u): ?>
-      <tr class="<?= $u['is_active'] ? '' : 'dim' ?>">
-        <td><?= e($u['name']) ?><?= $u['is_active'] ? '' : ' <span class="badge tone-muted">disabled</span>' ?></td>
-        <td><?= e($u['email']) ?></td>
-        <td>
-          <form method="post" action="/users/<?= (int) $u['id'] ?>" class="inline"><?= csrf_field() ?>
-            <input type="hidden" name="action" value="role">
-            <select name="role" data-autosubmit>
-              <?php foreach ($roles as $r => $label): ?><option value="<?= $r ?>" <?= $u['role'] === $r ? 'selected' : '' ?>><?= e(ucfirst($r)) ?></option><?php endforeach; ?>
-            </select>
-            <noscript><button class="btn small">Set</button></noscript>
-          </form>
-        </td>
-        <td><?= $u['totp_enabled'] ? '<span class="badge tone-ok">on</span>' : '<span class="muted">off</span>' ?></td>
-        <td><?= e(rel_time($u['last_login_at'])) ?></td>
-        <td class="actions">
-          <?php foreach (['reset' => 'Reset password', 'toggle' => $u['is_active'] ? 'Disable' : 'Enable'] + ($u['totp_enabled'] ? ['reset_2fa' => 'Remove 2FA'] : []) as $a => $label): ?>
-            <form method="post" action="/users/<?= (int) $u['id'] ?>" class="inline"><?= csrf_field() ?>
-              <input type="hidden" name="action" value="<?= $a ?>"><button class="btn small" data-confirm="<?= e($label) ?> for <?= e($u['email']) ?>?"><?= e($label) ?></button>
+<div class="card card-dark">
+  <div class="card-header py-2">
+    <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-shield mr-2"></i>Users</h3>
+    <div class="card-tools"><button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-user"><i class="fas fa-plus mr-1"></i>New user</button></div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-striped table-borderless table-hover mb-0">
+      <thead class="text-dark"><tr><th>Name</th><th>Email</th><th>Role</th><th>2FA</th><th>Last sign-in</th><th></th></tr></thead>
+      <tbody>
+      <?php foreach ($users as $u): ?>
+        <tr class="<?= $u['is_active'] ? '' : 'text-muted' ?>">
+          <td class="align-middle"><span class="user-initials mr-2"><?= e(initials($u['name'])) ?></span><?= e($u['name']) ?><?= $u['is_active'] ? '' : ' <span class="badge badge-secondary">disabled</span>' ?></td>
+          <td class="align-middle"><?= e($u['email']) ?></td>
+          <td class="align-middle">
+            <form method="post" action="/users/<?= (int) $u['id'] ?>" class="d-inline"><?= csrf_field() ?>
+              <input type="hidden" name="action" value="role">
+              <select name="role" class="custom-select custom-select-sm w-auto" data-autosubmit>
+                <?php foreach ($roles as $r => $label): ?><option value="<?= $r ?>" <?= $u['role'] === $r ? 'selected' : '' ?>><?= e(ucfirst($r)) ?></option><?php endforeach; ?>
+              </select>
             </form>
-          <?php endforeach; ?>
-        </td>
-      </tr>
-    <?php endforeach; ?>
-    </tbody>
-  </table>
+          </td>
+          <td class="align-middle"><?= $u['totp_enabled'] ? '<span class="badge badge-success">on</span>' : '<span class="badge badge-light border">off</span>' ?></td>
+          <td class="align-middle small"><?= e(rel_time($u['last_login_at'])) ?></td>
+          <td class="text-right text-nowrap">
+            <?php foreach (['reset' => 'Reset password', 'toggle' => $u['is_active'] ? 'Disable' : 'Enable'] + ($u['totp_enabled'] ? ['reset_2fa' => 'Remove 2FA'] : []) as $a => $label): ?>
+              <form method="post" action="/users/<?= (int) $u['id'] ?>" class="d-inline"><?= csrf_field() ?>
+                <input type="hidden" name="action" value="<?= $a ?>"><button class="btn btn-xs btn-default" data-confirm="<?= e($label) ?> for <?= e($u['email']) ?>?"><?= e($label) ?></button>
+              </form>
+            <?php endforeach; ?>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Add user</h2>
-  <form method="post" action="/users" class="form-grid">
-    <?= csrf_field() ?>
-    <label>Name<input name="name" required></label>
-    <label>Email<input type="email" name="email" required></label>
-    <label>Role
-      <select name="role"><?php foreach ($roles as $r => $label): ?><option value="<?= $r ?>" <?= $r === 'tech' ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select>
-    </label>
-    <div><button class="btn primary">Create user</button></div>
-  </form>
-  <p class="muted small">A temporary password is generated and shown once.</p>
+<div class="modal fade" id="modal-user" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="/users">
+        <?= csrf_field() ?>
+        <div class="modal-header bg-dark"><h5 class="modal-title">New user</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <div class="form-group"><label>Name</label><input name="name" class="form-control" required></div>
+          <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" required></div>
+          <div class="form-group mb-0"><label>Role</label>
+            <select name="role" class="form-control"><?php foreach ($roles as $r => $label): ?><option value="<?= $r ?>" <?= $r === 'tech' ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+          <p class="small text-muted mt-2 mb-0">A temporary password is generated and shown once.</p>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button class="btn btn-primary">Create user</button></div>
+      </form>
+    </div>
+  </div>
 </div>

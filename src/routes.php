@@ -5,9 +5,11 @@ use Align\Controllers\AccountController;
 use Align\Controllers\AuditController;
 use Align\Controllers\AuthController;
 use Align\Controllers\ClientController;
+use Align\Controllers\ComplianceController;
 use Align\Controllers\DashboardController;
 use Align\Controllers\DeviceController;
 use Align\Controllers\MappingController;
+use Align\Controllers\MeetingController;
 use Align\Controllers\SettingsController;
 use Align\Controllers\SyncController;
 use Align\Controllers\UserController;
@@ -23,34 +25,67 @@ $r->post('/logout', [AuthController::class, 'logout']);
 
 $r->get('/', [DashboardController::class, 'index']);
 
+// Clients
 $r->get('/clients', [ClientController::class, 'index']);
+$r->post('/clients', [ClientController::class, 'create']);
 $r->get('/clients/{id}', [ClientController::class, 'show']);
+$r->post('/clients/{id}', [ClientController::class, 'update']);
+$r->post('/clients/{id}/archive', [ClientController::class, 'archive']);
+$r->get('/clients/{id}/devices', [ClientController::class, 'devices']);
+$r->post('/clients/{id}/devices', [DeviceController::class, 'create']);
 $r->get('/clients/{id}/export', [ClientController::class, 'export']);
+$r->get('/clients/{id}/meetings', [MeetingController::class, 'clientIndex']);
+$r->get('/clients/{id}/compliance', [ComplianceController::class, 'client']);
+$r->post('/clients/{id}/compliance', [ComplianceController::class, 'assign']);
+$r->get('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'checklist']);
+$r->post('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'save']);
+$r->post('/clients/{id}/compliance/{fw}/remove', [ComplianceController::class, 'unassign']);
+$r->get('/clients/{id}/compliance/{fw}/export', [ComplianceController::class, 'export']);
 
+// Devices
 $r->get('/devices/{id}', [DeviceController::class, 'show']);
 $r->post('/devices/{id}', [DeviceController::class, 'save']);
+$r->post('/devices/{id}/delete', [DeviceController::class, 'delete']);
 
+// Meetings & calendar
+$r->get('/meetings', [MeetingController::class, 'index']);
+$r->post('/meetings', [MeetingController::class, 'create']);
+$r->get('/meetings/{id}', [MeetingController::class, 'show']);
+$r->post('/meetings/{id}', [MeetingController::class, 'update']);
+$r->post('/meetings/{id}/delete', [MeetingController::class, 'delete']);
+$r->get('/meetings/{id}/ics', [MeetingController::class, 'ics']);
+$r->get('/calendar', [MeetingController::class, 'calendar']);
+$r->get('/calendar/events', [MeetingController::class, 'events']);
+$r->post('/calendar/feed', [MeetingController::class, 'feedToken']);
+$r->get('/ics/{token:str}', [MeetingController::class, 'feed']);
+
+// Compliance
+$r->get('/compliance', [ComplianceController::class, 'overview']);
+$r->get('/frameworks', [ComplianceController::class, 'frameworks']);
+$r->post('/frameworks', [ComplianceController::class, 'frameworkCreate']);
+$r->get('/frameworks/{id}', [ComplianceController::class, 'frameworkShow']);
+$r->post('/frameworks/{id}', [ComplianceController::class, 'frameworkSave']);
+
+// Integrations
 $r->get('/mapping', [MappingController::class, 'index']);
 $r->post('/mapping', [MappingController::class, 'save']);
-
 $r->get('/sync', [SyncController::class, 'index']);
 $r->post('/sync', [SyncController::class, 'run']);
 $r->get('/sync/{id}', [SyncController::class, 'show']);
 
+// Admin
 $r->get('/settings', [SettingsController::class, 'index']);
 $r->post('/settings', [SettingsController::class, 'save']);
 $r->post('/settings/test', [SettingsController::class, 'test']);
 $r->get('/settings/os', [SettingsController::class, 'os']);
 $r->post('/settings/os', [SettingsController::class, 'osSave']);
-
 $r->get('/users', [UserController::class, 'index']);
 $r->post('/users', [UserController::class, 'create']);
 $r->post('/users/{id}', [UserController::class, 'update']);
+$r->get('/audit', [AuditController::class, 'index']);
 
 $r->get('/account', [AccountController::class, 'show']);
 $r->post('/account/password', [AccountController::class, 'password']);
 $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
-
-$r->get('/audit', [AuditController::class, 'index']);
 
 return $r;

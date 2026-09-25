@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace Align\Controllers;
 
 use Align\Auth;
+use Align\Compliance\Compliance;
 use Align\DB;
 use Align\Lifecycle\Lifecycle;
+use Align\Meetings\Meetings;
 use Align\View;
 
 final class DashboardController
@@ -21,33 +23,52 @@ final class DashboardController
         $byClient = [];
         foreach ($devices as $d) {
             $c = &$byClient[$d['client_id']];
-            $c ??= ['id' => $d['client_id'], 'name' => $d['client_name'], 'devices' => [], 'replace' => 0, 'attention' => 0];
-            $c['devices'][] = $d;
+            $c ??= ['id' => $d['client_id'], 'name' => $d['client_name'], 'total' => 0, 'replace' => 0, 'attention' => 0];
+            $c['total']++;
             if (in_array('replace', $d['flags'], true) || in_array('os_eos', $d['flags'], true)) {
                 $c['replace']++;
             }
-            if ($d['status_tone'] !== 'ok' && $d['status_tone'] !== 'muted') {
+            if (in_array($d['status_tone'], ['bad', 'warn'], true)) {
                 $c['attention']++;
             }
             unset($c);
         }
-        foreach ($byClient as &$c) {
-            $c['total'] = count($c['devices']);
-            unset($c['devices']);
-        }
-        unset($c);
         usort($byClient, fn($a, $b) => [$b['replace'], $b['attention']] <=> [$a['replace'], $a['attention']]);
+
+        $cadence = Meetings::cadence();
+        $names = array_column(DB::all('SELECT id, name FROM clients WHERE is_archived = 0'), 'name', 'id');
+        $overdue = [];
+        foreach ($cadence as $cid => $c) {
+            if ($c['overdue'] && isset($names[$cid])) {
+                $overdue[] = ['id' => $cid, 'name' => $names[$cid], 'last' => $c['last'], 'due' => $c['due']];
+            }
+        }
+        usort($overdue, fn($a, $b) => strcmp((string) $a['last'], (string) $b['last']));
+
+        $scores = [];
+        foreach (Compliance::allScores() as $fws) {
+            foreach ($fws as $s) {
+                $scores[] = $s['score'];
+            }
+        }
 
         View::render('dashboard', [
             'title' => 'Dashboard',
             'nav' => 'dashboard',
             'summary' => $summary,
             'forecast' => $forecast,
-            'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 10),
+            'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 8),
             'lastSync' => DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1'),
-            'unmapped' => (int) DB::value('SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0'),
-            'unassigned' => (int) DB::value('SELECT COUNT(*) FROM devices d LEFT JOIN clients c ON c.ninja_org_id = d.ninja_org_id WHERE d.removed_at IS NULL AND c.id IS NULL'),
+            'unmapped' => (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND source = 'itflow'"),
+            'unassigned' => (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL'),
             'configured' => DB::value("SELECT COUNT(*) FROM settings WHERE name IN ('ninja_client_secret','itflow_api_key')") == 2,
+            'upcoming' => DB::all("SELECT m.*, c.name AS client_name FROM meetings m LEFT JOIN clients c ON c.id = m.client_id
+                WHERE m.status = 'scheduled' AND m.starts_at >= NOW() AND m.starts_at < ? ORDER BY m.starts_at LIMIT 8", [date('Y-m-d', strtotime('+30 days'))]),
+            'overdueMeetings' => array_slice($overdue, 0, 8),
+            'overdueCount' => count($overdue),
+            'clientCount' => count($names),
+            'complianceAvg' => $scores ? (int) round(array_sum($scores) / count($scores)) : null,
+            'complianceCount' => count($scores),
         ]);
     }
 }

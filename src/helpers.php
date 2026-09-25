@@ -138,3 +138,30 @@ function normalize_serial(?string $s): ?string
     }
     return $s;
 }
+
+/** Maps lifecycle tones to Bootstrap contextual classes. */
+function tone_class(string $tone): string
+{
+    return ['bad' => 'danger', 'warn' => 'warning', 'ok' => 'success', 'muted' => 'secondary'][$tone] ?? $tone;
+}
+
+function fmt_datetime(?string $d): string
+{
+    return $d ? date('D M j, Y · g:i a', (int) strtotime($d)) : '—';
+}
+
+function fmt_time(?string $d): string
+{
+    return $d ? date('g:i a', (int) strtotime($d)) : '';
+}
+
+/** Initials for avatar circles. */
+function initials(string $name): string
+{
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+    $i = '';
+    foreach (array_slice($parts, 0, 2) as $p) {
+        $i .= mb_strtoupper(mb_substr($p, 0, 1));
+    }
+    return $i ?: '?';
+}

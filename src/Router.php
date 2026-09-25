@@ -23,7 +23,12 @@ final class Router
         $path = '/' . trim($path, '/');
         $allowed = false;
         foreach ($this->routes as [$m, $pattern, $handler]) {
-            $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[0-9]+)', $pattern) . '$#';
+            // {id} matches digits (passed as int); {name:str} matches [A-Za-z0-9_.-] (passed as string)
+            $regex = '#^' . preg_replace(
+                ['#\{(\w+):str\}#', '#\{(\w+)\}#'],
+                ['(?P<$1>[A-Za-z0-9_.-]+)', '(?P<$1>[0-9]+)'],
+                $pattern
+            ) . '$#';
             if (!preg_match($regex, $path, $match)) {
                 continue;
             }
@@ -34,7 +39,10 @@ final class Router
             if ($method === 'POST') {
                 csrf_check();
             }
-            $params = array_map('intval', array_filter($match, 'is_string', ARRAY_FILTER_USE_KEY));
+            $params = [];
+            foreach (array_filter($match, 'is_string', ARRAY_FILTER_USE_KEY) as $k => $v) {
+                $params[$k] = str_contains($pattern, '{' . $k . ':str}') ? $v : (int) $v;
+            }
             $handler(...$params);
             return;
         }

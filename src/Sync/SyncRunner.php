@@ -141,6 +141,18 @@ final class SyncRunner
             }
             $ids[] = $id;
             $existing = DB::one('SELECT id FROM clients WHERE itflow_client_id = ?', [$id]);
+            if (!$existing) {
+                // Adopt a client that was added by hand before it existed in ITFlow.
+                $key = self::normalizeName((string) ($r['client_name'] ?? ''));
+                foreach (DB::all("SELECT id, name FROM clients WHERE itflow_client_id IS NULL AND source = 'manual'") as $m) {
+                    if ($key !== '' && self::normalizeName($m['name']) === $key) {
+                        DB::run("UPDATE clients SET itflow_client_id = ?, source = 'itflow' WHERE id = ?", [$id, $m['id']]);
+                        $this->info("Linked manually added client \"{$m['name']}\" to ITFlow client #$id");
+                        $existing = ['id' => $m['id']];
+                        break;
+                    }
+                }
+            }
             $data = [
                 'name' => (string) ($r['client_name'] ?? "Client $id"),
                 'is_archived' => empty($r['client_archived_at']) ? 0 : 1,
@@ -154,7 +166,7 @@ final class SyncRunner
         }
         if ($ids) {
             $in = implode(',', array_map('intval', $ids));
-            DB::run("UPDATE clients SET is_archived = 1 WHERE itflow_client_id NOT IN ($in)");
+            DB::run("UPDATE clients SET is_archived = 1 WHERE source = 'itflow' AND itflow_client_id NOT IN ($in)");
         }
         return count($ids) . ' clients';
     }
@@ -222,7 +234,7 @@ final class SyncRunner
                 $row = NinjaOne::mapDevice($d) + ['synced_at' => $now, 'removed_at' => null];
                 DB::upsert('devices', $row, ['ninja_device_id']);
             }
-            DB::run('UPDATE devices SET removed_at = ? WHERE removed_at IS NULL AND (synced_at IS NULL OR synced_at < ?)', [$now, $now]);
+            DB::run("UPDATE devices SET removed_at = ? WHERE source = 'ninja' AND removed_at IS NULL AND (synced_at IS NULL OR synced_at < ?)", [$now, $now]);
         });
         $removed = (int) DB::value('SELECT COUNT(*) FROM devices WHERE removed_at = ?', [$now]);
         return count($devices) . ' devices' . ($removed ? ", $removed no longer in NinjaOne" : '');
@@ -272,8 +284,9 @@ final class SyncRunner
                 $byName[$a['itflow_client_id']][strtolower(trim($a['name']))][] = (int) $a['itflow_asset_id'];
             }
         }
-        $devices = DB::all('SELECT d.id, d.serial, d.display_name, d.system_name, c.itflow_client_id
-            FROM devices d LEFT JOIN clients c ON c.ninja_org_id = d.ninja_org_id
+        $devices = DB::all('SELECT d.id, d.serial, d.display_name, d.system_name,
+                COALESCE(cm.itflow_client_id, cn.itflow_client_id) AS itflow_client_id
+            FROM devices d ' . \Align\Lifecycle\Lifecycle::CLIENT_JOIN . '
             WHERE d.removed_at IS NULL');
         $matched = 0;
         foreach ($devices as $dv) {
