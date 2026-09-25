@@ -152,8 +152,8 @@ final class NinjaOne
             'display_name' => $d['displayName'] ?? null,
             'system_name' => $d['systemName'] ?? ($d['dnsName'] ?? null),
             'node_class' => $nodeClass ?: null,
-            'device_class' => $class = self::classify($nodeClass, $chassis, $model, $isVirtual),
-            'device_type' => self::type($nodeClass, $class),
+            'device_type' => $type = self::type($nodeClass, $chassis, $manufacturer, $model, (string) ($d['displayName'] ?? ''), $isVirtual, (string) ($os['name'] ?? '')),
+            'device_class' => \Align\Lifecycle\Lifecycle::TYPES[$type][0],
             'manufacturer' => $manufacturer ?: null,
             'model' => $model ?: null,
             'serial' => normalize_serial($sys['serialNumber'] ?? null) ?? normalize_serial($sys['biosSerialNumber'] ?? null),
@@ -170,9 +170,6 @@ final class NinjaOne
 
     public static function classify(string $nodeClass, string $chassis, string $model, bool $isVirtual): string
     {
-        if ($isVirtual) {
-            return 'virtual';
-        }
         $nc = strtoupper($nodeClass);
         if (str_contains($nc, 'SERVER') || in_array($nc, ['VMWARE_VM_HOST', 'HYPERV_VMM_HOST'], true)) {
             return 'server';
@@ -182,7 +179,7 @@ final class NinjaOne
                 'NMS_PRINTER', 'NMS_SCANNER' => 'printer',
                 'NMS_SERVER', 'NMS_VM_HOST' => 'server',
                 'NMS_COMPUTER' => 'desktop',
-                'NMS_VIRTUAL_MACHINE' => 'virtual',
+                'NMS_VIRTUAL_MACHINE' => 'server',
                 'NMS_PHONE', 'NMS_OTHER', 'NMS_APPLIANCE' => 'other',
                 default => 'network',
             };
@@ -200,10 +197,16 @@ final class NinjaOne
         return 'other';
     }
 
-    /** Friendly device type for display (see Lifecycle::TYPES). */
-    public static function type(string $nodeClass, string $class): string
+    /** Device type (see Lifecycle::TYPES) from NinjaOne's node class and hardware details. */
+    public static function type(string $nodeClass, string $chassis, string $manufacturer, string $model, string $name, bool $isVirtual, string $osName): string
     {
         $nc = strtoupper($nodeClass);
+        if ($isVirtual || $nc === 'NMS_VIRTUAL_MACHINE') {
+            return \Align\Lifecycle\Lifecycle::virtualType($osName, $nodeClass);
+        }
+        if (\Align\Lifecycle\Lifecycle::looksLikeUps($manufacturer, $model, $name)) {
+            return 'UPS';
+        }
         return match (true) {
             in_array($nc, ['VMWARE_VM_HOST', 'HYPERV_VMM_HOST', 'NMS_VM_HOST'], true) => 'Hypervisor host',
             $nc === 'NMS_FIREWALL' => 'Firewall',
@@ -211,7 +214,7 @@ final class NinjaOne
             $nc === 'NMS_SWITCH' => 'Switch',
             $nc === 'NMS_WAP' => 'Access point',
             $nc === 'NMS_PHONE' => 'Phone',
-            default => \Align\Lifecycle\Lifecycle::DEFAULT_TYPE[$class] ?? 'Other',
+            default => \Align\Lifecycle\Lifecycle::DEFAULT_TYPE[self::classify($nodeClass, $chassis, $model, false)] ?? 'Other',
         };
     }
 

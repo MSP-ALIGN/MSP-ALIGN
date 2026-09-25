@@ -25,29 +25,55 @@ final class Lifecycle
     ];
     public const HARDWARE_CLASSES = ['desktop', 'laptop', 'server', 'network', 'printer', 'storage', 'power', 'other'];
 
-    /** Device types shown in the UI => [policy class, Font Awesome icon] */
+    /**
+     * Device types shown in the UI => [policy class, Font Awesome icon, virtual].
+     * Virtual types group with servers / desktops but get OS-support tracking only
+     * (no hardware end-of-life, warranty or replacement cost).
+     */
     public const TYPES = [
-        'Desktop' => ['desktop', 'fa-desktop'],
-        'Laptop' => ['laptop', 'fa-laptop'],
-        'Server' => ['server', 'fa-server'],
-        'Hypervisor host' => ['server', 'fa-cubes'],
-        'Virtual machine' => ['virtual', 'fa-cloud'],
-        'Firewall' => ['network', 'fa-shield-halved'],
-        'Router' => ['network', 'fa-route'],
-        'Switch' => ['network', 'fa-network-wired'],
-        'Access point' => ['network', 'fa-wifi'],
-        'Printer' => ['printer', 'fa-print'],
-        'NAS / Storage' => ['storage', 'fa-hard-drive'],
-        'UPS' => ['power', 'fa-car-battery'],
-        'Phone' => ['other', 'fa-phone'],
-        'Camera / NVR' => ['other', 'fa-video'],
-        'Other' => ['other', 'fa-tag'],
+        'Desktop' => ['desktop', 'fa-desktop', false],
+        'VDI / virtual desktop' => ['desktop', 'fa-display', true],
+        'Laptop' => ['laptop', 'fa-laptop', false],
+        'Server' => ['server', 'fa-server', false],
+        'Hypervisor host' => ['server', 'fa-cubes', false],
+        'Virtual server' => ['server', 'fa-cloud', true],
+        'Firewall' => ['network', 'fa-shield-halved', false],
+        'Router' => ['network', 'fa-route', false],
+        'Switch' => ['network', 'fa-network-wired', false],
+        'Access point' => ['network', 'fa-wifi', false],
+        'Printer' => ['printer', 'fa-print', false],
+        'NAS / Storage' => ['storage', 'fa-hard-drive', false],
+        'UPS' => ['power', 'fa-car-battery', false],
+        'Phone' => ['other', 'fa-phone', false],
+        'Camera / NVR' => ['other', 'fa-video', false],
+        'Other' => ['other', 'fa-tag', false],
     ];
 
     public const DEFAULT_TYPE = [
         'desktop' => 'Desktop', 'laptop' => 'Laptop', 'server' => 'Server', 'network' => 'Switch',
-        'printer' => 'Printer', 'storage' => 'NAS / Storage', 'power' => 'UPS', 'virtual' => 'Virtual machine', 'other' => 'Other',
+        'printer' => 'Printer', 'storage' => 'NAS / Storage', 'power' => 'UPS', 'other' => 'Other',
     ];
+
+    /** Picks the virtual type from the OS: server OS => Virtual server, desktop OS => VDI. */
+    public static function virtualType(?string $osName, string $nodeClass = ''): string
+    {
+        $os = strtolower((string) $osName);
+        $nc = strtoupper($nodeClass);
+        if (str_contains($nc, 'SERVER') || str_contains($os, 'server')) {
+            return 'Virtual server';
+        }
+        if (str_contains($nc, 'WORKSTATION') || $nc === 'MAC' || preg_match('/windows (7|8|10|11)|macos|ubuntu desktop/', $os)) {
+            return 'VDI / virtual desktop';
+        }
+        return 'Virtual server';
+    }
+
+    /** Recognizes UPS gear by make/model/name. */
+    public static function looksLikeUps(string ...$fields): bool
+    {
+        $s = strtolower(implode(' ', $fields));
+        return preg_match('/\bups\b|smart-ups|back-ups|symmetra|cyberpower|\beaton\b|tripp[ -]?lite|liebert|vertiv|\bapc\b|powerwalker|battery backup/', $s) === 1;
+    }
 
     public const STATUS = [
         'replace' => ['Replace now', 'bad'],
@@ -58,7 +84,7 @@ final class Lifecycle
         'warranty_soon' => ['Warranty expiring', 'warn'],
         'ok' => ['Healthy', 'ok'],
         'excluded' => ['Excluded', 'muted'],
-        'virtual' => ['Virtual', 'muted'],
+        'virtual' => ['Virtual (OS only)', 'muted'],
     ];
 
     private array $policy;
@@ -140,9 +166,14 @@ final class Lifecycle
     {
         $today = date('Y-m-d');
         $type = $d['o_type'] ?: ($d['device_type'] ?: (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other'));
-        $class = $d['o_type'] && isset(self::TYPES[$d['o_type']]) ? self::TYPES[$d['o_type']][0] : $d['device_class'];
+        if (!isset(self::TYPES[$type])) {
+            $type = $d['is_virtual'] ? self::virtualType($d['os_name'] ?? null, (string) ($d['node_class'] ?? '')) : (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other');
+        }
+        $class = self::TYPES[$type][0];
+        $virtual = $d['o_type'] ? self::TYPES[$type][2] : ((bool) $d['is_virtual'] || self::TYPES[$type][2]);
         $d['device_class'] = $class;
-        $isHardware = in_array($class, self::HARDWARE_CLASSES, true);
+        $d['is_virtual'] = $virtual ? 1 : 0;
+        $isHardware = !$virtual && in_array($class, self::HARDWARE_CLASSES, true);
 
         // Start of life: override > ITFlow purchase > vendor ship > vendor warranty start > ITFlow install > first seen in NinjaOne
         $startSources = [
@@ -173,6 +204,10 @@ final class Lifecycle
             }
         }
 
+        if ($virtual) {
+            $warranty = null; // no hardware to warranty
+            $warrantySource = null;
+        }
         $lifespan = (int) ($d['o_lifespan'] ?: ($this->policy['lifespan'][$class] ?? 0));
         $eol = ($isHardware && $start && $lifespan) ? date('Y-m-d', strtotime("$start +$lifespan years")) : null;
         $ageYears = $start ? round((time() - strtotime($start)) / (365.25 * 86400), 1) : null;
@@ -203,7 +238,7 @@ final class Lifecycle
         $status = 'ok';
         if (!empty($d['o_excluded'])) {
             $status = 'excluded';
-        } elseif ($class === 'virtual' && !array_intersect($flags, ['os_eos', 'os_soon'])) {
+        } elseif ($virtual && !array_intersect($flags, ['os_eos', 'os_soon'])) {
             $status = 'virtual';
         } else {
             foreach (array_keys(self::STATUS) as $s) {

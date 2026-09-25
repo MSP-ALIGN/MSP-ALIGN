@@ -55,7 +55,7 @@ final class ReportController
         $lc = new Lifecycle();
         $devices = $lc->devices($id);
         if (!$opt['virtual']) {
-            $devices = array_values(array_filter($devices, fn($d) => $d['device_class'] !== 'virtual'));
+            $devices = array_values(array_filter($devices, fn($d) => !$d['is_virtual']));
         }
         $active = array_values(array_filter($devices, fn($d) => $d['status'] !== 'excluded'));
         $forecast = $lc->forecast($active);
@@ -114,7 +114,7 @@ final class ReportController
         $all = $lc->devices();
         $rows = [];
         foreach ($clients as $c) {
-            $devs = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === (int) $c['id'] && $d['status'] !== 'excluded' && $d['device_class'] !== 'virtual'));
+            $devs = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === (int) $c['id'] && $d['status'] !== 'excluded' && !$d['is_virtual']));
             $f = $lc->forecast($devs);
             $rows[] = $c + [
                 'summary' => Lifecycle::summarize($devs),

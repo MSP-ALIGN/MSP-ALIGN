@@ -243,6 +243,8 @@ final class ClientController
                 'warranty' => (bool) array_intersect(['warranty_expired', 'warranty_soon'], $d['flags']) || ($d['is_hardware'] && !$d['warranty_end']),
                 'stale' => $d['stale'],
                 'manual' => $d['source'] === 'manual',
+                'itflow' => $d['source'] === 'itflow',
+                'virtual' => (bool) $d['is_virtual'],
                 default => true,
             };
         }));
@@ -282,7 +284,7 @@ final class ClientController
             'End of life', 'Status', 'Est. replacement cost', 'Last check-in', 'Notes'], escape: '');
         foreach ($devices as $d) {
             fputcsv($out, [
-                $d['name'], $d['type'], $d['source'] === 'manual' ? 'Manual' : 'NinjaOne', $d['manufacturer'], $d['model'],
+                $d['name'], $d['type'], ['manual' => 'Manual', 'itflow' => 'ITFlow', 'ninja' => 'NinjaOne'][$d['source']] ?? $d['source'], $d['manufacturer'], $d['model'],
                 $d['serial'], $d['ip_address'], $d['location'], $d['os_name'] ?: $d['firmware'],
                 $d['os_rule']['eos_date'] ?? '', $d['start_date'], $d['start_source'], $d['age_years'],
                 $d['warranty_end'], $d['warranty_source'], $d['eol_date'], $d['status_label'],

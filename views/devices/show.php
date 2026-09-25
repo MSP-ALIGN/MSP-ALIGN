@@ -3,6 +3,7 @@ use Align\Auth;
 
 $canEdit = Auth::can('tech');
 $manual = $d['source'] === 'manual';
+$srcLabel = ['ninja' => 'NinjaOne', 'itflow' => 'ITFlow', 'manual' => 'Added manually'][$d['source']] ?? $d['source'];
 $ninjaBase = str_contains($ninjaInstance, '://') ? rtrim($ninjaInstance, '/') : 'https://' . $ninjaInstance;
 $row = fn(string $k, string $v) => '<tr><th class="text-muted font-weight-normal w-40">' . e($k) . '</th><td>' . $v . '</td></tr>';
 if ($client) {
@@ -13,11 +14,11 @@ if ($client) {
   <h1 class="h4 mb-0 mr-3"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><?= e($d['name']) ?></h1>
   <div class="mr-auto">
     <?php require __DIR__ . '/../partials/status.php'; ?>
-    <?php if ($manual): ?><span class="badge badge-light border">Added manually</span><?php endif; ?>
-    <?php if ($d['removed_at']): ?><span class="badge badge-dark">Removed from NinjaOne <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
+    <span class="badge badge-light border"><?= $d['source'] === 'ninja' ? '<i class="fas fa-user-ninja mr-1"></i>' : ($d['source'] === 'itflow' ? '<i class="fas fa-screwdriver-wrench mr-1"></i>' : '') ?><?= e($srcLabel) ?></span>
+    <?php if ($d['removed_at']): ?><span class="badge badge-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
   </div>
   <div class="btn-group btn-group-sm">
-    <?php if (!$manual): ?><a class="btn btn-default" href="<?= e($ninjaBase . '/#/deviceDashboard/' . (int) $d['ninja_device_id'] . '/overview') ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>NinjaOne</a><?php endif; ?>
+    <?php if ($d['source'] === 'ninja'): ?><a class="btn btn-default" href="<?= e($ninjaBase . '/#/deviceDashboard/' . (int) $d['ninja_device_id'] . '/overview') ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>NinjaOne</a><?php endif; ?>
     <?php if ($d['itflow_asset_id'] && $itflowUrl): ?>
       <a class="btn btn-default" href="<?= e(rtrim($itflowUrl, '/') . '/agent/asset.php?client_id=' . (int) $d['itflow_client_id'] . '&asset_id=' . (int) $d['itflow_asset_id']) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>ITFlow asset</a>
     <?php endif; ?>
@@ -40,7 +41,7 @@ if ($client) {
           <?php if ($d['firmware']) echo $row('Firmware / version', e($d['firmware'])); ?>
           <?= $row('Operating system', e($d['os_name'] ?? '—') . ($d['os_build'] ? ' <span class="small text-muted">build ' . e($d['os_build']) . '</span>' : '')) ?>
           <?php if ($d['os_name']) echo $row('OS support ends', $d['os_rule'] ? e(fmt_date($d['os_rule']['eos_date'])) . ' <span class="small text-muted">(' . e($d['os_rule']['label']) . ')</span>' : '<span class="text-muted">No matching rule — <a href="/settings/os">OS support dates</a></span>'); ?>
-          <?php if (!$manual) echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
+          <?php if ($d['source'] === 'ninja') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
           <?= $row('ITFlow asset', $d['itflow_asset_id'] ? 'Linked (#' . (int) $d['itflow_asset_id'] . ')' : '<span class="text-muted">Not matched</span>') ?>
         </table>
       </div>
@@ -76,7 +77,7 @@ if ($client) {
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <?php if (!$manual): ?><p class="small text-muted">Hardware details come from NinjaOne. Values here override ITFlow and vendor data; leave blank to use the synced value.</p><?php endif; ?>
+          <?php if (!$manual): ?><p class="small text-muted">Hardware details come from <?= e($srcLabel) ?> — edit them there. Values here override ITFlow and vendor dates; leave blank to use the synced value.</p><?php endif; ?>
           <?= \Align\View::fetch('partials/device_fields', ['d' => $d, 'manual' => $manual]) ?>
         </div>
         <div class="modal-footer">

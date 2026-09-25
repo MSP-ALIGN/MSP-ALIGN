@@ -79,13 +79,13 @@ final class Compliance
         $count = fn(callable $f) => count(array_filter($active, $f));
         $withOs = $count(fn($d) => $d['os_rule'] !== null);
         $hw = $count(fn($d) => $d['is_hardware']);
-        $infra = $count(fn($d) => in_array($d['device_class'], ['server', 'network'], true));
+        $infra = $count(fn($d) => $d['is_hardware'] && in_array($d['device_class'], ['server', 'network'], true));
         $agents = $count(fn($d) => $d['source'] === 'ninja');
 
         $bad = [
             'os_supported' => $count(fn($d) => in_array('os_eos', $d['flags'], true)),
             'hw_lifecycle' => $count(fn($d) => in_array('replace', $d['flags'], true)),
-            'warranty' => $count(fn($d) => in_array($d['device_class'], ['server', 'network'], true)
+            'warranty' => $count(fn($d) => $d['is_hardware'] && in_array($d['device_class'], ['server', 'network'], true)
                 && (in_array('warranty_expired', $d['flags'], true) || !$d['warranty_end'])),
             'stale' => $count(fn($d) => $d['stale']),
         ];

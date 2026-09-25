@@ -48,6 +48,9 @@ function devices(): array
     $orgIds = [101, 101, 102, 103, 103, 104, 105];
     for ($i = 1; $i <= 1150; $i++) {
         [$mf, $model, $nc, $chassis] = $models[$i % count($models)];
+        if ($i % 12 === 7) {
+            [$mf, $model, $nc, $chassis] = ['VMware, Inc.', 'VMware7,1', 'WINDOWS_WORKSTATION', ''];
+        }
         $os = $nc === 'WINDOWS_SERVER' ? [['Windows Server 2019 Standard', '10.0.17763'], ['Windows Server 2022 Standard', '10.0.20348'], ['Windows Server 2012 R2 Standard', '6.3.9600']][$i % 3] : $oses[$i % 4];
         $out[] = [
             'id' => 5000 + $i,
@@ -126,7 +129,34 @@ switch (true) {
                     'asset_install_date' => null, 'asset_status' => 'Deployed', 'asset_archived_at' => null,
                 ];
             }
+            // Network gear, printers and UPS that only exist in ITFlow
+            $extra = [
+                [1, 'Firewall/Router', 'FW-Main', 'Fortinet', 'FortiGate 60F', 'FGT60FTK1', '10.0.0.1', '2021-03-01', '2026-03-01', 'FortiOS 7.2.8', 11],
+                [1, 'Switch', 'SW-Core', 'Ubiquiti', 'USW-Pro-48-PoE', 'UBQSW1', '10.0.0.2', '2020-06-15', null, 'UniFi 7.1', 11],
+                [1, 'Access Point', 'AP-Lobby', 'Ubiquiti', 'U6-Pro', 'UBQAP1', '10.0.0.20', '2023-01-10', null, null, 12],
+                [1, 'Access Point', 'AP-Ops', 'Ubiquiti', 'U6-Lite', 'UBQAP2', '10.0.0.21', '2019-01-10', null, null, 11],
+                [1, 'Printer', 'Front Desk MFP', 'Brother', 'MFC-L8900CDW', 'BRMFC1', '10.0.0.50', '2018-05-01', null, null, 12],
+                [1, 'Other', 'Rack UPS', 'APC', 'Smart-UPS 1500 SMT1500RM2U', 'APCUPS1', null, '2020-02-01', '2023-02-01', null, 11],
+                [2, 'Firewall/Router', 'Store Router', 'Ubiquiti', 'UDM Pro', 'UDMP1', '192.168.1.1', '2022-08-01', null, null, 21],
+                [2, 'Printer', 'Warehouse Label Printer', 'Zebra', 'ZT411', 'ZEB1', '192.168.1.60', '2017-09-01', null, null, 21],
+                [2, 'Other', 'UPS closet', 'CyberPower', 'CP1500PFCLCD', 'CYB1', null, '2021-04-01', null, null, 21],
+                [2, 'Display', 'Lobby TV', 'Samsung', 'QM55', 'SAMTV1', null, '2022-01-01', null, null, 21],
+                // Same serial as a NinjaOne device -> should be skipped as a duplicate
+                [1, 'Switch', 'PC-0014', 'Dell Inc.', 'OptiPlex 7090', 'SN00014', null, null, null, null, 11],
+            ];
+            foreach ($extra as $n => [$cid, $type, $name, $make, $model, $serial, $ip, $purchase, $warranty, $os, $loc]) {
+                $all[] = ['asset_id' => 9000 + $n, 'asset_client_id' => $cid, 'asset_name' => $name, 'asset_type' => $type,
+                    'asset_make' => $make, 'asset_model' => $model, 'asset_serial' => $serial, 'asset_os' => $os,
+                    'asset_purchase_date' => $purchase, 'asset_warranty_expire' => $warranty, 'asset_install_date' => null,
+                    'asset_status' => 'Deployed', 'asset_archived_at' => null, 'asset_location_id' => $loc, 'interface_ip' => $ip, 'interface_mac' => null];
+            }
             $rows = array_slice($all, $offset, $limit);
+        } elseif ($path === '/api/v1/locations/read.php') {
+            $rows = array_slice([
+                ['location_id' => 11, 'location_client_id' => 1, 'location_name' => 'Main office — server closet'],
+                ['location_id' => 12, 'location_client_id' => 1, 'location_name' => 'Main office — front'],
+                ['location_id' => 21, 'location_client_id' => 2, 'location_name' => 'Northfield store'],
+            ], $offset, $limit);
         } elseif ($path === '/api/v1/assets/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode($body) . "\n", FILE_APPEND);
             $json(['success' => 'True', 'count' => 1]);

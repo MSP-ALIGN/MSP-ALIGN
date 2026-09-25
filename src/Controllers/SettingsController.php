@@ -30,7 +30,7 @@ final class SettingsController
     {
         Auth::requireRole('admin');
         $values = [];
-        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback', 'plan_start']) as $k) {
+        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback', 'plan_start', 'itflow_import_types']) as $k) {
             $values[$k] = Settings::get($k);
         }
         $secrets = [];
@@ -67,6 +67,14 @@ final class SettingsController
         if (isset(NinjaOne::INSTANCES[$instance]) && $instance !== Settings::get('ninja_instance')) {
             Settings::set('ninja_instance', $instance);
             $changed[] = 'ninja_instance';
+        }
+        if (isset($_POST['itflow_import_present'])) {
+            $picked = array_values(array_intersect(array_keys(Itflow::IMPORT_CATEGORIES), (array) ($_POST['itflow_import'] ?? [])));
+            $val = implode(',', $picked);
+            if ($val !== (string) Settings::get('itflow_import_types')) {
+                Settings::set('itflow_import_types', $val);
+                $changed[] = 'itflow_import_types';
+            }
         }
         $ps = post('plan_start');
         if (in_array($ps, ['current', 'next'], true) && $ps !== Settings::get('plan_start')) {

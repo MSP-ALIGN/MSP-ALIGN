@@ -60,6 +60,16 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <p class="small text-muted">Admin → API Keys → Create. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs write access to Support if you turn on write-back.</p>
           <div class="form-group"><label>ITFlow URL</label><input type="url" name="itflow_url" class="form-control" value="<?= e($v['itflow_url']) ?>" placeholder="https://itflow.example.com"></div>
           <?= $secret('itflow_api_key', 'API key') ?>
+          <div class="form-group"><label>Bring in ITFlow assets that NinjaOne doesn't manage</label>
+            <input type="hidden" name="itflow_import_present" value="1">
+            <?php $imp = array_filter(explode(',', (string) ($v['itflow_import_types'] ?? ''))); ?>
+            <div class="row small">
+              <?php foreach (\Align\Integrations\Itflow::IMPORT_CATEGORIES as $k => $label): ?>
+                <div class="col-sm-6"><div class="custom-control custom-checkbox"><input type="checkbox" class="custom-control-input" id="imp-<?= $k ?>" name="itflow_import[]" value="<?= $k ?>" <?= in_array($k, $imp, true) ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="imp-<?= $k ?>"><?= e($label) ?></label></div></div>
+              <?php endforeach; ?>
+            </div>
+            <small class="text-muted">Assets already matched to a NinjaOne or hand-added device (by serial or name) are skipped, so nothing is counted twice. UPS units are recognized by make/model (APC, CyberPower, Eaton, Tripp Lite, Vertiv…) even when typed "Other".</small>
+          </div>
           <div class="form-group mb-0"><label>Write warranty dates back to ITFlow assets</label>
             <select name="itflow_writeback" class="form-control">
               <option value="off" <?= $v['itflow_writeback'] === 'off' ? 'selected' : '' ?>>Off — read only</option>
@@ -126,7 +136,7 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <thead class="text-dark"><tr><th>Category</th><th>Lifespan</th><th>Replacement cost</th><th class="small text-muted font-weight-normal">Device types</th></tr></thead>
           <tbody>
           <?php foreach (Lifecycle::CLASSES as $class => $label):
-              $types = array_keys(array_filter(Lifecycle::TYPES, fn($t) => $t[0] === $class)); ?>
+              $types = array_map(fn($k) => Lifecycle::TYPES[$k][2] ? "$k (OS only)" : $k, array_keys(array_filter(Lifecycle::TYPES, fn($t) => $t[0] === $class))); ?>
             <tr>
               <td class="align-middle font-weight-bold"><?= e($label) ?></td>
               <td class="w-25"><div class="input-group input-group-sm"><input type="number" name="lifespan_<?= $class ?>" class="form-control" value="<?= e($v["lifespan_$class"] ?? '') ?>"><div class="input-group-append"><span class="input-group-text">yrs</span></div></div></td>

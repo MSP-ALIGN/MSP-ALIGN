@@ -78,6 +78,57 @@ final class Itflow
         return $this->readAll('assets');
     }
 
+    /** Client locations (used to show where network gear and printers live). */
+    public function locations(): array
+    {
+        return $this->readAll('locations');
+    }
+
+    /**
+     * Maps an ITFlow asset type to an Align device type and an import category.
+     * ITFlow's built-in types: Laptop, Desktop, Server, Phone, Mobile Phone, Tablet, Firewall/Router,
+     * Switch, Access Point, Printer, Display, Camera, Virtual Machine, Other. Unknown/custom types
+     * are matched by keyword. UPS gear (usually typed "Other") is recognized by make/model/name.
+     * @return array{0:string,1:string}  [Align type, category]
+     */
+    public static function mapType(string $itType, string $make, string $model, string $name, string $os): array
+    {
+        $t = strtolower(trim($itType));
+        if (\Align\Lifecycle\Lifecycle::looksLikeUps($t === 'other' || $t === '' || str_contains($t, 'ups') ? "$t $make $model $name" : "$make $model")) {
+            return ['UPS', 'ups'];
+        }
+        $isRouter = preg_match('/router|gateway|edgerouter|\busg\b|\budm\b|dream machine|mikrotik/i', "$name $model") === 1;
+        return match (true) {
+            $t === 'firewall/router', str_contains($t, 'firewall') => [$isRouter && !preg_match('/fortigate|sonicwall|firebox|pfsense|opnsense|meraki mx|sophos|palo alto|watchguard/i', "$make $model") ? 'Router' : 'Firewall', 'network'],
+            str_contains($t, 'router') => ['Router', 'network'],
+            str_contains($t, 'switch') => ['Switch', 'network'],
+            str_contains($t, 'access point'), $t === 'ap', str_contains($t, 'wireless'), str_contains($t, 'wifi') => ['Access point', 'network'],
+            str_contains($t, 'printer'), str_contains($t, 'copier'), str_contains($t, 'mfp'), str_contains($t, 'scanner') => ['Printer', 'printer'],
+            str_contains($t, 'nas'), str_contains($t, 'storage'), $t === 'san' => ['NAS / Storage', 'storage'],
+            str_contains($t, 'camera'), str_contains($t, 'nvr'), str_contains($t, 'dvr') => ['Camera / NVR', 'camera'],
+            str_contains($t, 'phone') => ['Phone', 'phone'],
+            str_contains($t, 'virtual') => [\Align\Lifecycle\Lifecycle::virtualType($os), 'vm'],
+            $t === 'server' => ['Server', 'server'],
+            str_contains($t, 'host'), str_contains($t, 'hypervisor') => ['Hypervisor host', 'server'],
+            $t === 'desktop', $t === 'workstation' => ['Desktop', 'workstation'],
+            $t === 'laptop', $t === 'notebook' => ['Laptop', 'workstation'],
+            default => ['Other', 'other'],
+        };
+    }
+
+    public const IMPORT_CATEGORIES = [
+        'network' => 'Network gear (Firewall/Router, Switch, Access Point)',
+        'printer' => 'Printers & copiers',
+        'ups' => 'UPS / battery backup',
+        'storage' => 'NAS / storage',
+        'camera' => 'Cameras / NVR',
+        'phone' => 'Phones',
+        'server' => 'Servers & hosts not in NinjaOne',
+        'workstation' => 'Desktops & laptops not in NinjaOne',
+        'vm' => 'Virtual machines not in NinjaOne',
+        'other' => 'Everything else (type "Other", Display, Tablet…)',
+    ];
+
     /** Updates only the given asset fields; ITFlow keeps existing values for fields not sent. */
     public function updateAsset(int $clientId, int $assetId, array $fields): bool
     {

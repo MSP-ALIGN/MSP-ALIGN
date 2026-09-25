@@ -75,7 +75,7 @@ final class DeviceController
             'display_name' => $s('display_name', 255),
             'device_type' => $type,
             'device_class' => Lifecycle::TYPES[$type][0],
-            'is_virtual' => Lifecycle::TYPES[$type][0] === 'virtual' ? 1 : 0,
+            'is_virtual' => Lifecycle::TYPES[$type][2] ? 1 : 0,
             'manufacturer' => $s('manufacturer'),
             'model' => $s('model'),
             'serial' => normalize_serial(post('serial')),
@@ -142,7 +142,7 @@ final class DeviceController
         Auth::requireRole('tech');
         $d = self::find($id);
         if ($d['source'] !== 'manual') {
-            flash('error', 'NinjaOne devices are removed automatically when they leave NinjaOne. Use "Exclude" to hide one.');
+            flash('error', 'Synced devices disappear automatically when they leave NinjaOne or ITFlow. Use "Exclude" to hide one.');
             redirect("/devices/$id");
         }
         DB::run('DELETE FROM devices WHERE id = ?', [$id]);
