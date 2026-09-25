@@ -211,3 +211,5 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .avatar-file { max-width: 320px; }
 .presence-dot.avatar-img { padding: 0; object-fit: cover; }
 .report-client-logo { max-height: 56px; max-width: 170px; object-fit: contain; }
+.client-header-info { flex: 1 1 320px; min-width: 0; }
+.client-header-info .text-muted.small { line-height: 1.7; }

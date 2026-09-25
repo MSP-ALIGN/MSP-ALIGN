@@ -79,7 +79,13 @@ final class Itflow
         return $this->readAll('assets');
     }
 
-    /** Client locations (used to show where network gear and printers live). */
+    /** Client contacts (the primary contact fills the client's contact details). */
+    public function contacts(): array
+    {
+        return $this->readAll('contacts');
+    }
+
+    /** Client locations (primary location = client address and main phone; also where gear lives). */
     public function locations(): array
     {
         return $this->readAll('locations');

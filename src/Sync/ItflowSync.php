@@ -591,6 +591,11 @@ final class ItflowSync
                 DB::run('DELETE FROM itflow_assets WHERE synced_at < ?', [$now]);
             });
             $parts = [count($assets) . ' assets read'];
+            try {
+                $parts[] = SyncRunner::syncClientDetails($it);
+            } catch (\Throwable $e) {
+                $say('Client details not refreshed: ' . $e->getMessage());
+            }
             $parts[] = self::linkDevices();
             $parts[] = self::importAssets();
             $parts[] = self::reconcileAll($it);

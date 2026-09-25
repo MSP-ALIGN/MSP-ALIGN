@@ -165,7 +165,111 @@ final class SyncRunner
             $in = implode(',', array_map('intval', $ids));
             DB::run("UPDATE clients SET is_archived = 1 WHERE source = 'itflow' AND itflow_client_id NOT IN ($in)");
         }
-        return count($ids) . ' clients';
+        try {
+            $details = self::syncClientDetails($itflow, $rows);
+        } catch (\Throwable $e) {
+            $details = 'contact details not updated (' . $e->getMessage() . ')';
+        }
+        return count($ids) . ' clients; ' . $details;
+    }
+
+    /** Align client field => label, for fields that can come from ITFlow. */
+    public const CLIENT_DETAIL_FIELDS = [
+        'contact_name' => 'Primary contact', 'contact_title' => 'Title', 'contact_email' => 'Email',
+        'contact_phone' => 'Contact phone', 'contact_mobile' => 'Mobile', 'main_phone' => 'Main phone',
+        'address' => 'Address', 'website' => 'Website',
+    ];
+
+    /**
+     * Fills client details from ITFlow: address + main phone from the primary location, name /
+     * title / email / phones from the primary contact, and the website. ITFlow values replace
+     * Align's; a field that's empty in ITFlow keeps whatever Align has and stays editable.
+     * Older ITFlow versions kept address/phone on the client row, which is used as a fallback.
+     */
+    public static function syncClientDetails(Itflow $itflow, ?array $clientRows = null): string
+    {
+        $clientRows ??= $itflow->clients();
+        $pick = function (array $rows, string $prefix): array {
+            $by = [];
+            foreach ($rows as $r) {
+                $cid = (int) ($r[$prefix . '_client_id'] ?? 0);
+                if (!$cid || !empty($r[$prefix . '_archived_at'])) {
+                    continue;
+                }
+                $rank = !empty($r[$prefix . '_primary']) ? 0 : (!empty($r[$prefix . '_important']) ? 1 : 2);
+                if (!isset($by[$cid]) || $rank < $by[$cid][0]) {
+                    $by[$cid] = [$rank, $r];
+                }
+            }
+            return array_map(fn($x) => $x[1], $by);
+        };
+        $contacts = $pick($itflow->contacts(), 'contact');
+        $locations = $pick($itflow->locations(), 'location');
+        $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len);
+        $updated = 0;
+        foreach ($clientRows as $r) {
+            $cid = (int) ($r['client_id'] ?? 0);
+            $client = $cid ? DB::one('SELECT * FROM clients WHERE itflow_client_id = ?', [$cid]) : null;
+            if (!$client) {
+                continue;
+            }
+            $c = $contacts[$cid] ?? [];
+            $l = $locations[$cid] ?? [];
+            $street = $t($l['location_address'] ?? $r['client_address'] ?? '', 500);
+            $city = $t($l['location_city'] ?? $r['client_city'] ?? '');
+            $state = $t($l['location_state'] ?? $r['client_state'] ?? '');
+            $zip = $t($l['location_zip'] ?? $r['client_zip'] ?? '');
+            $country = $t($l['location_country'] ?? '');
+            $cityLine = trim($city . ($city && ($state || $zip) ? ', ' : '') . trim("$state $zip"));
+            $address = implode("\n", array_filter([$street, $cityLine,
+                $country && !preg_match('/^(us|usa|united states( of america)?)$/i', $country) ? $country : '']));
+            $phone = $t($c['contact_phone'] ?? '', 60);
+            if ($phone !== '' && !empty($c['contact_extension'])) {
+                $phone .= ' x' . $t($c['contact_extension'], 10);
+            }
+            $email = $t($c['contact_email'] ?? $r['client_email'] ?? '');
+            $vals = [
+                'contact_name' => $t($c['contact_name'] ?? $r['client_contact'] ?? ''),
+                'contact_title' => $t($c['contact_title'] ?? ''),
+                'contact_email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '',
+                'contact_phone' => $phone,
+                'contact_mobile' => $t($c['contact_mobile'] ?? '', 60),
+                'main_phone' => $t($l['location_phone'] ?? $r['client_phone'] ?? '', 60),
+                'address' => $address,
+                'website' => $t($r['client_website'] ?? '', 255),
+            ];
+            $set = [];
+            $from = [];
+            foreach ($vals as $k => $v) {
+                if ($v === '') {
+                    continue; // empty in ITFlow: keep Align's value
+                }
+                $from[] = $k;
+                if ((string) $client[$k] !== $v) {
+                    $set[$k] = $v;
+                }
+            }
+            // ITFlow's client type fills the industry when Align doesn't have one yet
+            $type = $t($r['client_type'] ?? '');
+            if (!$client['industry'] && $type !== '') {
+                foreach (\Align\Controllers\ClientController::INDUSTRIES as $ind) {
+                    if (strcasecmp($ind, $type) === 0 || stripos($ind, $type) === 0) {
+                        $set['industry'] = $ind;
+                        break;
+                    }
+                }
+            }
+            $fromStr = implode(',', $from) ?: null;
+            if ($fromStr !== $client['itflow_fields']) {
+                $set['itflow_fields'] = $fromStr;
+            }
+            if ($set) {
+                $cols = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($set)));
+                DB::run("UPDATE clients SET $cols WHERE id = ?", [...array_values($set), $client['id']]);
+                $updated++;
+            }
+        }
+        return $updated ? "contact details updated for $updated" : 'contact details up to date';
     }
 
     private function syncNinjaOrgs(NinjaOne $ninja): string

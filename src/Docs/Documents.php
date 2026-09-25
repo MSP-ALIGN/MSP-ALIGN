@@ -49,7 +49,7 @@ final class Documents
             'client_address' => $client['address'] ?? '[Address]',
             'client_contact' => $client['contact_name'] ?? '[Primary contact]',
             'client_contact_email' => $client['contact_email'] ?? '[contact email]',
-            'client_phone' => $client['contact_phone'] ?? '[phone]',
+            'client_phone' => ($client['main_phone'] ?? null) ?: ($client['contact_phone'] ?? '[phone]'),
             'client_website' => $client['website'] ?? '[website]',
             'vcio_name' => $vcio ?: (Auth::user()['name'] ?? '[vCIO]'),
             'company_name' => Settings::get('company_name') ?: 'Mountaineer IT',

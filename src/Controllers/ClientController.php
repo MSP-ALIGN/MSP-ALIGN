@@ -89,7 +89,10 @@ final class ClientController
         $f = [
             'contact_name' => mb_substr(post('contact_name'), 0, 190) ?: null,
             'contact_email' => filter_var(post('contact_email'), FILTER_VALIDATE_EMAIL) ?: null,
+            'contact_title' => mb_substr(post('contact_title'), 0, 190) ?: null,
             'contact_phone' => mb_substr(post('contact_phone'), 0, 60) ?: null,
+            'contact_mobile' => mb_substr(post('contact_mobile'), 0, 60) ?: null,
+            'main_phone' => mb_substr(post('main_phone'), 0, 60) ?: null,
             'website' => mb_substr(post('website'), 0, 255) ?: null,
             'address' => mb_substr(post('address'), 0, 2000) ?: null,
             'industry' => in_array(post('industry'), self::INDUSTRIES, true) ? post('industry') : null,
@@ -159,7 +162,11 @@ final class ClientController
         $client = self::load($id);
         $manual = $client['source'] === 'manual';
         $f = self::fields($manual);
-        if ($manual && $f['name'] === '') {
+        // Fields ITFlow supplied are managed there; ignore them from the form.
+        foreach (array_filter(explode(',', (string) ($client['itflow_fields'] ?? ''))) as $k) {
+            unset($f[$k]);
+        }
+        if ($manual && ($f['name'] ?? '') === '') {
             flash('error', 'Client name is required.');
             redirect("/clients/$id");
         }

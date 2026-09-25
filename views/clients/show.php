@@ -90,6 +90,8 @@ $cid = (int) $client['id'];
       <div class="card-body small">
         <?php if ($client['website']): ?><p class="mb-2"><i class="fas fa-globe mr-1 text-muted"></i><?= e($client['website']) ?></p><?php endif; ?>
         <?php if ($client['address']): ?><p class="mb-2 pre-line"><i class="fas fa-location-dot mr-1 text-muted"></i><?= e($client['address']) ?></p><?php endif; ?>
+        <?php if ($client['main_phone']): ?><p class="mb-2"><i class="fas fa-building mr-1 text-muted"></i>Main office: <?= e($client['main_phone']) ?></p><?php endif; ?>
+        <?php if (!empty($client['itflow_fields'])): ?><p class="mb-2 text-muted"><i class="fas fa-rotate mr-1"></i>Contact details sync from ITFlow's primary contact and location.</p><?php endif; ?>
         <?php if ($client['notes']): ?><p class="mb-0 pre-line"><?= e($client['notes']) ?></p><?php endif; ?>
       </div>
     </div>

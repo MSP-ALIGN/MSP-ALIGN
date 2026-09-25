@@ -40,9 +40,9 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
 }
 
 $clients = [
-    ['client_id' => 1, 'client_name' => 'Cedar Ridge Family Dental, Inc.', 'client_archived_at' => null],
+    ['client_id' => 1, 'client_name' => 'Cedar Ridge Family Dental, Inc.', 'client_archived_at' => null, 'client_type' => 'Dental', 'client_website' => 'https://cedarridgedental.example'],
     ['client_id' => 2, 'client_name' => 'Northfield Hardware & Supply', 'client_archived_at' => null],
-    ['client_id' => 3, 'client_name' => 'Harbor Point Law Group LLP', 'client_archived_at' => null],
+    ['client_id' => 3, 'client_name' => 'Harbor Point Law Group LLP', 'client_archived_at' => null, 'client_type' => 'Legal'],
     ['client_id' => 4, 'client_name' => 'Mt. Maple Veterinary', 'client_archived_at' => null],
     ['client_id' => 5, 'client_name' => 'Old Client Co', 'client_archived_at' => '2025-01-01 00:00:00'],
 ];
@@ -201,9 +201,22 @@ switch (true) {
             $rows = array_slice($all, $offset, $limit);
         } elseif ($path === '/api/v1/locations/read.php') {
             $rows = array_slice([
-                ['location_id' => 11, 'location_client_id' => 1, 'location_name' => 'Main office — server closet'],
-                ['location_id' => 12, 'location_client_id' => 1, 'location_name' => 'Main office — front'],
-                ['location_id' => 21, 'location_client_id' => 2, 'location_name' => 'Northfield store'],
+                ['location_id' => 11, 'location_client_id' => 1, 'location_name' => 'Main office — server closet', 'location_primary' => 0,
+                    'location_address' => '100 Example Ave', 'location_city' => 'Springfield', 'location_state' => 'CA', 'location_zip' => '00000', 'location_phone' => '', 'location_archived_at' => null],
+                ['location_id' => 12, 'location_client_id' => 1, 'location_name' => 'Main office — front', 'location_primary' => 1,
+                    'location_address' => '100 Example Ave, Suite 100', 'location_city' => 'Springfield', 'location_state' => 'CA', 'location_zip' => '00000', 'location_country' => 'United States',
+                    'location_phone' => '(555) 010-1100', 'location_archived_at' => null],
+                ['location_id' => 21, 'location_client_id' => 2, 'location_name' => 'Northfield store', 'location_primary' => 1,
+                    'location_address' => '200 Market St', 'location_city' => 'Springfield', 'location_state' => 'CA', 'location_zip' => '00000', 'location_phone' => '(555) 010-2200', 'location_archived_at' => null],
+            ], $offset, $limit);
+        } elseif ($path === '/api/v1/contacts/read.php') {
+            $rows = array_slice([
+                ['contact_id' => 1, 'contact_client_id' => 1, 'contact_name' => 'Front desk', 'contact_email' => 'frontdesk@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_primary' => 0, 'contact_archived_at' => null],
+                ['contact_id' => 2, 'contact_client_id' => 1, 'contact_name' => 'Dr. Jordan Ellis', 'contact_title' => 'Owner / DDS', 'contact_email' => 'jordan@cedarridgedental.example',
+                    'contact_phone' => '(555) 010-1100', 'contact_extension' => '12', 'contact_mobile' => '(555) 010-4411', 'contact_primary' => 1, 'contact_archived_at' => null],
+                ['contact_id' => 3, 'contact_client_id' => 2, 'contact_name' => 'Pat Quinn', 'contact_title' => 'Store manager', 'contact_email' => 'pat@northfieldhardware.example', 'contact_phone' => '(555) 010-2200', 'contact_important' => 1, 'contact_archived_at' => null],
+                ['contact_id' => 4, 'contact_client_id' => 3, 'contact_name' => 'Old Partner', 'contact_email' => 'gone@hplg.example', 'contact_primary' => 1, 'contact_archived_at' => '2025-01-01 00:00:00'],
+                ['contact_id' => 5, 'contact_client_id' => 3, 'contact_name' => 'Robin Hale', 'contact_title' => 'Office administrator', 'contact_email' => 'robin@hplg.example', 'contact_phone' => '555-010-3300', 'contact_archived_at' => null],
             ], $offset, $limit);
         } elseif ($path === '/api/v1/assets/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode($body) . "\n", FILE_APPEND);

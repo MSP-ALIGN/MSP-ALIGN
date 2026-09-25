@@ -22,16 +22,18 @@ $cid = (int) $client['id'];
     <?php else: ?>
       <div class="client-avatar mr-3"><?= e(initials($client['name'])) ?></div>
     <?php endif; ?>
-    <div class="mr-auto">
+    <div class="mr-auto client-header-info">
       <h4 class="mb-0"><?= e($client['name']) ?>
         <?php if ($client['source'] === 'manual'): ?><span class="badge badge-secondary align-middle ml-1">Added in Align</span><?php endif; ?>
         <?php if ($client['is_archived']): ?><span class="badge badge-dark align-middle ml-1">Archived in ITFlow</span><?php endif; ?>
       </h4>
       <div class="text-muted small">
-        <?php if ($client['industry']): ?><i class="fas fa-industry mr-1"></i><?= e($client['industry']) ?><span class="mx-2">·</span><?php endif; ?>
-        <?php if ($client['contact_name']): ?><i class="fas fa-user mr-1"></i><?= e($client['contact_name']) ?><span class="mx-2">·</span><?php endif; ?>
-        <?php if ($client['contact_phone']): ?><i class="fas fa-phone mr-1"></i><?= e($client['contact_phone']) ?><span class="mx-2">·</span><?php endif; ?>
-        <?php if ($client['contact_email']): ?><i class="fas fa-envelope mr-1"></i><a href="mailto:<?= e($client['contact_email']) ?>"><?= e($client['contact_email']) ?></a><span class="mx-2">·</span><?php endif; ?>
+        <?php if ($client['industry']): ?><span class="text-nowrap"><i class="fas fa-industry mr-1"></i><?= e($client['industry']) ?></span><span class="mx-2">·</span><?php endif; ?>
+        <?php if ($client['contact_name']): ?><span class="text-nowrap"><i class="fas fa-user mr-1"></i><?= e($client['contact_name']) ?><?= $client['contact_title'] ? ' <span class="text-muted">(' . e($client['contact_title']) . ')</span>' : '' ?></span><span class="mx-2">·</span><?php endif; ?>
+        <?php if ($client['main_phone']): ?><span class="text-nowrap"><i class="fas fa-building mr-1" title="Main office"></i><a href="tel:<?= e(preg_replace('/[^\d+]/', '', $client['main_phone'])) ?>"><?= e($client['main_phone']) ?></a></span><span class="mx-2">·</span><?php endif; ?>
+        <?php if ($client['contact_phone'] && $client['contact_phone'] !== $client['main_phone']): ?><span class="text-nowrap"><i class="fas fa-phone mr-1" title="Contact phone"></i><?= e($client['contact_phone']) ?></span><span class="mx-2">·</span><?php endif; ?>
+        <?php if ($client['contact_mobile']): ?><span class="text-nowrap"><i class="fas fa-mobile-screen mr-1" title="Mobile"></i><?= e($client['contact_mobile']) ?></span><span class="mx-2">·</span><?php endif; ?>
+        <?php if ($client['contact_email']): ?><span class="text-nowrap"><i class="fas fa-envelope mr-1"></i><a href="mailto:<?= e($client['contact_email']) ?>"><?= e($client['contact_email']) ?></a></span><span class="mx-2">·</span><?php endif; ?>
         <i class="fas fa-rotate mr-1"></i>Meets <?= e(strtolower(Meetings::CADENCES[$client['meeting_cadence']][0])) ?>
         <?php if ($client['vcio_name']): ?><span class="mx-2">·</span><?= user_avatar(['id' => $client['vcio_user_id'], 'name' => $client['vcio_name'], 'avatar_file' => $client['vcio_avatar_file'] ?? null], 'avatar-xs', 'mr-1') ?>vCIO: <?= e($client['vcio_name']) ?><?php endif; ?>
       </div>
