@@ -1,0 +1,91 @@
+# Mountaineer Align
+
+Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
+
+**Phase 1 (this release):** sync, client mapping, lifecycle and warranty tracking, replacement forecast, CSV export, users with roles and 2FA, audit log.
+**Planned:** alignment standards and scoring, roadmap/recommendations with budgets, QBR report PDFs.
+
+---
+
+## Install (fresh Debian 13 VM)
+
+Recommended VM: 2 vCPU, 4 GB RAM, 20 GB disk, static IP, Debian 13 minimal with SSH.
+
+1. In GitHub, create a **fine-grained token** limited to this repo with **Contents: Read-only**. The installer keeps it in `/etc/mountaineer-align/github-token` (root only) and uses it for updates.
+2. On the VM:
+
+```bash
+read -rs GH_TOKEN && export GH_TOKEN      # paste the token, press Enter
+curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+  https://raw.githubusercontent.com/MountaineerIT/mountaineer-align/main/install.sh | sudo -E bash
+```
+
+The installer asks for:
+
+| Prompt | Notes |
+|---|---|
+| Hostname | The name users browse to, e.g. `align.mountaineerit.com` |
+| TLS mode | `selfsigned` (internal), `letsencrypt` (public DNS + port 80 open), or `proxy` (plain HTTP behind BunkerWeb or another reverse proxy that handles TLS) |
+| Proxy IP | Proxy mode only. The app trusts `X-Forwarded-*` headers from this IP only |
+| Admin email / name | First admin account. A random password is printed at the end |
+| Time zone | Defaults to the VM's zone |
+
+It installs Apache, PHP, MariaDB and git; creates the database, config and encryption key; sets up the site, an hourly sync timer, nightly backups and automatic security updates.
+
+Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when needed) and it won't prompt.
+
+## First-time setup
+
+1. Sign in, then go to **Account → Set up two-factor**.
+2. **Settings → NinjaOne:** Administration → Apps → API → Client app IDs → Add. Choose *API Services (machine-to-machine)*, scope *Monitoring*, grant type *Client credentials*. Align only reads from NinjaOne.
+3. **Settings → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs write access to Support if you turn on warranty write-back.
+4. Optional: **Dell TechDirect** warranty API key and **Lenovo** ClientID for automatic warranty dates.
+5. Use each **Test** button, then **Sync → Run sync now**.
+6. **Client mapping:** clients with matching names link automatically; link the rest by hand.
+
+## Updating
+
+```bash
+sudo mountaineer-align-update
+```
+
+This backs up, pulls the latest `main`, installs any new packages, applies database migrations and reloads services.
+
+## Operations
+
+| Task | Command |
+|---|---|
+| Run a sync now | `sudo align sync` |
+| Reset a locked-out user | `sudo align user:reset-password --email=you@example.com --clear-2fa` |
+| Health check | `sudo align check` |
+| Sync timer status / logs | `systemctl list-timers mountaineer-align*` · `journalctl -u mountaineer-align-sync` |
+| App errors | `/var/log/apache2/mountaineer-align-error.log` |
+| Backups | `/var/backups/mountaineer-align/` (nightly, 14 days) |
+
+**Back up `config.php` somewhere safe.** It holds `app_key`, which encrypts the stored API keys and 2FA secrets. Nightly backups include it, so copy that folder off the VM with your backup agent.
+
+## How lifecycle is calculated
+
+- **In-service date:** a manual override if set, otherwise the ITFlow purchase date, then the vendor ship date, then the warranty start, then the ITFlow install date, and finally the first time NinjaOne saw the device (shown as an estimate).
+- **End of life:** in-service date plus the lifespan policy for that device type (Settings), or the device's own override.
+- **Warranty:** a manual override if set, otherwise the Dell/Lenovo lookup, then the ITFlow warranty date.
+- **OS support:** matched by OS name and build number against **Settings → OS support dates**. Add a row when Microsoft ships a new release.
+- **Forecast:** replacement cost (policy default or override), grouped by the quarter each device reaches end of life. Overdue devices count in the current quarter.
+
+Virtual machines are tracked for OS support only. Devices can be excluded (spares, lab gear, client-owned).
+
+## Development
+
+```bash
+# MariaDB running locally, then:
+cp -n config.example.php /tmp/align-config.php    # edit db credentials
+export ALIGN_CONFIG=/tmp/align-config.php
+php bin/align migrate
+php bin/align user:create --email=dev@example.com
+php -S 127.0.0.1:8099 tests/mock-server.php &                 # fake ITFlow/NinjaOne/Dell/Lenovo
+php -S 127.0.0.1:8080 -t public tests/dev-router.php
+```
+
+To point at the mocks, set `ninja_instance`, `itflow_url`, `dell_api_base` and `lenovo_api_base` to `http://127.0.0.1:8099` in the `settings` table. The mock credentials are `ninja-id` / `ninja-secret` and `itflow-key`.
+
+Layout: `public/` web root · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.

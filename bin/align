@@ -1,0 +1,108 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+require dirname(__DIR__) . '/src/bootstrap.php';
+
+use Align\Audit;
+use Align\Controllers\UserController;
+use Align\DB;
+use Align\Migrator;
+use Align\Sync\SyncRunner;
+
+$args = array_slice($argv, 1);
+$cmd = array_shift($args) ?? 'help';
+$opts = [];
+foreach ($args as $a) {
+    if (preg_match('/^--([a-z0-9-]+)(?:=(.*))?$/', $a, $m)) {
+        $opts[$m[1]] = $m[2] ?? true;
+    }
+}
+$say = fn(string $s) => fwrite(STDOUT, $s . PHP_EOL);
+$fail = function (string $s): never {
+    fwrite(STDERR, "Error: $s" . PHP_EOL);
+    exit(1);
+};
+
+try {
+    switch ($cmd) {
+        case 'migrate':
+            Migrator::run($say);
+            break;
+
+        case 'sync':
+            $trigger = in_array($opts['trigger'] ?? '', ['schedule', 'manual', 'cli'], true) ? $opts['trigger'] : 'cli';
+            $userId = isset($opts['user']) ? (int) $opts['user'] : null;
+            $quiet = isset($opts['quiet']);
+            $runner = new SyncRunner($trigger, $userId ?: null, $quiet ? null : $say);
+            $result = $runner->run();
+            exit($result['status'] === 'failed' ? 2 : 0);
+
+        case 'user:create':
+            $email = strtolower((string) ($opts['email'] ?? ''));
+            $name = (string) ($opts['name'] ?? 'Administrator');
+            $role = (string) ($opts['role'] ?? 'admin');
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $fail('--email is required');
+            }
+            if (!in_array($role, ['admin', 'tech', 'viewer'], true)) {
+                $fail('--role must be admin, tech or viewer');
+            }
+            $password = isset($opts['password-stdin']) ? trim((string) fgets(STDIN)) : UserController::randomPassword();
+            if (strlen($password) < 12) {
+                $fail('Password must be at least 12 characters');
+            }
+            $existing = DB::one('SELECT id FROM users WHERE email = ?', [$email]);
+            if ($existing) {
+                $say("User $email already exists (use user:reset-password).");
+                break;
+            }
+            DB::insert('users', ['email' => $email, 'name' => $name, 'role' => $role, 'password_hash' => password_hash($password, PASSWORD_DEFAULT)]);
+            Audit::log('user.create', "$email ($role) via CLI");
+            $say("Created $role $email");
+            if (!isset($opts['password-stdin'])) {
+                $say("Password: $password");
+            }
+            break;
+
+        case 'user:reset-password':
+            $email = strtolower((string) ($opts['email'] ?? ''));
+            $u = DB::one('SELECT id FROM users WHERE email = ?', [$email]) ?? $fail("No user $email");
+            $password = UserController::randomPassword();
+            DB::run('UPDATE users SET password_hash = ?, is_active = 1 WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $u['id']]);
+            if (isset($opts['clear-2fa'])) {
+                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL WHERE id = ?', [$u['id']]);
+            }
+            Audit::log('user.reset_password', "$email via CLI");
+            $say("New password for $email: $password");
+            break;
+
+        case 'check':
+            DB::value('SELECT 1');
+            $say('Config: ' . Align\Config::path());
+            $say('Database: OK');
+            $say('Migrations applied: ' . DB::value('SELECT COUNT(*) FROM schema_migrations'));
+            $say('Version: ' . APP_VERSION);
+            break;
+
+        case 'version':
+            $say(APP_VERSION);
+            break;
+
+        default:
+            $say(APP_NAME . ' ' . APP_VERSION);
+            $say('Usage: align <command> [options]');
+            $say('  migrate                         Apply database migrations');
+            $say('  sync [--quiet]                  Run a full sync now');
+            $say('  user:create --email=E [--name=N] [--role=admin|tech|viewer] [--password-stdin]');
+            $say('  user:reset-password --email=E [--clear-2fa]');
+            $say('  check                           Verify config and database');
+            $say('  version');
+    }
+} catch (Throwable $e) {
+    $fail($e->getMessage());
+}

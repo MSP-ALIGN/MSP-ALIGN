@@ -1,0 +1,6 @@
+# Used only if the vhost allows overrides; the installer's vhost already contains these rules.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
