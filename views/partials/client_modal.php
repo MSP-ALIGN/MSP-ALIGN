@@ -42,7 +42,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
             <div class="form-group col-md-3">
               <label>Meeting cadence</label>
               <select name="meeting_cadence" class="form-control">
-                <?php foreach (Meetings::CADENCES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $c['meeting_cadence'] ?? 'quarterly') ?>><?= e($label) ?></option><?php endforeach; ?>
+                <?php foreach (Meetings::CADENCES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $c['meeting_cadence'] ?? 'annual') ?>><?= e($label) ?></option><?php endforeach; ?>
               </select>
             </div>
             <div class="form-group col-md-3">
@@ -57,9 +57,6 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
           <div class="form-group mb-0"><label>Notes</label><textarea name="notes" class="form-control" rows="3"><?= e($c['notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
-          <?php if ($c && $manual): ?>
-            <button class="btn btn-outline-secondary mr-auto" formaction="/clients/<?= (int) $c['id'] ?>/archive" formnovalidate data-confirm="<?= $c['is_archived'] ? 'Restore' : 'Archive' ?> this client?"><?= $c['is_archived'] ? 'Restore' : 'Archive' ?></button>
-          <?php endif; ?>
           <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
           <button class="btn btn-primary"><i class="fas fa-check mr-1"></i><?= $c ? 'Save' : 'Create client' ?></button>
         </div>

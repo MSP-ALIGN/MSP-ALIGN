@@ -18,7 +18,7 @@ final class ComplianceController
         Auth::require();
         $frameworks = DB::all('SELECT f.*, (SELECT COUNT(*) FROM client_frameworks cf WHERE cf.framework_id = f.id) AS clients
             FROM compliance_frameworks f WHERE f.is_active = 1 ORDER BY f.name');
-        $clients = DB::all('SELECT id, name, industry FROM clients WHERE is_archived = 0 ORDER BY name');
+        $clients = DB::all('SELECT id, name, industry FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
         $assigned = [];
         foreach (DB::all('SELECT client_id, framework_id, next_review FROM client_frameworks') as $r) {
             $assigned[$r['client_id']][$r['framework_id']] = $r;

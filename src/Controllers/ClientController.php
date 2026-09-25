@@ -39,10 +39,18 @@ final class ClientController
             }
             unset($s);
         }
-        $showArchived = query('archived') === '1';
-        $clients = DB::all('SELECT c.*, o.name AS org_name, u.name AS vcio_name FROM clients c
-            LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id'
-            . ($showArchived ? '' : ' WHERE c.is_archived = 0') . ' ORDER BY c.name');
+        $view = in_array(query('view'), ['active', 'removed', 'archived', 'all'], true) ? query('view') : 'active';
+        $where = match ($view) {
+            'removed' => 'c.planning_excluded = 1',
+            'archived' => 'c.is_archived = 1',
+            'all' => '1=1',
+            default => 'c.is_archived = 0 AND c.planning_excluded = 0',
+        };
+        $clients = DB::all("SELECT c.*, o.name AS org_name, u.name AS vcio_name FROM clients c
+            LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id
+            WHERE $where ORDER BY c.name");
+        $counts = DB::one('SELECT SUM(is_archived = 0 AND planning_excluded = 0) AS active, SUM(planning_excluded = 1) AS removed,
+            SUM(is_archived = 1) AS archived, COUNT(*) AS `all` FROM clients');
         $scores = Compliance::allScores();
         View::render('clients/index', [
             'title' => 'Clients',
@@ -51,7 +59,8 @@ final class ClientController
             'stats' => $stats,
             'scores' => $scores,
             'cadence' => Meetings::cadence(),
-            'showArchived' => $showArchived,
+            'view' => $view,
+            'counts' => array_map('intval', $counts ?? []),
             'users' => self::users(),
         ]);
     }
@@ -85,7 +94,7 @@ final class ClientController
             'address' => mb_substr(post('address'), 0, 2000) ?: null,
             'industry' => in_array(post('industry'), self::INDUSTRIES, true) ? post('industry') : null,
             'notes' => mb_substr(post('notes'), 0, 10000) ?: null,
-            'meeting_cadence' => isset(Meetings::CADENCES[$cadence]) ? $cadence : 'quarterly',
+            'meeting_cadence' => isset(Meetings::CADENCES[$cadence]) ? $cadence : 'annual',
             'vcio_user_id' => $vcio && DB::value('SELECT id FROM users WHERE id = ?', [$vcio]) ? $vcio : null,
         ];
         if ($manual) {
@@ -129,18 +138,61 @@ final class ClientController
         redirect("/clients/$id");
     }
 
-    public static function archive(int $id): void
+    /** Remove a client from (or restore it to) IT planning. Works for synced and manual clients. */
+    public static function planning(int $id): void
     {
         Auth::requireRole('tech');
         $client = self::load($id);
+        $exclude = post('action') !== 'restore';
+        DB::run('UPDATE clients SET planning_excluded = ?, excluded_reason = ? WHERE id = ?', [
+            $exclude ? 1 : 0, $exclude ? (mb_substr(post('reason'), 0, 255) ?: null) : null, $id,
+        ]);
+        Audit::log($exclude ? 'client.remove_from_planning' : 'client.restore_to_planning', $client['name'] . ($exclude && post('reason') ? ' — ' . post('reason') : ''));
+        flash('success', $exclude
+            ? "{$client['name']} was removed from planning. It's hidden from the dashboard, meetings, compliance and reports, and sync won't bring it back."
+            : "{$client['name']} is back in planning.");
+        redirect($exclude ? '/clients' : "/clients/$id");
+    }
+
+    /** Permanently delete a client that was added by hand (with its devices, meetings, roadmap and compliance answers). */
+    public static function delete(int $id): void
+    {
+        Auth::requireRole('admin');
+        $client = self::load($id);
         if ($client['source'] !== 'manual') {
-            flash('error', 'Clients synced from ITFlow are archived in ITFlow.');
+            flash('error', 'Clients synced from ITFlow come back on the next sync. Use "Remove from planning" instead.');
             redirect("/clients/$id");
         }
-        DB::run('UPDATE clients SET is_archived = 1 - is_archived WHERE id = ?', [$id]);
-        Audit::log($client['is_archived'] ? 'client.unarchive' : 'client.archive', $client['name']);
-        flash('success', $client['is_archived'] ? 'Client restored.' : 'Client archived.');
-        redirect("/clients/$id");
+        if (post('confirm_name') !== $client['name']) {
+            flash('error', 'Type the client name exactly to confirm deletion.');
+            redirect("/clients/$id");
+        }
+        DB::transaction(function () use ($id) {
+            DB::run('DELETE FROM meetings WHERE client_id = ?', [$id]);
+            DB::run('DELETE FROM devices WHERE client_id = ?', [$id]);
+            DB::run('DELETE FROM clients WHERE id = ?', [$id]); // compliance + roadmap cascade
+        });
+        Audit::log('client.delete', $client['name']);
+        flash('success', "Deleted {$client['name']}.");
+        redirect('/clients');
+    }
+
+    public static function bulk(): void
+    {
+        Auth::requireRole('tech');
+        $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? []))));
+        $action = post('action');
+        if (!$ids || !in_array($action, ['exclude', 'restore'], true)) {
+            flash('error', 'Select one or more clients first.');
+            redirect('/clients');
+        }
+        $in = implode(',', $ids);
+        $n = DB::run("UPDATE clients SET planning_excluded = ?, excluded_reason = ? WHERE id IN ($in)", [
+            $action === 'exclude' ? 1 : 0, $action === 'exclude' ? (mb_substr(post('reason'), 0, 255) ?: null) : null,
+        ])->rowCount();
+        Audit::log('client.bulk_' . $action, "$n client(s): " . implode(',', $ids));
+        flash('success', $action === 'exclude' ? "Removed $n client(s) from planning." : "Restored $n client(s) to planning.");
+        redirect('/clients' . ($action === 'restore' ? '?view=removed' : ''));
     }
 
     public static function show(int $id): void

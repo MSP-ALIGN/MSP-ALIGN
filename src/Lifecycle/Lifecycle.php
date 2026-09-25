@@ -120,6 +120,7 @@ final class Lifecycle
         }
         $rows = DB::all('SELECT d.*, COALESCE(cm.id, cn.id) AS client_id, COALESCE(cm.name, cn.name) AS client_name,
                 COALESCE(cm.itflow_client_id, cn.itflow_client_id) AS itflow_client_id,
+                COALESCE(cm.planning_excluded, cn.planning_excluded, 0) + COALESCE(cm.is_archived, cn.is_archived, 0) AS client_inactive,
                 a.purchase_date AS itf_purchase, a.warranty_expire AS itf_warranty, a.install_date AS itf_install,
                 w.ship_date AS w_ship, w.warranty_start AS w_start, w.warranty_end AS w_end, w.status AS w_status,
                 w.description AS w_desc, w.looked_up_at AS w_checked,
@@ -259,34 +260,49 @@ final class Lifecycle
     }
 
     /**
-     * Groups replacement cost by quarter. Overdue items land in the current quarter.
-     * @return array<int, array{label:string,count:int,cost:float,overdue:bool}>
+     * Groups replacement cost into the 3-year plan's quarters (see Roadmap\Plan).
+     * Overdue items land in the current quarter.
+     * @return array<int, array{label:string,count:int,cost:float,overdue:int,year:int,past:bool,current:bool}>
      */
-    public function forecast(array $devices, int $quarters = 8): array
+    public function forecast(array $devices): array
     {
-        $start = mktime(0, 0, 0, ((int) ceil((int) date('n') / 3) - 1) * 3 + 1, 1, (int) date('Y'));
         $buckets = [];
-        for ($i = 0; $i < $quarters; $i++) {
-            $ts = strtotime("+" . ($i * 3) . " months", $start);
-            $buckets[$i] = ['label' => quarter_label(date('Y-m-d', $ts)), 'count' => 0, 'cost' => 0.0, 'overdue' => 0, 'from' => date('Y-m-d', $ts)];
+        foreach (\Align\Roadmap\Plan::quarters() as $q) {
+            $buckets[$q['index']] = $q + ['count' => 0, 'cost' => 0.0, 'overdue' => 0];
         }
-        $endTs = strtotime('+' . ($quarters * 3) . ' months', $start);
+        $cur = \Align\Roadmap\Plan::currentIndex();
         foreach ($devices as $d) {
             if (!$d['replace_by']) {
                 continue;
             }
-            $ts = strtotime($d['replace_by']);
-            if ($ts >= $endTs) {
+            $idx = \Align\Roadmap\Plan::indexFor($d['replace_by']);
+            if ($idx === null) {
                 continue;
             }
-            $idx = $ts < $start ? 0 : (int) floor(((int) date('Y', $ts) * 12 + (int) date('n', $ts) - ((int) date('Y', $start) * 12 + (int) date('n', $start))) / 3);
             $buckets[$idx]['count']++;
             $buckets[$idx]['cost'] += $d['replacement_cost'];
-            if ($ts < $start || $d['status'] === 'replace') {
+            if ($d['replace_by'] < $buckets[$cur]['start'] || $d['status'] === 'replace') {
                 $buckets[$idx]['overdue']++;
             }
         }
         return $buckets;
+    }
+
+    /** Totals per plan year from forecast() output. */
+    public static function yearTotals(array $forecast): array
+    {
+        $years = \Align\Roadmap\Plan::years();
+        foreach ($years as $y => &$yr) {
+            $yr['cost'] = 0.0;
+            $yr['count'] = 0;
+            foreach ($forecast as $b) {
+                if ($b['year'] === $y) {
+                    $yr['cost'] += $b['cost'];
+                    $yr['count'] += $b['count'];
+                }
+            }
+        }
+        return $years;
     }
 
     public static function summarize(array $devices): array

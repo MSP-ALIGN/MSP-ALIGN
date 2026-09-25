@@ -82,6 +82,41 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
     </div>
   </div>
 
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card card-dark">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-road mr-2"></i>3-year plan</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group col-md-6"><label>Budget year starts in</label>
+              <select name="fiscal_year_start" class="form-control"><option value="1" <?= (int) ($v['fiscal_year_start'] ?? 1) === 1 ? 'selected' : '' ?>>January</option><option value="2" <?= (int) ($v['fiscal_year_start'] ?? 1) === 2 ? 'selected' : '' ?>>February</option><option value="3" <?= (int) ($v['fiscal_year_start'] ?? 1) === 3 ? 'selected' : '' ?>>March</option><option value="4" <?= (int) ($v['fiscal_year_start'] ?? 1) === 4 ? 'selected' : '' ?>>April</option><option value="5" <?= (int) ($v['fiscal_year_start'] ?? 1) === 5 ? 'selected' : '' ?>>May</option><option value="6" <?= (int) ($v['fiscal_year_start'] ?? 1) === 6 ? 'selected' : '' ?>>June</option><option value="7" <?= (int) ($v['fiscal_year_start'] ?? 1) === 7 ? 'selected' : '' ?>>July</option><option value="8" <?= (int) ($v['fiscal_year_start'] ?? 1) === 8 ? 'selected' : '' ?>>August</option><option value="9" <?= (int) ($v['fiscal_year_start'] ?? 1) === 9 ? 'selected' : '' ?>>September</option><option value="10" <?= (int) ($v['fiscal_year_start'] ?? 1) === 10 ? 'selected' : '' ?>>October</option><option value="11" <?= (int) ($v['fiscal_year_start'] ?? 1) === 11 ? 'selected' : '' ?>>November</option><option value="12" <?= (int) ($v['fiscal_year_start'] ?? 1) === 12 ? 'selected' : '' ?>>December</option></select>
+              <small class="text-muted">January = calendar years (Q1 2027). Any other month uses fiscal years (FY2027 Q1).</small></div>
+            <div class="form-group col-md-6"><label>Plan begins with</label>
+              <select name="plan_start" class="form-control">
+                <option value="current" <?= ($v['plan_start'] ?? 'current') === 'current' ? 'selected' : '' ?>>This budget year</option>
+                <option value="next" <?= ($v['plan_start'] ?? '') === 'next' ? 'selected' : '' ?>>Next budget year</option>
+              </select>
+              <small class="text-muted">Use "next" when you're planning next year's budget late in the year. Overdue items land in the first quarter shown.</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card card-dark">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-print mr-2"></i>Report branding</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group col-md-6"><label>Company name</label><input name="company_name" class="form-control" value="<?= e($v['company_name']) ?>"></div>
+            <div class="form-group col-md-6"><label>Phone</label><input name="company_phone" class="form-control" value="<?= e($v['company_phone']) ?>"></div>
+            <div class="form-group col-md-6"><label>Email</label><input name="company_email" class="form-control" value="<?= e($v['company_email']) ?>"></div>
+            <div class="form-group col-md-6"><label>Website</label><input name="company_website" class="form-control" value="<?= e($v['company_website']) ?>"></div>
+          </div>
+          <div class="form-group mb-0"><label>Report footer</label><textarea name="report_footer" class="form-control" rows="2"><?= e($v['report_footer']) ?></textarea></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card card-dark">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-recycle mr-2"></i>Lifecycle policy</h3></div>
     <div class="card-body">

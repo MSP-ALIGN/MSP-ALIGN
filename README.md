@@ -2,16 +2,19 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**What's in it (0.2.0):**
+**What's in it (0.3.0):**
 
-- **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
+- **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence (yearly by default) and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
 - **Devices & assets:** synced from NinjaOne, plus hand-added gear NinjaOne doesn't manage (printers, switches, firewalls, access points, NAS, UPS, hypervisor hosts). You can change the type of any device.
-- **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a replacement budget forecast by quarter.
+- **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a 3-year replacement budget by quarter with a total for each year. Calendar or fiscal years, set in Settings.
+- **3-year roadmap per client:** a quarter-by-quarter board with a total for each year. It combines planned items you add (category, cost, monthly recurring cost, priority, status) with what the data says is coming: hardware reaching end of life, OS support ending, warranties expiring, meetings and compliance due dates.
+- **Printable reports:** asset & lifecycle report, 3-year roadmap, and an all-clients portfolio summary. Use Print → Save as PDF; costs, full inventory and notes can be turned on or off.
+- **Planning scope:** remove any client from planning (bulk or one at a time, with a reason). Removed clients stay hidden through syncs. Clients added by hand can be deleted.
 - **Meetings & calendar:** QBRs and other meetings, repeating series, agenda and notes, a flag for clients due for a meeting, a month/week/list calendar, `.ics` invites, and a private feed you can subscribe to in Outlook.
 - **Compliance:** built-in frameworks (MSP Security Baseline, Cyber Insurance Readiness, CIS Controls v8 IG1, HIPAA Security Rule) assigned per client, with a checklist (status, owner, due date, notes, evidence), scores, device-data hints, review dates and CSV export. Frameworks can be edited or copied.
 - **UI:** built on AdminLTE 3 / Bootstrap 4 / Font Awesome, the same kit ITFlow uses. It's bundled locally, with no CDN.
 
-**Planned:** roadmap/recommendations with budgets, QBR report PDFs.
+**Planned:** QBR slide/PDF packs combining roadmap, lifecycle and compliance.
 
 ---
 

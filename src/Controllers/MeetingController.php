@@ -25,7 +25,7 @@ final class MeetingController
             'all' => "1=1 ORDER BY m.starts_at DESC",
             default => "m.starts_at >= CURDATE() AND m.status = 'scheduled' ORDER BY m.starts_at",
         };
-        $clients = DB::all('SELECT id, name FROM clients WHERE is_archived = 0 ORDER BY name');
+        $clients = DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
         $cadence = Meetings::cadence();
         $overdue = array_filter($clients, fn($c) => $cadence[$c['id']]['overdue'] ?? false);
         View::render('meetings/index', [
@@ -78,7 +78,7 @@ final class MeetingController
             'client' => $client,
             'clientNav' => 'meetings',
             'm' => $m,
-            'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 OR id = ? ORDER BY name', [(int) $m['client_id']]),
+            'clients' => DB::all('SELECT id, name FROM clients WHERE (is_archived = 0 AND planning_excluded = 0) OR id = ? ORDER BY name', [(int) $m['client_id']]),
             'users' => ClientController::users(),
             'series' => $m['series_id'] ? DB::all("SELECT id, starts_at, status FROM meetings WHERE series_id = ? ORDER BY starts_at", [$m['series_id']]) : [],
         ]);
@@ -224,7 +224,7 @@ final class MeetingController
             'title' => 'Calendar',
             'nav' => 'calendar',
             'calendar' => true,
-            'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 ORDER BY name'),
+            'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
             'users' => ClientController::users(),
             'feedUrl' => self::feedUrl($u),
         ]);

@@ -15,14 +15,14 @@ use Align\View;
 
 final class SettingsController
 {
-    public const TEXT = ['ninja_client_id', 'itflow_url', 'dell_client_id'];
+    public const TEXT = ['ninja_client_id', 'itflow_url', 'dell_client_id', 'company_name', 'company_phone', 'company_email', 'company_website', 'report_footer'];
     public const SECRETS = ['ninja_client_secret', 'itflow_api_key', 'dell_client_secret', 'lenovo_client_id'];
     public const NUMBERS = [
         'lifespan_desktop' => [1, 20], 'lifespan_laptop' => [1, 20], 'lifespan_server' => [1, 20], 'lifespan_network' => [1, 20],
         'cost_desktop' => [0, 1000000], 'cost_laptop' => [0, 1000000], 'cost_server' => [0, 1000000], 'cost_network' => [0, 1000000],
         'lifespan_printer' => [1, 20], 'lifespan_storage' => [1, 20], 'lifespan_power' => [1, 20], 'lifespan_other' => [1, 20],
         'cost_printer' => [0, 1000000], 'cost_storage' => [0, 1000000], 'cost_power' => [0, 1000000], 'cost_other' => [0, 1000000],
-        'meeting_default_minutes' => [15, 480],
+        'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
     ];
 
@@ -30,7 +30,7 @@ final class SettingsController
     {
         Auth::requireRole('admin');
         $values = [];
-        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback']) as $k) {
+        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback', 'plan_start']) as $k) {
             $values[$k] = Settings::get($k);
         }
         $secrets = [];
@@ -67,6 +67,11 @@ final class SettingsController
         if (isset(NinjaOne::INSTANCES[$instance]) && $instance !== Settings::get('ninja_instance')) {
             Settings::set('ninja_instance', $instance);
             $changed[] = 'ninja_instance';
+        }
+        $ps = post('plan_start');
+        if (in_array($ps, ['current', 'next'], true) && $ps !== Settings::get('plan_start')) {
+            Settings::set('plan_start', $ps);
+            $changed[] = 'plan_start';
         }
         $wb = post('itflow_writeback');
         if (in_array($wb, ['off', 'fill_empty', 'overwrite'], true) && $wb !== Settings::get('itflow_writeback')) {

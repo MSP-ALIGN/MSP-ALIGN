@@ -210,7 +210,7 @@ final class SyncRunner
             $byName[self::normalizeName($o['name'])][] = (int) $o['id'];
         }
         $matched = 0;
-        foreach (DB::all("SELECT id, name FROM clients WHERE ninja_org_id IS NULL AND match_method IS NULL AND is_archived = 0") as $c) {
+        foreach (DB::all("SELECT id, name FROM clients WHERE ninja_org_id IS NULL AND match_method IS NULL AND is_archived = 0 AND planning_excluded = 0") as $c) {
             $key = self::normalizeName($c['name']);
             if ($key !== '' && isset($byName[$key]) && count($byName[$key]) === 1) {
                 DB::run("UPDATE clients SET ninja_org_id = ?, match_method = 'auto' WHERE id = ?", [$byName[$key][0], $c['id']]);

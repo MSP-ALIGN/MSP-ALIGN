@@ -16,7 +16,7 @@ final class DashboardController
     {
         Auth::require();
         $lc = new Lifecycle();
-        $devices = array_filter($lc->devices(), fn($d) => $d['client_id'] !== null);
+        $devices = array_filter($lc->devices(), fn($d) => $d['client_id'] !== null && !$d['client_inactive']);
         $summary = Lifecycle::summarize($devices);
         $forecast = $lc->forecast($devices);
 
@@ -36,7 +36,7 @@ final class DashboardController
         usort($byClient, fn($a, $b) => [$b['replace'], $b['attention']] <=> [$a['replace'], $a['attention']]);
 
         $cadence = Meetings::cadence();
-        $names = array_column(DB::all('SELECT id, name FROM clients WHERE is_archived = 0'), 'name', 'id');
+        $names = array_column(DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0'), 'name', 'id');
         $overdue = [];
         foreach ($cadence as $cid => $c) {
             if ($c['overdue'] && isset($names[$cid])) {
@@ -46,7 +46,7 @@ final class DashboardController
         usort($overdue, fn($a, $b) => strcmp((string) $a['last'], (string) $b['last']));
 
         $scores = [];
-        foreach (Compliance::allScores() as $fws) {
+        foreach (array_intersect_key(Compliance::allScores(), $names) as $fws) {
             foreach ($fws as $s) {
                 $scores[] = $s['score'];
             }
@@ -59,7 +59,7 @@ final class DashboardController
             'forecast' => $forecast,
             'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 8),
             'lastSync' => DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1'),
-            'unmapped' => (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND source = 'itflow'"),
+            'unmapped' => (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'itflow'"),
             'unassigned' => (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL'),
             'configured' => DB::value("SELECT COUNT(*) FROM settings WHERE name IN ('ninja_client_secret','itflow_api_key')") == 2,
             'upcoming' => DB::all("SELECT m.*, c.name AS client_name FROM meetings m LEFT JOIN clients c ON c.id = m.client_id

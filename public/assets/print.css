@@ -1,0 +1,64 @@
+/* Printable reports (Letter, portrait). Browsers: Print -> Save as PDF. */
+body.report { background: #e9ecef; color: #1f2d3d; font-size: 12.5px; }
+.container-report { max-width: 8.5in; margin: 0 auto; }
+.report-toolbar { background: #343a40; padding: .5rem 1rem; position: sticky; top: 0; z-index: 10; }
+.report-page { background: #fff; padding: .6in .6in .5in; margin: 1rem auto 2rem; box-shadow: 0 2px 12px rgba(0,0,0,.12); }
+
+.report-header { border-bottom: 3px solid #007bff; padding-bottom: .6rem; margin-bottom: 1rem; }
+.report-kicker { text-transform: uppercase; letter-spacing: .08em; font-size: .72rem; color: #007bff; font-weight: 700; }
+.report-title { font-size: 1.55rem; font-weight: 700; margin: .1rem 0 0; }
+.report-sub { color: #6c757d; }
+.report-meta { color: #495057; line-height: 1.45; }
+
+.report h2 { font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid #dee2e6; padding-bottom: .25rem; margin: 1.3rem 0 .6rem; }
+.report h3 { font-size: .92rem; font-weight: 700; margin: 1rem 0 .4rem; }
+.report p { margin-bottom: .5rem; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin-bottom: .6rem; }
+.kpi { border: 1px solid #dee2e6; border-radius: 6px; padding: .45rem .6rem; }
+.kpi b { display: block; font-size: 1.25rem; line-height: 1.2; }
+.kpi span { color: #6c757d; font-size: .75rem; }
+.kpi.bad b { color: #c82333; }
+.kpi.warn b { color: #b58100; }
+
+.years { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .5rem; }
+.year { border: 1px solid #dee2e6; border-top: 4px solid #007bff; border-radius: 6px; padding: .45rem .6rem; }
+.year:nth-child(2) { border-top-color: #17a2b8; }
+.year:nth-child(3) { border-top-color: #20c997; }
+.year .lbl { font-size: .72rem; text-transform: uppercase; color: #6c757d; font-weight: 700; }
+.year b { font-size: 1.2rem; display: block; }
+.year small { color: #6c757d; }
+
+.rtable { width: 100%; border-collapse: collapse; margin-bottom: .6rem; font-size: 11.5px; }
+.rtable th { background: #f1f3f5; text-align: left; font-weight: 700; padding: .3rem .4rem; border-bottom: 1px solid #ced4da; white-space: nowrap; }
+.rtable td { padding: .28rem .4rem; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+.rtable .num { text-align: right; white-space: nowrap; }
+.rtable tr.subtotal td { font-weight: 700; background: #f8f9fa; }
+.rtable tr.year-row td { background: #e7f1ff; font-weight: 700; }
+.muted { color: #6c757d; }
+.pill { display: inline-block; padding: 0 .4rem; border-radius: 10px; font-size: 10.5px; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.pill-danger { color: #c82333; } .pill-warning { color: #9a6c00; } .pill-success { color: #1e7e34; } .pill-secondary { color: #6c757d; } .pill-primary { color: #0062cc; } .pill-info { color: #117a8b; } .pill-light { color: #6c757d; }
+
+.q-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin-bottom: .5rem; }
+.q-cell { border: 1px solid #dee2e6; border-radius: 5px; padding: .35rem .45rem; min-height: 70px; font-size: 11px; }
+.q-cell.past { background: #f8f9fa; color: #868e96; }
+.q-cell .q-head { display: flex; justify-content: space-between; font-weight: 700; border-bottom: 1px solid #e9ecef; margin-bottom: .25rem; padding-bottom: .15rem; }
+.q-cell ul { padding-left: .9rem; margin: 0; }
+.q-cell li { margin-bottom: .1rem; }
+
+.report-footer { display: flex; justify-content: space-between; gap: 1rem; border-top: 1px solid #dee2e6; margin-top: 1.2rem; padding-top: .4rem; color: #6c757d; font-size: 10.5px; }
+.forecast-chart .bar-now { fill: #e7f1ff; }
+.avoid-break { break-inside: avoid; page-break-inside: avoid; }
+.page-break { break-before: page; page-break-before: always; }
+
+@page { size: letter; margin: .5in; }
+@media print {
+  body.report { background: #fff; font-size: 11.5px; }
+  .no-print { display: none !important; }
+  .report-page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+  .rtable thead { display: table-header-group; }
+  .rtable tr, .q-cell, .kpi, .year { break-inside: avoid; page-break-inside: avoid; }
+  h2, h3 { break-after: avoid; page-break-after: avoid; }
+  a { color: inherit; text-decoration: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

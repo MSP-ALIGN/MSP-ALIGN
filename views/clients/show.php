@@ -17,7 +17,7 @@ $cid = (int) $client['id'];
 
 <div class="row">
   <div class="col-lg-8">
-    <?php require __DIR__ . '/../partials/forecast.php'; ?>
+    <?php $forecastLink = '/clients/' . $cid . '/roadmap'; require __DIR__ . '/../partials/forecast.php'; ?>
 
     <div class="card card-dark">
       <div class="card-header py-2">

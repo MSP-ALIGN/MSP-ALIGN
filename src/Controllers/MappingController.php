@@ -14,7 +14,7 @@ final class MappingController
     {
         Auth::requireRole('tech');
         $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = c.ninja_org_id AND d.removed_at IS NULL) AS device_count
-            FROM clients c WHERE c.is_archived = 0 ORDER BY c.name');
+            FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 ORDER BY c.name');
         $orgs = DB::all('SELECT o.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = o.id AND d.removed_at IS NULL) AS device_count,
             c.id AS client_id FROM ninja_orgs o LEFT JOIN clients c ON c.ninja_org_id = o.id ORDER BY o.name');
         View::render('mapping/index', [

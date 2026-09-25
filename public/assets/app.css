@@ -97,3 +97,38 @@ a.small-box:hover { color: #fff; text-decoration: none; filter: brightness(1.05)
   .info-box .info-box-text { font-size: .75rem; }
   .card-dark > .card-header .card-tools { float: none; }
 }
+
+/* 0.3.0: 3-year plan, roadmap, bulk actions */
+.w-check { width: 34px; }
+.nav-pills.nav-sm .nav-link { font-size: .8rem; }
+.bulk-bar { background: #fff3cd; border-radius: 4px; padding: .25rem .5rem; }
+.year-total { border: 1px solid #dee2e6; border-top: 4px solid #007bff; border-radius: 6px; padding: .4rem; }
+.col-4:nth-child(2) .year-total { border-top-color: #17a2b8; }
+.col-4:nth-child(3) .year-total { border-top-color: #20c997; }
+.forecast-chart .bar-past { fill: #ced4da; }
+.forecast-chart .bar-now { fill: #eaf3ff; }
+.forecast-chart .year-sep { stroke: #adb5bd; stroke-dasharray: 3 3; }
+.forecast-chart .year-lbl { fill: #495057; font-weight: 700; font-size: 12px; }
+.forecast-chart .bar-lbl.now { fill: #007bff; font-weight: 700; }
+.legend-now { background: #eaf3ff; border: 1px solid #b8d4ff; }
+
+.year-heading { font-weight: 700; margin: .5rem 0 .6rem; padding-left: .5rem; border-left: 4px solid #007bff; }
+.roadmap-q { border-top: 3px solid #adb5bd; }
+.roadmap-q.is-current { border-top-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,.25); }
+.roadmap-q.is-past { opacity: .6; }
+.roadmap-q .card-header { background: #f8f9fa; }
+.rm-item { display: block; border-left: 4px solid; border-radius: 4px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08); padding: .35rem .5rem; margin-bottom: .4rem; color: #343a40; font-size: .82rem; }
+a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
+.rm-item.rm-auto { background: #fbfbfc; }
+.rm-item summary { cursor: pointer; list-style: none; }
+.rm-item summary::-webkit-details-marker { display: none; }
+.rm-item.is-declined { opacity: .5; text-decoration: line-through; }
+.rm-item.is-done .font-weight-bold::after { content: " \2713"; color: #28a745; }
+.border-purple { border-color: #6f42c1 !important; }
+.border-teal { border-color: #20c997 !important; }
+.text-purple { color: #6f42c1 !important; }
+.text-teal { color: #20c997 !important; }
+.bg-teal { background: #20c997 !important; color: #fff; }
+.forecast-chart text { font-size: 13px; }
+.forecast-chart .year-lbl { font-size: 14px; }
+.info-box .info-box-text { white-space: normal; line-height: 1.2; }

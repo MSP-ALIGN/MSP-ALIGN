@@ -8,8 +8,9 @@ use Align\DB;
 final class Meetings
 {
     public const TYPES = [
-        'qbr' => ['Quarterly business review', 'primary'],
-        'tbr' => ['Technology business review', 'info'],
+        'abr' => ['Annual business review', 'primary'],
+        'qbr' => ['Quarterly business review', 'info'],
+        'tbr' => ['Technology business review', 'teal'],
         'strategy' => ['Strategy / roadmap', 'purple'],
         'onboarding' => ['Onboarding', 'success'],
         'compliance' => ['Compliance review', 'warning'],
@@ -58,7 +59,7 @@ final class Meetings
         $rows = DB::all("SELECT c.id, c.meeting_cadence,
                 (SELECT MAX(m.starts_at) FROM meetings m WHERE m.client_id = c.id AND m.status = 'completed') AS last_done,
                 (SELECT MIN(m.starts_at) FROM meetings m WHERE m.client_id = c.id AND m.status = 'scheduled' AND m.starts_at >= NOW()) AS next_up
-            FROM clients c WHERE c.is_archived = 0");
+            FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0");
         $out = [];
         foreach ($rows as $r) {
             $months = self::CADENCES[$r['meeting_cadence']][1] ?? 0;

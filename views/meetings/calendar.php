@@ -11,7 +11,7 @@ use Align\Meetings\Meetings;
         <div class="card-tools d-flex">
           <select class="custom-select custom-select-sm mr-2 w-auto" id="calendar-client" aria-label="Filter by client">
             <option value="">All clients</option>
-            <?php foreach ($clients as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?>
+            <?php foreach ($clients as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) ($_GET['client'] ?? 0) === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
           </select>
           <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-plus mr-1"></i>Schedule</button><?php endif; ?>
         </div>

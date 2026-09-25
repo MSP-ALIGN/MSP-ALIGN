@@ -13,6 +13,7 @@ $mainNav = [
     ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
     ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
     ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
+    ['reports', '/reports', 'Reports', 'fa-print', 'viewer'],
 ];
 $integrationNav = [
     ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
@@ -27,6 +28,7 @@ $adminNav = [
 $clientMenu = $client ? [
     ['overview', '/clients/' . (int) $client['id'], 'Overview', 'fa-tachometer-alt'],
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
+    ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', '3-year roadmap', 'fa-road'],
     ['meetings', '/clients/' . (int) $client['id'] . '/meetings', 'Meetings', 'fa-handshake'],
     ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
 ] : [];
@@ -138,7 +140,7 @@ $item = function (array $i, string $active) {
 </div>
 <?php if (Auth::can('tech') && empty($noMeetingModal)): ?>
   <?= \Align\View::fetch('partials/meeting_modal', [
-      'modalClients' => $modalClients ?? \Align\DB::all('SELECT id, name FROM clients WHERE is_archived = 0 ORDER BY name'),
+      'modalClients' => $modalClients ?? \Align\DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
       'modalUsers' => \Align\Controllers\ClientController::users(),
       'presetClient' => $client['id'] ?? null,
   ]) ?>

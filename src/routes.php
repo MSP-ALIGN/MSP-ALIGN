@@ -10,6 +10,8 @@ use Align\Controllers\DashboardController;
 use Align\Controllers\DeviceController;
 use Align\Controllers\MappingController;
 use Align\Controllers\MeetingController;
+use Align\Controllers\ReportController;
+use Align\Controllers\RoadmapController;
 use Align\Controllers\SettingsController;
 use Align\Controllers\SyncController;
 use Align\Controllers\UserController;
@@ -30,7 +32,14 @@ $r->get('/clients', [ClientController::class, 'index']);
 $r->post('/clients', [ClientController::class, 'create']);
 $r->get('/clients/{id}', [ClientController::class, 'show']);
 $r->post('/clients/{id}', [ClientController::class, 'update']);
-$r->post('/clients/{id}/archive', [ClientController::class, 'archive']);
+$r->post('/clients/bulk', [ClientController::class, 'bulk']);
+$r->post('/clients/{id}/planning', [ClientController::class, 'planning']);
+$r->post('/clients/{id}/delete', [ClientController::class, 'delete']);
+$r->get('/clients/{id}/roadmap', [RoadmapController::class, 'show']);
+$r->post('/clients/{id}/roadmap', [RoadmapController::class, 'create']);
+$r->post('/clients/{id}/roadmap/{item}', [RoadmapController::class, 'update']);
+$r->get('/clients/{id}/report/assets', [ReportController::class, 'assets']);
+$r->get('/clients/{id}/report/roadmap', [ReportController::class, 'roadmap']);
 $r->get('/clients/{id}/devices', [ClientController::class, 'devices']);
 $r->post('/clients/{id}/devices', [DeviceController::class, 'create']);
 $r->get('/clients/{id}/export', [ClientController::class, 'export']);
@@ -58,6 +67,10 @@ $r->get('/calendar', [MeetingController::class, 'calendar']);
 $r->get('/calendar/events', [MeetingController::class, 'events']);
 $r->post('/calendar/feed', [MeetingController::class, 'feedToken']);
 $r->get('/ics/{token:str}', [MeetingController::class, 'feed']);
+
+// Reports
+$r->get('/reports', [ReportController::class, 'index']);
+$r->get('/reports/portfolio', [ReportController::class, 'portfolio']);
 
 // Compliance
 $r->get('/compliance', [ComplianceController::class, 'overview']);

@@ -32,13 +32,13 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
             <div class="form-group col-md-6">
               <label>Type</label>
               <select name="type" class="form-control">
-                <?php foreach (Meetings::TYPES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $m['type'] ?? 'qbr') ?>><?= e($label) ?></option><?php endforeach; ?>
+                <?php foreach (Meetings::TYPES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $m['type'] ?? 'abr') ?>><?= e($label) ?></option><?php endforeach; ?>
               </select>
             </div>
           </div>
           <div class="form-group">
             <label>Title <small class="text-muted">(defaults to the type)</small></label>
-            <input name="title" class="form-control" value="<?= e($m['title'] ?? '') ?>" placeholder="e.g. Q4 business review">
+            <input name="title" class="form-control" value="<?= e($m['title'] ?? '') ?>" placeholder="e.g. 2027 annual technology review">
           </div>
           <div class="form-row">
             <div class="form-group col-md-4"><label>Date</label><input type="date" name="date" class="form-control" required value="<?= e($date) ?>"></div>

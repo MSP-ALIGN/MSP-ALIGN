@@ -96,3 +96,44 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clientSel) clientSel.addEventListener('change', () => cal.refetchEvents());
   }
 });
+
+// ---- 0.3.0 additions ----
+document.addEventListener('DOMContentLoaded', () => {
+  // Clients list: select all + bulk bar
+  const all = document.getElementById('check-all');
+  const bar = document.getElementById('bulk-bar');
+  const rows = () => Array.from(document.querySelectorAll('.row-check'));
+  const refresh = () => {
+    const n = rows().filter((c) => c.checked && !c.closest('tr').hidden).length;
+    if (bar) {
+      bar.classList.toggle('d-none', n === 0);
+      bar.classList.toggle('d-flex', n > 0);
+      const cnt = document.getElementById('bulk-count');
+      if (cnt) cnt.textContent = n;
+    }
+  };
+  if (all) all.addEventListener('change', () => { rows().forEach((c) => { if (!c.closest('tr').hidden) c.checked = all.checked; }); refresh(); });
+  rows().forEach((c) => c.addEventListener('change', refresh));
+
+  // Checkbox that submits its form (roadmap lanes, report options)
+  document.querySelectorAll('[data-autosubmit-check]').forEach((c) => c.addEventListener('change', () => c.form.submit()));
+
+  // Roadmap: "+" on a quarter pre-selects that quarter in the add-item modal
+  if (window.jQuery) {
+    window.jQuery('#modal-roadmap').on('show.bs.modal', (ev) => {
+      const q = ev.relatedTarget ? ev.relatedTarget.getAttribute('data-quarter') : null;
+      const sel = ev.target.querySelector('select[name="target_quarter"]');
+      if (sel && q !== null) sel.value = q;
+    });
+  }
+
+  // Reports page: build the report URL from the chosen client + type
+  const rf = document.getElementById('report-form');
+  if (rf) {
+    const setAction = () => {
+      rf.action = '/clients/' + document.getElementById('report-client').value + '/report/' + document.getElementById('report-type').value;
+    };
+    rf.addEventListener('submit', setAction);
+    setAction();
+  }
+});
