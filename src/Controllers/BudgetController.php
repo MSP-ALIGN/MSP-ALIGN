@@ -35,6 +35,7 @@ final class BudgetController
             'year' => $year,
             'billing' => Billing::forClient($id),
             'back' => "/clients/$id/budget?year=$year",
+            'dates' => \Align\Budget\Contracts::upcoming($id),
         ]);
     }
 
@@ -77,7 +78,8 @@ final class BudgetController
             'start_date' => $date('start_date'),
             'end_date' => $date('end_date'),
             'notes' => mb_substr(post('notes'), 0, 5000) ?: null,
-        ];
+            'auto_renew' => isset($_POST['auto_renew']) ? 1 : 0,
+        ] + \Align\Budget\Contracts::fromPost($date('start_date'));
     }
 
     private static function back(int $clientId): string
@@ -135,7 +137,9 @@ final class BudgetController
         $opt = ['details' => query('details', '1') === '1', 'notes' => query('notes', '1') === '1'];
         Audit::log('report.budget', $client['name']);
         $b = Budget::build($id);
+        $yr = $b['years'][$year];
         View::render('reports/budget', [
+            'dates' => \Align\Budget\Contracts::upcoming($id, 3 * 366, $yr['from']),
             'title' => $client['name'] . ' — Technology Budget ' . $b['years'][$year]['label'],
             'reportTitle' => 'Technology Budget ' . $b['years'][$year]['label'],
             'client' => $client,

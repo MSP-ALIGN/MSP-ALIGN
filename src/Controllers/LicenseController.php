@@ -29,6 +29,7 @@ final class LicenseController
             'retiredCount' => count($all) - count($active),
             'showRetired' => $showRetired,
             'back' => "/clients/$id/licenses" . ($showRetired ? '?retired=1' : ''),
+            'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($id), fn($d) => str_ends_with($d['link'], '/licenses'))),
         ]);
     }
 
@@ -70,6 +71,20 @@ final class LicenseController
         ]);
     }
 
+    /** Upcoming contract ends, renegotiation dates and license renewals across all clients. */
+    public static function renewals(): void
+    {
+        Auth::require();
+        $days = in_array((int) query('days'), [30, 90, 180, 365], true) ? (int) query('days') : 180;
+        $dates = \Align\Budget\Contracts::upcoming(null, $days);
+        View::render('licenses/renewals', [
+            'title' => 'Renewals & contracts',
+            'nav' => 'renewals',
+            'dates' => $dates,
+            'days' => $days,
+        ]);
+    }
+
     private static function back(string $default): string
     {
         $b = post('back');
@@ -90,6 +105,9 @@ final class LicenseController
             'auto_renew' => isset($_POST['auto_renew']) ? 1 : 0,
             'align_notes' => mb_substr(post('align_notes'), 0, 5000) ?: null,
         ];
+        $cs = preg_match('/^\d{4}-\d{2}-\d{2}$/', post('contract_start')) ? post('contract_start') : null;
+        $f['contract_start'] = $cs;
+        $f += \Align\Budget\Contracts::fromPost($cs ?: (preg_match('/^\d{4}-\d{2}-\d{2}$/', post('purchase_date')) ? post('purchase_date') : null));
         if (!$itflow) { // details are managed in ITFlow for synced licenses
             $f += [
                 'name' => mb_substr(post('name'), 0, 255),

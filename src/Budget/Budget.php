@@ -88,6 +88,10 @@ final class Budget
             $amt = (float) $m['amount'];
             $start = self::ym($m['start_date']);
             $end = self::ym($m['end_date']);
+            if (!$m['auto_renew'] && $m['contract_end']) { // contract won't renew: stop at its end
+                $ce = self::ym($m['contract_end']);
+                $end = $end ? min($end, $ce) : $ce;
+            }
             if ($m['frequency'] === 'one_time') {
                 $i = $m['start_date'] ? Plan::indexFor($m['start_date'], false) : Plan::currentIndex();
                 if ($i !== null) {
@@ -101,7 +105,9 @@ final class Budget
                 $months = self::FREQUENCIES[$m['frequency']][1];
                 $l['monthly'] = (!$start || $start <= $today) && (!$end || $end >= $today) ? $amt / $months : 0.0;
             }
-            $l['detail'] = money_exact($amt) . ' ' . strtolower(self::FREQUENCIES[$m['frequency']][0]) . ($m['vendor'] ? ' · ' . $m['vendor'] : '');
+            $l['detail'] = money_exact($amt) . ' ' . strtolower(self::FREQUENCIES[$m['frequency']][0]) . ($m['vendor'] ? ' · ' . $m['vendor'] : '')
+                . ($m['start_date'] ? ' · ' . ($m['frequency'] === 'one_time' ? 'purchased ' : 'since ') . fmt_date($m['start_date']) : '')
+                . (($cs = Contracts::summary($m)) ? ' · ' . $cs . (!$m['auto_renew'] && $m['contract_end'] ? ' (not renewing)' : '') : '');
             $lines[] = $l;
         }
 
@@ -122,7 +128,8 @@ final class Budget
             }
             $l = self::newLine('lic-' . $lic['id'], 'licensing', $lic['name'], 'licensing', ['link' => '/clients/' . $clientId . '/licenses']);
             $cost = (float) $lic['cycle_cost'];
-            $end = !$lic['auto_renew'] && $lic['expire_date'] ? self::ym($lic['expire_date']) : null;
+            $stopOn = $lic['contract_end'] ?: $lic['expire_date']; // a license that won't renew stops at contract end (or expiry)
+            $end = !$lic['auto_renew'] && $stopOn ? self::ym($stopOn) : null;
             if ($lic['billing_cycle'] === 'one_time') {
                 if ($lic['purchase_date'] && self::ym($lic['purchase_date']) >= $today && ($i = Plan::indexFor($lic['purchase_date'], false)) !== null) {
                     $l['q'][$i] += $cost;
@@ -135,13 +142,14 @@ final class Budget
                 $anchor = $lic['expire_date'] ? substr($lic['expire_date'], 5, 2) : ($lic['purchase_date'] ? substr($lic['purchase_date'], 5, 2) : $planStartMonth);
                 // A license that won't auto-renew stops at its expiry (and its annual renewal isn't charged)
                 if ($lic['billing_cycle'] === 'annual' && $end) {
-                    $end = date('Y-m', strtotime(($lic['expire_date']) . ' -1 month'));
+                    $end = date('Y-m', strtotime($stopOn . ' -1 month'));
                 }
                 self::spread($l, $lic['billing_cycle'], $cost, null, $end, $anchor);
                 $l['monthly'] = (!$end || $end >= $today) ? (float) $lic['monthly'] : 0.0;
             }
             $l['detail'] = ($lic['pricing'] === 'per_seat' ? (int) $lic['seats'] . ' × ' . money_exact($lic['unit_price']) : 'flat') . ' ' . strtolower(Licenses::CYCLES[$lic['billing_cycle']][0])
-                . (!$lic['auto_renew'] && $lic['expire_date'] ? ' · ends ' . fmt_date($lic['expire_date']) : '');
+                . (!$lic['auto_renew'] && $stopOn ? ' · ends ' . fmt_date($stopOn) : '')
+                . (($cs = Contracts::summary($lic)) ? ' · ' . $cs : '');
             $lines[] = $l;
         }
 

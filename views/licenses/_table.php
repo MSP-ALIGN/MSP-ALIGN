@@ -35,6 +35,9 @@ $cols = $showClient ? 9 : 8;
           <?php if ($l['source'] === 'itflow'): ?><span class="badge badge-light border" title="Synced from ITFlow Software">ITFlow</span><?php endif; ?>
           <?php if ($l['retired_at']): ?><span class="badge badge-secondary">retired<?= $l['retired_reason'] === 'itflow' ? ' in ITFlow' : '' ?></span><?php endif; ?>
           <?php if ($l['vendor'] || $l['version']): ?><div class="small text-muted"><?= e(implode(' · ', array_filter([$l['vendor'], $l['version']]))) ?></div><?php endif; ?>
+          <?php if ($cs = \Align\Budget\Contracts::summary($l)): $u = \Align\Budget\Contracts::urgency($l['renegotiate_date'] ?: $l['contract_end']); ?>
+            <div class="small <?= $u === 'past' ? 'text-danger' : ($u === 'soon' ? 'text-warning font-weight-bold' : 'text-muted') ?>"><i class="fas fa-file-signature mr-1"></i><?= e($cs) ?></div>
+          <?php endif; ?>
         </td>
         <?php if ($showClient): ?><td class="small"><a href="/clients/<?= (int) $l['client_id'] ?>/licenses"><?= e($l['client_name']) ?></a></td><?php endif; ?>
         <td class="small"><?= e(Licenses::TYPES[$l['license_type']]) ?></td>

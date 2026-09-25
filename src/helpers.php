@@ -173,6 +173,22 @@ function initials(string $name): string
     return $i ?: '?';
 }
 
+/** "in 19 days", "today", "24 days ago" for a calendar date. */
+function days_from_now(?string $date): string
+{
+    if (!$date) {
+        return '';
+    }
+    $d = (int) round((strtotime(substr($date, 0, 10)) - strtotime('today')) / 86400);
+    return match (true) {
+        $d === 0 => 'today',
+        $d === 1 => 'tomorrow',
+        $d === -1 => 'yesterday',
+        $d > 0 => $d < 60 ? "in $d days" : 'in ' . round($d / 30.4) . ' months',
+        default => -$d < 60 ? -$d . ' days ago' : round(-$d / 30.4) . ' months ago',
+    };
+}
+
 /** URL of a client's logo, or null when none is uploaded. */
 function client_logo_url(array $c): ?string
 {

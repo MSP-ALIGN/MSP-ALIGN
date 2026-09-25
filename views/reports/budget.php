@@ -57,6 +57,21 @@ foreach ($b['lines'] as $l) {
 </section>
 <?php endif; ?>
 
+<?php $inYear = array_values(array_filter($dates, fn($d) => $d['date'] >= $yr['from'] && $d['date'] <= $yr['to'])); if ($inYear): ?>
+<section class="avoid-break">
+  <h2>Contract dates in <?= e($yr['label']) ?></h2>
+  <table class="rtable budget-table">
+    <thead><tr><th>Date</th><th>What</th><th>Item</th><th>Term</th><th class="num">Annual value</th></tr></thead>
+    <tbody>
+    <?php foreach ($inYear as $d): ?>
+      <tr><td class="text-nowrap"><?= e(fmt_date($d['date'])) ?></td><td><?= e($d['label']) ?></td><td><?= e($d['name']) ?><?= $d['kind'] !== 'renegotiate' && !$d['auto_renew'] ? ' <small class="muted">(not renewing)</small>' : '' ?></td>
+        <td><?= e($d['term']) ?></td><td class="num"><?= $d['annual'] ? money($d['annual']) : '—' ?></td></tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+</section>
+<?php endif; ?>
+
 <section class="avoid-break">
   <h2>3-year outlook</h2>
   <table class="rtable budget-table">

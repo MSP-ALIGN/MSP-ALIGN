@@ -13,6 +13,7 @@ $mainNav = [
     ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
     ['licenses', '/licenses', 'Licensing', 'fa-key', 'viewer'],
     ['budget', '/budget', 'Budgets', 'fa-coins', 'viewer'],
+    ['renewals', '/renewals', 'Renewals', 'fa-calendar-check', 'viewer'],
     ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
     ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
     ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],

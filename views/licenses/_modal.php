@@ -52,8 +52,9 @@ $tag = $itflow ? ' <span class="badge badge-light border font-weight-normal" tit
             <div class="form-group col-md-3"><label>Version<?= $tag ?></label><input name="version" class="form-control" value="<?= e($l['version'] ?? '') ?>" <?= $ro ?>></div>
             <div class="form-group col-md-3 d-flex align-items-end"><div class="custom-control custom-checkbox mb-2">
               <input type="checkbox" class="custom-control-input" id="<?= $id ?>-renew" name="auto_renew" value="1" <?= ($l['auto_renew'] ?? 1) ? 'checked' : '' ?>>
-              <label class="custom-control-label font-weight-normal" for="<?= $id ?>-renew">Auto-renews</label></div></div>
+              <label class="custom-control-label font-weight-normal" for="<?= $id ?>-renew" title="If unticked, the budget stops this cost at the contract end (or expiry) date">Auto-renews</label></div></div>
           </div>
+          <?= \Align\View::fetch('partials/contract_fields', ['r' => $l, 'withStart' => true, 'startField' => 'purchase_date']) ?>
           <?php if ($itflow && $l['notes']): ?><div class="form-group"><label>ITFlow notes<?= $tag ?></label><textarea class="form-control" rows="2" readonly><?= e($l['notes']) ?></textarea></div><?php endif; ?>
           <div class="form-group mb-0"><label>Notes <small class="text-muted">(Align)</small></label><textarea name="align_notes" class="form-control" rows="2" placeholder="SKU, term, reseller, who to contact at renewal…"><?= e($l['align_notes'] ?? '') ?></textarea></div>
         </div>

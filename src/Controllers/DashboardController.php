@@ -59,6 +59,7 @@ final class DashboardController
             'summary' => $summary,
             'forecast' => $forecast,
             'unplanned' => $unplanned,
+            'contractDates' => array_values(array_filter(\Align\Budget\Contracts::upcoming(null, 90), fn($d) => $d['urgency'] !== 'later')),
             'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 8),
             'lastSync' => DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1'),
             'unmapped' => (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'itflow'"),

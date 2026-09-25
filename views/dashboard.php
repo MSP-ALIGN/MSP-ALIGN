@@ -69,6 +69,7 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
   </div>
 
   <div class="col-lg-4">
+    <?php if (!empty($contractDates)) echo \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Contracts & renewals (90 days)', 'showClient' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90']); ?>
     <div class="card card-dark">
       <div class="card-header py-2">
         <h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-days mr-2"></i>Next 30 days</h3>

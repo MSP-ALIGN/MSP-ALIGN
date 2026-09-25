@@ -237,3 +237,34 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('change', () => calc(form));
   });
 });
+
+// Contract fields: show derived end / renegotiate dates as you type (the server fills them in the same way)
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-contract]').forEach((box) => {
+    const form = box.closest('form');
+    const q = (k) => box.querySelector('[data-c="' + k + '"]');
+    const startIn = () => q('start') && q('start').value ? q('start') : form.querySelector('[name="' + box.dataset.startField + '"]');
+    const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const update = () => {
+      const t = q('term').value;
+      q('custom').classList.toggle('d-none', t !== 'custom');
+      const months = t === 'custom' ? parseInt(q('custom').value, 10) : parseInt(t, 10);
+      const s = startIn();
+      let end = q('end').value ? new Date(q('end').value + 'T00:00') : null;
+      const bits = [];
+      if (!end && s && s.value && months > 0) {
+        end = new Date(s.value + 'T00:00'); end.setMonth(end.getMonth() + months); end.setDate(end.getDate() - 1);
+        bits.push('Ends ' + fmt(end) + ' (from start + term)');
+      }
+      const notice = parseInt(q('notice').value, 10);
+      if (!q('reneg').value && end && notice >= 0 && !isNaN(notice)) {
+        const r = new Date(end); r.setDate(r.getDate() - notice);
+        bits.push('renegotiate by ' + fmt(r));
+      }
+      if (bits.length) q('hint').textContent = bits.join(', ') + '.';
+    };
+    form.addEventListener('input', update);
+    form.addEventListener('change', update);
+    update();
+  });
+});

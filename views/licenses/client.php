@@ -27,5 +27,6 @@ $t = $totals;
     <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'back' => $back]) ?>
   </div>
 </div>
+<?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates']); ?>
 <p class="small text-muted">Licenses from ITFlow (Software) sync every few minutes: new ones appear here, and ones archived or deleted in ITFlow are retired. Prices, billing cycle, category and seats in use are kept in Align.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('licenses/_modal', ['l' => null, 'cid' => $cid, 'back' => $back]); ?>

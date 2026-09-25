@@ -29,10 +29,15 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
               <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="0.01" name="amount" class="form-control" required value="<?= e($m['amount'] ?? '') ?>"></div></div>
             <div class="form-group col-md-3"><label>How often</label>
               <select name="frequency" class="form-control"><?php foreach (Budget::FREQUENCIES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $m['frequency'] ?? 'monthly') ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-            <div class="form-group col-md-3"><label>Starts <small class="text-muted">(or date, if one-time)</small></label><input type="date" name="start_date" class="form-control" value="<?= e($m['start_date'] ?? '') ?>"></div>
-            <div class="form-group col-md-3"><label>Ends <small class="text-muted">(optional)</small></label><input type="date" name="end_date" class="form-control" value="<?= e($m['end_date'] ?? '') ?>"></div>
+            <div class="form-group col-md-3"><label>Purchase / start date</label><input type="date" name="start_date" class="form-control" value="<?= e($m['start_date'] ?? '') ?>"></div>
+            <div class="form-group col-md-3"><label>Stop budgeting after</label><input type="date" name="end_date" class="form-control" value="<?= e($m['end_date'] ?? '') ?>"></div>
           </div>
-          <p class="small text-muted mb-2">Annual costs are budgeted in the month of the start date each year (or the first month of the plan year if there's no start date). Leave the dates blank for an ongoing cost.</p>
+          <p class="small text-muted mb-2">Annual costs are budgeted in the month of the purchase/start date each year (or the first month of the plan year if there's no date). One-time costs are budgeted on the purchase date. Leave the dates blank for an ongoing cost.</p>
+          <?= \Align\View::fetch('partials/contract_fields', ['r' => $m, 'startField' => 'start_date']) ?>
+          <div class="custom-control custom-checkbox mb-3">
+            <input type="checkbox" class="custom-control-input" id="<?= $id ?>-renew" name="auto_renew" value="1" <?= ($m['auto_renew'] ?? 1) ? 'checked' : '' ?>>
+            <label class="custom-control-label font-weight-normal" for="<?= $id ?>-renew">Renews automatically at contract end <small class="text-muted">(untick to stop budgeting this cost after the contract ends)</small></label>
+          </div>
           <div class="form-group mb-0"><label>Notes</label><textarea name="notes" class="form-control" rows="2"><?= e($m['notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">

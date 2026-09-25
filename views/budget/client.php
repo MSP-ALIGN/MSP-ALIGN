@@ -84,6 +84,8 @@ foreach ($b['lines'] as $l) {
   </div>
 </div>
 
+<div class="row">
+<div class="col-xl-7">
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group mr-2"></i>3-year summary</h3></div>
   <div class="card-body p-0 table-responsive">
@@ -97,6 +99,9 @@ foreach ($b['lines'] as $l) {
       <tfoot><tr class="total-row"><th>Total</th><?php foreach ($b['years'] as $yy): ?><th class="num"><?= money($yy['total']) ?></th><?php endforeach; ?></tr></tfoot>
     </table>
   </div>
+</div>
+</div>
+<div class="col-xl-5"><?= \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'limit' => 8]) ?></div>
 </div>
 <p class="small text-muted">The budget updates on its own from licensing, device lifecycle and projects. Proposed projects and the ITFlow managed-services estimate are shown in italics. Add a <b>Managed services</b> line to use your exact agreement amount.</p>
 

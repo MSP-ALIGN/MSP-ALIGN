@@ -237,3 +237,4 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .budget-table .tentative { font-style: italic; color: #6c757d; }
 .budget-table .line-name { padding-left: 1.4rem; }
 .budget-client-col { min-width: 220px; }
+.contract-box { background: #fbfcfd; }

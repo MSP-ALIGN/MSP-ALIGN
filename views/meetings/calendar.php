@@ -28,6 +28,10 @@ use Align\Meetings\Meetings;
         <?php foreach (Meetings::TYPES as $k => [$label, $color]): ?>
           <div class="mb-1"><span class="badge badge-<?= $color ?> mr-2">&nbsp;</span><?= e($label) ?></div>
         <?php endforeach; ?>
+        <div class="text-muted text-uppercase mt-3 mb-1" style="font-size:.7rem">Contract dates <a href="/renewals" class="text-lowercase">(all)</a></div>
+        <div class="mb-1"><span class="badge mr-2" style="background:#eb6834">&nbsp;</span>Renegotiate / give notice by</div>
+        <div class="mb-1"><span class="badge mr-2" style="background:#e34948">&nbsp;</span>Contract ends</div>
+        <div class="mb-1"><span class="badge mr-2" style="background:#6c757d">&nbsp;</span>License expires / renews</div>
       </div>
     </div>
     <div class="card card-dark">

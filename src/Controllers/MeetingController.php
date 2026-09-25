@@ -256,6 +256,24 @@ final class MeetingController
                 'classNames' => ['status-' . $m['status']],
             ];
         }
+        // Contract dates as all-day events
+        if (query('contracts', '1') === '1') {
+            $colors = ['renegotiate' => '#eb6834', 'contract_end' => '#e34948', 'expires' => '#6c757d'];
+            $from = date('Y-m-d', $start);
+            $days = (int) ceil(($end - strtotime('today')) / 86400);
+            foreach (\Align\Budget\Contracts::upcoming($cid ?: null, max(1, $days), $from) as $d) {
+                if ($d['date'] > date('Y-m-d', $end)) {
+                    continue;
+                }
+                $out[] = [
+                    'id' => 'c-' . md5($d['kind'] . $d['name'] . $d['date'] . $d['client_id']),
+                    'title' => ($cid ? '' : $d['client_name'] . ': ') . $d['label'] . ' – ' . $d['name'],
+                    'start' => $d['date'], 'allDay' => true, 'url' => $d['link'],
+                    'backgroundColor' => $colors[$d['kind']], 'borderColor' => $colors[$d['kind']],
+                    'classNames' => ['contract-event'],
+                ];
+            }
+        }
         header('Content-Type: application/json');
         echo json_encode($out);
     }

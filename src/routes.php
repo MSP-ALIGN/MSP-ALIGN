@@ -44,6 +44,7 @@ $r->get('/clients/{id}/licenses', [\Align\Controllers\LicenseController::class, 
 $r->post('/clients/{id}/licenses', [\Align\Controllers\LicenseController::class, 'create']);
 $r->get('/licenses', [\Align\Controllers\LicenseController::class, 'index']);
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
+$r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
 $r->get('/clients/{id}/budget', [\Align\Controllers\BudgetController::class, 'show']);
 $r->post('/clients/{id}/budget', [\Align\Controllers\BudgetController::class, 'create']);
 $r->post('/budget-lines/{id}', [\Align\Controllers\BudgetController::class, 'update']);
