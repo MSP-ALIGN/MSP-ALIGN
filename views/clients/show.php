@@ -71,6 +71,22 @@ $cid = (int) $client['id'];
       </div>
     </div>
 
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-address-book mr-2"></i>Key contacts</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/contacts" class="btn btn-tool">All <?= (int) $contactCount ?></a></div></div>
+      <?php if ($keyContacts): ?>
+        <ul class="list-group list-group-flush small">
+          <?php foreach (array_slice($keyContacts, 0, 5) as $k): ?>
+            <li class="list-group-item py-2">
+              <div class="d-flex"><b class="mr-auto"><?= e($k['name']) ?></b>
+                <?php foreach (\Align\Contacts\Contacts::ROLES as $col => [$label, $tone]): if (!empty($k[$col]) && in_array($col, ['is_primary', 'decision_maker', 'qbr'], true)): ?><span class="badge badge-<?= $tone ?> ml-1"><?= e($label) ?></span><?php endif; endforeach; ?></div>
+              <div class="text-muted"><?= e(implode(' · ', array_filter([$k['title'], \Align\Contacts\Contacts::phone($k) ?: null, $k['email']]))) ?></div>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php else: ?><div class="card-body py-2 small text-muted">No key contacts yet. Contacts sync from ITFlow; mark decision makers and meeting invitees on the Contacts page.</div><?php endif; ?>
+    </div>
+
     <?php $lt = $licensing; ?>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-key mr-2"></i>Licensing</h3>

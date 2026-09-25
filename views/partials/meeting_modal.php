@@ -78,7 +78,8 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
                 <?php foreach ($modalUsers as $usr): ?><option value="<?= (int) $usr['id'] ?>" <?= $sel($usr['id'], $m['owner_id'] ?? \Align\Auth::id()) ?>><?= e($usr['name']) ?></option><?php endforeach; ?>
               </select>
             </div>
-            <div class="form-group col-md-6"><label>Attendees</label><input name="attendees" class="form-control" value="<?= e($m['attendees'] ?? '') ?>" placeholder="Names or emails, comma separated"></div>
+            <div class="form-group col-md-6"><label>Attendees</label><input name="attendees" class="form-control" value="<?= e($m['attendees'] ?? '') ?>" placeholder="Names or emails, comma separated" data-attendees>
+              <div class="small mt-1 attendee-picks" data-attendee-picks></div></div>
           </div>
           <div class="form-group mb-0">
             <label>Agenda</label>

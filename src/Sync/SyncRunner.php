@@ -206,8 +206,10 @@ final class SyncRunner
             }
             return array_map(fn($x) => $x[1], $by);
         };
-        $contacts = $pick($itflow->contacts(), 'contact');
-        $locations = $pick($itflow->locations(), 'location');
+        $rawContacts = $itflow->contacts();
+        $rawLocations = $itflow->locations();
+        $contacts = $pick($rawContacts, 'contact');
+        $locations = $pick($rawLocations, 'location');
         $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len);
         $updated = 0;
         foreach ($clientRows as $r) {
@@ -272,7 +274,12 @@ final class SyncRunner
                 $updated++;
             }
         }
-        return $updated ? "contact details updated for $updated" : 'contact details up to date';
+        $locNames = [];
+        foreach ($rawLocations as $l) {
+            $locNames[(int) ($l['location_id'] ?? 0)] = (string) ($l['location_name'] ?? '');
+        }
+        $people = \Align\Contacts\Contacts::syncFromItflow($rawContacts, $locNames);
+        return ($updated ? "contact details updated for $updated" : 'contact details up to date') . "; $people";
     }
 
     private function syncNinjaOrgs(NinjaOne $ninja): string

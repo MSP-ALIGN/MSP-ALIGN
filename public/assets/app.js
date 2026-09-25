@@ -268,3 +268,49 @@ document.addEventListener('DOMContentLoaded', () => {
     update();
   });
 });
+
+// Meeting form: add the client's contacts as attendees in one click
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-attendee-picks]').forEach((box) => {
+    const form = box.closest('form');
+    const input = form.querySelector('[data-attendees]');
+    const clientSel = form.querySelector('[name="client_id"]');
+    const add = (c) => {
+      const entry = c.email ? c.name + ' <' + c.email + '>' : c.name;
+      const cur = input.value.trim();
+      if (cur.toLowerCase().includes((c.email || c.name).toLowerCase())) return;
+      input.value = cur ? cur.replace(/,\s*$/, '') + ', ' + entry : entry;
+    };
+    const load = () => {
+      box.innerHTML = '';
+      const id = clientSel ? clientSel.value : '';
+      if (!id) return;
+      fetch('/clients/' + encodeURIComponent(id) + '/contacts.json', { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list) => {
+          if (!list.length) return;
+          const key = list.filter((c) => c.key);
+          const lbl = document.createElement('span');
+          lbl.className = 'text-muted mr-1';
+          lbl.textContent = 'Add:';
+          box.appendChild(lbl);
+          if (key.length > 1) {
+            const all = document.createElement('a');
+            all.href = '#'; all.className = 'mr-2 font-weight-bold'; all.textContent = 'meeting invitees (' + key.length + ')';
+            all.addEventListener('click', (e) => { e.preventDefault(); key.forEach(add); });
+            box.appendChild(all);
+          }
+          list.slice(0, 12).forEach((c) => {
+            const a = document.createElement('a');
+            a.href = '#'; a.className = 'badge badge-light border mr-1 mb-1' + (c.key ? ' font-weight-bold' : ' font-weight-normal');
+            a.textContent = '+ ' + c.name; a.title = [c.title, c.email].filter(Boolean).join(' · ');
+            a.addEventListener('click', (e) => { e.preventDefault(); add(c); });
+            box.appendChild(a);
+          });
+        })
+        .catch(() => {});
+    };
+    if (clientSel) clientSel.addEventListener('change', load);
+    load();
+  });
+});

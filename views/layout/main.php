@@ -10,6 +10,7 @@ $v = e(APP_VERSION);
 $mainNav = [
     ['dashboard', '/', 'Dashboard', 'fa-gauge-high', 'viewer'],
     ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
+    ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
     ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
     ['licenses', '/licenses', 'Licensing', 'fa-key', 'viewer'],
     ['budget', '/budget', 'Budgets', 'fa-coins', 'viewer'],
@@ -36,6 +37,7 @@ $adminNav = [
 ];
 $clientMenu = $client ? [
     ['overview', '/clients/' . (int) $client['id'], 'Overview', 'fa-tachometer-alt'],
+    ['contacts', '/clients/' . (int) $client['id'] . '/contacts', 'Contacts', 'fa-address-book'],
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
     ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', '3-year roadmap', 'fa-road'],
     ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],

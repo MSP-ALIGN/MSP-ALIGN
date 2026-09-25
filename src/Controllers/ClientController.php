@@ -265,6 +265,8 @@ final class ClientController
             'forecast' => \Align\Roadmap\Roadmap::withProjects($lc->forecast($devices), $id),
             'unplanned' => Lifecycle::unplanned($devices),
             'licensing' => \Align\Licensing\Licenses::totals(\Align\Licensing\Licenses::load($id)),
+            'keyContacts' => \Align\Contacts\Contacts::key($id),
+            'contactCount' => (int) \Align\DB::value('SELECT COUNT(*) FROM contacts WHERE client_id = ? AND archived_at IS NULL', [$id]),
             'byType' => $byType,
             'frameworks' => $frameworks,
             'indicators' => Compliance::indicators($devices),

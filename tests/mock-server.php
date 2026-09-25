@@ -266,7 +266,8 @@ switch (true) {
             ], $offset, $limit);
         } elseif ($path === '/api/v1/contacts/read.php') {
             $rows = array_slice([
-                ['contact_id' => 1, 'contact_client_id' => 1, 'contact_name' => 'Front desk', 'contact_email' => 'frontdesk@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_primary' => 0, 'contact_archived_at' => null],
+                ['contact_id' => 1, 'contact_client_id' => 1, 'contact_name' => 'Front desk', 'contact_email' => 'frontdesk@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_primary' => 0, 'contact_billing' => 1, 'contact_department' => 'Reception', 'contact_location_id' => 12, 'contact_archived_at' => null],
+                ['contact_id' => 6, 'contact_client_id' => 1, 'contact_name' => 'Sam Rivera', 'contact_title' => 'Office manager', 'contact_email' => 'sam@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_extension' => '15', 'contact_technical' => 1, 'contact_important' => 1, 'contact_department' => 'Operations', 'contact_location_id' => 12, 'contact_notes' => 'Point person for IT tickets', 'contact_archived_at' => null],
                 ['contact_id' => 2, 'contact_client_id' => 1, 'contact_name' => 'Dr. Jordan Ellis', 'contact_title' => 'Owner / DDS', 'contact_email' => 'jordan@cedarridgedental.example',
                     'contact_phone' => '(555) 010-1100', 'contact_extension' => '12', 'contact_mobile' => '(555) 010-4411', 'contact_primary' => 1, 'contact_archived_at' => null],
                 ['contact_id' => 3, 'contact_client_id' => 2, 'contact_name' => 'Pat Quinn', 'contact_title' => 'Store manager', 'contact_email' => 'pat@northfieldhardware.example', 'contact_phone' => '(555) 010-2200', 'contact_important' => 1, 'contact_archived_at' => null],

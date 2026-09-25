@@ -45,6 +45,11 @@ $r->post('/clients/{id}/licenses', [\Align\Controllers\LicenseController::class,
 $r->get('/licenses', [\Align\Controllers\LicenseController::class, 'index']);
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
 $r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
+$r->get('/contacts', [\Align\Controllers\ContactController::class, 'index']);
+$r->post('/contacts/{id}', [\Align\Controllers\ContactController::class, 'update']);
+$r->get('/clients/{id}/contacts', [\Align\Controllers\ContactController::class, 'clientIndex']);
+$r->post('/clients/{id}/contacts', [\Align\Controllers\ContactController::class, 'create']);
+$r->get('/clients/{id}/contacts.json', [\Align\Controllers\ContactController::class, 'json']);
 $r->get('/clients/{id}/budget', [\Align\Controllers\BudgetController::class, 'show']);
 $r->post('/clients/{id}/budget', [\Align\Controllers\BudgetController::class, 'create']);
 $r->post('/budget-lines/{id}', [\Align\Controllers\BudgetController::class, 'update']);
