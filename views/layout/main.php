@@ -13,6 +13,7 @@ $mainNav = [
     ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
     ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
     ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
+    ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
     ['reports', '/reports', 'Reports', 'fa-print', 'viewer'],
 ];
 $integrationNav = [
@@ -32,6 +33,7 @@ $clientMenu = $client ? [
     ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', '3-year roadmap', 'fa-road'],
     ['meetings', '/clients/' . (int) $client['id'] . '/meetings', 'Meetings', 'fa-handshake'],
     ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
+    ['documents', '/clients/' . (int) $client['id'] . '/documents', 'Documents', 'fa-file-lines'],
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
@@ -53,6 +55,7 @@ $item = function (array $i, string $active) {
 <script src="/vendor/bootstrap/bootstrap.bundle.min.js?v=<?= $v ?>" defer></script>
 <script src="/vendor/adminlte/adminlte.min.js?v=<?= $v ?>" defer></script>
 <?php if (!empty($calendar)): ?><script src="/vendor/fullcalendar/index.global.min.js?v=<?= $v ?>" defer></script><?php endif; ?>
+<?php if (!empty($editor)): ?><link rel="stylesheet" href="/vendor/quill/quill.snow.css?v=<?= $v ?>"><script src="/vendor/quill/quill.js?v=<?= $v ?>" defer></script><script src="/assets/docs.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>

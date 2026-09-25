@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/print.css?v=<?= e(APP_VERSION) ?>">
+<?php if (!empty($docPrint)): ?><?php endif; ?>
 <script src="/assets/print.js?v=<?= e(APP_VERSION) ?>" defer></script>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>

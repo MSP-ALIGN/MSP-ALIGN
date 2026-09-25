@@ -2,7 +2,7 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**What's in it (0.5.0):**
+**What's in it (0.6.0):**
 
 - **Clients:** synced from ITFlow or added by hand, with contact details, industry, meeting cadence (yearly by default) and vCIO owner. A hand-added client links to ITFlow automatically once a client with the same name shows up there.
 - **Devices & assets:** from three sources. NinjaOne supplies computers, servers and anything it monitors. ITFlow assets NinjaOne doesn't manage are imported too: firewalls/routers, switches, access points, printers, UPS units (recognized by make/model) and NAS by default, with more types available in Settings. You can also add devices by hand. Anything already matched to a NinjaOne or hand-added device is skipped. Virtual machines group with **Servers** (server OS) or **Desktops as VDI** (desktop OS) and are tracked for OS support only. You can change the type of any device.
@@ -12,6 +12,10 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
 - **Planning scope:** remove any client from planning (bulk or one at a time, with a reason). Removed clients stay hidden through syncs. Clients added by hand can be deleted.
 - **Meetings & calendar:** QBRs and other meetings, repeating series, agenda and notes, a flag for clients due for a meeting, a month/week/list calendar, `.ics` invites, and a private feed you can subscribe to in Outlook.
 - **Compliance:** built-in frameworks (MSP Security Baseline, Cyber Insurance Readiness, CIS Controls v8 IG1, HIPAA Security Rule) assigned per client, with a checklist (status, owner, due date, notes, evidence), scores, device-data hints, review dates and CSV export. Frameworks can be edited or copied.
+- **WISP (FTC Safeguards Rule):** a compliance framework with 24 items covering 16 CFR 314.4(a)–(j), including every required element of the information security program. The framework notes which items the small-institution exemption in 314.6 waives (fewer than 5,000 consumers), so you can mark those N/A.
+- **Documents:** per-client and internal documents edited in the app. Changes autosave as you type, and Ctrl/Cmd+S saves immediately. You can see who else has a document open, and their saved changes appear live. If two people edit at once, the second save gets a warning to load the other version or overwrite it, so no one's work is silently lost. Full version history lets you view or restore any version and save a named version. Each document has a category, a status (draft, active or archived), a review date, and Print / Save as PDF with a DRAFT watermark on drafts.
+- **Templates:** built-in WISP (FTC), Incident Response Plan, Acceptable Use Policy and Data Retention & Disposal templates fill in the client's name, contact, address, your company details and today's date automatically. You can edit templates, add your own, or save any document as a template.
+- **Evidence links:** any compliance checklist item can link to one of the client's documents, for example the WISP item to the client's WISP. The link appears on the checklist, on the document page and in the CSV export.
 - **Branding:** under Admin → Branding you can set the portal name, upload a logo (PNG/JPG/WebP, also used as the browser icon and on printed reports), pick a brand color and a light or dark sidebar, and edit the sign-in page message. There's a live preview.
 - **UI:** built on AdminLTE 3 / Bootstrap 4 / Font Awesome, the same kit ITFlow uses. It's bundled locally, with no CDN.
 

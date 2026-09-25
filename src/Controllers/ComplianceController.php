@@ -106,11 +106,12 @@ final class ComplianceController
         if (!$link) {
             redirect("/clients/$id/compliance");
         }
-        $controls = DB::all('SELECT c.*, COALESCE(s.status, \'not_assessed\') AS status, s.notes, s.evidence, s.owner, s.due_date,
+        $controls = DB::all('SELECT c.*, COALESCE(s.status, \'not_assessed\') AS status, s.notes, s.evidence, s.document_id, s.owner, s.due_date, dd.title AS doc_title,
                 s.updated_at AS s_updated, u.name AS updated_by_name
             FROM compliance_controls c
             LEFT JOIN client_control_status s ON s.control_id = c.id AND s.client_id = ?
             LEFT JOIN users u ON u.id = s.updated_by
+            LEFT JOIN documents dd ON dd.id = s.document_id
             WHERE c.framework_id = ? ORDER BY c.sort, c.id', [$id, $fw]);
         $sections = [];
         foreach ($controls as $c) {
@@ -127,6 +128,7 @@ final class ComplianceController
             'score' => Compliance::score($id, $fw),
             'indicators' => Compliance::indicators((new Lifecycle())->devices($id)),
             'filter' => query('filter'),
+            'docs' => \Align\Docs\Documents::forClient($id),
         ]);
     }
 
@@ -136,13 +138,14 @@ final class ComplianceController
         $client = ClientController::load($id);
         $f = self::framework($fw);
         $valid = array_column(DB::all('SELECT id FROM compliance_controls WHERE framework_id = ?', [$fw]), 'id', 'id');
+        $clientDocs = array_column(DB::all('SELECT id FROM documents WHERE client_id = ?', [$id]), 'id', 'id');
         $posted = is_array($_POST['c'] ?? null) ? $_POST['c'] : [];
         $existing = [];
         foreach (DB::all('SELECT * FROM client_control_status WHERE client_id = ?', [$id]) as $r) {
             $existing[$r['control_id']] = $r;
         }
         $changed = 0;
-        DB::transaction(function () use ($posted, $valid, $existing, $id, &$changed) {
+        DB::transaction(function () use ($posted, $valid, $existing, $id, $clientDocs, &$changed) {
             foreach ($posted as $cid => $row) {
                 $cid = (int) $cid;
                 if (!isset($valid[$cid]) || !is_array($row)) {
@@ -156,11 +159,12 @@ final class ComplianceController
                     'evidence' => mb_substr(trim((string) ($row['evidence'] ?? '')), 0, 2000) ?: null,
                     'owner' => mb_substr(trim((string) ($row['owner'] ?? '')), 0, 190) ?: null,
                     'due_date' => $due,
+                    'document_id' => isset($clientDocs[(int) ($row['document_id'] ?? 0)]) ? (int) $row['document_id'] : null,
                 ];
                 $old = $existing[$cid] ?? null;
                 $same = $old
                     ? array_intersect_key($old, $new) == $new
-                    : $new == ['status' => 'not_assessed', 'notes' => null, 'evidence' => null, 'owner' => null, 'due_date' => null];
+                    : $new == ['status' => 'not_assessed', 'notes' => null, 'evidence' => null, 'owner' => null, 'due_date' => null, 'document_id' => null];
                 if ($same) {
                     continue;
                 }
@@ -189,17 +193,18 @@ final class ComplianceController
         Auth::require();
         $client = ClientController::load($id);
         $f = self::framework($fw);
-        $rows = DB::all('SELECT c.section, c.ref, c.title, COALESCE(s.status, \'not_assessed\') AS status, s.owner, s.due_date, s.notes, s.evidence, s.updated_at
+        $rows = DB::all('SELECT c.section, c.ref, c.title, COALESCE(s.status, \'not_assessed\') AS status, s.owner, s.due_date, s.notes, s.evidence, s.updated_at, dd.title AS doc_title
             FROM compliance_controls c LEFT JOIN client_control_status s ON s.control_id = c.id AND s.client_id = ?
+            LEFT JOIN documents dd ON dd.id = s.document_id
             WHERE c.framework_id = ? ORDER BY c.sort, c.id', [$id, $fw]);
         Audit::log('compliance.export', "{$client['name']} / {$f['name']}");
         $name = preg_replace('/[^A-Za-z0-9]+/', '-', $client['name'] . '-' . $f['name']) . '-' . date('Y-m-d') . '.csv';
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $name . '"');
         $out = fopen('php://output', 'w');
-        fputcsv($out, ['Section', 'Ref', 'Control', 'Status', 'Owner', 'Due', 'Notes', 'Evidence', 'Last updated'], escape: '');
+        fputcsv($out, ['Section', 'Ref', 'Control', 'Status', 'Owner', 'Due', 'Notes', 'Evidence', 'Evidence document', 'Last updated'], escape: '');
         foreach ($rows as $r) {
-            fputcsv($out, [$r['section'], $r['ref'], $r['title'], Compliance::STATUSES[$r['status']][0], $r['owner'], $r['due_date'], $r['notes'], $r['evidence'], $r['updated_at']], escape: '');
+            fputcsv($out, [$r['section'], $r['ref'], $r['title'], Compliance::STATUSES[$r['status']][0], $r['owner'], $r['due_date'], $r['notes'], $r['evidence'], $r['doc_title'], $r['updated_at']], escape: '');
         }
         fclose($out);
     }

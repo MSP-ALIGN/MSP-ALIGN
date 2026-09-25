@@ -65,7 +65,18 @@ $show = function (array $c) use ($filter) {
                   <div class="col-md-6 mb-1"><input type="date" class="form-control form-control-sm" name="c[<?= $k ?>][due_date]" value="<?= e($c['due_date']) ?>" title="Due date" <?= $canEdit ? '' : 'disabled' ?>></div>
                 </div>
                 <textarea class="form-control form-control-sm mb-1" name="c[<?= $k ?>][notes]" rows="1" placeholder="Notes / remediation plan" <?= $canEdit ? '' : 'disabled' ?>><?= e($c['notes']) ?></textarea>
-                <input class="form-control form-control-sm" name="c[<?= $k ?>][evidence]" value="<?= e($c['evidence']) ?>" placeholder="Evidence (link, doc name, screenshot location)" <?= $canEdit ? '' : 'disabled' ?>>
+                <div class="form-row">
+                  <div class="col-md-6 mb-1"><input class="form-control form-control-sm" name="c[<?= $k ?>][evidence]" value="<?= e($c['evidence']) ?>" placeholder="Evidence (link, file location…)" <?= $canEdit ? '' : 'disabled' ?>></div>
+                  <div class="col-md-6 mb-1">
+                    <div class="input-group input-group-sm">
+                      <select class="custom-select custom-select-sm evidence-select" name="c[<?= $k ?>][document_id]" <?= $canEdit ? '' : 'disabled' ?> aria-label="Evidence document">
+                        <option value="">— Link a document —</option>
+                        <?php foreach ($docs as $doc): ?><option value="<?= (int) $doc['id'] ?>" <?= (int) $c['document_id'] === (int) $doc['id'] ? 'selected' : '' ?>><?= e($doc['title']) ?><?= $doc['status'] === 'draft' ? ' (draft)' : '' ?></option><?php endforeach; ?>
+                      </select>
+                      <?php if ($c['document_id']): ?><div class="input-group-append"><a class="btn btn-outline-secondary" href="/documents/<?= (int) $c['document_id'] ?>" title="Open <?= e($c['doc_title']) ?>"><i class="fas fa-up-right-from-square"></i></a></div><?php endif; ?>
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>

@@ -9,6 +9,7 @@ use Align\Controllers\ClientController;
 use Align\Controllers\ComplianceController;
 use Align\Controllers\DashboardController;
 use Align\Controllers\DeviceController;
+use Align\Controllers\DocumentController;
 use Align\Controllers\MappingController;
 use Align\Controllers\MeetingController;
 use Align\Controllers\ReportController;
@@ -68,6 +69,23 @@ $r->get('/calendar', [MeetingController::class, 'calendar']);
 $r->get('/calendar/events', [MeetingController::class, 'events']);
 $r->post('/calendar/feed', [MeetingController::class, 'feedToken']);
 $r->get('/ics/{token:str}', [MeetingController::class, 'feed']);
+
+// Documents
+$r->get('/documents', [DocumentController::class, 'index']);
+$r->post('/documents', [DocumentController::class, 'create']);
+$r->get('/documents/templates', [DocumentController::class, 'templates']);
+$r->post('/documents/templates', [DocumentController::class, 'templateCreate']);
+$r->get('/documents/templates/{id}', [DocumentController::class, 'templateShow']);
+$r->post('/documents/templates/{id}', [DocumentController::class, 'templateSave']);
+$r->get('/documents/{id}', [DocumentController::class, 'show']);
+$r->post('/documents/{id}/save', [DocumentController::class, 'save']);
+$r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
+$r->get('/documents/{id}/content', [DocumentController::class, 'content']);
+$r->get('/documents/{id}/print', [DocumentController::class, 'print']);
+$r->post('/documents/{id}/delete', [DocumentController::class, 'delete']);
+$r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
+$r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
+$r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
 
 // Reports
 $r->get('/reports', [ReportController::class, 'index']);
