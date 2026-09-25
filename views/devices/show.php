@@ -68,7 +68,11 @@ if ($client) {
           <?= $row('Lifespan policy', $d['lifespan'] ? (int) $d['lifespan'] . ' years' . ($d['o_lifespan'] ? ' <span class="small text-muted">(override)</span>' : '') : '—') ?>
           <?= $row('End of life', e(fmt_date($d['eol_date']))) ?>
           <?= $row('Warranty ends', e(fmt_date($d['warranty_end'])) . ($d['warranty_source'] ? ' <span class="small text-muted">' . e($d['warranty_source']) . '</span>' : '')) ?>
-          <?= $row('Est. replacement cost', $d['is_hardware'] ? money($d['replacement_cost']) : '—') ?>
+          <?= $row('Est. replacement cost', $d['is_hardware'] ? money($d['replacement_cost']) . ($d['o_cost'] !== null ? ' <span class="small text-muted">(set on this device)</span>' : ' <span class="small text-muted">(policy default)</span>') : '—') ?>
+          <?php $pl = \Align\Lifecycle\Lifecycle::placement($d);
+          echo $row('3-year IT plan', $pl['in_plan']
+              ? '<span class="badge badge-primary">' . e($pl['label']) . '</span> <span class="small text-muted">' . e($pl['reason']) . '</span>'
+              : '<span class="badge badge-' . ($pl['fix'] ? 'warning' : 'light border') . '">' . e($pl['label']) . '</span> <span class="small text-muted">' . e($pl['reason']) . ($pl['fix'] ? '. ' . e($pl['fix']) . '.' : '') . '</span>'); ?>
           <?php if ($lookup) echo $row('Vendor lookup', e(ucfirst($lookup['vendor'])) . ': ' . e($lookup['status']) . ' · ' . e(rel_time($lookup['looked_up_at'])) . ($lookup['description'] ? '<div class="small text-muted">' . e($lookup['description']) . '</div>' : '')); ?>
           <?php if ($d['o_notes']) echo $row('Notes', '<span class="pre-line">' . e($d['o_notes']) . '</span>'); ?>
         </table>

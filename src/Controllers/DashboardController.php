@@ -19,6 +19,7 @@ final class DashboardController
         $devices = array_filter($lc->devices(), fn($d) => $d['client_id'] !== null && !$d['client_inactive']);
         $summary = Lifecycle::summarize($devices);
         $forecast = \Align\Roadmap\Roadmap::withProjects($lc->forecast($devices));
+        $unplanned = Lifecycle::unplanned($devices);
 
         $byClient = [];
         foreach ($devices as $d) {
@@ -57,6 +58,7 @@ final class DashboardController
             'nav' => 'dashboard',
             'summary' => $summary,
             'forecast' => $forecast,
+            'unplanned' => $unplanned,
             'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 8),
             'lastSync' => DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1'),
             'unmapped' => (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'itflow'"),

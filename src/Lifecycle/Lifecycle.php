@@ -327,6 +327,52 @@ final class Lifecycle
         return $buckets;
     }
 
+    /**
+     * Where a device's replacement cost lands in the 3-year IT plan, or why it doesn't.
+     * @return array{in_plan:bool, label:string, reason:string, fix:?string}
+     */
+    public static function placement(array $d): array
+    {
+        $out = fn(bool $in, string $label, string $reason, ?string $fix = null) => ['in_plan' => $in, 'label' => $label, 'reason' => $reason, 'fix' => $fix];
+        if ($d['status'] === 'excluded') {
+            return $out(false, 'Not in plan', 'Excluded from lifecycle and budget', 'Untick "Exclude from lifecycle and budget" to count it');
+        }
+        if (!empty($d['removed_at'])) {
+            return $out(false, 'Not in plan', 'Retired / no longer active');
+        }
+        if ($d['is_virtual']) {
+            return $out(false, 'Not in plan', 'Virtual device: tracked for OS support only, no hardware cost');
+        }
+        if (!$d['is_hardware']) {
+            return $out(false, 'Not in plan', 'Not a hardware device');
+        }
+        if (!$d['start_date']) {
+            return $out(false, 'Not in plan', 'No in-service date, so there is no end-of-life date to plan around', 'Add a purchase / in-service date');
+        }
+        if (!$d['replace_by']) {
+            return $out(false, 'Not in plan', 'No lifespan set for this type', 'Set a lifespan here or in Settings');
+        }
+        $qs = \Align\Roadmap\Plan::quarters();
+        $idx = \Align\Roadmap\Plan::indexFor($d['replace_by']);
+        if ($idx === null) {
+            $end = $qs[count($qs) - 1]['end'];
+            return $d['replace_by'] > $end
+                ? $out(false, 'After the plan', 'End of life (' . fmt_date($d['eol_date']) . ') is after the 3-year plan ends (' . fmt_date($end) . ')')
+                : $out(false, 'Not in plan', 'End of life is before the plan starts');
+        }
+        $q = $qs[$idx];
+        $overdue = $d['replace_by'] < $qs[\Align\Roadmap\Plan::currentIndex()]['start'];
+        return $out(true, $q['label'], $overdue
+            ? 'Past end of life (' . fmt_date($d['eol_date']) . '), so it is counted in the current quarter'
+            : 'Counted in ' . $q['label'] . ' (' . $q['months'] . '), the quarter it reaches end of life');
+    }
+
+    /** Hardware that should be budgeted but can't be placed in the plan (no in-service date). */
+    public static function unplanned(array $devices): array
+    {
+        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date']));
+    }
+
     /** Totals per plan year from forecast() output. */
     public static function yearTotals(array $forecast): array
     {

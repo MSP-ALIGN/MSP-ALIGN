@@ -65,5 +65,11 @@ $addProject = $addProject ?? false; // client overview: show an "Add project" bu
       <?php endforeach; ?>
     </svg>
     <p class="text-muted small mb-0"><span class="legend-dot bg-danger"></span> includes overdue devices (rolled into the current quarter) <span class="legend-dot bg-primary"></span> hardware reaching end of life<?php if ($hasProj): ?> <span class="legend-dot legend-proj"></span> planned projects<?php endif; ?> <span class="legend-dot legend-now"></span> current quarter</p>
+    <?php $unplanned = $unplanned ?? []; if ($unplanned): $uc = count($unplanned); $one = $uc === 1; ?>
+      <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
+        <i class="fas fa-triangle-exclamation mr-1"></i><b><?= $uc ?> hardware device<?= $one ? '' : 's' ?></b> (<?= money(array_sum(array_column($unplanned, 'replacement_cost'))) ?> est.) <?= $one ? 'isn\'t' : 'aren\'t' ?> in this plan because <?= $one ? 'it has' : 'they have' ?> no in-service date, so there's no end-of-life quarter to put <?= $one ? 'it' : 'them' ?> in.
+        <?php if (!empty($link) && preg_match('#^/clients/(\d+)#', $link, $m)): ?><a href="/clients/<?= (int) $m[1] ?>/devices?filter=noplan">Add purchase dates</a><?php else: ?>Use the <b>No in-service date</b> filter on a client's devices to fix them.<?php endif; ?>
+      </div>
+    <?php endif; ?>
   </div>
 </div>

@@ -219,6 +219,7 @@ final class ClientController
             'clientNav' => 'overview',
             'summary' => Lifecycle::summarize($devices),
             'forecast' => \Align\Roadmap\Roadmap::withProjects($lc->forecast($devices), $id),
+            'unplanned' => Lifecycle::unplanned($devices),
             'byType' => $byType,
             'frameworks' => $frameworks,
             'indicators' => Compliance::indicators($devices),
@@ -246,6 +247,7 @@ final class ClientController
                 'itflow' => $d['source'] === 'itflow',
                 'virtual' => (bool) $d['is_virtual'],
                 'unassigned' => $d['type'] === Lifecycle::UNASSIGNED,
+                'noplan' => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'],
                 default => true,
             };
         }));

@@ -153,8 +153,22 @@ final class DeviceController
         });
         ItflowSync::recordAlignEdit($id, $before);
         Audit::log('device.update', $d['name']);
-        self::flashPush(ItflowSync::pushDevice($id, Auth::id()));
+        self::flashPush(ItflowSync::pushDevice($id, Auth::id()), 'Saved. ' . self::planNote($id));
         redirect("/devices/$id");
+    }
+
+    /** One line saying where the device's replacement cost now sits in the IT plan. */
+    private static function planNote(int $id): string
+    {
+        $rows = (new Lifecycle())->devices(null, true, $id);
+        if (!$rows || !$rows[0]['is_hardware']) {
+            return '';
+        }
+        $d = $rows[0];
+        $p = Lifecycle::placement($d);
+        return $p['in_plan']
+            ? money($d['replacement_cost']) . ' is budgeted in ' . $p['label'] . ' of the IT plan.'
+            : 'Its ' . money($d['replacement_cost']) . ' replacement cost is not in the IT plan: ' . lcfirst($p['reason']) . ($p['fix'] ? '. ' . $p['fix'] . '.' : '.');
     }
 
     /** Sets a device's type (used by the Unassigned triage page). */
