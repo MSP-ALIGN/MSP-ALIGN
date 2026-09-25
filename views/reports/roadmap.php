@@ -55,7 +55,8 @@ foreach ($plan['backlog'] as $it) {
 ?>
 <?php if ($planned): ?>
 <h2 class="page-break">Recommendations &amp; projects</h2>
-<table class="rtable">
+<table class="rtable rtable-fixed recs <?= $opt['costs'] ? '' : 'no-cost' ?>">
+  <colgroup><col class="c-when"><col class="c-item"><col class="c-cat"><col class="c-pri"><col class="c-st"><?php if ($opt['costs']): ?><col class="c-one"><col class="c-mo"><?php endif; ?></colgroup>
   <thead><tr><th>When</th><th>Item</th><th>Category</th><th>Priority</th><th>Status</th><?php if ($opt['costs']): ?><th class="num">One-time</th><th class="num">Monthly</th><?php endif; ?></tr></thead>
   <tbody>
   <?php foreach ($planned as $it): [$cl] = Roadmap::category($it['category']); ?>
@@ -80,7 +81,8 @@ foreach ($plan['backlog'] as $it) {
   <div class="kpi <?= $summary['warranty_expired'] ? 'warn' : '' ?>"><b><?= (int) $summary['warranty_expired'] ?></b><span>Out of warranty</span></div>
 </div>
 <?php if ($frameworks): ?>
-  <table class="rtable">
+  <table class="rtable rtable-fixed fw">
+    <colgroup><col class="c-fw"><col><col><col><col><col></colgroup>
     <thead><tr><th>Compliance framework</th><th class="num">Score</th><th class="num">Met</th><th class="num">Partial</th><th class="num">Not met</th><th class="num">Assessed</th></tr></thead>
     <tbody>
     <?php foreach ($frameworks as $f): $sc = $f['score']; ?>

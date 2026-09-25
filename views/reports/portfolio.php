@@ -16,7 +16,8 @@ foreach ($rows as $r) {
   <div class="kpi <?= $tot['os'] ? 'bad' : '' ?>"><b><?= number_format($tot['os']) ?></b><span>Unsupported OS</span></div>
   <?php if ($opt['costs']): ?><div class="kpi"><b><?= money(array_sum($tot['y'])) ?></b><span>3-year hardware budget</span></div><?php endif; ?>
 </div>
-<table class="rtable">
+<table class="rtable rtable-fixed portfolio <?= $opt['costs'] ? '' : 'no-cost' ?>">
+  <colgroup><col class="c-client"><col class="c-n"><col class="c-n"><col class="c-w"><col class="c-w"><?php if ($opt['costs']): foreach ($yearsMeta as $y): ?><col class="c-y"><?php endforeach; ?><col class="c-p"><?php endif; ?></colgroup>
   <thead><tr><th>Client</th><th class="num">Devices</th><th class="num">Past EOL</th><th class="num">Unsupported OS</th><th class="num">Out of warranty</th>
     <?php if ($opt['costs']): foreach ($yearsMeta as $y): ?><th class="num"><?= e($y['label']) ?></th><?php endforeach; ?><th class="num">Open projects</th><?php endif; ?></tr></thead>
   <tbody>

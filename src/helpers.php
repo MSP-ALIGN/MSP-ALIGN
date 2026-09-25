@@ -165,3 +165,12 @@ function initials(string $name): string
     }
     return $i ?: '?';
 }
+
+/** Compact OS name for tight report columns ("Windows 11 Professional Edition" -> "Windows 11 Pro"). */
+function short_os(?string $os): string
+{
+    $s = (string) $os;
+    $s = preg_replace(['/\s+Edition\b/i', '/\bProfessional\b/i', '/\bStandard\b/i', '/\bDatacenter\b/i', '/\bEnterprise\b/i', '/^Microsoft\s+/i'],
+        ['', 'Pro', 'Std', 'DC', 'Ent', ''], $s) ?? $s;
+    return trim(preg_replace('/\s+/', ' ', $s) ?? $s);
+}
