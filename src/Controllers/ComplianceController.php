@@ -218,7 +218,7 @@ final class ComplianceController
         Auth::requireRole('admin');
         View::render('compliance/frameworks', [
             'title' => 'Compliance frameworks',
-            'nav' => 'frameworks',
+            'nav' => 'compliance',
             'frameworks' => DB::all('SELECT f.*, (SELECT COUNT(*) FROM compliance_controls c WHERE c.framework_id = f.id) AS controls,
                 (SELECT COUNT(*) FROM client_frameworks cf WHERE cf.framework_id = f.id) AS clients
                 FROM compliance_frameworks f ORDER BY f.is_active DESC, f.name'),
@@ -253,7 +253,7 @@ final class ComplianceController
         $fw = self::framework($id);
         View::render('compliance/framework', [
             'title' => $fw['name'],
-            'nav' => 'frameworks',
+            'nav' => 'compliance',
             'fw' => $fw,
             'controls' => DB::all('SELECT * FROM compliance_controls WHERE framework_id = ? ORDER BY sort, id', [$id]),
             'inUse' => (int) DB::value('SELECT COUNT(*) FROM client_frameworks WHERE framework_id = ?', [$id]),

@@ -2,6 +2,7 @@
 $rows = array_filter($clients, fn($c) => !empty($assigned[$c['id']]));
 $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
 ?>
+<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', true], ['/frameworks', 'Frameworks', 'fa-list-check', false, \Align\Auth::can('admin')]]]) ?>
 <div class="row">
   <?php foreach ($frameworks as $fw):
       $vals = [];

@@ -90,7 +90,7 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
           <?php if (\Align\Mail\Invites::enabled()): $sentBefore = !empty($m['invites_sent_at']); ?>
             <input type="hidden" name="send_invites" value="0">
             <div class="custom-control custom-checkbox mr-auto"><input type="checkbox" class="custom-control-input" id="send-invites-<?= (int) ($m['id'] ?? 0) ?>" name="send_invites" value="1" <?= !$m || $sentBefore ? 'checked' : '' ?>>
-              <label class="custom-control-label font-weight-normal small" for="send-invites-<?= (int) ($m['id'] ?? 0) ?>"><?= $sentBefore ? 'Send the update to attendees' : 'Email invitations to attendees' ?><?= \Align\Settings::get('mail_meeting_mode', 'calendar') === 'calendar' ? ' (Outlook)' : '' ?></label></div>
+              <label class="custom-control-label font-weight-normal small" for="send-invites-<?= (int) ($m['id'] ?? 0) ?>"><?= $sentBefore ? 'Send the update to attendees' : 'Email invitations to attendees' ?><?= \Align\Settings::get('mail_meeting_mode', 'calendar') === 'calendar' ? (\Align\Mail\Mail::provider() === 'google' ? ' (Google Calendar)' : ' (Outlook)') : '' ?></label></div>
           <?php endif; ?>
           <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
           <button class="btn btn-primary"><i class="fas fa-check mr-1"></i><?= $m ? 'Save' : 'Schedule' ?></button>

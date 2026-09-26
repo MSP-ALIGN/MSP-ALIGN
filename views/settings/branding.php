@@ -1,5 +1,5 @@
 <?php use Align\Branding; ?>
-<div class="d-flex mb-3"><h1 class="h3 mb-0 mr-auto">Branding</h1><a class="btn btn-sm btn-default" href="/settings"><i class="fas fa-gear mr-1"></i>Settings</a></div>
+<?= \Align\View::fetch('settings/_tabs', ['tab' => 'branding']) ?>
 
 <form method="post" action="/settings/branding" enctype="multipart/form-data">
   <?= csrf_field() ?>
@@ -18,7 +18,7 @@
             <div class="form-group col-md-6">
               <label>Company name <small class="text-muted">(reports)</small></label>
               <input name="company_name" class="form-control" maxlength="190" value="<?= e($v['company_name']) ?>">
-              <small class="text-muted">Printed at the top of reports. Phone/email/footer are under Settings → Report branding.</small>
+              <small class="text-muted">Printed at the top of reports. Phone, email and footer are under Settings → General.</small>
             </div>
           </div>
 

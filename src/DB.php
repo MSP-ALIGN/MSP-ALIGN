@@ -8,6 +8,11 @@ use PDO;
 final class DB
 {
     private static ?PDO $pdo = null;
+    /** Query count and time for this request (shown by the 'profile' config option). */
+    public static int $queries = 0;
+    public static float $queryTime = 0.0;
+    public static array $slow = [];
+    public static array $seen = [];
 
     public static function pdo(): PDO
     {
@@ -29,8 +34,19 @@ final class DB
 
     public static function run(string $sql, array $params = []): \PDOStatement
     {
+        $t = microtime(true);
         $stmt = self::pdo()->prepare($sql);
         $stmt->execute($params);
+        $d = microtime(true) - $t;
+        self::$queries++;
+        self::$queryTime += $d;
+        if (Config::get('profile')) {
+            $k = mb_substr(preg_replace('/\s+/', ' ', $sql) ?? '', 0, 120);
+            self::$seen[$k] = (self::$seen[$k] ?? 0) + 1;
+        }
+        if ($d > (float) (Config::get("profile_slow_ms", 50)) / 1000 && count(self::$slow) < 10) {
+            self::$slow[] = round($d * 1000) . 'ms ' . mb_substr(preg_replace('/\s+/', ' ', $sql) ?? '', 0, 160);
+        }
         return $stmt;
     }
 

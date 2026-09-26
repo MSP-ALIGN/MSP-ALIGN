@@ -588,3 +588,37 @@ document.addEventListener('click', (ev) => {
     });
   });
 })();
+
+// Help: filter the how-to guides, and open one from a link (/help#guide-backup)
+(() => {
+  const input = document.querySelector('[data-filter-guides]');
+  if (!input) return;
+  const guides = Array.from(document.querySelectorAll('.help-guide'));
+  const empty = document.querySelector('[data-guides-empty]');
+  input.addEventListener('input', () => {
+    const words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    guides.forEach((g) => {
+      const hit = words.every((w) => g.dataset.search.includes(w));
+      g.classList.toggle('d-none', !hit);
+      shown += hit ? 1 : 0;
+    });
+    // Open the guides that match when the search narrows things down
+    if (words.length && shown <= 3) guides.filter((g) => !g.classList.contains('d-none')).forEach((g) => window.jQuery && window.jQuery(g.querySelector('.collapse')).collapse('show'));
+    if (empty) empty.classList.toggle('d-none', shown > 0);
+    const h = document.querySelectorAll('#tab-howto h6');
+    h.forEach((el) => { el.classList.toggle('d-none', words.length > 0); });
+  });
+  const open = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (!target || !window.jQuery) return;
+    const pane = target.closest('.tab-pane');
+    if (pane) window.jQuery('a[href="#' + pane.id + '"]').tab('show');
+    if (target.classList.contains('help-guide')) window.jQuery(target.querySelector('.collapse')).collapse('show');
+    setTimeout(() => target.scrollIntoView({ block: 'start' }), 200);
+  };
+  window.addEventListener('load', open);
+  window.addEventListener('hashchange', open);
+})();

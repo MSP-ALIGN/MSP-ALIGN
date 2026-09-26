@@ -10,7 +10,7 @@ use Align\Settings;
 /**
  * Google Workspace: sends through the Gmail API and makes meeting invitations with Google Calendar.
  *
- * Two ways to sign in (Settings → Email):
+ * Two ways to sign in (Integrations → Microsoft 365 / Google Workspace):
  *  - app:       a Google Cloud service account with domain-wide delegation. A Workspace super admin
  *               authorizes its client ID for the gmail.send and calendar.events scopes; Align then signs
  *               a JWT (RS256) to act as the sending mailbox (or the meeting owner for invitations).

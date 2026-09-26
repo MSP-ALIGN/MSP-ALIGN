@@ -6,17 +6,12 @@ namespace Align\Controllers;
 use Align\Audit;
 use Align\Auth;
 use Align\DB;
-use Align\Integrations\Itflow;
-use Align\Integrations\NinjaOne;
-use Align\Integrations\Warranty\Dell;
-use Align\Integrations\Warranty\Lenovo;
 use Align\Settings;
 use Align\View;
 
 final class SettingsController
 {
-    public const TEXT = ['ninja_client_id', 'itflow_url', 'veeam_url', 'dell_client_id', 'company_name', 'company_phone', 'company_email', 'company_website', 'report_footer'];
-    public const SECRETS = ['ninja_client_secret', 'itflow_api_key', 'veeam_api_key', 'dell_client_secret', 'lenovo_client_id'];
+    public const TEXT = ['company_name', 'company_phone', 'company_email', 'company_website', 'report_footer'];
     public const NUMBERS = [
         'lifespan_desktop' => [1, 20], 'lifespan_laptop' => [1, 20], 'lifespan_server' => [1, 20], 'lifespan_network' => [1, 20],
         'cost_desktop' => [0, 1000000], 'cost_laptop' => [0, 1000000], 'cost_server' => [0, 1000000], 'cost_network' => [0, 1000000],
@@ -24,90 +19,48 @@ final class SettingsController
         'cost_printer' => [0, 1000000], 'cost_storage' => [0, 1000000], 'cost_power' => [0, 1000000], 'cost_other' => [0, 1000000],
         'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
-        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24], 'backup_stale_hours' => [1, 720],
+        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24],
     ];
+    /** Old settings-page addresses that moved in 1.15. */
+    public const MOVED = ['ninja' => 'ninjaone', 'itflow' => 'itflow', 'veeam' => 'veeam', 'dell' => 'dell', 'lenovo' => 'lenovo'];
+
+    private static function values(): array
+    {
+        $values = [];
+        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['plan_start']) as $k) {
+            $values[$k] = Settings::get($k);
+        }
+        return $values;
+    }
 
     public static function index(): void
     {
         Auth::requireRole('admin');
-        $values = [];
-        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['ninja_instance', 'itflow_writeback', 'plan_start', 'itflow_import_types', 'itflow_two_way', 'itflow_create_assets']) as $k) {
-            $values[$k] = Settings::get($k);
-        }
-        $secrets = [];
-        foreach (self::SECRETS as $k) {
-            $secrets[$k] = Settings::hasSecret($k);
-        }
-        View::render('settings/index', [
-            'title' => 'Settings',
-            'nav' => 'settings',
-            'v' => $values,
-            'secrets' => $secrets,
-            'poll' => \Align\DB::one('SELECT * FROM itflow_poll_state WHERE id = 1'),
-        ]);
+        View::render('settings/index', ['title' => 'Settings', 'nav' => 'settings', 'v' => self::values()]);
     }
 
+    public static function planning(): void
+    {
+        Auth::requireRole('admin');
+        View::render('settings/planning', ['title' => 'Planning & lifecycle', 'nav' => 'settings', 'v' => self::values()]);
+    }
+
+    /** Saves whichever settings the posted tab contains (fields not on the form are left alone). */
     public static function save(): void
     {
         Auth::requireRole('admin');
+        $back = post('_tab') === 'planning' ? '/settings/planning' : '/settings';
         $changed = [];
         foreach (self::TEXT as $k) {
-            $val = post($k);
-            if (in_array($k, ['itflow_url', 'veeam_url'], true) && $val !== '') {
-                $val = rtrim($val, '/');
-                // HTTPS only: the API key travels with every request
-                $scheme = \Align\Config::get('allow_insecure_integrations', false) ? 'https?' : 'https';
-                if (!filter_var($val, FILTER_VALIDATE_URL) || !preg_match('#^' . $scheme . '://#i', $val)) {
-                    flash('error', $k === 'itflow_url' ? 'ITFlow URL must start with https:// (for example https://itflow.example.com)'
-                        : 'Veeam Service Provider Console URL must start with https:// (for example https://vspc.example.com)');
-                    redirect('/settings');
-                }
-            }
-            if ($val !== (string) Settings::get($k)) {
+            if (isset($_POST[$k]) && ($val = post($k)) !== (string) Settings::get($k)) {
                 Settings::set($k, $val);
                 $changed[] = $k;
-            }
-        }
-        $instance = post('ninja_instance');
-        if (isset(NinjaOne::INSTANCES[$instance]) && $instance !== Settings::get('ninja_instance')) {
-            Settings::set('ninja_instance', $instance);
-            $changed[] = 'ninja_instance';
-        }
-        if (isset($_POST['itflow_import_present'])) {
-            $picked = array_values(array_intersect(array_keys(Itflow::IMPORT_CATEGORIES), (array) ($_POST['itflow_import'] ?? [])));
-            $val = implode(',', $picked);
-            if ($val !== (string) Settings::get('itflow_import_types')) {
-                Settings::set('itflow_import_types', $val);
-                $changed[] = 'itflow_import_types';
-            }
-        }
-        if (isset($_POST['itflow_sync_present'])) {
-            foreach (['itflow_two_way', 'itflow_create_assets'] as $k) {
-                $val = isset($_POST[$k]) ? '1' : '0';
-                if ($val !== (string) Settings::get($k, '1')) {
-                    Settings::set($k, $val);
-                    $changed[] = $k;
-                }
             }
         }
         $ps = post('plan_start');
         if (in_array($ps, ['current', 'next'], true) && $ps !== Settings::get('plan_start')) {
             Settings::set('plan_start', $ps);
             $changed[] = 'plan_start';
-        }
-        $wb = post('itflow_writeback');
-        if (in_array($wb, ['off', 'fill_empty', 'overwrite'], true) && $wb !== Settings::get('itflow_writeback')) {
-            Settings::set('itflow_writeback', $wb);
-            $changed[] = 'itflow_writeback';
-        }
-        foreach (self::SECRETS as $k) {
-            if (isset($_POST["clear_$k"])) {
-                Settings::clearSecret($k);
-                $changed[] = "$k (cleared)";
-            } elseif (($v = (string) ($_POST[$k] ?? '')) !== '') {
-                Settings::setSecret($k, trim($v));
-                $changed[] = $k;
-            }
         }
         foreach (self::NUMBERS as $k => [$min, $max]) {
             $v = post($k);
@@ -123,58 +76,16 @@ final class SettingsController
         }
         if ($changed) {
             Audit::log('settings.save', implode(', ', $changed));
-            if ($keys = array_values(array_filter($changed, fn($c) => in_array(preg_replace('/ \(cleared\)$/', '', $c), self::SECRETS, true)))) {
-                \Align\Mail\Notify::security('Integration keys changed', implode(', ', $keys) . ' by ' . (Auth::user()['email'] ?? ''));
-            }
         }
         flash('success', $changed ? 'Settings saved.' : 'No changes.');
-        redirect('/settings');
+        redirect($back);
     }
 
+    /** The integration Test buttons moved to Integrations (1.15). */
     public static function test(): void
     {
         Auth::requireRole('admin');
-        $target = post('target');
-        $label = ['ninja' => 'NinjaOne', 'itflow' => 'ITFlow', 'veeam' => 'Veeam', 'dell' => 'Dell', 'lenovo' => 'Lenovo'][$target] ?? $target;
-        try {
-            $msg = match ($target) {
-                'ninja' => NinjaOne::fromSettings()->test(),
-                'itflow' => Itflow::fromSettings()->test(),
-                'veeam' => \Align\Integrations\VeeamSpc::fromSettings()->test(),
-                'dell' => self::testDell(),
-                'lenovo' => self::testLenovo(),
-                default => throw new \RuntimeException('Unknown integration'),
-            };
-            flash('success', "$label: $msg");
-        } catch (\Throwable $e) {
-            flash('error', "$label test failed: " . $e->getMessage());
-        }
-        redirect('/settings');
-    }
-
-    private static function testDell(): string
-    {
-        $id = Settings::get('dell_client_id');
-        $secret = Settings::secret('dell_client_secret');
-        if (!$id || !$secret) {
-            throw new \RuntimeException('Dell client ID and secret are not set.');
-        }
-        (new Dell($id, $secret, Settings::get('dell_api_base') ?: 'https://apigtwb2c.us.dell.com'))->lookup(['TEST000']);
-        return 'Connected. Token issued and lookup endpoint responded.';
-    }
-
-    private static function testLenovo(): string
-    {
-        $id = Settings::secret('lenovo_client_id');
-        if (!$id) {
-            throw new \RuntimeException('Lenovo ClientID is not set.');
-        }
-        $r = (new Lenovo($id, Settings::get('lenovo_api_base') ?: 'https://supportapi.lenovo.com'))->lookup(['TEST0000']);
-        $res = $r['TEST0000'] ?? null;
-        if ($res && $res->status === 'error') {
-            throw new \RuntimeException((string) $res->message);
-        }
-        return 'Lookup endpoint responded.';
+        redirect('/integrations/' . (self::MOVED[post('target')] ?? ''));
     }
 
     public static function os(): void

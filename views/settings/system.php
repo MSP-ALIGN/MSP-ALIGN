@@ -9,9 +9,7 @@ $watchJob = $watchId ? Agent::job($watchId) : null;
 $overdue = !$lastDownload || strtotime($lastDownload) < time() - max(1, $reminderDays ?: 7) * 86400;
 $info = $upload['info'] ?? null;
 ?>
-<div class="d-flex flex-wrap align-items-center mb-3">
-  <h1 class="h3 mb-0 mr-auto"><i class="fas fa-arrows-rotate text-secondary mr-2"></i>Updates &amp; backups</h1>
-</div>
+<?= \Align\View::fetch('settings/_tabs', ['tab' => 'system']) ?>
 
 <?php if (!$available): ?>
   <div class="alert alert-warning"><i class="fas fa-triangle-exclamation mr-1"></i>The update and backup service isn't installed on this server yet. Run this once on the server, then refresh:
@@ -182,7 +180,7 @@ $info = $upload['info'] ?? null;
 <?php if ($safety): ?>
   <div class="card">
     <div class="card-header py-2"><h3 class="card-title"><i class="fas fa-fw fa-life-ring mr-2"></i>Safety copies kept after a failed job</h3></div>
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
       <table class="table table-sm mb-0">
         <thead><tr><th>Made</th><th>When</th><th>Size</th><th></th></tr></thead>
         <tbody>
@@ -215,7 +213,7 @@ $info = $upload['info'] ?? null;
   <div class="card-header py-2"><h3 class="card-title"><i class="fas fa-fw fa-list mr-2"></i>Recent jobs</h3></div>
   <div class="card-body p-0">
     <?php if (!$jobs): ?><p class="text-muted small p-3 mb-0">Nothing yet.</p><?php else: ?>
-    <table class="table table-sm table-hover mb-0">
+    <div class="table-responsive"><table class="table table-sm table-hover mb-0">
       <thead><tr><th>When</th><th>Job</th><th>By</th><th>Result</th><th></th></tr></thead>
       <tbody>
         <?php foreach ($jobs as $j): ?>
@@ -228,7 +226,7 @@ $info = $upload['info'] ?? null;
           </tr>
         <?php endforeach; ?>
       </tbody>
-    </table>
+    </table></div>
     <?php endif; ?>
   </div>
 </div>

@@ -119,6 +119,10 @@ PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml
 [[ "${ALIGN_TLS:-}" == "letsencrypt" ]] && PKGS+=(certbot python3-certbot-apache)
 apt-get install -y -qq "${PKGS[@]}" >/dev/null
 PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+# OPcache: compiled PHP stays in memory (a large speed-up for every page)
+if ! php -r 'exit(function_exists("opcache_get_status") ? 0 : 1);' && apt-cache show "php$PHPV-opcache" >/dev/null 2>&1; then
+  apt-get install -y -qq "php$PHPV-opcache" >/dev/null || warn "Could not install php$PHPV-opcache"
+fi
 php -r 'exit(function_exists("sodium_crypto_secretbox") ? 0 : 1);' || die "PHP sodium extension missing."
 
 # Automatic security updates
@@ -268,10 +272,21 @@ allow_url_fopen = Off
 allow_url_include = Off
 disable_functions = passthru,shell_exec,system,proc_open,popen,pcntl_exec,dl
 INI
+cat >"/etc/php/$PHPV/apache2/conf.d/99-mountaineer-align-performance.ini" <<'INI'
+; Managed by the Mountaineer Align installer
+opcache.enable = 1
+opcache.memory_consumption = 128
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 10000
+opcache.validate_timestamps = 1
+opcache.revalidate_freq = 2
+realpath_cache_size = 4096K
+realpath_cache_ttl = 600
+INI
 
 # ------------------------------------------------------------------ Apache --
 log "Configuring Apache ($ALIGN_TLS)"
-a2enmod -q headers ssl rewrite >/dev/null
+a2enmod -q headers ssl rewrite deflate >/dev/null
 a2dissite -q 000-default >/dev/null 2>&1 || true
 
 a2enmod -q reqtimeout >/dev/null 2>&1 || true
@@ -308,6 +323,14 @@ Header always unset X-Powered-By
         php_admin_value upload_tmp_dir /var/lib/mountaineer-align/restore
     </IfModule>
 </Location>
+
+# Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
+<Directory /opt/mountaineer-align/public/assets>
+    Header set Cache-Control "public, max-age=2592000"
+</Directory>
+<Directory /opt/mountaineer-align/public/vendor>
+    Header set Cache-Control "public, max-age=2592000"
+</Directory>
 
 # HSTS on every HTTPS response
 Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
@@ -536,7 +559,7 @@ if [[ -n "$ADMIN_PASS" ]]; then
   printf '%s  Save this password now - it is not shown again. The first sign-in asks you to change it\n  and set up two-factor sign-in (required for every account).%s\n' "$c_warn" "$c_0"
 fi
 echo
-echo "  Next:      Settings -> add NinjaOne + ITFlow API keys -> Test -> Sync"
+echo "  Next:      Integrations -> ITFlow and NinjaOne -> Test connection -> Sync"
 echo "  Update:    sudo mountaineer-align-update"
 echo "  CLI:       sudo align help"
 echo "  Backups:   Settings -> Updates & backups -> Download backup (encrypted; not kept on this server)"

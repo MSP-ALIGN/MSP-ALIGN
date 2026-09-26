@@ -10,10 +10,12 @@ $v = e(APP_VERSION);
 $unassignedCount = $u ? (int) \Align\DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
     WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0") : 0;
 // Global menu, grouped by the vCIO workflow: know the client -> plan -> meet and report -> stay compliant.
+$isAdmin = $u && Auth::can('admin');
 $navSections = [
     '' => [
         ['dashboard', '/', 'Dashboard', 'fa-gauge-high', 'viewer'],
         ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
+        ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
     ],
     'PLANNING' => [
         ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
@@ -21,10 +23,8 @@ $navSections = [
         ['licenses', '/licenses', 'Licensing', 'fa-key', 'viewer'],
         ['renewals', '/renewals', 'Renewals', 'fa-calendar-check', 'viewer'],
     ],
-    'MEETINGS & REPORTING' => [
+    'MEETINGS & REPORTS' => [
         ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
-        ['calendar', '/calendar', 'Calendar', 'fa-calendar-days', 'viewer'],
-        ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
         ['reports', '/reports', 'Reports', 'fa-print', 'viewer'],
     ],
     'COMPLIANCE' => [
@@ -32,22 +32,19 @@ $navSections = [
         ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
     ],
     'INTEGRATIONS' => [
-        ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
+        ['integrations', '/integrations', 'Integrations', 'fa-plug', 'admin', $isAdmin ? \Align\Integrations\Registry::problems() : 0],
         ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
         ['sync', '/sync', 'Sync', 'fa-rotate', 'viewer'],
+        ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
     ],
     'ADMIN' => [
-        ['settings', '/settings', 'Settings', 'fa-gear', 'admin'],
-        ['email', '/settings/email', 'Email & notifications', 'fa-envelope', 'admin'],
-        ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
-        ['system', '/settings/system', 'Updates & backups', 'fa-arrows-rotate', 'admin', $u && Auth::can('admin') && \Align\System\Agent::updateAvailable() ? 'new' : 0],
-        ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
+        ['settings', '/settings', 'Settings', 'fa-gear', 'admin', $isAdmin && \Align\System\Agent::updateAvailable() ? 'new' : 0],
         ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
         ['portal-users', '/portal-users', 'Client portal users', 'fa-door-open', 'tech'],
         ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
     ],
-    'HELP' => [
-        ['help', '/help', 'Help & workflow', 'fa-circle-info', 'viewer'],
+    ' ' => [
+        ['help', '/help', 'Help & how-to', 'fa-circle-info', 'viewer'],
     ],
 ];
 // Client menu in workflow order: who they are and what they have -> compliance -> plan -> meet.
@@ -124,7 +121,7 @@ $item = function (array $i, string $active) {
         </a>
         <div class="dropdown-menu dropdown-menu-right">
           <span class="dropdown-item-text small text-muted"><?= e($u['email'] ?? '') ?> · <?= e($u['role'] ?? '') ?></span>
-          <a href="/help" class="dropdown-item"><i class="fas fa-fw fa-circle-info mr-2"></i>Help &amp; workflow</a>
+          <a href="/help" class="dropdown-item"><i class="fas fa-fw fa-circle-info mr-2"></i>Help &amp; how-to</a>
           <div class="dropdown-divider"></div>
           <a href="/account" class="dropdown-item"><i class="fas fa-fw fa-user-gear mr-2"></i>Account &amp; 2FA</a>
           <form method="post" action="/logout"><?= csrf_field() ?><button class="dropdown-item"><i class="fas fa-fw fa-right-from-bracket mr-2"></i>Sign out</button></form>
@@ -155,7 +152,7 @@ $item = function (array $i, string $active) {
             <?php foreach ($navSections as $sec => $items):
                 $visible = array_filter($items, fn($i) => Auth::can($i[4]));
                 if (!$visible) continue;
-                if ($sec !== '') echo '<li class="nav-header">' . e($sec) . '</li>';
+                if (trim($sec) !== '') echo '<li class="nav-header">' . e($sec) . '</li>'; elseif ($sec === ' ') echo '<li class="nav-header py-1"></li>';
                 foreach ($visible as $i) echo $item($i, $nav);
             endforeach; ?>
           <?php endif; ?>
@@ -173,7 +170,7 @@ $item = function (array $i, string $active) {
             <i class="fas fa-<?= $t === 'success' ? 'check' : ($t === 'danger' || $t === 'warning' ? 'exclamation-triangle' : 'info-circle') ?> mr-2"></i><?= e($f['message']) ?>
           </div>
         <?php endforeach; ?>
-        <?php if (($nav ?? '') !== 'system' && Auth::can('admin') && ($upd = \Align\System\Agent::updateAvailable())): ?>
+        <?php if (!str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings') && Auth::can('admin') && ($upd = \Align\System\Agent::updateAvailable())): ?>
           <div class="alert alert-info py-2 d-flex align-items-center flex-wrap" role="status">
             <i class="fas fa-circle-arrow-up mr-2"></i>
             <span class="mr-3">Mountaineer Align <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>

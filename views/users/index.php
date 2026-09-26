@@ -11,7 +11,7 @@
     <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-shield mr-2"></i>Users</h3>
     <div class="card-tools"><button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-user"><i class="fas fa-plus mr-1"></i>New user</button></div>
   </div>
-  <div class="card-body p-0">
+  <div class="card-body p-0 table-responsive">
     <table class="table table-striped table-borderless table-hover mb-0">
       <thead class="text-dark"><tr><th>Name</th><th>Email</th><th>Role</th><th>2FA</th><th>Last sign-in</th><th></th></tr></thead>
       <tbody>

@@ -13,6 +13,47 @@ use Align\Settings;
  */
 final class Readiness
 {
+    private static array $pre = [];
+
+    /** Loads the counts for many clients in a few grouped queries (the dashboard lists every client). */
+    public static function prefetch(array $ids): void
+    {
+        self::$pre = self::counts($ids) + self::$pre;
+    }
+
+    private static function counts(array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = ['lic' => ['n' => 0, 'unpriced' => 0], 'contacts' => ['n' => 0, 'key_people' => 0], 'frameworks' => 0, 'projects' => 0, 'managed' => 0, 'next' => null];
+        }
+        if (!$ids) {
+            return $out;
+        }
+        $in = implode(',', $ids);
+        foreach (DB::all("SELECT client_id, COUNT(*) AS n, SUM(unit_price IS NULL) AS unpriced FROM licenses WHERE client_id IN ($in) AND retired_at IS NULL GROUP BY client_id") as $r) {
+            $out[(int) $r['client_id']]['lic'] = $r;
+        }
+        foreach (DB::all("SELECT client_id, COUNT(*) AS n, SUM(decision_maker = 1 OR qbr = 1) AS key_people FROM contacts WHERE client_id IN ($in) AND archived_at IS NULL GROUP BY client_id") as $r) {
+            $out[(int) $r['client_id']]['contacts'] = $r;
+        }
+        foreach (DB::all("SELECT client_id, COUNT(*) AS n FROM client_frameworks WHERE client_id IN ($in) GROUP BY client_id") as $r) {
+            $out[(int) $r['client_id']]['frameworks'] = (int) $r['n'];
+        }
+        foreach (DB::all("SELECT client_id, COUNT(*) AS n FROM roadmap_items WHERE client_id IN ($in) AND status <> 'declined' AND target_quarter IS NOT NULL GROUP BY client_id") as $r) {
+            $out[(int) $r['client_id']]['projects'] = (int) $r['n'];
+        }
+        foreach (DB::all("SELECT client_id, COUNT(*) AS n FROM budget_lines WHERE client_id IN ($in) AND category = 'managed' GROUP BY client_id
+            UNION ALL SELECT client_id, COUNT(*) FROM itflow_billing WHERE client_id IN ($in) AND monthly > 0 GROUP BY client_id") as $r) {
+            $out[(int) $r['client_id']]['managed'] += (int) $r['n'];
+        }
+        foreach (DB::all("SELECT client_id, MIN(starts_at) AS s FROM meetings WHERE client_id IN ($in) AND status = 'scheduled' AND starts_at >= NOW() GROUP BY client_id") as $r) {
+            $out[(int) $r['client_id']]['next'] = $r['s'];
+        }
+        return $out;
+    }
+
     /** @return array{steps: array<int, array{key:string,label:string,ok:?bool,detail:string,link:string,action:string}>, done:int, total:int} */
     public static function client(array $client, ?array $devices = null): array
     {
@@ -20,13 +61,8 @@ final class Readiness
         $devices ??= (new Lifecycle())->devices($id);
         $unassigned = count(array_filter($devices, fn($d) => $d['type'] === Lifecycle::UNASSIGNED && $d['status'] !== 'excluded'));
         $noDate = count(Lifecycle::unplanned($devices));
-        $lic = DB::one('SELECT COUNT(*) AS n, SUM(unit_price IS NULL) AS unpriced FROM licenses WHERE client_id = ? AND retired_at IS NULL', [$id]);
-        $contacts = DB::one('SELECT COUNT(*) AS n, SUM(decision_maker = 1 OR qbr = 1) AS key_people FROM contacts WHERE client_id = ? AND archived_at IS NULL', [$id]);
-        $frameworks = (int) DB::value('SELECT COUNT(*) FROM client_frameworks WHERE client_id = ?', [$id]);
-        $projects = (int) DB::value("SELECT COUNT(*) FROM roadmap_items WHERE client_id = ? AND status <> 'declined' AND target_quarter IS NOT NULL", [$id]);
-        $managed = (int) DB::value("SELECT COUNT(*) FROM budget_lines WHERE client_id = ? AND category = 'managed'", [$id])
-            + (int) DB::value('SELECT COUNT(*) FROM itflow_billing WHERE client_id = ? AND monthly > 0', [$id]);
-        $nextMeeting = DB::one("SELECT starts_at FROM meetings WHERE client_id = ? AND status = 'scheduled' AND starts_at >= NOW() ORDER BY starts_at LIMIT 1", [$id]);
+        ['lic' => $lic, 'contacts' => $contacts, 'frameworks' => $frameworks, 'projects' => $projects, 'managed' => $managed, 'next' => $next] = self::$pre[$id] ?? self::counts([$id])[$id];
+        $nextMeeting = $next ? ['starts_at' => $next] : null;
         $base = '/clients/' . $id;
         $plural = fn(int $n, string $w) => $n . ' ' . $w . ($n === 1 ? '' : 's');
 
@@ -78,8 +114,8 @@ final class Readiness
             WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0");
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses l JOIN clients c ON c.id = l.client_id WHERE l.retired_at IS NULL AND l.unit_price IS NULL AND c.planning_excluded = 0 AND c.is_archived = 0');
         $steps = [
-            ['key' => 'itflow', 'label' => 'Connect ITFlow', 'ok' => $itflow, 'detail' => 'Clients, contacts, assets, licenses and invoices', 'link' => '/settings', 'action' => 'Settings'],
-            ['key' => 'ninja', 'label' => 'Connect NinjaOne', 'ok' => $ninja, 'detail' => 'Computers, servers, OS and warranty data', 'link' => '/settings', 'action' => 'Settings'],
+            ['key' => 'itflow', 'label' => 'Connect ITFlow', 'ok' => $itflow, 'detail' => 'Clients, contacts, assets, licenses and invoices', 'link' => '/integrations/itflow', 'action' => 'Integrations'],
+            ['key' => 'ninja', 'label' => 'Connect NinjaOne', 'ok' => $ninja, 'detail' => 'Computers, servers, OS and warranty data', 'link' => '/integrations/ninjaone', 'action' => 'Integrations'],
             ['key' => 'sync', 'label' => 'Run the first sync', 'ok' => $synced, 'detail' => $synced ? 'Runs hourly; ITFlow changes every 2 minutes' : 'Pulls everything in', 'link' => '/sync', 'action' => 'Sync'],
             ['key' => 'clients', 'label' => 'Clients in Align', 'ok' => $clients > 0, 'detail' => $clients ? "$clients clients in planning" : 'Sync from ITFlow or add clients by hand', 'link' => '/clients', 'action' => 'Clients'],
             ['key' => 'mapping', 'label' => 'Clients linked to NinjaOne', 'ok' => !$ninja ? null : $unmapped === 0, 'detail' => $unmapped ? "$unmapped clients not linked yet" : 'All linked', 'link' => '/mapping', 'action' => 'Client mapping'],

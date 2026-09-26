@@ -1,0 +1,43 @@
+<?php
+declare(strict_types=1);
+
+namespace Align\Integrations\Connectors;
+
+use Align\Integrations\Connector;
+
+final class Veeam extends Connector
+{
+    public function key(): string { return 'veeam'; }
+    public function name(): string { return 'Veeam Service Provider Console'; }
+    public function icon(): string { return 'fas fa-database'; }
+    public function category(): string { return 'Backup'; }
+    public function summary(): string { return 'Backup jobs and results, protected machines, Microsoft 365 backups and Cloud Connect storage for each client.'; }
+    public function syncSteps(): array { return ['Veeam']; }
+    public function hasTest(): bool { return true; }
+
+    public function configured(): bool
+    {
+        return \Align\Integrations\VeeamSpc::configured();
+    }
+
+    public function setup(): string
+    {
+        return '<ol class="pl-3 mb-0"><li>In VSPC open <b>Configuration → Security → REST API Keys</b> and create a key for a <b>read-only</b> portal administrator.</li>'
+            . '<li>Enter the portal address (the REST API is <code>/api/v3</code> on the same host). Its certificate must be trusted by this server.</li>'
+            . '<li>Save, press <b>Test</b>, run a sync, then check the Veeam column on <a href="/mapping">Client mapping</a>.</li></ol>';
+    }
+
+    public function fields(): array
+    {
+        return [
+            ['name' => 'veeam_url', 'label' => 'Console URL', 'type' => 'url', 'placeholder' => 'https://vspc.example.com'],
+            ['name' => 'veeam_api_key', 'label' => 'API key', 'type' => 'secret'],
+            ['name' => 'backup_stale_hours', 'label' => 'Flag a machine as overdue when its newest restore point is older than', 'type' => 'number', 'min' => 1, 'max' => 720, 'suffix' => 'hours', 'default' => '48'],
+        ];
+    }
+
+    public function test(): string
+    {
+        return \Align\Integrations\VeeamSpc::fromSettings()->test();
+    }
+}

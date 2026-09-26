@@ -1,4 +1,5 @@
 <?php use Align\Auth; ?>
+<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/meetings', 'Meetings', 'fa-handshake', true], ['/calendar', 'Calendar', 'fa-calendar-days', false]]]) ?>
 <div class="row">
   <div class="col-lg-9">
     <div class="card card-dark">

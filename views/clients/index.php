@@ -82,7 +82,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? 'No clients yet. Add one, or configure ITFlow in Settings and run a sync.' : 'None.' ?></td></tr><?php endif; ?>
+      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? 'No clients yet. Add one, or connect ITFlow under Integrations and run a sync.' : 'None.' ?></td></tr><?php endif; ?>
       </tbody>
     </table>
     </div>

@@ -129,7 +129,7 @@ $poll = $sync['poll'];
     <?php if ($alignOnly): ?>
       <p class="mb-1"><i class="fas fa-circle-minus text-secondary mr-1"></i>Align-only: this device isn't sent to or updated from ITFlow.</p>
     <?php elseif (!$twoWay): ?>
-      <p class="mb-1"><i class="fas fa-arrow-down text-info mr-1"></i>Two-way sync is off in Settings, so ITFlow changes are copied in but Align changes stay in Align.</p>
+      <p class="mb-1"><i class="fas fa-arrow-down text-info mr-1"></i>Two-way sync is off (Integrations → ITFlow), so ITFlow changes are copied in but Align changes stay in Align.</p>
     <?php elseif ($linked): ?>
       <p class="mb-1"><i class="fas fa-check-circle text-success mr-1"></i>Changes made here go to ITFlow as soon as you save. Changes made in ITFlow show up here within about 2 minutes<?= $poll && $poll['last_ok'] ? ' (last checked ' . e(rel_time($poll['last_ok'])) . ')' : '' ?>. If both sides change the same field, the newest edit wins.
       <?php if ($d['source'] === 'ninja'): ?><br><span class="text-muted">Hardware details are owned by NinjaOne; the type, purchase date and warranty date you set in Align are sent to ITFlow.</span><?php endif; ?></p>

@@ -17,7 +17,7 @@ use Align\Mail\Template as T;
 use Align\Settings;
 use Align\View;
 
-/** Settings → Email & notifications: Microsoft 365 connection, notification options, mail log. */
+/** Integrations → Microsoft 365 / Google Workspace (connection), and Settings → Notifications (options, email log). */
 final class EmailController
 {
     private const TEXT = ['m365_tenant', 'm365_client_id', 'g_client_id', 'mail_from', 'mail_from_name', 'mail_reply_to'];
@@ -35,9 +35,9 @@ final class EmailController
         foreach (array_merge(self::SECRETS, ['m365_refresh_token', 'g_refresh_token']) as $k) {
             $secrets[$k] = Settings::hasSecret($k);
         }
-        View::render('settings/email', [
-            'title' => 'Email & notifications',
-            'nav' => 'email',
+        View::render('integrations/email', [
+            'title' => 'Microsoft 365 / Google Workspace',
+            'nav' => 'integrations',
             'v' => $v,
             'secrets' => $secrets,
             'ready' => Mail::ready(),
@@ -69,33 +69,34 @@ final class EmailController
             $val = trim(post($k));
             if (in_array($k, ['mail_from', 'mail_reply_to'], true) && $val !== '' && !filter_var($val, FILTER_VALIDATE_EMAIL)) {
                 flash('error', ($k === 'mail_from' ? 'From mailbox' : 'Reply-to') . ' must be an email address.');
-                redirect('/settings/email');
+                redirect('/integrations/email');
             }
             if ($k === 'm365_tenant' && $val !== '' && !preg_match('/^[A-Za-z0-9.-]{3,100}$/', $val)) {
                 flash('error', 'Tenant must be the Directory (tenant) ID or a domain such as contoso.onmicrosoft.com.');
-                redirect('/settings/email');
+                redirect('/integrations/email');
             }
             if ($k === 'g_client_id' && $val !== '' && !preg_match('/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/', $val)) {
                 flash('error', 'The Google OAuth client ID looks like 1234567890-abc123.apps.googleusercontent.com.');
-                redirect('/settings/email');
+                redirect('/integrations/email');
             }
             if ($k === 'm365_client_id' && $val !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $val)) {
                 flash('error', 'The Application (client) ID is a GUID like 11111111-2222-3333-4444-555555555555.');
-                redirect('/settings/email');
+                redirect('/integrations/email');
             }
             if ($val !== (string) Settings::get($k)) {
                 Settings::set($k, $val);
                 $changed[] = $k;
             }
         }
-        $choices = ['mail_provider' => array_keys(Mail::PROVIDERS), 'mail_mode' => array_keys(Mail::MODES), 'm365_auth' => ['secret', 'certificate'], 'mail_meeting_mode' => array_keys(Invites::MODES), 'mail_meeting_organizer' => ['owner', 'mailbox']];
+        self::saveOptions($changed);
+        $choices = ['mail_provider' => array_keys(Mail::PROVIDERS), 'mail_mode' => array_keys(Mail::MODES), 'm365_auth' => ['secret', 'certificate']];
         foreach ($choices as $k => $allowed) {
             if (isset($_POST[$k]) && in_array(post($k), $allowed, true) && post($k) !== (string) Settings::get($k)) {
                 Settings::set($k, post($k));
                 $changed[] = $k;
             }
         }
-        foreach (['mail_save_sent', 'mail_teams_links'] as $k) {
+        foreach (['mail_save_sent'] as $k) {
             if (isset($_POST[$k . '_present'])) {
                 $val = isset($_POST[$k]) ? '1' : '0';
                 if ($val !== (string) Settings::get($k, '1')) {
@@ -104,7 +105,7 @@ final class EmailController
                 }
             }
         }
-        foreach (['mail_log_days' => [1, 365], 'notif_digest_hour' => [0, 23], 'notif_weekly_day' => [1, 7], 'notif_meeting_reminder_hours' => [1, 168]] as $k => [$min, $max]) {
+        foreach (['mail_log_days' => [1, 365]] as $k => [$min, $max]) {
             if (isset($_POST[$k]) && is_numeric(post($k))) {
                 $val = (string) max($min, min($max, (int) post($k)));
                 if ($val !== (string) Settings::get($k)) {
@@ -120,15 +121,15 @@ final class EmailController
             } elseif (($val = trim((string) ($_POST[$k] ?? ''))) !== '') {
                 if ($k === 'm365_cert_pem' && !@openssl_x509_read($val)) {
                     flash('error', 'The certificate must be PEM text starting with -----BEGIN CERTIFICATE-----.');
-                    redirect('/settings/email');
+                    redirect('/integrations/email');
                 }
                 if ($k === 'g_sa_json' && ($err = Google::validateServiceAccount($val))) {
                     flash('error', $err);
-                    redirect('/settings/email');
+                    redirect('/integrations/email');
                 }
                 if ($k === 'm365_key_pem' && !@openssl_pkey_get_private($val)) {
                     flash('error', 'The private key must be an unencrypted PEM key starting with -----BEGIN PRIVATE KEY-----.');
-                    redirect('/settings/email');
+                    redirect('/integrations/email');
                 }
                 Settings::setSecret($k, $val);
                 $changed[] = $k;
@@ -143,13 +144,58 @@ final class EmailController
             }
         }
         flash('success', $changed ? 'Email settings saved.' : 'No changes.');
-        redirect('/settings/email');
+        redirect('/integrations/email');
+    }
+
+    /** Schedule and meeting-invitation options (Settings → Notifications). */
+    private static function saveOptions(array &$changed): void
+    {
+        foreach (['mail_meeting_mode' => array_keys(Invites::MODES), 'mail_meeting_organizer' => ['owner', 'mailbox']] as $k => $allowed) {
+            if (isset($_POST[$k]) && in_array(post($k), $allowed, true) && post($k) !== (string) Settings::get($k)) {
+                Settings::set($k, post($k));
+                $changed[] = $k;
+            }
+        }
+        if (isset($_POST['mail_teams_links_present'])) {
+            $val = isset($_POST['mail_teams_links']) ? '1' : '0';
+            if ($val !== (string) Settings::get('mail_teams_links', '1')) {
+                Settings::set('mail_teams_links', $val);
+                $changed[] = 'mail_teams_links';
+            }
+        }
+        foreach (['notif_digest_hour' => [0, 23], 'notif_weekly_day' => [1, 7], 'notif_meeting_reminder_hours' => [1, 168]] as $k => [$min, $max]) {
+            if (isset($_POST[$k]) && is_numeric(post($k))) {
+                $val = (string) max($min, min($max, (int) post($k)));
+                if ($val !== (string) Settings::get($k)) {
+                    Settings::set($k, $val);
+                    $changed[] = $k;
+                }
+            }
+        }
+    }
+
+    public static function notificationsPage(): void
+    {
+        Auth::requireRole('admin');
+        $v = [];
+        foreach (['mail_mode', 'notif_digest_hour', 'notif_weekly_day', 'notif_meeting_reminder_hours', 'mail_meeting_mode', 'mail_meeting_organizer', 'mail_teams_links'] as $k) {
+            $v[$k] = Settings::get($k);
+        }
+        View::render('settings/notifications', [
+            'title' => 'Notifications',
+            'nav' => 'settings',
+            'v' => $v,
+            'ready' => Mail::ready(),
+            'provider' => Mail::provider(),
+            'stats' => Mailer::stats(),
+        ]);
     }
 
     public static function notifications(): void
     {
         Auth::requireRole('admin');
         $changed = [];
+        self::saveOptions($changed);
         foreach (N::CATALOG as $key => $c) {
             $on = isset($_POST['on'][$key]) ? '1' : '0';
             if ($on !== Settings::get("notif_$key", $c[7] ? '1' : '0')) {
@@ -187,7 +233,7 @@ final class EmailController
             Audit::log('settings.notifications', implode(', ', $changed));
         }
         flash('success', $changed ? 'Notification settings saved.' : 'No changes.');
-        redirect('/settings/email#notifications');
+        redirect('/settings/notifications');
     }
 
     /** Sends a test email right away and reports exactly what Microsoft said. */
@@ -197,7 +243,7 @@ final class EmailController
         $to = strtolower(trim(post('to')));
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
             flash('error', 'Enter the address to send the test to.');
-            redirect('/settings/email');
+            redirect('/integrations/email');
         }
         try {
             $g = Mail::client();
@@ -217,7 +263,7 @@ final class EmailController
             Audit::log('email.test_failed', "$to: " . $e->getMessage());
             flash('error', 'Test failed: ' . $e->getMessage());
         }
-        redirect('/settings/email');
+        redirect('/integrations/email');
     }
 
     /** Starts "Connect with Microsoft" / "Connect with Google" (authorization code + PKCE). */
@@ -229,7 +275,7 @@ final class EmailController
             : (!Settings::get('m365_tenant') || !Settings::get('m365_client_id') || !Settings::hasSecret('m365_client_secret') && !Settings::hasSecret('m365_key_pem'));
         if ($missing) {
             flash('error', $google ? 'Save the OAuth client ID and client secret first, then connect.' : 'Save the tenant, client ID and client secret first, then connect.');
-            redirect('/settings/email');
+            redirect('/integrations/email');
         }
         [$url, $state, $verifier] = $google ? Google::authorizeUrl() : Graph::authorizeUrl();
         $_SESSION['mail_oauth'] = ['state' => $state, 'verifier' => $verifier, 'at' => time(), 'provider' => Mail::provider()];
@@ -244,11 +290,11 @@ final class EmailController
         unset($_SESSION['mail_oauth']);
         if (query('error') !== '') {
             flash('error', 'Sign-in was not completed: ' . mb_strimwidth(query('error_description') ?: query('error'), 0, 300, '…'));
-            redirect('/settings/email');
+            redirect('/integrations/email');
         }
         if (!$saved || time() - (int) $saved['at'] > 900 || !hash_equals((string) $saved['state'], query('state')) || $saved['provider'] !== Mail::provider()) {
             flash('error', 'That sign-in response did not match this browser session. Click Connect again.');
-            redirect('/settings/email');
+            redirect('/integrations/email');
         }
         try {
             $google = $saved['provider'] === 'google';
@@ -264,7 +310,7 @@ final class EmailController
         } catch (\Throwable $e) {
             flash('error', 'Could not connect: ' . $e->getMessage());
         }
-        redirect('/settings/email');
+        redirect('/integrations/email');
     }
 
     public static function disconnect(): void
@@ -274,7 +320,7 @@ final class EmailController
         Mail::provider() === 'google' ? Google::disconnect() : Graph::disconnect();
         Audit::log('email.disconnected', Mail::providerName() . ": $was");
         flash('success', 'Disconnected from ' . Mail::providerName() . '. Align keeps nothing that can sign in to the mailbox.');
-        redirect('/settings/email');
+        redirect('/integrations/email');
     }
 
     public static function log(): void
@@ -283,7 +329,7 @@ final class EmailController
         $status = in_array(query('status'), ['queued', 'sent', 'failed'], true) ? query('status') : '';
         View::render('settings/email_log', [
             'title' => 'Email log',
-            'nav' => 'email',
+            'nav' => 'settings',
             'rows' => DB::all('SELECT q.id, q.kind, q.recipients, q.subject, q.status, q.attempts, q.last_error, q.created_at, q.sent_at, q.send_after, q.purged, c.name AS client_name
                 FROM mail_queue q LEFT JOIN clients c ON c.id = q.client_id' . ($status ? ' WHERE q.status = ?' : '') . ' ORDER BY q.id DESC LIMIT 300', $status ? [$status] : []),
             'status' => $status,
@@ -304,7 +350,7 @@ final class EmailController
             flash('success', 'Cancelled.');
         }
         Audit::log('email.' . ($action === 'retry' ? 'retry' : 'cancel'), "#$id");
-        redirect('/settings/email/log');
+        redirect('/settings/notifications/log');
     }
 
     /** Sends everything that's due now (and optionally the digests) instead of waiting for the timer. */
@@ -313,7 +359,7 @@ final class EmailController
         Auth::requireRole('admin');
         [$sent, $failed] = Mailer::deliver();
         flash($failed ? 'warning' : 'success', "Sent $sent queued email" . ($sent === 1 ? '' : 's') . ($failed ? ", $failed failed (see the log)" : '') . '.');
-        redirect('/settings/email/log');
+        redirect('/settings/notifications/log');
     }
 
     /** Preview of a digest as it would look for all clients (nothing is sent). */
@@ -350,6 +396,6 @@ final class EmailController
         Mailer::deliver();
         Audit::log('email.digest_now', $key);
         flash('success', $n ? "Sent to $n recipient" . ($n === 1 ? '' : 's') . '.' : 'Nothing to send: nobody gets this digest or there is nothing to report.');
-        redirect('/settings/email#notifications');
+        redirect('/settings/notifications');
     }
 }

@@ -4,13 +4,14 @@ use Align\Mail\Notifications as N;
 /** @var array $rows, $stats; string $status */
 $tone = ['sent' => 'success', 'queued' => 'warning', 'sending' => 'info', 'failed' => 'danger', 'cancelled' => 'secondary'];
 ?>
+<?= \Align\View::fetch('settings/_tabs', ['tab' => 'notifications']) ?>
 <div class="d-flex flex-wrap align-items-center mb-3">
-  <h1 class="h3 mb-0 mr-auto"><i class="fas fa-list text-secondary mr-2"></i>Email log</h1>
+  <h2 class="h5 mb-0 mr-auto"><a href="/settings/notifications">Notifications</a> / Email log</h2>
   <div class="btn-group btn-group-sm mr-2">
-    <?php foreach (['' => 'All', 'queued' => 'Queued', 'sent' => 'Sent', 'failed' => 'Failed'] as $k => $l): ?><a class="btn btn-<?= $status === $k ? 'secondary' : 'default' ?>" href="/settings/email/log<?= $k ? '?status=' . $k : '' ?>"><?= $l ?></a><?php endforeach; ?>
+    <?php foreach (['' => 'All', 'queued' => 'Queued', 'sent' => 'Sent', 'failed' => 'Failed'] as $k => $l): ?><a class="btn btn-<?= $status === $k ? 'secondary' : 'default' ?>" href="/settings/notifications/log<?= $k ? '?status=' . $k : '' ?>"><?= $l ?></a><?php endforeach; ?>
   </div>
-  <form method="post" action="/settings/email/run" class="mr-2"><?= csrf_field() ?><button class="btn btn-sm btn-primary" <?= $stats['queued'] ? '' : 'disabled' ?>><i class="fas fa-paper-plane mr-1"></i>Send queued now</button></form>
-  <a class="btn btn-sm btn-default" href="/settings/email"><i class="fas fa-gear mr-1"></i>Settings</a>
+  <form method="post" action="/settings/notifications/run" class="mr-2"><?= csrf_field() ?><button class="btn btn-sm btn-primary" <?= $stats['queued'] ? '' : 'disabled' ?>><i class="fas fa-paper-plane mr-1"></i>Send queued now</button></form>
+  <a class="btn btn-sm btn-default" href="/integrations/email"><i class="fas fa-plug mr-1"></i>Mail connection</a>
 </div>
 <div class="card card-dark">
   <div class="card-body p-0"><div class="table-responsive">
@@ -26,8 +27,8 @@ $tone = ['sent' => 'success', 'queued' => 'warning', 'sending' => 'info', 'faile
           <td class="small text-nowrap"><?= e(fmt_datetime($r['created_at'])) ?></td>
           <td class="small text-nowrap"><?= $r['sent_at'] ? e(fmt_datetime($r['sent_at'])) : ($r['status'] === 'queued' ? '<span class="text-muted">next try ' . e(rel_time($r['send_after']) === 'just now' ? 'now' : fmt_time($r['send_after'])) . '</span>' : '—') ?></td>
           <td class="text-nowrap">
-            <?php if ($r['status'] === 'failed' && !$r['purged']): ?><form method="post" action="/settings/email/log/<?= (int) $r['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="retry"><button class="btn btn-xs btn-outline-primary">Retry</button></form><?php endif; ?>
-            <?php if ($r['status'] === 'queued'): ?><form method="post" action="/settings/email/log/<?= (int) $r['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-xs btn-outline-secondary">Cancel</button></form><?php endif; ?>
+            <?php if ($r['status'] === 'failed' && !$r['purged']): ?><form method="post" action="/settings/notifications/log/<?= (int) $r['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="retry"><button class="btn btn-xs btn-outline-primary">Retry</button></form><?php endif; ?>
+            <?php if ($r['status'] === 'queued'): ?><form method="post" action="/settings/notifications/log/<?= (int) $r['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-xs btn-outline-secondary">Cancel</button></form><?php endif; ?>
           </td>
         </tr>
       <?php endforeach; ?>
@@ -36,4 +37,4 @@ $tone = ['sent' => 'success', 'queued' => 'warning', 'sending' => 'info', 'faile
     </table>
   </div></div>
 </div>
-<p class="small text-muted">The last 300 messages. Message content is kept for the retention period set in Settings; the log line is kept for about a year.</p>
+<p class="small text-muted">The last 300 messages. Message content is kept for the retention period set on the mail connection page; the log line is kept for about a year.</p>

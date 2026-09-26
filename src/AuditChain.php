@@ -62,11 +62,35 @@ final class AuditChain
     /** @return array{ok:bool, checked:int, broken_at:?int, reason:?string, head_id:int, head_hash:string} */
     public static function verify(): array
     {
+        $r = self::walk(0, null);
+        // Remember the result so the audit page only has to check entries added since (see quick())
+        \Align\Settings::set('audit_verified', json_encode($r + ['at' => date('Y-m-d H:i:s')]));
+        return $r;
+    }
+
+    /**
+     * For the audit page: the last full check (nightly, or "Check the whole log") plus a check of every
+     * entry added since. Falls back to a full check when there is no earlier result.
+     */
+    public static function quick(): array
+    {
+        $last = json_decode((string) \Align\Settings::get('audit_verified', ''), true);
+        if (!is_array($last) || empty($last['ok']) || !isset($last['head_id'], $last['head_hash'])) {
+            return self::verify() + ['at' => date('Y-m-d H:i:s'), 'full' => true];
+        }
+        $r = self::walk((int) $last['head_id'], (string) $last['head_hash']);
+        $r['checked'] += (int) $last['checked'];
+        return $r + ['at' => $last['at'] ?? null, 'full' => false, 'since' => (int) $last['head_id']];
+    }
+
+    /** Walks the chain from after $afterId (whose hash is $prevHash), or from the anchor when $prevHash is null. */
+    private static function walk(int $afterId, ?string $prevHash): array
+    {
         $chain = DB::one('SELECT * FROM audit_chain WHERE id = 1') ?? ['anchor_hash' => '', 'last_id' => 0, 'last_hash' => ''];
-        $prev = (string) $chain['anchor_hash'];
+        $prev = $prevHash ?? (string) $chain['anchor_hash'];
         $n = 0;
-        $lastId = 0;
-        $stmt = DB::run('SELECT id, created_at, user_id, portal_user_id, action, detail, ip, prev_hash, row_hash FROM audit_log ORDER BY id');
+        $lastId = $afterId;
+        $stmt = DB::run('SELECT id, created_at, user_id, portal_user_id, action, detail, ip, prev_hash, row_hash FROM audit_log WHERE id > ? ORDER BY id', [$afterId]);
         while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $n++;
             if ((string) $r['prev_hash'] !== $prev) {

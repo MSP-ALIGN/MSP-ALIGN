@@ -3,7 +3,7 @@
     <?= e(implode(', ', array_map(fn($o) => $o['name'] . ' (' . $o['device_count'] . ')', $unmappedOrgs))) ?></div>
 <?php endif; ?>
 <?php if (!$veeam): ?>
-  <div class="alert alert-light border small py-2"><i class="fas fa-database text-primary mr-1"></i><?= $veeamConfigured ? 'Veeam is connected. Run a sync (Integrations → Sync) to load its companies here.' : 'To link Veeam companies, connect the Veeam Service Provider Console under ' . (\Align\Auth::can('admin') ? '<a href="/settings">Settings</a>' : 'Settings') . ' and run a sync.' ?></div>
+  <div class="alert alert-light border small py-2"><i class="fas fa-database text-primary mr-1"></i><?= $veeamConfigured ? 'Veeam is connected. Run a sync (Integrations → Sync) to load its companies here.' : 'To link Veeam companies, connect the Veeam Service Provider Console under ' . (\Align\Auth::can('admin') ? '<a href="/integrations/veeam">Integrations</a>' : 'Integrations') . ' and run a sync.' ?></div>
 <?php endif; ?>
 <?php if ($unmappedVeeam): ?>
   <div class="alert alert-light border small py-2"><i class="fas fa-database text-primary mr-1"></i><?= count($unmappedVeeam) ?> Veeam compan<?= count($unmappedVeeam) === 1 ? 'y' : 'ies' ?> not linked to any client:
@@ -20,7 +20,7 @@
       </div>
     </div>
     <div class="card-body py-2 small text-muted border-bottom">Link each client to its NinjaOne organization and Veeam company. Matching names link automatically on sync; anything you set here is kept. Clients added by hand can be linked too.</div>
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
       <table class="table table-sm table-striped table-borderless table-hover mb-0" id="map-table">
         <thead class="text-dark"><tr><th>Client</th><th>NinjaOne organization</th><th>How</th><th class="text-right">Devices</th><th class="border-left">Veeam company</th><th>How</th><th class="text-right" title="Protected machines · Microsoft 365 users">Protected</th></tr></thead>
         <tbody>

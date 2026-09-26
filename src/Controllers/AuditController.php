@@ -23,20 +23,72 @@ final class AuditController
         ][$action] ?? $action;
     }
 
+    /** Filter groups: key => [label, action prefixes]. */
+    public const GROUPS = [
+        'login' => ['Sign-ins & accounts', ['login', 'logout', 'account', 'reauth']],
+        'view' => ['Record views', ['view']],
+        'client' => ['Clients & mapping', ['client', 'mapping']],
+        'device' => ['Devices', ['device']],
+        'contact' => ['Contacts', ['contact']],
+        'planning' => ['Licenses, budget & roadmap', ['license', 'budget', 'roadmap']],
+        'meeting' => ['Meetings & calendar', ['meeting', 'calendar']],
+        'document' => ['Documents', ['document']],
+        'compliance' => ['Compliance', ['compliance', 'framework']],
+        'report' => ['Reports & exports', ['report']],
+        'portal' => ['Client portal', ['portal']],
+        'user' => ['Staff accounts', ['user']],
+        'settings' => ['Settings & integrations', ['settings', 'integration']],
+        'email' => ['Email', ['email']],
+        'backup' => ['Backups', ['backup']],
+        'system' => ['Updates & audit', ['system', 'audit']],
+    ];
+
     public static function index(): void
     {
         Auth::requireRole('admin');
         $page = max(1, (int) query('page', '1'));
         $per = 100;
+        $f = ['q' => trim(query('q')), 'user' => (int) query('user', '0'), 'group' => isset(self::GROUPS[query('group')]) ? query('group') : ''];
+        $where = [];
+        $params = [];
+        if ($f['q'] !== '') {
+            $where[] = '(a.detail LIKE ? OR a.action LIKE ?)';
+            array_push($params, '%' . $f['q'] . '%', '%' . $f['q'] . '%');
+        }
+        if ($f['user']) {
+            $where[] = 'a.user_id = ?';
+            $params[] = $f['user'];
+        }
+        if ($f['group'] !== '') {
+            $prefixes = self::GROUPS[$f['group']][1];
+            $where[] = '(' . implode(' OR ', array_fill(0, count($prefixes), 'a.action LIKE ?')) . ')';
+            foreach ($prefixes as $pre) {
+                $params[] = $pre . '%';
+            }
+        }
+        $sql = ($where ? ' WHERE ' . implode(' AND ', $where) : '');
+        $rows = DB::all('SELECT a.*, u.name AS user_name, u.email, p.name AS portal_name, pc.name AS portal_client FROM audit_log a
+                LEFT JOIN users u ON u.id = a.user_id LEFT JOIN portal_users p ON p.id = a.portal_user_id LEFT JOIN clients pc ON pc.id = p.client_id'
+                . $sql . ' ORDER BY a.id DESC LIMIT ' . ($per + 1) . ' OFFSET ' . (($page - 1) * $per), $params);
         View::render('audit', [
             'title' => 'Audit log',
             'nav' => 'audit',
-            'rows' => DB::all('SELECT a.*, u.name AS user_name, u.email, p.name AS portal_name, pc.name AS portal_client FROM audit_log a
-                LEFT JOIN users u ON u.id = a.user_id LEFT JOIN portal_users p ON p.id = a.portal_user_id LEFT JOIN clients pc ON pc.id = p.client_id
-                ORDER BY a.id DESC LIMIT ' . $per . ' OFFSET ' . (($page - 1) * $per)),
+            'rows' => array_slice($rows, 0, $per),
             'page' => $page,
-            'hasMore' => (int) DB::value('SELECT COUNT(*) FROM audit_log') > $page * $per,
-            'chain' => \Align\AuditChain::verify(),
+            'hasMore' => count($rows) > $per,
+            'filters' => $f,
+            'users' => DB::all('SELECT id, name FROM users ORDER BY name'),
+            'chain' => \Align\AuditChain::quick(),
         ]);
+    }
+
+    /** Full tamper check of every entry (the nightly job does this too). */
+    public static function verify(): void
+    {
+        Auth::requireRole('admin');
+        $r = \Align\AuditChain::verify();
+        \Align\Audit::log('audit.verified', $r['ok'] ? "All {$r['checked']} entries intact" : "Failed at #{$r['broken_at']}: {$r['reason']}");
+        flash($r['ok'] ? 'success' : 'error', $r['ok'] ? 'Checked all ' . number_format($r['checked']) . ' entries: intact.' : 'The audit log has been altered (entry #' . $r['broken_at'] . ').');
+        redirect('/audit');
     }
 }

@@ -23,7 +23,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
   <div class="card card-body">
     <?php if (!$configured): ?>
       <p class="mb-1"><b>Veeam isn't connected yet.</b></p>
-      <p class="text-muted mb-0">Add your Veeam Service Provider Console URL and an API key under <?= Auth::can('admin') ? '<a href="/settings">Settings</a>' : 'Settings' ?>. Backup jobs, protected machines and cloud storage then sync every hour.</p>
+      <p class="text-muted mb-0">Add your Veeam Service Provider Console URL and an API key under <?= Auth::can('admin') ? '<a href="/integrations/veeam">Integrations → Veeam</a>' : 'Integrations → Veeam' ?>. Backup jobs, protected machines and cloud storage then sync every hour.</p>
     <?php else: ?>
       <p class="mb-1"><b>This client isn't linked to a Veeam company.</b></p>
       <p class="text-muted mb-0">Companies with the same name link automatically on sync. Otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>.</p>
@@ -202,5 +202,5 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
   </div></div>
 </div>
 <?php endif; ?>
-<p class="small text-muted">A machine or Microsoft 365 item is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?= Auth::can('admin') ? ' (change this in <a href="/settings">Settings</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
+<p class="small text-muted">A machine or Microsoft 365 item is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?= Auth::can('admin') ? ' (change this in <a href="/integrations/veeam">Integrations → Veeam</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
 <?php endif; ?>

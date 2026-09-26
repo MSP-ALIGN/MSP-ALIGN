@@ -16,7 +16,7 @@ final class BrandingController
         Auth::requireRole('admin');
         View::render('settings/branding', [
             'title' => 'Branding',
-            'nav' => 'branding',
+            'nav' => 'settings',
             'v' => [
                 'brand_name' => Branding::name(),
                 'brand_primary' => Branding::color(),

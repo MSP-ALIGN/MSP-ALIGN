@@ -28,7 +28,7 @@ final class SystemController
         $watch = (string) ($_GET['job'] ?? '');
         View::render('settings/system', [
             'title' => 'Updates & backups',
-            'nav' => 'system',
+            'nav' => 'settings',
             'available' => Agent::available(),
             'update' => Agent::update(),
             'newer' => Agent::updateAvailable(),

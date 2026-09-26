@@ -11,7 +11,7 @@
     </div>
   </div>
   <div class="card-body py-2 small text-muted border-bottom">Runs every hour: ITFlow clients and assets, NinjaOne organizations and devices, then warranty lookups.</div>
-  <div class="card-body p-0">
+  <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-striped table-borderless table-hover mb-0">
       <thead class="text-dark"><tr><th>#</th><th>Started</th><th>Duration</th><th>Trigger</th><th>Status</th><th>Summary</th></tr></thead>
       <tbody>

@@ -3,6 +3,7 @@ use Align\Auth;
 use Align\Meetings\Meetings;
 
 ?>
+<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/meetings', 'Meetings', 'fa-handshake', false], ['/calendar', 'Calendar', 'fa-calendar-days', true]]]) ?>
 <div class="row">
   <div class="col-lg-9">
     <div class="card card-dark">

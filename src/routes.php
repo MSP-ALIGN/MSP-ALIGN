@@ -120,18 +120,31 @@ $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, '
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
 
 // Reports
-$r->get('/settings/email', [\Align\Controllers\EmailController::class, 'index']);
-$r->post('/settings/email', [\Align\Controllers\EmailController::class, 'save']);
-$r->post('/settings/email/notifications', [\Align\Controllers\EmailController::class, 'notifications']);
-$r->post('/settings/email/test', [\Align\Controllers\EmailController::class, 'test']);
-$r->get('/settings/email/connect', [\Align\Controllers\EmailController::class, 'connect']);
-$r->get('/settings/email/callback', [\Align\Controllers\EmailController::class, 'callback']);
-$r->post('/settings/email/disconnect', [\Align\Controllers\EmailController::class, 'disconnect']);
-$r->get('/settings/email/log', [\Align\Controllers\EmailController::class, 'log']);
-$r->post('/settings/email/log/{id}', [\Align\Controllers\EmailController::class, 'logAction']);
-$r->post('/settings/email/run', [\Align\Controllers\EmailController::class, 'run']);
-$r->get('/settings/email/preview/{key:str}', [\Align\Controllers\EmailController::class, 'preview']);
-$r->post('/settings/email/digest/{key:str}', [\Align\Controllers\EmailController::class, 'sendDigest']);
+// Integrations (1.15): every connected service has a page generated from Integrations\Registry
+$E = \Align\Controllers\EmailController::class;
+$I = \Align\Controllers\IntegrationController::class;
+$r->get('/integrations', [$I, 'index']);
+$r->get('/integrations/email', [$E, 'index']);
+$r->post('/integrations/email', [$E, 'save']);
+$r->post('/integrations/email/test', [$E, 'test']);
+$r->get('/integrations/email/connect', [$E, 'connect']);
+$r->post('/integrations/email/disconnect', [$E, 'disconnect']);
+$r->get('/integrations/{key:str}', [$I, 'show']);
+$r->post('/integrations/{key:str}', [$I, 'save']);
+$r->post('/integrations/{key:str}/test', [$I, 'test']);
+// The OAuth redirect URI registered in Entra / Google Cloud stays at /settings/email/callback
+$r->get('/settings/email/callback', [$E, 'callback']);
+$r->get('/settings/email/connect', [$E, 'connect']);
+$r->get('/settings/notifications', [$E, 'notificationsPage']);
+$r->post('/settings/notifications', [$E, 'notifications']);
+$r->get('/settings/notifications/log', [$E, 'log']);
+$r->post('/settings/notifications/log/{id}', [$E, 'logAction']);
+$r->post('/settings/notifications/run', [$E, 'run']);
+$r->get('/settings/notifications/preview/{key:str}', [$E, 'preview']);
+$r->post('/settings/notifications/digest/{key:str}', [$E, 'sendDigest']);
+// Old addresses (bookmarks)
+$r->get('/settings/email', fn() => redirect('/integrations/email'));
+$r->get('/settings/email/log', fn() => redirect('/settings/notifications/log'));
 $r->get('/reports', [ReportController::class, 'index']);
 $r->get('/reports/portfolio', [ReportController::class, 'portfolio']);
 $r->get('/reports/backups', [\Align\Controllers\BackupController::class, 'portfolio']);
@@ -169,6 +182,7 @@ $r->post('/settings/system/settings', [$S, 'saveSettings']);
 $r->get('/settings/system/jobs/{id:str}', [$S, 'jobStatus']);
 $r->get('/settings/system/jobs/{id:str}/log', [$S, 'jobLog']);
 $r->get('/settings', [SettingsController::class, 'index']);
+$r->get('/settings/planning', [SettingsController::class, 'planning']);
 $r->post('/settings', [SettingsController::class, 'save']);
 $r->post('/settings/test', [SettingsController::class, 'test']);
 $r->get('/settings/os', [SettingsController::class, 'os']);
@@ -180,6 +194,7 @@ $r->get('/users', [UserController::class, 'index']);
 $r->post('/users', [UserController::class, 'create']);
 $r->post('/users/{id}', [UserController::class, 'update']);
 $r->get('/audit', [AuditController::class, 'index']);
+$r->post('/audit/verify', [AuditController::class, 'verify']);
 
 $r->get('/account', [AccountController::class, 'show']);
 $r->post('/account/password', [AccountController::class, 'password']);

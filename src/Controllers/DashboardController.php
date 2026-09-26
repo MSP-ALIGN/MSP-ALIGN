@@ -59,7 +59,9 @@ final class DashboardController
             $devsBy[$d['client_id']][] = $d;
         }
         $planning = [];
-        foreach (DB::all('SELECT * FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name') as $c) {
+        $active = DB::all('SELECT * FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
+        \Align\Workflow\Readiness::prefetch(array_column($active, 'id'));
+        foreach ($active as $c) {
             $r = \Align\Workflow\Readiness::client($c, $devsBy[$c['id']] ?? []);
             $next = array_values(array_filter($r['steps'], fn($s) => $s['ok'] === false))[0] ?? null;
             $planning[] = ['client' => $c, 'done' => $r['done'], 'total' => $r['total'], 'next' => $next];

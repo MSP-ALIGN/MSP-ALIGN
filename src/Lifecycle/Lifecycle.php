@@ -138,8 +138,9 @@ final class Lifecycle
         $where = ['1=1'];
         $params = [];
         if ($clientId !== null) {
-            $where[] = 'COALESCE(cm.id, cn.id) = ?';
-            $params[] = $clientId;
+            // Written so the client_id / ninja_org_id indexes are used (COALESCE() = ? scans every device)
+            $where[] = '(d.client_id = ? OR (d.client_id IS NULL AND d.ninja_org_id = (SELECT ninja_org_id FROM clients WHERE id = ?)))';
+            array_push($params, $clientId, $clientId);
         }
         if ($deviceId !== null) {
             $where[] = 'd.id = ?';
@@ -350,7 +351,7 @@ final class Lifecycle
             return $out(false, 'Not in plan', 'No in-service date, so there is no end-of-life date to plan around', 'Add a purchase / in-service date');
         }
         if (!$d['replace_by']) {
-            return $out(false, 'Not in plan', 'No lifespan set for this type', 'Set a lifespan here or in Settings');
+            return $out(false, 'Not in plan', 'No lifespan set for this type', 'Set a lifespan here or in Settings → Planning & lifecycle');
         }
         $qs = \Align\Roadmap\Plan::quarters();
         $idx = \Align\Roadmap\Plan::indexFor($d['replace_by']);

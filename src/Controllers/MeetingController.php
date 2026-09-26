@@ -241,7 +241,7 @@ final class MeetingController
         $u = Auth::require();
         View::render('meetings/calendar', [
             'title' => 'Calendar',
-            'nav' => 'calendar',
+            'nav' => 'meetings',
             'calendar' => true,
             'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
             'users' => ClientController::users(),

@@ -21,6 +21,16 @@ if (is_https()) {
     header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 }
 
+// Development profiling: 'profile' => '/path/to/file.log' in config.php logs queries and time per request
+if ($profile = Align\Config::get('profile')) {
+    $t0 = microtime(true);
+    register_shutdown_function(function () use ($profile, $t0) {
+        @file_put_contents($profile, json_encode(['path' => $_SERVER['REQUEST_URI'] ?? '', 'ms' => round((microtime(true) - $t0) * 1000), 'queries' => Align\DB::$queries,
+            'db_ms' => round(Align\DB::$queryTime * 1000), 'slow' => Align\DB::$slow,
+            'repeated' => array_filter(Align\DB::$seen, fn($n) => $n > 2)]) . "\n", FILE_APPEND);
+    });
+}
+
 $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 define('IS_PORTAL', $reqPath === '/portal' || str_starts_with($reqPath, '/portal/'));
 

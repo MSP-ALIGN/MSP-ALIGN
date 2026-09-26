@@ -50,7 +50,7 @@ final class Mail
     public static function client(): object
     {
         if (!self::ready()) {
-            throw new \RuntimeException('Email is not set up (Settings → Email & notifications).');
+            throw new \RuntimeException('Email is not set up (Integrations → Microsoft 365 / Google Workspace).');
         }
         return self::provider() === 'google' ? new Google(self::mode()) : new Graph(self::mode());
     }

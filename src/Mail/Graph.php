@@ -10,7 +10,7 @@ use Align\Settings;
 /**
  * Microsoft 365 through Microsoft Graph: sends mail and manages meeting invitations.
  *
- * Two ways to sign in (Settings → Email):
+ * Two ways to sign in (Integrations → Microsoft 365 / Google Workspace):
  *  - app:       Entra app registration, application permissions Mail.Send (+ Calendars.ReadWrite for
  *               Outlook invitations), client secret or certificate. Runs unattended; limit the app to
  *               the sending mailbox with Exchange RBAC for Applications.
@@ -53,7 +53,7 @@ final class Graph
     public static function fromSettings(): self
     {
         if (!self::ready()) {
-            throw new \RuntimeException('Email is not set up (Settings → Email & notifications).');
+            throw new \RuntimeException('Email is not set up (Integrations → Microsoft 365 / Google Workspace).');
         }
         return new self(self::mode());
     }
@@ -93,7 +93,7 @@ final class Graph
             return '/me';
         }
         if ($from === '') {
-            throw new \RuntimeException('Set the From mailbox in Settings → Email & notifications.');
+            throw new \RuntimeException('Set the From mailbox under Integrations → Microsoft 365 / Google Workspace.');
         }
         return '/users/' . rawurlencode($from);
     }
@@ -349,7 +349,7 @@ final class Graph
         $aad = preg_match('/AADSTS(\d+)/', $desc, $m) ? (int) $m[1] : 0;
         $hint = match (true) {
             $aad === 7000215 => 'The client secret is wrong. Copy the secret Value (not the Secret ID) from Entra ID → App registrations → Certificates & secrets.',
-            $aad === 7000222 => 'The client secret has expired. Create a new one in Entra ID and paste it in Settings.',
+            $aad === 7000222 => 'The client secret has expired. Create a new one in Entra ID and paste it under Integrations → Microsoft 365 / Google Workspace.',
             $aad === 700016 => 'No app with this Application (client) ID exists in this tenant. Check the client ID and tenant.',
             in_array($aad, [90002, 900023, 90013], true) => 'The tenant was not found. Use the Directory (tenant) ID or your domain, e.g. contoso.onmicrosoft.com.',
             in_array($aad, [700027, 700024, 50012], true) => 'The certificate was rejected. Upload the same certificate (.cer) to the app registration and check the private key matches.',
