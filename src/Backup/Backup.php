@@ -47,6 +47,7 @@ final class Backup
         }
         $stale = self::staleHours();
         $now = time();
+        $ex = self::exemptions((int) $client['id']);
 
         $jobs = [];
         foreach (DB::all('SELECT * FROM backup_jobs WHERE company_uid = ? ORDER BY name', [$uid]) as $j) {
@@ -63,6 +64,23 @@ final class Backup
             }
             $jobs[] = $j + ['label' => $label, 'tone' => $tone, 'note' => $note, 'kind' => self::jobKind($j)];
         }
+        // An agent job for a machine marked "not required" doesn't count either
+        if ($ex['list'] && ($agentJobs = array_filter($jobs, fn($j) => $j['agent_uid']))) {
+            $agentDevice = [];
+            foreach (DB::all("SELECT uid, device_id FROM backup_workloads WHERE company_uid = ? AND kind = 'computer'", [$uid]) as $w) {
+                $agentDevice[$w['uid']] = $w['device_id'];
+            }
+            foreach ($agentJobs as $i => $j) {
+                $wu = 'computer:' . $j['agent_uid'];
+                $dev = $agentDevice[$wu] ?? null;
+                if (isset($ex['items'][$wu]) || ($dev && isset($ex['devices'][(int) $dev]))) {
+                    $jobs[$i]['label'] = 'Not required';
+                    $jobs[$i]['tone'] = 'muted';
+                    $jobs[$i]['status_counted'] = false;
+                    $jobs[$i]['note'] = '';
+                }
+            }
+        }
         usort($jobs, fn($a, $b) => [self::rank($a['tone']), $a['name']] <=> [self::rank($b['tone']), $b['name']]);
 
         $workloads = [];
@@ -75,8 +93,9 @@ final class Backup
                 $age <= $stale * 2 => 'warn',
                 default => 'bad',
             };
-            $workloads[] = $w + ['age_h' => $age, 'tone' => $tone,
-                'label' => $age === null ? 'No restore point' : ($tone === 'ok' ? 'Protected' : 'Overdue')];
+            $exempt = $ex['items'][$w['uid']] ?? ($w['device_id'] ? $ex['devices'][(int) $w['device_id']] ?? null : null);
+            $workloads[] = $w + ['age_h' => $age, 'tone' => $exempt ? 'muted' : $tone, 'exempt' => $exempt,
+                'label' => $exempt ? 'Not required' : ($age === null ? 'No restore point' : ($tone === 'ok' ? 'Protected' : 'Overdue'))];
         }
         usort($workloads, fn($a, $b) => [self::rank($a['tone']), -($a['age_h'] ?? 1e9), $a['name']] <=> [self::rank($b['tone']), -($b['age_h'] ?? 1e9), $b['name']]);
 
@@ -84,7 +103,8 @@ final class Backup
         $covered = array_flip(array_filter(array_map(fn($w) => (int) $w['device_id'], $workloads)));
         $unprotected = [];
         foreach ($devices ?? [] as $d) {
-            if ($d['device_class'] === 'server' && $d['type'] !== 'Hypervisor host' && $d['status'] !== 'excluded' && !isset($covered[(int) $d['id']])) {
+            if ($d['device_class'] === 'server' && $d['type'] !== 'Hypervisor host' && $d['status'] !== 'excluded' && !isset($covered[(int) $d['id']])
+                && !isset($ex['devices'][(int) $d['id']])) {
                 $unprotected[] = $d;
             }
         }
@@ -108,9 +128,11 @@ final class Backup
         }
         $runCount = array_sum($tot);
 
-        $m365 = self::m365($uid, $stale, $jobs);
+        $m365 = self::m365($uid, $stale, $jobs, $ex['items']);
+        $all = $workloads;
+        $workloads = array_values(array_filter($all, fn($w) => !$w['exempt']));
 
-        $active = array_filter($jobs, fn($j) => $j['is_enabled']);
+        $active = array_filter($jobs, fn($j) => $j['is_enabled'] && ($j['status_counted'] ?? true));
         $stats = [
             'jobs' => count($active),
             'failed' => count(array_filter($active, fn($j) => $j['status'] === 'failed')),
@@ -136,6 +158,8 @@ final class Backup
             'company' => $company,
             'jobs' => $jobs,
             'workloads' => $workloads,
+            'all_workloads' => array_merge($workloads, array_values(array_filter($all, fn($w) => $w['exempt']))),
+            'exemptions' => $ex['list'],
             'm365' => $m365,
             'unprotected' => $unprotected,
             'days' => $days,
@@ -149,7 +173,7 @@ final class Backup
      * Microsoft 365 backup for one company: tenants, counts per object type, overdue objects.
      * Null when the company has no Veeam Backup for Microsoft 365 data.
      */
-    private static function m365(string $uid, int $stale, array $jobs): ?array
+    private static function m365(string $uid, int $stale, array $jobs, array $exempt = []): ?array
     {
         $orgs = DB::all('SELECT * FROM backup_m365_orgs WHERE company_uid = ? ORDER BY name', [$uid]);
         $objects = DB::all('SELECT * FROM backup_m365_objects WHERE company_uid = ? ORDER BY name', [$uid]);
@@ -162,6 +186,9 @@ final class Backup
         $overdue = [];
         $last = null;
         foreach ($objects as $o) {
+            if (isset($exempt[$o['uid']])) {
+                continue; // marked "backup not required": not counted either way
+            }
             $age = $o['last_point'] ? ($now - strtotime($o['last_point'])) / 3600 : null;
             $tone = $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'));
             $t = $o['object_type'];
@@ -200,6 +227,24 @@ final class Backup
         ];
     }
 
+    public const EXEMPT_KINDS = ['device' => 'Device', 'workload' => 'Protected machine', 'm365' => 'Microsoft 365 item'];
+
+    /** Exemptions for one client: ['devices' => [id => row], 'items' => [uid => row], 'list' => rows]. */
+    public static function exemptions(int $clientId): array
+    {
+        $out = ['devices' => [], 'items' => [], 'list' => []];
+        foreach (DB::all('SELECT e.*, u.name AS created_by_name FROM backup_exemptions e LEFT JOIN users u ON u.id = e.created_by
+                WHERE e.client_id = ? ORDER BY e.item_name', [$clientId]) as $e) {
+            $out['list'][] = $e;
+            if ($e['device_id']) {
+                $out['devices'][(int) $e['device_id']] = $e;
+            } elseif ($e['item_uid'] !== null) {
+                $out['items'][$e['item_uid']] = $e;
+            }
+        }
+        return $out;
+    }
+
     /** One line per client for the portfolio report and dashboard. [client id => stats] */
     public static function summaries(): array
     {
@@ -208,11 +253,16 @@ final class Backup
         $out = [];
         foreach (DB::all("SELECT c.id,
                 (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1) AS jobs,
-                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'failed') AS failed,
-                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'warning') AS warning,
-                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid) AS protected,
-                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid AND (w.last_point IS NULL OR w.last_point < ?)) AS overdue,
-                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND (m.last_point IS NULL OR m.last_point < ?)) AS m365_overdue,
+                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'failed'
+                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e JOIN backup_workloads w2 ON w2.uid = CONCAT('computer:', j.agent_uid) WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))) AS failed,
+                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'warning'
+                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e JOIN backup_workloads w2 ON w2.uid = CONCAT('computer:', j.agent_uid) WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))) AS warning,
+                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid
+                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS protected,
+                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid AND (w.last_point IS NULL OR w.last_point < ?)
+                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS overdue,
+                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND (m.last_point IS NULL OR m.last_point < ?)
+                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND e.item_uid = m.uid)) AS m365_overdue,
                 (SELECT COUNT(*) FROM backup_job_runs r WHERE r.company_uid = c.veeam_company_uid AND r.run_at >= ?) AS runs,
                 (SELECT COUNT(*) FROM backup_job_runs r WHERE r.company_uid = c.veeam_company_uid AND r.run_at >= ? AND r.status <> 'failed') AS runs_ok
             FROM clients c WHERE c.veeam_company_uid IS NOT NULL", [$stale, $stale, $since, $since]) as $r) {
@@ -226,16 +276,31 @@ final class Backup
     }
 
     /** device id => [last restore point, tone] for one client's devices. */
-    public static function deviceMap(?string $companyUid): array
+    public static function deviceMap(?string $companyUid, ?int $clientId = null): array
     {
+        $out = [];
+        if ($clientId) {
+            foreach (DB::all("SELECT device_id FROM backup_exemptions WHERE client_id = ? AND kind = 'device'", [$clientId]) as $e) {
+                $out[(int) $e['device_id']] = ['last_point' => null, 'tone' => 'muted', 'exempt' => true];
+            }
+        }
         if (!$companyUid) {
-            return [];
+            return $out;
         }
         $stale = self::staleHours();
-        $out = [];
         foreach (DB::all('SELECT device_id, MAX(last_point) AS lp FROM backup_workloads WHERE company_uid = ? AND device_id IS NOT NULL GROUP BY device_id', [$companyUid]) as $r) {
             $age = $r['lp'] ? (time() - strtotime($r['lp'])) / 3600 : null;
-            $out[(int) $r['device_id']] = ['last_point' => $r['lp'], 'tone' => $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'))];
+            if (isset($out[(int) $r['device_id']])) {
+                $out[(int) $r['device_id']]['last_point'] = $r['lp'];
+                continue;
+            }
+            $out[(int) $r['device_id']] = ['exempt' => false, 'last_point' => $r['lp'], 'tone' => $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'))];
+        }
+        if ($clientId) {
+            // A protected machine marked "not required" also clears its device
+            foreach (DB::all('SELECT w.device_id FROM backup_exemptions e JOIN backup_workloads w ON w.uid = e.item_uid WHERE e.client_id = ? AND w.device_id IS NOT NULL', [$clientId]) as $r) {
+                $out[(int) $r['device_id']] = ['last_point' => $out[(int) $r['device_id']]['last_point'] ?? null, 'tone' => 'muted', 'exempt' => true];
+            }
         }
         return $out;
     }

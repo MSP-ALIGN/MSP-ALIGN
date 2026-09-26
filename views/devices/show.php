@@ -58,11 +58,21 @@ if ($client) {
               $bw = $backups[0] ?? null;
               $bage = $bw && $bw['last_point'] ? (time() - strtotime($bw['last_point'])) / 3600 : null;
               $btone = !$bw ? ($d['device_class'] === 'server' ? 'danger' : 'muted') : ($bage === null ? 'danger' : ($bage <= \Align\Backup\Backup::staleHours() ? 'success' : 'warning'));
+              $bkx = $backupExempt ?? null;
+              $canBk = \Align\Auth::can('tech');
+              $back = '/devices/' . (int) $d['id'];
+              $exForm = $bkx
+                  ? ($canBk ? '<form method="post" action="/clients/' . (int) $client['id'] . '/backups/exempt" class="d-inline ml-2">' . csrf_field() . '<input type="hidden" name="action" value="remove"><input type="hidden" name="exemption" value="' . (int) $bkx['id'] . '"><input type="hidden" name="back" value="' . e($back) . '"><button class="btn btn-xs btn-outline-primary">Monitor again</button></form>' : '')
+                  : ($canBk ? ' <button type="button" class="btn btn-xs btn-outline-secondary ml-2" data-toggle="modal" data-target="#modal-bk-exempt">Not required…</button>' : '');
+              if ($bkx) {
+                  echo $row('Backup', '<span class="text-muted"><i class="fas fa-ban fa-xs mr-1"></i>Not required</span> <span class="small text-muted">— ' . e($bkx['reason']) . ' (' . e($bkx['created_by_name'] ?? '') . ', ' . e(fmt_date($bkx['created_at'])) . ')</span>' . $exForm);
+              } else
               echo $row('Last backup', $bw
                   ? '<span class="text-' . $btone . '"><i class="fas fa-database fa-xs mr-1"></i>' . e($bw['last_point'] ? rel_time($bw['last_point']) : 'No restore point') . '</span>'
                     . ($bw['last_point'] ? ' <span class="small text-muted">' . e(fmt_datetime($bw['last_point'])) . ' · ' . (int) $bw['restore_points'] . ' restore points · ' . e(fmt_bytes($bw['backup_bytes'])) . '</span>' : '')
                     . ' <a class="small" href="/clients/' . (int) $client['id'] . '/backups">Backups</a>'
-                  : '<span class="text-' . $btone . '">No Veeam backup found for this device</span>');
+                  . $exForm
+                  : '<span class="text-' . $btone . '">No Veeam backup found for this device</span>' . $exForm);
           endif; ?>
           <?= $row('ITFlow asset', $d['itflow_asset_id'] ? 'Linked (#' . (int) $d['itflow_asset_id'] . ')' : '<span class="text-muted">Not linked</span>') ?>
         </table>
@@ -191,5 +201,21 @@ $poll = $sync['poll'];
       </form>
     </div>
   </div>
+</div>
+<?php endif; ?>
+<?php if (($backups ?? null) !== null && empty($backupExempt) && \Align\Auth::can('tech')): ?>
+<div class="modal fade" id="modal-bk-exempt" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="/clients/<?= (int) $client['id'] ?>/backups/exempt">
+      <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="kind" value="device"><input type="hidden" name="ref" value="<?= (int) $d['id'] ?>"><input type="hidden" name="back" value="/devices/<?= (int) $d['id'] ?>">
+      <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-ban mr-2"></i>Backup not required</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
+      <div class="modal-body">
+        <p>Stop flagging <b><?= e($d['name']) ?></b> as missing or overdue a backup. You can undo this any time.</p>
+        <div class="form-group mb-0"><label>Reason <small class="text-muted">(required, shown on the client's backup report)</small></label>
+          <input name="reason" class="form-control" maxlength="255" required placeholder="e.g. Test server, no business data"></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button class="btn btn-primary">Mark not required</button></div>
+    </form>
+  </div></div>
 </div>
 <?php endif; ?>

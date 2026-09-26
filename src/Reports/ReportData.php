@@ -246,7 +246,7 @@ final class ReportData
         if ($bk) {
             $s = $bk['stats'];
             $list = fn(array $rows, string $key) => implode(', ', array_slice(array_column($rows, $key), 0, 3)) . (count($rows) > 3 ? '…' : '');
-            $failed = array_values(array_filter($bk['jobs'], fn($j) => $j['is_enabled'] && $j['status'] === 'failed'));
+            $failed = array_values(array_filter($bk['jobs'], fn($j) => $j['is_enabled'] && ($j['status_counted'] ?? true) && $j['status'] === 'failed'));
             if ($failed) {
                 $bkOut[] = ['tone' => 'bad', 'title' => count($failed) . ' backup job' . (count($failed) == 1 ? '' : 's') . ' failed on the last run', 'text' => $list($failed, 'name') . '. We are working to get ' . (count($failed) == 1 ? 'it' : 'them') . ' running again.'];
             }

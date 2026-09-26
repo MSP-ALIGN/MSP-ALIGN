@@ -19,7 +19,7 @@ $rateTone = $s['rate'] === null ? 'muted' : ($s['rate'] >= 95 ? 'ok' : ($s['rate
 // One list of everything that needs attention
 $issues = [];
 foreach ($b['jobs'] as $j) {
-    if ($j['is_enabled'] && in_array($j['status'], ['failed', 'warning'], true)) {
+    if ($j['is_enabled'] && ($j['status_counted'] ?? true) && in_array($j['status'], ['failed', 'warning'], true)) {
         $issues[] = [$j['name'], 'Backup job', $j['status'] === 'failed' ? 'Last run failed' : 'Last run finished with a warning', $j['failure_message'], $j['last_run'], $j['tone']];
     } elseif ($j['note']) {
         $issues[] = [$j['name'], 'Backup job', $j['note'], null, $j['last_run'], 'warn'];
@@ -141,5 +141,17 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
     <?php foreach ($m['orgs'] as $o): ?>
       <p class="muted small-note"><b><?= e($o['name']) ?></b><?= $o['service_labels'] ? ': ' . e(implode(', ', $o['service_labels'])) : '' ?> · last backup <?= e(rel_time($o['last_backup'])) ?></p>
     <?php endforeach; ?>
+  <?php endif; ?>
+  <?php if (!empty($b['exemptions'])): ?>
+    <h3>Not requiring a backup</h3>
+    <table class="rtable fixed compact">
+      <?= Ui::cols(['item' => 30, 'type' => 20, 'reason' => 50]) ?>
+      <thead><tr><th>Item</th><th>Type</th><th>Reason</th></tr></thead>
+      <tbody>
+      <?php foreach ($b['exemptions'] as $x): ?>
+        <tr><td><span class="name"><?= e($x['item_name']) ?></span></td><td><?= e(Backup::EXEMPT_KINDS[$x['kind']] ?? '') ?></td><td><?= e($x['reason']) ?><div class="sub">Since <?= e(fmt_date($x['created_at'])) ?></div></td></tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
   <?php endif; ?>
 </section>

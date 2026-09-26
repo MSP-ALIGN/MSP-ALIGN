@@ -67,6 +67,7 @@ $r->get('/clients/{id}/report/roadmap', [ReportController::class, 'roadmap']);
 $r->get('/clients/{id}/report/qbr', [ReportController::class, 'qbr']);
 $r->get('/clients/{id}/report/backup', [\Align\Controllers\BackupController::class, 'report']);
 $r->get('/clients/{id}/backups', [\Align\Controllers\BackupController::class, 'client']);
+$r->post('/clients/{id}/backups/exempt', [\Align\Controllers\BackupController::class, 'exempt']);
 $r->get('/clients/{id}/devices', [ClientController::class, 'devices']);
 $r->post('/clients/{id}/devices', [DeviceController::class, 'create']);
 $r->get('/clients/{id}/export', [ClientController::class, 'export']);

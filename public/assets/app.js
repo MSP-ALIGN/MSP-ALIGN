@@ -383,3 +383,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (lastActive > lastPing && now - lastPing > 60000) ping(true);
   }, 5000);
 });
+
+// Fill a modal from the button that opens it: <button data-toggle="modal" data-target="#m" data-fill data-f-kind="device">
+// sets [name="kind"] inputs and [data-fill-text="kind"] text inside #m.
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-fill]');
+  if (!btn) return;
+  const modal = document.querySelector(btn.dataset.target || '');
+  if (!modal) return;
+  Object.keys(btn.dataset).forEach((k) => {
+    if (!/^f[A-Z]/.test(k)) return;
+    const name = k.charAt(1).toLowerCase() + k.slice(2);
+    modal.querySelectorAll('[name="' + name + '"]').forEach((i) => { i.value = btn.dataset[k]; });
+    modal.querySelectorAll('[data-fill-text="' + name + '"]').forEach((t) => { t.textContent = btn.dataset[k]; });
+  });
+});

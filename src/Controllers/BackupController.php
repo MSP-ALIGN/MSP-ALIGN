@@ -59,4 +59,65 @@ final class BackupController
             'b' => $b,
         ], 'layout/print');
     }
+
+    /**
+     * Marks a device, protected machine or Microsoft 365 item as not needing a backup, or undoes it.
+     * POST action=add: kind (device|workload|m365), ref (device id or item uid), reason. action=remove: exemption.
+     */
+    public static function exempt(int $id): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $back = \Align\Security::safePath(post('back'), "/clients/$id/backups");
+        $action = post('action');
+        if ($action === 'remove') {
+            $e = \Align\DB::one('SELECT * FROM backup_exemptions WHERE id = ? AND client_id = ?', [(int) post('exemption'), $id]);
+            if ($e) {
+                \Align\DB::run('DELETE FROM backup_exemptions WHERE id = ?', [$e['id']]);
+                Audit::log('backup.exempt_remove', "{$client['name']}: {$e['item_name']}");
+                flash('success', "{$e['item_name']} is monitored for backups again.");
+            }
+            redirect($back);
+        }
+        $kind = post('kind');
+        $ref = post('ref');
+        $reason = mb_substr(trim(post('reason')), 0, 255);
+        if ($reason === '') {
+            flash('error', 'Add a reason so the audit trail shows why this doesn\'t need a backup.');
+            redirect($back);
+        }
+        $row = ['client_id' => $id, 'kind' => $kind, 'device_id' => null, 'item_uid' => null, 'reason' => $reason, 'created_by' => Auth::user()['id'] ?? null];
+        $uid = (string) ($client['veeam_company_uid'] ?? '');
+        switch ($kind) {
+            case 'device':
+                $d = ctype_digit($ref) ? (new Lifecycle())->devices($id, false, (int) $ref)[0] ?? null : null;
+                if (!$d) {
+                    http_response_code(404);
+                    exit('Not found');
+                }
+                $row['device_id'] = (int) $d['id'];
+                $row['item_name'] = $d['name'];
+                break;
+            case 'workload':
+            case 'm365':
+                $table = $kind === 'workload' ? 'backup_workloads' : 'backup_m365_objects';
+                $item = $uid !== '' ? \Align\DB::one("SELECT uid, name FROM $table WHERE uid = ? AND company_uid = ?", [$ref, $uid]) : null;
+                if (!$item) {
+                    http_response_code(404);
+                    exit('Not found');
+                }
+                $row['item_uid'] = $item['uid'];
+                $row['item_name'] = mb_substr($item['name'], 0, 255);
+                break;
+            default:
+                http_response_code(400);
+                exit('Bad request');
+        }
+        $key = $row['device_id'] !== null ? ['device_id = ?', $row['device_id']] : ['item_uid = ?', $row['item_uid']];
+        \Align\DB::run("DELETE FROM backup_exemptions WHERE {$key[0]}", [$key[1]]);
+        \Align\DB::insert('backup_exemptions', $row);
+        Audit::log('backup.exempt', "{$client['name']}: {$row['item_name']} — {$reason}");
+        flash('success', "{$row['item_name']} marked as not needing a backup.");
+        redirect($back);
+    }
 }

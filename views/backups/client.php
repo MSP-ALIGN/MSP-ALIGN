@@ -5,6 +5,10 @@ use Align\Backup\Backup;
 /** @var array $client; ?array $b Backup::forClient(); bool $configured */
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
+$canEx = Auth::can('tech');
+// "Not required" button that opens the exclusion dialog for one item
+$exBtn = fn(string $kind, string $ref, string $name) => $canEx
+    ? '<button type="button" class="btn btn-xs btn-outline-secondary ml-2 text-nowrap" data-toggle="modal" data-target="#modal-bk-exempt" data-fill data-f-kind="' . e($kind) . '" data-f-ref="' . e($ref) . '" data-f-item="' . e($name) . '" title="This doesn\'t need a backup">Not required</button>' : '';
 $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_class($tone === 'info' ? 'info' : $tone) . '">' . e($label) . '</span>';
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
@@ -51,8 +55,8 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php if ($b['unprotected']): ?>
 <div class="card card-outline card-danger">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved text-danger mr-2"></i>Servers with no backup (<?= count($b['unprotected']) ?>)</h3></div>
-  <div class="card-body py-2 small text-muted border-bottom">Servers from NinjaOne or ITFlow that no Veeam job protects (matched by computer name). Add them to a job, or exclude the device if it doesn't need a backup.</div>
-  <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex"><a href="/devices/' . (int) $d['id'] . '" class="mr-auto font-weight-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted mr-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span></li>'; ?>
+  <div class="card-body py-2 small text-muted border-bottom">Servers from NinjaOne or ITFlow that no Veeam job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
+  <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex align-items-center"><a href="/devices/' . (int) $d['id'] . '" class="mr-auto font-weight-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted mr-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
   <ul class="list-group list-group-flush">
     <?php foreach (array_slice($b['unprotected'], 0, 8) as $d) echo $li($d); ?>
   </ul>
@@ -95,7 +99,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
     <div class="card-tools"><input type="search" class="form-control form-control-sm filter-input" data-filter-table="bk-machines" placeholder="Filter…"></div></div>
   <div class="card-body p-0"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless table-hover mb-0" id="bk-machines">
-      <thead class="text-dark"><tr><th>Status</th><th>Machine</th><th>Kind</th><th>Newest restore point</th><th class="text-right">Restore points</th><th class="text-right">Backup size</th><th>Device</th></tr></thead>
+      <thead class="text-dark"><tr><th>Status</th><th>Machine</th><th>Kind</th><th>Newest restore point</th><th class="text-right">Restore points</th><th class="text-right">Backup size</th><th>Device</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($b['workloads'] as $w): ?>
         <tr>
@@ -106,9 +110,10 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
           <td class="small text-right"><?= $w['restore_points'] !== null ? (int) $w['restore_points'] : '—' ?></td>
           <td class="small text-right text-nowrap"><?= e(fmt_bytes($w['backup_bytes'])) ?></td>
           <td class="small"><?= $w['device_id'] ? '<a href="/devices/' . (int) $w['device_id'] . '">' . e($w['device_name'] ?: 'Device') . '</a>' : '<span class="text-muted">not matched</span>' ?></td>
+          <?php if ($canEx): ?><td class="text-right"><?= $w['tone'] !== 'ok' ? $exBtn('workload', $w['uid'], $w['name']) : '' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$b['workloads']): ?><tr><td colspan="7" class="text-muted p-3">No protected machines reported for this company.</td></tr><?php endif; ?>
+      <?php if (!$b['workloads']): ?><tr><td colspan="8" class="text-muted p-3">No protected machines reported for this company.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>
@@ -142,11 +147,12 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
   <?php if ($m['overdue']): ?>
   <div class="card-body p-0 border-top"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless mb-0">
-      <thead class="text-dark"><tr><th>Status</th><th>Without a recent backup</th><th>Type</th><th>Newest restore point</th><th class="text-right">Restore points</th></tr></thead>
+      <thead class="text-dark"><tr><th>Status</th><th>Without a recent backup</th><th>Type</th><th>Newest restore point</th><th class="text-right">Restore points</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
       <?php $row = fn(array $o) => '<tr><td>' . $pill($o['last_point'] ? 'Overdue' : 'No restore point', $o['tone']) . '</td><td class="font-weight-bold">' . e($o['name']) . '</td><td class="small">' . e($o['type_label']) . '</td>'
           . '<td class="small">' . ($o['last_point'] ? e(Backup::age($o['age_h'])) . ' ago <span class="text-muted">' . e(fmt_datetime($o['last_point'])) . '</span>' : '<span class="text-danger">none</span>') . '</td>'
-          . '<td class="small text-right">' . ($o['restore_points'] !== null ? (int) $o['restore_points'] : '—') . '</td></tr>'; ?>
+          . '<td class="small text-right">' . ($o['restore_points'] !== null ? (int) $o['restore_points'] : '—') . '</td>'
+          . ($canEx ? '<td class="text-right">' . $exBtn('m365', $o['uid'], $o['name']) . '</td>' : '') . '</tr>'; ?>
       <?php foreach (array_slice($m['overdue'], 0, 10) as $o) echo $row($o); ?>
       </tbody>
     </table>
@@ -157,6 +163,43 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
     <?php endif; ?>
   </div></div>
   <?php endif; ?>
+</div>
+<?php endif; ?>
+<?php if ($b['exemptions']): ?>
+<div class="card card-outline card-secondary">
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-ban text-secondary mr-2"></i>Backup not required (<?= count($b['exemptions']) ?>)</h3></div>
+  <div class="card-body py-2 small text-muted border-bottom">These don't count as missing or overdue anywhere in Align, including reports. The reason is shown to the client on the backup report.</div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table class="table table-sm table-striped table-borderless mb-0">
+      <thead class="text-dark"><tr><th>Item</th><th>Type</th><th>Reason</th><th>Marked by</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
+      <tbody>
+      <?php foreach ($b['exemptions'] as $x): ?>
+        <tr><td class="font-weight-bold"><?= $x['device_id'] ? '<a href="/devices/' . (int) $x['device_id'] . '">' . e($x['item_name']) . '</a>' : e($x['item_name']) ?></td>
+          <td class="small"><?= e(Backup::EXEMPT_KINDS[$x['kind']] ?? $x['kind']) ?></td>
+          <td class="small"><?= e($x['reason']) ?></td>
+          <td class="small text-nowrap"><?= e($x['created_by_name'] ?? '—') ?><div class="text-muted"><?= e(fmt_date($x['created_at'])) ?></div></td>
+          <?php if ($canEx): ?><td class="text-right"><form method="post" action="/clients/<?= $cid ?>/backups/exempt"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="exemption" value="<?= (int) $x['id'] ?>"><button class="btn btn-xs btn-outline-primary text-nowrap">Monitor again</button></form></td><?php endif; ?></tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div></div>
+</div>
+<?php endif; ?>
+<?php if ($canEx): ?>
+<div class="modal fade" id="modal-bk-exempt" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="/clients/<?= $cid ?>/backups/exempt">
+      <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="kind" value=""><input type="hidden" name="ref" value="">
+      <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-ban mr-2"></i>Backup not required</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
+      <div class="modal-body">
+        <p>Stop flagging <b data-fill-text="item"></b> as missing or overdue. You can undo this any time.</p>
+        <div class="form-group mb-0"><label>Reason <small class="text-muted">(required, shown on the client's backup report)</small></label>
+          <input name="reason" class="form-control" maxlength="255" required list="bk-reasons" placeholder="e.g. Test server, no business data">
+          <datalist id="bk-reasons"><option value="Test / lab machine, no business data"><option value="Covered by another backup (image-level / SaaS)"><option value="Being decommissioned"><option value="Replica of a protected server"><option value="Former employee, data retained elsewhere"><option value="Client declined backup for this item"></datalist></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button class="btn btn-primary">Mark not required</button></div>
+    </form>
+  </div></div>
 </div>
 <?php endif; ?>
 <p class="small text-muted">A machine or Microsoft 365 item is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?= Auth::can('admin') ? ' (change this in <a href="/settings">Settings</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
