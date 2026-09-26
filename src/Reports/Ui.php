@@ -38,6 +38,14 @@ final class Ui
         return $h . '</div>';
     }
 
+    /** <colgroup> from relative weights (null = column not shown); widths always add up to 100%. */
+    public static function cols(array $weights): string
+    {
+        $w = array_filter($weights, fn($v) => $v !== null && $v > 0);
+        $sum = array_sum($w) ?: 1;
+        return '<colgroup>' . implode('', array_map(fn($v) => '<col style="width:' . round($v / $sum * 100, 2) . '%">', $w)) . '</colgroup>';
+    }
+
     /** Status tone of a lifecycle device mapped to a pill tone. */
     public static function tone(string $t): string
     {

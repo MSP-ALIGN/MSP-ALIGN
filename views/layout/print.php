@@ -33,13 +33,13 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', "\n", '<'], ['\\\\', '\
 </head>
 <body class="report">
 <div class="report-toolbar no-print">
-  <div class="container-report d-flex flex-wrap align-items-center">
-    <a href="<?= $portal ? '/portal' : '/' ?>" class="btn btn-sm btn-light mr-3" data-back><i class="fas fa-arrow-left mr-1"></i>Back</a>
-    <form class="form-inline small mr-auto" method="get">
+  <div class="tb-inner">
+    <a href="<?= $portal ? '/portal' : '/' ?>" class="btn btn-sm btn-light" data-back><i class="fas fa-arrow-left mr-1"></i>Back</a>
+    <form class="tb-opts" method="get">
       <?php foreach ($_GET as $k => $v): if (!is_string($v) || array_key_exists($k, $labels)) continue; ?><input type="hidden" name="<?= e($k) ?>" value="<?= e($v) ?>"><?php endforeach; ?>
       <?php foreach ($labels as $k => $l): if (!array_key_exists($k, $opt) || in_array($k, $opt['_hide'] ?? [], true)) continue; ?>
         <input type="hidden" name="<?= e($k) ?>" value="0">
-        <div class="custom-control custom-checkbox mr-3"><input type="checkbox" class="custom-control-input" id="opt-<?= e($k) ?>" name="<?= e($k) ?>" value="1" <?= $opt[$k] ? 'checked' : '' ?> data-autosubmit-check><label class="custom-control-label" for="opt-<?= e($k) ?>"><?= e($l) ?></label></div>
+        <div class="custom-control custom-checkbox"><input type="checkbox" class="custom-control-input" id="opt-<?= e($k) ?>" name="<?= e($k) ?>" value="1" <?= $opt[$k] ? 'checked' : '' ?> data-autosubmit-check><label class="custom-control-label" for="opt-<?= e($k) ?>"><?= e($l) ?></label></div>
       <?php endforeach; ?>
     </form>
     <button class="btn btn-sm btn-primary" data-print><i class="fas fa-file-pdf mr-1"></i>Print / Save as PDF</button>
