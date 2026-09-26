@@ -98,6 +98,7 @@ function devices(): array
             'systemName' => sprintf('PC-%04d', $i),
             'offline' => $i % 9 === 0,
             'lastContact' => time() - ($i % 50 === 0 ? 90 * 86400 : 3600 * ($i % 40)),
+            'lastLoggedInUser' => $nc === 'WINDOWS_SERVER' ? 'CONTOSO\\administrator' : ($i % 11 === 0 ? null : 'CONTOSO\\' . ['jsmith', 'mgarcia', 'kpark', 'frontdesk', 'drlee', 'hygiene1', 'billing'][$i % 7]),
             'created' => time() - (86400 * (100 + ($i * 37) % 2400)),
             'system' => ['manufacturer' => $mf, 'model' => $model, 'serialNumber' => $i % 25 === 0 ? 'To be filled by O.E.M.' : sprintf('SN%05d', $i), 'chassisType' => $chassis],
             'os' => ['name' => $os[0], 'buildNumber' => $os[1]],

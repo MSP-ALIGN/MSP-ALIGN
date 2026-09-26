@@ -24,6 +24,7 @@ $cols = 7 + ($showType ? 1 : 0) + ($opt['costs'] ? 1 : 0);
       <td>
         <b><?= e($d['name']) ?></b>
         <?php if ($d['serial']): ?><div class="muted">SN <?= e($d['serial']) ?></div><?php endif; ?>
+        <?php if (($opt['users'] ?? true) && $d['last_user']): ?><div class="muted">User: <?= e(\Align\Integrations\NinjaOne::shortUser($d['last_user'])) ?><?= $d['last_contact'] ? ' · ' . e(fmt_date($d['last_contact'])) : '' ?></div><?php endif; ?>
         <?php if ($d['location'] || $d['ip_address']): ?><div class="muted"><?= e(implode(' · ', array_filter([$d['location'], $d['ip_address']]))) ?></div><?php endif; ?>
         <?php if (!empty($opt['notes']) && $d['o_notes']): ?><div class="muted"><i><?= e($d['o_notes']) ?></i></div><?php endif; ?>
       </td>

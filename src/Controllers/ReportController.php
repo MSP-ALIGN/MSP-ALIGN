@@ -30,6 +30,7 @@ final class ReportController
         return [
             'costs' => query('costs', '1') === '1',
             'inventory' => query('inventory', '1') === '1',
+            'users' => query('users', '1') === '1',
             'virtual' => query('virtual', '0') === '1',
             'notes' => query('notes', '1') === '1',
         ];

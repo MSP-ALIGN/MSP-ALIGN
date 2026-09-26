@@ -163,6 +163,7 @@ final class NinjaOne
             'os_build' => $build ?: null,
             'os_release_id' => $os['releaseId'] ?? null,
             'last_contact' => self::ts($d['lastContact'] ?? null),
+            'last_user' => self::lastUser($d),
             'ninja_created' => self::ts($d['created'] ?? null),
             'offline' => !empty($d['offline']) ? 1 : 0,
         ];
@@ -216,6 +217,24 @@ final class NinjaOne
             $nc === 'NMS_PHONE' => 'Phone',
             default => \Align\Lifecycle\Lifecycle::DEFAULT_TYPE[self::classify($nodeClass, $chassis, $model, false)] ?? 'Other',
         };
+    }
+
+    /** Last logged-in user as NinjaOne reports it (e.g. "CONTOSO\\jsmith"), or null. */
+    public static function lastUser(array $d): ?string
+    {
+        $u = $d['lastLoggedInUser'] ?? $d['lastLoggedOnUser'] ?? ($d['system']['lastLoggedInUser'] ?? null);
+        $u = is_string($u) ? trim($u) : '';
+        return $u !== '' ? mb_substr($u, 0, 190) : null;
+    }
+
+    /** Shows "jsmith" for "CONTOSO\\jsmith" or "jsmith@contoso.com" when a short form is wanted. */
+    public static function shortUser(?string $u): string
+    {
+        $u = (string) $u;
+        if (str_contains($u, '\\')) {
+            $u = substr($u, strrpos($u, '\\') + 1);
+        }
+        return $u;
     }
 
     private static function ts(mixed $v): ?string

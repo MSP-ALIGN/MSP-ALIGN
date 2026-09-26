@@ -53,6 +53,7 @@ if ($client) {
           <?= $row('Operating system', e($d['os_name'] ?? '—') . ($d['os_build'] ? ' <span class="small text-muted">build ' . e($d['os_build']) . '</span>' : '')) ?>
           <?php if ($d['os_name']) echo $row('OS support ends', $d['os_rule'] ? e(fmt_date($d['os_rule']['eos_date'])) . ' <span class="small text-muted">(' . e($d['os_rule']['label']) . ')</span>' : '<span class="text-muted">No matching rule — <a href="/settings/os">OS support dates</a></span>'); ?>
           <?php if ($d['source'] === 'ninja') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
+          <?php if ($d['source'] === 'ninja') echo $row('Last logged-in user', $d['last_user'] ? '<i class="fas fa-user fa-xs text-muted mr-1"></i>' . e($d['last_user']) : '<span class="text-muted">Not reported by NinjaOne</span>'); ?>
           <?= $row('ITFlow asset', $d['itflow_asset_id'] ? 'Linked (#' . (int) $d['itflow_asset_id'] . ')' : '<span class="text-muted">Not linked</span>') ?>
         </table>
       </div>

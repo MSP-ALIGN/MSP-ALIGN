@@ -33,7 +33,7 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
     <div class="table-responsive">
     <table class="table table-sm table-striped table-borderless table-hover mb-0" id="device-table">
       <thead class="text-dark"><tr>
-        <th>Name</th><th>Type</th><th>Make / model</th><th>Serial</th><th>OS / firmware</th><th>In service</th><th>Warranty</th><th>End of life</th><th>Status</th><th class="text-right">Est. cost</th>
+        <th>Name</th><th>Type</th><th>Last user</th><th>Make / model</th><th>Serial</th><th>OS / firmware</th><th>In service</th><th>Warranty</th><th>End of life</th><th>Status</th><th class="text-right">Est. cost</th>
       </tr></thead>
       <tbody>
       <?php foreach ($devices as $d): ?>
@@ -46,6 +46,7 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
             <?php if ($d['ip_address']): ?><div class="small text-muted ml-4"><?= e($d['ip_address']) ?></div><?php endif; ?>
           </td>
           <td><?= e($d['type']) ?></td>
+          <td class="small text-nowrap"><?php if ($d['last_user']): ?><span title="<?= e($d['last_user']) ?>"><i class="fas fa-user fa-xs text-muted mr-1"></i><?= e(\Align\Integrations\NinjaOne::shortUser($d['last_user'])) ?></span><?php if ($d['last_contact']): ?><div class="text-muted"><?= e(rel_time($d['last_contact'])) ?></div><?php endif; ?><?php else: ?><span class="text-muted">—</span><?php endif; ?></td>
           <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e($d['serial'] ?? '') ?></td>
           <td class="small"><?= e($d['os_name'] ?: $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
@@ -57,7 +58,7 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
           <td class="text-right"><?= $d['is_hardware'] && $d['status'] !== 'excluded' ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$devices): ?><tr><td colspan="10" class="text-muted p-3">No devices match.</td></tr><?php endif; ?>
+      <?php if (!$devices): ?><tr><td colspan="11" class="text-muted p-3">No devices match.</td></tr><?php endif; ?>
       </tbody>
     </table>
     </div>

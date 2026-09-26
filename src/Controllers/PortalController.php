@@ -430,7 +430,7 @@ final class PortalController
         $client = ClientController::loadRow((int) $pu['client_id']);
         match ($kind) {
             // Internal device notes are never included; costs only with budget access
-            'assets' => ReportController::renderAssets($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '1') === '1', 'virtual' => query('virtual') === '1', 'notes' => false, '_hide' => $pu['can_budget'] ? ['notes'] : ['costs', 'notes']]),
+            'assets' => ReportController::renderAssets($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '1') === '1', 'users' => query('users', '1') === '1', 'virtual' => query('virtual') === '1', 'notes' => false, '_hide' => $pu['can_budget'] ? ['notes'] : ['costs', 'notes']]),
             'roadmap' => ReportController::renderRoadmap($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'notes' => query('notes', '1') === '1', 'position' => (bool) $pu['can_devices'], '_hide' => $pu['can_budget'] ? [] : ['costs']]),
             'budget' => BudgetController::renderReport($client, ctype_digit(query('year')) && (int) query('year') < 3 ? (int) query('year') : Plan::quarters()[Plan::currentIndex()]['year'],
                 ['details' => query('details', '1') === '1', 'notes' => true, '_hide' => ['notes']]),

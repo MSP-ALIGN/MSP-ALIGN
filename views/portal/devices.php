@@ -24,12 +24,13 @@
   </div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-hover mb-0">
-      <thead><tr><th>Name</th><th>Type</th><th>Make / model</th><th>Serial</th><th>Operating system</th><th>Warranty</th><th>Replace by</th><th>Status</th><?php if ($showCosts): ?><th class="text-right">Est. cost</th><?php endif; ?></tr></thead>
+      <thead><tr><th>Name</th><th>Type</th><th>Last user</th><th>Make / model</th><th>Serial</th><th>Operating system</th><th>Warranty</th><th>Replace by</th><th>Status</th><?php if ($showCosts): ?><th class="text-right">Est. cost</th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($devices as $d): ?>
         <tr>
           <td class="text-nowrap"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><b><?= e($d['name']) ?></b><?= $d['is_virtual'] ? ' <span class="badge badge-light border">virtual</span>' : '' ?></td>
           <td class="small"><?= e($d['type']) ?></td>
+          <td class="small text-nowrap"><?= $d['last_user'] ? '<span title="' . e($d['last_user']) . '">' . e(\Align\Integrations\NinjaOne::shortUser($d['last_user'])) . '</span>' : '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e($d['serial'] ?? '') ?></td>
           <td class="small"><?= e($d['os_name'] ?: $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
@@ -39,7 +40,7 @@
           <?php if ($showCosts): ?><td class="text-right"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$devices): ?><tr><td colspan="9" class="text-muted text-center p-3">No devices match.</td></tr><?php endif; ?>
+      <?php if (!$devices): ?><tr><td colspan="10" class="text-muted text-center p-3">No devices match.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>
