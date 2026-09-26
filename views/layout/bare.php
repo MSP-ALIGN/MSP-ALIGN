@@ -24,6 +24,7 @@
       <?= $content ?>
     </div>
   </div>
+  <p class="text-center small mt-2"><?php if (defined('IS_PORTAL') && IS_PORTAL): ?><a href="/portal/terms" class="text-muted">Terms of use</a><?php else: ?><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a><?php endif; ?></p>
 </div>
 </body>
 </html>

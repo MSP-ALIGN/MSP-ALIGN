@@ -11,7 +11,7 @@ use Align\View;
 
 final class SettingsController
 {
-    public const TEXT = ['company_name', 'company_phone', 'company_email', 'company_website', 'report_footer'];
+    public const TEXT = ['company_name', 'company_phone', 'company_email', 'company_website', 'report_footer', 'source_url'];
     public const NUMBERS = [
         'lifespan_desktop' => [1, 20], 'lifespan_laptop' => [1, 20], 'lifespan_server' => [1, 20], 'lifespan_network' => [1, 20],
         'cost_desktop' => [0, 1000000], 'cost_laptop' => [0, 1000000], 'cost_server' => [0, 1000000], 'cost_network' => [0, 1000000],
@@ -51,6 +51,10 @@ final class SettingsController
         Auth::requireRole('admin');
         $back = post('_tab') === 'planning' ? '/settings/planning' : '/settings';
         $changed = [];
+        if (post('source_url') !== '' && (!filter_var(post('source_url'), FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', post('source_url')))) {
+            flash('error', 'The source code link must be a web address starting with https://.');
+            redirect($back);
+        }
         foreach (self::TEXT as $k) {
             if (isset($_POST[$k]) && ($val = post($k)) !== (string) Settings::get($k)) {
                 Settings::set($k, $val);

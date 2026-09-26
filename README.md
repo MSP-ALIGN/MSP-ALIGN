@@ -161,3 +161,11 @@ To point at the mocks, set `ninja_instance`, `itflow_url`, `dell_api_base` and `
 **Profiling:** add `'profile' => '/tmp/align-profile.log'` to the config and each request appends its time, query count, database time, slow queries (`'profile_slow_ms'`, default 50) and repeated queries.
 
 Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, jQuery, Font Awesome, FullCalendar; see their LICENSE files) · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.
+
+## License
+
+Mountaineer Align is free software, copyright © 2026 Mountaineer IT Inc., licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty.
+
+Bundled third-party components keep their own licenses (all compatible): AdminLTE, Bootstrap, jQuery and FullCalendar (MIT), Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1, code MIT) and Quill (BSD-3-Clause). Their license files are in `public/vendor/`, and the in-app **License** page lists them.
+
+**Terms of use:** the app has terms for staff (`/terms`) and for client portal users (`/portal/terms`), readable before signing in and linked from the sign-in pages, footers and Help & how-to → Terms & license. They use the company name, email and phone from Settings → General. Have your own counsel review them before relying on them; update `LegalController::TERMS_UPDATED` when you change them.

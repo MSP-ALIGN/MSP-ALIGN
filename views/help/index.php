@@ -30,6 +30,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-howto" role="tab"><i class="fas fa-list-check fa-fw mr-1"></i>How-to guides</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-menus" role="tab"><i class="fas fa-bars fa-fw mr-1"></i>Where things are</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-data" role="tab"><i class="fas fa-arrows-rotate fa-fw mr-1"></i>Data &amp; terms</a></li>
+  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-legal" role="tab"><i class="fas fa-scale-balanced fa-fw mr-1"></i>Terms &amp; license</a></li>
 </ul>
 
 <div class="tab-content">
@@ -238,6 +239,39 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       </div>
     </div>
   </div>
+</div>
+
+<div class="tab-pane fade" id="tab-legal" role="tabpanel">
+  <div class="row">
+    <div class="col-md-4 d-flex">
+      <div class="card flex-fill">
+        <div class="card-body">
+          <h3 class="h6"><i class="fas fa-user-check fa-fw text-secondary mr-1"></i>Terms of use</h3>
+          <p class="small text-muted">The rules for staff accounts: keeping sign-ins private, client confidentiality, keeping sensitive personal data out, monitoring, and that planning figures are estimates.</p>
+          <a class="btn btn-sm btn-default" href="/terms">Read the terms</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 d-flex">
+      <div class="card flex-fill">
+        <div class="card-body">
+          <h3 class="h6"><i class="fas fa-door-open fa-fw text-secondary mr-1"></i>Client portal terms</h3>
+          <p class="small text-muted">What clients agree to when they sign in to the portal: their own account, confidentiality, what an approval means, and that prices are estimates. Linked from the portal sign-in page and footer.</p>
+          <a class="btn btn-sm btn-default" href="/portal/terms">Read the portal terms</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 d-flex">
+      <div class="card flex-fill">
+        <div class="card-body">
+          <h3 class="h6"><i class="fas fa-scale-balanced fa-fw text-secondary mr-1"></i>License</h3>
+          <p class="small text-muted">Mountaineer Align is free software under the GNU Affero General Public License v3. Anyone who runs a changed version for others must share its source. Includes the third-party components and their licenses.</p>
+          <a class="btn btn-sm btn-default mr-1" href="/license">License &amp; credits</a><a class="btn btn-sm btn-default" href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" target="_blank" rel="noopener">Source code</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="small text-muted">Terms last updated <?= e(fmt_date(\Align\Controllers\LegalController::TERMS_UPDATED)) ?>.<?= $isAdmin ? ' The terms use the company name, email and phone from Settings → General.' : '' ?></p>
 </div>
 </div>
 

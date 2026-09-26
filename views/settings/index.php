@@ -24,6 +24,14 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <div class="form-group mb-0"><label>Report footer</label><textarea name="report_footer" class="form-control" rows="2" placeholder="Shown at the bottom of printed reports"><?= e($v['report_footer']) ?></textarea></div>
         </div>
       </div>
+      <div class="card card-dark">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-scale-balanced mr-2"></i>Terms &amp; license</h3></div>
+        <div class="card-body">
+          <div class="form-group"><label>Source code link</label><input type="url" name="source_url" class="form-control" value="<?= e($v['source_url'] ?? '') ?>" placeholder="<?= e(\Align\Controllers\LegalController::DEFAULT_SOURCE) ?>">
+            <small class="text-muted">Shown as "Source" in the footer and on the License page. The software is licensed under the AGPL-3.0: if you run a changed version for other people, this must lead to your version's source code.</small></div>
+          <p class="small mb-0"><a href="/terms">Terms of use</a> (staff) · <a href="/portal/terms">Client portal terms</a> · <a href="/license">License</a>. The terms use the company name, email and phone above.</p>
+        </div>
+      </div>
       <p class="small text-muted">Logo, colours and the app name are under <a href="/settings/branding">Branding</a>.</p>
     </div>
     <div class="col-lg-6">

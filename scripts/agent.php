@@ -1,5 +1,7 @@
 #!/usr/bin/env php
 <?php
+// Mountaineer Align. Copyright (C) 2026 Mountaineer IT Inc.
+// SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 /**
  * Mountaineer Align system agent. Runs as root, started by systemd:
  *   mountaineer-align-agent.path/.service   when the web app drops a request in /run/mountaineer-align/requests

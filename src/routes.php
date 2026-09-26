@@ -49,6 +49,11 @@ $r->get('/licenses', [\Align\Controllers\LicenseController::class, 'index']);
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
 $r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
 $r->get('/help', [\Align\Controllers\HelpController::class, 'show']);
+// Terms and license: public (readable before signing in)
+$r->get('/terms', [\Align\Controllers\LegalController::class, 'terms']);
+$r->get('/license', [\Align\Controllers\LegalController::class, 'license']);
+$r->get('/license/full', [\Align\Controllers\LegalController::class, 'licenseText']);
+$r->get('/license/third-party/{name:str}', [\Align\Controllers\LegalController::class, 'thirdParty']);
 $r->get('/contacts', [\Align\Controllers\ContactController::class, 'index']);
 $r->post('/contacts/{id}', [\Align\Controllers\ContactController::class, 'update']);
 $r->get('/clients/{id}/contacts', [\Align\Controllers\ContactController::class, 'clientIndex']);
@@ -210,6 +215,7 @@ $r->post('/portal-users/{id}', [PortalAdminController::class, 'update']);
 $r->get('/portal-users', [PortalAdminController::class, 'index']);
 
 // Client portal (separate session; every page is scoped to the signed-in client user's own client)
+$r->get('/portal/terms', [PortalController::class, 'terms']);
 $r->get('/portal/login', [PortalController::class, 'loginForm']);
 $r->post('/portal/login', [PortalController::class, 'login']);
 $r->get('/portal/forgot', [PortalController::class, 'forgotForm']);

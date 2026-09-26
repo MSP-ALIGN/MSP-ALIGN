@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Mountaineer Align. Copyright (C) 2026 Mountaineer IT Inc. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 # =============================================================================
 #  Mountaineer Align - installer / upgrader for Debian 13 (trixie)
 #

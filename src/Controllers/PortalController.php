@@ -57,6 +57,18 @@ final class PortalController
 
     // ---- Sign-in ------------------------------------------------------------------------------
 
+    /** Portal terms of use: readable before signing in, and inside the portal. */
+    public static function terms(): void
+    {
+        $vars = ['title' => 'Terms of use', 'nav' => 'terms', 'company' => \Align\Controllers\LegalController::company(), 'updated' => \Align\Controllers\LegalController::TERMS_UPDATED];
+        $pu = PortalAuth::user();
+        if ($pu) {
+            View::render('portal/terms', $vars + ['pu' => $pu, 'provider' => self::provider($pu)], 'portal/layout');
+            return;
+        }
+        View::render('portal/terms', $vars, 'layout/public');
+    }
+
     public static function loginForm(): void
     {
         if (PortalAuth::user()) {

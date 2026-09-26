@@ -184,6 +184,7 @@ $item = function (array $i, string $active) {
 
   <footer class="main-footer text-sm">
     <span class="text-muted"><?= e(\Align\Branding::name()) ?> v<?= $v ?><?= \Align\Settings::get('company_name') ? ' · ' . e(\Align\Settings::get('company_name')) : '' ?></span>
+    <span class="float-right small"><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
   </footer>
 </div>
 <?php if (Auth::can('tech') && empty($noMeetingModal)): ?>
