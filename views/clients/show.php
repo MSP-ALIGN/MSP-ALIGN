@@ -73,6 +73,26 @@ $cid = (int) $client['id'];
       </div>
     </div>
 
+    <?php if ($backup): $bs = $backup['stats']; ?>
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-database mr-2"></i>Backups</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/backups" class="btn btn-tool">Open</a></div></div>
+      <div class="card-body py-2">
+        <div class="d-flex text-center mb-2">
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= tone_class($bs['tone']) ?>"><i class="fas fa-<?= $bs['tone'] === 'ok' ? 'circle-check' : 'triangle-exclamation' ?>"></i></div><div class="small text-muted"><?= ['ok' => 'healthy', 'warn' => 'attention', 'bad' => 'action needed'][$bs['tone']] ?></div></div>
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= (int) $bs['ok'] ?>/<?= (int) $bs['protected'] ?></div><div class="small text-muted">current</div></div>
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= $bs['rate'] === null ? '—' : $bs['rate'] . '%' ?></div><div class="small text-muted">success, 30d</div></div>
+        </div>
+        <div class="bk-days bk-days-sm mb-2"><?php foreach ($backup['days'] as $d): ?><span class="<?= e($d['tone']) ?>" title="<?= e($d['text']) ?>"></span><?php endforeach; ?></div>
+        <?php foreach (array_slice(array_filter($backup['jobs'], fn($j) => $j['is_enabled'] && in_array($j['tone'], ['bad', 'warn'], true)), 0, 3) as $j): ?>
+          <div class="small"><i class="fas fa-circle-xmark mr-1 text-<?= tone_class($j['tone']) ?>"></i><?= e($j['name']) ?> <span class="text-muted"><?= e(strtolower($j['label'])) ?><?= $j['last_run'] ? ' ' . e(rel_time($j['last_run'])) : '' ?></span></div>
+        <?php endforeach; ?>
+        <?php if ($backup['unprotected']): ?><div class="small"><i class="fas fa-shield-halved mr-1 text-danger"></i><?= count($backup['unprotected']) ?> server<?= count($backup['unprotected']) === 1 ? '' : 's' ?> with no backup</div><?php endif; ?>
+        <?php if ($bs['cloud_quota']): ?><div class="small text-muted"><i class="fas fa-cloud mr-1"></i>Cloud: <?= e(fmt_bytes($bs['cloud_used'])) ?> of <?= e(fmt_bytes($bs['cloud_quota'])) ?></div><?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-address-book mr-2"></i>Key contacts</h3>
         <div class="card-tools"><a href="/clients/<?= $cid ?>/contacts" class="btn btn-tool">All <?= (int) $contactCount ?></a></div></div>

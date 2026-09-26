@@ -5,7 +5,7 @@ use Align\View;
 /**
  * Business review pack.
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
- * @var ?array $a, $r, $bd, $comp, $lic
+ * @var ?array $a, $r, $bd, $comp, $lic, $bk
  * @var callable $on  fn(section key): bool
  */
 $costs = (bool) $opt['costs'];
@@ -15,6 +15,7 @@ $sections = [];
 if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
 if ($on('s_budget') && $bd) $sections['budget'] = 'Technology budget';
 if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
+if ($bk) $sections['backup'] = 'Backup & recovery';
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
 if ($on('s_licensing') && $lic) $sections['licensing'] = 'Software & licensing';
 $sections['people'] = 'Your team & next steps';
@@ -128,6 +129,11 @@ foreach ($sections as $k => $_) {
 <?= View::fetch('reports/sections/assets_overview', ['a' => $a, 'costs' => $costs, 'users' => $users, 'num' => $numOf['assets']]) ?>
 <?= View::fetch('reports/sections/assets_plan', ['a' => $a, 'costs' => $costs, 'planChart' => !isset($sections['roadmap'])]) ?>
 <?= View::fetch('reports/sections/assets_attention', ['a' => $a, 'costs' => $costs, 'users' => $users, 'limit' => 12, 'moreNote' => $opt['inventory'] ? 'Every device is listed in the inventory at the end.' : 'Ask us for the full asset report.']) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['backup'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/backup', ['b' => $bk, 'num' => $numOf['backup'], 'details' => true, 'machines' => true, 'limit' => 15]) ?>
 <?php endif; ?>
 
 <?php if (isset($sections['compliance'])): ?>

@@ -43,6 +43,7 @@ final class DeviceController
             'syncRow' => DB::one('SELECT itflow_sync, retired_at, updated_at FROM devices WHERE id = ?', [$id]),
             'twoWay' => ItflowSync::twoWay(),
             'clientInItflow' => $client && !empty($client['itflow_client_id']),
+            'backups' => !empty($client['veeam_company_uid']) ? DB::all('SELECT * FROM backup_workloads WHERE device_id = ? ORDER BY last_point DESC', [$id]) : null,
         ]);
     }
 

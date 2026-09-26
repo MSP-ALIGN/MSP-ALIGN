@@ -330,6 +330,71 @@ switch (true) {
         $json($rows ? ['success' => 'True', 'count' => count($rows), 'data' => $rows] : ['success' => 'False', 'message' => 'No resource']);
         break;
 
+    case str_starts_with($path, '/api/v3/'):
+        // Veeam Service Provider Console REST API v3
+        if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer veeam-key') {
+            http_response_code(401);
+            $json(['errors' => [['message' => 'Unauthorized']]]);
+            break;
+        }
+        $iso = fn(int $hoursAgo) => date('c', time() - $hoursAgo * 3600);
+        $c = ['c0' => '10000000-0000-0000-0000-000000000000', 'c1' => '11111111-1111-1111-1111-111111111111',
+            'c2' => '22222222-2222-2222-2222-222222222222', 'c3' => '33333333-3333-3333-3333-333333333333'];
+        $data = match ($path) {
+            '/api/v3/organizations/companies' => [
+                ['instanceUid' => $c['c0'], 'name' => 'Example MSP (provider)', 'status' => 'Active'],
+                ['instanceUid' => $c['c1'], 'name' => 'Cedar Ridge Family Dental', 'status' => 'Active'],
+                ['instanceUid' => $c['c2'], 'name' => 'Northfield Hardware and Supply, LLC', 'status' => 'Active'],
+                ['instanceUid' => $c['c3'], 'name' => 'Mt. Maple Veterinary Clinic', 'status' => 'Active'],
+            ],
+            '/api/v3/infrastructure/backupServers/jobs' => [
+                ['instanceUid' => 'j-1001', 'name' => 'Servers nightly', 'organizationUid' => $c['c1'], 'type' => 'BackupVm', 'status' => 'Success', 'isEnabled' => true,
+                    'lastRun' => $iso(6), 'lastEndTime' => $iso(5), 'lastDuration' => 2640, 'destination' => 'Local repository', 'backupChainSize' => 912 * 1024 ** 3, 'failureMessage' => ''],
+                ['instanceUid' => 'j-1002', 'name' => 'Offsite copy to cloud', 'organizationUid' => $c['c0'], 'mappedOrganizationUid' => $c['c1'], 'type' => 'BackupCopy', 'status' => 'Warning', 'isEnabled' => true,
+                    'lastRun' => $iso(10), 'lastEndTime' => $iso(9), 'lastDuration' => 5400, 'destination' => 'Cloud Connect', 'failureMessage' => 'Restore point for PC-0029 was not copied: source file is locked.'],
+                ['instanceUid' => 'j-2001', 'name' => 'File server', 'organizationUid' => $c['c2'], 'type' => 'BackupVm', 'status' => 'Failed', 'isEnabled' => true,
+                    'lastRun' => $iso(20), 'lastEndTime' => $iso(19), 'lastDuration' => 300, 'failureMessage' => 'Error: Failed to connect to repository REPO01. The network path was not found.'],
+                ['instanceUid' => 'j-2002', 'name' => 'DR replica', 'organizationUid' => $c['c2'], 'type' => 'ReplicationVM', 'status' => 'Success', 'isEnabled' => false,
+                    'lastRun' => $iso(24 * 40), 'lastEndTime' => $iso(24 * 40)],
+                ['instanceUid' => 'j-0001', 'name' => 'Internal systems', 'organizationUid' => $c['c0'], 'type' => 'BackupVm', 'status' => 'Success', 'isEnabled' => true, 'lastRun' => $iso(3)],
+            ],
+            '/api/v3/infrastructure/backupAgents' => [
+                ['instanceUid' => 'a-1', 'name' => 'PC-0001', 'organizationUid' => $c['c1'], 'managementMode' => 'ManagedByConsole'],
+                ['instanceUid' => 'a-2', 'name' => 'PC-0008', 'organizationUid' => $c['c1'], 'managementMode' => 'ManagedByConsole'],
+            ],
+            '/api/v3/infrastructure/backupAgents/jobs' => [
+                ['instanceUid' => 'aj-1', 'backupAgentUid' => 'a-1', 'name' => 'Workstation backup', 'status' => 'Success', 'isEnabled' => true, 'lastRun' => $iso(12), 'lastEndTime' => $iso(12)],
+                ['instanceUid' => 'aj-2', 'backupAgentUid' => 'a-2', 'name' => 'Workstation backup', 'status' => 'Failed', 'isEnabled' => true, 'lastRun' => $iso(30), 'failureMessage' => 'Computer is offline'],
+            ],
+            '/api/v3/protectedWorkloads/virtualMachines' => array_merge([
+                ['instanceUid' => 'vm-22', 'name' => 'PC-0022', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => $iso(5), 'restorePoints' => 14, 'totalRestorePointSize' => 310 * 1024 ** 3, 'usedSourceSize' => 180 * 1024 ** 3],
+                ['instanceUid' => 'vm-22', 'name' => 'PC-0022', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => $iso(9), 'restorePoints' => 30, 'totalRestorePointSize' => 120 * 1024 ** 3],
+                ['instanceUid' => 'vm-28', 'name' => 'pc-0028.cedarridge.local', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => $iso(80), 'restorePoints' => 11, 'totalRestorePointSize' => 205 * 1024 ** 3],
+                ['instanceUid' => 'vm-29', 'name' => 'PC-0029', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => $iso(5), 'restorePoints' => 14, 'totalRestorePointSize' => 96 * 1024 ** 3],
+                ['instanceUid' => 'vm-sql', 'name' => 'SQL-TEST', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => null, 'restorePoints' => 0],
+                ['instanceUid' => 'vm-16', 'name' => 'PC-0016', 'organizationUid' => $c['c2'], 'latestRestorePointDate' => $iso(24 * 5), 'restorePoints' => 7, 'totalRestorePointSize' => 450 * 1024 ** 3],
+            ], array_map(fn($i) => ['instanceUid' => "int-$i", 'name' => sprintf('INT-VM-%03d', $i), 'organizationUid' => $c['c0'], 'latestRestorePointDate' => $iso(3), 'restorePoints' => 7], range(1, 620))),
+            '/api/v3/protectedWorkloads/computersManagedByConsole' => [
+                ['instanceUid' => 'pc-1', 'name' => 'PC-0001', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => $iso(12), 'restorePoints' => 21, 'totalRestorePointSize' => 64 * 1024 ** 3],
+                ['instanceUid' => 'pc-8', 'name' => 'PC-0008', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => $iso(24 * 6), 'restorePoints' => 9, 'totalRestorePointSize' => 51 * 1024 ** 3],
+            ],
+            '/api/v3/protectedWorkloads/computersManagedByBackupServer' => null,
+            '/api/v3/organizations/companies/sites/backupResources/usage' => [
+                ['companyUid' => $c['c1'], 'siteUid' => 's1', 'storageQuota' => 2 * 1024 ** 4, 'usedStorageQuota' => (int) (1.4 * 1024 ** 4)],
+            ],
+            default => false,
+        };
+        if ($data === false || $data === null) {
+            http_response_code(404);
+            $json(['errors' => [['message' => 'Not found']]]);
+            break;
+        }
+        $limit = max(1, (int) ($_GET['limit'] ?? 100));
+        $offset = max(0, (int) ($_GET['offset'] ?? 0));
+        $json(['meta' => ['pagingInfo' => ['total' => count($data), 'count' => count(array_slice($data, $offset, $limit)), 'offset' => $offset]],
+            'data' => array_slice($data, $offset, $limit)]);
+        break;
+
     case $path === '/auth/oauth/v2/token':
         $json(['access_token' => 'dell-token', 'expires_in' => 3600]);
         break;

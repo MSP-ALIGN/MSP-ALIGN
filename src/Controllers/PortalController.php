@@ -254,7 +254,8 @@ final class PortalController
             default => true,
         }));
         self::render('devices', ['title' => 'Devices', 'nav' => 'devices', 'devices' => $rows, 'summary' => Lifecycle::summarize($all),
-            'filter' => $filter, 'showCosts' => (bool) $pu['can_budget']], $pu);
+            'filter' => $filter, 'showCosts' => (bool) $pu['can_budget'],
+            'hasBackup' => (bool) DB::value('SELECT veeam_company_uid FROM clients WHERE id = ?', [$pu['client_id']])], $pu);
     }
 
     public static function compliance(): void
@@ -421,7 +422,7 @@ final class PortalController
     /** Printable reports the user has access to. */
     public static function report(string $kind): void
     {
-        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'qbr' => ''][$kind] ?? null;
+        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'backup' => 'can_devices', 'qbr' => ''][$kind] ?? null;
         if ($perm === null) {
             http_response_code(404);
             exit;
@@ -431,10 +432,14 @@ final class PortalController
         if ($kind === 'qbr') {
             // Only the sections this user may see; costs only with budget access
             $allowed = array_keys(array_filter(['s_roadmap' => $pu['can_roadmap'], 's_budget' => $pu['can_budget'], 's_assets' => $pu['can_devices'],
-                's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
+                's_backup' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
             $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',
                 'virtual' => false, 'notes' => query('notes', '1') === '1', '_hide' => $pu['can_budget'] ? [] : ['costs']] + ReportController::qbrSections(true);
             ReportController::renderQbr($client, $opt, $allowed);
+            return;
+        }
+        if ($kind === 'backup') {
+            \Align\Controllers\BackupController::renderReport($client, ['details' => query('details', '1') === '1', 'machines' => query('machines', '1') === '1']);
             return;
         }
         match ($kind) {

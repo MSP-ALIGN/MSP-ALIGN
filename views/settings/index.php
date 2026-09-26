@@ -37,6 +37,18 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
         </div>
       </div>
       <div class="card card-dark">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-database mr-2"></i>Veeam Service Provider Console</h3>
+          <div class="card-tools"><button class="btn btn-xs btn-light" form="test-veeam">Test</button></div></div>
+        <div class="card-body">
+          <p class="small text-muted">Optional. Brings backup job results, protected machines and Cloud Connect storage into each client. In VSPC go to <b>Configuration → Security → REST API Keys</b> and create a key for a <b>read-only</b> portal administrator. Align only reads from Veeam.</p>
+          <div class="form-group"><label>Console URL</label><input type="url" name="veeam_url" class="form-control" value="<?= e($v['veeam_url']) ?>" placeholder="https://vspc.example.com">
+            <small class="text-muted">The web portal address (the REST API lives at /api/v3 on the same host). Its certificate must be trusted by this server.</small>
+            <?php if (str_starts_with(strtolower((string) $v['veeam_url']), 'http://')): ?><br><small class="text-danger"><i class="fas fa-triangle-exclamation mr-1"></i>Not encrypted: the API key crosses the network in plain text.</small><?php endif; ?></div>
+          <?= $secret('veeam_api_key', 'API key') ?>
+          <?= $num('backup_stale_hours', 'Flag a machine as overdue when its newest restore point is older than', '', 'hours') ?>
+        </div>
+      </div>
+      <div class="card card-dark">
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved mr-2"></i>Warranty lookups</h3>
           <div class="card-tools"><button class="btn btn-xs btn-light" form="test-dell">Test Dell</button> <button class="btn btn-xs btn-light" form="test-lenovo">Test Lenovo</button></div></div>
         <div class="card-body">
@@ -177,6 +189,6 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
   <button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save settings</button>
   <span class="small text-muted ml-2">Save before testing — Test uses the saved values.</span>
 </form>
-<?php foreach (['ninja', 'itflow', 'dell', 'lenovo'] as $t): ?>
+<?php foreach (['ninja', 'itflow', 'veeam', 'dell', 'lenovo'] as $t): ?>
   <form method="post" action="/settings/test" id="test-<?= $t ?>" class="d-none"><?= csrf_field() ?><input type="hidden" name="target" value="<?= $t ?>"></form>
 <?php endforeach; ?>

@@ -2,6 +2,10 @@
   <div class="alert alert-light border small py-2"><i class="fas fa-circle-info text-primary mr-1"></i><?= count($unmappedOrgs) ?> NinjaOne organization(s) not linked to any client:
     <?= e(implode(', ', array_map(fn($o) => $o['name'] . ' (' . $o['device_count'] . ')', $unmappedOrgs))) ?></div>
 <?php endif; ?>
+<?php if ($unmappedVeeam): ?>
+  <div class="alert alert-light border small py-2"><i class="fas fa-database text-primary mr-1"></i><?= count($unmappedVeeam) ?> Veeam compan<?= count($unmappedVeeam) === 1 ? 'y' : 'ies' ?> not linked to any client:
+    <?= e(implode(', ', array_map(fn($o) => $o['name'] . ' (' . $o['workloads'] . ')', $unmappedVeeam))) ?></div>
+<?php endif; ?>
 <form method="post" action="/mapping">
   <?= csrf_field() ?>
   <div class="card card-dark">
@@ -12,10 +16,10 @@
         <?php if ($clients): ?><button class="btn btn-sm btn-primary"><i class="fas fa-check mr-1"></i>Save mapping</button><?php endif; ?>
       </div>
     </div>
-    <div class="card-body py-2 small text-muted border-bottom">Link each client to its NinjaOne organization. Matching names link automatically on sync; anything you set here is kept. Clients added by hand can be linked too.</div>
+    <div class="card-body py-2 small text-muted border-bottom">Link each client to its NinjaOne organization<?= $veeam ? ' and Veeam company' : '' ?>. Matching names link automatically on sync; anything you set here is kept. Clients added by hand can be linked too.</div>
     <div class="card-body p-0">
       <table class="table table-sm table-striped table-borderless table-hover mb-0" id="map-table">
-        <thead class="text-dark"><tr><th>Client</th><th>NinjaOne organization</th><th>How</th><th class="text-right">Devices</th></tr></thead>
+        <thead class="text-dark"><tr><th>Client</th><th>NinjaOne organization</th><th>How</th><th class="text-right">Devices</th><?php if ($veeam): ?><th>Veeam company</th><?php endif; ?></tr></thead>
         <tbody>
         <?php foreach ($clients as $c): ?>
           <tr>
@@ -30,9 +34,19 @@
             </td>
             <td class="small text-muted align-middle"><?= e($c['match_method'] ?? '') ?></td>
             <td class="text-right align-middle"><?= (int) $c['device_count'] ?></td>
+            <?php if ($veeam): ?>
+            <td>
+              <select name="veeam[<?= (int) $c['id'] ?>]" class="custom-select custom-select-sm" aria-label="Veeam company for <?= e($c['name']) ?>">
+                <option value="">— Not linked —</option>
+                <?php foreach ($veeam as $o): ?>
+                  <option value="<?= e($o['uid']) ?>" <?= (string) $c['veeam_company_uid'] === $o['uid'] ? 'selected' : '' ?>><?= e($o['name']) ?><?= $o['client_id'] && (int) $o['client_id'] !== (int) $c['id'] ? ' (linked elsewhere)' : '' ?></option>
+                <?php endforeach; ?>
+              </select>
+            </td>
+            <?php endif; ?>
           </tr>
         <?php endforeach; ?>
-        <?php if (!$clients): ?><tr><td colspan="4" class="text-muted p-3">No clients yet.</td></tr><?php endif; ?>
+        <?php if (!$clients): ?><tr><td colspan="5" class="text-muted p-3">No clients yet.</td></tr><?php endif; ?>
         </tbody>
       </table>
     </div>

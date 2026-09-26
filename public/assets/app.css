@@ -288,3 +288,15 @@ body:not(.report) .text-muted.small, body:not(.report) .small.text-muted { color
 .forecast-chart .year-lbl, .budget-chart .year-lbl { font-size: 13px; }
 .card-title { font-size: 1rem; }
 @media (min-width: 768px) { .info-box .info-box-text { font-size: .875rem; } }
+
+/* Backups: 30-day result strip */
+.bk-days { display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; }
+.bk-days span { height: 26px; border-radius: 3px; background: #e9ecef; }
+.bk-days .ok, .bk-key.ok { background: #28a745; }
+.bk-days .warn, .bk-key.warn { background: #ffc107; }
+.bk-days .bad, .bk-key.bad { background: #dc3545; }
+.bk-days .none, .bk-key.none { background: #e9ecef; }
+.bk-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.bk-days-sm { gap: 2px; }
+.bk-days-sm span { height: 14px; border-radius: 2px; }
+.bk-more summary { cursor: pointer; border-top: 1px solid rgba(0,0,0,.125); }

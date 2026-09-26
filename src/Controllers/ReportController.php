@@ -108,7 +108,7 @@ final class ReportController
         self::renderQbr($client, $opt, array_keys(self::QBR_SECTIONS));
     }
 
-    public const QBR_SECTIONS = ['s_roadmap' => 'Roadmap', 's_budget' => 'Budget', 's_assets' => 'Assets', 's_compliance' => 'Compliance', 's_licensing' => 'Licensing'];
+    public const QBR_SECTIONS = ['s_roadmap' => 'Roadmap', 's_budget' => 'Budget', 's_assets' => 'Assets', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_licensing' => 'Licensing'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -134,6 +134,11 @@ final class ReportController
         $bd = in_array('s_budget', $allowed, true) ? ReportData::budget($id, $q['year']) : null;
         $comp = in_array('s_compliance', $allowed, true) ? ReportData::compliance($id) : null;
         $lic = in_array('s_licensing', $allowed, true) ? ReportData::licensing($id) : null;
+        $bk = in_array('s_backup', $allowed, true) ? ReportData::backup($id) : null;
+        if (!$bk) {
+            // Client not linked to Veeam: no backup switch in the toolbar
+            $allowed = array_values(array_diff($allowed, ['s_backup']));
+        }
         $vcio = $client['vcio_name'] ?? null;
         Audit::log('report.qbr', $client['name']);
         View::render('reports/qbr', [
@@ -146,11 +151,11 @@ final class ReportController
             'brand' => self::branding($client),
             'quarter' => $q,
             'on' => $on,
-            'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic,
+            'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null,
             'people' => ReportData::people($id),
             'provider' => ['company' => Settings::get('company_name') ?: 'Mountaineer IT', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],
-            'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs']),
+            'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs'], $on('s_backup') ? $bk : null),
         ], 'layout/print');
     }
 
@@ -189,6 +194,7 @@ final class ReportController
             'opt' => $opt,
             'brand' => self::branding(),
             'yearsMeta' => \Align\Roadmap\Plan::years(),
+            'backups' => \Align\Backup\Backup::enabled() ? \Align\Backup\Backup::summaries() : null,
         ], 'layout/print');
     }
 }

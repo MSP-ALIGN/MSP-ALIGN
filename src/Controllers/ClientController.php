@@ -283,6 +283,7 @@ final class ClientController
             'cadence' => Meetings::cadence()[$id] ?? null,
             'users' => self::users(),
             'itflowUrl' => Settings::get('itflow_url'),
+            'backup' => \Align\Backup\Backup::forClient($client, $devices),
         ]);
     }
 
@@ -321,6 +322,7 @@ final class ClientController
             'client' => $client,
             'clientNav' => 'devices',
             'devices' => self::filter($all, $filter, $class),
+            'backupMap' => \Align\Backup\Backup::deviceMap($client['veeam_company_uid'] ?? null),
             'total' => count($all),
             'filter' => $filter,
             'class' => $class,

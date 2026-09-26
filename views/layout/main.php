@@ -54,6 +54,7 @@ $clientMenu = $client ? [
     ['contacts', '/clients/' . (int) $client['id'] . '/contacts', 'Contacts', 'fa-address-book'],
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
     ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],
+    ...(!empty($client['veeam_company_uid']) || \Align\Integrations\VeeamSpc::configured() ? [['backups', '/clients/' . (int) $client['id'] . '/backups', 'Backups', 'fa-database']] : []),
     ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
     ['documents', '/clients/' . (int) $client['id'] . '/documents', 'Documents', 'fa-file-lines'],
     ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', 'Roadmap & projects', 'fa-road'],

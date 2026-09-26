@@ -84,6 +84,22 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
       <?php if (count($incomplete) > 6): ?><div class="card-footer py-1 small text-muted"><?= count($incomplete) - 6 ?> more clients to finish. Open a client to see its checklist.</div><?php endif; ?>
       <?php endif; ?>
     </div>
+    <?php if (!empty($backupIssues)): ?>
+      <div class="card card-outline card-danger">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-database mr-2 text-danger"></i>Backups needing attention</h3></div>
+        <ul class="list-group list-group-flush small">
+          <?php foreach (array_slice($backupIssues, 0, 8) as $x): ?>
+            <li class="list-group-item py-2 d-flex"><a href="/clients/<?= (int) $x['id'] ?>/backups" class="mr-auto font-weight-bold"><?= e($x['name']) ?></a>
+              <span class="text-nowrap">
+                <?php if ($x['failed']): ?><span class="badge badge-danger ml-1"><?= (int) $x['failed'] ?> failed</span><?php endif; ?>
+                <?php if ($x['warning']): ?><span class="badge badge-warning ml-1"><?= (int) $x['warning'] ?> warning</span><?php endif; ?>
+                <?php if ($x['overdue']): ?><span class="badge badge-light border ml-1"><?= (int) $x['overdue'] ?> overdue</span><?php endif; ?>
+              </span></li>
+          <?php endforeach; ?>
+        </ul>
+        <?php if (count($backupIssues) > 8): ?><div class="card-footer py-1 small text-muted"><?= count($backupIssues) - 8 ?> more clients</div><?php endif; ?>
+      </div>
+    <?php endif; ?>
     <?php if (!empty($clientActivity)): $icon = ['portal.project_approved' => 'fa-circle-check text-success', 'portal.project_declined' => 'fa-circle-xmark text-secondary']; ?>
       <div class="card card-outline card-info">
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-door-open mr-2 text-info"></i>Client portal activity</h3></div>

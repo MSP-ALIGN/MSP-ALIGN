@@ -122,6 +122,7 @@ function rel_time(?string $d): string
         $diff < 60 => 'just now',
         $diff < 3600 => intdiv($diff, 60) . ' min ago',
         $diff < 86400 => intdiv($diff, 3600) . ' hr ago',
+        $diff < 86400 * 2 => '1 day ago',
         $diff < 86400 * 60 => intdiv($diff, 86400) . ' days ago',
         default => fmt_date($d),
     };
@@ -228,4 +229,21 @@ function short_os(?string $os): string
     $s = preg_replace(['/\s+Edition\b/i', '/\bProfessional\b/i', '/\bStandard\b/i', '/\bDatacenter\b/i', '/\bEnterprise\b/i', '/^Microsoft\s+/i'],
         ['', 'Pro', 'Std', 'DC', 'Ent', ''], $s) ?? $s;
     return trim(preg_replace('/\s+/', ' ', $s) ?? $s);
+}
+
+/** 1536 → "1.5 KB"; binary units, as backup products report them. */
+function fmt_bytes(int|float|string|null $b): string
+{
+    if ($b === null || $b === '' || !is_numeric($b)) {
+        return '—';
+    }
+    $b = (float) $b;
+    $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    $i = 0;
+    while ($b >= 1024 && $i < count($units) - 1) {
+        $b /= 1024;
+        $i++;
+    }
+    $n = $i === 0 || $b >= 10 ? number_format($b, 0) : preg_replace('/\.0$/', '', number_format($b, 1));
+    return $n . ' ' . $units[$i];
 }

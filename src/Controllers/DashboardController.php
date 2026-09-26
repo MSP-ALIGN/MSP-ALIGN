@@ -91,6 +91,24 @@ final class DashboardController
             'clientCount' => count($names),
             'complianceAvg' => $scores ? (int) round(array_sum($scores) / count($scores)) : null,
             'complianceCount' => count($scores),
+            'backupIssues' => self::backupIssues(),
         ]);
+    }
+
+    /** Clients whose Veeam backups have a failed job or an overdue machine, worst first. */
+    private static function backupIssues(): array
+    {
+        if (!\Align\Backup\Backup::enabled()) {
+            return [];
+        }
+        $names = array_column(DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0'), 'name', 'id');
+        $out = [];
+        foreach (\Align\Backup\Backup::summaries() as $id => $x) {
+            if (isset($names[$id]) && ($x['failed'] || $x['overdue'] || $x['warning'])) {
+                $out[] = $x + ['name' => $names[$id]];
+            }
+        }
+        usort($out, fn($a, $b) => [$b['failed'], $b['overdue'], $b['warning']] <=> [$a['failed'], $a['overdue'], $a['warning']]);
+        return $out;
     }
 }

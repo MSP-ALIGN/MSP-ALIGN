@@ -66,6 +66,12 @@ final class SyncRunner
         if ($itflowOk && Settings::get('budget_msp_estimate', '1') === '1') {
             $this->step('Managed-services estimate (ITFlow invoices)', fn() => \Align\Budget\Billing::syncFromItflow($itflow));
         }
+        if (\Align\Integrations\VeeamSpc::configured()) {
+            $veeam = $this->client(fn() => \Align\Integrations\VeeamSpc::fromSettings(), 'Veeam');
+            if ($veeam) {
+                $this->step('Veeam backups', fn() => VeeamSync::run($veeam, fn($m) => $this->info($m)));
+            }
+        }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
         if ($itflowOk && Settings::get('itflow_writeback', 'off') !== 'off') {
             $this->step('Write warranty dates to ITFlow', fn() => $this->writeBack($itflow));

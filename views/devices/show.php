@@ -54,6 +54,16 @@ if ($client) {
           <?php if ($d['os_name']) echo $row('OS support ends', $d['os_rule'] ? e(fmt_date($d['os_rule']['eos_date'])) . ' <span class="small text-muted">(' . e($d['os_rule']['label']) . ')</span>' : '<span class="text-muted">No matching rule — <a href="/settings/os">OS support dates</a></span>'); ?>
           <?php if ($d['source'] === 'ninja') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
           <?php if ($d['source'] === 'ninja') echo $row('Last logged-in user', $d['last_user'] ? '<i class="fas fa-user fa-xs text-muted mr-1"></i>' . e($d['last_user']) : '<span class="text-muted">Not reported by NinjaOne</span>'); ?>
+          <?php if ($backups !== null):
+              $bw = $backups[0] ?? null;
+              $bage = $bw && $bw['last_point'] ? (time() - strtotime($bw['last_point'])) / 3600 : null;
+              $btone = !$bw ? ($d['device_class'] === 'server' ? 'danger' : 'muted') : ($bage === null ? 'danger' : ($bage <= \Align\Backup\Backup::staleHours() ? 'success' : 'warning'));
+              echo $row('Last backup', $bw
+                  ? '<span class="text-' . $btone . '"><i class="fas fa-database fa-xs mr-1"></i>' . e($bw['last_point'] ? rel_time($bw['last_point']) : 'No restore point') . '</span>'
+                    . ($bw['last_point'] ? ' <span class="small text-muted">' . e(fmt_datetime($bw['last_point'])) . ' · ' . (int) $bw['restore_points'] . ' restore points · ' . e(fmt_bytes($bw['backup_bytes'])) . '</span>' : '')
+                    . ' <a class="small" href="/clients/' . (int) $client['id'] . '/backups">Backups</a>'
+                  : '<span class="text-' . $btone . '">No Veeam backup found for this device</span>');
+          endif; ?>
           <?= $row('ITFlow asset', $d['itflow_asset_id'] ? 'Linked (#' . (int) $d['itflow_asset_id'] . ')' : '<span class="text-muted">Not linked</span>') ?>
         </table>
       </div>

@@ -232,9 +232,36 @@ final class ReportData
      * Plain-language highlights for the QBR executive summary, most important first.
      * @return array<int, array{tone:string, title:string, text:string}>
      */
-    public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs): array
+    /** Backup status (Veeam) for a client, or null when the client isn't linked to a Veeam company. */
+    public static function backup(int $clientId): ?array
+    {
+        $client = DB::one('SELECT id, veeam_company_uid FROM clients WHERE id = ?', [$clientId]);
+        return $client ? \Align\Backup\Backup::forClient($client, self::devices($clientId)) : null;
+    }
+
+    public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs, ?array $bk = null): array
     {
         $out = [];
+        $bkOut = [];
+        if ($bk) {
+            $s = $bk['stats'];
+            $list = fn(array $rows, string $key) => implode(', ', array_slice(array_column($rows, $key), 0, 3)) . (count($rows) > 3 ? '…' : '');
+            $failed = array_values(array_filter($bk['jobs'], fn($j) => $j['is_enabled'] && $j['status'] === 'failed'));
+            if ($failed) {
+                $bkOut[] = ['tone' => 'bad', 'title' => count($failed) . ' backup job' . (count($failed) == 1 ? '' : 's') . ' failed on the last run', 'text' => $list($failed, 'name') . '. We are working to get ' . (count($failed) == 1 ? 'it' : 'them') . ' running again.'];
+            }
+            if ($bk['unprotected']) {
+                $n = count($bk['unprotected']);
+                $bkOut[] = ['tone' => 'bad', 'title' => $n . ' server' . ($n == 1 ? ' has' : 's have') . ' no backup', 'text' => $list($bk['unprotected'], 'name') . '. Add ' . ($n == 1 ? 'it' : 'them') . ' to a backup job or confirm ' . ($n == 1 ? 'it isn\'t' : 'they aren\'t') . ' needed.'];
+            }
+            $overdue = array_values(array_filter($bk['workloads'], fn($w) => $w['tone'] !== 'ok'));
+            if ($overdue) {
+                $bkOut[] = ['tone' => 'warn', 'title' => count($overdue) . ' machine' . (count($overdue) == 1 ? '' : 's') . ' without a recent backup', 'text' => $list($overdue, 'name') . ' ha' . (count($overdue) == 1 ? 's' : 've') . ' no restore point from the last ' . $bk['stale'] . ' hours.'];
+            }
+            if (!$failed && !$bk['unprotected'] && !$overdue && $s['protected']) {
+                $bkOut[] = ['tone' => 'ok', 'title' => 'Backups are healthy', 'text' => 'All ' . $s['protected'] . ' protected machines have a recent restore point' . ($s['rate'] !== null ? ' and ' . $s['rate'] . '% of backup runs succeeded in the last 30 days' : '') . '.'];
+            }
+        }
         $m = fn(float $v) => $costs && $v > 0 ? ' (about ' . money($v) . ')' : '';
         foreach ($a['issues'] ?? [] as $i) {
             if ($i['key'] === 'replace') {
@@ -265,6 +292,8 @@ final class ReportData
         if (!$out) {
             $out[] = ['tone' => 'ok', 'title' => 'Everything is within policy', 'text' => 'No devices past end of life, no unsupported systems and nothing waiting on a decision.'];
         }
-        return $out;
+        // Backup problems lead; a healthy-backups note goes last
+        $bad = array_filter($bkOut, fn($h) => $h['tone'] === 'bad');
+        return array_merge($bad, $out, array_diff_key($bkOut, $bad));
     }
 }

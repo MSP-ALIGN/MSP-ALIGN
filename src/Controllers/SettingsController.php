@@ -15,8 +15,8 @@ use Align\View;
 
 final class SettingsController
 {
-    public const TEXT = ['ninja_client_id', 'itflow_url', 'dell_client_id', 'company_name', 'company_phone', 'company_email', 'company_website', 'report_footer'];
-    public const SECRETS = ['ninja_client_secret', 'itflow_api_key', 'dell_client_secret', 'lenovo_client_id'];
+    public const TEXT = ['ninja_client_id', 'itflow_url', 'veeam_url', 'dell_client_id', 'company_name', 'company_phone', 'company_email', 'company_website', 'report_footer'];
+    public const SECRETS = ['ninja_client_secret', 'itflow_api_key', 'veeam_api_key', 'dell_client_secret', 'lenovo_client_id'];
     public const NUMBERS = [
         'lifespan_desktop' => [1, 20], 'lifespan_laptop' => [1, 20], 'lifespan_server' => [1, 20], 'lifespan_network' => [1, 20],
         'cost_desktop' => [0, 1000000], 'cost_laptop' => [0, 1000000], 'cost_server' => [0, 1000000], 'cost_network' => [0, 1000000],
@@ -24,7 +24,7 @@ final class SettingsController
         'cost_printer' => [0, 1000000], 'cost_storage' => [0, 1000000], 'cost_power' => [0, 1000000], 'cost_other' => [0, 1000000],
         'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
-        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24],
+        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24], 'backup_stale_hours' => [1, 720],
     ];
 
     public static function index(): void
@@ -53,12 +53,13 @@ final class SettingsController
         $changed = [];
         foreach (self::TEXT as $k) {
             $val = post($k);
-            if ($k === 'itflow_url' && $val !== '') {
+            if (in_array($k, ['itflow_url', 'veeam_url'], true) && $val !== '') {
                 $val = rtrim($val, '/');
-                // HTTPS only: the ITFlow API key travels with every request
+                // HTTPS only: the API key travels with every request
                 $scheme = \Align\Config::get('allow_insecure_integrations', false) ? 'https?' : 'https';
                 if (!filter_var($val, FILTER_VALIDATE_URL) || !preg_match('#^' . $scheme . '://#i', $val)) {
-                    flash('error', 'ITFlow URL must start with https:// (for example https://itflow.example.com)');
+                    flash('error', $k === 'itflow_url' ? 'ITFlow URL must start with https:// (for example https://itflow.example.com)'
+                        : 'Veeam Service Provider Console URL must start with https:// (for example https://vspc.example.com)');
                     redirect('/settings');
                 }
             }
@@ -131,11 +132,12 @@ final class SettingsController
     {
         Auth::requireRole('admin');
         $target = post('target');
-        $label = ['ninja' => 'NinjaOne', 'itflow' => 'ITFlow', 'dell' => 'Dell', 'lenovo' => 'Lenovo'][$target] ?? $target;
+        $label = ['ninja' => 'NinjaOne', 'itflow' => 'ITFlow', 'veeam' => 'Veeam', 'dell' => 'Dell', 'lenovo' => 'Lenovo'][$target] ?? $target;
         try {
             $msg = match ($target) {
                 'ninja' => NinjaOne::fromSettings()->test(),
                 'itflow' => Itflow::fromSettings()->test(),
+                'veeam' => \Align\Integrations\VeeamSpc::fromSettings()->test(),
                 'dell' => self::testDell(),
                 'lenovo' => self::testLenovo(),
                 default => throw new \RuntimeException('Unknown integration'),

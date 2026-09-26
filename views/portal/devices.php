@@ -4,7 +4,10 @@
 <div class="d-flex flex-wrap align-items-center mb-3">
   <div class="mr-auto"><h1 class="h4 mb-0"><i class="fas fa-desktop mr-2 text-secondary"></i>Devices</h1>
     <div class="small text-muted">Computers, servers and network equipment, with warranty and planned replacement dates.</div></div>
-  <a class="btn btn-sm btn-default mt-2 mt-md-0" href="/portal/report/assets" target="_blank"><i class="fas fa-print mr-1"></i>Print asset report</a>
+  <div class="btn-group btn-group-sm mt-2 mt-md-0">
+    <?php if (!empty($hasBackup)): ?><a class="btn btn-default" href="/portal/report/backup" target="_blank"><i class="fas fa-database mr-1"></i>Backup report</a><?php endif; ?>
+    <a class="btn btn-default" href="/portal/report/assets" target="_blank"><i class="fas fa-print mr-1"></i>Print asset report</a>
+  </div>
 </div>
 
 <div class="row">

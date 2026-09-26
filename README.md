@@ -22,13 +22,15 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
 - **Two-way ITFlow asset sync:** edits in Align (name, type, make, model, serial, OS, purchase and warranty dates, retired status) go to the ITFlow asset as soon as you save. Edits made in ITFlow come into Align within about 2 minutes, via a `mountaineer-align-itflow` timer, because ITFlow has no webhooks. IP address and location come from ITFlow. If both sides change the same field, the most recent edit wins and the other value is kept in the device's sync history. Devices added in Align are created in ITFlow for clients linked to ITFlow, and any device can be set to Align-only. Retiring a device in Align marks the ITFlow asset Retired; deleting, archiving or retiring an asset in ITFlow retires the device in Align, and it can be restored. Sync never permanently deletes anything. For NinjaOne devices, NinjaOne owns the hardware facts; only the type and dates you set in Align are sent to ITFlow.
 - **Unassigned hardware:** ITFlow assets whose type Align doesn't recognize ("Other", Display, Tablet, custom types) are imported as *Unassigned*. Categorize them in bulk under Integrations → Unassigned hardware, and the ITFlow asset type is updated to match.
 - **Projects:** add projects to any client's IT plan with a target quarter, budget, recurring cost, priority, status and description. You can add them from the global Projects page, the client overview or the client roadmap. Project budgets are stacked with hardware replacements in the 3-year IT plan on the dashboard and client overview.
+- **Backups (Veeam Service Provider Console, 1.8):** each client gets a **Backups** page with backup health, protected machines (current vs overdue), job results with Veeam's failure messages, a 30-day success strip and success rate, Cloud Connect storage against quota, and **servers with no backup** (NinjaOne/ITFlow servers that no Veeam job protects, matched by computer name). The client overview shows a backup card, the device list and device page show each machine's newest restore point, the dashboard lists clients whose backups need attention, and the portfolio report adds a Backups column. VSPC companies link to clients by name on sync (or by hand on Client mapping). Read-only: Align never changes anything in Veeam. The overdue threshold (48 hours by default) is in Settings.
 - **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a 3-year replacement budget by quarter with a total for each year. Calendar or fiscal years, set in Settings.
 - **3-year roadmap per client:** a quarter-by-quarter board with a total for each year. It combines planned items you add (category, cost, monthly recurring cost, priority, status) with what the data says is coming: hardware reaching end of life, OS support ending, warranties expiring, meetings and compliance due dates.
 - **Printable reports (redesigned in 1.7):** clean, brand-coloured Letter reports with page numbers and a running footer. Print → Save as PDF.
-  - **Business review pack (QBR):** a cover page with contents, then an executive summary (health, budget and compliance tiles, plain-language highlights, the next six months, decisions needed), then roadmap, budget, assets, compliance, licensing, and your team & next meeting. Each section can be switched off, and the full inventory can be added as an appendix. It's linked from the client's Reports menu and the meeting page, and clients can print their own from the portal, limited to the sections they may see.
+  - **Business review pack (QBR):** a cover page with contents, then an executive summary (health, budget and compliance tiles, plain-language highlights, the next six months, decisions needed), then roadmap, budget, assets, backup & recovery, compliance, licensing, and your team & next meeting. Each section can be switched off, and the full inventory can be added as an appendix. It's linked from the client's Reports menu and the meeting page, and clients can print their own from the portal, limited to the sections they may see.
   - **Asset & lifecycle report:** fleet at a glance, health by device type, operating systems and their support dates, the replacement plan by quarter, priorities, the devices needing attention (with last user), and a full inventory grouped by type.
   - **3-year roadmap:** year tiles, a stacked quarterly chart (hardware vs projects), a quarter-by-quarter timeline, and projects with status and client decisions.
   - **Technology budget:** summary tiles, the three-year quarterly chart, categories with share bars, line items, contracts & renewals, and the three-year outlook.
+  - **Backup & recovery:** backup KPIs, the 30-day result strip, a single "needs attention" list (failed jobs, overdue machines, unprotected servers), backup jobs and protected machines. Also in the client portal for users with Devices access.
   - **Portfolio (internal):** every client ranked by risk, with health bars, compliance, last review date and hardware spend by year.
   - **Options:** costs, notes, last user, virtual machines and line items can be turned on or off from the toolbar.
 - **Planning scope:** remove any client from planning (bulk or one at a time, with a reason). Removed clients stay hidden through syncs. Clients added by hand can be deleted.
@@ -82,10 +84,11 @@ Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus 
 1. Sign in with the password the installer printed. You'll be asked to choose your own password and set up two-factor sign-in (required). **Store the backup decryption key the installer printed in your password manager, then run `sudo shred -u /root/mountaineer-align-backup-key.txt`.**
 2. **Settings → NinjaOne:** Administration → Apps → API → Client app IDs → Add. Choose *API Services (machine-to-machine)*, scope *Monitoring*, grant type *Client credentials*. Align only reads from NinjaOne.
 3. **Settings → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs read access to Contacts and Locations (for client addresses and phone numbers) Software and Vendors (for licensing), and Invoices (for the managed-services estimate), and write access to Support (assets) and Contacts for two-way sync and warranty write-back.
-4. Optional: **Dell TechDirect** warranty API key and **Lenovo** ClientID for automatic warranty dates.
-5. Use each **Test** button, then **Sync → Run sync now**.
-6. **Client mapping:** clients with matching names link automatically; link the rest by hand.
-7. Optional: **client portal.** Make sure `base_url` in `/etc/mountaineer-align/config.php` is the address clients will use (the installer sets it); invite links are built from it. Then open a client → **Client portal** → **Invite user**.
+4. Optional: **Settings → Veeam Service Provider Console:** in VSPC open Configuration → Security → REST API Keys and create a key for a read-only portal administrator. Enter the portal address (for example `https://vspc.example.com`; the API is `/api/v3` on the same host) and the key. The certificate must be trusted by the Align server.
+5. Optional: **Dell TechDirect** warranty API key and **Lenovo** ClientID for automatic warranty dates.
+6. Use each **Test** button, then **Sync → Run sync now**.
+7. **Client mapping:** clients with matching names link automatically (NinjaOne organizations and Veeam companies); link the rest by hand.
+8. Optional: **client portal.** Make sure `base_url` in `/etc/mountaineer-align/config.php` is the address clients will use (the installer sets it); invite links are built from it. Then open a client → **Client portal** → **Invite user**.
 
 ## Updating
 
@@ -127,7 +130,7 @@ cp -n config.example.php /tmp/align-config.php    # edit db credentials
 export ALIGN_CONFIG=/tmp/align-config.php
 php bin/align migrate
 php bin/align user:create --email=dev@example.com
-php -S 127.0.0.1:8099 tests/mock-server.php &                 # fake ITFlow/NinjaOne/Dell/Lenovo
+php -S 127.0.0.1:8099 tests/mock-server.php &                 # fake ITFlow/NinjaOne/Veeam/Dell/Lenovo
 php -S 127.0.0.1:8080 -t public tests/dev-router.php
 ```
 
