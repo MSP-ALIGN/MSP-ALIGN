@@ -12,8 +12,8 @@ $shown = $limit ? array_slice($list, 0, $limit) : $list;
   <?php if (!$list): ?>
     <p class="muted">Every device is within policy. Nothing needs attention right now.</p>
   <?php else: ?>
-  <table class="rtable fixed compact">
-    <colgroup><col style="width:23%"><col style="width:12%"><col style="width:17%"><col><col style="width:11%"><?php if ($costs): ?><col style="width:9%"><?php endif; ?></colgroup>
+  <table class="rtable fixed compact dense">
+    <colgroup><col style="width:21%"><col style="width:11%"><col style="width:17%"><col><col style="width:11%"><?php if ($costs): ?><col style="width:9%"><?php endif; ?></colgroup>
     <thead><tr><th>Device</th><th>Type</th><th>Make / model</th><th>Issue</th><th>Replace by</th><?php if ($costs): ?><th class="num">Est. cost</th><?php endif; ?></tr></thead>
     <tbody>
     <?php foreach ($shown as $d): ?>

@@ -223,3 +223,24 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .doc-print li { margin-bottom: .15rem; }
 .doc-draft-mark { position: fixed; top: 45%; left: 0; right: 0; text-align: center; font-size: 110px; font-weight: 800; color: rgba(200, 35, 51, .08); transform: rotate(-25deg); pointer-events: none; z-index: 0; }
 @media print { .doc-print h2, .doc-print h3 { break-after: avoid; page-break-after: avoid; } .doc-print li, .doc-print p { orphans: 3; widows: 3; } }
+
+/* ---- No overlapping cells (1.7.1) ----
+   Fixed-layout tables keep columns aligned, so content must wrap inside its column
+   instead of spilling into the next one: headers, dates and status pills wrap. */
+.rtable th { white-space: normal; }
+.rtable.fixed td.nowrap, .rtable.fixed td.num, .rtable.fixed th.num { white-space: normal; }
+.rtable.fixed td { overflow: hidden; }
+.rtable .pill { white-space: normal; max-width: 100%; text-align: center; line-height: 1.25; padding: .12rem .45rem; }
+.rtable td .sub { overflow-wrap: anywhere; }
+.rtable td.roles { text-align: right; width: 42%; }
+.rtable td.roles .pill { margin: 0 0 .15rem .15rem; }
+/* Numbers and words never split mid-way; only the text columns wrap */
+.rtable.fixed td.num, .rtable.fixed th.num { white-space: nowrap; overflow-wrap: normal; }
+.rtable .pill { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.rtable.fixed td { overflow-wrap: break-word; }
+.rtable.dense { font-size: 10.5px; }
+.rtable.dense td, .rtable.dense th { padding-left: .3rem; padding-right: .3rem; }
+.rtable.dense .pill { font-size: 9.5px; padding: .1rem .35rem; }
+@media print { .rtable.dense { font-size: 9.5px; } .rtable.dense .pill { font-size: 8.5px; } }
+.rtable.fixed th.num, .rtable th { white-space: normal; overflow-wrap: normal; }
+.rtable.dense th { font-size: .6rem; letter-spacing: .03em; }

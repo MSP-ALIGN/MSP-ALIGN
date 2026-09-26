@@ -28,10 +28,10 @@ $hp = $tot['devices'] ? (int) round($tot['healthy'] / $tot['devices'] * 100) : 0
 </section>
 <section class="rsection">
   <?= Ui::head('Clients by risk', null, 'Most devices needing attention first') ?>
-  <table class="rtable fixed compact">
-    <colgroup><col style="width:<?= $costs ? 20 : 30 ?>%"><col style="width:7%"><col style="width:<?= $costs ? 13 : 20 ?>%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:9%"><?php if ($costs): foreach ($yearsMeta as $y): ?><col><?php endforeach; ?><col><?php endif; ?></colgroup>
-    <thead><tr><th>Client</th><th class="num">Devices</th><th>Health</th><th class="num">Past EOL</th><th class="num">Old OS</th><th class="num">Compliance</th><th>Last review</th>
-      <?php if ($costs): foreach ($yearsMeta as $y): ?><th class="num"><?= e($y['label']) ?></th><?php endforeach; ?><th class="num">Projects</th><?php endif; ?></tr></thead>
+  <table class="rtable fixed compact dense">
+    <colgroup><col style="width:<?= $costs ? 18 : 30 ?>%"><col style="width:<?= $costs ? 8 : 9 ?>%"><col style="width:<?= $costs ? 11 : 22 ?>%"><col style="width:<?= $costs ? 7 : 9 ?>%"><col style="width:<?= $costs ? 7 : 9 ?>%"><col style="width:<?= $costs ? 9 : 11 ?>%"><col style="width:<?= $costs ? 9 : 10 ?>%"><?php if ($costs): foreach ($yearsMeta as $y): ?><col style="width:8%"><?php endforeach; ?><col style="width:7%"><?php endif; ?></colgroup>
+    <thead><tr><th>Client</th><th class="num">Devices</th><th>Health</th><th class="num">Past EOL</th><th class="num">Old OS</th><th class="num">Compli&shy;ance</th><th>Last review</th>
+      <?php if ($costs): foreach ($yearsMeta as $y): ?><th class="num"><?= e($y['label']) ?></th><?php endforeach; ?><th class="num">Proj&shy;ects</th><?php endif; ?></tr></thead>
     <tbody>
     <?php foreach ($rows as $r): $s = $r['summary']; ?>
       <tr>

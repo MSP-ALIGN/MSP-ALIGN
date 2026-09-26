@@ -16,7 +16,7 @@ $m = $p['nextMeeting'];
         <tbody>
         <?php foreach (array_slice($p['contacts'], 0, 8) as $k): ?>
           <tr><td><span class="name"><?= e($k['name']) ?></span><div class="sub"><?= e(implode(' · ', array_filter([$k['title'], $k['email'], Contacts::phone($k)]))) ?></div></td>
-            <td class="num"><?php foreach (Contacts::ROLES as $col => [$label]): if (!empty($k[$col]) && in_array($col, ['is_primary', 'decision_maker', 'qbr', 'is_billing'], true)): ?><span class="pill pill-muted" style="margin-left:2px"><?= e($label) ?></span><?php endif; endforeach; ?></td></tr>
+            <td class="roles"><?php foreach (Contacts::ROLES as $col => [$label]): if (!empty($k[$col]) && in_array($col, ['is_primary', 'decision_maker', 'qbr', 'is_billing'], true)): ?><span class="pill pill-muted" style="margin-left:2px"><?= e($label) ?></span><?php endif; endforeach; ?></td></tr>
         <?php endforeach; ?>
         </tbody>
       </table>
