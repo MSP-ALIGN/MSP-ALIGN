@@ -1,0 +1,8 @@
+[Unit]
+Description=Mountaineer Align - nightly audit log check and clean-up
+After=mariadb.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/php /opt/mountaineer-align/scripts/agent.php nightly
+Nice=10

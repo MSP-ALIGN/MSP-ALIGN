@@ -1,0 +1,9 @@
+[Unit]
+Description=Mountaineer Align - watch for update, backup and restore requests from the web app
+
+[Path]
+PathExistsGlob=/run/mountaineer-align/requests/*.json
+Unit=mountaineer-align-agent.service
+
+[Install]
+WantedBy=paths.target

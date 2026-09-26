@@ -99,21 +99,23 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 - `local-infile` off.
 - Encryption at rest.
 
-**Backups**
+**Backups** (Data backup plan 164.308(a)(7)(ii)(A), disaster recovery (B))
 
-- Nightly and encrypted.
-- The audit chain is verified, and its head hash recorded in the system journal.
-- Retention pruning runs as part of the same job.
+- Downloaded through the browser by an admin and never kept on the server. Each backup is built on request and encrypted with age to the server's public key. Only encrypted data is written to disk. It is deleted after one download, or after an hour.
+- Contains the database, uploaded files and `app_key`, so it restores on new hardware.
+- Restoring needs the offline private key (pasted once, held in RAM, never saved or logged), the admin's current two-factor code and typing RESTORE. A safety copy is made first and put back automatically on failure. Everyone is signed out afterwards. Every download, upload, test and restore is in the audit log, and a restore also raises a security alert.
+- The web server can't run programs. A root service runs a fixed set of jobs from validated requests. Imports use the app's database user in sandbox mode, and files are extracted as `www-data`.
+- Admins are reminded by email when no backup has been downloaded for 7 days (adjustable).
+- Nightly: the audit chain is verified and its head hash recorded in the system journal, then retention pruning runs.
 
 ## Operator responsibilities (outside the app)
 
 1. **Store the backup private key offline.**
    - The installer prints it once and leaves a copy at `/root/mountaineer-align-backup-key.txt`.
    - Put it in your password manager, then `sudo shred -u` that file.
-   - Test a restore at least yearly.
-2. **Keep `config.php` safe.**
-   - It holds `app_key`, which is needed to decrypt stored secrets and to verify the audit chain.
-   - Backups include it, encrypted.
+   - Test a restore at least yearly: Settings → Updates & backups → upload a backup → **Test this backup** opens and checks it without changing anything.
+2. **Download backups regularly and store them off the server,** away from the private key (for example on your file server, with the key in your password manager).
+   - `config.php` holds `app_key`, which is needed to decrypt stored secrets and to verify the audit chain. Backups include it, encrypted.
 3. **Harden SSH.**
    - Use keys only (`PasswordAuthentication no`).
    - No root login.
@@ -125,7 +127,7 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 6. **Paperwork.**
    - Risk analysis, BAAs with covered-entity clients, workforce training, and an incident response plan.
    - Align's own WISP and IR templates can document these.
-7. **Watch for alerts.** Watch for `ALERT: audit log verification failed` in `journalctl -u mountaineer-align-backup`.
+7. **Watch for alerts.** Watch for `ALERT: audit log verification failed` in `journalctl -u mountaineer-align-nightly`, and keep the Updates and Security alerts email notifications on.
 
 ## Reporting a vulnerability
 

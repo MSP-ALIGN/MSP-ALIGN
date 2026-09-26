@@ -27,14 +27,16 @@ final class Notifications
         'weekly_digest' => ['Weekly vCIO digest', 'Planning', 'staff', 'weekly', 'One summary per vCIO: meetings this week, decisions waiting, renewals and backup problems for their clients.', ['admin'], true, true],
         'meeting_reminder' => ['Meeting reminders', 'Meetings', 'staff', 'before', 'A reminder to the meeting owner before each meeting, with the agenda and a link.', ['admin', 'tech', 'viewer'], false, true],
         'portal_activity' => ['Client portal activity', 'Client portal', 'staff', 'immediate', 'When a client approves or declines a project or changes a contact in the portal.', ['admin'], true, true],
-        'security' => ['Security alerts', 'Security', 'staff', 'immediate', 'Account lockouts, new or changed staff accounts, two-factor resets, integration keys changed and audit log problems. Admins only.', ['admin'], false, true],
+        'security' => ['Security alerts', 'Security', 'staff', 'immediate', 'Account lockouts, new or changed staff accounts, two-factor resets, integration keys changed, data restored from a backup and audit log problems. Admins only.', ['admin'], false, true],
+        'updates' => ['Updates', 'System', 'staff', 'immediate', 'When a new version of Mountaineer Align is available (checked every 6 hours), and when an update finishes or fails.', ['admin'], false, true],
+        'backup_reminder' => ['Backup reminder', 'System', 'staff', 'overdue', 'Backups are only kept where you download them. Reminds you when nobody has downloaded one for the number of days set on Updates & backups.', ['admin'], false, true],
         'client_portal_invite' => ['Portal invitations', 'Client emails', 'client', 'immediate', 'Email portal invite and password links straight to the client instead of copying the link.', [], false, true],
         'client_portal_reset' => ['Portal "Forgot password"', 'Client emails', 'client', 'immediate', 'Lets portal users reset their own password by email from the sign-in page (two-factor is still required).', [], false, true],
         'client_meeting_invite' => ['Meeting invitations', 'Client emails', 'client', 'immediate', 'Send invitations to attendees when a meeting is scheduled, changed or cancelled.', [], false, true],
         'client_meeting_reminder' => ['Meeting reminders to attendees', 'Client emails', 'client', 'before', 'A reminder email to external attendees before the meeting (Outlook invitations already remind people, so this is off by default).', [], false, false],
     ];
 
-    public const TIMING = ['immediate' => 'As it happens', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly (1st)', 'before' => 'Before each meeting'];
+    public const TIMING = ['immediate' => 'As it happens', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly (1st)', 'before' => 'Before each meeting', 'overdue' => 'When overdue'];
 
     public static function staffKeys(): array
     {

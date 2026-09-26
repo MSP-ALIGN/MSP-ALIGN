@@ -11,7 +11,7 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
   - Automatic logoff after 15 idle minutes (configurable, with a warning) and a 12-hour session limit.
   - Password and 2FA changes end other sessions.
   - A tamper-evident audit log (hash-chained, verified nightly, kept 6 years) that also records who viewed which client records.
-  - Encrypted database (MariaDB encryption at rest), encrypted backups (age, private key kept offline), and TLS 1.2+ with HSTS.
+  - Encrypted database (MariaDB encryption at rest), encrypted backups downloaded through the browser and never kept on the server (age, private key kept offline), and TLS 1.2+ with HSTS.
   - Strict security headers, no-store caching, firewall, and fail2ban.
   - See [docs/SECURITY.md](docs/SECURITY.md) for the HIPAA 164.312 mapping and what you're responsible for outside the app.
 - **Client portal:** give people at a client their own sign-in at `/portal`. Invite them from the client's **Client portal** page and tick what each person can see (Roadmap & projects; Budget & licensing; Devices & compliance; Documents, contacts & meetings) and do (approve or decline proposed projects; add and update contacts). Align makes a one-time link (valid 7 days) that you send them yourself, by copying it or with the Open in email button; they set their own password. Portal users are completely separate from staff accounts: they have their own session cookie and user table, and every page is scoped to their own client, so changing an ID in the URL never shows another client's data. Internal notes never reach the portal: device, license and contact notes, meeting notes, compliance evidence and internal meetings stay private. Documents show only when they're Active and shared (policies, plans, procedures and WISPs are shared by default; toggle it on the document). Prices appear only for users with Budget & licensing access. Security: two-factor sign-in is required (set up right after choosing a password), 12-character minimum passwords, lockout after 5 failed attempts, and the same idle timeout as staff. Project decisions show on the roadmap ("Approved by … (client)") and in a Client portal activity card on the dashboard; everything a portal user does is in the audit log. Clients can print their own roadmap, budget and asset reports.
@@ -28,6 +28,11 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
   - **Client emails:** portal invitations and password links emailed directly, self-service "Forgot password" on the portal (1-hour single-use link, still needs two-factor), meeting invitations as real **Outlook or Google Calendar invitations** (with an optional Teams or Meet link, updates and cancellations follow automatically) or as .ics emails, and optional reminders to attendees.
 - **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a 3-year replacement budget by quarter with a total for each year. Calendar or fiscal years, set in Settings.
 - **3-year roadmap per client:** a quarter-by-quarter board with a total for each year. It combines planned items you add (category, cost, monthly recurring cost, priority, status) with what the data says is coming: hardware reaching end of life, OS support ending, warranties expiring, meetings and compliance due dates.
+- **Updates & backups (1.14):** Settings → Updates & backups.
+  - **Updates:** Align checks GitHub every 6 hours. Admins see a banner and can get an email when a new version is out, with the release notes. **Update now** makes a safety copy, pulls the new version, runs the installer (packages, migrations, services) and shows the live log. The safety copy is deleted once the update succeeds, and kept for download if it fails. `sudo mountaineer-align-update` does the same from the command line.
+  - **Backups are downloaded, never stored on the server.** **Download backup** builds one file: the database, uploaded files and the key that decrypts saved API keys and two-factor secrets. It's encrypted with this server's backup key (age) and deleted from the server as soon as it's downloaded, or after an hour. Only encrypted data touches the disk. The file is a plain tar, so it can also be opened by hand: `tar -xf backup.tar`, then `age -d -i key.txt db.sql.gz.age | gunzip`. Admins get a reminder email when nobody has downloaded one for 7 days (adjustable).
+  - **Restore:** upload a backup, paste the backup private key (used once, never saved), and **Test this backup** or **Restore** the database, the uploaded files or both. Restoring needs your two-factor code and typing RESTORE. Align goes into maintenance mode, makes a safety copy and puts it back automatically if anything fails. Afterwards it applies any newer migrations and signs everyone out. A backup from another server (moving to new hardware) brings its encryption key along, so saved API keys keep working. Backups larger than the browser limit (2 GB): `sudo mountaineer-align-restore FILE`.
+  - **How it works:** the web server can't run programs (they're disabled in PHP), so a small root service (`mountaineer-align-agent`) does the work. The page drops a request in `/run/mountaineer-align/requests` (in RAM), and the agent runs only a fixed list of jobs with validated input. Databases are imported as the app's own database user in sandbox mode, so a crafted backup can't run commands or touch other databases. Uploaded files are extracted as `www-data`, with unsafe paths refused.
 - **Reports hub (1.11):** Reports in the sidebar runs everything from one screen: pick a client, then open the QBR pack, asset, roadmap, budget (any plan year) or backup report with its options, download the compliance checklist or device list as CSV, or print a client document. Reports that need data the client doesn't have yet (Veeam link, a framework, documents) say so. All-client reports: portfolio summary, **backup status** (every Veeam client with failed jobs, overdue items and servers without backup) and contracts & renewals. Each client's Reports menu links to the hub with that client selected.
 - **Printable reports (redesigned in 1.7):** clean, brand-coloured Letter reports with page numbers and a running footer. Print → Save as PDF.
   - **Business review pack (QBR):** a cover page with contents, then an executive summary (health, budget and compliance tiles, plain-language highlights, the next six months, decisions needed), then roadmap, budget, assets, backup & recovery, compliance, licensing, and your team & next meeting. With costs turned off, the budget and licensing sections are left out. Each section can be switched off, and the full inventory can be added as an appendix. It's linked from the client's Reports menu and the meeting page, and clients can print their own from the portal, limited to the sections they may see.
@@ -79,13 +84,13 @@ The installer asks for:
 | Admin email / name | First admin account. A random password is printed at the end |
 | Time zone | Defaults to the VM's zone |
 
-It installs Apache, PHP, MariaDB and git; creates the database, config and encryption key; sets up the site, an hourly sync timer, nightly backups and automatic security updates.
+It installs Apache, PHP, MariaDB and git; creates the database, config and encryption key; sets up the site, an hourly sync timer, the update and backup service and automatic security updates.
 
 Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when needed) and it won't prompt.
 
 ## First-time setup
 
-1. Sign in with the password the installer printed. You'll be asked to choose your own password and set up two-factor sign-in (required). **Store the backup decryption key the installer printed in your password manager, then run `sudo shred -u /root/mountaineer-align-backup-key.txt`.**
+1. Sign in with the password the installer printed. You'll be asked to choose your own password and set up two-factor sign-in (required). **Store the backup decryption key the installer printed in your password manager, then run `sudo shred -u /root/mountaineer-align-backup-key.txt`.** You need it to restore any backup. Check it on Settings → Updates & backups → Check key.
 2. **Settings → NinjaOne:** Administration → Apps → API → Client app IDs → Add. Choose *API Services (machine-to-machine)*, scope *Monitoring*, grant type *Client credentials*. Align only reads from NinjaOne.
 3. **Settings → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs read access to Contacts and Locations (for client addresses and phone numbers) Software and Vendors (for licensing), and Invoices (for the managed-services estimate), and write access to Support (assets) and Contacts for two-way sync and warranty write-back.
 4. Optional: **Settings → Veeam Service Provider Console:** in VSPC open Configuration → Security → REST API Keys and create a key for a read-only portal administrator. Enter the portal address (for example `https://vspc.example.com`; the API is `/api/v3` on the same host) and the key. The certificate must be trusted by the Align server.
@@ -93,15 +98,18 @@ Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus 
 6. Optional: **Dell TechDirect** warranty API key and **Lenovo** ClientID for automatic warranty dates.
 7. Use each **Test** button, then **Sync → Run sync now**.
 8. **Client mapping:** clients with matching names link automatically (NinjaOne organizations and Veeam companies); link the rest by hand.
-9. Optional: **client portal.** Make sure `base_url` in `/etc/mountaineer-align/config.php` is the address clients will use (the installer sets it); invite links are built from it. Then open a client → **Client portal** → **Invite user**.
+9. **Settings → Updates & backups → Download backup**, and keep the file somewhere safe (file server, documentation system). Do this regularly; Align reminds you by email.
+10. Optional: **client portal.** Make sure `base_url` in `/etc/mountaineer-align/config.php` is the address clients will use (the installer sets it); invite links are built from it. Then open a client → **Client portal** → **Invite user**.
 
 ## Updating
+
+**Settings → Updates & backups → Update now**, or on the server:
 
 ```bash
 sudo mountaineer-align-update
 ```
 
-This backs up, pulls the latest `main`, installs any new packages, applies database migrations and reloads services.
+Either one makes a safety copy, pulls the latest `main`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds. Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
 
 ## Operations
 
@@ -115,9 +123,12 @@ This backs up, pulls the latest `main`, installs any new packages, applies datab
 | Test email (Microsoft 365 or Google) | `sudo align mail:test --to=you@example.com` |
 | Sync timer status / logs | `systemctl list-timers mountaineer-align*` · `journalctl -u mountaineer-align-sync` · `journalctl -u mountaineer-align-itflow` · `journalctl -u mountaineer-align-mail` |
 | App errors | `/var/log/apache2/mountaineer-align-error.log` |
-| Backups | `/var/backups/mountaineer-align/` (nightly, 14 days) |
+| Download a backup | Settings → Updates & backups → Download backup (not kept on the server) |
+| Restore a backup | Settings → Updates & backups → Restore, or `sudo mountaineer-align-restore FILE [--db-only\|--uploads-only]` |
+| Check for updates now | Settings → Updates & backups → Check now, or `sudo systemctl start mountaineer-align-update-check` |
+| Update and backup service logs | `journalctl -u mountaineer-align-agent` · `journalctl -u mountaineer-align-update-check` · `journalctl -u mountaineer-align-nightly` (audit log check) |
 
-**Back up `config.php` somewhere safe.** It holds `app_key`, which encrypts the stored API keys and 2FA secrets. Nightly backups include it, so copy that folder off the VM with your backup agent.
+**Keep downloaded backups and the backup private key somewhere safe, and apart.** A backup includes `app_key` (encrypted), which decrypts the stored API keys and 2FA secrets, so a restore on new hardware needs nothing else. Nightly backups on the server stopped in 1.14. Old ones in `/var/backups/mountaineer-align/` stay until you delete them (the page offers to).
 
 ## How lifecycle is calculated
 

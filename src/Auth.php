@@ -140,6 +140,28 @@ final class Auth
         return 'ok';
     }
 
+    /** Re-checks the signed-in user's current two-factor code before a destructive action (replays refused). */
+    public static function confirmCode(string $code): bool
+    {
+        $u = self::user();
+        if (!$u) {
+            return false;
+        }
+        $row = DB::one('SELECT email, totp_secret_enc, totp_last_step FROM users WHERE id = ?', [$u['id']]);
+        if (!$row || self::isLockedOut($row['email'])) {
+            return false;
+        }
+        $secret = $row['totp_secret_enc'] ? Crypto::decrypt($row['totp_secret_enc']) : null;
+        $step = $secret ? Totp::verifyStep($secret, preg_replace('/\s+/', '', $code) ?? '', $row['totp_last_step'] !== null ? (int) $row['totp_last_step'] : null) : null;
+        if ($step === null) {
+            self::recordAttempt($row['email'], false);
+            Audit::log('reauth.failed', 'Two-factor confirmation failed');
+            return false;
+        }
+        DB::run('UPDATE users SET totp_last_step = ? WHERE id = ?', [$step, $u['id']]);
+        return true;
+    }
+
     private static function completeLogin(int $uid): void
     {
         session_regenerate_id(true);

@@ -1,8 +1,0 @@
-[Unit]
-Description=Mountaineer Align - nightly database and config backup
-After=mariadb.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/mountaineer-align/scripts/backup.sh
-Nice=10

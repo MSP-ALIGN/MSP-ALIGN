@@ -29,6 +29,11 @@ $fail = function (string $s): never {
     exit(1);
 };
 
+// While the agent restores or updates, scheduled jobs wait
+if (in_array($cmd, ['sync', 'itflow:poll', 'mail:run'], true) && Align\System\Agent::maintenance()) {
+    exit(0);
+}
+
 try {
     switch ($cmd) {
         case 'migrate':
@@ -137,6 +142,22 @@ try {
             $say("Pruned $n audit entries older than " . Align\AuditChain::RETENTION_YEARS . ' years.');
             break;
 
+        case 'system:audit':
+            // Called by the root agent (scripts/agent.php) to record what it did
+            $event = (string) ($opts['event'] ?? '');
+            if (!preg_match('/^(system|backup)\.[a-z_]{2,40}$/', $event)) {
+                $fail('Invalid event');
+            }
+            $detail = mb_substr((string) ($opts['detail'] ?? ''), 0, 1000);
+            $uid = isset($opts['user']) ? ((int) $opts['user'] ?: null) : null;
+            Audit::log($event, $detail, $uid);
+            if ($event === 'backup.restored') {
+                Align\Mail\Notify::security('Data restored from a backup', $detail);
+            } elseif (in_array($event, ['system.updated', 'system.update_failed'], true)) {
+                Align\Mail\Notify::updateResult($event === 'system.updated', $detail);
+            }
+            break;
+
         case 'check':
             DB::value('SELECT 1');
             $say('Config: ' . Align\Config::path());
@@ -162,6 +183,7 @@ try {
             $say('  mail:test --to=EMAIL            Send a test email through Microsoft 365 / Google');
             $say('  audit:prune                     Remove audit entries past the 6-year retention period');
             $say('  check                           Verify config and database');
+            $say('Updates, backups and restores: Settings -> Updates & backups, or sudo mountaineer-align-update / mountaineer-align-restore FILE');
             $say('  version');
     }
 } catch (Throwable $e) {

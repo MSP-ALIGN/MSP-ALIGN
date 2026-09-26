@@ -151,6 +151,23 @@ $r->post('/sync', [SyncController::class, 'run']);
 $r->get('/sync/{id}', [SyncController::class, 'show']);
 
 // Admin
+$S = \Align\Controllers\SystemController::class;
+$r->get('/settings/system', [$S, 'index']);
+$r->post('/settings/system/check', [$S, 'check']);
+$r->post('/settings/system/update', [$S, 'update']);
+$r->post('/settings/system/backup', [$S, 'backup']);
+$r->post('/settings/system/download/{id:str}', [$S, 'download']);
+$r->post('/settings/system/safety/{name:str}/download', [$S, 'safetyDownload']);
+$r->post('/settings/system/safety/{name:str}/delete', [$S, 'safetyDelete']);
+$r->post('/settings/system/upload', [$S, 'upload']);
+$r->post('/settings/system/upload/discard', [$S, 'discard']);
+$r->post('/settings/system/verify', [$S, 'verify']);
+$r->post('/settings/system/restore', [$S, 'restore']);
+$r->post('/settings/system/keycheck', [$S, 'keycheck']);
+$r->post('/settings/system/legacy/delete', [$S, 'legacyDelete']);
+$r->post('/settings/system/settings', [$S, 'saveSettings']);
+$r->get('/settings/system/jobs/{id:str}', [$S, 'jobStatus']);
+$r->get('/settings/system/jobs/{id:str}/log', [$S, 'jobLog']);
 $r->get('/settings', [SettingsController::class, 'index']);
 $r->post('/settings', [SettingsController::class, 'save']);
 $r->post('/settings/test', [SettingsController::class, 'test']);

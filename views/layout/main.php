@@ -40,6 +40,7 @@ $navSections = [
         ['settings', '/settings', 'Settings', 'fa-gear', 'admin'],
         ['email', '/settings/email', 'Email & notifications', 'fa-envelope', 'admin'],
         ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
+        ['system', '/settings/system', 'Updates & backups', 'fa-arrows-rotate', 'admin', $u && Auth::can('admin') && \Align\System\Agent::updateAvailable() ? 'new' : 0],
         ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
         ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
         ['portal-users', '/portal-users', 'Client portal users', 'fa-door-open', 'tech'],
@@ -65,7 +66,7 @@ $clientMenu = $client ? [
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
-    $badge = !empty($i[5]) ? ' <span class="badge badge-warning right">' . (int) $i[5] . '</span>' : '';
+    $badge = !empty($i[5]) ? ' <span class="badge badge-' . (is_string($i[5]) ? 'info' : 'warning') . ' right">' . (is_string($i[5]) ? e($i[5]) : (int) $i[5]) . '</span>' : '';
     return '<li class="nav-item"><a href="' . e($href) . '" class="nav-link' . ($active === $key ? ' active' : '') . '">'
         . '<i class="nav-icon fas ' . e($icon) . '"></i><p>' . e($label) . $badge . '</p></a></li>';
 };
@@ -172,6 +173,13 @@ $item = function (array $i, string $active) {
             <i class="fas fa-<?= $t === 'success' ? 'check' : ($t === 'danger' || $t === 'warning' ? 'exclamation-triangle' : 'info-circle') ?> mr-2"></i><?= e($f['message']) ?>
           </div>
         <?php endforeach; ?>
+        <?php if (($nav ?? '') !== 'system' && Auth::can('admin') && ($upd = \Align\System\Agent::updateAvailable())): ?>
+          <div class="alert alert-info py-2 d-flex align-items-center flex-wrap" role="status">
+            <i class="fas fa-circle-arrow-up mr-2"></i>
+            <span class="mr-3">Mountaineer Align <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
+            <a class="btn btn-sm btn-light ml-auto" href="/settings/system">See what's new and update</a>
+          </div>
+        <?php endif; ?>
         <?= $content ?>
       </div>
     </section>

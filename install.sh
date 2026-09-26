@@ -25,7 +25,8 @@ CONF_DIR=/etc/mountaineer-align
 CONF_FILE="$CONF_DIR/config.php"
 TOKEN_FILE="$CONF_DIR/github-token"
 DATA_DIR=/var/lib/mountaineer-align
-BACKUP_DIR=/var/backups/mountaineer-align
+BACKUP_DIR=/var/backups/mountaineer-align   # old nightly backups (before 1.14); no longer written
+AGENT_DIR=/var/lib/mountaineer-align-agent
 DB_NAME=mountaineer_align
 DB_USER=align
 SITE=mountaineer-align
@@ -133,11 +134,22 @@ install -d -m 750 -o root -g www-data "$CONF_DIR"
 install -d -m 750 -o www-data -g www-data "$DATA_DIR"
 install -d -m 700 -o www-data -g www-data "$DATA_DIR/sessions"
 install -d -m 750 -o www-data -g www-data "$DATA_DIR/uploads"
-install -d -m 700 -o root -g root "$BACKUP_DIR"
+# Updates & backups: the web app queues requests in /run (RAM); the root agent does the work.
+# Backups are built for download and deleted once downloaded - nothing is kept on the server.
+install -d -m 750 -o www-data -g www-data "$DATA_DIR/downloads" "$DATA_DIR/restore"
+install -d -m 750 -o root -g www-data "$AGENT_DIR" "$AGENT_DIR/jobs" "$AGENT_DIR/safety"
+install -d -m 700 -o root -g root "$AGENT_DIR/work"
+cat >/etc/tmpfiles.d/mountaineer-align.conf <<'EOF'
+# Managed by the Mountaineer Align installer
+d /run/mountaineer-align 0755 root root -
+d /run/mountaineer-align/requests 0770 root www-data -
+d /run/mountaineer-align/keys 0700 root root -
+EOF
+systemd-tmpfiles --create /etc/tmpfiles.d/mountaineer-align.conf
 
 # ----------------------------------------------------- backup encryption key --
-# Backups are encrypted to an age public key. The private key is shown once and must be stored
-# offline (password manager / safe); only the public key stays on this server.
+# Downloaded backups are encrypted to an age public key. The private key is shown once and must be
+# stored offline (password manager / safe); only the public key stays on this server.
 BACKUP_PRIV_SHOWN=""
 if [[ ! -s "$CONF_DIR/backup-recipient.txt" ]]; then
   log "Creating backup encryption key"
@@ -177,7 +189,7 @@ else
 fi
 chown -R root:root "$APP_DIR"
 chmod -R go-w "$APP_DIR"
-chmod 755 "$APP_DIR/bin/align" "$APP_DIR/scripts/"*.sh
+chmod 755 "$APP_DIR/bin/align" "$APP_DIR/scripts/"*.sh "$APP_DIR/scripts/agent.php"
 VERSION=$(cat "$APP_DIR/VERSION")
 
 # ---------------------------------------------------------------- database --
@@ -283,6 +295,19 @@ Header always unset X-Powered-By
     SSLUseStapling on
     SSLStaplingCache "shmcb:${APACHE_RUN_DIR}/ssl_stapling(32768)"
 </IfModule>
+
+# Restoring a backup from Settings -> Updates & backups: allow large uploads on that one URL only,
+# written to disk next to the app data instead of /tmp (a RAM disk on Debian 13)
+<Location "/settings/system/upload">
+    LimitRequestBody 2147483647
+    <IfModule php_module>
+        php_value upload_max_filesize 2000M
+        php_value post_max_size 2000M
+        php_value max_input_time 1800
+        php_value max_execution_time 1800
+        php_admin_value upload_tmp_dir /var/lib/mountaineer-align/restore
+    </IfModule>
+</Location>
 
 # HSTS on every HTTPS response
 Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
@@ -472,11 +497,25 @@ fi
 
 # ----------------------------------------------------------------- systemd --
 log "Installing scheduled jobs"
-install -m 644 "$APP_DIR"/deploy/systemd/*.service "$APP_DIR"/deploy/systemd/*.timer /etc/systemd/system/
+# 1.14: nightly backups on the server are replaced by backups downloaded through the browser
+if [[ -f /etc/systemd/system/mountaineer-align-backup.timer ]]; then
+  systemctl disable -q --now mountaineer-align-backup.timer 2>/dev/null || true
+  rm -f /etc/systemd/system/mountaineer-align-backup.timer /etc/systemd/system/mountaineer-align-backup.service
+fi
+install -m 644 "$APP_DIR"/deploy/systemd/*.service "$APP_DIR"/deploy/systemd/*.timer "$APP_DIR"/deploy/systemd/*.path /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-backup.timer mountaineer-align-itflow.timer mountaineer-align-mail.timer
+systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-itflow.timer mountaineer-align-mail.timer \
+  mountaineer-align-nightly.timer mountaineer-align-update-check.timer mountaineer-align-agent.path
+# First update check, in the background (waits for a running update to finish first)
+systemctl start --no-block mountaineer-align-update-check.service 2>/dev/null || true
 
 ln -sf "$APP_DIR/scripts/update.sh" /usr/local/sbin/mountaineer-align-update
+cat >/usr/local/sbin/mountaineer-align-restore <<EOF
+#!/bin/sh
+# Restore a Mountaineer Align backup file (same as Settings -> Updates & backups -> Restore)
+exec /usr/bin/php $APP_DIR/scripts/agent.php restore-cli "\$@"
+EOF
+chmod 750 /usr/local/sbin/mountaineer-align-restore
 cat >/usr/local/bin/align <<EOF
 #!/bin/sh
 # Mountaineer Align CLI (runs as www-data)
@@ -500,7 +539,7 @@ echo
 echo "  Next:      Settings -> add NinjaOne + ITFlow API keys -> Test -> Sync"
 echo "  Update:    sudo mountaineer-align-update"
 echo "  CLI:       sudo align help"
-echo "  Backups:   $BACKUP_DIR (nightly, encrypted with age; includes config.php)"
+echo "  Backups:   Settings -> Updates & backups -> Download backup (encrypted; not kept on this server)"
 if [[ -n "$BACKUP_PRIV_SHOWN" ]]; then
   echo
   printf '%s  BACKUP DECRYPTION KEY - store it offline now (password manager or safe).%s\n' "$c_warn$c_b" "$c_0"

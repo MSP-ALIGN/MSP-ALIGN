@@ -449,3 +449,142 @@ document.addEventListener('click', (ev) => {
   document.addEventListener('change', (ev) => { if (ev.target.name) apply(); });
   apply();
 })();
+
+// Updates & backups: follow a job's progress, download a finished backup, upload with progress
+(() => {
+  const box = document.querySelector('[data-job-watch]');
+  if (box) {
+    const id = box.dataset.jobWatch;
+    const $ = (s) => box.querySelector(s);
+    const badges = { succeeded: ['success', 'Done'], failed: ['danger', 'Failed'], running: ['primary', 'Running'], queued: ['secondary', 'Queued'] };
+    const dl = box.querySelector('[data-job-download]');
+    let done = false, sawMaintenance = false, started = false, downloaded = false;
+    const setState = (s) => {
+      const [c, t] = badges[s] || ['secondary', s];
+      const b = $('[data-job-state]');
+      b.className = 'badge px-2 py-1 badge-' + c;
+      b.textContent = t;
+      box.className = box.className.replace(/card-(success|danger|primary|secondary)/, 'card-' + c);
+      $('[data-job-spinner]').classList.toggle('d-none', s === 'succeeded' || s === 'failed');
+    };
+    const result = (j) => {
+      const r = j.result || {}, el = $('[data-job-result]');
+      const b = r.backup;
+      const rows = [];
+      if (b) {
+        if (b.created) rows.push(['Made', new Date(b.created).toLocaleString()]);
+        if (b.version) rows.push(['Version', b.version + (b.host ? ' on ' + b.host : '')]);
+        rows.push(['Database', b.tables + ' tables']);
+        if (b.has_uploads) rows.push(['Uploaded files', String(b.uploads_files)]);
+        if (b.app_key_differs) rows.push(['Encryption key', 'From another server: restoring switches this server to it so saved API keys keep working']);
+      }
+      if (r.public_key) rows.push(['Public key of the pasted key', r.public_key]);
+      if (r.safety) rows.push(['Safety copy', 'Kept on the server; see "Safety copies" below']);
+      if (r.rolled_back === true) rows.push(['Rollback', 'The previous data was put back automatically']);
+      el.innerHTML = '';
+      if (!rows.length) return;
+      const dlist = document.createElement('dl');
+      dlist.className = 'row mb-0';
+      rows.forEach(([k, v]) => {
+        const dt = document.createElement('dt'); dt.className = 'col-sm-3 font-weight-normal text-muted'; dt.textContent = k;
+        const dd = document.createElement('dd'); dd.className = 'col-sm-9 mb-1'; dd.textContent = v;
+        dlist.append(dt, dd);
+      });
+      el.appendChild(dlist);
+    };
+    const render = (j) => {
+      setState(j.state);
+      if (j.label) $('[data-job-label]').textContent = j.label;
+      $('[data-job-step]').textContent = j.step || '';
+      $('[data-job-message]').textContent = j.message || '';
+      const log = $('[data-job-log]');
+      if (log && typeof j.log === 'string') {
+        const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+        log.textContent = j.log;
+        if (atEnd) log.scrollTop = log.scrollHeight;
+      }
+      result(j);
+      if (j.state === 'failed') box.querySelector('details').open = true;
+    };
+    const finish = (j) => {
+      done = true;
+      if (j.download && dl) {
+        dl.classList.remove('d-none');
+        if (started && !downloaded) { downloaded = true; dl.submit(); }
+      }
+      // Version or backup info changed: refresh the page (not for downloads, which would cancel them)
+      if (started && ['update', 'check', 'purge_legacy', 'delete_safety'].includes(j.action)) setTimeout(() => location.replace('/settings/system?job=' + id), 1500);
+    };
+    const tick = () => {
+      fetch('/settings/system/jobs/' + id, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' })
+        .then(async (r) => {
+          const ct = r.headers.get('content-type') || '';
+          if (!ct.includes('json')) {
+            if (sawMaintenance || r.redirected) {
+              // A restore signs everyone out
+              done = true;
+              setState('succeeded');
+              $('[data-job-step]').textContent = 'Finished.';
+              $('[data-job-message]').innerHTML = 'Everyone was signed out. <a href="/login">Sign in again</a> to see the result.';
+            }
+            return;
+          }
+          const j = await r.json();
+          if (j.maintenance) {
+            sawMaintenance = true;
+            setState('running');
+            $('[data-job-step]').textContent = j.step || j.message;
+            return;
+          }
+          if (j.state === 'missing') { done = true; return; }
+          render(j);
+          if (j.state === 'succeeded' || j.state === 'failed') finish(j);
+          else started = true;
+        })
+        .catch(() => {})
+        .finally(() => { if (!done) setTimeout(tick, 1500); });
+    };
+    const st = $('[data-job-state]').textContent.trim();
+    started = st === 'Running' || st === 'Queued';
+    if (started) tick();
+    else fetch('/settings/system/jobs/' + id, { headers: { Accept: 'application/json' }, credentials: 'same-origin' }).then((r) => r.json()).then(result).catch(() => {});
+  }
+
+  document.querySelectorAll('form[data-upload]').forEach((f) => {
+    const input = f.querySelector('input[type=file]');
+    input.addEventListener('change', () => {
+      const label = input.nextElementSibling;
+      if (label && input.files[0]) label.textContent = input.files[0].name;
+    });
+    f.addEventListener('submit', (e) => {
+      const err = f.querySelector('[data-upload-error]');
+      err.textContent = '';
+      if (!input.files.length) { e.preventDefault(); err.textContent = 'Choose a backup file first.'; return; }
+      const max = Number(f.dataset.max || 0);
+      if (max && input.files[0].size > max) {
+        e.preventDefault();
+        err.textContent = 'That file is larger than this server accepts through the browser. Copy it to the server and run: sudo mountaineer-align-restore FILE';
+        return;
+      }
+      e.preventDefault();
+      const bar = f.querySelector('[data-upload-progress]');
+      const btn = f.querySelector('button');
+      bar.classList.remove('d-none');
+      btn.disabled = true;
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', f.action);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.addEventListener('progress', (ev) => { if (ev.lengthComputable) bar.firstElementChild.style.width = Math.round((ev.loaded / ev.total) * 100) + '%'; });
+      xhr.addEventListener('load', () => {
+        let j = null;
+        try { j = JSON.parse(xhr.responseText); } catch (x) { j = null; }
+        if (j && j.ok) { location.href = j.redirect; return; }
+        btn.disabled = false;
+        bar.classList.add('d-none');
+        err.textContent = j && j.error ? j.error : (xhr.status === 413 || xhr.status === 419 ? 'The file is too large for this server. Copy it to the server and run: sudo mountaineer-align-restore FILE' : 'The upload failed. Try again.');
+      });
+      xhr.addEventListener('error', () => { btn.disabled = false; err.textContent = 'The upload failed. Check your connection and try again.'; });
+      xhr.send(new FormData(f));
+    });
+  });
+})();

@@ -43,6 +43,7 @@ $step = function (int $n, string $icon, string $title, string $body, array $link
           <tr><th>Managed services estimate</th><td>ITFlow invoices, last 3 months</td></tr>
           <tr><th>Warranties</th><td>Dell / Lenovo lookups</td></tr>
           <tr><th>Backups</th><td>Veeam Service Provider Console (read-only), hourly: servers, VMs, agents and Microsoft 365</td></tr>
+          <tr><th>Updates &amp; Align backups</th><td>Checks GitHub every 6 hours; update, download a backup or restore from Settings → Updates &amp; backups</td></tr>
           <tr><th>Email &amp; invitations</th><td>Microsoft 365 (Microsoft Graph) or Google Workspace (Gmail and Calendar APIs), OAuth, sent every minute</td></tr>
           <tr><th>Projects, budget lines, compliance, documents, meetings</th><td>Align</td></tr>
         </table>

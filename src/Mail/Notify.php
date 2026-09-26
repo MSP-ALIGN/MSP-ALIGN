@@ -33,6 +33,11 @@ final class Notify
             }
             Mailer::purge();
         }
+        try {
+            self::updateAvailable();
+        } catch (\Throwable $e) {
+            $out[] = 'updates: ' . $e->getMessage();
+        }
         [$sent, $failed] = Mailer::deliver();
         if ($sent || $failed) {
             $out[] = "sent $sent, failed $failed";
@@ -54,6 +59,9 @@ final class Notify
             $due += ['renewals' => date('o-\WW', $t), 'meetings_due' => date('o-\WW', $t), 'weekly_digest' => date('o-\WW', $t)];
         }
         $due['lifecycle'] = date('Y-m', $t);
+        if ($r = self::backupReminder($t)) {
+            $out[] = $r;
+        }
         foreach ($due as $key => $period) {
             if (!N::enabled($key) || N::state("sent:$key") === $period) {
                 continue;
@@ -378,5 +386,59 @@ final class Notify
                 'Sent by ' . $company . ' through Mountaineer Align.'),
             // Self-service resets wait for the mail timer so response time never hints whether an account exists
             ['client_id' => (int) $u['client_id'], 'immediate' => $kind !== 'self-reset']);
+    }
+
+    // ---- System ---------------------------------------------------------------------------------
+
+    /** Once per new version found by the agent's 6-hourly check. */
+    public static function updateAvailable(): int
+    {
+        $u = \Align\System\Agent::updateAvailable();
+        if (!$u || !N::enabled('updates') || N::state('update_notified') === $u['latest']) {
+            return 0;
+        }
+        N::setState('update_notified', (string) $u['latest']);
+        $changes = array_map(fn($c) => [$c['subject'], 'info'], array_slice($u['changes'] ?? [], 0, 15));
+        $blocks = [T::p('Mountaineer Align ' . $u['latest'] . ' is available. This server runs ' . APP_VERSION . '.')];
+        if ($changes) {
+            $blocks[] = T::h2('What\'s new');
+            $blocks[] = T::items($changes);
+        }
+        $blocks[] = T::button('Review and update', N::url('/settings/system'));
+        $blocks[] = T::p('Updating takes a minute or two. Align makes a safety copy first and deletes it once the update succeeds.', true);
+        return Mailer::queue('updates', N::recipientsFor('updates', null), 'Mountaineer Align ' . $u['latest'] . ' is available', T::render('Update available', $blocks, N::footer()),
+            ['dedupe' => 'update:' . $u['latest'], 'created_by' => null]) ? 1 : 0;
+    }
+
+    public static function updateResult(bool $ok, string $detail): void
+    {
+        if (!N::enabled('updates')) {
+            return;
+        }
+        Mailer::queue('updates', N::recipientsFor('updates', null), $ok ? 'Mountaineer Align updated' : 'Mountaineer Align update failed',
+            T::render($ok ? 'Update finished' : 'Update failed', [T::p($detail), $ok ? T::p('Everything is running on the new version.') : T::p('Align is still running the previous version. A safety copy of the data was kept; see the job log for details.'),
+                T::button('Open Updates & backups', N::url('/settings/system'))], N::footer()), ['created_by' => null]);
+    }
+
+    /** At the digest hour: nobody has downloaded a backup for the set number of days (repeats every that many days). */
+    public static function backupReminder(int $t): ?string
+    {
+        $days = Settings::int('backup_reminder_days', 7);
+        if ($days <= 0 || !N::enabled('backup_reminder')) {
+            return null;
+        }
+        $last = Settings::get('backup_last_download');
+        $sent = N::state('backup_reminder_at');
+        if (($last && strtotime($last) > $t - $days * 86400) || ($sent && strtotime($sent) > $t - $days * 86400 + 3600)) {
+            return null;
+        }
+        N::setState('backup_reminder_at', date('Y-m-d H:i:s', $t));
+        $n = Mailer::queue('backup_reminder', N::recipientsFor('backup_reminder', null), 'Download a Mountaineer Align backup',
+            T::render('Time for a backup', [
+                T::p($last ? 'Nobody has downloaded a backup of Mountaineer Align since ' . date('M j, Y', strtotime($last)) . ' (' . (Settings::get('backup_last_download_by') ?: 'unknown') . ').' : 'No backup of Mountaineer Align has been downloaded yet.'),
+                T::p('Backups aren\'t stored on the Align server. Download one and keep it somewhere safe, such as your documentation system or file server.'),
+                T::button('Download a backup', N::url('/settings/system')),
+            ], N::footer()), ['dedupe' => 'backup_reminder:' . date('Y-m-d', $t), 'created_by' => null]);
+        return 'backup_reminder: ' . ($n ? 1 : 0) . ' email';
     }
 }

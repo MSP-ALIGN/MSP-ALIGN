@@ -1,0 +1,10 @@
+[Unit]
+Description=Mountaineer Align - check GitHub for updates
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/php /opt/mountaineer-align/scripts/agent.php check
+TimeoutStartSec=5min
+Nice=10

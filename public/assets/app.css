@@ -300,3 +300,8 @@ body:not(.report) .text-muted.small, body:not(.report) .small.text-muted { color
 .bk-days-sm { gap: 2px; }
 .bk-days-sm span { height: 14px; border-radius: 2px; }
 .bk-more summary { cursor: pointer; border-top: 1px solid rgba(0,0,0,.125); }
+
+/* Updates & backups (1.14) */
+.job-log { max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.text-pre-line { white-space: pre-line; }
+.update-changes { max-height: 360px; overflow: auto; }
