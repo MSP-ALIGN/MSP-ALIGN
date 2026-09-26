@@ -75,7 +75,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <?= $guide('lifecycle', 'fa-recycle', 'Plan device replacements', 'tech', [
       'Open the client\'s <b>Devices &amp; assets</b>. Filter <b>No plan date</b> to find devices without an in-service date.',
       'Open a device to set the purchase or in-service date, warranty, lifespan or replacement cost. These override the defaults.',
-      'Client wants to keep it longer, or replace it sooner? Use <b>Replace in</b> on the device (or tick several on the devices list and choose <b>Set replacement</b>) to pick a quarter and note why. The roadmap, 3-year plan and budget move it there; a device past end of life that was put off shows as <b>Replacement deferred</b>. Choose <b>Automatic</b> to go back to the end-of-life date.',
+      'Client wants to keep it longer, or replace it sooner? On the client\'s <b>Roadmap &amp; projects</b>, open a quarter\'s <b>Replace … devices</b> list and drag a device (or the whole group by its heading) to another quarter. You can also use <b>Replace in</b> on the device, or tick several on the devices list and choose <b>Set replacement</b> to pick a quarter and note why. The roadmap, 3-year plan and budget move it there; a device past end of life that was put off shows as <b>Replacement deferred</b>. Choose <b>Automatic</b> to go back to the end-of-life date.',
       'Default lifespans and costs per category are under <b>Settings → Planning &amp; lifecycle</b>.',
       'Replacements then land in the quarter each device reaches end of life, on the roadmap and in the 3-year plan.',
   ], $isAdmin ? ['Planning & lifecycle settings' => '/settings/planning'] : []) ?>
@@ -86,6 +86,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Licensing' => '/licenses?filter=unpriced', 'Renewals' => '/renewals']) ?>
   <?= $guide('project', 'fa-diagram-project', 'Add a project and get it approved', 'tech', [
       'Open the client\'s <b>Roadmap &amp; projects</b> (or <b>Projects → Add project</b>) and enter the title, target quarter, budget and a description the client will understand.',
+      'Change your mind about timing? Drag the project to another quarter on the roadmap (or from the backlog into a quarter).',
       'Leave it <b>Proposed</b> until the client decides. With the client portal, they can approve or decline it themselves, and you\'re notified.',
       'Approved and scheduled projects roll into the budget for their quarter.',
   ], ['Projects' => '/projects']) ?>

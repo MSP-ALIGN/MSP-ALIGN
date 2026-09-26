@@ -67,6 +67,7 @@ $r->post('/licenses/{id}', [\Align\Controllers\LicenseController::class, 'update
 $r->get('/clients/{id}/roadmap', [RoadmapController::class, 'show']);
 $r->post('/clients/{id}/roadmap', [RoadmapController::class, 'create']);
 $r->post('/clients/{id}/roadmap/{item}', [RoadmapController::class, 'update']);
+$r->post('/clients/{id}/roadmap/{item}/move', [RoadmapController::class, 'move']);
 $r->get('/clients/{id}/report/assets', [ReportController::class, 'assets']);
 $r->get('/clients/{id}/report/roadmap', [ReportController::class, 'roadmap']);
 $r->get('/clients/{id}/report/qbr', [ReportController::class, 'qbr']);

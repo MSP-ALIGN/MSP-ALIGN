@@ -22,7 +22,7 @@ foreach ($plan['backlog'] as $it) {
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <div class="mr-auto"><h1 class="h4 mb-0"><i class="fas fa-road mr-2 text-secondary"></i>Roadmap &amp; projects</h1>
-    <div class="small text-muted">Where everything lands over the next three years: your projects plus hardware end of life, OS end of support, warranties, meetings and compliance due dates. Costs roll into the <a href="/clients/<?= $cid ?>/budget">budget</a>.</div></div>
+    <div class="small text-muted">Where everything lands over the next three years: your projects plus hardware end of life, OS end of support, warranties, meetings and compliance due dates. Costs roll into the <a href="/clients/<?= $cid ?>/budget">budget</a>.<?php if ($canEdit): ?><span class="d-none d-md-inline"> <i class="fas fa-up-down-left-right ml-1 mr-1"></i>Drag projects and devices to another quarter.</span><?php endif; ?></div></div>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
     <a class="btn btn-default" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-print mr-1"></i>Print roadmap</a>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-roadmap" data-quarter=""><i class="fas fa-plus mr-1"></i>Add project</button><?php endif; ?>
@@ -62,7 +62,7 @@ foreach ($plan['backlog'] as $it) {
   <div class="row roadmap-row">
     <?php foreach (array_slice($quarters, $y * 4, 4) as $q): ?>
       <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card roadmap-q h-100 <?= $q['past'] ? 'is-past' : '' ?> <?= $q['current'] ? 'is-current' : '' ?>">
+        <div class="card roadmap-q h-100 <?= $q['past'] ? 'is-past' : '' ?> <?= $q['current'] ? 'is-current' : '' ?>"<?= $canEdit && !$q['past'] ? ' data-drop-quarter="' . e($q['start']) . '" data-quarter-label="' . e($q['label']) . '"' : '' ?>>
           <div class="card-header py-2 d-flex align-items-center">
             <div class="mr-auto"><b><?= e($q['label']) ?></b> <span class="small text-muted"><?= e($q['months']) ?></span>
               <?= $q['current'] ? '<span class="badge badge-primary ml-1">Now</span>' : '' ?></div>
@@ -71,7 +71,7 @@ foreach ($plan['backlog'] as $it) {
           </div>
           <div class="card-body p-2">
             <?php if ($on('items')): foreach ($q['items'] as $it): [$cl, $ci, $cc] = Roadmap::category($it['category']); ?>
-              <a href="#" class="rm-item rm-custom border-<?= $cc ?> <?= $it['status'] === 'declined' ? 'is-declined' : '' ?> <?= $it['status'] === 'done' ? 'is-done' : '' ?>" data-toggle="modal" data-target="#modal-roadmap-<?= (int) $it['id'] ?>">
+              <a href="#" class="rm-item rm-custom border-<?= $cc ?> <?= $it['status'] === 'declined' ? 'is-declined' : '' ?> <?= $it['status'] === 'done' ? 'is-done' : '' ?>" data-toggle="modal" data-target="#modal-roadmap-<?= (int) $it['id'] ?>"<?= $canEdit ? ' draggable="true" data-drag-project="' . (int) $it['id'] . '" data-drag-name="' . e($it['title']) . '"' : '' ?>>
                 <div class="d-flex"><i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> mr-1 mt-1"></i><span class="font-weight-bold mr-auto"><?= e($it['title']) ?></span><?= (float) $it['cost'] ? '<span class="ml-1 text-nowrap">' . money($it['cost']) . '</span>' : '' ?></div>
                 <div class="small ml-4">
                   <span class="badge badge-<?= Roadmap::STATUSES[$it['status']][1] ?> border"><?= e(Roadmap::STATUSES[$it['status']][0]) ?></span>
@@ -87,13 +87,14 @@ foreach ($plan['backlog'] as $it) {
                 $groups = [];
                 foreach ($q['hardware'] as $d) { $groups[$d['type']][] = $d; }
                 ?>
-              <details class="rm-item rm-auto border-primary">
-                <summary><i class="fas fa-fw fa-recycle text-primary mr-1"></i><b>Replace <?= count($q['hardware']) ?> device<?= count($q['hardware']) > 1 ? 's' : '' ?></b><span class="float-right"><?= money($q['hw_cost']) ?></span>
+              <?php $hwIds = implode(',', array_map(fn($d) => (int) $d['id'], $q['hardware'])); $hwPlanned = (bool) array_filter($q['hardware'], fn($d) => !empty($d['replace_planned'])); ?>
+              <details class="rm-item rm-auto border-primary" data-hw-group="<?= e($q['start']) ?>">
+                <summary<?= $canEdit ? ' draggable="true" data-drag-devices="' . $hwIds . '" data-drag-name="all ' . count($q['hardware']) . ' device' . (count($q['hardware']) > 1 ? 's' : '') . ' in ' . e($q['label']) . '" data-drag-planned="' . ($hwPlanned ? '1' : '0') . '" title="Drag to move all of these to another quarter"' : '' ?>><i class="fas fa-fw fa-recycle text-primary mr-1"></i><b>Replace <?= count($q['hardware']) ?> device<?= count($q['hardware']) > 1 ? 's' : '' ?></b><span class="float-right"><?= money($q['hw_cost']) ?></span>
                   <div class="small text-muted ml-4"><?= e(implode(', ', array_map(fn($t, $ds) => count($ds) . ' ' . strtolower($t) . (count($ds) > 1 ? 's' : ''), array_keys($groups), $groups))) ?>
                     <?= array_filter($q['hardware'], fn($d) => $d['overdue']) ? ' · <span class="text-danger">includes overdue</span>' : '' ?></div></summary>
-                <ul class="list-unstyled small mb-0 mt-1 ml-4">
+                <ul class="list-unstyled small mb-0 mt-1 ml-4 rm-hw-list">
                   <?php foreach ($q['hardware'] as $d): ?>
-                    <li><a href="/devices/<?= (int) $d['id'] ?>"><?= e($d['name']) ?></a> <span class="text-muted"><?= e($d['model'] ?? '') ?> · <?= !empty($d['replace_planned']) ? '<span class="badge badge-' . ($d['replace_deferred'] ? 'warning' : 'info') . '" title="' . e(($d['replace_note'] ?: 'Replacement quarter set by hand') . ($d['eol_date'] ? ' · end of life ' . fmt_date($d['eol_date']) : '')) . '">planned</span>' : 'EOL ' . e(fmt_date($d['eol_date'])) ?></span></li>
+                    <li<?= $canEdit ? ' class="rm-drag" draggable="true" data-drag-devices="' . (int) $d['id'] . '" data-drag-name="' . e($d['name']) . '" data-drag-planned="' . (!empty($d['replace_planned']) ? '1' : '0') . '" title="Drag to another quarter"' : '' ?>><?= $canEdit ? '<i class="fas fa-grip-vertical rm-grip mr-1"></i>' : '' ?><a href="/devices/<?= (int) $d['id'] ?>"><?= e($d['name']) ?></a> <span class="text-muted"><?= e($d['model'] ?? '') ?> · <?= !empty($d['replace_planned']) ? '<span class="badge badge-' . ($d['replace_deferred'] ? 'warning' : 'info') . '" title="' . e(($d['replace_note'] ?: 'Replacement quarter set by hand') . ($d['eol_date'] ? ' · end of life ' . fmt_date($d['eol_date']) : '')) . '">planned</span>' : 'EOL ' . e(fmt_date($d['eol_date'])) ?></span></li>
                   <?php endforeach; ?>
                 </ul>
               </details>
@@ -146,7 +147,7 @@ foreach ($plan['backlog'] as $it) {
     <div class="card-tools"><span class="badge badge-light"><?= count($plan['backlog']) ?></span></div></div>
   <div class="card-body p-2">
     <?php foreach ($plan['backlog'] as $it): [$cl, $ci, $cc] = Roadmap::category($it['category']); ?>
-      <a href="#" class="rm-item rm-custom border-<?= $cc ?> d-inline-block mr-2" data-toggle="modal" data-target="#modal-roadmap-<?= (int) $it['id'] ?>">
+      <a href="#" class="rm-item rm-custom border-<?= $cc ?> d-inline-block mr-2" data-toggle="modal" data-target="#modal-roadmap-<?= (int) $it['id'] ?>"<?= $canEdit ? ' draggable="true" data-drag-project="' . (int) $it['id'] . '" data-drag-name="' . e($it['title']) . '"' : '' ?>>
         <i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> mr-1"></i><b><?= e($it['title']) ?></b> <?= (float) $it['cost'] ? money($it['cost']) : '' ?>
         <?= $it['target_quarter'] ? '<span class="small text-muted"> · ' . e(fmt_date($it['target_quarter'])) . '</span>' : '' ?>
       </a>
@@ -156,6 +157,26 @@ foreach ($plan['backlog'] as $it) {
 </div>
 
 <?php if ($canEdit): ?>
+  <div class="modal fade" id="modal-move" tabindex="-1" aria-hidden="true" data-client="<?= $cid ?>" data-csrf="<?= e(csrf_token()) ?>">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-fw fa-calendar-check mr-2"></i>Move replacement</h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button></div>
+        <div class="modal-body">
+          <p class="mb-2">Replace <b data-move-name></b> in <b data-move-quarter></b>?</p>
+          <div class="form-group mb-1"><label class="small mb-1" for="move-note">Reason <span class="text-muted">(optional)</span></label>
+            <input id="move-note" class="form-control" maxlength="255" placeholder="e.g. Client deferred to next budget year"></div>
+          <p class="small text-muted mb-0">The roadmap, 3-year plan and budget will use this quarter instead of the end-of-life date.</p>
+          <div class="small text-danger mt-2" data-move-error></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary mr-auto d-none" data-move-reset title="Forget the quarter set by hand and use the end-of-life date">Back to end of life</button>
+          <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" data-move-save><i class="fas fa-check mr-1"></i>Move</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <?= \Align\View::fetch('roadmap/_modal', ['it' => null, 'cid' => $cid]) ?>
   <?php foreach ($allItems as $it) echo \Align\View::fetch('roadmap/_modal', ['it' => $it, 'cid' => $cid]); ?>
 <?php endif; ?>

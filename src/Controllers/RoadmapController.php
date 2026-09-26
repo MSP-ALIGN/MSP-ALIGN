@@ -111,4 +111,35 @@ final class RoadmapController
         flash('success', 'Project saved.');
         redirect(self::back($id));
     }
+
+    /** Moves a project to another quarter (roadmap drag and drop). */
+    public static function move(int $id, int $item): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $row = DB::one('SELECT * FROM roadmap_items WHERE id = ? AND client_id = ?', [$item, $id]);
+        $q = post('target_quarter');
+        $start = preg_match('/^\d{4}-\d{2}-\d{2}$/', $q) ? Plan::quarterStart($q) : null;
+        $json = str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
+        if (!$row || !$start) {
+            if ($json) {
+                http_response_code(422);
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => false, 'error' => $row ? 'Choose a quarter.' : 'That project no longer exists.']);
+                exit;
+            }
+            redirect("/clients/$id/roadmap");
+        }
+        $label = Plan::quarterFor($start)['label'] ?? $start;
+        DB::run('UPDATE roadmap_items SET target_quarter = ? WHERE id = ?', [$start, $item]);
+        Audit::log('roadmap.move', "{$client['name']}: {$row['title']} to $label");
+        $msg = "{$row['title']} moved to $label.";
+        flash('success', $msg);
+        if ($json) {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'label' => $label, 'message' => $msg]);
+            exit;
+        }
+        redirect("/clients/$id/roadmap");
+    }
 }

@@ -108,19 +108,35 @@ final class DeviceController
         $mine = array_column((new Lifecycle())->devices($clientId), 'name', 'id');
         $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), fn($i) => isset($mine[$i])));
         $back = '/clients/' . $clientId . '/devices' . (post('return_query') !== '' && preg_match('/^[a-z0-9=&_%.-]*$/i', post('return_query')) ? '?' . post('return_query') : '');
-        if (!$ids) {
-            flash('error', 'Tick the devices first.');
+        // The roadmap's drag and drop calls this with fetch() and wants JSON back
+        $json = str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
+        $fail = function (string $msg) use ($json, $back): never {
+            if ($json) {
+                http_response_code(422);
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => false, 'error' => $msg]);
+                exit;
+            }
+            flash('error', $msg);
             redirect($back);
+        };
+        if (!$ids) {
+            $fail('Tick the devices first.');
         }
         [$on, $note, $label] = self::replacementInput();
         if (post('replace_on') !== '' && !$on) {
-            flash('error', 'Choose a quarter.');
-            redirect($back);
+            $fail('Choose a quarter.');
         }
         self::setReplacement($ids, $on, $note);
         $n = count($ids);
         Audit::log('device.replacement', $client['name'] . ': ' . $n . ' device' . ($n === 1 ? '' : 's') . ' ' . ($label ? "planned for $label" . ($note ? " ($note)" : '') : 'back to end of life') . ' (' . mb_strimwidth(implode(', ', array_map(fn($i) => $mine[$i], $ids)), 0, 400, '…') . ')');
-        flash('success', $label ? "Replacement of $n device" . ($n === 1 ? '' : 's') . " planned for $label. The roadmap and budget now use that quarter." : "$n device" . ($n === 1 ? '' : 's') . ' back on the end-of-life schedule.');
+        $msg = $label ? ($n === 1 ? $mine[$ids[0]] : "$n devices") . " will be replaced in $label. The roadmap and budget now use that quarter." : ($n === 1 ? $mine[$ids[0]] : "$n devices") . ' back on the end-of-life schedule.';
+        flash('success', $msg);
+        if ($json) {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'label' => $label, 'message' => $msg]);
+            exit;
+        }
         redirect($back);
     }
 

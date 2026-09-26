@@ -645,3 +645,97 @@ document.addEventListener('click', (ev) => {
     update();
   });
 })();
+
+// Roadmap: drag devices (one, or a quarter's whole group) and projects to another quarter
+(() => {
+  const modalEl = document.getElementById('modal-move');
+  if (!modalEl || !document.querySelector('[data-drop-quarter]')) return;
+  const cid = modalEl.dataset.client, csrf = modalEl.dataset.csrf;
+  let drag = null, target = null;
+  // Keep scroll position and open device lists across the reload after a move
+  const KEY = 'align-roadmap-' + cid;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+    if (saved) {
+      sessionStorage.removeItem(KEY);
+      saved.open.forEach((q) => { const d = document.querySelector('[data-hw-group="' + q + '"]'); if (d) d.open = true; });
+      window.addEventListener('load', () => window.scrollTo(0, saved.y));
+    }
+  } catch (e) { /* storage unavailable */ }
+  const remember = () => {
+    const open = Array.from(document.querySelectorAll('[data-hw-group]')).filter((d) => d.open).map((d) => d.dataset.hwGroup);
+    if (target) open.push(target.start); // show the devices where they landed
+    try { sessionStorage.setItem(KEY, JSON.stringify({ y: window.scrollY, open })); } catch (e) { /* ignore */ }
+  };
+  const post = (url, data) => {
+    const body = new URLSearchParams(data);
+    body.append('_csrf', csrf);
+    return fetch(url, { method: 'POST', headers: { Accept: 'application/json' }, body, credentials: 'same-origin' })
+      .then((r) => r.json().catch(() => ({ ok: false, error: 'The server did not answer. Refresh and try again.' })));
+  };
+  const done = (j, errEl) => {
+    if (j && j.ok) { remember(); location.reload(); return; }
+    const msg = (j && j.error) || 'Could not move it.';
+    if (errEl) errEl.textContent = msg; else alert(msg);
+  };
+
+  document.addEventListener('dragstart', (e) => {
+    const el = e.target.closest && e.target.closest('[data-drag-devices],[data-drag-project]');
+    if (!el) return;
+    drag = { el, devices: el.dataset.dragDevices || null, project: el.dataset.dragProject || null, name: el.dataset.dragName || '', planned: el.dataset.dragPlanned === '1', from: el.closest('[data-drop-quarter]') };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', drag.name);
+    el.classList.add('is-dragging');
+    document.body.classList.add('rm-dragging');
+    e.stopPropagation();
+  });
+  // Scroll the page while dragging near the top or bottom edge
+  document.addEventListener('dragover', (e) => {
+    if (!drag) return;
+    if (e.clientY < 70) window.scrollBy(0, -25);
+    else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 25);
+  });
+  document.addEventListener('dragend', () => {
+    if (drag) drag.el.classList.remove('is-dragging');
+    document.body.classList.remove('rm-dragging');
+    document.querySelectorAll('.rm-drop-on').forEach((q) => q.classList.remove('rm-drop-on'));
+  });
+  document.querySelectorAll('[data-drop-quarter]').forEach((q) => {
+    q.addEventListener('dragover', (e) => { if (!drag || drag.from === q) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; q.classList.add('rm-drop-on'); });
+    q.addEventListener('dragleave', (e) => { if (!q.contains(e.relatedTarget)) q.classList.remove('rm-drop-on'); });
+    q.addEventListener('drop', (e) => {
+      e.preventDefault();
+      q.classList.remove('rm-drop-on');
+      if (!drag || drag.from === q) return;
+      target = { start: q.dataset.dropQuarter, label: q.dataset.quarterLabel };
+      if (drag.project) {
+        post('/clients/' + cid + '/roadmap/' + drag.project + '/move', { target_quarter: target.start }).then((j) => done(j));
+        return;
+      }
+      modalEl.querySelector('[data-move-name]').textContent = drag.name;
+      modalEl.querySelector('[data-move-quarter]').textContent = target.label;
+      modalEl.querySelector('[data-move-error]').textContent = '';
+      modalEl.querySelector('[data-move-reset]').classList.toggle('d-none', !drag.planned);
+      modalEl.querySelector('#move-note').value = '';
+      const move = { ...drag };
+      modalEl._move = move;
+      if (window.jQuery) window.jQuery(modalEl).modal('show');
+    });
+  });
+  const send = (quarter) => {
+    const m = modalEl._move;
+    if (!m) return;
+    const data = new URLSearchParams();
+    m.devices.split(',').forEach((id) => data.append('ids[]', id));
+    data.append('replace_on', quarter);
+    data.append('replace_note', quarter ? modalEl.querySelector('#move-note').value : '');
+    modalEl.querySelectorAll('.modal-footer button').forEach((b) => { b.disabled = true; });
+    post('/clients/' + cid + '/devices/replacement', data).then((j) => {
+      modalEl.querySelectorAll('.modal-footer button').forEach((b) => { b.disabled = false; });
+      done(j, modalEl.querySelector('[data-move-error]'));
+    });
+  };
+  modalEl.querySelector('[data-move-save]').addEventListener('click', () => send(target.start));
+  modalEl.querySelector('[data-move-reset]').addEventListener('click', () => send(''));
+  modalEl.querySelector('#move-note').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(target.start); } });
+})();
