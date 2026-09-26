@@ -65,6 +65,65 @@ final class DeviceController
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
     }
 
+    /** A chosen replacement quarter, stored as the quarter's first day (or null for "automatic"). */
+    private static function quarter(string $v): ?string
+    {
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) && strtotime($v) ? (\Align\Roadmap\Plan::quarterFor($v)['start'] ?? null) : null;
+    }
+
+    /** Saves just the planned replacement for some devices. */
+    private static function setReplacement(array $ids, ?string $on, ?string $note): void
+    {
+        foreach ($ids as $id) {
+            DB::run('INSERT INTO device_overrides (device_id, replace_on, replace_note, updated_by) VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE replace_on = VALUES(replace_on), replace_note = VALUES(replace_note), updated_by = VALUES(updated_by)',
+                [(int) $id, $on, $on ? $note : null, Auth::id()]);
+        }
+    }
+
+    private static function replacementInput(): array
+    {
+        $on = self::quarter(post('replace_on'));
+        return [$on, $on ? (mb_substr(post('replace_note'), 0, 255) ?: null) : null, $on ? \Align\Roadmap\Plan::quarterFor($on)['label'] : null];
+    }
+
+    /** Device page: set or clear the planned replacement quarter. */
+    public static function replacement(int $id): void
+    {
+        Auth::requireRole('tech');
+        $d = self::find($id);
+        [$on, $note, $label] = self::replacementInput();
+        self::setReplacement([$id], $on, $note);
+        Audit::log('device.replacement', $d['name'] . ': ' . ($label ? "planned for $label" . ($note ? " ($note)" : '') : 'back to end of life'));
+        flash('success', ($label ? "Replacement planned for $label. " : 'Replacement follows the end-of-life date again. ') . self::planNote($id));
+        redirect("/devices/$id");
+    }
+
+    /** Client devices list: set or clear the planned replacement for the ticked devices. */
+    public static function bulkReplacement(int $id): void
+    {
+        $clientId = $id;
+        Auth::requireRole('tech');
+        $client = ClientController::load($clientId);
+        $mine = array_column((new Lifecycle())->devices($clientId), 'name', 'id');
+        $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), fn($i) => isset($mine[$i])));
+        $back = '/clients/' . $clientId . '/devices' . (post('return_query') !== '' && preg_match('/^[a-z0-9=&_%.-]*$/i', post('return_query')) ? '?' . post('return_query') : '');
+        if (!$ids) {
+            flash('error', 'Tick the devices first.');
+            redirect($back);
+        }
+        [$on, $note, $label] = self::replacementInput();
+        if (post('replace_on') !== '' && !$on) {
+            flash('error', 'Choose a quarter.');
+            redirect($back);
+        }
+        self::setReplacement($ids, $on, $note);
+        $n = count($ids);
+        Audit::log('device.replacement', $client['name'] . ': ' . $n . ' device' . ($n === 1 ? '' : 's') . ' ' . ($label ? "planned for $label" . ($note ? " ($note)" : '') : 'back to end of life') . ' (' . mb_strimwidth(implode(', ', array_map(fn($i) => $mine[$i], $ids)), 0, 400, '…') . ')');
+        flash('success', $label ? "Replacement of $n device" . ($n === 1 ? '' : 's') . " planned for $label. The roadmap and budget now use that quarter." : "$n device" . ($n === 1 ? '' : 's') . ' back on the end-of-life schedule.');
+        redirect($back);
+    }
+
     private static function overrideRow(int $id): array
     {
         $cost = post('replacement_cost');
@@ -76,6 +135,8 @@ final class DeviceController
             'warranty_end' => self::date('warranty_end'),
             'replacement_cost' => is_numeric($cost) && (float) $cost >= 0 ? round((float) $cost, 2) : null,
             'lifespan_years' => ctype_digit($life) && (int) $life > 0 && (int) $life < 30 ? (int) $life : null,
+            'replace_on' => self::quarter(post('replace_on')),
+            'replace_note' => self::quarter(post('replace_on')) ? (mb_substr(post('replace_note'), 0, 255) ?: null) : null,
             'excluded' => isset($_POST['excluded']) ? 1 : 0,
             'notes' => mb_substr(post('notes'), 0, 5000) ?: null,
             'device_type' => isset(Lifecycle::TYPES[$type]) ? $type : null,

@@ -47,6 +47,16 @@ $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
     <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="1" name="replacement_cost" class="form-control" value="<?= e($d['o_cost'] ?? '') ?>" placeholder="policy"></div></div>
   <div class="form-group col-md-3"><label>Lifespan (years)</label><input type="number" min="1" max="29" name="lifespan_years" class="form-control" value="<?= e($d['o_lifespan'] ?? '') ?>" placeholder="policy"></div>
 </div>
+<?php $choices = \Align\Roadmap\Plan::choices(6); $curRep = $d['o_replace'] ?? null; if ($curRep && !isset($choices[$curRep])) { $choices = [$curRep => (\Align\Roadmap\Plan::quarterFor($curRep)['label'] ?? $curRep) . ' (passed)'] + $choices; } ?>
+<div class="form-row">
+  <div class="form-group col-md-5"><label>Replace in</label>
+    <select name="replace_on" class="custom-select">
+      <option value="">Automatic (end of life<?= !empty($d['eol_date']) ? ', ' . e(\Align\Roadmap\Plan::quarterFor($d['eol_date'])['label'] ?? '') : '' ?>)</option>
+      <?php foreach ($choices as $k => $l): ?><option value="<?= e($k) ?>" <?= $sel($k, $curRep) ?>><?= e($l) ?></option><?php endforeach; ?>
+    </select>
+    <small class="text-muted">Pick a quarter when the client wants to replace it earlier or later than its end of life. The roadmap and budget use it.</small></div>
+  <div class="form-group col-md-7"><label>Reason <small class="text-muted">(optional)</small></label><input name="replace_note" class="form-control" maxlength="255" value="<?= e($d['o_replace_note'] ?? '') ?>" placeholder="e.g. Client deferred to next budget year"></div>
+</div>
 <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" rows="2"><?= e($d['o_notes'] ?? '') ?></textarea></div>
 <div class="custom-control custom-checkbox">
   <input type="checkbox" class="custom-control-input" id="excluded-<?= (int) ($d['id'] ?? 0) ?>" name="excluded" value="1" <?= !empty($d['o_excluded']) ? 'checked' : '' ?>>

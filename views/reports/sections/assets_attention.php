@@ -23,7 +23,7 @@ $shown = $limit ? array_slice($list, 0, $limit) : $list;
         <td><?= e($d['type']) ?></td>
         <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="muted">—</span>' ?></td>
         <td><?= Ui::pill($d['status_label'], Ui::tone($d['status_tone'])) ?><div class="sub"><?= e(ReportData::issue($d)) ?></div></td>
-        <td class="nowrap"><?= $d['is_hardware'] && $d['eol_date'] ? e(fmt_date($d['eol_date'])) : '<span class="muted">—</span>' ?></td>
+        <td class="nowrap"><?= $d['is_hardware'] && $d['eol_date'] ? e(fmt_date($d['eol_date'])) : '<span class="muted">—</span>' ?><?= !empty($d['replace_planned']) ? '<div class="sub">Replace ' . e($d['replace_label']) . '</div>' : '' ?></td>
         <?php if ($costs): ?><td class="num"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '—' ?></td><?php endif; ?>
       </tr>
     <?php endforeach; ?>

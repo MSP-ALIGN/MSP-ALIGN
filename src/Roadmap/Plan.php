@@ -128,4 +128,35 @@ final class Plan
         }
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null;
     }
+
+    /** The (fiscal) quarter containing any date: ['start' => first day, 'label' => "Q3 2027" or "FY2027 Q1"]. */
+    public static function quarterFor(string $date): ?array
+    {
+        $ts = strtotime(substr($date, 0, 10));
+        if (!$ts) {
+            return null;
+        }
+        $startMonth = self::startMonth();
+        $m = (int) date('n', $ts);
+        $off = ($m - $startMonth + 12) % 12;
+        $q = intdiv($off, 3) + 1;
+        $qStartMonth = ($startMonth - 1 + ($q - 1) * 3) % 12 + 1;
+        $y = (int) date('Y', $ts);
+        $qStartYear = $qStartMonth > $m ? $y - 1 : $y;
+        $fy = self::fyOf($ts);
+        return ['start' => sprintf('%04d-%02d-01', $qStartYear, $qStartMonth), 'label' => $startMonth === 1 ? "Q$q $fy" : "FY$fy Q$q"];
+    }
+
+    /** Quarters to choose from for a planned replacement: this quarter and the next $years years. [start => label] */
+    public static function choices(int $years = 5): array
+    {
+        $out = [];
+        $cur = self::quarterFor(date('Y-m-d'));
+        $ts = strtotime($cur['start']);
+        for ($i = 0; $i <= $years * 4; $i++) {
+            $q = self::quarterFor(date('Y-m-d', strtotime('+' . ($i * 3) . ' months', $ts)));
+            $out[$q['start']] = $q['label'];
+        }
+        return $out;
+    }
 }

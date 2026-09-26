@@ -622,3 +622,26 @@ document.addEventListener('click', (ev) => {
   window.addEventListener('load', open);
   window.addEventListener('hashchange', open);
 })();
+
+// Bulk bar for a table: <input data-bulk-all="table-id">, row <input data-bulk-item form="…">, bar [data-bulk-bar="table-id"]
+(() => {
+  document.querySelectorAll('[data-bulk-bar]').forEach((bar) => {
+    const table = document.getElementById(bar.dataset.bulkBar);
+    if (!table) return;
+    const items = () => Array.from(table.querySelectorAll('[data-bulk-item]'));
+    const all = document.querySelector('[data-bulk-all="' + bar.dataset.bulkBar + '"]');
+    const update = () => {
+      const n = items().filter((i) => i.checked).length;
+      bar.classList.toggle('d-none', n === 0);
+      const c = bar.querySelector('[data-bulk-count]');
+      if (c) c.textContent = n;
+      if (all) all.checked = n > 0 && n === items().filter((i) => !i.closest('tr').classList.contains('d-none') && i.closest('tr').style.display !== 'none').length;
+    };
+    table.addEventListener('change', (e) => { if (e.target.matches('[data-bulk-item]')) update(); });
+    if (all) all.addEventListener('change', () => {
+      items().forEach((i) => { const row = i.closest('tr'); if (row.style.display !== 'none' && !row.classList.contains('d-none')) i.checked = all.checked; });
+      update();
+    });
+    update();
+  });
+})();

@@ -38,7 +38,7 @@
           <td class="small"><?= e($d['serial'] ?? '') ?></td>
           <td class="small"><?= e($d['os_name'] ?: $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
           <td class="small text-nowrap"><?= e(fmt_date($d['warranty_end'])) ?: '<span class="text-muted">—</span>' ?></td>
-          <td class="small text-nowrap"><?= $d['is_hardware'] ? e(fmt_date($d['eol_date'])) : '<span class="text-muted">—</span>' ?></td>
+          <td class="small text-nowrap"><?= $d['is_hardware'] ? e(fmt_date($d['eol_date'])) : '<span class="text-muted">—</span>' ?><?= !empty($d['replace_planned']) ? '<div class="text-muted">Replace ' . e($d['replace_label']) . '</div>' : '' ?></td>
           <td><?php require __DIR__ . '/../partials/status.php'; ?></td>
           <?php if ($showCosts): ?><td class="text-right"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td><?php endif; ?>
         </tr>

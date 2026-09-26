@@ -91,6 +91,8 @@ $r->get('/devices/{id}', [DeviceController::class, 'show']);
 $r->post('/devices/{id}/push', [DeviceController::class, 'push']);
 $r->post('/devices/{id}/itflow-sync', [DeviceController::class, 'toggleSync']);
 $r->post('/devices/{id}/restore', [DeviceController::class, 'restore']);
+$r->post('/devices/{id}/replacement', [DeviceController::class, 'replacement']);
+$r->post('/clients/{id}/devices/replacement', [DeviceController::class, 'bulkReplacement']);
 $r->post('/devices/{id}', [DeviceController::class, 'save']);
 $r->post('/devices/{id}/delete', [DeviceController::class, 'delete']);
 

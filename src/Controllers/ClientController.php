@@ -295,7 +295,7 @@ final class ClientController
             }
             return match ($filter) {
                 'attention' => in_array($d['status_tone'], ['bad', 'warn'], true),
-                'replace' => in_array('replace', $d['flags'], true) || in_array('plan', $d['flags'], true),
+                'replace' => (bool) array_intersect(['replace', 'plan', 'deferred'], $d['flags']) || !empty($d['replace_planned']),
                 'os' => (bool) array_intersect(['os_eos', 'os_soon'], $d['flags']),
                 'warranty' => (bool) array_intersect(['warranty_expired', 'warranty_soon'], $d['flags']) || ($d['is_hardware'] && !$d['warranty_end']),
                 'stale' => $d['stale'],

@@ -93,7 +93,7 @@ foreach ($plan['backlog'] as $it) {
                     <?= array_filter($q['hardware'], fn($d) => $d['overdue']) ? ' · <span class="text-danger">includes overdue</span>' : '' ?></div></summary>
                 <ul class="list-unstyled small mb-0 mt-1 ml-4">
                   <?php foreach ($q['hardware'] as $d): ?>
-                    <li><a href="/devices/<?= (int) $d['id'] ?>"><?= e($d['name']) ?></a> <span class="text-muted"><?= e($d['model'] ?? '') ?> · EOL <?= e(fmt_date($d['eol_date'])) ?></span></li>
+                    <li><a href="/devices/<?= (int) $d['id'] ?>"><?= e($d['name']) ?></a> <span class="text-muted"><?= e($d['model'] ?? '') ?> · <?= !empty($d['replace_planned']) ? '<span class="badge badge-' . ($d['replace_deferred'] ? 'warning' : 'info') . '" title="' . e(($d['replace_note'] ?: 'Replacement quarter set by hand') . ($d['eol_date'] ? ' · end of life ' . fmt_date($d['eol_date']) : '')) . '">planned</span>' : 'EOL ' . e(fmt_date($d['eol_date'])) ?></span></li>
                   <?php endforeach; ?>
                 </ul>
               </details>

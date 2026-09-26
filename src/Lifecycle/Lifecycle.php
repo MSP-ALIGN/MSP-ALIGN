@@ -83,6 +83,7 @@ final class Lifecycle
         'replace' => ['Replace now', 'bad'],
         'os_eos' => ['OS unsupported', 'bad'],
         'plan' => ['Plan replacement', 'warn'],
+        'deferred' => ['Replacement deferred', 'warn'],
         'os_soon' => ['OS support ending', 'warn'],
         'warranty_expired' => ['Out of warranty', 'warn'],
         'warranty_soon' => ['Warranty expiring', 'warn'],
@@ -156,7 +157,8 @@ final class Lifecycle
                 w.ship_date AS w_ship, w.warranty_start AS w_start, w.warranty_end AS w_end, w.status AS w_status,
                 w.description AS w_desc, w.looked_up_at AS w_checked,
                 o.purchase_date AS o_purchase, o.warranty_end AS o_warranty, o.replacement_cost AS o_cost,
-                o.lifespan_years AS o_lifespan, o.excluded AS o_excluded, o.notes AS o_notes, o.device_type AS o_type
+                o.lifespan_years AS o_lifespan, o.excluded AS o_excluded, o.notes AS o_notes, o.device_type AS o_type,
+                o.replace_on AS o_replace, o.replace_note AS o_replace_note
             FROM devices d
             ' . self::CLIENT_JOIN . '
             LEFT JOIN itflow_assets a ON a.itflow_asset_id = d.itflow_asset_id
@@ -223,11 +225,18 @@ final class Lifecycle
         $planCutoff = date('Y-m-d', strtotime('+' . $this->policy['eol_plan_months'] . ' months'));
         $warnCutoff = date('Y-m-d', strtotime('+' . $this->policy['warranty_warn_days'] . ' days'));
 
+        // A replacement quarter set by hand (client deferred or brought it forward) wins over end of life
+        $planned = $isHardware && !empty($d['o_replace']) ? substr($d['o_replace'], 0, 10) : null;
+        $due = $planned ?? $eol;
+
         $flags = [];
-        if ($eol && $eol <= $today) {
+        if ($due && $due <= $today) {
             $flags[] = 'replace';
-        } elseif ($eol && $eol <= $planCutoff) {
+        } elseif ($due && $due <= $planCutoff) {
             $flags[] = 'plan';
+        }
+        if ($planned && $eol && $eol <= $today && $planned > $today) {
+            $flags[] = 'deferred'; // past end of life, but the client chose a later quarter
         }
         if ($os && $os['eos_date'] <= $today) {
             $flags[] = 'os_eos';
@@ -259,8 +268,9 @@ final class Lifecycle
         // Replacement date used for budget forecasting (hardware only, not excluded)
         $replaceBy = null;
         if ($isHardware && $status !== 'excluded') {
-            $replaceBy = $eol;
+            $replaceBy = $due;
         }
+        $plannedQ = $planned ? \Align\Roadmap\Plan::quarterFor($planned) : null;
 
         return $d + [
             'name' => $d['display_name'] ?: ($d['system_name'] ?: 'Device ' . $d['id']),
@@ -282,6 +292,10 @@ final class Lifecycle
             'status_tone' => self::STATUS[$status][1],
             'stale' => $stale,
             'replace_by' => $replaceBy,
+            'replace_planned' => $planned !== null,
+            'replace_label' => $plannedQ['label'] ?? null,
+            'replace_note' => $planned ? ($d['o_replace_note'] ?? null) : null,
+            'replace_deferred' => $planned !== null && $eol !== null && $planned > $eol,
             'replacement_cost' => $cost,
         ];
     }
@@ -347,8 +361,20 @@ final class Lifecycle
         if (!$d['is_hardware']) {
             return $out(false, 'Not in plan', 'Not a hardware device');
         }
+        if (!empty($d['replace_planned'])) {
+            $qs = \Align\Roadmap\Plan::quarters();
+            $idx = \Align\Roadmap\Plan::indexFor($d['replace_by']);
+            $why = $d['replace_deferred'] ? 'Replacement put off to ' . $d['replace_label'] . ' (end of life ' . fmt_date($d['eol_date']) . ')'
+                : 'Replacement planned for ' . $d['replace_label'] . ($d['eol_date'] ? ' (end of life ' . fmt_date($d['eol_date']) . ')' : '');
+            $why .= $d['replace_note'] ? ': ' . $d['replace_note'] : '';
+            if ($idx === null) {
+                return $out(false, 'After the plan', $why . '. That is after the 3-year plan ends (' . fmt_date($qs[count($qs) - 1]['end']) . ')');
+            }
+            $overdue = $d['replace_by'] < $qs[\Align\Roadmap\Plan::currentIndex()]['start'];
+            return $out(true, $qs[$idx]['label'], $overdue ? $why . '. That quarter has passed, so it is counted in the current quarter' : $why);
+        }
         if (!$d['start_date']) {
-            return $out(false, 'Not in plan', 'No in-service date, so there is no end-of-life date to plan around', 'Add a purchase / in-service date');
+            return $out(false, 'Not in plan', 'No in-service date, so there is no end-of-life date to plan around', 'Add a purchase / in-service date, or set a replacement quarter');
         }
         if (!$d['replace_by']) {
             return $out(false, 'Not in plan', 'No lifespan set for this type', 'Set a lifespan here or in Settings → Planning & lifecycle');
@@ -371,7 +397,7 @@ final class Lifecycle
     /** Hardware that should be budgeted but can't be placed in the plan (no in-service date). */
     public static function unplanned(array $devices): array
     {
-        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date']));
+        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'] && empty($d['replace_planned'])));
     }
 
     /** Totals per plan year from forecast() output. */
@@ -398,7 +424,7 @@ final class Lifecycle
 
     public static function summarize(array $devices): array
     {
-        $s = ['total' => 0, 'hardware' => 0, 'replace' => 0, 'plan' => 0, 'os_eos' => 0, 'os_soon' => 0,
+        $s = ['total' => 0, 'hardware' => 0, 'replace' => 0, 'plan' => 0, 'deferred' => 0, 'os_eos' => 0, 'os_soon' => 0,
             'warranty_expired' => 0, 'warranty_soon' => 0, 'no_warranty' => 0, 'stale' => 0, 'overdue_cost' => 0.0];
         foreach ($devices as $d) {
             if ($d['status'] === 'excluded') {

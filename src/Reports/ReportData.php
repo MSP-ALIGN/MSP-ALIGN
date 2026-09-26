@@ -30,7 +30,7 @@ final class ReportData
 
     public static function severity(array $d): int
     {
-        return ['replace' => 0, 'os_eos' => 1, 'plan' => 2, 'os_soon' => 3, 'warranty_expired' => 4, 'warranty_soon' => 5][$d['status']] ?? 9;
+        return ['replace' => 0, 'os_eos' => 1, 'plan' => 2, 'deferred' => 2, 'os_soon' => 3, 'warranty_expired' => 4, 'warranty_soon' => 5][$d['status']] ?? 9;
     }
 
     /** One plain sentence saying what's wrong with a device. */
@@ -39,8 +39,9 @@ final class ReportData
         $parts = [];
         foreach ($d['flags'] as $f) {
             $parts[] = match ($f) {
-                'replace' => 'Past end of life (' . fmt_date($d['eol_date']) . ')',
-                'plan' => 'End of life ' . fmt_date($d['eol_date']),
+                'replace' => !empty($d['replace_planned']) ? 'Replacement planned for ' . $d['replace_label'] : 'Past end of life (' . fmt_date($d['eol_date']) . ')',
+                'plan' => !empty($d['replace_planned']) ? 'Replacement planned for ' . $d['replace_label'] : 'End of life ' . fmt_date($d['eol_date']),
+                'deferred' => in_array('plan', $d['flags'], true) ? null : 'Past end of life (' . fmt_date($d['eol_date']) . '); replacement put off to ' . $d['replace_label'],
                 'os_eos' => ($d['os_rule']['label'] ?? 'OS') . ' unsupported since ' . fmt_date($d['os_rule']['eos_date'] ?? null),
                 'os_soon' => ($d['os_rule']['label'] ?? 'OS') . ' support ends ' . fmt_date($d['os_rule']['eos_date'] ?? null),
                 'warranty_expired' => 'Warranty ended ' . fmt_date($d['warranty_end']),

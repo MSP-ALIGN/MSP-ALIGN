@@ -21,7 +21,7 @@ $cols = 7 + ($users ? 1 : 0) + ($costs ? 1 : 0);
           <td><?= e($d['os_name'] ? short_os($d['os_name']) : (string) $d['firmware']) ?: '<span class="muted">—</span>' ?></td>
           <td class="nowrap"><?= e(fmt_date($d['start_date'])) ?: '<span class="muted">—</span>' ?><?php if ($d['age_years'] !== null): ?><div class="sub"><?= e($d['age_years']) ?> yrs<?= $d['start_estimated'] ? ' · est.' : '' ?></div><?php endif; ?></td>
           <td class="nowrap"><?= e(fmt_date($d['warranty_end'])) ?: '<span class="muted">—</span>' ?></td>
-          <td class="nowrap"><?= $d['is_hardware'] ? (e(fmt_date($d['eol_date'])) ?: '<span class="muted">—</span>') : '<span class="muted">OS only</span>' ?></td>
+          <td class="nowrap"><?= $d['is_hardware'] ? (e(fmt_date($d['eol_date'])) ?: '<span class="muted">—</span>') : '<span class="muted">OS only</span>' ?><?= !empty($d['replace_planned']) ? '<div class="sub">Replace ' . e($d['replace_label']) . '</div>' : '' ?></td>
           <td class="status"><?= Ui::pill($d['status_label'], Ui::tone($d['status_tone'])) ?></td>
           <?php if ($costs): ?><td class="num"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '—' ?></td><?php endif; ?>
         </tr>

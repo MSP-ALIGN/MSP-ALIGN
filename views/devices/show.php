@@ -88,6 +88,12 @@ if ($client) {
           <?= $row('Age', $d['age_years'] !== null ? e($d['age_years']) . ' years' : '—') ?>
           <?= $row('Lifespan policy', $d['lifespan'] ? (int) $d['lifespan'] . ' years' . ($d['o_lifespan'] ? ' <span class="small text-muted">(override)</span>' : '') : '—') ?>
           <?= $row('End of life', e(fmt_date($d['eol_date']))) ?>
+          <?php if ($d['is_hardware'] && $d['status'] !== 'excluded'): ?>
+          <?= $row('Replace in', ($d['replace_planned']
+              ? '<span class="badge badge-' . ($d['replace_deferred'] ? 'warning' : 'info') . '">' . e($d['replace_label']) . '</span> <span class="small text-muted">' . ($d['replace_deferred'] ? 'put off from end of life' : 'set by hand') . ($d['replace_note'] ? ': ' . e($d['replace_note']) : '') . '</span>'
+              : ($d['eol_date'] ? e(\Align\Roadmap\Plan::quarterFor($d['eol_date'])['label'] ?? '') . ' <span class="small text-muted">(end of life)</span>' : '<span class="text-muted">—</span>'))
+              . ($canEdit ? ' <a href="#replace-form" class="small ml-1" data-toggle="collapse" role="button" aria-expanded="false">Change</a>' : '')) ?>
+          <?php endif; ?>
           <?= $row('Warranty ends', e(fmt_date($d['warranty_end'])) . ($d['warranty_source'] ? ' <span class="small text-muted">' . e($d['warranty_source']) . '</span>' : '')) ?>
           <?= $row('Est. replacement cost', $d['is_hardware'] ? money($d['replacement_cost']) . ($d['o_cost'] !== null ? ' <span class="small text-muted">(set on this device)</span>' : ' <span class="small text-muted">(policy default)</span>') : '—') ?>
           <?php $pl = \Align\Lifecycle\Lifecycle::placement($d);
@@ -97,6 +103,21 @@ if ($client) {
           <?php if ($lookup) echo $row('Vendor lookup', e(ucfirst($lookup['vendor'])) . ': ' . e($lookup['status']) . ' · ' . e(rel_time($lookup['looked_up_at'])) . ($lookup['description'] ? '<div class="small text-muted">' . e($lookup['description']) . '</div>' : '')); ?>
           <?php if ($d['o_notes']) echo $row('Notes', '<span class="pre-line">' . e($d['o_notes']) . '</span>'); ?>
         </table>
+        <?php if ($canEdit && $d['is_hardware'] && $d['status'] !== 'excluded'): $choices = \Align\Roadmap\Plan::choices(6); ?>
+        <form method="post" action="/devices/<?= (int) $d['id'] ?>/replacement" class="collapse border-top p-3" id="replace-form">
+          <?= csrf_field() ?>
+          <div class="form-row">
+            <div class="form-group col-sm-5 mb-2"><label class="small mb-1">Replace in</label>
+              <select name="replace_on" class="custom-select custom-select-sm">
+                <option value="">Automatic (end of life<?= $d['eol_date'] ? ', ' . e(\Align\Roadmap\Plan::quarterFor($d['eol_date'])['label'] ?? '') : '' ?>)</option>
+                <?php foreach ($choices as $k => $l): ?><option value="<?= e($k) ?>" <?= ($d['o_replace'] ?? '') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
+              </select></div>
+            <div class="form-group col-sm-7 mb-2"><label class="small mb-1">Reason <span class="text-muted">(optional)</span></label><input name="replace_note" class="form-control form-control-sm" maxlength="255" value="<?= e($d['o_replace_note'] ?? '') ?>" placeholder="e.g. Client deferred to next budget year"></div>
+          </div>
+          <button class="btn btn-sm btn-primary">Save</button>
+          <span class="small text-muted ml-2">The roadmap, 3-year plan and budget move it to that quarter.</span>
+        </form>
+        <?php endif; ?>
       </div>
     </div>
   </div>

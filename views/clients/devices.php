@@ -6,6 +6,7 @@ require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 $filters = ['' => 'All', 'attention' => 'Needs attention', 'replace' => 'Replace / plan', 'os' => 'OS support', 'warranty' => 'Warranty', 'stale' => 'Stale', 'virtual' => 'Virtual', 'itflow' => 'From ITFlow', 'manual' => 'Added manually', 'unassigned' => 'Unassigned', 'noplan' => 'No in-service date'];
 $classes = ['' => 'All types'] + Lifecycle::CLASSES;
+$canBulk = Auth::can('tech');
 $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_filter(array_merge(['filter' => $filter, 'class' => $class], $over)));
 ?>
 <div class="card card-dark">
@@ -29,15 +30,28 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
       </div>
     </div>
   </div>
+  <?php if ($canBulk): ?>
+  <form method="post" action="/clients/<?= $cid ?>/devices/replacement" id="bulk-replace" class="card-body py-2 border-bottom form-inline small bulk-replace d-none" data-bulk-bar="device-table">
+    <?= csrf_field() ?><input type="hidden" name="return_query" value="<?= e(http_build_query(array_filter(['filter' => $filter, 'class' => $class]))) ?>">
+    <span class="mr-2 mb-1"><b data-bulk-count>0</b> selected · Replace in</span>
+    <select name="replace_on" class="custom-select custom-select-sm mr-2 mb-1 w-auto" aria-label="Replace in">
+      <option value="">Automatic (end of life)</option>
+      <?php foreach (\Align\Roadmap\Plan::choices(6) as $k => $l): ?><option value="<?= e($k) ?>"><?= e($l) ?></option><?php endforeach; ?>
+    </select>
+    <input name="replace_note" class="form-control form-control-sm mr-2 mb-1" maxlength="255" placeholder="Reason (optional)" style="min-width:220px">
+    <button class="btn btn-sm btn-primary mb-1"><i class="fas fa-calendar-check mr-1"></i>Set replacement</button>
+  </form>
+  <?php endif; ?>
   <div class="card-body p-0">
     <div class="table-responsive">
     <table class="table table-sm table-striped table-borderless table-hover mb-0" id="device-table">
       <thead class="text-dark"><tr>
-        <th>Name</th><th>Type</th><th>Last user</th><?php if ($bkOn = !empty($client['veeam_company_uid'])): ?><th>Backup</th><?php endif; ?><th>Make / model</th><th>Serial</th><th>OS / firmware</th><th>In service</th><th>Warranty</th><th>End of life</th><th>Status</th><th class="text-right">Est. cost</th>
+        <?php if ($canBulk): ?><th style="width:1%"><input type="checkbox" data-bulk-all="device-table" aria-label="Select all"></th><?php endif; ?><th>Name</th><th>Type</th><th>Last user</th><?php if ($bkOn = !empty($client['veeam_company_uid'])): ?><th>Backup</th><?php endif; ?><th>Make / model</th><th>Serial</th><th>OS / firmware</th><th>In service</th><th>Warranty</th><th>End of life</th><th>Status</th><th class="text-right">Est. cost</th>
       </tr></thead>
       <tbody>
       <?php foreach ($devices as $d): ?>
         <tr>
+          <?php if ($canBulk): ?><td><?php if ($d['is_hardware'] && $d['status'] !== 'excluded'): ?><input type="checkbox" name="ids[]" value="<?= (int) $d['id'] ?>" form="bulk-replace" data-bulk-item aria-label="Select <?= e($d['name']) ?>"><?php endif; ?></td><?php endif; ?>
           <td class="text-nowrap">
             <i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><a href="/devices/<?= (int) $d['id'] ?>" class="font-weight-bold"><?= e($d['name']) ?></a>
             <?php if ($d['source'] === 'manual'): ?><span class="badge badge-light border" title="Added in Align">manual</span><?php elseif ($d['source'] === 'itflow'): ?><span class="badge badge-light border" title="Imported from ITFlow assets">ITFlow</span><?php endif; ?>
@@ -54,12 +68,13 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
           <td class="small text-nowrap"><?= e(fmt_date($d['start_date'])) ?><?= $d['start_estimated'] ? ' <span class="text-muted" title="' . e($d['start_source']) . '">est.</span>' : '' ?>
             <?php if ($d['age_years'] !== null): ?><div class="text-muted"><?= e($d['age_years']) ?> yrs</div><?php endif; ?></td>
           <td class="small text-nowrap"><?= e(fmt_date($d['warranty_end'])) ?></td>
-          <td class="small text-nowrap"><?= e(fmt_date($d['eol_date'])) ?></td>
+          <td class="small text-nowrap"><?= e(fmt_date($d['eol_date'])) ?>
+            <?php if ($d['replace_planned']): ?><div><span class="badge badge-<?= $d['replace_deferred'] ? 'warning' : 'info' ?>" title="<?= e('Replacement planned for ' . $d['replace_label'] . ($d['replace_note'] ? ': ' . $d['replace_note'] : '')) ?>"><i class="fas fa-calendar-check mr-1"></i><?= e($d['replace_label']) ?></span></div><?php endif; ?></td>
           <td><?php require __DIR__ . '/../partials/status.php'; ?></td>
           <td class="text-right"><?= $d['is_hardware'] && $d['status'] !== 'excluded' ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$devices): ?><tr><td colspan="<?= $bkOn ? 12 : 11 ?>" class="text-muted p-3">No devices match.</td></tr><?php endif; ?>
+      <?php if (!$devices): ?><tr><td colspan="<?= ($bkOn ? 12 : 11) + ($canBulk ? 1 : 0) ?>" class="text-muted p-3">No devices match.</td></tr><?php endif; ?>
       </tbody>
     </table>
     </div>

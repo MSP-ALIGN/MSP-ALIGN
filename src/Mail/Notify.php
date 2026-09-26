@@ -220,8 +220,9 @@ final class Notify
             if (!$d['client_id'] || $d['client_inactive'] || $d['status'] === 'excluded' || !$d['is_hardware'] || ($ids !== null && !in_array((int) $d['client_id'], $ids, true))) {
                 continue;
             }
-            if ($d['eol_date'] && $d['eol_date'] >= $today && $d['eol_date'] <= $until) {
-                $rows[] = [$d['client_name'], $d['name'], $d['type'], 'End of life ' . fmt_date($d['eol_date'])];
+            $due = $d['replace_planned'] ? $d['replace_by'] : $d['eol_date'];
+            if ($due && $due >= $today && $due <= $until) {
+                $rows[] = [$d['client_name'], $d['name'], $d['type'], $d['replace_planned'] ? 'Replacement planned for ' . $d['replace_label'] : 'End of life ' . fmt_date($d['eol_date'])];
             } elseif ($d['warranty_end'] && $d['warranty_end'] >= $today && $d['warranty_end'] <= $until) {
                 $rows[] = [$d['client_name'], $d['name'], $d['type'], 'Warranty ends ' . fmt_date($d['warranty_end'])];
             }
