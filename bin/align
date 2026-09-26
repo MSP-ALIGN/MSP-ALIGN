@@ -124,8 +124,8 @@ try {
                 $say('Usage: align mail:test --to=you@example.com');
                 exit(1);
             }
-            Align\Mail\Graph::fromSettings()->sendMail([['address' => $to]], 'Mountaineer Align test email',
-                Align\Mail\Template::render('Email is working', [Align\Mail\Template::p('This test was sent from the command line through Microsoft 365.')]));
+            Align\Mail\Mail::client()->sendMail([['address' => $to]], 'Mountaineer Align test email',
+                Align\Mail\Template::render('Email is working', [Align\Mail\Template::p('This test was sent from the command line through ' . Align\Mail\Mail::providerName() . '.')]));
             $say("Sent a test email to $to.");
             break;
 
@@ -159,7 +159,7 @@ try {
             $say('  user:reset-password --email=E [--clear-2fa]');
             $say('  audit:verify                    Check the audit log hash chain for tampering');
             $say('  mail:run [--force] [--quiet]    Send queued email, reminders and due digests (runs every minute)');
-            $say('  mail:test --to=EMAIL            Send a test email through Microsoft 365');
+            $say('  mail:test --to=EMAIL            Send a test email through Microsoft 365 / Google');
             $say('  audit:prune                     Remove audit entries past the 6-year retention period');
             $say('  check                           Verify config and database');
             $say('  version');

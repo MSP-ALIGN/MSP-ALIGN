@@ -119,6 +119,130 @@ if (preg_match('#^/login/([^/]+)/oauth2/v2\.0/(token|authorize)$#', $path, $lm))
     $json(['error' => 'unsupported_grant_type']);
     return;
 }
+// ---- Google OAuth + Gmail + Calendar ----------------------------------------------------------
+if (in_array($path, ['/google/token', '/google/auth', '/google/revoke'], true) || str_starts_with($path, '/google/gmail/') || str_starts_with($path, '/google/calendar/')) {
+    $st = $graphState();
+    $st['google'] ??= ['mail' => [], 'events' => [], 'calls' => [], 'revoked' => 0];
+    $g = &$st['google'];
+    $jwtPart = fn(string $jwt, int $i) => json_decode((string) base64_decode(strtr(explode('.', $jwt . '..')[$i], '-_', '+/')), true) ?: [];
+    if ($path === '/google/auth') {
+        header('Location: ' . $_GET['redirect_uri'] . '?code=g-good-code&state=' . urlencode($_GET['state'] ?? '') . '&scope=' . urlencode($_GET['scope'] ?? ''), true, 302);
+        return;
+    }
+    if ($path === '/google/revoke') {
+        $g['revoked']++;
+        $graphSave($st);
+        $json([]);
+        return;
+    }
+    if ($path === '/google/token') {
+        $grant = $_POST['grant_type'] ?? '';
+        $g['calls'][] = $grant;
+        if ($grant === 'urn:ietf:params:oauth:grant-type:jwt-bearer') {
+            $c = $jwtPart($_POST['assertion'] ?? '', 1);
+            $h = $jwtPart($_POST['assertion'] ?? '', 0);
+            if (($c['iss'] ?? '') !== 'align@align-test.iam.gserviceaccount.com' || ($h['alg'] ?? '') !== 'RS256' || !str_contains((string) ($c['scope'] ?? ''), 'gmail.send')) {
+                http_response_code(401);
+                $graphSave($st);
+                $json(['error' => 'unauthorized_client', 'error_description' => 'Client is unauthorized to retrieve access tokens using this method, or client not authorized for any of the scopes requested.']);
+                return;
+            }
+            if (!str_ends_with((string) ($c['sub'] ?? ''), '@examplemsp.example') && !str_ends_with((string) ($c['sub'] ?? ''), '@example.com')) {
+                http_response_code(400);
+                $graphSave($st);
+                $json(['error' => 'invalid_grant', 'error_description' => 'Invalid email or User ID']);
+                return;
+            }
+            $graphSave($st);
+            $json(['access_token' => 'g-sa-' . $c['sub'], 'expires_in' => 3599, 'token_type' => 'Bearer']);
+            return;
+        }
+        $okClient = ($_POST['client_id'] ?? '') === '123456789012-abcdef.apps.googleusercontent.com' && ($_POST['client_secret'] ?? '') === 'g-secret';
+        if (!$okClient) {
+            http_response_code(401);
+            $graphSave($st);
+            $json(['error' => 'invalid_client', 'error_description' => 'The OAuth client was not found.']);
+            return;
+        }
+        if ($grant === 'authorization_code') {
+            if (($_POST['code'] ?? '') !== 'g-good-code' || strlen($_POST['code_verifier'] ?? '') < 43) {
+                http_response_code(400);
+                $json(['error' => 'invalid_grant', 'error_description' => 'Bad Request']);
+                return;
+            }
+            $idt = rtrim(strtr(base64_encode('{"alg":"RS256"}'), '+/', '-_'), '=') . '.' . rtrim(strtr(base64_encode(json_encode(['email' => 'alerts@examplemsp.example', 'name' => 'Align Alerts'])), '+/', '-_'), '=') . '.sig';
+            $graphSave($st);
+            $json(['access_token' => 'g-del-token', 'expires_in' => 3599, 'refresh_token' => 'g-rt', 'id_token' => $idt,
+                'scope' => 'openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar.events']);
+            return;
+        }
+        if ($grant === 'refresh_token' && ($_POST['refresh_token'] ?? '') === 'g-rt') {
+            $graphSave($st);
+            $json(['access_token' => 'g-del-token', 'expires_in' => 3599]);
+            return;
+        }
+        http_response_code(400);
+        $graphSave($st);
+        $json(['error' => 'invalid_grant', 'error_description' => 'Token has been expired or revoked.']);
+        return;
+    }
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/^Bearer (g-del-token|g-sa-(.+))$/', $auth, $am)) {
+        http_response_code(401);
+        $json(['error' => ['code' => 401, 'message' => 'Request had invalid authentication credentials.', 'status' => 'UNAUTHENTICATED']]);
+        return;
+    }
+    $user = $am[1] === 'g-del-token' ? 'alerts@examplemsp.example' : $am[2];
+    $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    if ($path === '/google/gmail/gmail/v1/users/me/messages/send' && $method === 'POST') {
+        $raw = base64_decode(strtr((string) ($body['raw'] ?? ''), '-_', '+/'));
+        if (!str_contains($raw, "\r\nMIME-Version: 1.0")) {
+            http_response_code(400);
+            $json(['error' => ['code' => 400, 'message' => 'Invalid raw', 'status' => 'INVALID_ARGUMENT']]);
+            return;
+        }
+        $g['mail'][] = ['user' => $user, 'raw' => $raw];
+        $graphSave($st);
+        $json(['id' => 'msg-' . count($g['mail']), 'threadId' => 't1', 'labelIds' => ['SENT']]);
+        return;
+    }
+    if (preg_match('#^/google/calendar/calendars/primary/events(?:/([^/?]+))?$#', $path, $cm)) {
+        $id = $cm[1] ?? null;
+        if (!$id && $method === 'POST') {
+            $id = 'gev-' . (count($g['events']) + 1);
+            $ev = $body + ['id' => $id, 'organizer' => ['email' => $user], 'sendUpdates' => $_GET['sendUpdates'] ?? null, 'status' => 'confirmed'];
+            if (!empty($body['conferenceData']['createRequest']) && ($_GET['conferenceDataVersion'] ?? '') === '1') {
+                $ev['hangoutLink'] = 'https://meet.google.com/abc-defg-' . count($g['events']);
+            }
+            $g['events'][$id] = $ev;
+            $graphSave($st);
+            $json($ev);
+            return;
+        }
+        if (!isset($g['events'][$id]) || $g['events'][$id]['organizer']['email'] !== $user) {
+            http_response_code(404);
+            $json(['error' => ['code' => 404, 'message' => 'Not Found']]);
+            return;
+        }
+        if ($method === 'PATCH') {
+            $g['events'][$id] = array_merge($g['events'][$id], $body, ['status' => 'updated', 'sendUpdates' => $_GET['sendUpdates'] ?? null]);
+            $graphSave($st);
+            $json($g['events'][$id]);
+            return;
+        }
+        if ($method === 'DELETE') {
+            $g['events'][$id]['status'] = 'cancelled';
+            $g['events'][$id]['cancelSendUpdates'] = $_GET['sendUpdates'] ?? null;
+            $graphSave($st);
+            http_response_code(204);
+            return;
+        }
+    }
+    http_response_code(404);
+    $json(['error' => ['code' => 404, 'message' => 'Not found']]);
+    return;
+}
+
 if (str_starts_with($path, '/graph/v1.0/')) {
     $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     if (!in_array($auth, ['Bearer m365-app-token', 'Bearer m365-del-token'], true)) {

@@ -16,11 +16,11 @@ use Align\Settings;
  */
 final class Invites
 {
-    public const MODES = ['calendar' => 'Outlook calendar invitations (recommended)', 'ics' => 'Email with .ics attachment'];
+    public const MODES = ['calendar' => 'Calendar invitations: Outlook or Google Calendar (recommended)', 'ics' => 'Email with .ics attachment'];
 
     public static function enabled(): bool
     {
-        return N::enabled('client_meeting_invite') && Graph::ready();
+        return N::enabled('client_meeting_invite') && Mail::ready();
     }
 
     /** Email addresses found in the attendees field ("Name <a@b.com>, c@d.com, Jane"). */
@@ -63,7 +63,9 @@ final class Invites
             return null;
         }
         try {
-            return Settings::get('mail_meeting_mode', 'calendar') === 'ics' ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action);
+            $ics = Settings::get('mail_meeting_mode', 'calendar') === 'ics'
+                || (Mail::provider() === 'google' && Mail::mode() === 'delegated' && Settings::get('g_calendar_granted') === '0');
+            return $ics ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action);
         } catch (\Throwable $e) {
             \Align\Audit::log('meeting.invite_failed', $m['title'] . ': ' . $e->getMessage());
             return 'Invitations were not sent: ' . $e->getMessage();
@@ -87,68 +89,72 @@ final class Invites
         return $h . '<p style="color:#7b8594">' . e(Settings::get('company_name') ?: 'Mountaineer IT') . '</p>';
     }
 
+    /** Where an existing calendar event lives: [provider, mailbox]. */
+    private static function stored(array $m): array
+    {
+        $mb = (string) $m['graph_mailbox'];
+        return str_starts_with($mb, 'google:') ? ['google', substr($mb, 7)] : ['microsoft', $mb];
+    }
+
     private static function viaCalendar(array $m, array $to, string $action): string
     {
-        $g = Graph::fromSettings();
-        $mailbox = $m['graph_mailbox'] ?: null;
+        $c = Mail::client();
+        [$evProvider, $mailbox] = self::stored($m);
+        // An event made with the other provider (settings changed since) can't be updated from here
+        $eventId = $m['graph_event_id'] && $evProvider === Mail::provider() ? $m['graph_event_id'] : null;
         if ($action === 'cancel') {
-            if ($m['graph_event_id']) {
-                $g->cancelEvent($mailbox ?: $g->mailboxPath(), $m['graph_event_id'], 'This meeting has been cancelled.');
+            if ($eventId) {
+                $c->calendarCancel($mailbox, $eventId, 'This meeting has been cancelled.');
                 DB::run('UPDATE meetings SET invite_sequence = invite_sequence + 1 WHERE id = ?', [$m['id']]);
                 return 'Cancellation sent to attendees.';
             }
             return self::viaIcs($m, $to, 'cancel');
         }
-        $event = [
+        $info = [
+            'uid' => (string) $m['uid'],
             'subject' => self::subject($m),
-            'body' => ['contentType' => 'HTML', 'content' => self::bodyHtml($m)],
-            'start' => ['dateTime' => gmdate('Y-m-d\TH:i:s', strtotime($m['starts_at'])), 'timeZone' => 'UTC'],
-            'end' => ['dateTime' => gmdate('Y-m-d\TH:i:s', strtotime($m['ends_at'])), 'timeZone' => 'UTC'],
-            'attendees' => array_map(fn($r) => ['emailAddress' => array_filter(['address' => $r['address'], 'name' => $r['name']]), 'type' => 'required'], $to),
+            'html' => self::bodyHtml($m),
+            'text' => trim(($m['agenda'] ? "Agenda:\n" . $m['agenda'] . "\n\n" : '') . ($m['video_url'] ? 'Join: ' . $m['video_url'] : '')),
+            'start' => $m['starts_at'],
+            'end' => $m['ends_at'],
+            'location' => $m['location'] ?: ($m['video_url'] ? 'Online' : null),
+            'online' => !$m['video_url'] && Settings::get('mail_teams_links', '1') === '1',
         ];
-        if ($m['location'] || $m['video_url']) {
-            $event['location'] = ['displayName' => $m['location'] ?: 'Online'];
-        }
-        if (!$m['video_url'] && Settings::get('mail_teams_links', '1') === '1') {
-            $event += ['isOnlineMeeting' => true, 'onlineMeetingProvider' => 'teamsForBusiness'];
-        }
-        if ($m['graph_event_id']) {
-            $r = $g->updateEvent($mailbox ?: $g->mailboxPath(), $m['graph_event_id'], $event);
+        if ($eventId) {
+            $r = $c->calendarUpdate($mailbox, $eventId, $info, $to);
             $verb = 'Updated invitation sent';
         } else {
-            $event['transactionId'] = (string) $m['uid'];
-            // In app mode the meeting owner is the organizer when they have a mailbox in the tenant
-            $paths = [];
-            if (Graph::mode() === 'app' && Settings::get('mail_meeting_organizer', 'owner') === 'owner' && $m['owner_email']) {
-                $paths[] = '/users/' . rawurlencode($m['owner_email']);
+            // In unattended mode the meeting owner is the organizer when they have a mailbox in the tenant/domain
+            $organizers = [];
+            if (Mail::mode() === 'app' && Settings::get('mail_meeting_organizer', 'owner') === 'owner' && $m['owner_email']) {
+                $organizers[] = strtolower($m['owner_email']);
             }
-            $paths[] = $g->mailboxPath();
+            $organizers[] = null; // the sending mailbox
             $r = null;
-            foreach (array_unique($paths) as $i => $p) {
+            foreach ($organizers as $i => $org) {
                 try {
-                    $r = $g->createEvent($p, $event);
-                    $mailbox = $p;
+                    $r = $c->calendarCreate($org, $info, $to);
                     break;
                 } catch (GraphException $e) {
-                    if ($i === count(array_unique($paths)) - 1 || !in_array($e->getCode(), [403, 404], true)) {
+                    if ($i === count($organizers) - 1 || !in_array($e->getCode(), [400, 401, 403, 404], true)) {
                         throw $e;
                     }
                 }
             }
             $verb = 'Invitation sent';
         }
-        $join = $r['onlineMeeting']['joinUrl'] ?? null;
-        DB::run('UPDATE meetings SET graph_event_id = COALESCE(?, graph_event_id), graph_mailbox = ?, online_join_url = COALESCE(?, online_join_url),
+        $join = $r['join'] ?? null;
+        DB::run('UPDATE meetings SET graph_event_id = ?, graph_mailbox = ?, online_join_url = COALESCE(?, online_join_url),
             video_url = COALESCE(video_url, ?), invites_sent_at = NOW(), invite_sequence = invite_sequence + 1 WHERE id = ?',
-            [$r['id'] ?? null, $mailbox, $join, $join, $m['id']]);
+            [$r['id'] ?? $eventId, $r['mailbox'] ?? $m['graph_mailbox'], $join, $join, $m['id']]);
         \Align\Audit::log('meeting.invite', self::subject($m) . ' → ' . implode(', ', array_column($to, 'address')));
-        return $verb . ' to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . ' through Outlook' . ($join ? ' with a Teams link' : '') . '.';
+        return $verb . ' to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . ' through ' . $c->calendarLabel() . ($join ? ' with a ' . $c->meetingLabel() . ' link' : '') . '.';
     }
 
     private static function viaIcs(array $m, array $to, string $action): string
     {
         $cancel = $action === 'cancel';
-        $organizer = trim((string) Settings::get('mail_from')) ?: (string) Settings::get('m365_connected_as');
+        $organizer = Mail::fromAddress();
         $ics = self::ics($m, $cancel ? 'CANCEL' : 'REQUEST', $organizer, $to, (int) $m['invite_sequence'] + 1);
         $when = date('l, F j, Y · g:i a', strtotime($m['starts_at'])) . ' – ' . date('g:i a T', strtotime($m['ends_at']));
         $blocks = [T::p($cancel ? 'This meeting has been cancelled.' : ($m['invites_sent_at'] ? 'This meeting has been updated.' : 'You\'re invited to a meeting.')),

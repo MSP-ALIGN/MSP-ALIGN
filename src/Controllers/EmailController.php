@@ -7,6 +7,8 @@ use Align\Audit;
 use Align\Auth;
 use Align\DB;
 use Align\Mail\Graph;
+use Align\Mail\Google;
+use Align\Mail\Mail;
 use Align\Mail\Invites;
 use Align\Mail\Mailer;
 use Align\Mail\Notifications as N;
@@ -18,19 +20,19 @@ use Align\View;
 /** Settings → Email & notifications: Microsoft 365 connection, notification options, mail log. */
 final class EmailController
 {
-    private const TEXT = ['m365_tenant', 'm365_client_id', 'mail_from', 'mail_from_name', 'mail_reply_to'];
-    private const SECRETS = ['m365_client_secret', 'm365_cert_pem', 'm365_key_pem'];
+    private const TEXT = ['m365_tenant', 'm365_client_id', 'g_client_id', 'mail_from', 'mail_from_name', 'mail_reply_to'];
+    private const SECRETS = ['m365_client_secret', 'm365_cert_pem', 'm365_key_pem', 'g_client_secret', 'g_sa_json'];
 
     public static function index(): void
     {
         Auth::requireRole('admin');
         $v = [];
-        foreach (array_merge(self::TEXT, ['mail_mode', 'm365_auth', 'mail_save_sent', 'mail_log_days', 'notif_digest_hour', 'notif_weekly_day', 'notif_meeting_reminder_hours',
+        foreach (array_merge(self::TEXT, ['mail_provider', 'g_connected_as', 'g_connected_name', 'g_connected_at', 'g_calendar_granted', 'mail_mode', 'm365_auth', 'mail_save_sent', 'mail_log_days', 'notif_digest_hour', 'notif_weekly_day', 'notif_meeting_reminder_hours',
             'mail_meeting_mode', 'mail_meeting_organizer', 'mail_teams_links', 'm365_connected_as', 'm365_connected_name', 'm365_connected_at']) as $k) {
             $v[$k] = Settings::get($k);
         }
         $secrets = [];
-        foreach (array_merge(self::SECRETS, ['m365_refresh_token']) as $k) {
+        foreach (array_merge(self::SECRETS, ['m365_refresh_token', 'g_refresh_token']) as $k) {
             $secrets[$k] = Settings::hasSecret($k);
         }
         View::render('settings/email', [
@@ -38,9 +40,11 @@ final class EmailController
             'nav' => 'email',
             'v' => $v,
             'secrets' => $secrets,
-            'ready' => Graph::ready(),
+            'ready' => Mail::ready(),
+            'provider' => Mail::provider(),
+            'sa' => Google::serviceAccount(),
             'stats' => Mailer::stats(),
-            'redirectUri' => Graph::redirectUri(),
+            'redirectUri' => Mail::redirectUri(),
             'baseUrlSet' => (string) \Align\Config::get('base_url', '') !== '',
             'certInfo' => self::certInfo(),
         ]);
@@ -71,6 +75,10 @@ final class EmailController
                 flash('error', 'Tenant must be the Directory (tenant) ID or a domain such as contoso.onmicrosoft.com.');
                 redirect('/settings/email');
             }
+            if ($k === 'g_client_id' && $val !== '' && !preg_match('/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/', $val)) {
+                flash('error', 'The Google OAuth client ID looks like 1234567890-abc123.apps.googleusercontent.com.');
+                redirect('/settings/email');
+            }
             if ($k === 'm365_client_id' && $val !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $val)) {
                 flash('error', 'The Application (client) ID is a GUID like 11111111-2222-3333-4444-555555555555.');
                 redirect('/settings/email');
@@ -80,7 +88,7 @@ final class EmailController
                 $changed[] = $k;
             }
         }
-        $choices = ['mail_mode' => array_keys(Graph::MODES), 'm365_auth' => ['secret', 'certificate'], 'mail_meeting_mode' => array_keys(Invites::MODES), 'mail_meeting_organizer' => ['owner', 'mailbox']];
+        $choices = ['mail_provider' => array_keys(Mail::PROVIDERS), 'mail_mode' => array_keys(Mail::MODES), 'm365_auth' => ['secret', 'certificate'], 'mail_meeting_mode' => array_keys(Invites::MODES), 'mail_meeting_organizer' => ['owner', 'mailbox']];
         foreach ($choices as $k => $allowed) {
             if (isset($_POST[$k]) && in_array(post($k), $allowed, true) && post($k) !== (string) Settings::get($k)) {
                 Settings::set($k, post($k));
@@ -114,6 +122,10 @@ final class EmailController
                     flash('error', 'The certificate must be PEM text starting with -----BEGIN CERTIFICATE-----.');
                     redirect('/settings/email');
                 }
+                if ($k === 'g_sa_json' && ($err = Google::validateServiceAccount($val))) {
+                    flash('error', $err);
+                    redirect('/settings/email');
+                }
                 if ($k === 'm365_key_pem' && !@openssl_pkey_get_private($val)) {
                     flash('error', 'The private key must be an unencrypted PEM key starting with -----BEGIN PRIVATE KEY-----.');
                     redirect('/settings/email');
@@ -124,8 +136,9 @@ final class EmailController
         }
         if ($changed) {
             Settings::clearSecret('m365_token_cache');
+            Settings::clearSecret('g_token_cache');
             Audit::log('settings.email', implode(', ', $changed));
-            if (array_intersect($changed, ['mail_mode', 'm365_tenant', 'm365_client_id', 'mail_from', 'm365_client_secret', 'm365_cert_pem', 'm365_key_pem'])) {
+            if (array_intersect($changed, ['mail_provider', 'mail_mode', 'm365_tenant', 'm365_client_id', 'g_client_id', 'mail_from', 'm365_client_secret', 'm365_cert_pem', 'm365_key_pem', 'g_client_secret', 'g_sa_json'])) {
                 Notify::security('Email settings changed', implode(', ', array_map(fn($c) => str_replace(' (cleared)', ' removed', $c), $changed)) . ' by ' . (Auth::user()['email'] ?? ''));
             }
         }
@@ -187,10 +200,10 @@ final class EmailController
             redirect('/settings/email');
         }
         try {
-            $g = Graph::fromSettings();
+            $g = Mail::client();
             $html = T::render('Email is working', [
-                T::p('This test message was sent by Mountaineer Align through Microsoft 365.'),
-                T::facts(['Sign-in' => Graph::MODES[Graph::mode()], 'Sent from' => Graph::mode() === 'delegated' && !Settings::get('mail_from') ? Settings::get('m365_connected_as') : Settings::get('mail_from'),
+                T::p('This test message was sent by Mountaineer Align through ' . Mail::providerName() . '.'),
+                T::facts(['Provider' => Mail::providerName(), 'Sign-in' => Mail::mode() === 'app' ? (Mail::provider() === 'google' ? 'Service account' : 'App-only') : 'Connected account', 'Sent from' => Mail::fromAddress(),
                     'Sent by' => Auth::user()['name'] ?? '', 'Time' => date('D M j, Y g:i:s a T')]),
                 T::button('Open Align', N::url('/')),
             ], 'Test message.');
@@ -207,16 +220,19 @@ final class EmailController
         redirect('/settings/email');
     }
 
-    /** Starts "Connect with Microsoft" (authorization code + PKCE). */
+    /** Starts "Connect with Microsoft" / "Connect with Google" (authorization code + PKCE). */
     public static function connect(): void
     {
         Auth::requireRole('admin');
-        if (!Settings::get('m365_tenant') || !Settings::get('m365_client_id') || !Settings::hasSecret('m365_client_secret') && !Settings::hasSecret('m365_key_pem')) {
-            flash('error', 'Save the tenant, client ID and client secret first, then connect.');
+        $google = Mail::provider() === 'google';
+        $missing = $google ? (!Settings::get('g_client_id') || !Settings::hasSecret('g_client_secret'))
+            : (!Settings::get('m365_tenant') || !Settings::get('m365_client_id') || !Settings::hasSecret('m365_client_secret') && !Settings::hasSecret('m365_key_pem'));
+        if ($missing) {
+            flash('error', $google ? 'Save the OAuth client ID and client secret first, then connect.' : 'Save the tenant, client ID and client secret first, then connect.');
             redirect('/settings/email');
         }
-        [$url, $state, $verifier] = Graph::authorizeUrl();
-        $_SESSION['m365_oauth'] = ['state' => $state, 'verifier' => $verifier, 'at' => time()];
+        [$url, $state, $verifier] = $google ? Google::authorizeUrl() : Graph::authorizeUrl();
+        $_SESSION['mail_oauth'] = ['state' => $state, 'verifier' => $verifier, 'at' => time(), 'provider' => Mail::provider()];
         header('Location: ' . $url, true, 302);
         exit;
     }
@@ -224,24 +240,27 @@ final class EmailController
     public static function callback(): void
     {
         Auth::requireRole('admin');
-        $saved = $_SESSION['m365_oauth'] ?? null;
-        unset($_SESSION['m365_oauth']);
+        $saved = $_SESSION['mail_oauth'] ?? null;
+        unset($_SESSION['mail_oauth']);
         if (query('error') !== '') {
-            flash('error', 'Microsoft sign-in was not completed: ' . mb_strimwidth(query('error_description') ?: query('error'), 0, 300, '…'));
+            flash('error', 'Sign-in was not completed: ' . mb_strimwidth(query('error_description') ?: query('error'), 0, 300, '…'));
             redirect('/settings/email');
         }
-        if (!$saved || time() - (int) $saved['at'] > 900 || !hash_equals((string) $saved['state'], query('state'))) {
-            flash('error', 'That sign-in response did not match this browser session. Click Connect with Microsoft again.');
+        if (!$saved || time() - (int) $saved['at'] > 900 || !hash_equals((string) $saved['state'], query('state')) || $saved['provider'] !== Mail::provider()) {
+            flash('error', 'That sign-in response did not match this browser session. Click Connect again.');
             redirect('/settings/email');
         }
         try {
-            $me = Graph::completeSignIn(query('code'), (string) $saved['verifier']);
+            $google = $saved['provider'] === 'google';
+            $me = $google ? Google::completeSignIn(query('code'), (string) $saved['verifier']) : Graph::completeSignIn(query('code'), (string) $saved['verifier']);
             if (Settings::get('mail_mode') !== 'delegated') {
                 Settings::set('mail_mode', 'delegated');
             }
-            Audit::log('email.connected', $me['address']);
-            Notify::security('Microsoft 365 mailbox connected', $me['address'] . ' by ' . (Auth::user()['email'] ?? ''));
-            flash('success', 'Connected to Microsoft 365 as ' . $me['address'] . '. Send a test email to check.');
+            $name = Mail::providerName();
+            Audit::log('email.connected', "$name: " . $me['address']);
+            Notify::security("$name mailbox connected", $me['address'] . ' by ' . (Auth::user()['email'] ?? ''));
+            $note = $google && Settings::get('g_calendar_granted') === '0' ? ' Calendar access wasn\'t granted, so meeting invitations will be sent as .ics emails.' : '';
+            flash('success', "Connected to $name as " . $me['address'] . '. Send a test email to check.' . $note);
         } catch (\Throwable $e) {
             flash('error', 'Could not connect: ' . $e->getMessage());
         }
@@ -251,10 +270,10 @@ final class EmailController
     public static function disconnect(): void
     {
         Auth::requireRole('admin');
-        $was = (string) Settings::get('m365_connected_as');
-        Graph::disconnect();
-        Audit::log('email.disconnected', $was);
-        flash('success', 'Disconnected from Microsoft 365. Align keeps nothing that can sign in to the mailbox.');
+        $was = (string) Mail::connectedAs();
+        Mail::provider() === 'google' ? Google::disconnect() : Graph::disconnect();
+        Audit::log('email.disconnected', Mail::providerName() . ": $was");
+        flash('success', 'Disconnected from ' . Mail::providerName() . '. Align keeps nothing that can sign in to the mailbox.');
         redirect('/settings/email');
     }
 

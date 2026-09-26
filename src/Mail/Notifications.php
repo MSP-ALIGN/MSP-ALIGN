@@ -44,7 +44,7 @@ final class Notifications
     /** Switched on by an admin (and email is set up). */
     public static function enabled(string $key): bool
     {
-        if (!isset(self::CATALOG[$key]) || Graph::mode() === 'off') {
+        if (!isset(self::CATALOG[$key]) || !Mail::on()) {
             return false;
         }
         return Settings::get("notif_$key", self::CATALOG[$key][7] ? '1' : '0') === '1';

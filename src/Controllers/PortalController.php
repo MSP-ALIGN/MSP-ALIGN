@@ -67,7 +67,7 @@ final class PortalController
 
     public static function forgotForm(): void
     {
-        if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Graph::ready()) {
+        if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Mail::ready()) {
             redirect('/portal/login');
         }
         View::render('portal/forgot', ['title' => 'Reset your password'], 'layout/bare');
@@ -79,7 +79,7 @@ final class PortalController
      */
     public static function forgot(): void
     {
-        if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Graph::ready()) {
+        if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Mail::ready()) {
             redirect('/portal/login');
         }
         $email = strtolower(trim(post('email')));

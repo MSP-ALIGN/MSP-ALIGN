@@ -438,9 +438,13 @@ document.addEventListener('click', (ev) => {
     const el = document.querySelector('[name="' + name + '"]:checked') || document.querySelector('select[name="' + name + '"]');
     return el ? el.value : '';
   };
+  // Several conditions separated by ";" must all match: data-show-when="mail_provider=google;mail_mode=app"
   const apply = () => blocks.forEach((b) => {
-    const [name, vals] = b.dataset.showWhen.split('=');
-    b.classList.toggle('d-none', !vals.split(',').includes(val(name)));
+    const show = b.dataset.showWhen.split(';').every((cond) => {
+      const [name, vals] = cond.split('=');
+      return vals.split(',').includes(val(name));
+    });
+    b.classList.toggle('d-none', !show);
   });
   document.addEventListener('change', (ev) => { if (ev.target.name) apply(); });
   apply();

@@ -25,7 +25,7 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_contacts' => 'Edits c
     <div class="card-body">
       <div class="d-flex align-items-start mb-2"><i class="fas fa-link text-success mr-2 mt-1"></i>
         <div class="mr-auto"><b><?= $link['kind'] === 'reset' ? 'Password reset link' : 'Invite link' ?> for <?= e($link['name']) ?></b>
-          <div class="small text-muted">Shown only once. It works one time and expires in <?= PortalAuth::INVITE_DAYS ?> days. <?= \Align\Mail\Notifications::enabled('client_portal_invite') && \Align\Mail\Graph::ready() ? 'If it was emailed, there\'s nothing else to do; otherwise send it to ' . e($link['email']) . ' yourself.' : 'Send it to ' . e($link['email']) . ' yourself; Align doesn\'t email it.' ?></div></div></div>
+          <div class="small text-muted">Shown only once. It works one time and expires in <?= PortalAuth::INVITE_DAYS ?> days. <?= \Align\Mail\Notifications::enabled('client_portal_invite') && \Align\Mail\Mail::ready() ? 'If it was emailed, there\'s nothing else to do; otherwise send it to ' . e($link['email']) . ' yourself.' : 'Send it to ' . e($link['email']) . ' yourself; Align doesn\'t email it.' ?></div></div></div>
       <div class="input-group input-group-sm mb-2">
         <input class="form-control" id="portal-link" value="<?= e($link['url']) ?>" readonly>
         <div class="input-group-append"><button class="btn btn-default" type="button" data-copy="#portal-link"><i class="fas fa-copy mr-1"></i>Copy</button></div>
@@ -105,7 +105,7 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_contacts' => 'Edits c
         </div>
         <?php if ($contacts): ?><p class="small text-muted mt-n2">Start typing to pick one of their contacts.</p><?php endif; ?>
         <?= \Align\View::fetch('portal_admin/_perms', ['u' => null, 'pid' => 'inv']) ?>
-        <?php if (\Align\Mail\Notifications::enabled('client_portal_invite') && \Align\Mail\Graph::ready()): ?>
+        <?php if (\Align\Mail\Notifications::enabled('client_portal_invite') && \Align\Mail\Mail::ready()): ?>
           <input type="hidden" name="send_email" value="0">
           <div class="custom-control custom-checkbox mt-2"><input type="checkbox" class="custom-control-input" id="inv-send" name="send_email" value="1" checked><label class="custom-control-label font-weight-normal" for="inv-send">Email the invitation to them now</label></div>
           <p class="small text-muted mb-0 mt-1">They get a branded email with a one-time link and set their own password. The link is also shown to you once.</p>

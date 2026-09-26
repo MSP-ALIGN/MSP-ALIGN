@@ -1,9 +1,9 @@
 <?php
-use Align\Mail\Graph;
 use Align\Mail\Invites;
+use Align\Mail\Mail;
 use Align\Mail\Notifications as N;
 
-/** @var array $v, $secrets, $stats; bool $ready, $baseUrlSet; string $redirectUri; ?array $certInfo */
+/** @var array $v, $secrets, $stats; bool $ready, $baseUrlSet; string $redirectUri, $provider; ?array $certInfo, $sa */
 $mode = $v['mail_mode'] ?: 'off';
 $secret = function (string $name, string $label, bool $textarea = false, string $placeholder = '') use ($secrets) {
     $has = $secrets[$name] ?? false;
@@ -18,11 +18,13 @@ $secret = function (string $name, string $label, bool $textarea = false, string 
     return $h . '</div>';
 };
 $days = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
+$pname = Mail::PROVIDERS[$provider];
 $status = match (true) {
     $mode === 'off' => ['secondary', 'Off', 'Email is switched off. Nothing is sent or queued.'],
-    !$ready => ['warning', 'Not finished', $mode === 'delegated' ? 'Save the app details, then click Connect with Microsoft.' : 'Fill in the tenant, client ID, credential and From mailbox, then save.'],
+    !$ready => ['warning', 'Not finished', $mode === 'delegated' ? 'Save the app details, then click Connect with ' . ($provider === 'google' ? 'Google' : 'Microsoft') . '.'
+        : ($provider === 'google' ? 'Paste the service account key and the From mailbox, then save.' : 'Fill in the tenant, client ID, credential and From mailbox, then save.')],
     $stats['failed7'] && $stats['last_error'] => ['danger', 'Problem', 'Recent sends failed: ' . $stats['last_error']],
-    default => ['success', 'Ready', $mode === 'delegated' ? 'Connected as ' . $v['m365_connected_as'] . '.' : 'Sending as ' . $v['mail_from'] . '.'],
+    default => ['success', 'Ready', "$pname · " . ($mode === 'delegated' ? 'connected as ' . Mail::connectedAs() : 'sending as ' . $v['mail_from']) . '.'],
 };
 ?>
 <div class="d-flex flex-wrap align-items-center mb-3">
@@ -30,27 +32,35 @@ $status = match (true) {
   <a class="btn btn-sm btn-default" href="/settings/email/log"><i class="fas fa-list mr-1"></i>Email log<?= $stats['queued'] ? ' <span class="badge badge-warning">' . (int) $stats['queued'] . ' queued</span>' : '' ?></a>
 </div>
 <?php if (!$baseUrlSet): ?>
-  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><code>base_url</code> is not set in <code>/etc/mountaineer-align/config.php</code>. Links in emails and the Microsoft sign-in redirect are built from it, so set it to the address people use (for example https://align.example.com).</div>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><code>base_url</code> is not set in <code>/etc/mountaineer-align/config.php</code>. Links in emails and the sign-in redirect are built from it, so set it to the address people use (for example https://align.example.com).</div>
 <?php endif; ?>
 
 <div class="row">
   <div class="col-xl-7">
     <form method="post" action="/settings/email" class="card card-dark">
       <?= csrf_field() ?>
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft mr-2"></i>Microsoft 365 connection</h3>
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-plug mr-2"></i>Mail connection</h3>
         <div class="card-tools"><span class="badge badge-<?= $status[0] ?> px-2 py-1"><?= e($status[1]) ?></span></div></div>
       <div class="card-body">
         <p class="small text-<?= $status[0] === 'danger' ? 'danger' : 'muted' ?>"><?= e($status[2]) ?></p>
         <div class="form-group">
+          <label class="d-block">Email service</label>
+          <div class="btn-group btn-group-toggle w-100" data-toggle="buttons" role="radiogroup">
+            <label class="btn btn-outline-primary <?= $provider === 'microsoft' ? 'active' : '' ?>"><input type="radio" name="mail_provider" value="microsoft" <?= $provider === 'microsoft' ? 'checked' : '' ?>><i class="fab fa-microsoft mr-1"></i>Microsoft 365</label>
+            <label class="btn btn-outline-primary <?= $provider === 'google' ? 'active' : '' ?>"><input type="radio" name="mail_provider" value="google" <?= $provider === 'google' ? 'checked' : '' ?>><i class="fab fa-google mr-1"></i>Google Workspace</label>
+          </div>
+        </div>
+        <div class="form-group">
           <label class="d-block">How Align signs in</label>
-          <?php foreach (Graph::MODES as $k => $label): ?>
-            <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-<?= $k ?>" name="mail_mode" value="<?= $k ?>" <?= $mode === $k ? 'checked' : '' ?>>
-              <label class="custom-control-label font-weight-normal" for="mode-<?= $k ?>"><?= e($label) ?></label></div>
-          <?php endforeach; ?>
+          <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-off" name="mail_mode" value="off" <?= $mode === 'off' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mode-off">Off</label></div>
+          <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-app" name="mail_mode" value="app" <?= $mode === 'app' ? 'checked' : '' ?>>
+            <label class="custom-control-label font-weight-normal" for="mode-app"><span data-show-when="mail_provider=microsoft">App-only (recommended for servers)</span><span data-show-when="mail_provider=google">Service account with domain-wide delegation (recommended for servers)</span></label></div>
+          <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-delegated" name="mail_mode" value="delegated" <?= $mode === 'delegated' ? 'checked' : '' ?>>
+            <label class="custom-control-label font-weight-normal" for="mode-delegated"><span data-show-when="mail_provider=microsoft">Sign in as a mailbox (Connect with Microsoft)</span><span data-show-when="mail_provider=google">Sign in as a mailbox (Connect with Google)</span></label></div>
         </div>
 
         <div data-show-when="mail_mode=app,delegated">
-          <details class="mb-3 small border rounded p-2 bg-light">
+          <details class="mb-3 small border rounded p-2 bg-light" data-show-when="mail_provider=microsoft">
             <summary class="font-weight-bold">Setup steps in Microsoft Entra ID</summary>
             <ol class="pl-3 mt-2 mb-1">
               <li>Entra admin center → <b>App registrations</b> → <b>New registration</b>. Name it "Mountaineer Align", single tenant.</li>
@@ -70,6 +80,41 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
                 <b>API permissions</b> → Microsoft Graph → <b>Delegated</b>: <code>Mail.Send</code>, <code>Mail.Send.Shared</code>, <code>Calendars.ReadWrite</code>, <code>Calendars.ReadWrite.Shared</code>, <code>User.Read</code>, <code>offline_access</code>. Grant admin consent, save here, then click <b>Connect with Microsoft</b> and sign in as the mailbox that should send (or an account with Send As on it).</li>
             </ol>
           </details>
+          <details class="mb-3 small border rounded p-2 bg-light" data-show-when="mail_provider=google">
+            <summary class="font-weight-bold">Setup steps in Google Cloud and the Admin console</summary>
+            <ol class="pl-3 mt-2 mb-1">
+              <li>In <b>Google Cloud console</b> create (or pick) a project, then under <b>APIs &amp; Services → Library</b> enable the <b>Gmail API</b> and the <b>Google Calendar API</b>.</li>
+              <li data-show-when="mail_mode=app"><b>IAM &amp; Admin → Service accounts → Create service account</b> (no roles needed). Open it → <b>Keys → Add key → JSON</b>, and paste the downloaded file below. (If key creation is blocked, an organization policy <code>iam.disableServiceAccountKeyCreation</code> is on.)</li>
+              <li data-show-when="mail_mode=app">In the <b>Google Admin console → Security → Access and data control → API controls → Manage domain-wide delegation → Add new</b>, enter the service account's client ID<?= $sa ? ' <code>' . e($sa['client_id'] ?? '') . '</code>' : '' ?> and these scopes:
+                <pre class="bg-white border p-2 mt-1 mb-1 small"><?= e(implode(',', \Align\Mail\Google::SCOPES)) ?></pre>
+                The service account then acts as the From mailbox, and as each meeting owner for invitations if you choose that below. The From address must be a real user (not a group or alias).</li>
+              <li data-show-when="mail_mode=delegated"><b>APIs &amp; Services → OAuth consent screen</b>: user type <b>Internal</b> (so tokens don't expire after 7 days), add the scopes <code>gmail.send</code> and <code>calendar.events</code>.</li>
+              <li data-show-when="mail_mode=delegated"><b>Credentials → Create credentials → OAuth client ID → Web application</b>, authorized redirect URI <code><?= e($redirectUri) ?></code>. Paste the client ID and secret below, save, then click <b>Connect with Google</b> and sign in as the sending mailbox.</li>
+            </ol>
+          </details>
+          <div data-show-when="mail_provider=google;mail_mode=app">
+            <?php if ($sa): ?><p class="small text-muted mb-2"><i class="fas fa-key mr-1"></i>Service account <b><?= e($sa['client_email']) ?></b> · client ID <code><?= e($sa['client_id'] ?? '') ?></code> · project <?= e($sa['project_id'] ?? '') ?></p><?php endif; ?>
+            <?= $secret('g_sa_json', 'Service account key (JSON)', true, '{ "type": "service_account", "project_id": … }') ?>
+          </div>
+          <div data-show-when="mail_provider=google;mail_mode=delegated">
+            <div class="form-row">
+              <div class="form-group col-md-6"><label>OAuth client ID</label><input name="g_client_id" class="form-control text-monospace small" value="<?= e($v['g_client_id']) ?>" placeholder="1234567890-abc.apps.googleusercontent.com" autocomplete="off"></div>
+              <div class="col-md-6"><?= $secret('g_client_secret', 'OAuth client secret') ?></div>
+            </div>
+            <div class="border rounded p-2 mb-3">
+              <?php if ($secrets['g_refresh_token']): ?>
+                <div class="d-flex align-items-center"><i class="fas fa-circle-check text-success mr-2"></i>
+                  <div class="mr-auto small">Connected as <b><?= e($v['g_connected_as']) ?></b><?= $v['g_connected_name'] ? ' (' . e($v['g_connected_name']) . ')' : '' ?> since <?= e(fmt_date($v['g_connected_at'])) ?>.<?= $v['g_calendar_granted'] === '0' ? ' <span class="text-warning">Calendar access not granted: invitations go out as .ics emails.</span>' : '' ?></div>
+                  <a class="btn btn-sm btn-default mr-1" href="/settings/email/connect">Reconnect</a>
+                  <button class="btn btn-sm btn-outline-danger" form="email-disconnect">Disconnect</button></div>
+              <?php else: ?>
+                <div class="d-flex align-items-center"><span class="small text-muted mr-auto">Save the client ID and secret first, then sign in as the sending mailbox.</span>
+                  <a class="btn btn-sm btn-primary" href="/settings/email/connect"><i class="fab fa-google mr-1"></i>Connect with Google</a></div>
+              <?php endif; ?>
+              <div class="small text-muted mt-1">Redirect URI to register: <code><?= e($redirectUri) ?></code></div>
+            </div>
+          </div>
+          <div data-show-when="mail_provider=microsoft">
           <div class="form-row">
             <div class="form-group col-md-6"><label>Directory (tenant) ID</label><input name="m365_tenant" class="form-control" value="<?= e($v['m365_tenant']) ?>" placeholder="contoso.onmicrosoft.com or GUID" autocomplete="off"></div>
             <div class="form-group col-md-6"><label>Application (client) ID</label><input name="m365_client_id" class="form-control text-monospace" value="<?= e($v['m365_client_id']) ?>" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off"></div>
@@ -89,7 +134,8 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
             <p class="small text-muted">Create one with <code>openssl req -x509 -newkey rsa:2048 -nodes -days 730 -subj "/CN=Mountaineer Align" -keyout align.key -out align.crt</code>, upload <code>align.crt</code> to the app registration, and paste both files here. In delegated mode a client secret is still needed for the sign-in button.</p>
           </div>
 
-          <div data-show-when="mail_mode=delegated" class="border rounded p-2 mb-3">
+          </div>
+          <div data-show-when="mail_provider=microsoft;mail_mode=delegated" class="border rounded p-2 mb-3">
             <?php if ($secrets['m365_refresh_token']): ?>
               <div class="d-flex align-items-center"><i class="fas fa-circle-check text-success mr-2"></i>
                 <div class="mr-auto small">Connected as <b><?= e($v['m365_connected_as']) ?></b><?= $v['m365_connected_name'] ? ' (' . e($v['m365_connected_name']) . ')' : '' ?> since <?= e(fmt_date($v['m365_connected_at'])) ?>.</div>
@@ -103,7 +149,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
           </div>
 
           <div class="form-row">
-            <div class="form-group col-md-6"><label><span data-show-when="mail_mode=app">From mailbox</span><span data-show-when="mail_mode=delegated">Send as <small class="text-muted">(optional shared mailbox)</small></span></label>
+            <div class="form-group col-md-6"><label><span data-show-when="mail_mode=app">From mailbox</span><span data-show-when="mail_provider=microsoft;mail_mode=delegated">Send as <small class="text-muted">(optional shared mailbox)</small></span><span data-show-when="mail_provider=google;mail_mode=delegated">Send as <small class="text-muted">(optional Gmail "Send mail as" alias)</small></span></label>
               <input type="email" name="mail_from" class="form-control" value="<?= e($v['mail_from']) ?>" placeholder="alerts@yourdomain.com"></div>
             <div class="form-group col-md-6"><label>Display name <small class="text-muted">(optional)</small></label><input name="mail_from_name" class="form-control" value="<?= e($v['mail_from_name']) ?>" placeholder="Mountaineer IT"></div>
           </div>
@@ -114,7 +160,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <small class="text-muted">After this the log keeps who, what and when, but not the message. Invite and password emails are wiped as soon as they're sent.</small></div>
           </div>
           <input type="hidden" name="mail_save_sent_present" value="1">
-          <div class="custom-control custom-switch mb-2"><input type="checkbox" class="custom-control-input" id="mail_save_sent" name="mail_save_sent" value="1" <?= ($v['mail_save_sent'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_save_sent">Save a copy in the mailbox's Sent Items</label></div>
+          <div class="custom-control custom-switch mb-2" data-show-when="mail_provider=microsoft"><input type="checkbox" class="custom-control-input" id="mail_save_sent" name="mail_save_sent" value="1" <?= ($v['mail_save_sent'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_save_sent">Save a copy in the mailbox's Sent Items</label></div>
         </div>
       </div>
 
@@ -127,13 +173,13 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
         </div>
         <div class="form-row">
           <div class="form-group col-md-6"><label>Meeting invitations</label><select name="mail_meeting_mode" class="custom-select"><?php foreach (Invites::MODES as $k => $l): ?><option value="<?= $k ?>" <?= ($v['mail_meeting_mode'] ?: 'calendar') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
-            <small class="text-muted">Outlook invitations are real meetings: attendees can accept, and changes and cancellations follow automatically. Needs Calendars.ReadWrite.</small></div>
+            <small class="text-muted">Calendar invitations are real meetings in Outlook or Google Calendar: attendees can accept, and changes and cancellations follow automatically.</small></div>
           <div class="form-group col-md-6" data-show-when="mail_mode=app"><label>Organizer</label><select name="mail_meeting_organizer" class="custom-select">
               <option value="owner" <?= ($v['mail_meeting_organizer'] ?: 'owner') === 'owner' ? 'selected' : '' ?>>Meeting owner's own calendar (falls back to the From mailbox)</option>
               <option value="mailbox" <?= $v['mail_meeting_organizer'] === 'mailbox' ? 'selected' : '' ?>>Always the From mailbox</option></select></div>
         </div>
         <input type="hidden" name="mail_teams_links_present" value="1">
-        <div class="custom-control custom-switch"><input type="checkbox" class="custom-control-input" id="mail_teams_links" name="mail_teams_links" value="1" <?= ($v['mail_teams_links'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_teams_links">Add a Microsoft Teams link to Outlook invitations when the meeting has no video link</label></div>
+        <div class="custom-control custom-switch"><input type="checkbox" class="custom-control-input" id="mail_teams_links" name="mail_teams_links" value="1" <?= ($v['mail_teams_links'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_teams_links">Add a <span data-show-when="mail_provider=microsoft">Microsoft Teams</span><span data-show-when="mail_provider=google">Google Meet</span> link to invitations when the meeting has no video link</label></div>
       </div>
       <div class="card-footer"><button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save</button></div>
     </form>

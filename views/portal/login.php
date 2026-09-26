@@ -10,7 +10,7 @@
     <div class="input-group-append"><div class="input-group-text"><span class="fas fa-lock"></span></div></div>
   </div>
   <button class="btn btn-primary btn-block">Sign in</button>
-  <?php if (\Align\Mail\Notifications::enabled('client_portal_reset') && \Align\Mail\Graph::ready()): ?>
+  <?php if (\Align\Mail\Notifications::enabled('client_portal_reset') && \Align\Mail\Mail::ready()): ?>
     <p class="mt-3 mb-0 small text-center"><a href="/portal/forgot">Forgot your password?</a></p>
   <?php else: ?>
   <p class="mt-3 mb-0 small text-muted text-center">Forgot your password or need access? Ask your IT provider to send you a new sign-in link.</p>

@@ -33,8 +33,7 @@ final class Graph
 
     public static function mode(): string
     {
-        $m = (string) Settings::get('mail_mode', 'off');
-        return isset(self::MODES[$m]) ? $m : 'off';
+        return Mail::mode();
     }
 
     /** True when mail can actually be sent (mode chosen and credentials present). */
@@ -83,7 +82,7 @@ final class Graph
 
     public static function redirectUri(): string
     {
-        return \Align\Portal\PortalAuth::baseUrl() . '/settings/email/callback';
+        return Mail::redirectUri();
     }
 
     /** Mailbox Graph calls act on: app → the From mailbox; delegated → "me", or a shared mailbox to send as. */
@@ -290,6 +289,55 @@ final class Graph
     public function cancelEvent(string $mailboxPath, string $id, string $comment = ''): void
     {
         $this->call('POST', $mailboxPath . '/events/' . rawurlencode($id) . '/cancel', ['comment' => $comment]);
+    }
+
+    // ---- Meeting invitations (same shape as Google::calendar*) ---------------------------------
+
+    public function calendarLabel(): string
+    {
+        return 'Outlook';
+    }
+
+    public function meetingLabel(): string
+    {
+        return 'Teams';
+    }
+
+    private function eventBody(array $i, array $to): array
+    {
+        $ev = [
+            'subject' => $i['subject'],
+            'body' => ['contentType' => 'HTML', 'content' => $i['html']],
+            'start' => ['dateTime' => gmdate('Y-m-d\TH:i:s', strtotime($i['start'])), 'timeZone' => 'UTC'],
+            'end' => ['dateTime' => gmdate('Y-m-d\TH:i:s', strtotime($i['end'])), 'timeZone' => 'UTC'],
+            'attendees' => array_map(fn($r) => ['emailAddress' => array_filter(['address' => $r['address'], 'name' => $r['name']]), 'type' => 'required'], $to),
+        ];
+        if ($i['location']) {
+            $ev['location'] = ['displayName' => $i['location']];
+        }
+        if ($i['online']) {
+            $ev += ['isOnlineMeeting' => true, 'onlineMeetingProvider' => 'teamsForBusiness'];
+        }
+        return $ev;
+    }
+
+    /** Creates the meeting in $organizer's calendar (null = the sending mailbox). Exchange sends the invitations. */
+    public function calendarCreate(?string $organizer, array $info, array $to): array
+    {
+        $path = $organizer ? '/users/' . rawurlencode($organizer) : $this->mailboxPath();
+        $r = $this->createEvent($path, $this->eventBody($info, $to) + ['transactionId' => $info['uid']]);
+        return ['id' => $r['id'] ?? null, 'mailbox' => $path, 'join' => $r['onlineMeeting']['joinUrl'] ?? null];
+    }
+
+    public function calendarUpdate(string $mailbox, string $id, array $info, array $to): array
+    {
+        $r = $this->updateEvent($mailbox ?: $this->mailboxPath(), $id, $this->eventBody($info, $to));
+        return ['id' => $id, 'mailbox' => $mailbox, 'join' => $r['onlineMeeting']['joinUrl'] ?? null];
+    }
+
+    public function calendarCancel(string $mailbox, string $id, string $comment): void
+    {
+        $this->cancelEvent($mailbox ?: $this->mailboxPath(), $id, $comment);
     }
 
     /** Turns Microsoft's error responses into something an admin can act on. */

@@ -39,7 +39,7 @@ final class Mailer
      */
     public static function queue(string $kind, array $to, string $subject, string $html, array $opt = []): ?int
     {
-        if (Graph::mode() === 'off') {
+        if (!Mail::on()) {
             return null;
         }
         $to = self::recipients($to);
@@ -58,7 +58,7 @@ final class Mailer
             return null; // same dedupe key already queued or sent
         }
         $id = (int) DB::pdo()->lastInsertId();
-        if (!empty($opt['immediate']) && Graph::ready()) {
+        if (!empty($opt['immediate']) && Mail::ready()) {
             self::deliver($id);
         }
         return $id;
@@ -67,7 +67,7 @@ final class Mailer
     /** Sends due messages (or just one). Returns [sent, failed]. */
     public static function deliver(?int $onlyId = null, int $limit = 30): array
     {
-        if (!Graph::ready()) {
+        if (!Mail::ready()) {
             return [0, 0];
         }
         $lock = $onlyId === null;
@@ -82,7 +82,7 @@ final class Mailer
             if (!$rows) {
                 return [0, 0];
             }
-            $graph = Graph::fromSettings();
+            $graph = Mail::client();
             $logo = Template::logo();
             foreach ($rows as $r) {
                 if (DB::run("UPDATE mail_queue SET status = 'sending' WHERE id = ? AND status = 'queued'", [$r['id']])->rowCount() !== 1) {

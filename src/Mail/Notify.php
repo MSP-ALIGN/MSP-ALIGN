@@ -17,7 +17,7 @@ final class Notify
     public static function tick(bool $force = false): array
     {
         $out = [];
-        if (Graph::mode() === 'off') {
+        if (!Mail::on()) {
             return ['email is off'];
         }
         try {

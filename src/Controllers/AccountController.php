@@ -26,7 +26,7 @@ final class AccountController
             'feedOn' => !empty($u['ics_token']),
             'notifPrefs' => \Align\Mail\Notifications::prefsFor($u),
             'notifScope' => \Align\Mail\Notifications::scope($u),
-            'mailOn' => \Align\Mail\Graph::mode() !== 'off',
+            'mailOn' => \Align\Mail\Mail::on(),
             'vcioCount' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients WHERE vcio_user_id = ? AND is_archived = 0 AND planning_excluded = 0', [$u['id']]),
         ]);
     }
