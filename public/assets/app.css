@@ -266,3 +266,25 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .portal .navbar .nav-link.active { background: rgba(255,255,255,.15); border-radius: .25rem; }
 @media (max-width: 575.98px) { .portal .navbar-brand .brand-text { max-width: 150px; } .portal .navbar-brand .portal-brand-img { max-height: 26px; } }
 .idle-warning { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 2000; max-width: 92vw; }
+
+/* ---- Typography: match ITFlow's reading size ----
+   ITFlow and Align share the AdminLTE .text-sm base (14px). Align used a lot of Bootstrap's
+   80% "small" text (11px) and 75% badges (8-9px) for secondary details, which read too small.
+   Secondary text is now 12.8px and badges 12px everywhere on screen (printed reports unchanged). */
+body:not(.report) .small, body:not(.report) small { font-size: .8rem; }
+body:not(.report) .small .small, body:not(.report) small small, body:not(.report) .small small { font-size: 1em; }
+body:not(.report) .badge { font-size: .75rem; font-weight: 600; }
+body:not(.report) .btn-xs { font-size: .8rem; }
+body:not(.report) .table-sm th, body:not(.report) .table-sm td { padding: .4rem .5rem; }
+body:not(.report) .dropdown-item { font-size: .875rem; }
+body:not(.report) .text-muted.small, body:not(.report) .small.text-muted { color: #6c757d !important; }
+.nav-sidebar .nav-header { font-size: .75rem; }
+.rm-item { font-size: .875rem; }
+.status-group .btn { font-size: .8rem; }
+.doc-meta .custom-select, .doc-meta .form-control { font-size: .875rem; }
+.fc .fc-daygrid-event { font-size: .8rem; }
+.sync-log { font-size: .82rem; }
+.forecast-chart text, .budget-chart text { font-size: 12px; }
+.forecast-chart .year-lbl, .budget-chart .year-lbl { font-size: 13px; }
+.card-title { font-size: 1rem; }
+@media (min-width: 768px) { .info-box .info-box-text { font-size: .875rem; } }
