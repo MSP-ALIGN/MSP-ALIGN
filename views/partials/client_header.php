@@ -45,6 +45,8 @@ $cid = (int) $client['id'];
       <div class="btn-group">
         <button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"><i class="fas fa-print mr-1"></i>Reports</button>
         <div class="dropdown-menu dropdown-menu-right">
+          <a class="dropdown-item font-weight-bold" href="/clients/<?= $cid ?>/report/qbr" target="_blank"><i class="fas fa-fw fa-book-open mr-2"></i>Business review pack (QBR)</a>
+          <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets" target="_blank"><i class="fas fa-fw fa-desktop mr-2"></i>Asset &amp; lifecycle report</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets?inventory=0" target="_blank"><i class="fas fa-fw fa-file-lines mr-2"></i>Asset summary (no inventory)</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-fw fa-road mr-2"></i>3-year roadmap</a>

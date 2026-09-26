@@ -421,13 +421,22 @@ final class PortalController
     /** Printable reports the user has access to. */
     public static function report(string $kind): void
     {
-        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget'][$kind] ?? null;
-        if (!$perm) {
+        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'qbr' => ''][$kind] ?? null;
+        if ($perm === null) {
             http_response_code(404);
             exit;
         }
-        $pu = PortalAuth::require($perm);
+        $pu = PortalAuth::require($perm ?: null);
         $client = ClientController::loadRow((int) $pu['client_id']);
+        if ($kind === 'qbr') {
+            // Only the sections this user may see; costs only with budget access
+            $allowed = array_keys(array_filter(['s_roadmap' => $pu['can_roadmap'], 's_budget' => $pu['can_budget'], 's_assets' => $pu['can_devices'],
+                's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
+            $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',
+                'virtual' => false, 'notes' => query('notes', '1') === '1', '_hide' => $pu['can_budget'] ? [] : ['costs']] + ReportController::qbrSections(true);
+            ReportController::renderQbr($client, $opt, $allowed);
+            return;
+        }
         match ($kind) {
             // Internal device notes are never included; costs only with budget access
             'assets' => ReportController::renderAssets($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '1') === '1', 'users' => query('users', '1') === '1', 'virtual' => query('virtual') === '1', 'notes' => false, '_hide' => $pu['can_budget'] ? ['notes'] : ['costs', 'notes']]),

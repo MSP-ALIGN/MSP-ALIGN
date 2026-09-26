@@ -2,7 +2,7 @@
 
 Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
-**What's in it (1.6.0):**
+**What's in it (1.7.0):**
 
 - **Security (HIPAA-oriented):**
   - Two-factor sign-in required for every staff and client-portal account; codes can't be reused.
@@ -24,7 +24,13 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
 - **Projects:** add projects to any client's IT plan with a target quarter, budget, recurring cost, priority, status and description. You can add them from the global Projects page, the client overview or the client roadmap. Project budgets are stacked with hardware replacements in the 3-year IT plan on the dashboard and client overview.
 - **Lifecycle:** warranty (Dell/Lenovo lookups), end-of-life, OS support, stale devices, and a 3-year replacement budget by quarter with a total for each year. Calendar or fiscal years, set in Settings.
 - **3-year roadmap per client:** a quarter-by-quarter board with a total for each year. It combines planned items you add (category, cost, monthly recurring cost, priority, status) with what the data says is coming: hardware reaching end of life, OS support ending, warranties expiring, meetings and compliance due dates.
-- **Printable reports:** asset & lifecycle report, 3-year roadmap, and an all-clients portfolio summary. Use Print → Save as PDF; costs, full inventory and notes can be turned on or off.
+- **Printable reports (redesigned in 1.7):** clean, brand-coloured Letter reports with page numbers and a running footer. Print → Save as PDF.
+  - **Business review pack (QBR):** a cover page with contents, then an executive summary (health, budget and compliance tiles, plain-language highlights, the next six months, decisions needed), then roadmap, budget, assets, compliance, licensing, and your team & next meeting. Each section can be switched off, and the full inventory can be added as an appendix. It's linked from the client's Reports menu and the meeting page, and clients can print their own from the portal, limited to the sections they may see.
+  - **Asset & lifecycle report:** fleet at a glance, health by device type, operating systems and their support dates, the replacement plan by quarter, priorities, the devices needing attention (with last user), and a full inventory grouped by type.
+  - **3-year roadmap:** year tiles, a stacked quarterly chart (hardware vs projects), a quarter-by-quarter timeline, and projects with status and client decisions.
+  - **Technology budget:** summary tiles, the three-year quarterly chart, categories with share bars, line items, contracts & renewals, and the three-year outlook.
+  - **Portfolio (internal):** every client ranked by risk, with health bars, compliance, last review date and hardware spend by year.
+  - **Options:** costs, notes, last user, virtual machines and line items can be turned on or off from the toolbar.
 - **Planning scope:** remove any client from planning (bulk or one at a time, with a reason). Removed clients stay hidden through syncs. Clients added by hand can be deleted.
 - **Meetings & calendar:** QBRs and other meetings, repeating series, agenda and notes, a flag for clients due for a meeting, a month/week/list calendar, `.ics` invites, and a private feed you can subscribe to in Outlook.
 - **Compliance:** built-in frameworks (MSP Security Baseline, Cyber Insurance Readiness, CIS Controls v8 IG1, HIPAA Security Rule) assigned per client, with a checklist (status, owner, due date, notes, evidence), scores, device-data hints, review dates and CSV export. Frameworks can be edited or copied.

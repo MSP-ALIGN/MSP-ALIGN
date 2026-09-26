@@ -3,7 +3,7 @@
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-print mr-2"></i>Client reports</h3></div>
       <div class="card-body">
-        <p class="small text-muted">Reports open in a print-ready page. Use <b>Print / Save as PDF</b> to hand one to a client or attach it to a QBR invite. Checkboxes at the top of each report switch costs, the full inventory and notes on or off.</p>
+        <p class="small text-muted">Reports open in a print-ready page. Use <b>Print / Save as PDF</b> to hand one to a client or attach it to a QBR invite. The <b>business review pack</b> combines a cover, an executive summary with highlights and decisions needed, the roadmap, budget, assets, compliance, licensing and next steps in one document. Checkboxes at the top of each report switch sections, costs, the full inventory and notes on or off.</p>
         <form method="get" id="report-form" target="_blank" action="">
           <div class="form-row">
             <div class="form-group col-md-6"><label>Client</label>
@@ -12,6 +12,7 @@
               </select></div>
             <div class="form-group col-md-6"><label>Report</label>
               <select class="form-control" id="report-type">
+                <option value="qbr">Business review pack (QBR)</option>
                 <option value="assets">Asset &amp; lifecycle report</option>
                 <option value="roadmap">3-year technology roadmap</option>
                 <option value="budget">Technology budget</option>

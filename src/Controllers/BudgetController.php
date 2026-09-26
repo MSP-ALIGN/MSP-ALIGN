@@ -138,19 +138,16 @@ final class BudgetController
     /** Budget report for one client; also used by the client portal. */
     public static function renderReport(array $client, int $year, array $opt): void
     {
-        $id = (int) $client['id'];
+        $bd = \Align\Reports\ReportData::budget((int) $client['id'], $year);
         Audit::log('report.budget', $client['name']);
-        $b = Budget::build($id);
-        $yr = $b['years'][$year];
         View::render('reports/budget', [
-            'dates' => \Align\Budget\Contracts::upcoming($id, 3 * 366, $yr['from']),
-            'title' => $client['name'] . ' — Technology Budget ' . $b['years'][$year]['label'],
-            'reportTitle' => 'Technology Budget ' . $b['years'][$year]['label'],
+            'title' => $client['name'] . ' — Technology Budget ' . $bd['yr']['label'],
+            'reportTitle' => 'Technology Budget ' . $bd['yr']['label'],
+            'reportSubtitle' => $bd['yr']['range'] . ' · with a three-year outlook',
             'client' => $client,
-            'b' => $b,
-            'year' => $year,
+            'bd' => $bd,
             'opt' => $opt,
-            'brand' => ReportController::branding(),
+            'brand' => ReportController::branding($client),
         ], 'layout/print');
     }
 }

@@ -53,6 +53,7 @@ $past = strtotime($m['ends_at']) < time();
         <div class="card-body py-2 small">
           <div class="font-weight-bold mb-1">Bring these reports</div>
           <div class="d-flex flex-wrap mb-2">
+            <a class="btn btn-xs btn-primary mr-1 mb-1" href="/clients/<?= $cid ?>/report/qbr" target="_blank"><i class="fas fa-book-open mr-1"></i>Business review pack</a>
             <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/assets" target="_blank"><i class="fas fa-desktop mr-1"></i>Assets &amp; lifecycle</a>
             <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-road mr-1"></i>Roadmap</a>
             <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-coins mr-1"></i>Budget</a>

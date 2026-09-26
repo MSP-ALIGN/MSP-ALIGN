@@ -10,6 +10,7 @@ $vcio = $provider['vcio'] ?? null;
   <div class="mr-auto">
     <h1 class="h4 mb-0">Welcome, <?= e(explode(' ', trim($pu['name']))[0]) ?></h1>
     <div class="text-muted small"><?= e($client['name']) ?> technology plan, provided by <?= e($provider['company']) ?></div>
+    <a href="/portal/report/qbr" target="_blank" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-book-open mr-1"></i>Business review report (PDF)</a>
   </div>
   <?php if ($vcio): ?>
     <div class="d-flex align-items-center mt-2 mt-md-0 portal-vcio">

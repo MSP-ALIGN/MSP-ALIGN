@@ -1,7 +1,12 @@
 <?php
-$tot = ['devices' => 0, 'replace' => 0, 'os' => 0, 'y' => [0, 0, 0], 'planned' => 0];
+use Align\Reports\Ui;
+
+/** @var array $rows; array $opt; array $yearsMeta */
+$costs = (bool) $opt['costs'];
+$tot = ['devices' => 0, 'healthy' => 0, 'replace' => 0, 'os' => 0, 'y' => [0, 0, 0], 'planned' => 0];
 foreach ($rows as $r) {
     $tot['devices'] += $r['summary']['total'];
+    $tot['healthy'] += $r['healthy'];
     $tot['replace'] += $r['summary']['replace'];
     $tot['os'] += $r['summary']['os_eos'];
     foreach ($r['years'] as $i => $y) {
@@ -9,33 +14,44 @@ foreach ($rows as $r) {
     }
     $tot['planned'] += $r['planned'];
 }
+$hp = $tot['devices'] ? (int) round($tot['healthy'] / $tot['devices'] * 100) : 0;
 ?>
-<div class="kpis">
-  <div class="kpi"><b><?= number_format($tot['devices']) ?></b><span>Devices across all clients</span></div>
-  <div class="kpi <?= $tot['replace'] ? 'bad' : '' ?>"><b><?= number_format($tot['replace']) ?></b><span>Past end of life</span></div>
-  <div class="kpi <?= $tot['os'] ? 'bad' : '' ?>"><b><?= number_format($tot['os']) ?></b><span>Unsupported OS</span></div>
-  <?php if ($opt['costs']): ?><div class="kpi"><b><?= money(array_sum($tot['y'])) ?></b><span>3-year hardware budget</span></div><?php endif; ?>
-</div>
-<table class="rtable rtable-fixed portfolio <?= $opt['costs'] ? '' : 'no-cost' ?>">
-  <colgroup><col class="c-client"><col class="c-n"><col class="c-n"><col class="c-w"><col class="c-w"><?php if ($opt['costs']): foreach ($yearsMeta as $y): ?><col class="c-y"><?php endforeach; ?><col class="c-p"><?php endif; ?></colgroup>
-  <thead><tr><th>Client</th><th class="num">Devices</th><th class="num">Past EOL</th><th class="num">Unsupported OS</th><th class="num">Out of warranty</th>
-    <?php if ($opt['costs']): foreach ($yearsMeta as $y): ?><th class="num"><?= e($y['label']) ?></th><?php endforeach; ?><th class="num">Open projects</th><?php endif; ?></tr></thead>
-  <tbody>
-  <?php foreach ($rows as $r): $s = $r['summary']; ?>
-    <tr>
-      <td><b><?= e($r['name']) ?></b><?= $r['industry'] ? '<div class="muted">' . e($r['industry']) . '</div>' : '' ?></td>
-      <td class="num"><?= (int) $s['total'] ?></td>
-      <td class="num"><?= $s['replace'] ?: '—' ?></td>
-      <td class="num"><?= $s['os_eos'] ?: '—' ?></td>
-      <td class="num"><?= $s['warranty_expired'] ?: '—' ?></td>
-      <?php if ($opt['costs']): foreach ($r['years'] as $y): ?><td class="num"><?= $y['cost'] ? money($y['cost']) : '—' ?></td><?php endforeach; ?>
-        <td class="num"><?= $r['planned'] ? money($r['planned']) : '—' ?></td><?php endif; ?>
-    </tr>
-  <?php endforeach; ?>
-  <?php if ($opt['costs']): ?>
-    <tr class="subtotal"><td>Total</td><td class="num"><?= number_format($tot['devices']) ?></td><td class="num"><?= $tot['replace'] ?></td><td class="num"><?= $tot['os'] ?></td><td></td>
-      <?php foreach ($tot['y'] as $v): ?><td class="num"><?= money($v) ?></td><?php endforeach; ?><td class="num"><?= money($tot['planned']) ?></td></tr>
-  <?php endif; ?>
-  </tbody>
-</table>
-<p class="muted small">Hardware budget = estimated replacement cost of devices reaching end of life in each plan year (overdue devices count in the current quarter). Open projects = roadmap items that aren't done or declined.</p>
+<section class="rsection">
+  <?= Ui::head('Portfolio at a glance', null, count($rows) . ' clients') ?>
+  <div class="kpi-row cols-5">
+    <?= Ui::kpi(number_format($tot['devices']), 'Devices', 'across all clients') ?>
+    <?= Ui::kpi($hp . '%', 'Healthy', number_format($tot['healthy']) . ' within policy', $hp >= 80 ? 'ok' : ($hp >= 50 ? 'warn' : 'bad')) ?>
+    <?= Ui::kpi(number_format($tot['replace']), 'Past end of life', 'replacement opportunities', $tot['replace'] ? 'bad' : 'ok') ?>
+    <?= Ui::kpi(number_format($tot['os']), 'Unsupported OS', 'upgrade or replace', $tot['os'] ? 'bad' : 'ok') ?>
+    <?= $costs ? Ui::kpi(Ui::k(array_sum($tot['y'])), '3-year hardware', Ui::k($tot['planned']) . ' in open projects', 'muted') : Ui::kpi(count($rows) . '', 'Clients', 'in planning', 'muted') ?>
+  </div>
+</section>
+<section class="rsection">
+  <?= Ui::head('Clients by risk', null, 'Most devices needing attention first') ?>
+  <table class="rtable fixed compact">
+    <colgroup><col style="width:<?= $costs ? 20 : 30 ?>%"><col style="width:7%"><col style="width:<?= $costs ? 13 : 20 ?>%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:9%"><?php if ($costs): foreach ($yearsMeta as $y): ?><col><?php endforeach; ?><col><?php endif; ?></colgroup>
+    <thead><tr><th>Client</th><th class="num">Devices</th><th>Health</th><th class="num">Past EOL</th><th class="num">Old OS</th><th class="num">Compliance</th><th>Last review</th>
+      <?php if ($costs): foreach ($yearsMeta as $y): ?><th class="num"><?= e($y['label']) ?></th><?php endforeach; ?><th class="num">Projects</th><?php endif; ?></tr></thead>
+    <tbody>
+    <?php foreach ($rows as $r): $s = $r['summary']; ?>
+      <tr>
+        <td><span class="name"><?= e($r['name']) ?></span><?= $r['industry'] ? '<div class="sub">' . e($r['industry']) . '</div>' : '' ?></td>
+        <td class="num"><?= (int) $s['total'] ?></td>
+        <td><?= $s['total'] ? Ui::hbar([[$r['healthy'], 'b-ok'], [$r['warn'], 'b-warn'], [$r['bad'], 'b-bad']]) : '<span class="muted">—</span>' ?></td>
+        <td class="num" style="<?= $s['replace'] ? 'color:var(--bad);font-weight:700' : '' ?>"><?= $s['replace'] ?: '—' ?></td>
+        <td class="num" style="<?= $s['os_eos'] ? 'color:var(--bad);font-weight:700' : '' ?>"><?= $s['os_eos'] ?: '—' ?></td>
+        <td class="num"><?= $r['compliance'] !== null ? $r['compliance'] . '%' : '<span class="muted">—</span>' ?></td>
+        <td class="nowrap"><?= $r['last_meeting'] ? e(date('M Y', strtotime($r['last_meeting']))) : '<span class="muted">Never</span>' ?></td>
+        <?php if ($costs): foreach ($r['years'] as $y): ?><td class="num"><?= $y['cost'] ? e(Ui::k($y['cost'])) : '—' ?></td><?php endforeach; ?>
+          <td class="num"><?= $r['planned'] ? e(Ui::k($r['planned'])) : '—' ?></td><?php endif; ?>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+    <?php if ($costs): ?>
+    <tfoot><tr><td>Total</td><td class="num"><?= number_format($tot['devices']) ?></td><td></td><td class="num"><?= $tot['replace'] ?></td><td class="num"><?= $tot['os'] ?></td><td></td><td></td>
+      <?php foreach ($tot['y'] as $v): ?><td class="num"><?= e(Ui::k($v)) ?></td><?php endforeach; ?><td class="num"><?= e(Ui::k($tot['planned'])) ?></td></tr></tfoot>
+    <?php endif; ?>
+  </table>
+  <div class="legend"><span><i style="background:#3fb67a"></i>Healthy</span><span><i style="background:#f0b429"></i>Plan / warranty</span><span><i style="background:#e5534b"></i>Replace / unsupported</span></div>
+  <p class="footnote">Hardware = estimated replacement cost of devices reaching end of life in each plan year (overdue devices count in the current year). Projects = open roadmap items (not done or declined). Compliance = average score across assigned frameworks. Internal: not for client distribution.</p>
+</section>
