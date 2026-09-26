@@ -103,16 +103,19 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 
   <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Compliance &amp; documents</h6>
   <?= $guide('compliance', 'fa-clipboard-check', 'Run a compliance assessment', 'tech', [
-      'Open the client\'s <b>Compliance</b> and assign a framework (HIPAA, CIS, FTC Safeguards, cyber insurance…).',
-      'Work through the checklist: set each control\'s status, add notes, and link evidence (a document or a file).',
+      'Open the client\'s <b>Compliance</b> and assign the frameworks they must meet: CMMC Level 1 or 2, NIST CSF 2.0, CIS Controls v8.1 (IG1 or IG2), PCI DSS 4.0.1, SOC 2, ISO/IEC 27001:2022, HIPAA, CCPA/CPRA, FTC Safeguards (WISP), the Microsoft 365 baseline, cyber insurance or the MSP baseline.',
+      'Work through the checklist: set each control\'s status, add notes, and link evidence (a document or a file). Each control\'s guidance says what "met" looks like and the evidence to collect.',
+      '<b>Crosswalk:</b> when a client has more than one framework, each control lists the matching controls in the others (<i>Matches N controls</i>). Press <b>Use this answer</b> to copy a status, notes, evidence and linked document, or <b>Fill from matching answers</b> to fill every not-assessed control that has a strong, consistent match. Filled rows are highlighted; review them, then save. Nothing is saved until you press Save.',
       'Some controls check themselves from Align data (backups, OS support, encryption). Export the checklist as CSV or include it in the QBR pack.',
   ], ['Compliance' => '/compliance']) ?>
   <?= $guide('frameworks', 'fa-list-check', 'Create or edit a compliance framework', 'admin', [
       'Open <b>Compliance → Frameworks</b>.',
       'Add a framework, then its controls (grouped by section). A control can be linked to an automatic check.',
+      'To include your own framework in the crosswalk, give its controls <b>crosswalk tags</b> (pick from the list, e.g. <code>iam_mfa</code>, <code>backup_offsite</code>). Controls in different frameworks that share tags are suggested to each other. <b>Copy from</b> an existing framework keeps its tags.',
   ], ['Frameworks' => '/frameworks']) ?>
   <?= $guide('document', 'fa-file-lines', 'Write a policy or WISP from a template', 'tech', [
-      'Open the client\'s <b>Documents → New document</b> and pick a template (WISP, incident response, acceptable use…), or start blank.',
+      'Open the client\'s <b>Documents → New document</b> and pick a template, or start blank. Templates include WISP, incident response, BCDR, backup, risk assessment, 12 core security policies, the CMMC package (SSP, POA&amp;M, CUI handling, Level 1 affirmation) and HIPAA/privacy (risk analysis, breach notification, BAA checklist, CCPA privacy policy). Link the finished document as evidence on the matching controls.',
+      'Templates are starting points, not legal advice: fill in the [bracketed] items and have policies that carry legal obligations (privacy notices, breach procedures, BAAs) reviewed by the client\'s counsel.',
       'Edit in place; it saves as you type. Set it to <b>Active</b> when it\'s final and set a review date.',
       'Active policies are shared to the client portal by default. Print → Save as PDF for a signed copy.',
   ], ['Documents' => '/documents']) ?>

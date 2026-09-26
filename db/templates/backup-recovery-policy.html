@@ -1,0 +1,113 @@
+<h1>Backup &amp; Recovery Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy ensures {{client_name}} can recover its data and systems after hardware failure, accidental deletion, ransomware, a cloud service problem or a site disaster. It defines what is backed up, how often, how long backups are kept, how they are protected from attackers, and how restores are tested so the business knows they will work when needed.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all company data and systems, including on-premises servers and virtual machines, network file shares and NAS devices, line-of-business application databases, Microsoft 365 or Google Workspace (email, OneDrive, SharePoint, Teams), other SaaS applications holding critical data, workstations where data is stored locally, and configuration of network devices and the cloud tenant.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy, approves retention periods and reviews restore test results.</li>
+<li><strong>Data and system owners:</strong> identify what data must be backed up and confirm recovery objectives (RTO/RPO) in the Business Continuity &amp; Disaster Recovery Plan.</li>
+<li><strong>{{company_name}}:</strong> designs, operates and monitors backup systems, responds to backup failures, performs restore tests and restores data on request.</li>
+<li><strong>Users:</strong> save company data in approved locations (OneDrive, SharePoint, file server, line-of-business apps) that are backed up, not only on local desktops or USB drives.</li>
+</ul>
+
+<h2>4. The 3-2-1-1-0 rule</h2>
+<p>{{client_name}}'s backups follow the 3-2-1-1-0 approach:</p>
+<ul>
+<li><strong>3</strong> copies of important data (the production data plus two backups).</li>
+<li><strong>2</strong> different types of storage media or platforms (for example a local backup appliance and cloud storage).</li>
+<li><strong>1</strong> copy offsite, in a separate geographic location from the office.</li>
+<li><strong>1</strong> copy immutable (cannot be changed or deleted for a set period, even by an administrator) or offline/air-gapped.</li>
+<li><strong>0</strong> errors: backups are monitored and verified, and restores are tested so recovery is proven to work.</li>
+</ul>
+
+<h2>5. What is backed up</h2>
+<ul>
+<li><strong>Servers and virtual machines:</strong> image-level backups of all production servers ([list]), allowing full system recovery or virtualization of the server from the backup.</li>
+<li><strong>Line-of-business databases:</strong> application-consistent backups of [application database], plus any vendor-hosted data exports where the vendor does not provide adequate backups.</li>
+<li><strong>File shares and NAS devices:</strong> all shared business data.</li>
+<li><strong>Microsoft 365 / Google Workspace:</strong> a third-party cloud-to-cloud backup ([product]) of Exchange Online mailboxes, OneDrive, SharePoint sites and Teams data. Microsoft's built-in retention and recycle bin are not a substitute for backup; they do not protect against all deletion, corruption or account compromise scenarios.</li>
+<li><strong>Other SaaS applications:</strong> critical SaaS data ([CRM, accounting]) is exported or backed up where the vendor allows, or the vendor's backup and recovery capabilities are confirmed during vendor review.</li>
+<li><strong>Configurations:</strong> firewall, switch and wireless configurations are backed up after each change and at least monthly; cloud tenant configuration (conditional access, Intune policies) is documented or exported.</li>
+<li><strong>Workstations:</strong> not routinely backed up; users' Desktop, Documents and Pictures folders are redirected to OneDrive (Known Folder Move). Workstations with required local data ([exceptions]) receive endpoint backup.</li>
+</ul>
+
+<h2>6. Backup frequency</h2>
+<p>Frequency is set to meet each system's recovery point objective (RPO) in the Business Continuity &amp; Disaster Recovery Plan. Minimums:</p>
+<ul>
+<li>Critical servers and databases: at least every <strong>[1–4] hours</strong> during business hours, plus nightly.</li>
+<li>Other servers and file shares: at least <strong>daily</strong>.</li>
+<li>Microsoft 365 / Google Workspace: at least <strong>[3] times per day</strong> (or as frequent as the product supports).</li>
+<li>Offsite/cloud replication: at least <strong>daily</strong>, completed within [24] hours of the local backup.</li>
+<li>Network device configurations: after every change and at least monthly.</li>
+</ul>
+
+<h2>7. Retention</h2>
+<ul>
+<li><strong>Local backups:</strong> intra-daily points for [7] days, daily for [30] days.</li>
+<li><strong>Offsite/cloud backups:</strong> daily for [30–90] days, monthly for [12] months, and yearly for [7] years or as required.</li>
+<li><strong>Microsoft 365 / SaaS backups:</strong> [unlimited / 7 years / 1 year] retention.</li>
+<li>Retention must meet legal, regulatory and contractual requirements identified in the Data Retention &amp; Disposal Policy (for example HIPAA documentation, IRS records, and client contracts), but backups should not be kept longer than needed.</li>
+<li>Backups of departed users' mailboxes and OneDrive are retained for [period] after departure.</li>
+</ul>
+
+<h2>8. Protection of backups</h2>
+<ul>
+<li><strong>Immutability:</strong> at least one copy is immutable for at least [14–30] days (for example cloud object-lock storage or a backup vendor's immutable cloud tier), so ransomware or a compromised administrator account cannot delete it.</li>
+<li><strong>Encryption:</strong> all backups are encrypted in transit and at rest with AES-256. Encryption keys and passphrases are stored in the password manager and in a sealed offline copy at [location], separately from the backups.</li>
+<li><strong>Access control:</strong> backup consoles use separate administrator accounts that are not joined to the production domain where possible, require phishing-resistant MFA, and are limited to named {{company_name}} staff. Deletion of backups or changes to retention require a second person or a delay where supported.</li>
+<li><strong>Isolation:</strong> backup storage is on a separate network segment or credentials from production; backup shares are not mapped as drive letters on servers or workstations.</li>
+<li><strong>Physical security:</strong> on-premises backup appliances are in a locked location. Any removable backup media is encrypted and transported and stored securely.</li>
+</ul>
+
+<h2>9. Monitoring</h2>
+<ul>
+<li>{{company_name}} monitors backup jobs daily. Failed or missed backups generate an alert and are investigated within <strong>1 business day</strong>; a system without a successful backup for 2 consecutive scheduled jobs is escalated as high priority.</li>
+<li>Automated backup verification (such as screenshot boot verification for server images) is enabled where supported.</li>
+<li>{{company_name}} reports monthly backup success rate, protected systems, and unresolved failures. Target: at least <strong>98%</strong> job success and 100% of in-scope systems protected.</li>
+<li>New servers, applications and SaaS services are added to backup as part of change management before going live.</li>
+</ul>
+
+<h2>10. Restore testing</h2>
+<ul>
+<li>Restore tests are performed at least <strong>quarterly</strong>. Each quarter includes at minimum:
+<ul>
+<li>A file-level restore from a server or file share backup.</li>
+<li>A restore of a mailbox item or OneDrive/SharePoint file from the Microsoft 365 backup.</li>
+<li>On a rotating basis, a full system or virtual machine boot test of a critical server, including confirmation that the application opens and data is current.</li>
+</ul>
+</li>
+<li>At least <strong>annually</strong>, a restore from the offsite/immutable copy is tested, and a recovery of the most critical system is timed to confirm the RTO can be met.</li>
+<li>Test results are documented: date, system, backup date used, what was restored, time taken, success or failure, issues found and corrective actions. Results are kept for at least [3] years and reviewed at quarterly business reviews.</li>
+<li>Failed tests are treated as a high-priority issue and re-tested after correction within 30 days.</li>
+</ul>
+
+<h2>11. Restore requests</h2>
+<ul>
+<li>Users request restores through {{company_name}}'s support channels ({{company_phone}}, {{company_email}}). Restores of another user's data or of Restricted data require manager or data owner approval.</li>
+<li>Restores during a security incident follow the Incident Response Plan, including verifying the backup is from before the compromise.</li>
+</ul>
+
+<h2>12. Exceptions</h2>
+<p>Systems excluded from backup, or with lower frequency or retention, must be documented with the reason and approved by the security lead.</p>
+
+<h2>13. Enforcement</h2>
+<p>Storing company data only in locations that are not backed up, or tampering with backup systems, may result in disciplinary action.</p>
+
+<h2>14. Related documents</h2>
+<ul>
+<li>Business Continuity &amp; Disaster Recovery Plan</li>
+<li>Encryption Policy</li>
+<li>Data Retention &amp; Disposal Policy</li>
+<li>Change Management Policy</li>
+<li>Incident Response Plan</li>
+</ul>
+<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 11.2, 11.3, 11.4, 11.5 · HIPAA 164.308(a)(7)(ii)(A), 164.308(a)(7)(ii)(B), 164.308(a)(7)(ii)(D), 164.310(d)(2)(iv) · NIST CSF PR.DS-11, RC.RP-03 · PCI DSS 9.4.1, 12.10.1</p>
+
+<h2>15. Review and approval</h2>
+<p>This policy is reviewed at least annually and after any failed recovery.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

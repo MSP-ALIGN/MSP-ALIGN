@@ -345,3 +345,15 @@ body:not(.report) .text-muted.small, body:not(.report) .small.text-muted { color
 body.rm-dragging .roadmap-q[data-drop-quarter] .card-body { outline: 2px dashed rgba(0,123,255,.35); outline-offset: -4px; min-height: 60px; }
 /* Long device lists scroll inside their quarter so the board stays compact */
 .rm-hw-list { max-height: 300px; overflow-y: auto; padding-right: 4px; }
+
+/* Compliance crosswalk (1.19) */
+.xw summary { cursor: pointer; color: #17a2b8; }
+.xw summary:focus { outline: none; }
+.xw-match { padding: 2px 0; line-height: 1.5; }
+.xw-match .badge { min-width: 70px; }
+tr.xw-filled { background: rgba(23, 162, 184, .08); }
+.dark-mode tr.xw-filled { background: rgba(23, 162, 184, .16); }
+@media (max-width: 767.98px) {
+  table.checklist, table.checklist tbody, table.checklist tr, table.checklist td { display: block; width: 100% !important; }
+  table.checklist td:first-child { padding-bottom: 0; }
+}

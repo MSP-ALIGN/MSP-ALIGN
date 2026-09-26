@@ -264,6 +264,7 @@ memory_limit = 256M
 max_execution_time = 120
 upload_max_filesize = 8M
 post_max_size = 8M
+max_input_vars = 10000
 session.cookie_httponly = 1
 session.cookie_samesite = Lax
 session.use_strict_mode = 1

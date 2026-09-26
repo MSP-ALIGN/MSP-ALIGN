@@ -1,0 +1,90 @@
+<h1>Change Management Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy ensures that changes to {{client_name}}'s IT systems are planned, reviewed, approved, tested and documented, so that changes don't cause unexpected outages, weaken security, or leave the business without a record of what was done. It is designed to be practical for a small business: routine work moves quickly, while risky changes get the right review.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to changes to production systems, including servers and virtual machines, network equipment (firewalls, switches, wireless), cloud tenants and security settings (Microsoft 365 / Entra ID, conditional access, mail flow), line-of-business applications, backup systems, endpoint security and management policies, DNS and domains, and phone systems. It applies to changes made by {{company_name}}, software vendors and any {{client_name}} staff with administrative access.</p>
+<p>Out of scope: individual user support tasks (password resets, adding a user to an existing role group, installing an approved application on one device), which are handled as normal service tickets.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Change requester:</strong> anyone asking for a change; describes what is needed and why.</li>
+<li><strong>Change implementer:</strong> usually a {{company_name}} technician or vendor; plans, tests, implements and documents the change.</li>
+<li><strong>Change approver(s):</strong> for normal changes, the {{company_name}} service lead or {{vcio_name}} plus the {{client_name}} business owner of the affected system ([name, title]). For high-risk changes, the security lead or executive sponsor also approves.</li>
+<li><strong>Security lead ([name, title]):</strong> owns this policy on the client side, approves high-risk and security-related changes, and reviews emergency changes after the fact.</li>
+<li><strong>{{company_name}}:</strong> maintains the change process in its ticketing system and keeps the change record.</li>
+</ul>
+
+<h2>4. Change types</h2>
+<ul>
+<li><strong>Standard change:</strong> low-risk, routine and repeatable, with a documented procedure that has been pre-approved. Examples: monthly operating system and third-party patching through the RMM, adding a firewall rule from an approved template, renewing a certificate, adding a new workstation built from the standard image, routine antivirus definition updates. Standard changes need no individual approval but are still logged in a ticket.</li>
+<li><strong>Normal change:</strong> any change that is not standard or emergency. Examples: server upgrades, new firewall or VPN configuration, conditional access changes, email migration, line-of-business application upgrades, new Wi-Fi network, changes to backup jobs. Requires risk assessment and approval before implementation.</li>
+<li><strong>Emergency change:</strong> a change that must happen immediately to restore service or stop an active security threat (for example blocking an attacker, applying an actively exploited vulnerability fix, restoring a failed server). May be implemented with verbal approval and documented afterwards.</li>
+</ul>
+<p>{{company_name}} maintains the list of pre-approved standard changes, reviewed at least annually by the security lead. A standard change that causes an incident is moved back to the normal category until its procedure is fixed.</p>
+
+<h2>5. Change process for normal changes</h2>
+<ol>
+<li><strong>Request:</strong> a change ticket is opened in {{company_name}}'s ticketing system ([system name]) describing what will change, why, systems and users affected, and requested timing.</li>
+<li><strong>Risk assessment:</strong> the implementer rates the change:
+<ul>
+<li><strong>Low:</strong> affects a single system or few users, easily reversed, no security impact.</li>
+<li><strong>Medium:</strong> affects a department or important system, reversible within the maintenance window, or changes a security setting in a limited way.</li>
+<li><strong>High:</strong> affects the whole company, critical systems (ERP, EHR, email, firewall, identity), Restricted data, or security controls such as MFA, encryption, logging or backups; or is difficult to reverse.</li>
+</ul>
+The assessment includes the security impact of the change (for example whether it opens ports, changes access or disables a control).</li>
+<li><strong>Plan:</strong> the ticket documents implementation steps, the planned date and time, expected downtime, user communication, testing steps and a <strong>backout plan</strong> describing how to return to the prior state and how long it takes. For medium and high changes, a current backup or snapshot must be confirmed before starting.</li>
+<li><strong>Approval:</strong> low changes are approved by the {{company_name}} service lead; medium changes also by the {{client_name}} system owner; high changes also by the security lead or executive sponsor. Approval is recorded in the ticket (email approval replies are attached).</li>
+<li><strong>Testing:</strong> where practical, the change is tested in a test environment, on a pilot device or group, or by reviewing the vendor's release notes and known issues. High changes should have a documented test result before production.</li>
+<li><strong>Communication:</strong> users affected by downtime are notified at least [2 business days] in advance for planned changes, including what to expect and who to contact.</li>
+<li><strong>Implementation:</strong> performed during the approved window (normally [after hours / weekends]). If the change fails or causes problems beyond agreed limits, the backout plan is executed.</li>
+<li><strong>Verification:</strong> the implementer confirms the change works and that key business functions are operating, and the system owner confirms where appropriate.</li>
+<li><strong>Documentation:</strong> the ticket is updated with what was actually done, and network diagrams, configuration records, the asset inventory and IT documentation (for example in {{company_name}}'s documentation platform) are updated within 5 business days.</li>
+<li><strong>Close:</strong> the ticket is closed with the outcome: successful, successful with issues, backed out, or failed.</li>
+</ol>
+
+<h2>6. Emergency changes</h2>
+<ul>
+<li>Emergency changes may be approved verbally by the security lead, the executive sponsor, or {{company_name}}'s on-call lead when the client cannot be reached and delay would cause harm.</li>
+<li>Actions taken during a security incident under the Incident Response Plan are treated as emergency changes.</li>
+<li>A ticket documenting what was changed, why and who approved it is completed within 1 business day.</li>
+<li>All emergency changes are reviewed by the security lead and {{company_name}} within 5 business days to confirm the change should remain, and to decide whether follow-up work is needed.</li>
+</ul>
+
+<h2>7. Post-implementation review</h2>
+<ul>
+<li>Any change that failed, was backed out, or caused an unplanned outage or security issue receives a post-implementation review within 10 business days, covering what happened, root cause and how the process or procedure will be improved.</li>
+<li>{{company_name}} reports a summary of changes (count by type, failed changes, emergency changes) at quarterly business reviews.</li>
+</ul>
+
+<h2>8. Security configuration baselines</h2>
+<p>{{company_name}} maintains documented secure configuration baselines for workstations, servers, network devices and the cloud tenant. Changes that deviate from a baseline require normal change approval and are recorded as exceptions. Configuration drift detected by monitoring tools is investigated and corrected or approved.</p>
+
+<h2>9. Restrictions on who may make changes</h2>
+<ul>
+<li>Only authorized {{company_name}} staff, approved vendors and designated {{client_name}} administrators may make changes to in-scope systems.</li>
+<li>Vendors making changes to line-of-business applications must coordinate through {{company_name}} and open or reference a change ticket.</li>
+<li>Unauthorized changes discovered through monitoring are treated as potential security incidents.</li>
+</ul>
+
+<h2>10. Exceptions</h2>
+<p>Exceptions to this process require approval from the security lead and are documented in the change ticket.</p>
+
+<h2>11. Enforcement</h2>
+<p>Making unauthorized changes to production systems, or bypassing the change process, may result in removal of administrative access and disciplinary action. Vendor violations may be addressed under their contract.</p>
+
+<h2>12. Related documents</h2>
+<ul>
+<li>Vulnerability &amp; Patch Management Policy</li>
+<li>Asset Management Policy</li>
+<li>Incident Response Plan</li>
+<li>Backup &amp; Recovery Policy</li>
+<li>{{company_name}} standard change catalog</li>
+</ul>
+<p>Supports: CMMC CM.L2-3.4.1, CM.L2-3.4.2, CM.L2-3.4.3, CM.L2-3.4.4, CM.L2-3.4.5 · CIS 4.1 · HIPAA 164.308(a)(8) · NIST CSF ID.RA-07, PR.PS-01 · PCI DSS 6.5.1, 6.5.2 · FTC Safeguards Rule 314.4(c)(7)</p>
+
+<h2>13. Review and approval</h2>
+<p>This policy is reviewed at least annually.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

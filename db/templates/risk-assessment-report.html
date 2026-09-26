@@ -1,0 +1,164 @@
+<h1>Security Risk Assessment Report</h1>
+<p><strong>{{client_name}}</strong> · Assessment date {{today}} · Prepared with {{company_name}}</p>
+<p><strong>Prepared by:</strong> {{vcio_name}}, {{company_name}}<br><strong>Client contact:</strong> {{client_contact}} ({{client_contact_email}})<br><strong>Assessment period:</strong> [start date] to [end date]<br><strong>Classification:</strong> Confidential — contains details of security weaknesses. Distribute only to authorized management.</p>
+
+<h2>1. Executive summary</h2>
+<p>[Two or three paragraphs in plain language for owners and leadership. Summarize why the assessment was done, the overall risk posture, the most important findings, and what decisions are needed.]</p>
+<ul>
+<li><strong>Overall risk rating:</strong> [Low / Moderate / High / Critical]</li>
+<li><strong>Findings by rating:</strong> Critical [#], High [#], Medium [#], Low [#]</li>
+<li><strong>Top risks:</strong>
+<ol>
+<li>[Finding title and one-line business impact]</li>
+<li>[Finding title and one-line business impact]</li>
+<li>[Finding title and one-line business impact]</li>
+</ol>
+</li>
+<li><strong>Notable strengths:</strong> [e.g. MFA enforced for all users, 24/7 MDR, tested backups]</li>
+<li><strong>Change since last assessment:</strong> [findings closed, new risks, overall trend]</li>
+<li><strong>Decisions requested from management:</strong> [e.g. approve budget for firewall replacement; accept risk of legacy application until migration]</li>
+</ul>
+
+<h2>2. Purpose</h2>
+<p>This assessment identifies reasonably foreseeable threats to the confidentiality, integrity and availability of {{client_name}}'s information and systems, evaluates the likelihood and impact of those threats given current safeguards, and recommends actions to reduce risk to a level management accepts. It supports {{client_name}}'s Information Security Policy and applicable requirements such as the HIPAA risk analysis (164.308(a)(1)(ii)(A)), the FTC Safeguards Rule risk assessment (314.4(b)), CMMC RA.L2-3.11.1 and PCI DSS targeted risk analysis. This report reflects conditions at the time of assessment and does not by itself establish compliance with any regulation.</p>
+
+<h2>3. Scope</h2>
+<ul>
+<li><strong>Locations:</strong> [addresses]</li>
+<li><strong>Users and devices:</strong> [#] users, [#] workstations/laptops, [#] servers, [#] mobile devices</li>
+<li><strong>Systems in scope:</strong> [Microsoft 365 tenant, Active Directory, line-of-business applications, firewall, wireless, backup systems, phone system, key SaaS applications]</li>
+<li><strong>Data types:</strong> [customer PII, PHI, payment card data, CUI, employee records, financial records]</li>
+<li><strong>Applicable requirements:</strong> [HIPAA, FTC Safeguards Rule, PCI DSS, CMMC Level [1/2], cyber insurance requirements, California CCPA/CPRA and Civil Code 1798.81.5]</li>
+<li><strong>Out of scope:</strong> [e.g. personal devices, vendor-hosted infrastructure beyond configuration review, physical penetration testing]</li>
+</ul>
+
+<h2>4. Methodology</h2>
+<p>The assessment follows a process based on NIST SP 800-30 (Guide for Conducting Risk Assessments), scaled for a small or mid-sized business:</p>
+<ol>
+<li><strong>Information gathering:</strong> interviews with [names/roles]; review of existing policies and documentation; review of {{company_name}} RMM, EDR, backup and ticketing data.</li>
+<li><strong>Technical review:</strong> [internal and external vulnerability scans, Microsoft 365 secure configuration review (Secure Score / CIS benchmark), firewall rule review, Active Directory review, backup verification, email security (SPF/DKIM/DMARC)].</li>
+<li><strong>Control assessment:</strong> current safeguards compared against [CIS Controls v8 Implementation Group [1/2] / NIST CSF 2.0 / NIST SP 800-171 / HIPAA Security Rule].</li>
+<li><strong>Risk analysis:</strong> each threat and vulnerability pair is rated for likelihood and impact using the scales in section 6.</li>
+<li><strong>Recommendations and treatment:</strong> recommendations are prioritized and reviewed with management, who record a treatment decision for each risk.</li>
+</ol>
+
+<h2>5. Asset, threat and vulnerability identification</h2>
+<h3>5.1 Critical assets</h3>
+<ul>
+<li>[Asset / system] — Data: [type, classification] — Business owner: [name] — Importance: [critical / high / moderate]</li>
+<li>[Asset / system] — Data: [ ] — Business owner: [ ] — Importance: [ ]</li>
+<li>[Asset / system] — Data: [ ] — Business owner: [ ] — Importance: [ ]</li>
+</ul>
+<h3>5.2 Threats considered</h3>
+<ul>
+<li>Ransomware and destructive malware</li>
+<li>Phishing and credential theft, including MFA fatigue and adversary-in-the-middle phishing</li>
+<li>Business email compromise and wire/payment fraud</li>
+<li>Exploitation of unpatched internet-facing systems</li>
+<li>Compromise through a vendor or MSP tool (supply chain)</li>
+<li>Insider misuse or error (accidental deletion, misdirected email, over-sharing)</li>
+<li>Lost or stolen devices</li>
+<li>Hardware failure, cloud service outage, internet outage</li>
+<li>Natural hazards: wildfire and smoke, earthquake, flood, public safety power shutoffs</li>
+<li>Physical theft or unauthorized physical access</li>
+<li>[Other threats specific to the business]</li>
+</ul>
+<h3>5.3 Vulnerabilities observed</h3>
+<p>[Summarize the weaknesses found by category: identity and access, endpoint, network, email, data protection, backups, vendor management, policies and training, physical. Details are in section 7.]</p>
+
+<h2>6. Rating scales</h2>
+<h3>6.1 Likelihood</h3>
+<ul>
+<li><strong>Very likely:</strong> expected to occur within the next year; the threat is common for businesses like this and current controls would not stop it.</li>
+<li><strong>Likely:</strong> could reasonably occur within the next year; controls are partial.</li>
+<li><strong>Possible:</strong> could occur in the next few years; controls exist but have gaps.</li>
+<li><strong>Unlikely:</strong> not expected; strong controls are in place or the threat is uncommon.</li>
+</ul>
+<h3>6.2 Impact</h3>
+<ul>
+<li><strong>Severe:</strong> business cannot operate for more than [3] days; breach of Restricted data requiring notification; losses over [$ amount]; serious regulatory, legal or reputational harm.</li>
+<li><strong>Significant:</strong> major disruption for up to [3] days; limited exposure of Confidential data; losses of [$ range].</li>
+<li><strong>Moderate:</strong> disruption of a department or non-critical system for up to a day; minor data exposure; losses of [$ range].</li>
+<li><strong>Minor:</strong> little disruption and no data exposure; losses under [$ amount].</li>
+</ul>
+<h3>6.3 Risk rating</h3>
+<p>The risk rating combines likelihood and impact:</p>
+<ul>
+<li><strong>Critical:</strong> very likely or likely with severe impact. Requires action or executive decision within 30 days.</li>
+<li><strong>High:</strong> very likely with significant impact, likely with significant impact, or possible with severe impact. Remediate within 90 days.</li>
+<li><strong>Medium:</strong> moderate combinations (for example possible with significant impact, likely with moderate impact, unlikely with severe impact). Remediate within 6 months or in the next budget cycle.</li>
+<li><strong>Low:</strong> unlikely or minor combinations. Address as resources allow or accept.</li>
+</ul>
+
+<h2>7. Findings</h2>
+<p>Each finding is recorded in the following format. Findings are listed from highest to lowest risk and carried into the risk register for tracking.</p>
+<h3>Finding [R-001]: [Short title, e.g. "MFA not enforced for administrator accounts"]</h3>
+<ul>
+<li><strong>Risk rating:</strong> [Critical / High / Medium / Low] (Likelihood: [ ]; Impact: [ ])</li>
+<li><strong>Description:</strong> [What was found, where, and evidence.]</li>
+<li><strong>Threat and business impact:</strong> [What could happen and how it would affect the business.]</li>
+<li><strong>Recommendation:</strong> [Specific action to reduce risk.]</li>
+<li><strong>Estimated cost/effort:</strong> [e.g. included in managed services / one-time project $X / license $X per month]</li>
+<li><strong>Owner:</strong> [name, {{client_name}} or {{company_name}}]</li>
+<li><strong>Target date:</strong> [date]</li>
+<li><strong>Related controls:</strong> [e.g. CIS 6.5, CMMC IA.L2-3.5.3, HIPAA 164.312(d)]</li>
+<li><strong>Treatment decision:</strong> [Mitigate / Accept / Transfer / Avoid]</li>
+</ul>
+<h3>Finding [R-002]: [Short title]</h3>
+<ul>
+<li><strong>Risk rating:</strong> [ ]</li>
+<li><strong>Description:</strong> [ ]</li>
+<li><strong>Threat and business impact:</strong> [ ]</li>
+<li><strong>Recommendation:</strong> [ ]</li>
+<li><strong>Estimated cost/effort:</strong> [ ]</li>
+<li><strong>Owner:</strong> [ ]</li>
+<li><strong>Target date:</strong> [ ]</li>
+<li><strong>Related controls:</strong> [ ]</li>
+<li><strong>Treatment decision:</strong> [ ]</li>
+</ul>
+<p>[Copy the block above for each additional finding.]</p>
+
+<h2>8. Risk treatment</h2>
+<p>For every finding, management selects one of the following treatments:</p>
+<ul>
+<li><strong>Mitigate:</strong> implement the recommendation or another control to reduce likelihood or impact. An owner and target date are assigned and progress is reviewed at quarterly business reviews.</li>
+<li><strong>Accept:</strong> knowingly accept the risk without further action because the cost of mitigation outweighs the benefit or the risk is within tolerance. Acceptance of critical or high risks must be approved by the executive sponsor, documented with the rationale, and re-evaluated at least annually.</li>
+<li><strong>Transfer:</strong> shift the financial impact to another party, for example through cyber insurance or a contract with a vendor. Transfer does not remove legal responsibility for protecting data.</li>
+<li><strong>Avoid:</strong> stop the activity that creates the risk, for example retiring a legacy system or no longer storing certain data.</li>
+</ul>
+<h3>8.1 Risk treatment summary</h3>
+<ul>
+<li>[R-001] [title] — [Treatment] — Owner: [name] — Target: [date]</li>
+<li>[R-002] [title] — [Treatment] — Owner: [name] — Target: [date]</li>
+<li>[R-003] [title] — [Treatment] — Owner: [name] — Target: [date]</li>
+</ul>
+<h3>8.2 Accepted risks</h3>
+<ul>
+<li>[R-0xx] [title] — Rationale: [ ] — Compensating controls: [ ] — Accepted by: [name, title] — Date: [ ] — Re-review by: [date]</li>
+</ul>
+
+<h2>9. Recommended roadmap</h2>
+<ul>
+<li><strong>Next 30 days:</strong> [critical items and quick wins]</li>
+<li><strong>31–90 days:</strong> [high items]</li>
+<li><strong>3–12 months:</strong> [medium items, budgeted projects]</li>
+<li><strong>Budget summary:</strong> one-time [$], recurring [$ per month]</li>
+</ul>
+
+<h2>10. Limitations</h2>
+<p>This assessment is based on information provided by {{client_name}} staff, data available from tools managed by {{company_name}}, and testing performed during the assessment period. It is not an audit and may not identify every vulnerability. Risk changes as threats, technology and the business change; this assessment should be repeated at least annually and after significant changes.</p>
+
+<h2>11. Related documents</h2>
+<ul>
+<li>Information Security Policy</li>
+<li>Risk register</li>
+<li>Vulnerability scan and Microsoft 365 configuration reports ([dates])</li>
+<li>Previous risk assessment ([date])</li>
+</ul>
+<p>Supports: CMMC RA.L2-3.11.1, CA.L2-3.12.1, CA.L2-3.12.2 · CIS 7.1 · HIPAA 164.308(a)(1)(ii)(A), 164.308(a)(1)(ii)(B), 164.308(a)(8) · NIST CSF ID.RA-03, ID.RA-04, ID.RA-05, ID.RA-06, GV.RM-06 · PCI DSS 12.3.1</p>
+
+<h2>12. Review and approval</h2>
+<p>By signing, management confirms it has reviewed this report, understands the risks identified, and approves the treatment decisions recorded in section 8.</p>
+<p>Reviewed and approved by: [name, title]<br>Signature: ______________________<br>Date: [date]</p>
+<p>Prepared by: {{vcio_name}}, {{company_name}}<br>Signature: ______________________<br>Date: [date]</p>
+<p>Next assessment due: [date]</p>

@@ -33,6 +33,15 @@ final class ComplianceController
         ]);
     }
 
+    /** True when PHP dropped posted fields because of max_input_vars. */
+    private static function truncated(): bool
+    {
+        $max = (int) ini_get('max_input_vars');
+        $n = 0;
+        array_walk_recursive($_POST, function () use (&$n) { $n++; });
+        return $max > 0 && $n >= $max;
+    }
+
     private static function framework(int $id): array
     {
         $fw = DB::one('SELECT * FROM compliance_frameworks WHERE id = ?', [$id]);
@@ -130,6 +139,7 @@ final class ComplianceController
             'indicators' => Compliance::indicators((new Lifecycle())->devices($id)),
             'filter' => query('filter'),
             'docs' => \Align\Docs\Documents::forClient($id),
+            'crosswalk' => Compliance::crosswalk($id, $fw, $controls),
         ]);
     }
 
@@ -186,7 +196,11 @@ final class ComplianceController
             DB::run("UPDATE client_frameworks SET $sets WHERE client_id = ? AND framework_id = ?", [...array_values($review), $id, $fw]);
         }
         Audit::log('compliance.save', "{$client['name']} / {$f['name']}: $changed control(s)");
-        flash('success', $changed ? "Saved $changed change(s)." : 'Saved.');
+        if (self::truncated()) {
+            flash('error', "Saved $changed change(s), but the form was too large for the server and some changes may be missing. Check the last controls you edited, or raise max_input_vars in PHP.");
+        } else {
+            flash('success', $changed ? "Saved $changed change(s)." : 'Saved.');
+        }
         redirect("/clients/$id/compliance/$fw" . (post('filter') ? '?filter=' . urlencode(post('filter')) : ''));
     }
 
@@ -238,8 +252,8 @@ final class ComplianceController
         $id = DB::transaction(function () use ($name, $slug, $copyFrom) {
             $id = DB::insert('compliance_frameworks', ['slug' => $slug, 'name' => $name, 'description' => post('description') ?: null]);
             if ($copyFrom) {
-                DB::run('INSERT INTO compliance_controls (framework_id, ref, section, title, guidance, auto_check, sort)
-                    SELECT ?, ref, section, title, guidance, auto_check, sort FROM compliance_controls WHERE framework_id = ?', [$id, $copyFrom]);
+                DB::run('INSERT INTO compliance_controls (framework_id, ref, section, title, guidance, auto_check, tags, sort)
+                    SELECT ?, ref, section, title, guidance, auto_check, tags, sort FROM compliance_controls WHERE framework_id = ?', [$id, $copyFrom]);
             }
             return $id;
         });
@@ -256,6 +270,7 @@ final class ComplianceController
             'nav' => 'compliance',
             'fw' => $fw,
             'controls' => DB::all('SELECT * FROM compliance_controls WHERE framework_id = ? ORDER BY sort, id', [$id]),
+            'allTags' => Compliance::allTags(),
             'inUse' => (int) DB::value('SELECT COUNT(*) FROM client_frameworks WHERE framework_id = ?', [$id]),
         ]);
     }
@@ -291,9 +306,11 @@ final class ComplianceController
                 if (!$str($r['title'] ?? '', 255)) {
                     continue;
                 }
-                DB::run('UPDATE compliance_controls SET section = ?, ref = ?, title = ?, guidance = ?, auto_check = ?, sort = ? WHERE id = ? AND framework_id = ?', [
+                $tagSql = array_key_exists('tags', $r) ? ', tags = ?' : '';
+                DB::run("UPDATE compliance_controls SET section = ?, ref = ?, title = ?, guidance = ?, auto_check = ?, sort = ?$tagSql WHERE id = ? AND framework_id = ?", [
                     $str($r['section'] ?? '', 190), $str($r['ref'] ?? '', 40), $str($r['title'], 255), $str($r['guidance'] ?? '', 5000),
-                    isset(Compliance::AUTO_CHECKS[$r['auto_check'] ?? '']) ? $r['auto_check'] : null, (int) ($r['sort'] ?? 0), (int) $cid, $id,
+                    isset(Compliance::AUTO_CHECKS[$r['auto_check'] ?? '']) ? $r['auto_check'] : null, (int) ($r['sort'] ?? 0),
+                    ...($tagSql ? [Compliance::cleanTags((string) $r['tags'])] : []), (int) $cid, $id,
                 ]);
             }
             $new = is_array($_POST['new'] ?? null) ? $_POST['new'] : [];
@@ -305,12 +322,14 @@ final class ComplianceController
                     'title' => $str($new['title'], 255),
                     'guidance' => $str($new['guidance'] ?? '', 5000),
                     'auto_check' => isset(Compliance::AUTO_CHECKS[$new['auto_check'] ?? '']) ? $new['auto_check'] : null,
+                    'tags' => Compliance::cleanTags((string) ($new['tags'] ?? '')),
                     'sort' => (int) DB::value('SELECT COALESCE(MAX(sort), 0) + 10 FROM compliance_controls WHERE framework_id = ?', [$id]),
                 ]);
             }
         });
         Audit::log('framework.save', $fw['name']);
-        flash('success', 'Framework saved.');
+        flash(self::truncated() ? 'error' : 'success', self::truncated()
+            ? 'Saved, but the form was too large for the server and some changes may be missing. Raise max_input_vars in PHP.' : 'Framework saved.');
         redirect("/frameworks/$id");
     }
 }

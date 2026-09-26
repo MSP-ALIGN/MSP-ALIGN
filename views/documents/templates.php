@@ -9,16 +9,16 @@
       </div>
       <div class="card-body p-0">
         <table class="table table-striped table-borderless table-hover mb-0">
-          <thead class="text-dark"><tr><th>Template</th><th>Category</th><th class="text-right">Used</th><th>Updated</th></tr></thead>
+          <thead class="text-dark"><tr><th>Template</th><th>Category</th><th class="text-right d-none d-sm-table-cell">Used</th><th class="d-none d-md-table-cell">Updated</th></tr></thead>
           <tbody>
           <?php foreach ($templates as $t): [$cl, $ci, $cc] = Documents::category($t['category']); ?>
             <tr>
-              <td><i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> mr-1"></i><a href="/documents/templates/<?= (int) $t['id'] ?>" class="font-weight-bold"><?= e($t['name']) ?></a>
+              <td class="text-break"><i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> mr-1"></i><a href="/documents/templates/<?= (int) $t['id'] ?>" class="font-weight-bold"><?= e($t['name']) ?></a>
                 <?= $t['is_builtin'] ? '<span class="badge badge-light border ml-1">built-in</span>' : '' ?>
                 <div class="small text-muted ml-4"><?= e($t['description'] ?? '') ?></div></td>
               <td class="small"><?= e($cl) ?></td>
-              <td class="text-right"><?= (int) $t['used'] ?></td>
-              <td class="small"><?= e(rel_time($t['updated_at'])) ?></td>
+              <td class="text-right d-none d-sm-table-cell"><?= (int) $t['used'] ?></td>
+              <td class="small d-none d-md-table-cell"><?= e(rel_time($t['updated_at'])) ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>

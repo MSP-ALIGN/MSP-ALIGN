@@ -1,0 +1,121 @@
+<h1>Plan of Action &amp; Milestones (POA&amp;M)</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+<p><em>This template is for tracking NIST SP 800-171 / CMMC Level 2 deficiencies. The CMMC rules summarized below come from 32 CFR 170.21 and should be verified against the current rule and your contract before each assessment. This document should be reviewed and tailored and is not legal advice.</em></p>
+
+<h2>1. Purpose</h2>
+<p>This Plan of Action and Milestones (POA&amp;M) records each NIST SP 800-171 security requirement that {{client_name}} has not yet fully implemented, the weakness it creates, and the specific steps, owners, resources and dates to correct it. It supports CMMC CA.L2-3.12.2 (develop and implement plans of action to correct deficiencies and reduce or eliminate vulnerabilities) and is referenced from the System Security Plan (SSP).</p>
+<p>Internally, every known deficiency should be tracked here. For CMMC status, however, only certain deficiencies may remain open at the time of an assessment (see section 2).</p>
+
+<h2>2. CMMC rules for POA&amp;Ms (Level 2)</h2>
+<p>Under 32 CFR 170.21, an organization may receive a <strong>Conditional</strong> Level 2 status with open POA&amp;M items only if all of the following are true at the time of the assessment:</p>
+<ul>
+<li><strong>Minimum score:</strong> the assessment score divided by the total number of Level 2 requirements is at least 0.8 — that is, at least <strong>88 of 110</strong> requirements are met.</li>
+<li><strong>Only 1-point requirements:</strong> no requirement on the POA&amp;M has a point value greater than 1 under the DoD Assessment Methodology.</li>
+<li><strong>Encryption exception:</strong> SC.L2-3.13.11 (FIPS-validated cryptography) may be on the POA&amp;M if encryption is employed but is not FIPS-validated (which scores as 3 points rather than 5).</li>
+<li><strong>Requirements that can never be on a POA&amp;M:</strong> AC.L2-3.1.20 (external connections), AC.L2-3.1.22 (control public information), CA.L2-3.12.4 (System Security Plan), PE.L2-3.10.3 (escort visitors), PE.L2-3.10.4 (physical access logs) and PE.L2-3.10.5 (manage physical access devices).</li>
+<li><strong>180-day closeout:</strong> all POA&amp;M items must be closed and confirmed by a POA&amp;M closeout assessment within 180 days of the Conditional CMMC Status Date. If not, the Conditional status expires. For a Level 2 (C3PAO) assessment, the closeout is performed by a C3PAO; for Level 2 (Self), the organization performs and records it in SPRS.</li>
+<li><strong>Affirmation:</strong> the Affirming Official submits an affirmation in SPRS upon Conditional status, upon Final status after closeout, and annually thereafter.</li>
+</ul>
+<p>A POA&amp;M is not permitted for CMMC Level 1; all 15 Level 1 requirements must be met.</p>
+<p><strong>Operational plan of action:</strong> separate from this POA&amp;M, an operational plan of action may be used to document temporary deficiencies that arise after a requirement was implemented (for example, a failed control discovered during operation) and how they will be restored. Record those in section 5 so they are not confused with assessment POA&amp;M items.</p>
+
+<h2>3. Roles</h2>
+<ul>
+<li><strong>POA&amp;M owner:</strong> [name, title] — maintains this document, reviews progress at least monthly.</li>
+<li><strong>System owner:</strong> [name, title] — approves remediation plans, dates and resources; accepts residual risk.</li>
+<li><strong>{{company_name}}:</strong> performs technical remediation assigned below and provides evidence (screenshots, configuration exports, tickets). vCIO: {{vcio_name}}.</li>
+</ul>
+
+<h2>4. Summary</h2>
+<ul>
+<li><strong>Current SPRS score:</strong> [score] of 110 · <strong>Date:</strong> [date]</li>
+<li><strong>Open items:</strong> [number] · <strong>Items eligible for Conditional status:</strong> [yes / no — explain]</li>
+<li><strong>Conditional CMMC Status Date:</strong> [date] · <strong>180-day closeout deadline:</strong> [date]</li>
+<li><strong>Last POA&amp;M review:</strong> [date] · <strong>Next review:</strong> [date]</li>
+</ul>
+
+<h2>5. POA&amp;M items</h2>
+<p>Copy the block below for each item. Keep closed items (do not delete them) with their closure date and evidence.</p>
+
+<h3>Item template</h3>
+<ul>
+<li><strong>POA&amp;M ID:</strong> [POAM-YYYY-##]</li>
+<li><strong>Requirement:</strong> [CMMC ID and NIST 800-171 number, e.g. AC.L2-3.1.10] · <strong>Point value:</strong> [1 / 3 / 5]</li>
+<li><strong>Date identified / source:</strong> [date] · [self-assessment / C3PAO assessment / vulnerability scan / incident]</li>
+<li><strong>Weakness / deficiency:</strong> [what is missing or not working, and where]</li>
+<li><strong>Risk / impact:</strong> [Low / Moderate / High] — [how the weakness could lead to unauthorized disclosure of CUI]</li>
+<li><strong>Interim compensating measures:</strong> [temporary measures reducing risk until fixed]</li>
+<li><strong>Remediation steps and milestones:</strong>
+<ol>
+<li>[Step] — target [date]</li>
+<li>[Step] — target [date]</li>
+<li>[Validate and collect evidence] — target [date]</li>
+</ol>
+</li>
+<li><strong>Responsible:</strong> [name / {{company_name}} / shared]</li>
+<li><strong>Resources / estimated cost:</strong> [labor hours, licensing, hardware, $ estimate]</li>
+<li><strong>Scheduled completion date:</strong> [date]</li>
+<li><strong>Status:</strong> [Open / In progress / Delayed (reason) / Closed]</li>
+<li><strong>Date closed:</strong> [date] · <strong>Verified by:</strong> [name]</li>
+<li><strong>Evidence of closure:</strong> [file names, ticket numbers, screenshots, policy versions]</li>
+</ul>
+
+<h3>Example item 1 (example — replace or delete)</h3>
+<ul>
+<li><strong>POA&amp;M ID:</strong> POAM-{{year}}-01 <em>(example)</em></li>
+<li><strong>Requirement:</strong> AC.L2-3.1.10 — Use session lock with pattern-hiding displays after a period of inactivity · <strong>Point value:</strong> 1</li>
+<li><strong>Date identified / source:</strong> [date] · internal self-assessment</li>
+<li><strong>Weakness / deficiency:</strong> Screen lock is enforced by policy on office workstations, but three shop-floor CUI workstations are excluded from the policy and do not lock.</li>
+<li><strong>Risk / impact:</strong> Low — an unattended unlocked workstation could expose CUI drawings to people in the shop area without access authorization.</li>
+<li><strong>Interim compensating measures:</strong> Supervisors confirm workstations are manually locked at shift change; workstations are in an area with restricted access.</li>
+<li><strong>Remediation steps and milestones:</strong>
+<ol>
+<li>{{company_name}} moves the three workstations into the CUI device group with a 15-minute inactivity lock and blank screen saver — target [date]</li>
+<li>Issue users badge-tap or PIN-based quick unlock to limit disruption to production — target [date]</li>
+<li>Confirm the setting on each device and export the policy report as evidence — target [date]</li>
+</ol>
+</li>
+<li><strong>Responsible:</strong> {{company_name}} (configuration); [production manager] (user communication)</li>
+<li><strong>Resources / estimated cost:</strong> 2 hours MSP labor; no additional licensing</li>
+<li><strong>Scheduled completion date:</strong> [date]</li>
+<li><strong>Status:</strong> In progress</li>
+<li><strong>Date closed:</strong> [date] · <strong>Verified by:</strong> [name]</li>
+<li><strong>Evidence of closure:</strong> Device policy report, screenshot of lock screen on each device, ticket #[number]</li>
+</ul>
+
+<h3>Example item 2 (example — replace or delete)</h3>
+<ul>
+<li><strong>POA&amp;M ID:</strong> POAM-{{year}}-02 <em>(example)</em></li>
+<li><strong>Requirement:</strong> SC.L2-3.13.11 — Employ FIPS-validated cryptography when used to protect the confidentiality of CUI · <strong>Point value:</strong> 3 (encryption employed but not FIPS-validated; eligible for POA&amp;M under the 3.13.11 exception)</li>
+<li><strong>Date identified / source:</strong> [date] · pre-assessment gap review</li>
+<li><strong>Weakness / deficiency:</strong> The on-premises backup appliance encrypts CUI backups with AES-256, but the vendor's cryptographic module does not have a current FIPS 140-2/140-3 validation certificate.</li>
+<li><strong>Risk / impact:</strong> Moderate — backups are encrypted, but the implementation has not been independently validated, so assurance that CUI is protected is reduced.</li>
+<li><strong>Interim compensating measures:</strong> Appliance is in a locked server room; access limited to two administrators with MFA; offsite copies go only to a FedRAMP Moderate authorized service.</li>
+<li><strong>Remediation steps and milestones:</strong>
+<ol>
+<li>Confirm with vendor whether a FIPS mode or validated module is available; document the CMVP certificate number if so — target [date]</li>
+<li>If not available, select and purchase a backup solution with a validated module — target [date]</li>
+<li>Deploy, migrate backup jobs, and test a restore — target [date]</li>
+<li>Securely sanitize the old appliance per NIST SP 800-88 and update the SSP and inventory — target [date]</li>
+</ol>
+</li>
+<li><strong>Responsible:</strong> {{company_name}} (selection and deployment); [system owner] (purchase approval)</li>
+<li><strong>Resources / estimated cost:</strong> [$ hardware/licensing] and [#] hours MSP labor</li>
+<li><strong>Scheduled completion date:</strong> [date — must be within 180 days of the Conditional CMMC Status Date]</li>
+<li><strong>Status:</strong> Open</li>
+<li><strong>Date closed:</strong> [date] · <strong>Verified by:</strong> [name]</li>
+<li><strong>Evidence of closure:</strong> CMVP certificate number, configuration screenshot showing FIPS mode, restore test record, sanitization certificate for old appliance</li>
+</ul>
+
+<h2>6. Operational plan of action (temporary deficiencies)</h2>
+<ul>
+<li>[ID] · [requirement] · [date the deficiency was found] · [cause] · [restoration steps and target date] · [responsible] · [date restored]</li>
+</ul>
+
+<h2>7. Review cadence</h2>
+<p>The POA&amp;M owner reviews this document with {{company_name}} at least monthly while items are open, and at least quarterly otherwise. Each review updates status, dates and the SPRS score, and escalates any item that will miss its milestone or the 180-day closeout deadline to the system owner.</p>
+
+<h2>8. Review and approval</h2>
+<p>Approved by: [name, title] · Signature: ______________________ · Date: [date]</p>
+<p>POA&amp;M owner: [name, title] · Date: [date]</p>
+<p>Next review date: [date]</p>

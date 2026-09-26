@@ -14,6 +14,7 @@ final class Documents
         'policy' => ['Policy', 'fa-scale-balanced', 'primary'],
         'procedure' => ['Procedure / SOP', 'fa-list-ol', 'info'],
         'plan' => ['Plan (IR / DR / BCP)', 'fa-life-ring', 'warning'],
+        'assessment' => ['Assessment / record', 'fa-clipboard-list', 'purple'],
         'network' => ['Network & systems', 'fa-network-wired', 'teal'],
         'notes' => ['Notes', 'fa-note-sticky', 'secondary'],
         'other' => ['Other', 'fa-file-lines', 'dark'],

@@ -1,0 +1,90 @@
+<h1>Remote Access Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy defines how workforce members, vendors and {{company_name}} may connect to {{client_name}} systems from outside the office, so that remote work and remote support do not create an easy path for attackers. Exposed remote desktop services and unmanaged remote access tools are among the most common entry points for ransomware.</p>
+
+<h2>2. Scope</h2>
+<p>This policy covers all remote connections to {{client_name}} networks, servers, workstations and applications, including VPN and zero trust network access (ZTNA), remote desktop and remote desktop gateways, remote control and remote support tools, access to on-premises line-of-business applications from outside the office, and administrative access to cloud services, firewalls and other infrastructure. It applies to employees, contractors, vendors and {{company_name}} staff, whether they use company-owned or personal devices.</p>
+<p>Ordinary use of cloud services such as Microsoft 365 from a managed or approved device is governed by the Access Control, Password &amp; MFA and Mobile Device &amp; BYOD policies.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> approves who may work remotely and which vendors may connect, and approves exceptions.</li>
+<li><strong>Managers:</strong> request remote access for staff who need it and notify {{company_name}} when it is no longer required.</li>
+<li><strong>{{company_name}}:</strong> selects, configures and monitors approved remote access technologies; controls the remote support toolset; reviews remote access logs and alerts.</li>
+<li><strong>Remote users:</strong> follow this policy, protect their devices and home networks, and report problems or suspected compromise immediately.</li>
+</ul>
+
+<h2>4. Approved remote access methods</h2>
+<p>Only the following methods may be used. All other remote access tools and methods are prohibited.</p>
+<ul>
+<li><strong>Cloud applications with MFA:</strong> Microsoft 365 / Google Workspace and approved SaaS applications, protected by conditional access and MFA.</li>
+<li><strong>VPN or ZTNA:</strong> [product name, e.g. firewall SSL VPN, WireGuard, or a ZTNA service] for access to on-premises resources, requiring MFA on every connection. ZTNA, which grants access to specific applications rather than the whole network, is preferred for new deployments.</li>
+<li><strong>Remote desktop gateway or published applications:</strong> [product name], only behind VPN/ZTNA or a gateway that enforces MFA.</li>
+<li><strong>{{company_name}}'s remote support tools:</strong> the RMM and remote support platforms managed by {{company_name}} ([tool names]), used by authorized technicians only.</li>
+</ul>
+
+<h2>5. Security requirements for remote access</h2>
+<ul>
+<li><strong>MFA on every remote connection.</strong> No remote access method that grants access to internal networks or systems may rely on a password alone.</li>
+<li><strong>No exposed RDP or management interfaces.</strong> Remote Desktop Protocol (TCP 3389), SSH, SMB, database ports and firewall, NAS, camera or printer management pages must never be directly reachable from the internet. {{company_name}} verifies this with external scans at least quarterly.</li>
+<li><strong>Encryption:</strong> remote connections use TLS 1.2 or higher, or IPsec/WireGuard using approved algorithms per the Encryption Policy.</li>
+<li><strong>Device requirements:</strong> remote access to internal networks is allowed only from company-managed devices, or from personal devices through published applications/virtual desktops that do not allow data to be saved locally. Devices must have a supported operating system, current patches, active endpoint protection and full-disk encryption.</li>
+<li><strong>Split tunneling:</strong> [allowed for internet traffic / disabled] as configured by {{company_name}}. Where CUI or cardholder data is accessed, split tunneling is disabled unless the device is otherwise protected, consistent with CMMC SC.L2-3.13.7.</li>
+<li><strong>Geographic and risk restrictions:</strong> sign-ins from countries where {{client_name}} does not operate are blocked by conditional access unless a travel exception is requested in advance. High-risk sign-ins are blocked or require re-authentication.</li>
+<li><strong>Remote access firewall rules</strong> limit VPN users to the specific servers and ports needed for their role.</li>
+</ul>
+
+<h2>6. Session timeouts</h2>
+<ul>
+<li>VPN and ZTNA sessions disconnect after <strong>30 minutes of inactivity</strong> and require re-authentication at least every <strong>12 hours</strong>.</li>
+<li>Remote desktop sessions disconnect after 15 minutes idle and log off disconnected sessions after [2] hours.</li>
+<li>Administrative sessions to firewalls, servers and cloud consoles time out after 15 minutes idle.</li>
+<li>Remote workstations lock after 15 minutes of inactivity.</li>
+</ul>
+
+<h2>7. Remote support tools</h2>
+<ul>
+<li>Remote control and support tools are <strong>controlled by {{company_name}}</strong>. Only the tools listed in section 4 are permitted. Consumer or unapproved tools (for example personal TeamViewer, AnyDesk, Chrome Remote Desktop, ScreenConnect instances not owned by {{company_name}}) are blocked by endpoint controls where possible and removed if found.</li>
+<li>Technician access to remote support tools requires individual named accounts and phishing-resistant MFA; technician sessions are logged with who connected, to which device, and when.</li>
+<li>Attended sessions on user workstations notify the user that a session is active.</li>
+<li>Users must never install a remote access tool or allow a remote session at the request of an unsolicited caller, pop-up or email. Legitimate {{company_name}} technicians will identify themselves and can be verified by calling {{company_phone}}.</li>
+<li><strong>Vendors</strong> who support line-of-business systems connect through a {{company_name}}-controlled method, receive access only when a session is scheduled or requested, and have access disabled when the session ends. Always-on vendor access requires security lead approval and is reviewed quarterly.</li>
+</ul>
+
+<h2>8. Home networks and public Wi-Fi</h2>
+<ul>
+<li>Home Wi-Fi used for work must use WPA2-Personal (AES) or WPA3 with a strong passphrase, and the router's default admin password must be changed. Router firmware should be kept up to date.</li>
+<li>Work devices should not share a network segment with devices of unknown security where a guest or separate network is available.</li>
+<li>On public Wi-Fi (hotels, coffee shops, airports), users must connect to the VPN/ZTNA before accessing company resources, or use a mobile hotspot. Never accept certificate warnings or install software prompted by a captive portal.</li>
+<li>Screens must not be visible to others in public places when working with Confidential or Restricted information; use a privacy screen where practical.</li>
+<li>Printing Confidential or Restricted information at home or in public locations is not allowed unless approved; any printed material must be secured and shredded.</li>
+</ul>
+
+<h2>9. Monitoring and review</h2>
+<ul>
+<li>Remote access connections, failures and administrative actions are logged and forwarded to centralized monitoring per the Logging &amp; Monitoring Policy.</li>
+<li>{{company_name}} reviews the list of users with VPN/ZTNA access and vendor remote access quarterly as part of the access review.</li>
+<li>Remote access for departing users is disabled as part of offboarding within 24 hours.</li>
+</ul>
+
+<h2>10. Exceptions</h2>
+<p>Any exception, such as a legacy application requiring direct access, must be documented with compensating controls (for example IP allow-listing and a gateway with MFA), approved by the security lead, and reviewed at least every 6 months.</p>
+
+<h2>11. Enforcement</h2>
+<p>Installing unapproved remote access tools, sharing VPN credentials, or bypassing remote access controls may result in loss of remote access privileges and disciplinary action up to and including termination.</p>
+
+<h2>12. Related documents</h2>
+<ul>
+<li>Access Control Policy</li>
+<li>Password &amp; Multi-Factor Authentication Policy</li>
+<li>Mobile Device &amp; BYOD Policy</li>
+<li>Encryption Policy</li>
+<li>Logging &amp; Monitoring Policy</li>
+</ul>
+<p>Supports: CMMC AC.L2-3.1.12, AC.L2-3.1.13, AC.L2-3.1.14, AC.L2-3.1.15, AC.L2-3.1.11, MA.L2-3.7.5 · CIS 4.3, 6.4, 12.7 · HIPAA 164.312(a)(2)(iii), 164.312(e)(1) · NIST CSF PR.AA-03, PR.IR-01 · PCI DSS 8.2.8, 8.4.3, 8.2.7</p>
+
+<h2>13. Review and approval</h2>
+<p>This policy is reviewed at least annually and whenever remote access technologies change.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

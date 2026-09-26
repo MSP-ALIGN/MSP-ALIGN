@@ -6,7 +6,7 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="c
     . '</select>';
 ?>
 <div class="small"><a href="/frameworks">Frameworks</a> /</div>
-<form method="post" action="/frameworks/<?= (int) $fw['id'] ?>">
+<form method="post" action="/frameworks/<?= (int) $fw['id'] ?>" data-post-changed>
   <?= csrf_field() ?>
   <div class="card card-dark">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check mr-2"></i><?= e($fw['name']) ?></h3>
@@ -26,16 +26,17 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="c
     <div class="card-header py-2"><h3 class="card-title mt-1">Controls (<?= count($controls) ?>)</h3></div>
     <div class="card-body p-0 table-responsive">
       <table class="table table-sm table-borderless mb-0">
-        <thead class="text-dark"><tr><th class="w-sort">Order</th><th>Section</th><th>Ref</th><th>Control</th><th>Guidance</th><th>Device check</th><th>Delete</th></tr></thead>
+        <thead class="text-dark"><tr><th class="w-sort">Order</th><th>Section</th><th>Ref</th><th>Control</th><th>Guidance</th><th>Device check</th><th title="Controls in different frameworks that share a tag are suggested to each other on client checklists">Crosswalk tags</th><th>Delete</th></tr></thead>
         <tbody>
         <?php foreach ($controls as $c): $k = (int) $c['id']; ?>
-          <tr class="border-bottom">
+          <tr class="border-bottom" data-row>
             <td><input type="number" name="ctl[<?= $k ?>][sort]" value="<?= (int) $c['sort'] ?>" class="form-control form-control-sm"></td>
             <td><input name="ctl[<?= $k ?>][section]" value="<?= e($c['section']) ?>" class="form-control form-control-sm"></td>
             <td><input name="ctl[<?= $k ?>][ref]" value="<?= e($c['ref']) ?>" class="form-control form-control-sm"></td>
             <td><textarea name="ctl[<?= $k ?>][title]" class="form-control form-control-sm" rows="1"><?= e($c['title']) ?></textarea></td>
             <td><textarea name="ctl[<?= $k ?>][guidance]" class="form-control form-control-sm" rows="1"><?= e($c['guidance']) ?></textarea></td>
             <td><?= $auto("ctl[$k][auto_check]", $c['auto_check']) ?></td>
+            <td><input name="ctl[<?= $k ?>][tags]" value="<?= e(str_replace(',', ', ', (string) $c['tags'])) ?>" class="form-control form-control-sm" list="xw-tags" placeholder="e.g. iam_mfa"></td>
             <td class="text-center"><input type="checkbox" name="ctl[<?= $k ?>][delete]" value="1" aria-label="Delete control"></td>
           </tr>
         <?php endforeach; ?>
@@ -46,6 +47,7 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="c
             <td><textarea name="new[title]" class="form-control form-control-sm" rows="1" placeholder="Control to add"></textarea></td>
             <td><textarea name="new[guidance]" class="form-control form-control-sm" rows="1"></textarea></td>
             <td><?= $auto('new[auto_check]', null) ?></td>
+            <td><input name="new[tags]" class="form-control form-control-sm" list="xw-tags" placeholder="Tags"></td>
             <td></td>
           </tr>
         </tbody>
@@ -56,4 +58,5 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="c
       <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check mr-1"></i>Save</button>
     </div>
   </div>
+  <datalist id="xw-tags"><?php foreach ($allTags as $t): ?><option value="<?= e($t) ?>"><?php endforeach; ?></datalist>
 </form>

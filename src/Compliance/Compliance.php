@@ -110,4 +110,111 @@ final class Compliance
         }
         return $out;
     }
+
+    /** Normalizes typed tags ("IAM MFA, cfg_baseline") to "iam_mfa,cfg_baseline"; at most 8. */
+    public static function cleanTags(string $raw): ?string
+    {
+        $tags = [];
+        foreach (preg_split('/[,;\s]+/', strtolower($raw)) ?: [] as $t) {
+            $t = trim(preg_replace('/[^a-z0-9_]/', '', $t) ?? '', '_');
+            if ($t !== '' && strlen($t) <= 40) {
+                $tags[$t] = true;
+            }
+        }
+        return $tags ? implode(',', array_slice(array_keys($tags), 0, 8)) : null;
+    }
+
+    /** Every tag in use, for the tag picker. */
+    public static function allTags(): array
+    {
+        $all = [];
+        foreach (DB::all('SELECT DISTINCT tags FROM compliance_controls WHERE tags IS NOT NULL') as $r) {
+            foreach (self::tagList($r['tags']) as $t) {
+                $all[$t] = true;
+            }
+        }
+        ksort($all);
+        return array_keys($all);
+    }
+
+    /** Tags stored on a control ("a,b,c") as a list, primary tag first. */
+    public static function tagList(?string $tags): array
+    {
+        return $tags ? array_values(array_filter(array_map('trim', explode(',', $tags)))) : [];
+    }
+
+    /**
+     * Crosswalk: for each control in $controls (rows with id, tags), the matching controls in the
+     * client's OTHER assigned frameworks, with the client's answers there.
+     * A match needs a strong overlap: its primary tag is one of ours, ours is one of its, or they share
+     * two or more tags. Returns [control_id => ['matches' => [...], 'suggest' => match|null]], where
+     * 'suggest' is set when the best answered match is strong and every equally ranked answered match agrees on the status (used by
+     * "Fill from matching answers").
+     */
+    public static function crosswalk(int $clientId, int $frameworkId, array $controls): array
+    {
+        $mine = [];
+        foreach ($controls as $c) {
+            if ($t = self::tagList($c['tags'] ?? null)) {
+                $mine[(int) $c['id']] = $t;
+            }
+        }
+        if (!$mine) {
+            return [];
+        }
+        $others = DB::all("SELECT c.id, c.ref, c.title, c.tags, f.id AS fw_id, f.name AS fw_name,
+                COALESCE(s.status, 'not_assessed') AS status, s.notes, s.evidence, s.document_id
+            FROM client_frameworks cf
+            JOIN compliance_frameworks f ON f.id = cf.framework_id
+            JOIN compliance_controls c ON c.framework_id = f.id AND c.tags IS NOT NULL
+            LEFT JOIN client_control_status s ON s.control_id = c.id AND s.client_id = cf.client_id
+            WHERE cf.client_id = ? AND cf.framework_id <> ?
+            ORDER BY f.name, c.sort, c.id", [$clientId, $frameworkId]);
+        if (!$others) {
+            return [];
+        }
+        $byTag = [];
+        foreach ($others as $k => $o) {
+            $others[$k]['tag_list'] = self::tagList($o['tags']);
+            foreach ($others[$k]['tag_list'] as $t) {
+                $byTag[$t][] = $k;
+            }
+        }
+        $out = [];
+        foreach ($mine as $cid => $tags) {
+            $cand = [];
+            foreach ($tags as $t) {
+                foreach ($byTag[$t] ?? [] as $k) {
+                    $cand[$k] = true;
+                }
+            }
+            $matches = [];
+            foreach (array_keys($cand) as $k) {
+                $o = $others[$k];
+                $shared = count(array_intersect($tags, $o['tag_list']));
+                $score = $shared + (in_array($tags[0], $o['tag_list'], true) ? 1 : 0) + (in_array($o['tag_list'][0], $tags, true) ? 1 : 0);
+                if ($score < 2) {
+                    continue;
+                }
+                unset($o['tags'], $o['tag_list']);
+                $o['score'] = $score;
+                $o['answered'] = $o['status'] !== 'not_assessed';
+                $matches[] = $o;
+            }
+            if (!$matches) {
+                continue;
+            }
+            usort($matches, fn($a, $b) => [$b['answered'], $b['score'], $a['fw_name']] <=> [$a['answered'], $a['score'], $b['fw_name']]);
+            $answered = array_values(array_filter($matches, fn($m) => $m['answered']));
+            $suggest = null;
+            if ($answered && $answered[0]['score'] >= 3) { // bulk fill only on a strong match (shared primary tags)
+                $top = array_filter($answered, fn($m) => $m['score'] === $answered[0]['score']);
+                if (count(array_unique(array_column($top, 'status'))) === 1) {
+                    $suggest = $answered[0];
+                }
+            }
+            $out[$cid] = ['matches' => $matches, 'answered' => count($answered), 'suggest' => $suggest];
+        }
+        return $out;
+    }
 }

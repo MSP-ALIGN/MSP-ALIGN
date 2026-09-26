@@ -7,6 +7,14 @@ $cid = (int) $client['id'];
 $fid = (int) $fw['id'];
 $canEdit = Auth::can('tech');
 $s = $score;
+$xwReady = array_filter($crosswalk, fn($x) => $x['suggest'] !== null);
+$short = fn(string $n) => trim(preg_replace('/\s*\(.*\)\s*$/', '', $n) ?? $n);
+$xwFrameworks = [];
+foreach ($crosswalk as $x) {
+    foreach ($x['matches'] as $m) {
+        $xwFrameworks[$short($m['fw_name'])] = true;
+    }
+}
 $filters = ['' => 'All', 'open' => 'Needs work', 'not_assessed' => 'Not assessed', 'met' => 'Met'];
 $show = function (array $c) use ($filter) {
     return match ($filter) {
@@ -28,8 +36,18 @@ $show = function (array $c) use ($filter) {
   </div>
 </div>
 <?php if ($fw['description']): ?><p class="text-muted small"><?= e($fw['description']) ?></p><?php endif; ?>
+<?php if ($xwFrameworks): $fillable = 0;
+  foreach ($sections as $controls) { foreach (array_filter($controls, $show) as $c) { if ($c['status'] === 'not_assessed' && isset($xwReady[(int) $c['id']])) { $fillable++; } } } ?>
+  <div class="callout callout-info py-2 d-flex flex-wrap align-items-center xw-callout">
+    <div class="mr-auto small"><i class="fas fa-link mr-1 text-info"></i><strong>Crosswalk:</strong> controls that ask for the same thing in
+      <?= e(implode(', ', array_keys($xwFrameworks))) ?> are listed under each control, so you can reuse an answer and its evidence instead of starting over.</div>
+    <?php if ($canEdit && $fillable): ?>
+      <button type="button" class="btn btn-sm btn-info mt-1 mt-md-0" id="xw-fill-all" data-count="<?= $fillable ?>"><i class="fas fa-wand-magic-sparkles mr-1"></i>Fill <?= $fillable ?> from matching answers</button>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
 
-<form method="post" action="/clients/<?= $cid ?>/compliance/<?= $fid ?>" id="checklist-form">
+<form method="post" action="/clients/<?= $cid ?>/compliance/<?= $fid ?>" id="checklist-form" data-post-changed>
   <?= csrf_field() ?>
   <input type="hidden" name="filter" value="<?= e($filter) ?>">
   <?php foreach ($sections as $section => $controls): $visible = array_filter($controls, $show); if (!$visible) continue; ?>
@@ -39,7 +57,7 @@ $show = function (array $c) use ($filter) {
       <div class="card-body p-0">
         <table class="table table-sm table-borderless mb-0 checklist">
           <?php foreach ($visible as $c): $k = (int) $c['id']; $ind = $c['auto_check'] ? ($indicators[$c['auto_check']] ?? null) : null; ?>
-            <tr class="border-bottom">
+            <tr class="border-bottom" data-row>
               <td class="w-50">
                 <div><span class="text-muted small mr-1"><?= e($c['ref']) ?></span><span class="font-weight-bold"><?= e($c['title']) ?></span></div>
                 <?php if ($c['guidance']): ?><div class="small text-muted"><?= e($c['guidance']) ?></div><?php endif; ?>
@@ -49,6 +67,31 @@ $show = function (array $c) use ($filter) {
                       <button type="button" class="btn btn-xs btn-outline-secondary ml-1" data-set-status="c<?= $k ?>" data-value="<?= e($ind['suggest']) ?>">Use "<?= e(Compliance::STATUSES[$ind['suggest']][0]) ?>"</button>
                     <?php endif; ?>
                   </div>
+                <?php endif; ?>
+                <?php if ($xw = $crosswalk[$k] ?? null): $sug = $xw['suggest']; ?>
+                  <details class="xw small mt-1">
+                    <summary><i class="fas fa-link mr-1"></i>Matches <?= count($xw['matches']) ?> control<?= count($xw['matches']) === 1 ? '' : 's' ?> in other frameworks<?= $xw['answered'] ? ' · ' . $xw['answered'] . ' answered' : '' ?></summary>
+                    <ul class="list-unstyled mb-0 mt-1">
+                      <?php foreach (array_slice($xw['matches'], 0, 8) as $m): [$ml, $mt] = Compliance::STATUSES[$m['status']]; ?>
+                        <li class="xw-match">
+                          <span class="badge badge-<?= $mt === 'light' ? 'secondary' : $mt ?>"><?= e($ml) ?></span>
+                          <span class="text-muted" title="<?= e($m['fw_name']) ?>"><?= e($short($m['fw_name'])) ?> ·</span> <strong><?= e($m['ref']) ?></strong> <?= e(mb_strimwidth($m['title'], 0, 110, '…')) ?>
+                          <?php if ($canEdit && $m['answered']): ?>
+                            <button type="button" class="btn btn-xs btn-outline-info ml-1" data-xw-use="<?= $k ?>" data-status="<?= e($m['status']) ?>"
+                              data-notes="<?= e((string) $m['notes']) ?>" data-evidence="<?= e((string) $m['evidence']) ?>" data-doc="<?= (int) $m['document_id'] ?>"
+                              data-from="<?= e($short($m['fw_name']) . ' ' . $m['ref']) ?>">Use this answer</button>
+                          <?php endif; ?>
+                        </li>
+                      <?php endforeach; ?>
+                      <?php if (count($xw['matches']) > 8): ?><li class="text-muted">…and <?= count($xw['matches']) - 8 ?> more</li><?php endif; ?>
+                    </ul>
+                  </details>
+                  <?php if ($canEdit && $sug && $c['status'] === 'not_assessed'): ?>
+                    <button type="button" class="d-none" data-xw-suggest data-xw-use="<?= $k ?>" data-status="<?= e($sug['status']) ?>"
+                      data-notes="<?= e((string) $sug['notes']) ?>" data-evidence="<?= e((string) $sug['evidence']) ?>" data-doc="<?= (int) $sug['document_id'] ?>"
+                      data-from="<?= e($short($sug['fw_name']) . ' ' . $sug['ref']) ?>"></button>
+                  <?php endif; ?>
+                  <div class="xw-filled-note small text-info d-none"></div>
                 <?php endif; ?>
                 <?php if ($c['s_updated'] && $c['status'] !== 'not_assessed'): ?><div class="small text-muted mt-1">Updated <?= e(rel_time($c['s_updated'])) ?><?= $c['updated_by_name'] ? ' by ' . e($c['updated_by_name']) : '' ?></div><?php endif; ?>
               </td>

@@ -1,0 +1,100 @@
+<h1>Logging &amp; Monitoring Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy ensures {{client_name}} records the security-relevant activity needed to detect attacks, investigate incidents and demonstrate accountability, and that those records are monitored, protected and kept for an appropriate time. Many breaches go unnoticed for weeks because logs were never collected or reviewed.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all systems that store, process or protect company information, including identity systems (Entra ID, Active Directory), Microsoft 365 or Google Workspace, workstations and servers, firewalls and VPN/ZTNA, endpoint detection and response (EDR), email security, backup systems, line-of-business applications that produce audit logs, and {{company_name}}'s remote management and support tools.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy, receives escalations and decides on business actions during incidents.</li>
+<li><strong>{{company_name}}:</strong> configures logging, operates or contracts the centralized log platform and the managed detection and response (MDR) / security operations center (SOC) service, triages alerts, and reports monthly.</li>
+<li><strong>MDR/SOC provider ([provider name]):</strong> monitors security telemetry 24/7, investigates alerts, takes approved containment actions and escalates to {{company_name}}.</li>
+<li><strong>System owners:</strong> ensure line-of-business applications have audit logging enabled and tell {{company_name}} about new systems that should be logged.</li>
+</ul>
+
+<h2>4. Events that must be logged</h2>
+<p>Where the system supports it, the following events are logged with date/time, user or account, source (device name or IP address), event type and outcome (success or failure):</p>
+<ul>
+<li><strong>Authentication:</strong> successful and failed sign-ins, MFA challenges and failures, account lockouts, sign-ins from new locations or risky sign-ins, VPN connections.</li>
+<li><strong>Account and privilege changes:</strong> account creation, deletion, enable/disable; group and role membership changes (especially admin roles); password and MFA method resets.</li>
+<li><strong>Administrative actions:</strong> configuration changes to servers, firewalls, cloud tenants, conditional access, mail flow rules, and security tools; use of privileged and break-glass accounts; remote support sessions.</li>
+<li><strong>Security events:</strong> malware and EDR detections, blocked connections and intrusion prevention events, email threat detections, data loss prevention alerts, audit log clearing, security tool disabled or tampered with.</li>
+<li><strong>Data access:</strong> access to, and export or sharing of, Restricted data where the application supports it (for example EHR audit logs, SharePoint/OneDrive sharing and bulk download events, mailbox access by non-owners, new inbox forwarding rules).</li>
+<li><strong>System events:</strong> service start/stop, backup success and failure, system errors affecting security.</li>
+</ul>
+<p>Microsoft 365 unified audit logging and mailbox auditing are enabled for all users. Windows advanced audit policy is configured per {{company_name}}'s baseline, including process creation events where the EDR does not already capture them.</p>
+
+<h2>5. Centralized collection</h2>
+<ul>
+<li>Logs from the sources in section 2 are forwarded to a centralized log platform or SIEM ([platform name]) managed by {{company_name}} or its MDR partner, so logs survive the loss or compromise of the original system.</li>
+<li>{{company_name}} maintains a list of log sources and confirms at least monthly that each source is still sending logs. A log source that stops reporting for more than 24 hours generates an alert.</li>
+<li>Logs must not contain passwords, full payment card numbers or other secrets. Applications are configured to mask such data.</li>
+</ul>
+
+<h2>6. Time synchronization</h2>
+<ul>
+<li>All systems synchronize time to an authoritative source: domain controllers to [pool.ntp.org / time.nist.gov / firewall]; domain members to domain controllers; cloud services use provider time.</li>
+<li>Time drift greater than 5 minutes is corrected, and log timestamps include time zone or use UTC so events can be correlated accurately.</li>
+</ul>
+
+<h2>7. Retention</h2>
+<ul>
+<li>Security logs are retained for at least <strong>1 year</strong>, with at least the most recent <strong>90 days immediately available</strong> for search. Older logs may be archived to lower-cost storage if they can be restored within [2 business days].</li>
+<li><strong>PCI DSS:</strong> audit logs for the cardholder data environment are retained for at least 12 months with the most recent 3 months immediately available (PCI DSS 10.5.1).</li>
+<li><strong>HIPAA:</strong> HIPAA requires that security policies and documentation, including records of activity reviews, be retained for 6 years (164.316(b)(2)(i)). {{client_name}} retains [audit logs for systems containing ePHI for 6 years / records of log reviews and incident investigations for 6 years].</li>
+<li>Logs subject to a legal hold or active investigation are preserved until released by the security lead.</li>
+<li>Default retention in some cloud services is short (for example 90 or 180 days in Microsoft 365 depending on license); {{company_name}} ensures logs are exported or licensing is sufficient to meet this section.</li>
+</ul>
+
+<h2>8. Monitoring and alert triage</h2>
+<ul>
+<li>EDR, identity and email security telemetry is monitored <strong>24 hours a day, 7 days a week</strong> by the MDR/SOC.</li>
+<li>Alerts are triaged by severity:
+<ul>
+<li><strong>Critical</strong> (active ransomware, confirmed account takeover, admin compromise): containment starts within 15 minutes; {{company_name}} and the security lead are called immediately.</li>
+<li><strong>High</strong> (malware execution, suspicious admin activity, impossible travel with successful sign-in): investigated within 1 hour; client notified the same business day.</li>
+<li><strong>Medium</strong>: investigated within 1 business day.</li>
+<li><strong>Low/informational</strong>: reviewed in weekly or monthly reporting.</li>
+</ul>
+</li>
+<li>Pre-approved containment actions the MDR/SOC or {{company_name}} may take without further approval: isolating a device from the network, disabling a user account, revoking sessions, blocking a sender or IP address. Actions affecting servers or many users require a call to the security lead first, unless an attack is actively spreading.</li>
+<li>Confirmed incidents are handled under the Incident Response Plan.</li>
+<li>{{company_name}} reviews privileged account activity, firewall and VPN summaries, and log source health at least weekly, and tunes alert rules at least quarterly to reduce false positives.</li>
+<li>Where PCI DSS applies, security event logs for in-scope systems are reviewed at least daily, by automated means where possible.</li>
+</ul>
+
+<h2>9. Log protection</h2>
+<ul>
+<li>Access to logs is limited to {{company_name}} security staff, the MDR/SOC and the security lead. Users whose activity is logged cannot alter or delete logs.</li>
+<li>Centralized logs are stored in write-once or tamper-evident storage where available, encrypted in transit and at rest.</li>
+<li>Clearing of logs or disabling of audit logging generates a high-severity alert.</li>
+<li>Administrator accounts on systems generating logs are separate from accounts that administer the log platform where practical.</li>
+</ul>
+
+<h2>10. Reporting</h2>
+<p>{{company_name}} provides a monthly security report summarizing alerts by severity, incidents, notable trends and log source health, reviewed by {{vcio_name}} with {{client_name}} at quarterly business reviews.</p>
+
+<h2>11. Privacy</h2>
+<p>Monitoring is performed to protect company systems and data, as described in the Acceptable Use Policy. Log data is used for security, operations, and legal or HR investigations authorized by management.</p>
+
+<h2>12. Exceptions</h2>
+<p>Systems that cannot produce or forward logs must be documented with compensating controls and approved by the security lead.</p>
+
+<h2>13. Enforcement</h2>
+<p>Disabling logging or security agents, or tampering with logs, is prohibited and may result in disciplinary action up to and including termination.</p>
+
+<h2>14. Related documents</h2>
+<ul>
+<li>Incident Response Plan</li>
+<li>Access Control Policy</li>
+<li>Acceptable Use Policy</li>
+<li>Data Retention &amp; Disposal Policy</li>
+</ul>
+<p>Supports: CMMC AU.L2-3.3.1, AU.L2-3.3.2, AU.L2-3.3.4, AU.L2-3.3.5, AU.L2-3.3.7, AU.L2-3.3.8, SI.L2-3.14.6, SI.L2-3.14.7 · CIS 8.1, 8.2, 8.4, 8.5, 8.9, 8.10, 8.11, 13.1 · HIPAA 164.308(a)(1)(ii)(D), 164.308(a)(5)(ii)(C), 164.312(b) · NIST CSF PR.PS-04, DE.CM-01, DE.CM-03, DE.CM-09, DE.AE-02, DE.AE-03 · PCI DSS 10.2.1, 10.3.2, 10.4.1, 10.5.1, 10.6.1</p>
+
+<h2>15. Review and approval</h2>
+<p>This policy is reviewed at least annually and after significant changes to systems or monitoring providers.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

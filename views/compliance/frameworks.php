@@ -6,15 +6,15 @@
   </div>
   <div class="card-body p-0">
     <table class="table table-striped table-borderless table-hover mb-0">
-      <thead class="text-dark"><tr><th>Framework</th><th class="text-right">Controls</th><th class="text-right">Clients</th><th>Status</th></tr></thead>
+      <thead class="text-dark"><tr><th>Framework</th><th class="text-right">Controls</th><th class="text-right d-none d-sm-table-cell">Clients</th><th>Status</th></tr></thead>
       <tbody>
       <?php foreach ($frameworks as $f): ?>
         <tr>
-          <td><a href="/frameworks/<?= (int) $f['id'] ?>" class="font-weight-bold"><?= e($f['name']) ?></a>
+          <td class="text-break"><a href="/frameworks/<?= (int) $f['id'] ?>" class="font-weight-bold"><?= e($f['name']) ?></a>
             <?= $f['is_builtin'] ? '<span class="badge badge-light border ml-1">built-in</span>' : '' ?>
             <div class="small text-muted text-truncate-2"><?= e($f['description'] ?? '') ?></div></td>
           <td class="text-right"><?= (int) $f['controls'] ?></td>
-          <td class="text-right"><?= (int) $f['clients'] ?></td>
+          <td class="text-right d-none d-sm-table-cell"><?= (int) $f['clients'] ?></td>
           <td><?= $f['is_active'] ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-secondary">Inactive</span>' ?></td>
         </tr>
       <?php endforeach; ?>

@@ -1,0 +1,76 @@
+<h1>CMMC Level 1 Self-Assessment &amp; Annual Affirmation</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+<p><em>This worksheet helps prepare the annual CMMC Level 1 self-assessment under 32 CFR 170.15 and FAR 52.204-21. The official affirmation is submitted by the Affirming Official in the Supplier Performance Risk System (SPRS), not by signing this document. Review and tailor it; it is not legal advice.</em></p>
+
+<h2>1. Purpose</h2>
+<p>CMMC Level 1 applies to contractors that process, store or transmit Federal Contract Information (FCI) — information provided by or generated for the government under a contract that is not intended for public release (for example, contract details, pricing, schedules and non-public drawings), but not simple transactional information such as that needed to process payments. This worksheet records how {{client_name}} meets each of the 15 basic safeguarding requirements, supports the results entered in SPRS, and documents the annual affirmation.</p>
+
+<h2>2. Key rules</h2>
+<ul>
+<li>All 15 requirements must be fully <strong>Met</strong>. A Plan of Action and Milestones (POA&amp;M) is <strong>not</strong> allowed for Level 1.</li>
+<li>The self-assessment is performed and the results entered in SPRS <strong>at least annually</strong>, and the status must be current before award of a contract requiring Level 1.</li>
+<li>A senior official of the company (the <strong>Affirming Official</strong>) affirms in SPRS, at least annually, that the company has implemented and will continue to maintain the requirements.</li>
+<li>The affirmation is a representation to the federal government. A knowingly false or reckless affirmation can create liability under the False Claims Act and other laws; the DoJ Civil Cyber-Fraud Initiative actively pursues such cases. Affirm only what is supported by evidence.</li>
+<li>Assessment methods (examine, interview, test) and objectives are described in the DoD CMMC Level 1 Assessment Guide.</li>
+</ul>
+
+<h2>3. Scope (FCI assets)</h2>
+<p>The assessment covers all people, technology and facilities that process, store or transmit FCI. Specialized assets (IoT, OT, government-furnished equipment, test equipment) are not assessed against Level 1 requirements but should be listed.</p>
+<ul>
+<li><strong>Locations:</strong> [addresses]</li>
+<li><strong>Users with FCI access:</strong> [number, roles]</li>
+<li><strong>Endpoints:</strong> [number and type of workstations, laptops, phones]</li>
+<li><strong>Servers and cloud services:</strong> [e.g. Microsoft 365 tenant, file server, accounting/ERP system]</li>
+<li><strong>Network and security devices:</strong> [firewall, Wi-Fi, EDR/antivirus, RMM]</li>
+<li><strong>External service providers:</strong> {{company_name}} (managed IT), [others]</li>
+<li><strong>Specialized assets:</strong> [list, or "none"]</li>
+<li><strong>Out of scope:</strong> [e.g. guest Wi-Fi — describe separation]</li>
+</ul>
+
+<h2>4. Requirements checklist (FAR 52.204-21(b)(1))</h2>
+<p>For each requirement, mark Met or Not met and describe how it is met in this environment, including the evidence reviewed.</p>
+<ol>
+<li><strong>AC.L1-b.1.i</strong> — Limit information system access to authorized users, processes acting on behalf of authorized users, or devices (including other information systems).<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. unique named accounts in Microsoft 365/Active Directory; accounts created and disabled by {{company_name}} on written request; only company-managed devices can sign in]</li>
+<li><strong>AC.L1-b.1.ii</strong> — Limit information system access to the types of transactions and functions that authorized users are permitted to execute.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. role-based permissions on file shares and ERP; users are not local administrators]</li>
+<li><strong>AC.L1-b.1.iii</strong> — Verify and control/limit connections to and use of external information systems.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. personal devices and personal cloud storage are not allowed to access company data; conditional access blocks unmanaged devices]</li>
+<li><strong>AC.L1-b.1.iv</strong> — Control information posted or processed on publicly accessible information systems.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. only [name] may post to the website and social media, and content is reviewed to ensure no FCI is posted]</li>
+<li><strong>IA.L1-b.1.v</strong> — Identify information system users, processes acting on behalf of users, or devices.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. no shared accounts; device inventory maintained in RMM]</li>
+<li><strong>IA.L1-b.1.vi</strong> — Authenticate (or verify) the identities of those users, processes, or devices, as a prerequisite to allowing access to organizational information systems.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. passwords meeting policy plus MFA on all cloud accounts; default passwords changed on network devices]</li>
+<li><strong>MP.L1-b.1.vii</strong> — Sanitize or destroy information system media containing Federal Contract Information before disposal or release for reuse.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. paper shredded; drives wiped or destroyed by {{company_name}} per NIST SP 800-88 with a destruction record]</li>
+<li><strong>PE.L1-b.1.viii</strong> — Limit physical access to organizational information systems, equipment, and the respective operating environments to authorized individuals.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. office locked after hours; server/network closet locked; keys limited to named staff]</li>
+<li><strong>PE.L1-b.1.ix</strong> — Escort visitors and monitor visitor activity; maintain audit logs of physical access; and control and manage physical access devices.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. visitor sign-in log retained [period]; visitors escorted; key/badge inventory reviewed [frequency]]</li>
+<li><strong>SC.L1-b.1.x</strong> — Monitor, control, and protect organizational communications (i.e., information transmitted or received by organizational information systems) at the external boundaries and key internal boundaries of the information systems.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. managed firewall with default-deny inbound rules, monitored by {{company_name}}]</li>
+<li><strong>SC.L1-b.1.xi</strong> — Implement subnetworks for publicly accessible system components that are physically or logically separated from internal networks.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. website hosted externally; guest Wi-Fi on an isolated VLAN; no public-facing servers on the internal network]</li>
+<li><strong>SI.L1-b.1.xii</strong> — Identify, report, and correct information and information system flaws in a timely manner.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. {{company_name}} applies OS and third-party patches within [x] days via RMM; monthly patch report]</li>
+<li><strong>SI.L1-b.1.xiii</strong> — Provide protection from malicious code at appropriate locations within organizational information systems.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. managed EDR on all endpoints and servers; email filtering]</li>
+<li><strong>SI.L1-b.1.xiv</strong> — Update malicious code protection mechanisms when new releases are available.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. EDR agents and definitions update automatically; out-of-date agents alerted in the console]</li>
+<li><strong>SI.L1-b.1.xv</strong> — Perform periodic scans of the information system and real-time scans of files from external sources as files are downloaded, opened, or executed.<br>[ ] Met · [ ] Not met<br>How we meet it: [e.g. real-time protection enabled; scheduled scans [frequency]; email attachment scanning]</li>
+</ol>
+
+<h2>5. Assessment results</h2>
+<ul>
+<li><strong>Assessment performed by:</strong> [names] with assistance from {{company_name}} ({{vcio_name}})</li>
+<li><strong>Assessment date:</strong> [date]</li>
+<li><strong>Result:</strong> [15 of 15 Met — eligible for Final Level 1 (Self) status / Not all requirements met — do not affirm until corrected]</li>
+<li><strong>Evidence location:</strong> [folder or document list]</li>
+<li><strong>Date results entered in SPRS:</strong> [date] · <strong>Entered by:</strong> [name]</li>
+<li><strong>Next annual self-assessment due:</strong> [date]</li>
+</ul>
+
+<h2>6. Affirmation record</h2>
+<p>The Affirming Official submits the affirmation electronically in SPRS. Record it here. The affirmation in SPRS states, in substance, that the company has implemented and will maintain the CMMC Level 1 requirements for the information systems in scope, and that the self-assessment results are accurate. Do not submit an affirmation unless all 15 requirements are met and will be continuously maintained.</p>
+<ul>
+<li><strong>Affirming Official:</strong> [name, title] (a senior official responsible for ensuring compliance)</li>
+<li><strong>Date affirmed in SPRS:</strong> [date]</li>
+<li><strong>CAGE code(s) covered:</strong> [CAGE code]</li>
+<li><strong>Next affirmation due:</strong> [date — no later than one year from the date above]</li>
+</ul>
+
+<h2>7. Continuous compliance</h2>
+<p>Between annual assessments, {{client_name}} will: review user accounts and physical access at least [quarterly]; review monthly patch and endpoint protection reports from {{company_name}}; reassess scope when adding locations, systems or service providers; and re-run this assessment if a significant change or incident suggests a requirement is no longer met. If a requirement is found not to be met, stop relying on the prior affirmation, correct it promptly, and consult counsel about any obligation to update SPRS or notify the contracting officer.</p>
+
+<h2>8. Review and approval</h2>
+<p>I have reviewed this self-assessment and the supporting evidence.</p>
+<p>Affirming Official: [name, title] · Signature: ______________________ · Date: [date]</p>
+<p>Prepared by: [name, title] · Date: [date]</p>
+<p>Next review date: [date]</p>

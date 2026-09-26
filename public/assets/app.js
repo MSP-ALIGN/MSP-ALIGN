@@ -44,10 +44,82 @@ document.addEventListener('DOMContentLoaded', () => {
       if (input) {
         input.checked = true;
         input.closest('label').classList.add('active');
+        input.dispatchEvent(new Event('change', { bubbles: true }));
       }
       btn.remove();
     });
   });
+
+  // Long forms (a 250-control checklist) post only the rows that changed, so they stay under PHP's
+  // max_input_vars limit and saves are fast. Rows are marked [data-row]; fields outside rows always post.
+  document.querySelectorAll('form[data-post-changed]').forEach((form) => {
+    const mark = (e) => {
+      const row = e.target.closest && e.target.closest('[data-row]');
+      if (row) row.dataset.dirty = '1';
+    };
+    form.addEventListener('input', mark);
+    form.addEventListener('change', mark);
+    form.addEventListener('click', (e) => { if (e.target.closest('label, input, select, button[data-xw-use]')) mark(e); });
+    form.addEventListener('submit', () => {
+      form.querySelectorAll('[data-row]:not([data-dirty])').forEach((row) => {
+        row.querySelectorAll('input, select, textarea').forEach((el) => { el.disabled = true; });
+      });
+    });
+  });
+
+  // Checklist crosswalk: reuse the answer from a matching control in another framework.
+  // Status is always set; notes, evidence and the linked document only fill empty fields.
+  const xwApply = (btn) => {
+    const k = btn.dataset.xwUse;
+    const group = document.getElementById('c' + k);
+    if (!group) return false;
+    const input = group.querySelector('input[value="' + btn.dataset.status + '"]');
+    if (!input || input.disabled) return false;
+    group.querySelectorAll('label').forEach((l) => l.classList.remove('active'));
+    input.checked = true;
+    input.closest('label').classList.add('active');
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    const form = group.closest('form');
+    const fill = (name, value) => {
+      const el = form.querySelector('[name="c[' + k + '][' + name + ']"]');
+      if (el && value && !el.value) {
+        el.value = value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+    fill('notes', btn.dataset.notes);
+    fill('evidence', btn.dataset.evidence);
+    const doc = form.querySelector('select[name="c[' + k + '][document_id]"]');
+    if (doc && !doc.value && btn.dataset.doc !== '0' && doc.querySelector('option[value="' + btn.dataset.doc + '"]')) {
+      doc.value = btn.dataset.doc;
+      doc.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const row = group.closest('tr');
+    row.classList.add('xw-filled');
+    const note = row.querySelector('.xw-filled-note');
+    if (note) {
+      note.textContent = 'Filled from ' + btn.dataset.from + ' — review, then save the checklist.';
+      note.classList.remove('d-none');
+    }
+    return true;
+  };
+  document.querySelectorAll('button[data-xw-use]:not([data-xw-suggest])').forEach((btn) => {
+    btn.addEventListener('click', () => xwApply(btn));
+  });
+  const xwAll = document.getElementById('xw-fill-all');
+  if (xwAll) {
+    xwAll.addEventListener('click', () => {
+      let n = 0;
+      document.querySelectorAll('button[data-xw-suggest]').forEach((btn) => {
+        const checked = document.querySelector('#c' + btn.dataset.xwUse + ' input:checked');
+        if ((!checked || checked.value === 'not_assessed') && xwApply(btn)) n++;
+      });
+      xwAll.disabled = true;
+      xwAll.textContent = n + ' filled — review the highlighted controls, then save';
+      const first = document.querySelector('tr.xw-filled');
+      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
 
   // Click-to-select read-only inputs (feed links)
   document.querySelectorAll('input.select-all').forEach((i) => i.addEventListener('focus', () => i.select()));

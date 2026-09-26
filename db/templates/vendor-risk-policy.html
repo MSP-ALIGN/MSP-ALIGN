@@ -1,0 +1,131 @@
+<h1>Vendor &amp; Third-Party Risk Management Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>Many breaches start at a vendor: a compromised software provider, an accounting firm's email, or a remote support tool. This policy ensures {{client_name}} knows which third parties have access to its data or systems, evaluates their security before and during the relationship, puts appropriate security terms in contracts, and ends relationships securely.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all third parties that store, process, transmit or access {{client_name}} information, or that connect to or support its systems, including software and SaaS providers, cloud hosting, managed service providers (including {{company_name}}), payroll and HR providers, accountants and bookkeepers, attorneys, payment processors, document shredding and e-waste vendors, printer and copier vendors, and contractors or consultants with system access.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy, maintains the vendor inventory, approves Tier 1 and Tier 2 vendors, and decides on residual risk.</li>
+<li><strong>Business owner of each vendor:</strong> the manager who requested the vendor; provides information for due diligence, ensures contract terms are in place, and notifies the security lead of changes in how the vendor is used.</li>
+<li><strong>{{company_name}}:</strong> assists with security reviews of technology vendors, reviews SOC reports and questionnaires on request, configures vendor access, and removes access at offboarding.</li>
+<li><strong>Executive sponsor:</strong> signs contracts and approves acceptance of high vendor risks.</li>
+</ul>
+
+<h2>4. Vendor inventory</h2>
+<p>The security lead, with {{company_name}}, maintains an inventory of all in-scope vendors including:</p>
+<ul>
+<li>Vendor name, service provided and business owner</li>
+<li>Types and classification of data the vendor accesses (Public, Internal, Confidential, Restricted)</li>
+<li>Systems or network access the vendor has, and how (portal, remote support, VPN, API integration)</li>
+<li>Risk tier (section 5)</li>
+<li>Contract start and renewal dates; whether a BAA, DPA or security addendum is in place</li>
+<li>Date of last security review and next review due</li>
+<li>Vendor security and breach notification contact</li>
+</ul>
+<p>The inventory is reviewed at least annually and whenever a vendor is added or removed. New vendors are added before they receive data or access.</p>
+
+<h2>5. Vendor risk tiers</h2>
+<ul>
+<li><strong>Tier 1 — Critical:</strong> stores or processes Restricted data (PHI, SSNs, payment card data, CUI, financial account data) or has administrative or remote access to company systems, or the business cannot operate without the service for more than [1 business day]. Examples: MSP, line-of-business SaaS, EHR, payroll, cloud email, backup provider.</li>
+<li><strong>Tier 2 — Moderate:</strong> accesses Confidential data or has limited system access, or a disruption would significantly affect operations. Examples: accountants, marketing platforms with customer lists, phone system provider.</li>
+<li><strong>Tier 3 — Low:</strong> accesses only Public or limited Internal data and has no system access. Examples: office supply vendors, website analytics without personal data.</li>
+</ul>
+
+<h2>6. Due diligence before engagement</h2>
+<p>Before signing a contract or sharing data, the business owner and security lead complete due diligence proportional to the tier:</p>
+<ul>
+<li><strong>Tier 1:</strong> security questionnaire, review of an independent assessment (SOC 2 Type II, ISO 27001 certificate, HITRUST, PCI AOC or equivalent), review of contract security terms, and security lead approval.</li>
+<li><strong>Tier 2:</strong> short security questionnaire or review of the vendor's published security documentation and any independent report; contract security terms; security lead approval.</li>
+<li><strong>Tier 3:</strong> business owner confirms the vendor will not receive Confidential or Restricted data or system access.</li>
+</ul>
+<h3>6.1 Questionnaire topics</h3>
+<ul>
+<li>Security program ownership, written policies and independent audits</li>
+<li>Multi-factor authentication for employee and customer access; single sign-on support</li>
+<li>Encryption of data at rest and in transit</li>
+<li>Access controls, background checks and security training for vendor staff</li>
+<li>Vulnerability management, patching and penetration testing</li>
+<li>Logging and monitoring; availability of audit logs to customers</li>
+<li>Backup, business continuity and disaster recovery capabilities, including RTO/RPO</li>
+<li>Incident response and breach notification timelines</li>
+<li>Data location (in the United States or elsewhere), subprocessors and fourth parties</li>
+<li>Data retention, return and deletion at contract end</li>
+<li>Cyber insurance coverage</li>
+<li>History of significant breaches in the last [3] years</li>
+<li>Compliance with applicable laws (HIPAA, PCI DSS, CCPA/CPRA, DFARS 252.204-7012 / CMMC where CUI is involved)</li>
+</ul>
+<h3>6.2 SOC 2 and other report review</h3>
+<p>When reviewing a SOC 2 Type II report, {{company_name}} or the security lead checks: the report covers the services {{client_name}} uses; the audit period ended within the last 12 months (or a bridge letter is available); the auditor's opinion is unqualified; any exceptions noted and the vendor's responses; and the <strong>complementary user entity controls</strong> that {{client_name}} must implement itself (for example enabling MFA and reviewing user access). Findings and required customer controls are recorded in the vendor file.</p>
+
+<h2>7. Contract security terms</h2>
+<p>Contracts with Tier 1 and Tier 2 vendors include, where applicable:</p>
+<ul>
+<li>Obligation to maintain reasonable administrative, technical and physical safeguards appropriate to the data</li>
+<li>Use of {{client_name}} data only to provide the contracted services; no sale or secondary use</li>
+<li>Confidentiality obligations for vendor staff and subcontractors, with flow-down of security terms to subprocessors</li>
+<li>Breach notification to {{client_name}} within [72 hours / 5 days] of discovery, with cooperation in investigation</li>
+<li>Right to receive security reports (SOC 2) or to assess the vendor's security</li>
+<li>Return or certified deletion of data at contract end, within [30] days</li>
+<li>Service levels for availability and support, and business continuity commitments</li>
+<li>Cyber liability insurance with minimum limits of [$ amount]</li>
+<li>Compliance with applicable laws, including CCPA/CPRA service provider terms</li>
+</ul>
+<h3>7.1 Business associate and data processing agreements</h3>
+<ul>
+<li>Where {{client_name}} is a HIPAA covered entity or business associate, a signed <strong>Business Associate Agreement (BAA)</strong> is required before any vendor creates, receives, maintains or transmits PHI (HIPAA 164.308(b)(1) and 164.314(a)).</li>
+<li>Where personal information of California residents or other jurisdictions is processed, a <strong>Data Processing Agreement (DPA)</strong> or service provider addendum is in place.</li>
+<li>Where CUI is involved, the vendor must meet DFARS 252.204-7012 requirements and the appropriate CMMC level, and cloud services must be FedRAMP Moderate or equivalent.</li>
+<li>Where cardholder data is involved, the vendor's PCI DSS responsibilities are documented and its Attestation of Compliance is obtained annually.</li>
+</ul>
+
+<h2>8. Ongoing monitoring and annual review</h2>
+<ul>
+<li><strong>Tier 1</strong> vendors are reviewed <strong>annually</strong>: obtain the latest SOC 2 or equivalent, confirm the BAA/DPA remains in place, review any incidents or service issues, confirm access is still appropriate, and update the risk rating.</li>
+<li><strong>Tier 2</strong> vendors are reviewed every <strong>two years</strong>, or annually if required by regulation.</li>
+<li><strong>Tier 3</strong> vendors are reviewed when the relationship changes.</li>
+<li>Vendors are re-reviewed immediately when they report a breach, are acquired, change how they handle data, or when {{client_name}} expands the data shared.</li>
+<li>{{company_name}} monitors vendor remote access and integrations as part of routine monitoring, and alerts on unusual activity.</li>
+</ul>
+
+<h2>9. Vendor access to systems</h2>
+<ul>
+<li>Vendors receive named accounts with MFA and least-privilege access, per the Access Control Policy.</li>
+<li>Remote access follows the Remote Access Policy: enabled only when needed and through {{company_name}}-controlled methods.</li>
+<li>Third-party integrations (OAuth apps, API keys) connected to Microsoft 365 or other systems require approval and are reviewed quarterly.</li>
+</ul>
+
+<h2>10. Vendor incidents</h2>
+<p>When a vendor reports a security incident affecting {{client_name}} data, the security lead activates the Incident Response Plan, obtains details from the vendor, determines whether {{client_name}} has notification obligations, and decides whether to continue the relationship.</p>
+
+<h2>11. Offboarding vendors</h2>
+<ul>
+<li>When a relationship ends, the business owner notifies the security lead and {{company_name}}.</li>
+<li>{{company_name}} disables vendor accounts, remote access, API keys and integrations, and changes any shared credentials the vendor knew, within <strong>2 business days</strong> of termination.</li>
+<li>Company data is retrieved in a usable format where needed, and the vendor provides written confirmation of data return or deletion.</li>
+<li>Equipment belonging to either party is returned; leased devices with storage are sanitized per the Asset Management Policy.</li>
+<li>The vendor inventory is updated.</li>
+</ul>
+
+<h2>12. Exceptions</h2>
+<p>If a vendor cannot meet a requirement (for example no SOC 2 report), the security lead documents the gap, any compensating controls, and the risk decision. Tier 1 exceptions require executive sponsor approval.</p>
+
+<h2>13. Enforcement</h2>
+<p>Engaging vendors or sharing Confidential or Restricted data with vendors outside this policy may result in disciplinary action. Vendors that fail to meet contract security obligations may be terminated.</p>
+
+<h2>14. Related documents</h2>
+<ul>
+<li>Information Security Policy</li>
+<li>Access Control Policy</li>
+<li>Remote Access Policy</li>
+<li>Incident Response Plan</li>
+<li>Vendor inventory and questionnaire template</li>
+</ul>
+<p>Supports: CMMC AC.L2-3.1.20, CA.L2-3.12.4 (plus DFARS 252.204-7012 flow-down) · CIS 15.1, 15.2, 15.3, 15.4, 15.5, 15.7 · HIPAA 164.308(b)(1), 164.314(a) · NIST CSF GV.SC-04, GV.SC-05, GV.SC-06, GV.SC-07, GV.SC-10 · PCI DSS 12.8.1, 12.8.2, 12.8.3, 12.8.4, 12.8.5 · FTC Safeguards Rule 314.4(f)</p>
+
+<h2>15. Review and approval</h2>
+<p>This policy is reviewed at least annually.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

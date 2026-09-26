@@ -1,0 +1,142 @@
+<h1>Business Continuity &amp; Disaster Recovery Plan</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+<p><em>Keep a printed copy of this plan, and a copy in the password manager or another location available if company systems are down. Replace every [bracketed] item before relying on this plan.</em></p>
+
+<h2>1. Purpose</h2>
+<p>This plan describes how {{client_name}} will keep serving customers and recover its technology after a disruption, such as a ransomware attack, a server or cloud outage, loss of the office, loss of a key person, or an internet or phone outage. It identifies critical systems and how quickly they must be restored, who makes decisions, and the steps to follow.</p>
+
+<h2>2. Scope</h2>
+<p>This plan covers all business locations ([address list, e.g. {{client_address}}]), staff, and the IT systems and vendors listed in section 4. It works together with the Incident Response Plan (for security incidents) and the Backup &amp; Recovery Policy.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Continuity lead ([name, title, mobile]):</strong> declares a disaster, leads the response, makes business decisions and approves spending. Alternate: [name, title, mobile].</li>
+<li><strong>Communications lead ([name, mobile]):</strong> communicates with staff, customers, vendors and, if needed, media.</li>
+<li><strong>{{company_name}} ({{company_phone}}, {{company_email}}):</strong> assesses technical impact, executes IT recovery procedures, coordinates with cloud and software vendors, and reports recovery progress. Primary contact: {{vcio_name}}.</li>
+<li><strong>Department leads:</strong> run manual workarounds for their area and confirm when systems are working properly after recovery.</li>
+<li><strong>All staff:</strong> keep their contact information current, follow instructions from the continuity lead, and don't speak to media or post about an incident on social media.</li>
+</ul>
+
+<h2>4. Business impact analysis</h2>
+<p>For each critical business function and system, {{client_name}} defines the <strong>Recovery Time Objective (RTO)</strong> (how long the business can operate without it) and the <strong>Recovery Point Objective (RPO)</strong> (how much data, measured in time, the business can afford to lose). Backup frequency and recovery methods must meet these targets. Review and adjust the examples below.</p>
+<ul>
+<li><strong>Email and Microsoft 365 / Google Workspace</strong> — Owner: [name]. RTO: 4 hours. RPO: 0 (cloud-hosted; third-party backup RPO 12 hours). Workaround: phones and mobile apps; notify customers of alternate contact.</li>
+<li><strong>[Line-of-business application, e.g. practice management, EHR, ERP]</strong> — Owner: [name]. Hosting: [on-premises server / vendor cloud]. RTO: [8] hours. RPO: [1] hour. Workaround: [paper forms, read-only reports printed weekly].</li>
+<li><strong>Accounting and payroll ([system])</strong> — Owner: [name]. RTO: [2 business days]; payroll must run by [date/time each cycle]. RPO: [24] hours. Workaround: [payroll provider manual run / prior-period repeat].</li>
+<li><strong>File server / SharePoint document storage</strong> — Owner: [name]. RTO: [24] hours. RPO: [4] hours.</li>
+<li><strong>Phone system ([VoIP provider])</strong> — Owner: [name]. RTO: [2] hours. Workaround: forward main number to mobile phones through the provider portal.</li>
+<li><strong>Internet connectivity</strong> — Owner: {{company_name}}. RTO: [1] hour via failover. Workaround: secondary ISP or cellular hotspot.</li>
+<li><strong>Payment processing / point of sale</strong> — Owner: [name]. RTO: [4] hours. Workaround: [cellular terminal / manual imprint where permitted].</li>
+<li><strong>Website</strong> — Owner: [name]. RTO: [3 days]. RPO: [7 days].</li>
+<li><strong>[Other critical system]</strong> — Owner: [name]. RTO: [ ]. RPO: [ ].</li>
+</ul>
+<p>Maximum tolerable downtime for the business as a whole before serious financial, legal or reputational harm: [e.g. 3 business days].</p>
+
+<h2>5. Emergency contacts</h2>
+<ul>
+<li><strong>{{company_name}} (IT / MSP):</strong> {{company_phone}}, {{company_email}}; after-hours emergency: [number]</li>
+<li><strong>Owner / executive sponsor:</strong> [name, mobile, personal email]</li>
+<li><strong>Continuity lead and alternate:</strong> [names, mobiles]</li>
+<li><strong>Cyber insurance carrier and breach hotline:</strong> [carrier, policy number, 24/7 hotline] — call before engaging outside incident response firms for a security incident</li>
+<li><strong>Legal counsel / breach coach:</strong> [name, firm, phone]</li>
+<li><strong>Internet service provider(s):</strong> [ISP, account number, support number]</li>
+<li><strong>Phone / VoIP provider:</strong> [provider, account number, support number]</li>
+<li><strong>Line-of-business software vendor:</strong> [vendor, support number, customer ID]</li>
+<li><strong>Bank (fraud line):</strong> [bank, phone]</li>
+<li><strong>Landlord / building management:</strong> [name, phone]</li>
+<li><strong>Utilities:</strong> [electric, gas, water emergency numbers]</li>
+<li><strong>Local emergency services:</strong> 911; non-emergency police [number]; FBI IC3 (ic3.gov) for cybercrime</li>
+</ul>
+<p>A staff contact list with mobile numbers and personal email addresses is maintained at [location] and reviewed quarterly.</p>
+
+<h2>6. Disaster declaration and activation</h2>
+<ol>
+<li>Anyone who becomes aware of a serious disruption notifies their manager and {{company_name}} immediately.</li>
+<li>{{company_name}} assesses technical impact and estimated time to restore, and reports to the continuity lead within [1] hour.</li>
+<li>The continuity lead declares a disaster if any critical system is expected to exceed its RTO, the office is unusable, or a security incident requires isolating systems. Declaration is logged with date and time.</li>
+<li>The communications lead notifies staff through [group text / calling tree / personal email] with instructions on where and how to work.</li>
+<li>For suspected security incidents, the Incident Response Plan is activated at the same time, and the cyber insurance carrier is notified before systems are rebuilt so evidence is preserved.</li>
+<li>A decision log is kept recording key actions, decisions, times and costs.</li>
+</ol>
+
+<h2>7. Recovery procedures by scenario</h2>
+<h3>7.1 Ransomware or destructive malware</h3>
+<ul>
+<li>Disconnect affected devices from the network (unplug network cable, disable Wi-Fi) but do not power them off unless instructed. {{company_name}}/MDR isolates endpoints through EDR.</li>
+<li>Activate the Incident Response Plan; notify cyber insurance and legal counsel.</li>
+<li>Disable compromised accounts, reset privileged credentials, and revoke sessions from a known-clean device.</li>
+<li>Confirm integrity of backups (immutable and offline copies) before restoring. Do not connect backup storage to potentially infected systems.</li>
+<li>Rebuild or restore systems in priority order from section 4 into a clean environment; scan restored systems before reconnecting.</li>
+<li>Decisions about any ransom demand are made only by the executive sponsor with counsel and the insurer, considering legal restrictions such as OFAC sanctions.</li>
+</ul>
+<h3>7.2 Server or cloud service outage</h3>
+<ul>
+<li>{{company_name}} determines the cause (hardware failure, software fault, provider outage) and checks vendor status pages.</li>
+<li>For on-premises server failure: fail over to the backup appliance's local virtualization or spin up the server in the cloud recovery environment ([backup product]); expected time to boot: [1–4] hours.</li>
+<li>For a SaaS/cloud provider outage: follow manual workarounds from section 4 and monitor the provider's status page; {{company_name}} escalates with the provider.</li>
+<li>After repair, data changed during failover is synchronized back and the primary system is verified.</li>
+</ul>
+<h3>7.3 Loss of the office (fire, flood, wildfire, earthquake, extended power loss)</h3>
+<ul>
+<li>Ensure everyone is safe; follow evacuation procedures and emergency services instructions. Wildfire smoke and public safety power shutoffs are foreseeable events in California; monitor alerts.</li>
+<li>Staff work from home or the alternate location in section 9 using company laptops and cloud services.</li>
+<li>Forward phones through the VoIP provider portal.</li>
+<li>{{company_name}} restores on-premises servers to cloud recovery or replacement hardware; order replacement equipment ([vendor, lead time]).</li>
+<li>Contact the insurance carrier for property claims; document damaged equipment.</li>
+</ul>
+<h3>7.4 Loss of a key person</h3>
+<ul>
+<li>Critical knowledge and credentials must not depend on one person. Admin credentials, banking access, vendor accounts and domain registrations are stored in the company password manager with at least two authorized people.</li>
+<li>Each key role has a documented backup person and written procedures for critical tasks: [role → backup].</li>
+<li>If a key person is unavailable, the continuity lead reassigns duties and {{company_name}} provides access to the documented credentials as authorized.</li>
+</ul>
+<h3>7.5 Internet or phone outage</h3>
+<ul>
+<li>Firewall fails over automatically to the secondary connection ([ISP / cellular]) if configured; {{company_name}} confirms failover.</li>
+<li>If no failover exists, staff use mobile hotspots or work from home.</li>
+<li>Forward the main number to mobile phones or an answering service through the provider portal ([portal URL / instructions]).</li>
+<li>{{company_name}} opens a ticket with the ISP or phone provider and reports estimated restoration.</li>
+</ul>
+
+<h2>8. Communications</h2>
+<ul>
+<li><strong>Staff:</strong> initial message within [1] hour of declaration and updates at least every [4] hours during business hours.</li>
+<li><strong>Customers:</strong> the communications lead notifies affected customers when an outage will noticeably affect service, using pre-approved message templates ([location]). Messages about security incidents are reviewed by legal counsel first.</li>
+<li><strong>Vendors and partners:</strong> notified as needed to reschedule deliveries or obtain support.</li>
+<li><strong>Media and social media:</strong> only the executive sponsor or designee speaks publicly.</li>
+<li>Out-of-band communications (personal mobile phones, a pre-created group text or [Signal group]) are used if company email or Teams may be compromised.</li>
+</ul>
+
+<h2>9. Alternate work locations</h2>
+<ul>
+<li><strong>Primary alternate:</strong> staff work from home using company laptops, VPN/ZTNA and cloud services. Staff without laptops: [plan, e.g. spare laptops kept at [location], or loaner devices from {{company_name}}].</li>
+<li><strong>Secondary alternate site:</strong> [address or arrangement, e.g. another branch, shared office space, owner's home].</li>
+<li>Critical paper records and supplies needed for continuity are kept at [location].</li>
+</ul>
+
+<h2>10. Return to normal operations</h2>
+<ul>
+<li>Systems are returned to production only after {{company_name}} verifies they are clean and working, and business owners confirm data is correct.</li>
+<li>The continuity lead declares the end of the disaster and notifies staff and customers.</li>
+<li>A lessons-learned review is held within 2 weeks, and this plan is updated.</li>
+</ul>
+
+<h2>11. Testing and maintenance</h2>
+<ul>
+<li>This plan is tested <strong>at least annually</strong> through a tabletop exercise covering at least one scenario from section 7, facilitated by {{company_name}}. Results, issues found and corrective actions are documented.</li>
+<li>Backup restore tests are performed quarterly per the Backup &amp; Recovery Policy, and a full failover or recovery test of at least one critical system is performed annually to confirm RTO and RPO can be met.</li>
+<li>Contact lists are verified quarterly. The plan is updated after organizational or system changes and after any activation.</li>
+</ul>
+
+<h2>12. Related documents</h2>
+<ul>
+<li>Incident Response Plan</li>
+<li>Backup &amp; Recovery Policy</li>
+<li>Information Security Policy</li>
+<li>Vendor &amp; Third-Party Risk Management Policy</li>
+</ul>
+<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 17.4 · HIPAA 164.308(a)(7)(i), 164.308(a)(7)(ii)(A)–(E) · NIST CSF ID.IM-04, PR.IR-03, RC.RP-01, RC.CO-03 · PCI DSS 12.10.1</p>
+
+<h2>13. Review and approval</h2>
+<p>This plan is reviewed at least annually, after every test, and after any activation.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Last test date and type: [date, tabletop/technical]<br>Next review date: [date]</p>

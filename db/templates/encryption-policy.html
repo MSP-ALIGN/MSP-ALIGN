@@ -1,0 +1,87 @@
+<h1>Encryption Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy defines when and how {{client_name}} uses encryption to protect information stored on devices and in the cloud and sent over networks, and how encryption keys and recovery keys are managed. Encryption means a lost laptop or intercepted message does not become a data breach; under California Civil Code 1798.82 and HIPAA, properly encrypted data whose key was not also compromised generally does not trigger breach notification.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all {{client_name}} information classified Internal, Confidential or Restricted; all company-owned workstations, laptops, servers, mobile devices and removable media; cloud services storing company data; backups; and all network connections carrying company data. It applies to workforce members, {{company_name}} and vendors handling company data.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy, approves exceptions and confirms contract or regulatory encryption requirements (for example CUI or PCI).</li>
+<li><strong>{{company_name}}:</strong> deploys and enforces encryption, escrows and protects recovery keys, monitors encryption status through RMM/MDM, and maintains certificates.</li>
+<li><strong>Users:</strong> use approved methods to send sensitive information and never disable or bypass encryption.</li>
+</ul>
+
+<h2>4. Encryption at rest</h2>
+<ul>
+<li><strong>Workstations and laptops:</strong> all company Windows devices use BitLocker with TPM and AES-256 (XTS-AES 256 preferred); all company Macs use FileVault. Encryption is enabled before a device is issued. {{company_name}} reports encryption status monthly and remediates unencrypted devices within 5 business days.</li>
+<li><strong>Servers:</strong> physical and virtual servers holding Confidential or Restricted data use volume encryption (BitLocker, LUKS, or hypervisor/SAN encryption). Servers in the office are also physically secured in a locked room or rack.</li>
+<li><strong>Mobile devices:</strong> device encryption is required per the Mobile Device &amp; BYOD Policy.</li>
+<li><strong>Removable media:</strong> USB drives and external disks holding company data must be encrypted (BitLocker To Go or hardware-encrypted drives). Unencrypted removable media is blocked or set to read-only by endpoint policy where practical. Restricted data may not be copied to removable media without security lead approval.</li>
+<li><strong>Cloud storage:</strong> only services that encrypt data at rest by default (such as Microsoft 365, Google Workspace, approved SaaS) may be used. For Restricted data, {{client_name}} confirms the provider's encryption and key management in its vendor review.</li>
+<li><strong>Backups:</strong> all backups, local and offsite, are encrypted with AES-256. Backup encryption passwords or keys are stored separately from the backups.</li>
+<li><strong>Databases and applications:</strong> line-of-business applications storing SSNs, payment card numbers or PHI should use field- or database-level encryption where supported. Payment card numbers are never stored unless required; if stored, PCI DSS 3.5.1 applies.</li>
+<li><strong>Passwords:</strong> stored only in the approved password manager or as salted hashes, never in plain text.</li>
+</ul>
+
+<h2>5. Encryption in transit</h2>
+<ul>
+<li>All websites, portals and APIs handling company data use HTTPS with <strong>TLS 1.2 or higher</strong> (TLS 1.3 preferred). SSL, TLS 1.0 and TLS 1.1 are disabled on company-managed servers and services.</li>
+<li>Remote access uses VPN/ZTNA or gateways with strong encryption per the Remote Access Policy.</li>
+<li>Wireless networks use WPA2-Enterprise or WPA3; guest Wi-Fi is isolated from the business network. WEP and WPA (TKIP) are prohibited.</li>
+<li>Administrative protocols use encrypted versions (SSH, HTTPS, SFTP, RDP with TLS). Telnet, FTP and unencrypted HTTP management are prohibited.</li>
+<li>Email between mail servers uses opportunistic TLS; {{company_name}} configures enforced TLS with key partners (banks, law firms, business associates) where supported, and MTA-STS where practical.</li>
+</ul>
+
+<h2>6. Email and file sharing of sensitive data</h2>
+<ul>
+<li>Confidential and Restricted information sent outside {{client_name}} must be encrypted using [Microsoft Purview Message Encryption / "Encrypt" button / secure portal] or shared through approved secure file sharing with access limited to named recipients and an expiration date.</li>
+<li>Users trigger encryption by [clicking Encrypt / including "[secure]" in the subject line]. Data loss prevention rules may automatically encrypt or block messages containing SSNs, card numbers or other Restricted data.</li>
+<li>Password-protected ZIP or Office files are acceptable only when the password is sent through a different channel (for example by phone), and only if the approved method is not available to the recipient.</li>
+<li>Restricted data must never be sent by SMS, personal email or consumer file-sharing services.</li>
+</ul>
+
+<h2>7. FIPS-validated cryptography</h2>
+<p>Where {{client_name}} handles Controlled Unclassified Information (CUI), or where a contract or regulation requires it, encryption protecting that data must use modules validated under <strong>FIPS 140-2 or FIPS 140-3</strong>. This includes enabling FIPS mode where required, using BitLocker and Windows cryptographic modules in their validated configuration, selecting VPN appliances and cloud services (for example Microsoft 365 GCC High where required) with validated modules, and keeping records of the certificate numbers of the modules relied on. {{company_name}} documents these in the System Security Plan.</p>
+
+<h2>8. Approved algorithms</h2>
+<ul>
+<li><strong>Symmetric encryption:</strong> AES with 128-bit keys or longer (AES-256 preferred), in GCM, XTS or CBC with authentication.</li>
+<li><strong>Asymmetric encryption and signatures:</strong> RSA 2048-bit or longer (3072-bit preferred for new keys), ECDSA/ECDH with P-256 or P-384, or Ed25519.</li>
+<li><strong>Hashing:</strong> SHA-256 or stronger. MD5 and SHA-1 are not used for security purposes.</li>
+<li><strong>Password hashing:</strong> bcrypt, scrypt, Argon2 or PBKDF2 with a high work factor.</li>
+<li><strong>Prohibited:</strong> DES, 3DES, RC4, MD5, SHA-1 signatures, SSL, TLS 1.0/1.1, and any custom or proprietary "encryption."</li>
+</ul>
+<p>{{company_name}} monitors guidance on post-quantum cryptography and will update this list as vendors adopt NIST-standardized algorithms.</p>
+
+<h2>9. Key and recovery key management</h2>
+<ul>
+<li>BitLocker recovery keys are escrowed automatically to Entra ID / Intune or Active Directory, and FileVault recovery keys to the MDM. {{company_name}} also records recovery key escrow status in the RMM. Devices without an escrowed key are treated as non-compliant.</li>
+<li>Recovery keys are released only to authorized {{company_name}} technicians or the security lead after verifying the requester's identity, and each release is recorded in a ticket. Keys revealed to a user are rotated after use where supported.</li>
+<li>Backup encryption keys, certificate private keys and other secrets are stored in the password manager or a key vault with access limited to named administrators, with a sealed offline copy of critical keys (for example backup encryption keys) kept at [location] for disaster recovery.</li>
+<li>TLS certificates are obtained from trusted certificate authorities, tracked in an inventory with expiration dates, and renewed before expiry (automated where possible).</li>
+<li>Keys are replaced if compromise is suspected, when a person with access to them leaves, and at the end of their defined lifetime.</li>
+<li>When a device or media is retired, keys are destroyed as part of sanitization per the Asset Management Policy.</li>
+</ul>
+
+<h2>10. Exceptions</h2>
+<p>Devices or systems that cannot be encrypted (for example certain medical or lab equipment) must be documented with compensating controls such as physical security, network isolation and no storage of Restricted data, approved by the security lead and reviewed at least annually.</p>
+
+<h2>11. Enforcement</h2>
+<p>Disabling encryption, sending Restricted data unencrypted, or storing encryption keys insecurely may result in disciplinary action up to and including termination.</p>
+
+<h2>12. Related documents</h2>
+<ul>
+<li>Information Security Policy (data classification)</li>
+<li>Mobile Device &amp; BYOD Policy</li>
+<li>Remote Access Policy</li>
+<li>Backup &amp; Recovery Policy</li>
+<li>Asset Management Policy</li>
+</ul>
+<p>Supports: CMMC SC.L2-3.13.8, SC.L2-3.13.10, SC.L2-3.13.11, SC.L2-3.13.16, MP.L2-3.8.6, AC.L2-3.1.19 · CIS 3.6, 3.10, 3.11 · HIPAA 164.312(a)(2)(iv), 164.312(e)(1), 164.312(e)(2)(ii) · NIST CSF PR.DS-01, PR.DS-02 · PCI DSS 3.5.1, 3.6.1, 3.7.1, 4.2.1</p>
+
+<h2>13. Review and approval</h2>
+<p>This policy is reviewed at least annually and when cryptographic standards or contract requirements change.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

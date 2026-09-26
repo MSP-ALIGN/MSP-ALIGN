@@ -1,0 +1,127 @@
+<h1>HIPAA Security Risk Analysis</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+<p><em>This template follows the elements described in HHS Office for Civil Rights (OCR) "Guidance on Risk Analysis Requirements under the HIPAA Security Rule." It is a starting point that must be completed with the organization's actual systems and findings, reviewed and tailored, and it is not legal advice. Completing it does not by itself make {{client_name}} HIPAA compliant.</em></p>
+
+<h2>1. Purpose</h2>
+<p>The HIPAA Security Rule requires covered entities and business associates to "conduct an accurate and thorough assessment of the potential risks and vulnerabilities to the confidentiality, integrity, and availability of electronic protected health information" (45 CFR 164.308(a)(1)(ii)(A)). This document records {{client_name}}'s risk analysis and is the basis for the risk management plan required by 164.308(a)(1)(ii)(B).</p>
+<p><strong>Tool option:</strong> small practices may use the free <strong>HHS Security Risk Assessment (SRA) Tool</strong> from ONC/OCR (healthit.gov) instead of, or alongside, this document. If the SRA Tool is used, attach its report and use sections 9–12 below for the risk management plan and approval.</p>
+
+<h2>2. Scope</h2>
+<p>The analysis covers <strong>all</strong> electronic protected health information (ePHI) that {{client_name}} creates, receives, maintains or transmits, regardless of the media or location — including workstations, laptops, servers, mobile devices, medical devices, removable media, email, cloud services, backups and systems operated by business associates.</p>
+<ul>
+<li><strong>Organization type:</strong> [covered entity — e.g. medical/dental practice, clinic / business associate]</li>
+<li><strong>Locations:</strong> [addresses, including remote work]</li>
+<li><strong>Workforce size:</strong> [number] · <strong>Approximate patient records:</strong> [number]</li>
+<li><strong>Security Official (164.308(a)(2)):</strong> [name, title]</li>
+<li><strong>Privacy Official:</strong> [name, title]</li>
+<li><strong>Analysis performed by:</strong> [names], with {{company_name}} ({{vcio_name}})</li>
+<li><strong>Period covered / date:</strong> [date range] · {{today}}</li>
+</ul>
+
+<h2>3. Methodology</h2>
+<ol>
+<li>Identify where ePHI is stored, received, maintained or transmitted (data collection).</li>
+<li>Identify and document reasonably anticipated threats and vulnerabilities.</li>
+<li>Assess current security measures.</li>
+<li>Determine the likelihood of each threat exploiting a vulnerability.</li>
+<li>Determine the potential impact.</li>
+<li>Determine the level of risk from likelihood and impact.</li>
+<li>Document findings in the risk register and plan remediation.</li>
+</ol>
+<p>Information sources: interviews with [roles], review of policies, {{company_name}} asset inventory and RMM data, vulnerability scan results dated [date], Microsoft 365/EHR audit log review, walk-through of the facility on [date], and business associate documentation.</p>
+
+<h2>4. Data collection — ePHI inventory</h2>
+<p>List every system or location that holds or transmits ePHI. Copy the item for each system.</p>
+<ul>
+<li><strong>System / asset:</strong> [e.g. EHR/practice management system — vendor, cloud or on-premises]<br>ePHI types: [demographics, clinical notes, images, billing, insurance]<br>Location: [data center / vendor cloud / office server room]<br>Data flows: [who enters it, where it is sent — labs, clearinghouse, patients' portal, HIE]<br>Users: [roles, number] · Owner: [name] · Business associate: [vendor, BAA on file Y/N]</li>
+<li><strong>System / asset:</strong> [Email — e.g. Microsoft 365]<br>ePHI types: [referrals, patient communications] · Encryption: [TLS / message encryption] · Business associate: [vendor, BAA Y/N]</li>
+<li><strong>System / asset:</strong> [Workstations and laptops — count, OS, disk encryption status]</li>
+<li><strong>System / asset:</strong> [Mobile devices — company or personal, MDM enrolled]</li>
+<li><strong>System / asset:</strong> [File server / cloud file storage — scanned documents, exports]</li>
+<li><strong>System / asset:</strong> [Imaging devices — X-ray, ultrasound, PACS; multifunction printers/scanners with internal storage]</li>
+<li><strong>System / asset:</strong> [Backups — local appliance, cloud backup provider, encryption]</li>
+<li><strong>System / asset:</strong> [Phone system / voicemail / e-fax]</li>
+<li><strong>System / asset:</strong> [Billing company, clearinghouse, patient reminder service, telehealth platform]</li>
+<li><strong>Paper-to-electronic points:</strong> [scanning stations, fax-to-email]</li>
+</ul>
+
+<h2>5. Threats and vulnerabilities</h2>
+<p>Consider threats that are reasonably anticipated for this organization and the vulnerabilities they could exploit. Examples to evaluate:</p>
+<ul>
+<li><strong>Human, intentional:</strong> ransomware and other malware; phishing and business email compromise; credential theft; insider snooping in patient records; theft of devices; hacking of internet-facing systems.</li>
+<li><strong>Human, unintentional:</strong> misdirected email or fax; lost laptop or phone; accidental deletion; misconfigured sharing links; improper disposal.</li>
+<li><strong>Environmental and natural:</strong> fire, flood, earthquake, wildfire and smoke, power outage, HVAC failure (consider local conditions, e.g. PSPS power shutoffs).</li>
+<li><strong>Technical:</strong> hardware failure, unsupported software, internet outage, vendor outage or breach, failed backups.</li>
+<li><strong>Common vulnerabilities:</strong> no MFA on email or remote access; unencrypted laptops or backups; shared logins; unpatched systems; end-of-life operating systems; flat network with medical devices; no audit log review; missing BAAs; untested backups; excessive user permissions.</li>
+</ul>
+
+<h2>6. Current security measures</h2>
+<p>Summarize the safeguards currently in place (Security Rule references in parentheses), noting any gaps:</p>
+<ul>
+<li><strong>Administrative:</strong> security official designated (164.308(a)(2)); workforce training (164.308(a)(5)) — last completed [date]; access authorization and termination procedures (164.308(a)(3)–(4)); incident procedures (164.308(a)(6)); contingency plan and backups (164.308(a)(7)); BAAs (164.308(b)).</li>
+<li><strong>Physical:</strong> facility access controls (164.310(a)); workstation use and security (164.310(b)–(c)); device and media disposal and re-use (164.310(d)).</li>
+<li><strong>Technical:</strong> unique user IDs and automatic logoff (164.312(a)); audit controls (164.312(b)); integrity controls (164.312(c)); authentication, including MFA (164.312(d)); transmission security and encryption (164.312(e)).</li>
+<li><strong>Managed by {{company_name}}:</strong> [EDR, patching, firewall, backup monitoring, MFA, email filtering, disk encryption, security awareness platform].</li>
+</ul>
+
+<h2>7. Likelihood and impact scales</h2>
+<h3>7.1 Likelihood (that the threat exploits the vulnerability within the next 12 months)</h3>
+<ul>
+<li><strong>Low:</strong> unlikely; strong controls exist or the threat has little motivation or capability. Not expected to occur.</li>
+<li><strong>Medium:</strong> possible; controls exist but have gaps, or the threat is common in the industry. Could occur.</li>
+<li><strong>High:</strong> likely; controls are missing or ineffective and the threat is common and active. Expected to occur.</li>
+</ul>
+<h3>7.2 Impact (if it occurs)</h3>
+<ul>
+<li><strong>Low:</strong> limited effect; few or no records exposed; brief disruption; minimal cost; unlikely to be a reportable breach.</li>
+<li><strong>Medium:</strong> noticeable harm; exposure of a limited number of records; disruption of operations for hours to a day; possible breach notification; moderate cost.</li>
+<li><strong>High:</strong> severe harm; exposure of many records or sensitive data; multi-day outage affecting patient care; breach notification to HHS and media; significant financial, legal or reputational damage.</li>
+</ul>
+
+<h2>8. Risk level</h2>
+<p>Risk level is determined by combining likelihood and impact:</p>
+<ul>
+<li><strong>High risk:</strong> High likelihood with High or Medium impact, or Medium likelihood with High impact.</li>
+<li><strong>Medium risk:</strong> High likelihood with Low impact, Medium likelihood with Medium impact, or Low likelihood with High impact.</li>
+<li><strong>Low risk:</strong> Medium likelihood with Low impact, or Low likelihood with Medium or Low impact.</li>
+</ul>
+<p>Target response times: High risks — remediation plan approved within [30] days; Medium — within [90] days; Low — address or formally accept within [12] months.</p>
+
+<h2>9. Risk register</h2>
+<p>Record each risk as an item. Copy the block below for each.</p>
+<ul>
+<li><strong>Risk ID:</strong> [R-##]</li>
+<li><strong>Asset / system:</strong> [from section 4]</li>
+<li><strong>Threat:</strong> [e.g. phishing leading to account takeover]</li>
+<li><strong>Vulnerability:</strong> [e.g. MFA not enforced for all email accounts]</li>
+<li><strong>Current controls:</strong> [e.g. email filtering, annual training]</li>
+<li><strong>Likelihood:</strong> [Low / Medium / High] · <strong>Impact:</strong> [Low / Medium / High] · <strong>Risk level:</strong> [Low / Medium / High]</li>
+<li><strong>Recommended action:</strong> [e.g. enforce MFA via conditional access for all users]</li>
+<li><strong>Decision:</strong> [Mitigate / Accept (justification) / Transfer / Avoid]</li>
+<li><strong>Owner:</strong> [name / {{company_name}}] · <strong>Target date:</strong> [date] · <strong>Status:</strong> [Open / In progress / Closed]</li>
+<li><strong>Security Rule reference:</strong> [e.g. 164.312(d)]</li>
+</ul>
+
+<h2>10. Risk management plan (164.308(a)(1)(ii)(B))</h2>
+<p>{{client_name}} will implement security measures sufficient to reduce risks and vulnerabilities to a reasonable and appropriate level. Remediation is prioritized by risk level, cost and feasibility. Summary of planned actions:</p>
+<ol>
+<li>[Action] — addresses [risk IDs] — owner [name] — target [date] — estimated cost [$]</li>
+<li>[Action] — addresses [risk IDs] — owner [name] — target [date] — estimated cost [$]</li>
+<li>[Action] — addresses [risk IDs] — owner [name] — target [date] — estimated cost [$]</li>
+</ol>
+<p>Progress is reviewed at [monthly / quarterly] meetings with {{company_name}}. Accepted risks are documented with the reason and approved by the Security Official.</p>
+
+<h2>11. Documentation and retention</h2>
+<p>This risk analysis, the risk register, the risk management plan and related decisions are retained for at least <strong>six years</strong> from the date created or the date last in effect, whichever is later (45 CFR 164.316(b)(2)), and made available to those responsible for implementing the procedures.</p>
+
+<h2>12. Review cadence</h2>
+<p>The risk analysis is an ongoing process. It is reviewed and updated at least <strong>annually</strong>, and whenever there is a significant change — new EHR or major system, new location, office move, merger, new business associate handling ePHI, a security incident, or new regulatory requirements. (OCR has proposed updates to the Security Rule; check the status of any final rule at hhs.gov during each review.)</p>
+<ul>
+<li>Last analysis: [date] · Next scheduled review: [date]</li>
+</ul>
+
+<h2>13. Review and approval</h2>
+<p>Security Official: [name, title] · Signature: ______________________ · Date: [date]</p>
+<p>Practice owner / administrator: [name, title] · Signature: ______________________ · Date: [date]</p>
+<p>Prepared with assistance from: {{company_name}} · Date: [date]</p>
+<p>Next review date: [date]</p>
