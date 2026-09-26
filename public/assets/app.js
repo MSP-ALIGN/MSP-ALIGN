@@ -429,3 +429,19 @@ document.addEventListener('click', (ev) => {
     modal.querySelectorAll('[data-fill-text="' + name + '"]').forEach((t) => { t.textContent = btn.dataset[k]; });
   });
 });
+
+// Show a block only for some values of a field: <div data-show-when="mail_mode=app,delegated">
+(() => {
+  const blocks = document.querySelectorAll('[data-show-when]');
+  if (!blocks.length) return;
+  const val = (name) => {
+    const el = document.querySelector('[name="' + name + '"]:checked') || document.querySelector('select[name="' + name + '"]');
+    return el ? el.value : '';
+  };
+  const apply = () => blocks.forEach((b) => {
+    const [name, vals] = b.dataset.showWhen.split('=');
+    b.classList.toggle('d-none', !vals.split(',').includes(val(name)));
+  });
+  document.addEventListener('change', (ev) => { if (ev.target.name) apply(); });
+  apply();
+})();

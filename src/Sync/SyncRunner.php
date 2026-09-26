@@ -80,6 +80,7 @@ final class SyncRunner
         $status = !$this->errors ? 'success' : (count($this->summary) > count($this->errors) ? 'partial' : 'failed');
         $this->info("Sync finished: $status");
         $this->save($status, true);
+        \Align\Mail\Notify::afterSync($status, $this->errors);
         DB::value("SELECT RELEASE_LOCK('mountaineer_align_sync')");
         return ['id' => $this->runId, 'status' => $status, 'summary' => $this->summary];
     }

@@ -123,6 +123,9 @@ final class SettingsController
         }
         if ($changed) {
             Audit::log('settings.save', implode(', ', $changed));
+            if ($keys = array_values(array_filter($changed, fn($c) => in_array(preg_replace('/ \(cleared\)$/', '', $c), self::SECRETS, true)))) {
+                \Align\Mail\Notify::security('Integration keys changed', implode(', ', $keys) . ' by ' . (Auth::user()['email'] ?? ''));
+            }
         }
         flash('success', $changed ? 'Settings saved.' : 'No changes.');
         redirect('/settings');

@@ -95,6 +95,9 @@ final class Auth
             // Only log the email when it is one (never whatever was typed, which could be a password)
             Audit::log('login.failed', filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '(not an email address)', $u['id'] ?? null);
             Security::logAuthFailure('staff');
+            if ($u && self::isLockedOut($email)) {
+                \Align\Mail\Notify::security('Staff account locked out', "$email: too many failed sign-ins");
+            }
             return 'invalid';
         }
         if (Security::needsRehash($u['password_hash'])) {

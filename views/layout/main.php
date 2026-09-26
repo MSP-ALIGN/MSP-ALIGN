@@ -38,6 +38,7 @@ $navSections = [
     ],
     'ADMIN' => [
         ['settings', '/settings', 'Settings', 'fa-gear', 'admin'],
+        ['email', '/settings/email', 'Email & notifications', 'fa-envelope', 'admin'],
         ['branding', '/settings/branding', 'Branding', 'fa-palette', 'admin'],
         ['frameworks', '/frameworks', 'Frameworks', 'fa-list-check', 'admin'],
         ['users', '/users', 'Users', 'fa-user-shield', 'admin'],

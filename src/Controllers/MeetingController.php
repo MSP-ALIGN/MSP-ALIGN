@@ -160,7 +160,15 @@ final class MeetingController
             return $ids;
         });
         Audit::log('meeting.create', $f['title'] . ($count > 1 ? " (series of $count)" : ''));
-        flash('success', $count > 1 ? "Scheduled $count meetings." : 'Meeting scheduled.');
+        $sent = [];
+        if (post('send_invites') === '1') {
+            foreach ($ids as $mid) {
+                if ($r = \Align\Mail\Invites::send((int) $mid)) {
+                    $sent[] = $r;
+                }
+            }
+        }
+        flash(str_contains(implode(' ', $sent), 'not sent') ? 'warning' : 'success', ($count > 1 ? "Scheduled $count meetings." : 'Meeting scheduled.') . ($sent ? ' ' . $sent[0] . ($count > 1 && count($sent) > 1 ? " (for each of the $count meetings)" : '') : ''));
         redirect(post('return') ? self::back($f['client_id']) : '/meetings/' . $ids[0]);
     }
 
@@ -173,7 +181,8 @@ final class MeetingController
             $status = ['complete' => 'completed', 'cancel' => 'cancelled', 'reopen' => 'scheduled'][$action];
             DB::run('UPDATE meetings SET status = ? WHERE id = ?', [$status, $id]);
             Audit::log("meeting.$action", $m['title']);
-            flash('success', 'Meeting marked ' . $status . '.');
+            $inv = $action === 'cancel' ? \Align\Mail\Invites::send($id, 'cancel') : ($action === 'reopen' && $m['invites_sent_at'] ? \Align\Mail\Invites::send($id) : null);
+            flash($inv && str_contains($inv, 'not sent') ? 'warning' : 'success', 'Meeting marked ' . $status . '.' . ($inv ? ' ' . $inv : ''));
             redirect("/meetings/$id");
         }
         if ($action === 'notes') {
@@ -189,7 +198,8 @@ final class MeetingController
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE meetings SET $sets WHERE id = ?", [...array_values($f), $id]);
         Audit::log('meeting.update', $f['title']);
-        flash('success', 'Meeting updated.');
+        $inv = post('send_invites') === '1' && $m['status'] === 'scheduled' ? \Align\Mail\Invites::send($id) : null;
+        flash($inv && str_contains($inv, 'not sent') ? 'warning' : 'success', 'Meeting updated.' . ($inv ? ' ' . $inv : ''));
         redirect("/meetings/$id");
     }
 
@@ -197,6 +207,13 @@ final class MeetingController
     {
         Auth::requireRole('tech');
         $m = self::load($id);
+        // Tell attendees before the meeting disappears
+        $targets = post('scope') === 'future' && $m['series_id']
+            ? array_column(DB::all("SELECT id FROM meetings WHERE series_id = ? AND starts_at >= ? AND status = 'scheduled' AND invites_sent_at IS NOT NULL", [$m['series_id'], $m['starts_at']]), 'id')
+            : ($m['invites_sent_at'] && $m['status'] === 'scheduled' ? [$id] : []);
+        foreach ($targets as $tid) {
+            \Align\Mail\Invites::send((int) $tid, 'cancel');
+        }
         if (post('scope') === 'future' && $m['series_id']) {
             $n = DB::run("DELETE FROM meetings WHERE series_id = ? AND starts_at >= ? AND status <> 'completed'", [$m['series_id'], $m['starts_at']])->rowCount();
         } else {

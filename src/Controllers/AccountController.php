@@ -24,7 +24,33 @@ final class AccountController
             'setupUri' => $pending ? Totp::uri($pending, $u['email']) : null,
             'feedUrl' => MeetingController::freshFeedUrl(),
             'feedOn' => !empty($u['ics_token']),
+            'notifPrefs' => \Align\Mail\Notifications::prefsFor($u),
+            'notifScope' => \Align\Mail\Notifications::scope($u),
+            'mailOn' => \Align\Mail\Graph::mode() !== 'off',
+            'vcioCount' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients WHERE vcio_user_id = ? AND is_archived = 0 AND planning_excluded = 0', [$u['id']]),
         ]);
+    }
+
+    /** Your own email notification choices. */
+    public static function notifications(): void
+    {
+        $u = Auth::require();
+        $keys = array_keys(\Align\Mail\Notifications::prefsFor($u));
+        $picked = (array) ($_POST['notif'] ?? []);
+        \Align\DB::transaction(function () use ($u, $keys, $picked) {
+            foreach ($keys as $k) {
+                if (\Align\Settings::get("notif_$k", \Align\Mail\Notifications::CATALOG[$k][7] ? '1' : '0') !== '1') {
+                    continue; // switched off for everyone: keep whatever the user had
+                }
+                \Align\DB::run('INSERT INTO user_notification_prefs (user_id, notif_key, enabled) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)',
+                    [$u['id'], $k, isset($picked[$k]) ? 1 : 0]);
+            }
+            $scope = in_array(post('scope'), ['mine', 'all'], true) ? post('scope') : null;
+            \Align\DB::run('UPDATE users SET notify_scope = ? WHERE id = ?', [$scope, $u['id']]);
+        });
+        \Align\Audit::log('account.notifications', implode(', ', array_keys(array_intersect_key(array_flip($keys), $picked))) ?: 'none');
+        flash('success', 'Email notification choices saved.');
+        redirect('/account#notifications');
     }
 
     /** Upload or remove your profile picture. */

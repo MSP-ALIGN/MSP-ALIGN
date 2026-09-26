@@ -120,6 +120,18 @@ $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, '
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
 
 // Reports
+$r->get('/settings/email', [\Align\Controllers\EmailController::class, 'index']);
+$r->post('/settings/email', [\Align\Controllers\EmailController::class, 'save']);
+$r->post('/settings/email/notifications', [\Align\Controllers\EmailController::class, 'notifications']);
+$r->post('/settings/email/test', [\Align\Controllers\EmailController::class, 'test']);
+$r->get('/settings/email/connect', [\Align\Controllers\EmailController::class, 'connect']);
+$r->get('/settings/email/callback', [\Align\Controllers\EmailController::class, 'callback']);
+$r->post('/settings/email/disconnect', [\Align\Controllers\EmailController::class, 'disconnect']);
+$r->get('/settings/email/log', [\Align\Controllers\EmailController::class, 'log']);
+$r->post('/settings/email/log/{id}', [\Align\Controllers\EmailController::class, 'logAction']);
+$r->post('/settings/email/run', [\Align\Controllers\EmailController::class, 'run']);
+$r->get('/settings/email/preview/{key:str}', [\Align\Controllers\EmailController::class, 'preview']);
+$r->post('/settings/email/digest/{key:str}', [\Align\Controllers\EmailController::class, 'sendDigest']);
 $r->get('/reports', [ReportController::class, 'index']);
 $r->get('/reports/portfolio', [ReportController::class, 'portfolio']);
 $r->get('/reports/backups', [\Align\Controllers\BackupController::class, 'portfolio']);
@@ -157,6 +169,7 @@ $r->post('/account/password', [AccountController::class, 'password']);
 $r->post('/account/avatar', [AccountController::class, 'avatar']);
 $r->get('/users/{id}/avatar', [UserController::class, 'avatar']);
 $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
+$r->post('/account/notifications', [AccountController::class, 'notifications']);
 
 // Client portal access (staff side)
 $r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);
@@ -167,6 +180,8 @@ $r->get('/portal-users', [PortalAdminController::class, 'index']);
 // Client portal (separate session; every page is scoped to the signed-in client user's own client)
 $r->get('/portal/login', [PortalController::class, 'loginForm']);
 $r->post('/portal/login', [PortalController::class, 'login']);
+$r->get('/portal/forgot', [PortalController::class, 'forgotForm']);
+$r->post('/portal/forgot', [PortalController::class, 'forgot']);
 $r->get('/portal/login/2fa', [PortalController::class, 'twoFactorForm']);
 $r->post('/portal/login/2fa', [PortalController::class, 'twoFactor']);
 $r->post('/portal/logout', [PortalController::class, 'logout']);

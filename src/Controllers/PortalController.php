@@ -65,6 +65,41 @@ final class PortalController
         View::render('portal/login', ['title' => 'Client sign in'], 'layout/bare');
     }
 
+    public static function forgotForm(): void
+    {
+        if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Graph::ready()) {
+            redirect('/portal/login');
+        }
+        View::render('portal/forgot', ['title' => 'Reset your password'], 'layout/bare');
+    }
+
+    /**
+     * Self-service reset: always the same answer (never reveals whether an account exists), limited to
+     * 3 requests per email and 10 per IP an hour, link valid 1 hour and once. Two-factor still applies.
+     */
+    public static function forgot(): void
+    {
+        if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Graph::ready()) {
+            redirect('/portal/login');
+        }
+        $email = strtolower(trim(post('email')));
+        $since = date('Y-m-d H:i:s', time() - 3600);
+        $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND created_at > ?', ['reset:' . $email, $since]);
+        $byIp = (int) DB::value("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND email LIKE 'reset:%' AND created_at > ?", [client_ip(), $since]);
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) && $byEmail < 3 && $byIp < 10) {
+            DB::insert('login_attempts', ['ip' => client_ip(), 'email' => 'reset:' . $email, 'success' => 1]);
+            $u = DB::one('SELECT p.*, c.name AS client_name FROM portal_users p JOIN clients c ON c.id = p.client_id
+                WHERE p.email = ? AND p.is_active = 1 AND c.is_archived = 0 AND p.password_hash IS NOT NULL', [$email]);
+            if ($u) {
+                $url = PortalAuth::issueLink((int) $u['id'], 3600);
+                \Align\Mail\Notify::portalLink($u, $url, 'self-reset');
+                Audit::log('portal.password_reset_requested', $email, null, (int) $u['id']);
+            }
+        }
+        flash('success', 'If that email has a portal account, a reset link is on its way. It works once and expires in an hour.');
+        redirect('/portal/login');
+    }
+
     public static function login(): void
     {
         switch (PortalAuth::attempt(post('email'), (string) ($_POST['password'] ?? ''))) {
@@ -222,6 +257,7 @@ final class PortalController
         DB::run('UPDATE roadmap_items SET status = ?, decided_by_portal_user_id = ?, decided_by_name = ?, decided_at = NOW(), decision_comment = ? WHERE id = ?',
             [$decision, $pu['id'], $pu['name'], mb_substr(post('comment'), 0, 2000) ?: null, $id]);
         Audit::log('portal.project_' . ($decision === 'approved' ? 'approved' : 'declined'), "{$pu['client_name']}: {$item['title']}" . (post('comment') ? ' — ' . post('comment') : ''));
+        \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], $decision . ' "' . $item['title'] . '"' . (post('comment') ? ' with the comment: ' . mb_strimwidth(post('comment'), 0, 500, '…') : ''), '/clients/' . (int) $pu['client_id'] . '/roadmap');
         flash('success', ($decision === 'approved' ? 'Approved' : 'Declined') . " \"{$item['title']}\". Your IT provider has been notified in their dashboard.");
         redirect('/portal/roadmap');
     }
@@ -363,6 +399,7 @@ final class PortalController
         }
         DB::insert('contacts', $row);
         Audit::log('portal.contact_added', "{$pu['client_name']}: {$f['name']}");
+        \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'added the contact ' . $f['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
         flash('success', "Added {$f['name']}.");
         redirect('/portal/contacts');
     }
@@ -382,6 +419,7 @@ final class PortalController
             // Removing hides the contact in Align; ITFlow contacts are archived by the IT provider in ITFlow
             DB::run("UPDATE contacts SET archived_at = NOW(), archived_reason = 'align' WHERE id = ?", [$id]);
             Audit::log('portal.contact_removed', "{$pu['client_name']}: {$k['name']}");
+            \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'removed the contact ' . $k['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
             flash('success', "Removed {$k['name']}." . ($itflow ? ' Your IT provider has been notified.' : ''));
             redirect('/portal/contacts');
         }
@@ -401,6 +439,7 @@ final class PortalController
         $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));
         DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($f), $id]);
         Audit::log('portal.contact_updated', "{$pu['client_name']}: {$k['name']}");
+        \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'updated the contact ' . $k['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
         flash('success', "Saved {$f['name']}.");
         redirect('/portal/contacts');
     }

@@ -1,0 +1,200 @@
+<?php
+use Align\Mail\Graph;
+use Align\Mail\Invites;
+use Align\Mail\Notifications as N;
+
+/** @var array $v, $secrets, $stats; bool $ready, $baseUrlSet; string $redirectUri; ?array $certInfo */
+$mode = $v['mail_mode'] ?: 'off';
+$secret = function (string $name, string $label, bool $textarea = false, string $placeholder = '') use ($secrets) {
+    $has = $secrets[$name] ?? false;
+    $ph = $has ? '•••••••• saved — leave blank to keep' : ($placeholder ?: 'Not set');
+    $h = '<div class="form-group"><label>' . e($label) . '</label>'
+        . ($textarea ? '<textarea name="' . e($name) . '" class="form-control text-monospace small" rows="3" autocomplete="off" spellcheck="false" placeholder="' . e($ph) . '"></textarea>'
+            : '<input type="password" name="' . e($name) . '" class="form-control" autocomplete="new-password" placeholder="' . e($ph) . '">');
+    if ($has) {
+        $h .= '<div class="custom-control custom-checkbox mt-1"><input type="checkbox" class="custom-control-input" id="clear_' . e($name) . '" name="clear_' . e($name) . '" value="1">'
+            . '<label class="custom-control-label small font-weight-normal" for="clear_' . e($name) . '">Remove saved value</label></div>';
+    }
+    return $h . '</div>';
+};
+$days = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
+$status = match (true) {
+    $mode === 'off' => ['secondary', 'Off', 'Email is switched off. Nothing is sent or queued.'],
+    !$ready => ['warning', 'Not finished', $mode === 'delegated' ? 'Save the app details, then click Connect with Microsoft.' : 'Fill in the tenant, client ID, credential and From mailbox, then save.'],
+    $stats['failed7'] && $stats['last_error'] => ['danger', 'Problem', 'Recent sends failed: ' . $stats['last_error']],
+    default => ['success', 'Ready', $mode === 'delegated' ? 'Connected as ' . $v['m365_connected_as'] . '.' : 'Sending as ' . $v['mail_from'] . '.'],
+};
+?>
+<div class="d-flex flex-wrap align-items-center mb-3">
+  <h1 class="h3 mb-0 mr-auto"><i class="fas fa-envelope text-secondary mr-2"></i>Email &amp; notifications</h1>
+  <a class="btn btn-sm btn-default" href="/settings/email/log"><i class="fas fa-list mr-1"></i>Email log<?= $stats['queued'] ? ' <span class="badge badge-warning">' . (int) $stats['queued'] . ' queued</span>' : '' ?></a>
+</div>
+<?php if (!$baseUrlSet): ?>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><code>base_url</code> is not set in <code>/etc/mountaineer-align/config.php</code>. Links in emails and the Microsoft sign-in redirect are built from it, so set it to the address people use (for example https://align.example.com).</div>
+<?php endif; ?>
+
+<div class="row">
+  <div class="col-xl-7">
+    <form method="post" action="/settings/email" class="card card-dark">
+      <?= csrf_field() ?>
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft mr-2"></i>Microsoft 365 connection</h3>
+        <div class="card-tools"><span class="badge badge-<?= $status[0] ?> px-2 py-1"><?= e($status[1]) ?></span></div></div>
+      <div class="card-body">
+        <p class="small text-<?= $status[0] === 'danger' ? 'danger' : 'muted' ?>"><?= e($status[2]) ?></p>
+        <div class="form-group">
+          <label class="d-block">How Align signs in</label>
+          <?php foreach (Graph::MODES as $k => $label): ?>
+            <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-<?= $k ?>" name="mail_mode" value="<?= $k ?>" <?= $mode === $k ? 'checked' : '' ?>>
+              <label class="custom-control-label font-weight-normal" for="mode-<?= $k ?>"><?= e($label) ?></label></div>
+          <?php endforeach; ?>
+        </div>
+
+        <div data-show-when="mail_mode=app,delegated">
+          <details class="mb-3 small border rounded p-2 bg-light">
+            <summary class="font-weight-bold">Setup steps in Microsoft Entra ID</summary>
+            <ol class="pl-3 mt-2 mb-1">
+              <li>Entra admin center → <b>App registrations</b> → <b>New registration</b>. Name it "Mountaineer Align", single tenant.</li>
+              <li>Copy the <b>Application (client) ID</b> and <b>Directory (tenant) ID</b> into the fields below.</li>
+              <li><b>Certificates &amp; secrets</b>: create a client secret (copy its <b>Value</b>), or upload a certificate (.cer) and paste the certificate and its private key below.</li>
+              <li data-show-when="mail_mode=app"><b>API permissions</b> → Microsoft Graph → <b>Application permissions</b>: <code>Mail.Send</code>, and <code>Calendars.ReadWrite</code> for Outlook meeting invitations. Click <b>Grant admin consent</b>.
+                <br>To limit the app to the sending mailbox (recommended), use Exchange <b>RBAC for Applications</b> instead of tenant-wide consent:
+                <pre class="bg-white border p-2 mt-1 mb-1 small">Connect-ExchangeOnline
+New-ServicePrincipal -AppId &lt;client ID&gt; -ObjectId &lt;enterprise app object ID&gt; -DisplayName "Mountaineer Align"
+New-ManagementScope -Name "Align mailboxes" -RecipientRestrictionFilter "CustomAttribute10 -eq 'align'"
+Set-Mailbox <?= e($v['mail_from'] ?: 'alerts@yourdomain.com') ?> -CustomAttribute10 align
+New-ManagementRoleAssignment -App &lt;client ID&gt; -Role "Application Mail.Send" -CustomResourceScope "Align mailboxes"
+New-ManagementRoleAssignment -App &lt;client ID&gt; -Role "Application Calendars.ReadWrite" -CustomResourceScope "Align mailboxes"
+Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($v['mail_from'] ?: 'alerts@yourdomain.com') ?></pre>
+                Set the attribute on each staff mailbox too if meetings should be organized from the owner's own calendar. Don't also grant the Graph permissions tenant-wide, or the scope has no effect.</li>
+              <li data-show-when="mail_mode=delegated"><b>Authentication</b> → Add a platform → <b>Web</b> → redirect URI <code><?= e($redirectUri) ?></code>.
+                <b>API permissions</b> → Microsoft Graph → <b>Delegated</b>: <code>Mail.Send</code>, <code>Mail.Send.Shared</code>, <code>Calendars.ReadWrite</code>, <code>Calendars.ReadWrite.Shared</code>, <code>User.Read</code>, <code>offline_access</code>. Grant admin consent, save here, then click <b>Connect with Microsoft</b> and sign in as the mailbox that should send (or an account with Send As on it).</li>
+            </ol>
+          </details>
+          <div class="form-row">
+            <div class="form-group col-md-6"><label>Directory (tenant) ID</label><input name="m365_tenant" class="form-control" value="<?= e($v['m365_tenant']) ?>" placeholder="contoso.onmicrosoft.com or GUID" autocomplete="off"></div>
+            <div class="form-group col-md-6"><label>Application (client) ID</label><input name="m365_client_id" class="form-control text-monospace" value="<?= e($v['m365_client_id']) ?>" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off"></div>
+          </div>
+          <div class="form-group mb-2">
+            <label class="d-block">Credential</label>
+            <div class="custom-control custom-radio custom-control-inline"><input type="radio" class="custom-control-input" id="auth-secret" name="m365_auth" value="secret" <?= ($v['m365_auth'] ?: 'secret') === 'secret' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="auth-secret">Client secret</label></div>
+            <div class="custom-control custom-radio custom-control-inline"><input type="radio" class="custom-control-input" id="auth-cert" name="m365_auth" value="certificate" <?= $v['m365_auth'] === 'certificate' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="auth-cert">Certificate (more secure)</label></div>
+          </div>
+          <div data-show-when="m365_auth=secret"><?= $secret('m365_client_secret', 'Client secret value') ?></div>
+          <div data-show-when="m365_auth=certificate">
+            <?php if ($certInfo): ?><p class="small text-muted mb-2"><i class="fas fa-certificate mr-1"></i>Certificate <?= e($certInfo['subject']) ?> · thumbprint <code><?= e($certInfo['thumbprint']) ?></code> · expires <b class="<?= $certInfo['expires'] < date('Y-m-d', strtotime('+30 days')) ? 'text-danger' : '' ?>"><?= e(fmt_date($certInfo['expires'])) ?></b></p><?php endif; ?>
+            <div class="form-row">
+              <div class="col-md-6"><?= $secret('m365_cert_pem', 'Certificate (PEM)', true, '-----BEGIN CERTIFICATE-----') ?></div>
+              <div class="col-md-6"><?= $secret('m365_key_pem', 'Private key (PEM, unencrypted)', true, '-----BEGIN PRIVATE KEY-----') ?></div>
+            </div>
+            <p class="small text-muted">Create one with <code>openssl req -x509 -newkey rsa:2048 -nodes -days 730 -subj "/CN=Mountaineer Align" -keyout align.key -out align.crt</code>, upload <code>align.crt</code> to the app registration, and paste both files here. In delegated mode a client secret is still needed for the sign-in button.</p>
+          </div>
+
+          <div data-show-when="mail_mode=delegated" class="border rounded p-2 mb-3">
+            <?php if ($secrets['m365_refresh_token']): ?>
+              <div class="d-flex align-items-center"><i class="fas fa-circle-check text-success mr-2"></i>
+                <div class="mr-auto small">Connected as <b><?= e($v['m365_connected_as']) ?></b><?= $v['m365_connected_name'] ? ' (' . e($v['m365_connected_name']) . ')' : '' ?> since <?= e(fmt_date($v['m365_connected_at'])) ?>.</div>
+                <a class="btn btn-sm btn-default mr-1" href="/settings/email/connect">Reconnect</a>
+                <button class="btn btn-sm btn-outline-danger" form="email-disconnect">Disconnect</button></div>
+            <?php else: ?>
+              <div class="d-flex align-items-center"><span class="small text-muted mr-auto">Save the details above first, then sign in as the sending mailbox.</span>
+                <a class="btn btn-sm btn-primary" href="/settings/email/connect"><i class="fab fa-microsoft mr-1"></i>Connect with Microsoft</a></div>
+            <?php endif; ?>
+            <div class="small text-muted mt-1">Redirect URI to register: <code><?= e($redirectUri) ?></code></div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6"><label><span data-show-when="mail_mode=app">From mailbox</span><span data-show-when="mail_mode=delegated">Send as <small class="text-muted">(optional shared mailbox)</small></span></label>
+              <input type="email" name="mail_from" class="form-control" value="<?= e($v['mail_from']) ?>" placeholder="alerts@yourdomain.com"></div>
+            <div class="form-group col-md-6"><label>Display name <small class="text-muted">(optional)</small></label><input name="mail_from_name" class="form-control" value="<?= e($v['mail_from_name']) ?>" placeholder="Mountaineer IT"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-6"><label>Reply-to <small class="text-muted">(optional)</small></label><input type="email" name="mail_reply_to" class="form-control" value="<?= e($v['mail_reply_to']) ?>" placeholder="support@yourdomain.com"></div>
+            <div class="form-group col-md-6"><label>Keep email content for</label>
+              <div class="input-group"><input type="number" name="mail_log_days" class="form-control" min="1" max="365" value="<?= e($v['mail_log_days'] ?: '30') ?>"><div class="input-group-append"><span class="input-group-text">days</span></div></div>
+              <small class="text-muted">After this the log keeps who, what and when, but not the message. Invite and password emails are wiped as soon as they're sent.</small></div>
+          </div>
+          <input type="hidden" name="mail_save_sent_present" value="1">
+          <div class="custom-control custom-switch mb-2"><input type="checkbox" class="custom-control-input" id="mail_save_sent" name="mail_save_sent" value="1" <?= ($v['mail_save_sent'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_save_sent">Save a copy in the mailbox's Sent Items</label></div>
+        </div>
+      </div>
+
+      <div class="card-header py-2 border-top" data-show-when="mail_mode=app,delegated"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock mr-2"></i>Schedule &amp; meetings</h3></div>
+      <div class="card-body" data-show-when="mail_mode=app,delegated">
+        <div class="form-row">
+          <div class="form-group col-md-4"><label>Digests are sent at</label><select name="notif_digest_hour" class="custom-select"><?php for ($h = 0; $h < 24; $h++): ?><option value="<?= $h ?>" <?= (int) ($v['notif_digest_hour'] ?? 7) === $h ? 'selected' : '' ?>><?= e(date('g a', mktime($h, 0))) ?></option><?php endfor; ?></select></div>
+          <div class="form-group col-md-4"><label>Weekly emails on</label><select name="notif_weekly_day" class="custom-select"><?php foreach ($days as $n => $d): ?><option value="<?= $n ?>" <?= (int) ($v['notif_weekly_day'] ?? 1) === $n ? 'selected' : '' ?>><?= $d ?></option><?php endforeach; ?></select></div>
+          <div class="form-group col-md-4"><label>Meeting reminders</label><div class="input-group"><input type="number" name="notif_meeting_reminder_hours" class="form-control" min="1" max="168" value="<?= e($v['notif_meeting_reminder_hours'] ?: '24') ?>"><div class="input-group-append"><span class="input-group-text">hours before</span></div></div></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-6"><label>Meeting invitations</label><select name="mail_meeting_mode" class="custom-select"><?php foreach (Invites::MODES as $k => $l): ?><option value="<?= $k ?>" <?= ($v['mail_meeting_mode'] ?: 'calendar') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
+            <small class="text-muted">Outlook invitations are real meetings: attendees can accept, and changes and cancellations follow automatically. Needs Calendars.ReadWrite.</small></div>
+          <div class="form-group col-md-6" data-show-when="mail_mode=app"><label>Organizer</label><select name="mail_meeting_organizer" class="custom-select">
+              <option value="owner" <?= ($v['mail_meeting_organizer'] ?: 'owner') === 'owner' ? 'selected' : '' ?>>Meeting owner's own calendar (falls back to the From mailbox)</option>
+              <option value="mailbox" <?= $v['mail_meeting_organizer'] === 'mailbox' ? 'selected' : '' ?>>Always the From mailbox</option></select></div>
+        </div>
+        <input type="hidden" name="mail_teams_links_present" value="1">
+        <div class="custom-control custom-switch"><input type="checkbox" class="custom-control-input" id="mail_teams_links" name="mail_teams_links" value="1" <?= ($v['mail_teams_links'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_teams_links">Add a Microsoft Teams link to Outlook invitations when the meeting has no video link</label></div>
+      </div>
+      <div class="card-footer"><button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save</button></div>
+    </form>
+    <form method="post" action="/settings/email/disconnect" id="email-disconnect" class="d-none"><?= csrf_field() ?></form>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-paper-plane mr-2"></i>Send a test</h3></div>
+      <form method="post" action="/settings/email/test" class="card-body">
+        <?= csrf_field() ?>
+        <div class="input-group"><input type="email" name="to" class="form-control" value="<?= e(\Align\Auth::user()['email'] ?? '') ?>" required <?= $ready ? '' : 'disabled' ?>>
+          <div class="input-group-append"><button class="btn btn-primary" <?= $ready ? '' : 'disabled' ?>>Send test</button></div></div>
+        <small class="text-muted">Sent straight away (not queued) so you see Microsoft's answer here.</small>
+      </form>
+    </div>
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-inbox mr-2"></i>Queue</h3><div class="card-tools"><a class="btn btn-tool" href="/settings/email/log">Log</a></div></div>
+      <div class="card-body py-2">
+        <div class="d-flex text-center">
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= (int) $stats['sent24'] ?></div><div class="small text-muted">sent (24 h)</div></div>
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold <?= $stats['queued'] ? 'text-warning' : '' ?>"><?= (int) $stats['queued'] ?></div><div class="small text-muted">queued</div></div>
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold <?= $stats['failed7'] ? 'text-danger' : '' ?>"><?= (int) $stats['failed7'] ?></div><div class="small text-muted">failed (7 days)</div></div>
+        </div>
+        <p class="small text-muted mb-0 mt-2">Email is sent every minute by the <code>mountaineer-align-mail</code> timer and retried automatically if Microsoft 365 is unavailable.<?= $stats['last_sent'] ? ' Last sent ' . e(rel_time($stats['last_sent'])) . '.' : '' ?></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/settings/email/notifications" class="card card-dark" id="notifications">
+  <?= csrf_field() ?>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-bell mr-2"></i>Notifications</h3>
+    <div class="card-tools"><button class="btn btn-sm btn-primary"><i class="fas fa-check mr-1"></i>Save notifications</button></div></div>
+  <div class="card-body py-2 small text-muted border-bottom">Switch each email on or off and choose who gets staff notifications by default. Everyone can change their own choices under <b>Account → Email notifications</b>; "vCIO" also sends it to each client's vCIO for their clients. Extra addresses (a shared inbox or your ticketing system's email) get the all-clients version.</div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead class="text-dark"><tr><th style="width:1%">On</th><th>Email</th><th>When</th><th class="text-center">Default for</th><th class="text-center">vCIO</th><th style="min-width:220px">Also send to</th><th></th></tr></thead>
+      <tbody>
+      <?php $group = null; foreach (N::CATALOG as $key => [$label, $grp, $aud, $timing, $desc, $droles, $dvcio, $don]): if ($grp !== $group): $group = $grp; ?>
+        <tr class="bg-light"><td colspan="7" class="small font-weight-bold text-uppercase text-muted py-1"><?= e($grp) ?></td></tr>
+      <?php endif; $on = \Align\Settings::get("notif_$key", $don ? '1' : '0') === '1'; ?>
+        <tr>
+          <td class="align-middle"><div class="custom-control custom-switch"><input type="checkbox" class="custom-control-input" id="on-<?= $key ?>" name="on[<?= $key ?>]" value="1" <?= $on ? 'checked' : '' ?>><label class="custom-control-label" for="on-<?= $key ?>"><span class="sr-only"><?= e($label) ?></span></label></div></td>
+          <td><b><?= e($label) ?></b><div class="small text-muted"><?= e($desc) ?></div></td>
+          <td class="small text-nowrap align-middle"><?= e(N::TIMING[$timing]) ?></td>
+          <td class="small text-nowrap align-middle text-center">
+            <?php if ($aud === 'staff' && $key !== 'security'): foreach (['admin' => 'Admins', 'tech' => 'Techs', 'viewer' => 'Viewers'] as $r => $rl): ?>
+              <div class="custom-control custom-checkbox custom-control-inline mr-2"><input type="checkbox" class="custom-control-input" id="r-<?= $key . $r ?>" name="roles[<?= $key ?>][]" value="<?= $r ?>" <?= in_array($r, N::roles($key), true) ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="r-<?= $key . $r ?>"><?= $rl ?></label></div>
+            <?php endforeach; elseif ($key === 'security'): ?>Admins<?php else: ?><span class="text-muted">The client</span><?php endif; ?>
+          </td>
+          <td class="text-center align-middle"><?php if ($aud === 'staff' && $key !== 'security'): ?><div class="custom-control custom-checkbox"><input type="checkbox" class="custom-control-input" id="v-<?= $key ?>" name="vcio[<?= $key ?>]" value="1" <?= N::toVcio($key) ? 'checked' : '' ?>><label class="custom-control-label" for="v-<?= $key ?>"><span class="sr-only">vCIO</span></label></div><?php endif; ?></td>
+          <td class="align-middle"><?php if ($aud === 'staff'): ?><input name="extra[<?= $key ?>]" class="form-control form-control-sm" value="<?= e(\Align\Settings::get("notif_{$key}_extra", '')) ?>" placeholder="alerts@…, tickets@…"><?php endif; ?></td>
+          <td class="align-middle text-nowrap"><?php if (in_array($timing, ['daily', 'weekly', 'monthly'], true)): ?>
+            <a class="btn btn-xs btn-default" href="/settings/email/preview/<?= $key ?>" target="_blank" title="Preview for all clients">Preview</a>
+            <button class="btn btn-xs btn-default" formaction="/settings/email/digest/<?= $key ?>" <?= $ready ? '' : 'disabled' ?> title="Send it now to everyone who gets it">Send now</button>
+          <?php endif; ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div></div>
+  <div class="card-footer"><button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save notifications</button></div>
+</form>

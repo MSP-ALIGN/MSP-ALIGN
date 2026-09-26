@@ -102,8 +102,31 @@ try {
                 : "AUDIT LOG TAMPERING DETECTED at entry #{$r['broken_at']}: {$r['reason']} (checked {$r['checked']})";
             $say($line);
             if (!$r['ok']) {
+                Align\Mail\Notify::security('Audit log verification failed', $line);
+                Align\Mail\Mailer::deliver();
                 exit(2);
             }
+            break;
+
+        case 'mail:run':
+            // Every minute from mountaineer-align-mail.timer: send queued mail, reminders and digests
+            $lines = Align\Mail\Notify::tick(isset($opts['force']));
+            if (!isset($opts['quiet'])) {
+                foreach ($lines as $l) {
+                    $say($l);
+                }
+            }
+            break;
+
+        case 'mail:test':
+            $to = (string) ($opts['to'] ?? '');
+            if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+                $say('Usage: align mail:test --to=you@example.com');
+                exit(1);
+            }
+            Align\Mail\Graph::fromSettings()->sendMail([['address' => $to]], 'Mountaineer Align test email',
+                Align\Mail\Template::render('Email is working', [Align\Mail\Template::p('This test was sent from the command line through Microsoft 365.')]));
+            $say("Sent a test email to $to.");
             break;
 
         case 'audit:prune':
@@ -135,6 +158,8 @@ try {
             $say('  user:create --email=E [--name=N] [--role=admin|tech|viewer] [--password-stdin]');
             $say('  user:reset-password --email=E [--clear-2fa]');
             $say('  audit:verify                    Check the audit log hash chain for tampering');
+            $say('  mail:run [--force] [--quiet]    Send queued email, reminders and due digests (runs every minute)');
+            $say('  mail:test --to=EMAIL            Send a test email through Microsoft 365');
             $say('  audit:prune                     Remove audit entries past the 6-year retention period');
             $say('  check                           Verify config and database');
             $say('  version');

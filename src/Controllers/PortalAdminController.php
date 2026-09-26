@@ -92,9 +92,11 @@ final class PortalAdminController
         }
         $uid = DB::insert('portal_users', ['client_id' => $id, 'email' => $email, 'name' => $name, 'invited_by' => Auth::id()] + self::perms());
         $u = DB::one('SELECT * FROM portal_users WHERE id = ?', [$uid]);
-        self::showLink($u, PortalAuth::issueLink($uid), 'invite');
+        $url = PortalAuth::issueLink($uid);
+        self::showLink($u, $url, 'invite');
         Audit::log('portal_user.invite', "{$client['name']}: $email");
-        flash('success', "Invited $name. Send them the link below.");
+        $emailed = post('send_email', '1') === '1' && \Align\Mail\Notify::portalLink($u + ['client_name' => $client['name']], $url, 'invite');
+        flash('success', $emailed ? "Invited $name and emailed them the link. You can also copy it below." : "Invited $name. Send them the link below.");
         redirect($back);
     }
 
@@ -109,9 +111,11 @@ final class PortalAdminController
         $label = "{$u['client_name']}: {$u['email']}";
         switch (post('action')) {
             case 'link':
-                self::showLink($u, PortalAuth::issueLink($id), $u['password_hash'] ? 'reset' : 'invite');
+                $url = PortalAuth::issueLink($id);
+                self::showLink($u, $url, $u['password_hash'] ? 'reset' : 'invite');
                 Audit::log('portal_user.link', $label);
-                flash('success', ($u['password_hash'] ? 'Password reset link' : 'New invite link') . " created for {$u['name']}. Any earlier link no longer works.");
+                $emailed = post('send_email', '1') === '1' && \Align\Mail\Notify::portalLink($u, $url, $u['password_hash'] ? 'reset' : 'invite');
+                flash('success', ($u['password_hash'] ? 'Password reset link' : 'New invite link') . " created for {$u['name']}" . ($emailed ? " and emailed to {$u['email']}" : '') . '. Any earlier link no longer works.');
                 redirect("/clients/{$u['client_id']}/portal");
             case 'disable':
                 DB::run('UPDATE portal_users SET is_active = 0, invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?', [$id]);
@@ -128,6 +132,7 @@ final class PortalAdminController
                 DB::run('UPDATE portal_users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$id]);
                 PortalAuth::revokeSessions($id);
                 Audit::log('portal_user.reset_2fa', $label);
+                \Align\Mail\Notify::security('Client portal two-factor reset', "$label by " . (Auth::user()['email'] ?? ''));
                 flash('success', "Two-factor sign-in reset for {$u['name']} and their sessions ended. They'll set it up again at their next sign-in.");
                 redirect($back);
             case 'delete':

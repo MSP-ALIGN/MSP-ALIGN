@@ -52,6 +52,7 @@ final class UserController
             'must_change_password' => 1,
         ]);
         Audit::log('user.create', "$email ($role)");
+        \Align\Mail\Notify::security('Staff account created', "$email ($role) by " . (Auth::user()['email'] ?? ''));
         $_SESSION['new_password'] = ['email' => $email, 'password' => $password];
         redirect('/users');
     }
@@ -77,6 +78,7 @@ final class UserController
                 }
                 DB::run('UPDATE users SET role = ? WHERE id = ?', [$role, $id]);
                 Audit::log('user.role', "{$u['email']} -> $role");
+                \Align\Mail\Notify::security('Staff role changed', "{$u['email']}: {$u['role']} → $role by " . (Auth::user()['email'] ?? ''));
                 flash('success', 'Role updated.');
                 break;
             case 'toggle':
@@ -87,6 +89,7 @@ final class UserController
                 DB::run('UPDATE users SET is_active = 1 - is_active WHERE id = ?', [$id]);
                 Auth::revokeSessions($id);
                 Audit::log($u['is_active'] ? 'user.disable' : 'user.enable', $u['email']);
+                \Align\Mail\Notify::security($u['is_active'] ? 'Staff account disabled' : 'Staff account enabled', "{$u['email']} by " . (Auth::user()['email'] ?? ''));
                 flash('success', $u['is_active'] ? 'User disabled.' : 'User enabled.');
                 break;
             case 'reset':
@@ -94,12 +97,14 @@ final class UserController
                 DB::run('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [\Align\Security::hashPassword($password), $id]);
                 Auth::revokeSessions($id);
                 Audit::log('user.reset_password', $u['email']);
+                \Align\Mail\Notify::security('Staff password reset', "{$u['email']} by " . (Auth::user()['email'] ?? ''));
                 $_SESSION['new_password'] = ['email' => $u['email'], 'password' => $password];
                 break;
             case 'reset_2fa':
                 DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$id]);
                 Auth::revokeSessions($id);
                 Audit::log('user.reset_2fa', $u['email']);
+                \Align\Mail\Notify::security('Staff two-factor reset', "{$u['email']} by " . (Auth::user()['email'] ?? ''));
                 flash('success', 'Two-factor removed and their sessions ended. They must set it up again at their next sign-in.');
                 break;
         }

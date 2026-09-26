@@ -43,6 +43,7 @@ $step = function (int $n, string $icon, string $title, string $body, array $link
           <tr><th>Managed services estimate</th><td>ITFlow invoices, last 3 months</td></tr>
           <tr><th>Warranties</th><td>Dell / Lenovo lookups</td></tr>
           <tr><th>Backups</th><td>Veeam Service Provider Console (read-only), hourly: servers, VMs, agents and Microsoft 365</td></tr>
+          <tr><th>Email &amp; invitations</th><td>Microsoft 365 through Microsoft Graph (OAuth), sent every minute</td></tr>
           <tr><th>Projects, budget lines, compliance, documents, meetings</th><td>Align</td></tr>
         </table>
         <p class="mt-2 mb-0 text-muted">Fields marked <span class="badge badge-light border">ITFlow</span> are managed in ITFlow; change them there and they update here within minutes.</p>

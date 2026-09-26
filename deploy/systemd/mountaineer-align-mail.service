@@ -1,0 +1,19 @@
+[Unit]
+Description=Mountaineer Align - send email and notifications
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/php /opt/mountaineer-align/bin/align mail:run --quiet
+TimeoutStartSec=10min
+Nice=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes

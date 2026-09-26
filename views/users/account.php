@@ -88,3 +88,31 @@
     </div>
   </div>
 </div>
+
+<form method="post" action="/account/notifications" class="card card-dark" id="notifications">
+  <?= csrf_field() ?>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-bell mr-2"></i>Email notifications</h3></div>
+  <?php if (!$mailOn): ?>
+    <div class="card-body small text-muted">Email isn't set up yet<?= \Align\Auth::can('admin') ? ' (<a href="/settings/email">Settings → Email &amp; notifications</a>)' : '' ?>. Your choices here apply once it is.</div>
+  <?php endif; ?>
+  <div class="card-body">
+    <div class="form-group">
+      <label class="d-block">Which clients</label>
+      <div class="custom-control custom-radio custom-control-inline"><input type="radio" class="custom-control-input" id="sc-mine" name="scope" value="mine" <?= $notifScope === 'mine' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="sc-mine">Only clients I'm vCIO for (<?= (int) $vcioCount ?>)</label></div>
+      <div class="custom-control custom-radio custom-control-inline"><input type="radio" class="custom-control-input" id="sc-all" name="scope" value="all" <?= $notifScope === 'all' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="sc-all">All clients</label></div>
+    </div>
+    <div class="row">
+      <?php foreach ($notifPrefs as $k => $p): [$label, $group, , $timing, $desc] = \Align\Mail\Notifications::CATALOG[$k]; $globalOn = \Align\Settings::get("notif_$k", \Align\Mail\Notifications::CATALOG[$k][7] ? '1' : '0') === '1'; ?>
+        <div class="col-lg-6 mb-2">
+          <div class="custom-control custom-switch">
+            <input type="checkbox" class="custom-control-input" id="np-<?= $k ?>" name="notif[<?= $k ?>]" value="1" <?= $p['on'] ? 'checked' : '' ?> <?= $globalOn ? '' : 'disabled' ?>>
+            <label class="custom-control-label" for="np-<?= $k ?>"><?= e($label) ?> <span class="badge badge-light border font-weight-normal"><?= e(\Align\Mail\Notifications::TIMING[$timing]) ?></span><?= $globalOn ? '' : ' <span class="badge badge-secondary font-weight-normal">off for everyone</span>' ?></label>
+            <div class="small text-muted"><?= e($desc) ?></div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <p class="small text-muted mb-0">Emails go to <?= e($u['email']) ?>. When a notification is sent to each client's vCIO, you'll get it for your clients unless you switch it off here.</p>
+  </div>
+  <div class="card-footer"><button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save</button></div>
+</form>

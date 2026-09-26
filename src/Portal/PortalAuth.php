@@ -128,6 +128,9 @@ final class PortalAuth
             self::recordAttempt($email, false);
             Audit::log('portal.login_failed', filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '(not an email address)', null, $u['id'] ?? null);
             \Align\Security::logAuthFailure('portal');
+            if ($u && self::isLockedOut($email)) {
+                \Align\Mail\Notify::security('Client portal account locked out', "$email ({$u['client_id']}): too many failed sign-ins");
+            }
             return 'invalid';
         }
         if (\Align\Security::needsRehash($u['password_hash'])) {
@@ -210,11 +213,11 @@ final class PortalAuth
     }
 
     /** Creates a one-time invite / password link. Only a hash is stored. Returns the full URL. */
-    public static function issueLink(int $portalUserId): string
+    public static function issueLink(int $portalUserId, ?int $ttlSeconds = null): string
     {
         $token = bin2hex(random_bytes(32));
         DB::run('UPDATE portal_users SET invite_token_hash = ?, invite_expires_at = ? WHERE id = ?',
-            [hash('sha256', $token), date('Y-m-d H:i:s', time() + self::INVITE_DAYS * 86400), $portalUserId]);
+            [hash('sha256', $token), date('Y-m-d H:i:s', time() + ($ttlSeconds ?? self::INVITE_DAYS * 86400)), $portalUserId]);
         return self::baseUrl() . '/portal/invite/' . $token;
     }
 

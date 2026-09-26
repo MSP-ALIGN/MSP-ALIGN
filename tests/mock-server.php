@@ -51,6 +51,153 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     return;
 }
 
+// ---- Microsoft identity platform + Graph (mail, calendar) --------------------------------------
+$graphFile = sys_get_temp_dir() . '/graph-mock.json';
+$graphState = fn() => json_decode((string) @file_get_contents($graphFile), true) ?: ['mail' => [], 'events' => [], 'rt' => 1, 'calls' => []];
+$graphSave = fn(array $st) => file_put_contents($graphFile, json_encode($st), LOCK_EX);
+if ($path === '/mock/graph-reset') {
+    @unlink($graphFile);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/graph') {
+    $json($graphState());
+    return;
+}
+if (preg_match('#^/login/([^/]+)/oauth2/v2\.0/(token|authorize)$#', $path, $lm)) {
+    if ($lm[1] === 'badtenant') {
+        http_response_code(400);
+        $json(['error' => 'invalid_request', 'error_description' => "AADSTS90002: Tenant 'badtenant' not found. Trace ID: x"]);
+        return;
+    }
+    if ($lm[2] === 'authorize') {
+        // Pretend the admin signed in and consented
+        header('Content-Type: text/html');
+        header('Location: ' . $_GET['redirect_uri'] . '?code=good-code&state=' . urlencode($_GET['state'] ?? '') . '&session_state=x', true, 302);
+        return;
+    }
+    $st = $graphState();
+    $st['calls'][] = ['token' => $_POST['grant_type'] ?? '', 'auth' => isset($_POST['client_assertion']) ? 'cert' : 'secret'];
+    $okClient = ($_POST['client_id'] ?? '') === '11111111-2222-3333-4444-555555555555'
+        && ((($_POST['client_secret'] ?? '') === 'm365-secret') || (count(explode('.', $_POST['client_assertion'] ?? '')) === 3 && str_contains(base64_decode(strtr(explode('.', $_POST['client_assertion'])[0], '-_', '+/')), 'x5t')));
+    if (!$okClient) {
+        http_response_code(401);
+        $graphSave($st);
+        $json(['error' => 'invalid_client', 'error_description' => 'AADSTS7000215: Invalid client secret provided. Ensure the secret being sent in the request is the client secret value. Trace ID: abc']);
+        return;
+    }
+    $grant = $_POST['grant_type'] ?? '';
+    if ($grant === 'client_credentials') {
+        $graphSave($st);
+        $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => 'm365-app-token']);
+        return;
+    }
+    if ($grant === 'authorization_code') {
+        if (($_POST['code'] ?? '') !== 'good-code' || strlen($_POST['code_verifier'] ?? '') < 43) {
+            http_response_code(400);
+            $json(['error' => 'invalid_grant', 'error_description' => 'AADSTS70008: The provided authorization code or refresh token has expired.']);
+            return;
+        }
+        $st['rt'] = 1;
+        $graphSave($st);
+        $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => 'm365-del-token', 'refresh_token' => 'rt-1', 'scope' => $_POST['scope'] ?? '']);
+        return;
+    }
+    if ($grant === 'refresh_token') {
+        if (($_POST['refresh_token'] ?? '') !== 'rt-' . $st['rt']) {
+            http_response_code(400);
+            $graphSave($st);
+            $json(['error' => 'invalid_grant', 'error_description' => 'AADSTS70008: The refresh token has expired due to inactivity.']);
+            return;
+        }
+        $st['rt']++;
+        $graphSave($st);
+        $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => 'm365-del-token', 'refresh_token' => 'rt-' . $st['rt']]);
+        return;
+    }
+    http_response_code(400);
+    $json(['error' => 'unsupported_grant_type']);
+    return;
+}
+if (str_starts_with($path, '/graph/v1.0/')) {
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!in_array($auth, ['Bearer m365-app-token', 'Bearer m365-del-token'], true)) {
+        http_response_code(401);
+        $json(['error' => ['code' => 'InvalidAuthenticationToken', 'message' => 'Access token is empty.']]);
+        return;
+    }
+    $delegated = $auth === 'Bearer m365-del-token';
+    $sub = substr($path, strlen('/graph/v1.0'));
+    $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $graphState();
+    if ($sub === '/me' || str_starts_with($sub, '/me?')) {
+        $json($delegated ? ['displayName' => 'Align Alerts', 'mail' => 'alerts@examplemsp.example', 'userPrincipalName' => 'alerts@examplemsp.example'] : ['error' => ['code' => 'BadRequest', 'message' => '/me request is only valid with delegated authentication flow.']]);
+        return;
+    }
+    if (!preg_match('#^/(?:me|users/([^/]+))/(sendMail|events)(?:/([^/]+))?(?:/(cancel))?$#', $sub, $gm)) {
+        http_response_code(404);
+        $json(['error' => ['code' => 'ResourceNotFound', 'message' => 'Resource not found']]);
+        return;
+    }
+    $mailbox = isset($gm[1]) && $gm[1] !== '' ? urldecode($gm[1]) : ($delegated ? 'alerts@examplemsp.example' : null);
+    if ($mailbox === null) {
+        http_response_code(400);
+        $json(['error' => ['code' => 'BadRequest', 'message' => '/me is only valid with delegated authentication']]);
+        return;
+    }
+    if (str_starts_with($mailbox, 'missing@')) {
+        http_response_code(404);
+        $json(['error' => ['code' => 'ErrorInvalidUser', 'message' => "The requested user '$mailbox' is invalid."]]);
+        return;
+    }
+    if (str_starts_with($mailbox, 'denied@')) {
+        http_response_code(403);
+        $json(['error' => ['code' => 'ErrorAccessDenied', 'message' => 'Access is denied. Check credentials and try again.']]);
+        return;
+    }
+    if ($gm[2] === 'sendMail' && $method === 'POST') {
+        $st['mail'][] = ['mailbox' => $mailbox, 'delegated' => $delegated, 'message' => $body['message'] ?? null, 'save' => $body['saveToSentItems'] ?? null, 'at' => date('c')];
+        $graphSave($st);
+        http_response_code(202);
+        return;
+    }
+    if ($gm[2] === 'events') {
+        if ($method === 'POST' && empty($gm[3])) {
+            $id = 'evt-' . (count($st['events']) + 1);
+            $ev = $body + ['id' => $id, 'organizerMailbox' => $mailbox];
+            if (!empty($body['isOnlineMeeting'])) {
+                $ev['onlineMeeting'] = ['joinUrl' => 'https://teams.microsoft.com/l/meetup-join/' . $id];
+            }
+            $st['events'][$id] = $ev + ['status' => 'created'];
+            $graphSave($st);
+            http_response_code(201);
+            $json($st['events'][$id]);
+            return;
+        }
+        $id = urldecode($gm[3] ?? '');
+        if (!isset($st['events'][$id])) {
+            http_response_code(404);
+            $json(['error' => ['code' => 'ErrorItemNotFound', 'message' => 'The specified object was not found in the store.']]);
+            return;
+        }
+        if (($gm[4] ?? '') === 'cancel') {
+            $st['events'][$id]['status'] = 'cancelled';
+            $st['events'][$id]['cancelComment'] = $body['comment'] ?? '';
+            $graphSave($st);
+            http_response_code(202);
+            return;
+        }
+        if ($method === 'PATCH') {
+            $st['events'][$id] = array_merge($st['events'][$id], $body, ['status' => 'updated']);
+            $graphSave($st);
+            $json($st['events'][$id]);
+            return;
+        }
+    }
+    http_response_code(405);
+    return;
+}
+
 $clients = [
     ['client_id' => 1, 'client_name' => 'Cedar Ridge Family Dental, Inc.', 'client_archived_at' => null, 'client_type' => 'Dental', 'client_website' => 'https://cedarridgedental.example'],
     ['client_id' => 2, 'client_name' => 'Northfield Hardware & Supply', 'client_archived_at' => null],
@@ -337,7 +484,8 @@ switch (true) {
             $json(['errors' => [['message' => 'Unauthorized']]]);
             break;
         }
-        $iso = fn(int $hoursAgo) => date('c', time() - $hoursAgo * 3600);
+        // Stable within the hour, like real job history (a new run only when the hour changes)
+        $iso = fn(int $hoursAgo) => date('c', intdiv(time(), 3600) * 3600 - $hoursAgo * 3600);
         $c = ['c0' => '10000000-0000-0000-0000-000000000000', 'c1' => '11111111-1111-1111-1111-111111111111',
             'c2' => '22222222-2222-2222-2222-222222222222', 'c3' => '33333333-3333-3333-3333-333333333333'];
         $data = match ($path) {
