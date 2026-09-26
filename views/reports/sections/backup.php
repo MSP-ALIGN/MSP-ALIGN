@@ -11,6 +11,9 @@ $details ??= true;
 $machines ??= true;
 $limit ??= null;
 $cloud = (bool) $s['cloud_quota'];
+$m = $b['m365'] ?? null;
+$mUsers = $m['types']['user'] ?? null;
+$tiles = 4 + ($cloud ? 1 : 0) + ($mUsers ? 1 : 0);
 $rateTone = $s['rate'] === null ? 'muted' : ($s['rate'] >= 95 ? 'ok' : ($s['rate'] >= 80 ? 'warn' : 'bad'));
 
 // One list of everything that needs attention
@@ -37,17 +40,28 @@ foreach ($b['workloads'] as $w) {
         $issues[] = [$w['name'], $w['kind'] === 'vm' ? 'Virtual machine' : 'Computer', $w['last_point'] ? 'Newest restore point is ' . Backup::age($w['age_h']) . ' old' : 'No restore point yet', null, $w['last_point'], $w['tone']];
     }
 }
+if ($m && $m['overdue']) {
+    if (count($m['overdue']) > 5) {
+        $issues[] = [count($m['overdue']) . ' Microsoft 365 items', 'Microsoft 365', 'No restore point from the last ' . $b['stale'] . ' hours',
+            implode(', ', array_slice(array_column($m['overdue'], 'name'), 0, 10)) . (count($m['overdue']) > 10 ? ' and ' . (count($m['overdue']) - 10) . ' more' : ''), null, 'warn'];
+    } else {
+        foreach ($m['overdue'] as $o) {
+            $issues[] = [$o['name'], $o['type_label'] . ' (Microsoft 365)', $o['last_point'] ? 'Newest restore point is ' . Backup::age($o['age_h']) . ' old' : 'No restore point yet', null, $o['last_point'], $o['tone']];
+        }
+    }
+}
 usort($issues, fn($x, $y) => ($x[5] === 'bad' ? 0 : 1) <=> ($y[5] === 'bad' ? 0 : 1));
 $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
 ?>
 <section class="rsection">
   <?= Ui::head('Backup & recovery', $num ?? null, 'Veeam · updated ' . rel_time($b['synced'])) ?>
-  <p class="lede">Whether your data can be restored: how your backup jobs are running and how recent the newest restore point is for each protected machine.</p>
-  <div class="kpi-row<?= $cloud ? ' cols-5' : '' ?>">
+  <p class="lede">Whether your data can be restored: how your backup jobs are running and how recent the newest restore point is for each protected machine<?= $m ? ' and your Microsoft 365 data' : '' ?>.</p>
+  <div class="kpi-row<?= $tiles === 5 ? ' cols-5' : ($tiles === 6 ? ' cols-3' : '') ?>">
     <?= Ui::kpi($s['protected'] ? $s['ok'] . ' of ' . $s['protected'] : '0', 'Machines current', 'restore point within ' . $b['stale'] . ' hrs', $s['protected'] && $s['ok'] === $s['protected'] ? 'ok' : ($s['protected'] ? 'warn' : 'muted')) ?>
     <?= Ui::kpi($s['rate'] === null ? '—' : $s['rate'] . '%', 'Backup success', $s['runs'] ? $s['runs'] . ' runs in 30 days' : 'history is building', $rateTone) ?>
     <?= Ui::kpi((string) $s['jobs'], 'Backup jobs', $s['failed'] || $s['warning'] ? $s['failed'] . ' failed · ' . $s['warning'] . ' warning' : 'all succeeded last run', $s['failed'] ? 'bad' : ($s['warning'] ? 'warn' : 'ok')) ?>
     <?= Ui::kpi((string) $s['unprotected'], 'Servers without backup', $s['unprotected'] ? 'need a decision' : 'every server covered', $s['unprotected'] ? 'bad' : 'ok') ?>
+    <?php if ($mUsers): ?><?= Ui::kpi($mUsers['ok'] . ' of ' . $mUsers['total'], 'Microsoft 365 users', 'mailbox & OneDrive backed up', $mUsers['overdue'] ? 'warn' : 'ok') ?><?php endif; ?>
     <?php if ($cloud): ?><?= Ui::kpi(fmt_bytes($s['cloud_used']), 'Cloud backup storage', $s['cloud_pct'] . '% of ' . fmt_bytes($s['cloud_quota']), $s['cloud_pct'] >= 90 ? 'bad' : ($s['cloud_pct'] >= 75 ? 'warn' : 'muted')) ?><?php endif; ?>
   </div>
 
@@ -108,5 +122,24 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
       <?php if ($s['backup_bytes']): ?><tfoot><tr><td colspan="4">Total backup data</td><td class="num"><?= e(fmt_bytes($s['backup_bytes'])) ?></td><td></td></tr></tfoot><?php endif; ?>
     </table>
     <?php if (count($shown) < count($b['workloads'])): ?><p class="muted small-note">Showing <?= count($shown) ?> of <?= count($b['workloads']) ?> protected machines (anything overdue is listed first). Ask us for the full backup report.</p><?php endif; ?>
+  <?php endif; ?>
+  <?php if ($m): ?>
+    <h3>Microsoft 365</h3>
+    <table class="rtable fixed compact dense">
+      <?= Ui::cols(['type' => 30, 'total' => 14, 'ok' => 14, 'over' => 14, 'last' => 28]) ?>
+      <thead><tr><th>What is protected</th><th class="num">Protected</th><th class="num">Current</th><th class="num">Overdue</th><th>Newest restore point</th></tr></thead>
+      <tbody>
+      <?php foreach ($m['types'] as $t => $x): [$tl, $td] = Backup::M365_TYPES[$t]; ?>
+        <tr><td><span class="name"><?= e($tl) ?></span><?= $td ? '<div class="sub">' . e($td) . '</div>' : '' ?></td>
+          <td class="num"><?= (int) $x['total'] ?></td><td class="num"><?= (int) $x['ok'] ?></td>
+          <td class="num" style="<?= $x['overdue'] ? 'color:var(--warn);font-weight:700' : '' ?>"><?= $x['overdue'] ?: '—' ?></td>
+          <td><?= $x['last'] ? e(fmt_date($x['last'])) . '<div class="sub">' . e(rel_time($x['last'])) . '</div>' : '<span class="muted">—</span>' ?></td></tr>
+      <?php endforeach; ?>
+      <?php if (!$m['types']): ?><tr><td colspan="5" class="muted">No protected users, groups, teams or sites reported yet.</td></tr><?php endif; ?>
+      </tbody>
+    </table>
+    <?php foreach ($m['orgs'] as $o): ?>
+      <p class="muted small-note"><b><?= e($o['name']) ?></b><?= $o['service_labels'] ? ': ' . e(implode(', ', $o['service_labels'])) : '' ?> · last backup <?= e(rel_time($o['last_backup'])) ?></p>
+    <?php endforeach; ?>
   <?php endif; ?>
 </section>

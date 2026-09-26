@@ -88,6 +88,7 @@ $cid = (int) $client['id'];
           <div class="small"><i class="fas fa-circle-xmark mr-1 text-<?= tone_class($j['tone']) ?>"></i><?= e($j['name']) ?> <span class="text-muted"><?= e(strtolower($j['label'])) ?><?= $j['last_run'] ? ' ' . e(rel_time($j['last_run'])) : '' ?></span></div>
         <?php endforeach; ?>
         <?php if ($backup['unprotected']): ?><div class="small"><i class="fas fa-shield-halved mr-1 text-danger"></i><?= count($backup['unprotected']) ?> server<?= count($backup['unprotected']) === 1 ? '' : 's' ?> with no backup</div><?php endif; ?>
+        <?php if ($mu = $backup['m365']['types']['user'] ?? null): ?><div class="small text-muted"><i class="fab fa-microsoft mr-1"></i>Microsoft 365: <?= (int) $mu['ok'] ?>/<?= (int) $mu['total'] ?> users current</div><?php endif; ?>
         <?php if ($bs['cloud_quota']): ?><div class="small text-muted"><i class="fas fa-cloud mr-1"></i>Cloud: <?= e(fmt_bytes($bs['cloud_used'])) ?> of <?= e(fmt_bytes($bs['cloud_quota'])) ?></div><?php endif; ?>
       </div>
     </div>

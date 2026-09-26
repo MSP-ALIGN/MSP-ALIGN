@@ -71,10 +71,19 @@ final class VeeamSync
             }
         }
         $jobs = [];
+        $jobCompany = [];
         foreach ($api->serverJobs() as $j) {
-            $jobs[] = self::mapJob($j, 'server');
+            $row = self::mapJob($j, 'server');
+            $jobs[] = $row;
+            if ($row['company_uid']) {
+                $jobCompany[$row['uid']] = $row['company_uid'];
+            }
         }
+        $fetched = ['server'];
         $agentJobs = $api->agentJobs();
+        if ($agentJobs !== null) {
+            $fetched[] = 'agent';
+        }
         foreach ($agentJobs ?? [] as $j) {
             $au = (string) ($j['backupAgentUid'] ?? '');
             $row = self::mapJob($j, 'agent');
@@ -84,8 +93,16 @@ final class VeeamSync
             }
             $jobs[] = $row;
         }
+
+        // Microsoft 365 (only when VSPC manages a Veeam Backup for Microsoft 365 server)
+        $m365 = self::m365($api, $now);
+        if ($m365['jobs'] !== null) {
+            $fetched[] = 'm365';
+            array_push($jobs, ...$m365['jobs']);
+        }
+
         $jobs = array_filter($jobs, fn($r) => $r['uid'] !== '');
-        DB::transaction(function () use ($jobs, $now, $agentJobs) {
+        DB::transaction(function () use ($jobs, $now, $fetched) {
             foreach ($jobs as $r) {
                 DB::upsert('backup_jobs', $r + ['synced_at' => $now], ['uid']);
                 if ($r['last_run'] && in_array($r['status'], ['success', 'warning', 'failed'], true)) {
@@ -94,18 +111,22 @@ final class VeeamSync
                         [$r['uid'], $r['last_run'], $r['company_uid'], $r['status']]);
                 }
             }
-            // Jobs VSPC no longer reports (agent jobs only when that list was readable)
-            DB::run("DELETE FROM backup_jobs WHERE synced_at < ?" . ($agentJobs === null ? " AND source = 'server'" : ''), [$now]);
+            // Jobs VSPC no longer reports (only for the lists that were readable this time)
+            DB::run('DELETE FROM backup_jobs WHERE synced_at < ? AND source IN (' . self::in($fetched) . ')', [$now, ...$fetched]);
             DB::run('DELETE FROM backup_job_runs WHERE run_at < ?', [date('Y-m-d H:i:s', strtotime('-400 days'))]);
         });
         $failed = count(array_filter($jobs, fn($r) => $r['status'] === 'failed'));
         $parts[] = count($jobs) . ' jobs' . ($failed ? " ($failed failed)" : '');
+        if ($m365['summary']) {
+            $parts[] = $m365['summary'];
+        }
 
         // Protected machines: one row per machine, newest restore point wins when it's in several jobs
         $wl = [];
         $vms = $api->protectedVms();
         foreach ($vms ?? [] as $v) {
-            self::addWorkload($wl, $v, 'vm', $now);
+            // A VM on the provider's own server belongs to the company its job is mapped to
+            self::addWorkload($wl, $v, 'vm', $now, $jobCompany[(string) ($v['jobUid'] ?? '')] ?? null);
         }
         foreach ($api->protectedComputers() as $c) {
             self::addWorkload($wl, $c, 'computer', $now);
@@ -142,7 +163,7 @@ final class VeeamSync
         ];
     }
 
-    private static function addWorkload(array &$wl, array $r, string $kind, string $now): void
+    private static function addWorkload(array &$wl, array $r, string $kind, string $now, ?string $company = null): void
     {
         $id = (string) V::pick($r, ['instanceUid', 'backupAgentUid', 'uid']);
         $name = trim((string) V::pick($r, ['name', 'hostName', 'computerName', 'guestDnsName']));
@@ -152,7 +173,7 @@ final class VeeamSync
         $key = "$kind:$id";
         $row = [
             'uid' => mb_substr($key, 0, 100),
-            'company_uid' => V::orgOf($r),
+            'company_uid' => $company ?? V::orgOf($r),
             'kind' => $kind,
             'name' => mb_substr($name, 0, 255),
             'hostname' => mb_substr(V::hostKey((string) (V::pick($r, ['guestDnsName', 'hostName']) ?? $name)), 0, 190) ?: null,
@@ -165,6 +186,7 @@ final class VeeamSync
         ];
         $old = $wl[$key] ?? null;
         if ($old) {
+            $row['company_uid'] = $company ?? $old['company_uid'] ?? $row['company_uid'];
             // Same machine in several jobs: keep the newest restore point, add up points and size
             $row['restore_points'] = ($old['restore_points'] ?? 0) + ($row['restore_points'] ?? 0) ?: null;
             $row['backup_bytes'] = ($old['backup_bytes'] ?? 0) + ($row['backup_bytes'] ?? 0) ?: null;
@@ -173,6 +195,99 @@ final class VeeamSync
             }
         }
         $wl[$key] = $row;
+    }
+
+
+    /**
+     * Veeam Backup for Microsoft 365: organizations, jobs and protected objects.
+     * Returns ['jobs' => rows for backup_jobs or null when unavailable, 'summary' => text].
+     */
+    private static function m365(V $api, string $now): array
+    {
+        $orgs = $api->m365Organizations();
+        if ($orgs === null) {
+            return ['jobs' => null, 'summary' => ''];
+        }
+        $map = $api->m365CompanyMappings();
+        $orgCompany = [];
+        foreach ($orgs as $o) {
+            $uid = (string) ($o['instanceUid'] ?? '');
+            if ($uid === '') {
+                continue;
+            }
+            $company = V::orgOf(['mappedOrganizationUid' => $o['mappedOrganizationUid'] ?? null]) ?? $map[$uid] ?? null;
+            $orgCompany[$uid] = $company;
+            DB::upsert('backup_m365_orgs', [
+                'uid' => $uid,
+                'company_uid' => $company,
+                'name' => mb_substr((string) ($o['name'] ?? $uid), 0, 255),
+                'services' => is_array($o['protectedServices'] ?? null) ? mb_substr(implode(',', $o['protectedServices']), 0, 255) : null,
+                'is_backed_up' => !empty($o['isBackedUp']) ? 1 : 0,
+                'first_backup' => V::ts($o['firstBackupTime'] ?? null),
+                'last_backup' => V::ts($o['lastBackupTime'] ?? null),
+                'synced_at' => $now,
+            ], ['uid']);
+        }
+        DB::run('DELETE FROM backup_m365_orgs WHERE synced_at < ?', [$now]);
+        // Jobs name their company (vspcOrganizationUid); objects go by their tenant's company mapping first
+        $companyOf = fn(array $r) => V::orgOf(['organizationUid' => $r['vspcOrganizationUid'] ?? null])
+            ?? $orgCompany[(string) ($r['vb365OrganizationUid'] ?? '')] ?? $map[(string) ($r['vb365OrganizationUid'] ?? '')]
+            ?? V::orgOf(['organizationUid' => $r['organizationUid'] ?? null]);
+
+        $jobs = [];
+        foreach ($api->m365Jobs() ?? [] as $j) {
+            $errors = [];
+            foreach ((array) ($j['lastErrorLogRecords'] ?? []) as $l) {
+                if (is_array($l) && !empty($l['message']) && in_array($l['logType'] ?? '', ['Error', 'Warning'], true)) {
+                    $errors[] = trim((string) $l['message']);
+                }
+            }
+            $msg = trim((string) ($j['lastStatusDetails'] ?? '')) ?: implode(' ', array_slice(array_unique($errors), 0, 3));
+            $jobs[] = [
+                'uid' => (string) ($j['instanceUid'] ?? ''),
+                'company_uid' => $companyOf($j),
+                'source' => 'm365',
+                'name' => mb_substr((string) ($j['name'] ?? 'Microsoft 365 backup'), 0, 255),
+                'job_type' => mb_substr('Vb365' . ($j['jobType'] ?? 'BackupJob'), 0, 60),
+                'status' => V::status($j['lastStatus'] ?? null),
+                'is_enabled' => array_key_exists('isEnabled', $j) ? ($j['isEnabled'] ? 1 : 0) : 1,
+                'last_run' => V::ts($j['lastRun'] ?? null),
+                'last_end' => null,
+                'duration_sec' => null,
+                'failure_message' => $msg !== '' ? mb_substr($msg, 0, 2000) : null,
+                'target' => isset($j['repositoryName']) ? mb_substr((string) $j['repositoryName'], 0, 255) : null,
+                'chain_bytes' => null,
+            ];
+        }
+
+        $types = ['user' => 'user', 'group' => 'group', 'teams' => 'team', 'team' => 'team', 'site' => 'site'];
+        $objects = $api->m365ProtectedObjects();
+        $n = 0;
+        if ($objects !== null) {
+            DB::transaction(function () use ($objects, $types, $companyOf, $now, &$n) {
+                foreach ($objects as $o) {
+                    $id = (string) ($o['id'] ?? '');
+                    $name = trim((string) ($o['name'] ?? ''));
+                    if ($id === '' || $name === '') {
+                        continue;
+                    }
+                    DB::upsert('backup_m365_objects', [
+                        'uid' => strlen($id) > 180 ? 'sha1:' . sha1($id) : $id,
+                        'company_uid' => $companyOf($o),
+                        'org_uid' => isset($o['vb365OrganizationUid']) ? mb_substr((string) $o['vb365OrganizationUid'], 0, 64) : null,
+                        'name' => mb_substr($name, 0, 255),
+                        'object_type' => $types[strtolower((string) ($o['protectedDataType'] ?? ''))] ?? 'other',
+                        'restore_points' => V::int($o['restorePointsCount'] ?? null),
+                        'last_point' => V::ts($o['latestRestorePointDate'] ?? null),
+                        'licensed' => isset($o['consumesLicense']) ? ($o['consumesLicense'] ? 1 : 0) : null,
+                        'synced_at' => $now,
+                    ], ['uid']);
+                    $n++;
+                }
+                DB::run('DELETE FROM backup_m365_objects WHERE synced_at < ?', [$now]);
+            });
+        }
+        return ['jobs' => $jobs, 'summary' => 'Microsoft 365: ' . count($orgs) . ' organizations, ' . count($jobs) . ' jobs, ' . $n . ' protected objects'];
     }
 
     /** Links VSPC companies to clients with the same name (or the same name as the client's NinjaOne org). */

@@ -113,5 +113,51 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
     </table>
   </div></div>
 </div>
-<p class="small text-muted">A machine is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?= Auth::can('admin') ? ' (change this in <a href="/settings">Settings</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
+<?php if ($m = $b['m365']): ?>
+<div class="card card-dark">
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft mr-2"></i>Microsoft 365</h3>
+    <div class="card-tools small pt-1 text-light"><?= e(implode(', ', array_column($m['orgs'], 'name'))) ?></div></div>
+  <div class="card-body pb-2">
+    <div class="row">
+      <?php foreach ($m['types'] as $t => $x): [$tl, $td] = Backup::M365_TYPES[$t]; ?>
+        <div class="col-md-3 col-6 mb-2">
+          <div class="border rounded p-2 h-100">
+            <div class="small text-muted text-uppercase font-weight-bold"><?= e($tl) ?></div>
+            <div class="h4 mb-0 font-weight-bold <?= $x['overdue'] ? 'text-warning' : 'text-success' ?>"><?= (int) $x['ok'] ?><small class="text-muted font-weight-normal"> / <?= (int) $x['total'] ?> current</small></div>
+            <div class="small text-muted"><?= e($td) ?><?= $x['last'] ? ' · newest ' . e(rel_time($x['last'])) : '' ?></div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+      <?php if (!$m['types']): ?><div class="col-12 small text-muted mb-2">No protected users, groups, teams or sites reported yet.</div><?php endif; ?>
+    </div>
+    <div class="small text-muted">
+      <?php foreach ($m['orgs'] as $o): ?>
+        <div class="mb-1"><i class="fas fa-building fa-fw mr-1"></i><b class="text-dark"><?= e($o['name']) ?></b>
+          <?php foreach ($o['service_labels'] as $sl): ?><span class="badge badge-light border ml-1"><?= e($sl) ?></span><?php endforeach; ?>
+          <span class="ml-1">· last backup <?= e(rel_time($o['last_backup'])) ?></span></div>
+      <?php endforeach; ?>
+      <?php if ($m['users']): ?><div><i class="fas fa-id-badge fa-fw mr-1"></i><?= (int) $m['licensed'] ?> of <?= (int) $m['users'] ?> protected users use a Veeam license.</div><?php endif; ?>
+    </div>
+  </div>
+  <?php if ($m['overdue']): ?>
+  <div class="card-body p-0 border-top"><div class="table-responsive">
+    <table class="table table-sm table-striped table-borderless mb-0">
+      <thead class="text-dark"><tr><th>Status</th><th>Without a recent backup</th><th>Type</th><th>Newest restore point</th><th class="text-right">Restore points</th></tr></thead>
+      <tbody>
+      <?php $row = fn(array $o) => '<tr><td>' . $pill($o['last_point'] ? 'Overdue' : 'No restore point', $o['tone']) . '</td><td class="font-weight-bold">' . e($o['name']) . '</td><td class="small">' . e($o['type_label']) . '</td>'
+          . '<td class="small">' . ($o['last_point'] ? e(Backup::age($o['age_h'])) . ' ago <span class="text-muted">' . e(fmt_datetime($o['last_point'])) . '</span>' : '<span class="text-danger">none</span>') . '</td>'
+          . '<td class="small text-right">' . ($o['restore_points'] !== null ? (int) $o['restore_points'] : '—') . '</td></tr>'; ?>
+      <?php foreach (array_slice($m['overdue'], 0, 10) as $o) echo $row($o); ?>
+      </tbody>
+    </table>
+    <?php if (count($m['overdue']) > 10): ?>
+      <details class="bk-more"><summary class="px-3 py-2 small text-primary">Show <?= count($m['overdue']) - 10 ?> more</summary>
+        <table class="table table-sm table-striped table-borderless mb-0"><tbody><?php foreach (array_slice($m['overdue'], 10) as $o) echo $row($o); ?></tbody></table>
+      </details>
+    <?php endif; ?>
+  </div></div>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
+<p class="small text-muted">A machine or Microsoft 365 item is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?= Auth::can('admin') ? ' (change this in <a href="/settings">Settings</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
 <?php endif; ?>

@@ -14,6 +14,12 @@ final class Backup
         'running' => ['Running', 'info'], 'none' => ['Not run', 'muted'],
     ];
 
+    public const M365_TYPES = ['user' => ['Users', 'Mailboxes and OneDrive'], 'group' => ['Groups', 'Group mailboxes and sites'],
+        'team' => ['Teams', 'Channels, files and chats'], 'site' => ['SharePoint sites', 'Sites and libraries'], 'other' => ['Other', '']];
+
+    public const M365_SERVICES = ['ExchangeOnline' => 'Exchange Online', 'SharePointOnlineAndOneDriveForBusiness' => 'SharePoint & OneDrive',
+        'MicrosoftTeams' => 'Teams', 'MicrosoftTeamsChats' => 'Teams chats', 'MicrosoftExchangeServer' => 'Exchange Server', 'MicrosoftSharePointServer' => 'SharePoint Server'];
+
     /** A machine without a restore point newer than this many hours counts as overdue. */
     public static function staleHours(): int
     {
@@ -102,6 +108,8 @@ final class Backup
         }
         $runCount = array_sum($tot);
 
+        $m365 = self::m365($uid, $stale, $jobs);
+
         $active = array_filter($jobs, fn($j) => $j['is_enabled']);
         $stats = [
             'jobs' => count($active),
@@ -120,18 +128,75 @@ final class Backup
             'cloud_quota' => $company['cloud_quota_bytes'] !== null ? (int) $company['cloud_quota_bytes'] : null,
         ];
         $stats['cloud_pct'] = $stats['cloud_quota'] ? (int) round($stats['cloud_used'] / $stats['cloud_quota'] * 100) : null;
+        $stats['m365_overdue'] = $m365 ? $m365['overdue_count'] : 0;
         $stats['tone'] = $stats['failed'] || $stats['unprotected'] || count(array_filter($workloads, fn($w) => $w['tone'] === 'bad')) ? 'bad'
-            : ($stats['warning'] || $stats['overdue'] || array_filter($jobs, fn($j) => $j['tone'] === 'warn') ? 'warn' : 'ok');
+            : ($stats['warning'] || $stats['overdue'] || $stats['m365_overdue'] || array_filter($jobs, fn($j) => $j['tone'] === 'warn') ? 'warn' : 'ok');
 
         return [
             'company' => $company,
             'jobs' => $jobs,
             'workloads' => $workloads,
+            'm365' => $m365,
             'unprotected' => $unprotected,
             'days' => $days,
             'stats' => $stats,
             'stale' => $stale,
             'synced' => $company['synced_at'],
+        ];
+    }
+
+    /**
+     * Microsoft 365 backup for one company: tenants, counts per object type, overdue objects.
+     * Null when the company has no Veeam Backup for Microsoft 365 data.
+     */
+    private static function m365(string $uid, int $stale, array $jobs): ?array
+    {
+        $orgs = DB::all('SELECT * FROM backup_m365_orgs WHERE company_uid = ? ORDER BY name', [$uid]);
+        $objects = DB::all('SELECT * FROM backup_m365_objects WHERE company_uid = ? ORDER BY name', [$uid]);
+        $m365Jobs = array_values(array_filter($jobs, fn($j) => $j['source'] === 'm365'));
+        if (!$orgs && !$objects && !$m365Jobs) {
+            return null;
+        }
+        $now = time();
+        $types = [];
+        $overdue = [];
+        $last = null;
+        foreach ($objects as $o) {
+            $age = $o['last_point'] ? ($now - strtotime($o['last_point'])) / 3600 : null;
+            $tone = $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'));
+            $t = $o['object_type'];
+            $types[$t] ??= ['total' => 0, 'ok' => 0, 'overdue' => 0, 'last' => null];
+            $types[$t]['total']++;
+            $tone === 'ok' ? $types[$t]['ok']++ : $types[$t]['overdue']++;
+            if ($o['last_point'] && $o['last_point'] > (string) $types[$t]['last']) {
+                $types[$t]['last'] = $o['last_point'];
+            }
+            if ($o['last_point'] && $o['last_point'] > (string) $last) {
+                $last = $o['last_point'];
+            }
+            if ($tone !== 'ok') {
+                $overdue[] = $o + ['age_h' => $age, 'tone' => $tone, 'type_label' => rtrim(self::M365_TYPES[$t][0], 's')];
+            }
+        }
+        $order = array_keys(self::M365_TYPES);
+        uksort($types, fn($a, $b) => array_search($a, $order, true) <=> array_search($b, $order, true));
+        usort($overdue, fn($a, $b) => [$a['tone'] === 'bad' ? 0 : 1, -($a['age_h'] ?? 1e9)] <=> [$b['tone'] === 'bad' ? 0 : 1, -($b['age_h'] ?? 1e9)]);
+        foreach ($orgs as &$o) {
+            $o['service_labels'] = array_map(fn($x) => self::M365_SERVICES[$x] ?? $x, array_filter(explode(',', (string) $o['services'])));
+        }
+        unset($o);
+        return [
+            'orgs' => $orgs,
+            'types' => $types,
+            'overdue' => $overdue,
+            'overdue_count' => count($overdue),
+            'total' => count($objects),
+            'users' => $types['user']['total'] ?? 0,
+            'licensed' => count(array_filter($objects, fn($o) => $o['object_type'] === 'user' && (int) $o['licensed'] === 1)),
+            'last_point' => $last ?? (max(array_map(fn($o) => (string) $o['last_backup'], $orgs ?: [['last_backup' => '']])) ?: null),
+            'jobs' => $m365Jobs,
+            'tone' => array_filter($m365Jobs, fn($j) => $j['is_enabled'] && $j['tone'] === 'bad') || array_filter($overdue, fn($o) => $o['tone'] === 'bad') ? 'bad'
+                : (array_filter($m365Jobs, fn($j) => $j['tone'] === 'warn') || $overdue ? 'warn' : 'ok'),
         ];
     }
 
@@ -147,10 +212,12 @@ final class Backup
                 (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'warning') AS warning,
                 (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid) AS protected,
                 (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid AND (w.last_point IS NULL OR w.last_point < ?)) AS overdue,
+                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND (m.last_point IS NULL OR m.last_point < ?)) AS m365_overdue,
                 (SELECT COUNT(*) FROM backup_job_runs r WHERE r.company_uid = c.veeam_company_uid AND r.run_at >= ?) AS runs,
                 (SELECT COUNT(*) FROM backup_job_runs r WHERE r.company_uid = c.veeam_company_uid AND r.run_at >= ? AND r.status <> 'failed') AS runs_ok
-            FROM clients c WHERE c.veeam_company_uid IS NOT NULL", [$stale, $since, $since]) as $r) {
+            FROM clients c WHERE c.veeam_company_uid IS NOT NULL", [$stale, $stale, $since, $since]) as $r) {
             $r = array_map('intval', $r);
+            $r['overdue'] += $r['m365_overdue'];
             $r['rate'] = $r['runs'] ? (int) floor($r['runs_ok'] / $r['runs'] * 100) : null;
             $r['tone'] = $r['failed'] || $r['overdue'] ? 'bad' : ($r['warning'] ? 'warn' : ($r['jobs'] || $r['protected'] ? 'ok' : 'muted'));
             $out[$r['id']] = $r;
@@ -177,6 +244,7 @@ final class Backup
     {
         $t = strtolower((string) $j['job_type']);
         return match (true) {
+            $j['source'] === 'm365' => str_contains($t, 'copy') ? 'Microsoft 365 copy' : 'Microsoft 365',
             $j['source'] === 'agent' || str_contains($t, 'agent') => 'Agent backup',
             str_contains($t, 'replica') => 'Replication',
             str_contains($t, 'copy') => 'Backup copy',

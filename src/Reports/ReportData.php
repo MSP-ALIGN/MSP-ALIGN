@@ -258,8 +258,12 @@ final class ReportData
             if ($overdue) {
                 $bkOut[] = ['tone' => 'warn', 'title' => count($overdue) . ' machine' . (count($overdue) == 1 ? '' : 's') . ' without a recent backup', 'text' => $list($overdue, 'name') . ' ha' . (count($overdue) == 1 ? 's' : 've') . ' no restore point from the last ' . $bk['stale'] . ' hours.'];
             }
-            if (!$failed && !$bk['unprotected'] && !$overdue && $s['protected']) {
-                $bkOut[] = ['tone' => 'ok', 'title' => 'Backups are healthy', 'text' => 'All ' . $s['protected'] . ' protected machines have a recent restore point' . ($s['rate'] !== null ? ' and ' . $s['rate'] . '% of backup runs succeeded in the last 30 days' : '') . '.'];
+            $m365Over = $bk['m365']['overdue'] ?? [];
+            if ($m365Over) {
+                $bkOut[] = ['tone' => 'warn', 'title' => count($m365Over) . ' Microsoft 365 item' . (count($m365Over) == 1 ? '' : 's') . ' without a recent backup', 'text' => $list($m365Over, 'name') . '.'];
+            }
+            if (!$failed && !$bk['unprotected'] && !$overdue && !$m365Over && ($s['protected'] || !empty($bk['m365']['total']))) {
+                $bkOut[] = ['tone' => 'ok', 'title' => 'Backups are healthy', 'text' => ($s['protected'] ? 'All ' . $s['protected'] . ' protected machines' . (!empty($bk['m365']['total']) ? ' and your Microsoft 365 data' : '') . ' have' : 'Your Microsoft 365 data has') . ' a recent restore point' . ($s['rate'] !== null ? ' and ' . $s['rate'] . '% of backup runs succeeded in the last 30 days' : '') . '.'];
             }
         }
         $m = fn(float $v) => $costs && $v > 0 ? ' (about ' . money($v) . ')' : '';

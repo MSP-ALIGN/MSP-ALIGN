@@ -119,10 +119,43 @@ final class VeeamSpc
         );
     }
 
-    /** Cloud Connect backup storage quota and use per company. */
+    /** Cloud Connect backup storage quota and use per company (path moved in VSPC 9 / API 3.6). */
     public function cloudUsage(): ?array
     {
-        return $this->optional('/organizations/companies/sites/backupResources/usage');
+        return $this->optional('/infrastructure/sites/tenants/backupResources/usage')
+            ?? $this->optional('/organizations/companies/sites/backupResources/usage');
+    }
+
+    // ---- Veeam Backup for Microsoft 365 ----------------------------------------------------------
+
+    /** Microsoft 365 organizations (tenants); mappedOrganizationUid is the VSPC company. Null when no VB365 server is managed. */
+    public function m365Organizations(): ?array
+    {
+        return $this->optional('/infrastructure/vb365Servers/organizations');
+    }
+
+    /** vb365OrganizationUid → companyUid, for organizations mapped to companies. */
+    public function m365CompanyMappings(): array
+    {
+        $out = [];
+        foreach ($this->optional('/infrastructure/vb365Servers/organizations/companyMappings') ?? [] as $m) {
+            if (!empty($m['vb365OrganizationUid']) && !empty($m['companyUid'])) {
+                $out[(string) $m['vb365OrganizationUid']] = (string) $m['companyUid'];
+            }
+        }
+        return $out;
+    }
+
+    /** Backup and backup copy jobs (lastStatus, lastRun, vspcOrganizationUid = company). */
+    public function m365Jobs(): ?array
+    {
+        return $this->optional('/infrastructure/vb365Servers/organizations/jobs');
+    }
+
+    /** Protected users, groups, teams and sites. */
+    public function m365ProtectedObjects(): ?array
+    {
+        return $this->optional('/protectedWorkloads/vb365ProtectedObjects');
     }
 
     public function test(): string
@@ -156,7 +189,8 @@ final class VeeamSpc
             $s === 'success' => 'success',
             $s === 'warning' => 'warning',
             in_array($s, ['failed', 'error', 'failure'], true) => 'failed',
-            in_array($s, ['running', 'starting', 'stopping', 'working', 'inprogress'], true) => 'running',
+            in_array($s, ['running', 'starting', 'stopping', 'working', 'inprogress', 'queued', 'waitingtape', 'waitingrepository'], true) => 'running',
+            in_array($s, ['disconnected', 'notconfigured'], true) => 'warning',
             default => 'none',
         };
     }

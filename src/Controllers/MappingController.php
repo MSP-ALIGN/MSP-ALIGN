@@ -13,7 +13,9 @@ final class MappingController
     public static function index(): void
     {
         Auth::requireRole('tech');
-        $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = c.ninja_org_id AND d.removed_at IS NULL) AS device_count
+        $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = c.ninja_org_id AND d.removed_at IS NULL) AS device_count,
+            (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid) AS veeam_machines,
+            (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND m.object_type = \'user\') AS veeam_m365_users
             FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 ORDER BY c.name');
         $orgs = DB::all('SELECT o.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = o.id AND d.removed_at IS NULL) AS device_count,
             c.id AS client_id FROM ninja_orgs o LEFT JOIN clients c ON c.ninja_org_id = o.id ORDER BY o.name');
@@ -23,6 +25,7 @@ final class MappingController
             'clients' => $clients,
             'orgs' => $orgs,
             'unmappedOrgs' => array_values(array_filter($orgs, fn($o) => !$o['client_id'])),
+            'veeamConfigured' => \Align\Integrations\VeeamSpc::configured(),
             'veeam' => $veeam = DB::all('SELECT v.uid, v.name, c.id AS client_id,
                 (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = v.uid) AS workloads
                 FROM veeam_companies v LEFT JOIN clients c ON c.veeam_company_uid = v.uid ORDER BY v.name'),
