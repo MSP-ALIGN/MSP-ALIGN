@@ -314,3 +314,22 @@ body:not(.report) .text-muted.small, body:not(.report) .small.text-muted { color
 .settings-tabs .nav-link { white-space: nowrap; }
 /* Light buttons inside coloured alerts and dark card headers kept their white link colour (invisible text) */
 .alert a.btn-light, .card-header a.btn-light, .card-header a.btn-light:hover { color: #1f2d3d !important; }
+
+/* Client name at the top of the client menu (1.16.1): wraps instead of being cut off, with the logo or initials */
+.sidebar-client { padding: .5rem .5rem .35rem; }
+.sidebar-client-card { display: flex; align-items: center; gap: .6rem; padding: .55rem .6rem; border-radius: .4rem;
+  background: rgba(255,255,255,.07); border-left: 3px solid var(--brand, #007bff); color: #fff !important; text-decoration: none !important; transition: background .15s ease; }
+.sidebar-client-card:hover { background: rgba(255,255,255,.13); }
+.sidebar-client-badge { flex: 0 0 36px; width: 36px; height: 36px; border-radius: .35rem; background: var(--brand, #007bff); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; overflow: hidden; }
+.sidebar-client-badge img { width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 2px; }
+.sidebar-client-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.sidebar-client-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.sidebar-client-name { font-weight: 600; font-size: .92rem; white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sidebar-light-primary .sidebar-client-card { background: rgba(0,0,0,.04); color: #1f2d3d !important; }
+.sidebar-light-primary .sidebar-client-card:hover { background: rgba(0,0,0,.08); }
+/* Collapsed sidebar: just the badge */
+.sidebar-mini.sidebar-collapse .main-sidebar:not(:hover) .sidebar-client { padding: .5rem .25rem; }
+.sidebar-mini.sidebar-collapse .main-sidebar:not(:hover) .sidebar-client-card { background: transparent; border-left-color: transparent; padding: .3rem; justify-content: center; }
+.sidebar-mini.sidebar-collapse .main-sidebar:not(:hover) .sidebar-client-text { display: none; }

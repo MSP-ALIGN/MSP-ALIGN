@@ -140,7 +140,12 @@ $item = function (array $i, string $active) {
         <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
           <?php if ($client): ?>
             <li class="nav-item"><a href="/clients" class="nav-link"><i class="nav-icon fas fa-arrow-left"></i><p>All clients</p></a></li>
-            <li class="nav-header text-truncate"><?= e(mb_strtoupper($client['name'])) ?></li>
+            <li class="nav-item sidebar-client">
+              <a href="/clients/<?= (int) $client['id'] ?>" class="sidebar-client-card" title="<?= e($client['name']) ?>">
+                <span class="sidebar-client-badge"><?php if ($clientLogo = client_logo_url($client)): ?><img src="<?= e($clientLogo) ?>" alt=""><?php else: ?><?= e(initials($client['name'])) ?><?php endif; ?></span>
+                <span class="sidebar-client-text"><span class="sidebar-client-label">Client</span><span class="sidebar-client-name"><?= e($client['name']) ?></span></span>
+              </a>
+            </li>
             <?php foreach ($clientMenu as $i) echo $item($i, $clientNav); ?>
             <li class="nav-item has-treeview mt-2">
               <a href="#" class="nav-link"><i class="nav-icon fas fa-grip"></i><p>All tools<i class="right fas fa-angle-left"></i><?= $unassignedCount ? ' <span class="badge badge-warning ml-1" title="Unassigned hardware">' . (int) $unassignedCount . '</span>' : '' ?></p></a>
