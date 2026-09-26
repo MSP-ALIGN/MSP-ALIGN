@@ -19,10 +19,28 @@ final class ReportController
     public static function index(): void
     {
         Auth::require();
+        $clients = DB::all('SELECT id, name, veeam_company_uid FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
+        $fw = [];
+        foreach (DB::all('SELECT cf.client_id, f.id, f.name FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id ORDER BY f.name') as $r) {
+            $fw[(int) $r['client_id']][] = ['id' => (int) $r['id'], 'name' => $r['name']];
+        }
+        $docs = [];
+        foreach (DB::all("SELECT id, client_id, title, status FROM documents WHERE client_id IS NOT NULL ORDER BY status = 'active' DESC, title") as $r) {
+            $docs[(int) $r['client_id']][] = ['id' => (int) $r['id'], 'name' => $r['title'] . ($r['status'] !== 'active' ? ' (draft)' : '')];
+        }
+        $meta = [];
+        foreach ($clients as $c) {
+            $meta[(int) $c['id']] = ['veeam' => !empty($c['veeam_company_uid']), 'frameworks' => $fw[(int) $c['id']] ?? [], 'documents' => $docs[(int) $c['id']] ?? []];
+        }
         View::render('reports/index', [
             'title' => 'Reports',
             'nav' => 'reports',
-            'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
+            'clients' => $clients,
+            'meta' => $meta,
+            'years' => \Align\Roadmap\Plan::years(),
+            'currentYear' => \Align\Roadmap\Plan::quarters()[\Align\Roadmap\Plan::currentIndex()]['year'],
+            'backupEnabled' => \Align\Backup\Backup::enabled(),
+            'preselect' => (int) query('client'),
         ]);
     }
 

@@ -54,6 +54,8 @@ $cid = (int) $client['id'];
           <?php if (!empty($client['veeam_company_uid'])): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-fw fa-database mr-2"></i>Backup &amp; recovery</a><?php endif; ?>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/export"><i class="fas fa-fw fa-file-csv mr-2"></i>Device list (CSV)</a>
+          <div class="dropdown-divider"></div>
+          <a class="dropdown-item" href="/reports?client=<?= $cid ?>"><i class="fas fa-fw fa-print mr-2"></i>All reports &amp; options…</a>
         </div>
       </div>
       <?php if (Auth::can('tech')): ?>

@@ -127,14 +127,45 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Reports page: build the report URL from the chosen client + type
-  const rf = document.getElementById('report-form');
-  if (rf) {
-    const setAction = () => {
-      rf.action = '/clients/' + document.getElementById('report-client').value + '/report/' + document.getElementById('report-type').value;
+  // Reports page: each card builds its URL from the chosen client (and framework / document)
+  const rc = document.getElementById('report-client');
+  const metaEl = document.getElementById('report-meta');
+  if (rc && metaEl) {
+    let meta = {};
+    try { meta = JSON.parse(metaEl.textContent) || {}; } catch (e) { meta = {}; }
+    const fill = (sel, items) => {
+      sel.textContent = '';
+      items.forEach((it) => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.name; sel.appendChild(o); });
     };
-    rf.addEventListener('submit', setAction);
-    setAction();
+    const refresh = () => {
+      const m = meta[rc.value] || { veeam: false, frameworks: [], documents: [] };
+      document.querySelectorAll('.report-framework').forEach((s) => fill(s, m.frameworks));
+      document.querySelectorAll('.report-document').forEach((s) => fill(s, m.documents));
+      document.querySelectorAll('form.report-card').forEach((f) => {
+        const need = f.dataset.needs;
+        const msg = { veeam: 'This client is not linked to a Veeam company yet (Client mapping).', frameworks: 'No compliance framework is assigned to this client yet.', documents: 'This client has no documents yet.' }[need];
+        const ok = !need || (need === 'veeam' ? m.veeam : (m[need] || []).length > 0);
+        f.querySelector('button').disabled = !ok;
+        const note = f.querySelector('.report-unavailable');
+        if (note) { note.textContent = ok ? '' : msg; note.classList.toggle('d-none', ok); }
+      });
+    };
+    document.querySelectorAll('form.report-card').forEach((f) => {
+      f.addEventListener('submit', (ev) => {
+        const id = rc.value;
+        const r = f.dataset.report;
+        if (r === 'compliance') {
+          f.action = '/clients/' + id + '/compliance/' + f.querySelector('.report-framework').value + '/export';
+        } else if (r === 'document') {
+          f.action = '/documents/' + f.querySelector('.report-document').value + '/print';
+        } else {
+          f.action = '/clients/' + id + r;
+        }
+        if (!id) ev.preventDefault();
+      });
+    });
+    rc.addEventListener('change', refresh);
+    refresh();
   }
 });
 

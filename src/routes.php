@@ -122,6 +122,7 @@ $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
 // Reports
 $r->get('/reports', [ReportController::class, 'index']);
 $r->get('/reports/portfolio', [ReportController::class, 'portfolio']);
+$r->get('/reports/backups', [\Align\Controllers\BackupController::class, 'portfolio']);
 
 // Compliance
 $r->get('/compliance', [ComplianceController::class, 'overview']);

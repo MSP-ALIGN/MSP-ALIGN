@@ -120,4 +120,46 @@ final class BackupController
         flash('success', "{$row['item_name']} marked as not needing a backup.");
         redirect($back);
     }
+
+    /** Internal all-clients backup status (every client linked to a Veeam company). */
+    public static function portfolio(): void
+    {
+        Auth::require();
+        $all = query('all', '1') === '1';
+        $clients = \Align\DB::all('SELECT * FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
+        $byClient = [];
+        foreach ((new Lifecycle())->devices() as $d) {
+            if ($d['client_id']) {
+                $byClient[(int) $d['client_id']][] = $d;
+            }
+        }
+        $rows = [];
+        $unlinked = [];
+        foreach ($clients as $c) {
+            if (empty($c['veeam_company_uid'])) {
+                $unlinked[] = $c['name'];
+                continue;
+            }
+            $devs = array_values(array_filter($byClient[(int) $c['id']] ?? [], fn($d) => $d['status'] !== 'excluded'));
+            $b = \Align\Backup\Backup::forClient($c, $devs);
+            if ($b) {
+                $rows[] = ['client' => $c, 'b' => $b];
+            }
+        }
+        $rank = ['bad' => 0, 'warn' => 1, 'ok' => 2];
+        usort($rows, fn($x, $y) => [$rank[$x['b']['stats']['tone']] ?? 3, $x['client']['name']] <=> [$rank[$y['b']['stats']['tone']] ?? 3, $y['client']['name']]);
+        $shown = $all ? $rows : array_values(array_filter($rows, fn($r) => $r['b']['stats']['tone'] !== 'ok'));
+        Audit::log('report.backups');
+        View::render('reports/backups', [
+            'title' => 'Backup Status — All Clients',
+            'reportTitle' => 'Backup Status',
+            'reportSubtitle' => count($rows) . ' clients linked to Veeam · internal · as of ' . date('F j, Y'),
+            'opt' => ['all' => $all],
+            'optLabels' => ['all' => 'Clients with no problems'],
+            'brand' => ReportController::branding(),
+            'rows' => $rows,
+            'shown' => $shown,
+            'unlinked' => $unlinked,
+        ], 'layout/print');
+    }
 }
