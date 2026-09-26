@@ -17,6 +17,7 @@
 #    ALIGN_FIREWALL=0 (don't manage ufw)  ALIGN_DB_ENCRYPT=0 (skip MariaDB encryption at rest)
 # =============================================================================
 set -Eeuo pipefail
+umask 022
 
 REPO="${ALIGN_REPO:-MountaineerIT/mountaineer-align}"
 BRANCH="${ALIGN_BRANCH:-main}"
@@ -192,7 +193,9 @@ else
   git -C "$APP_DIR" config credential.helper "$CRED_HELPER"
 fi
 chown -R root:root "$APP_DIR"
-chmod -R go-w "$APP_DIR"
+# Readable by everyone (the web server runs as www-data), writable by root only - whatever umask
+# the code was checked out with
+chmod -R u+rwX,go+rX,go-w "$APP_DIR"
 chmod 755 "$APP_DIR/bin/align" "$APP_DIR/scripts/"*.sh "$APP_DIR/scripts/agent.php"
 VERSION=$(cat "$APP_DIR/VERSION")
 

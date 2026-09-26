@@ -331,7 +331,9 @@ function dbDefaults(): string
     $c = conf()['db'];
     $f = RUN . '/db-' . bin2hex(random_bytes(6)) . '.cnf';
     $esc = fn($v) => '"' . addcslashes((string) $v, "\\\"") . '"';
+    $old = umask(077);
     file_put_contents($f, "[client]\nuser=" . $esc($c['user']) . "\npassword=" . $esc($c['pass']) . "\nhost=" . $esc($c['host'] ?? 'localhost') . "\n");
+    umask($old);
     owner($f, 0600, true);
     register_shutdown_function(fn() => @unlink($f));
     return $f;
@@ -727,9 +729,9 @@ function doUpdate(Job $job): array
         }
         $job->step('Downloading the latest version');
         $job->must('git -C ' . q(APP) . ' fetch -q origin ' . q(BRANCH), 'Could not download the update from GitHub.');
-        $job->must('git -C ' . q(APP) . ' reset -q --hard ' . q('origin/' . BRANCH), 'Could not apply the update.');
+        $job->must('umask 022; git -C ' . q(APP) . ' reset -q --hard ' . q('origin/' . BRANCH), 'Could not apply the update.');
         $job->step('Installing ' . version() . ' (packages, database, services)');
-        $job->must(INSTALL_CMD !== '' ? INSTALL_CMD : 'ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade',
+        $job->must(INSTALL_CMD !== '' ? INSTALL_CMD : 'umask 022; ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade',
             'The installer reported an error.' . (is_file($safety) ? ' A safety copy of the data was kept.' : ''));
         $to = version();
         @unlink($safety);
@@ -897,7 +899,9 @@ if (posix_getuid() !== 0 && getenv('ALIGN_AGENT_TEST') !== '1') {
     fwrite(STDERR, "Run as root (sudo).\n");
     exit(1);
 }
-umask(027);
+// 022: code checked out by an update must stay readable by the web server. Files that hold
+// secrets are created under umask 077 or chmod'ed explicitly.
+umask(022);
 date_default_timezone_set((string) (conf()['timezone'] ?? 'UTC'));
 ensureDirs();
 $lock = fopen(STATE . '/agent.lock', 'c');
