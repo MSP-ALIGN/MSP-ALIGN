@@ -65,6 +65,7 @@ $cid = (int) $client['id'];
         <div class="btn-group">
           <button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis-vertical"></i></button>
           <div class="dropdown-menu dropdown-menu-right">
+            <a class="dropdown-item" href="/clients/<?= $cid ?>/onboarding"><i class="fas fa-fw fa-mountain-sun mr-2"></i>Welcome &amp; onboarding…</a>
             <?php if (!$client['planning_excluded']): ?>
               <a class="dropdown-item" href="#" data-toggle="modal" data-target="#modal-exclude"><i class="fas fa-fw fa-eye-slash mr-2"></i>Remove from planning…</a>
             <?php endif; ?>

@@ -101,6 +101,7 @@ final class Dashboard
         'system' => ['Sync & integrations', 'fa-plug'],
         'service' => ['Service levels', 'fa-stopwatch'],
         'backup' => ['Backups', 'fa-database'],
+        'onboarding' => ['Onboarding', 'fa-mountain-sun'],
         'decision' => ['Client decisions', 'fa-circle-question'],
         'meeting' => ['Meetings', 'fa-handshake'],
         'renewal' => ['Renewals', 'fa-calendar-check'],
@@ -170,6 +171,24 @@ final class Dashboard
                 } elseif ($x['warning']) {
                     $add('info', 'backup', $x['warning'] . ' backup job' . ($x['warning'] === 1 ? '' : 's') . ' finished with a warning', 'The last run completed with warnings.', '/clients/' . $id . '/backups', $names[$id]);
                 }
+            }
+        }
+
+        // Onboarding: requests that didn't reach the service desk, and onboardings waiting on the client
+        foreach (DB::all("SELECT client_id, title, created_at FROM service_requests WHERE delivery = 'failed' AND created_at >= ? ORDER BY id DESC LIMIT 10", [date('Y-m-d', strtotime('-14 days'))]) as $r) {
+            $add('bad', 'onboarding', 'Client request not delivered: ' . $r['title'], 'It couldn\'t be sent to ITFlow or by email. Open it and follow up.', '/clients/' . (int) $r['client_id'] . '/onboarding', $names[$r['client_id']] ?? null, $r['created_at']);
+        }
+        foreach (DB::all('SELECT * FROM client_onboardings WHERE sent_at IS NOT NULL AND completed_at IS NULL') as $o) {
+            if (!isset($names[$o['client_id']])) {
+                continue;
+            }
+            $st = \Align\Onboarding\Onboarding::status($o + ['transition' => null]);
+            $age = (time() - strtotime((string) $o['sent_at'])) / 86400;
+            if ($st === 'expired') {
+                $add('warn', 'onboarding', 'Onboarding link expired', 'Sent ' . fmt_date($o['sent_at']) . ' and not finished. Send a new link.', '/clients/' . (int) $o['client_id'] . '/onboarding', $names[$o['client_id']]);
+            } elseif ($age >= 5) {
+                [$done, $total] = \Align\Onboarding\Onboarding::progress($o);
+                $add('info', 'onboarding', $st === 'sent' ? 'Onboarding not opened yet' : "Onboarding $done of $total steps done", 'Welcome email sent ' . fmt_date($o['sent_at']) . '. A quick nudge may help.', '/clients/' . (int) $o['client_id'] . '/onboarding', $names[$o['client_id']], $o['sent_at']);
             }
         }
 

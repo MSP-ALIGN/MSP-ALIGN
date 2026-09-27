@@ -926,3 +926,70 @@ document.addEventListener('click', (ev) => {
   dash.addEventListener('drop', (e) => { if (dragging) { e.preventDefault(); end(); } });
   dash.addEventListener('dragend', end);
 })();
+
+// ---- Onboarding page (1.22): contacts table (add, remove, paste from a spreadsheet) and request forms
+(() => {
+  const form = document.querySelector('[data-contacts-form]');
+  if (form) {
+    const body = form.querySelector('[data-contacts-body]');
+    const tpl = document.getElementById('contact-row-template');
+    const addRow = (vals) => {
+      const row = tpl.content.firstElementChild.cloneNode(true);
+      Object.entries(vals || {}).forEach(([k, v]) => { const el = row.querySelector('[data-f="' + k + '"]'); if (el) el.value = v; });
+      body.appendChild(row);
+      return row;
+    };
+    form.querySelector('[data-contact-add]').addEventListener('click', () => addRow().querySelector('input').focus());
+    body.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-row-delete]');
+      if (del) del.closest('tr').remove();
+    });
+    body.addEventListener('change', (e) => {
+      if (e.target.matches('[data-f="remove"]')) {
+        const tr = e.target.closest('tr');
+        tr.classList.toggle('welcome-removed', e.target.checked);
+        e.target.closest('label').classList.toggle('active', e.target.checked);
+        e.target.closest('label').title = e.target.checked ? 'Keep this person' : 'No longer with the company';
+      }
+    });
+    if (!body.querySelector('tr')) addRow();
+    const pasteBtn = form.querySelector('[data-paste-add]');
+    if (pasteBtn) pasteBtn.addEventListener('click', () => {
+      const ta = document.getElementById('paste-text');
+      let n = 0;
+      ta.value.split(/\r?\n/).forEach((line) => {
+        if (!line.trim()) return;
+        const cells = (line.includes('\t') ? line.split('\t') : line.split(',')).map((c) => c.trim().replace(/^"|"$/g, ''));
+        if (/^first/i.test(cells[0] || '') && /last/i.test(cells[1] || '')) return; // header row
+        // An empty row the page started with gets filled first
+        const blank = [...body.querySelectorAll('tr.welcome-new')].find((tr) => [...tr.querySelectorAll('input:not([type=checkbox])')].every((i) => !i.value));
+        const vals = { first: cells[0] || '', last: cells[1] || '', title: cells[2] || '', phone: cells[3] || '', email: cells[4] || '' };
+        if (blank) Object.entries(vals).forEach(([k, v]) => { blank.querySelector('[data-f="' + k + '"]').value = v; }); else addRow(vals);
+        n++;
+      });
+      form.querySelector('[data-paste-result]').textContent = n ? n + ' added below. Check them, then save.' : 'Nothing to add.';
+      if (n) ta.value = '';
+    });
+    form.addEventListener('submit', () => {
+      const rows = [...body.querySelectorAll('tr[data-contact-row]')].map((tr) => {
+        const r = {};
+        tr.querySelectorAll('[data-f]').forEach((el) => { r[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value; });
+        return r;
+      });
+      form.querySelector('[name="contacts_json"]').value = JSON.stringify(rows);
+      // Send the table as one field (keeps long lists under the server's form limit)
+      body.querySelectorAll('input[name]').forEach((el) => { el.disabled = true; });
+    });
+  }
+  document.querySelectorAll('[data-access-add]').forEach((btn) => btn.addEventListener('click', () => {
+    const list = btn.parentElement.querySelector('[data-access-list]');
+    const rows = list.querySelectorAll('[data-access-row]');
+    if (rows.length >= 10) return;
+    const row = rows[0].cloneNode(true);
+    row.querySelectorAll('input, select').forEach((el) => {
+      el.name = el.name.replace(/\[\d+\]/, '[' + rows.length + ']');
+      if (el.tagName === 'INPUT') el.value = ''; else el.selectedIndex = 0;
+    });
+    list.appendChild(row);
+  }));
+})();

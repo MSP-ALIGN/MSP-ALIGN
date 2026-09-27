@@ -35,6 +35,15 @@ if ($path === '/mock/software-edit' || $path === '/mock/software-delete') {
     $json(['ok' => true]);
     return;
 }
+if ($path === '/mock/tickets-created' || $path === '/mock/ticket-create-fail') {
+    $st = $loadState();
+    if ($path === '/mock/ticket-create-fail') {
+        $st['ticket_create_fail'] = !empty((json_decode((string) file_get_contents('php://input'), true) ?: [])['on']);
+        $saveState($st);
+    }
+    $json(['created' => $st['tickets_created'] ?? []]);
+    return;
+}
 if (in_array($path, ['/mock/ticket-edit', '/mock/ticket-delete', '/mock/tickets-new', '/mock/tickets-nosla', '/mock/tickets-calls'], true)) {
     $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
     $st = $loadState();
@@ -573,10 +582,22 @@ switch (true) {
             $saveState($st);
             $json(['success' => 'True', 'count' => 1]);
             break;
+        } elseif ($path === '/api/v1/tickets/create.php' && $method === 'POST') {
+            $st = $loadState();
+            if (!empty($st['ticket_create_fail'])) {
+                $json(['success' => 'False', 'message' => 'Mock: ticket create refused']);
+                break;
+            }
+            $id = 50000 + count($st['tickets_created'] ?? []);
+            $st['tickets_created'][] = ['ticket_id' => $id] + $body;
+            unset($st['tickets_created'][count($st['tickets_created']) - 1]['api_key']);
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1, 'data' => [['insert_id' => $id]]]);
+            break;
         } elseif ($path === '/api/v1/contacts/create.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['contact_create' => $body]) . "\n", FILE_APPEND);
             $st = $loadState();
-            $id = 100000 + (int) (microtime(true) * 10) % 900000;
+            $id = 100000 + (int) (microtime(true) * 10) % 800000 + count($st['contacts_created'] ?? []);
             $row = ['contact_id' => $id, 'contact_client_id' => (int) ($body['client_id'] ?? 0), 'contact_archived_at' => null];
             foreach ($body as $k => $v) {
                 if (str_starts_with((string) $k, 'contact_')) {

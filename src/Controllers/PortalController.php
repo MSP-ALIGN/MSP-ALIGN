@@ -457,6 +457,42 @@ final class PortalController
         redirect('/portal/contacts');
     }
 
+    /** New user / termination request forms (portal users who can edit contacts). */
+    public static function requests(): void
+    {
+        $pu = self::requireRequests();
+        self::render('requests', ['title' => 'Requests', 'nav' => 'requests', 'requests' => \Align\Onboarding\Requests::forClient((int) $pu['client_id'], 15)], $pu);
+    }
+
+    public static function requestSubmit(string $kind): void
+    {
+        $pu = self::requireRequests();
+        if (!isset(\Align\Onboarding\Requests::FORMS[$kind])) {
+            redirect('/portal/requests');
+        }
+        [$data, $errors] = \Align\Onboarding\Requests::validate($kind, $_POST);
+        if ($errors) {
+            flash('error', implode(' ', $errors));
+            redirect('/portal/requests');
+        }
+        $r = \Align\Onboarding\Requests::submit(self::client($pu), $kind, $data, ['name' => $pu['name'], 'email' => $pu['email'], 'portal_user_id' => (int) $pu['id'], 'via' => 'portal']);
+        flash($r['delivery'] === 'failed' ? 'error' : 'success', $r['delivery'] === 'failed'
+            ? 'We saved your request but couldn\'t send it to the service desk automatically. Please call us so nothing is missed.'
+            : 'Request sent: ' . $r['title'] . '. Your IT team will follow up.');
+        redirect('/portal/requests');
+    }
+
+    private static function requireRequests(): array
+    {
+        $pu = PortalAuth::require('can_documents');
+        if (!$pu['can_contacts'] || !\Align\Onboarding\Requests::enabled()) {
+            http_response_code(403);
+            self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can\'t send requests. Contact your IT provider.'], $pu);
+            exit;
+        }
+        return $pu;
+    }
+
     public static function meetings(): void
     {
         $pu = PortalAuth::require('can_documents');

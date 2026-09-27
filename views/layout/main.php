@@ -50,6 +50,8 @@ $navSections = [
 // Client menu in workflow order: who they are and what they have -> compliance -> plan -> meet.
 $clientMenu = $client ? [
     ['overview', '/clients/' . (int) $client['id'], 'Overview', 'fa-tachometer-alt'],
+    ...(($onb = \Align\DB::one('SELECT completed_at FROM client_onboardings WHERE client_id = ?', [(int) $client['id']])) && (!$onb['completed_at'] || strtotime($onb['completed_at']) > strtotime('-30 days')) || $clientNav === 'onboarding'
+        ? [['onboarding', '/clients/' . (int) $client['id'] . '/onboarding', 'Onboarding', 'fa-mountain-sun', 'viewer', $onb && !$onb['completed_at'] ? 'open' : null]] : []),
     ['contacts', '/clients/' . (int) $client['id'] . '/contacts', 'Contacts', 'fa-address-book'],
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
     ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],

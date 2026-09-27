@@ -265,6 +265,26 @@ final class Itflow
         return $id;
     }
 
+    /** Creates a ticket for the client. Returns the ITFlow ticket_id. */
+    public function createTicket(int $clientId, string $subject, string $detailsHtml, string $priority = 'Medium', ?int $contactId = null): int
+    {
+        $body = ['api_key' => $this->apiKey, 'client_id' => $clientId, 'ticket_subject' => $subject, 'ticket_details' => $detailsHtml,
+            'ticket_priority' => in_array($priority, ['Low', 'Medium', 'High', 'Urgent'], true) ? $priority : 'Medium'];
+        if ($contactId) {
+            $body['ticket_contact_id'] = $contactId;
+        }
+        $r = $this->http->request('POST', "{$this->baseUrl}/api/v1/tickets/create.php", ['Content-Type' => 'application/json', 'Accept' => 'application/json'], json_encode($body));
+        $j = $r['json'] ?? [];
+        if (($j['success'] ?? 'False') !== 'True') {
+            throw new \RuntimeException('ITFlow refused the ticket: ' . ($j['message'] ?? 'unknown error'));
+        }
+        $id = (int) ($j['data'][0]['insert_id'] ?? $j['insert_id'] ?? 0);
+        if (!$id) {
+            throw new \RuntimeException('ITFlow created the ticket but did not return its ID.');
+        }
+        return $id;
+    }
+
     public function test(): string
     {
         $rows = $this->read('clients', ['limit' => 1]);

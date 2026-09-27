@@ -13,6 +13,7 @@ $items = $pu ? array_filter([
     ['documents', '/portal/documents', 'Documents', 'fa-file-lines', $pu['can_documents']],
     ['contacts', '/portal/contacts', 'Contacts', 'fa-address-book', $pu['can_documents']],
     ['meetings', '/portal/meetings', 'Meetings', 'fa-handshake', $pu['can_documents']],
+    ['requests', '/portal/requests', 'Requests', 'fa-user-plus', $pu['can_contacts'] && \Align\Onboarding\Requests::enabled()],
 ], fn($i) => $i[4]) : [];
 $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $pu['logo_file']]) : null;
 ?><!doctype html>

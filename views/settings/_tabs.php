@@ -5,6 +5,7 @@ $tabs = [
     'planning' => ['/settings/planning', 'Planning & lifecycle', 'fa-recycle'],
     'os' => ['/settings/os', 'OS support dates', 'fa-windows fab'],
     'notifications' => ['/settings/notifications', 'Notifications', 'fa-bell'],
+    'onboarding' => ['/settings/onboarding', 'Onboarding', 'fa-mountain-sun'],
     'branding' => ['/settings/branding', 'Branding', 'fa-palette'],
     'system' => ['/settings/system', 'Updates & backups', 'fa-arrows-rotate'],
 ];
@@ -16,5 +17,5 @@ $newer = \Align\System\Agent::updateAvailable();
     <li class="nav-item"><a class="nav-link<?= $tab === $k ? ' active' : '' ?>" href="<?= $href ?>"<?= $tab === $k ? ' aria-current="page"' : '' ?>><i class="<?= str_contains($icon, 'fab') ? $icon : 'fas ' . $icon ?> fa-fw mr-1"></i><?= e($label) ?><?= $k === 'system' && $newer ? ' <span class="badge badge-info">new</span>' : '' ?></a></li>
   <?php endforeach; ?>
   <li class="nav-item ml-auto"><a class="nav-link" href="/integrations"><i class="fas fa-plug fa-fw mr-1"></i>Integrations</a></li>
-  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="sr-only">Help</span></a></li>
+  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'onboarding' => 'onboarding'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="sr-only">Help</span></a></li>
 </ul>
