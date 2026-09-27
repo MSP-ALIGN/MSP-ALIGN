@@ -67,7 +67,18 @@ final class DashboardController
             $planning[] = ['client' => $c, 'done' => $r['done'], 'total' => $r['total'], 'next' => $next];
         }
         usort($planning, fn($a, $b) => [$a['done'] / max(1, $a['total']), $a['client']['name']] <=> [$b['done'] / max(1, $b['total']), $b['client']['name']]);
+        $layout = \Align\Dashboard\Dashboard::layout();
+        $show = array_flip(\Align\Dashboard\Dashboard::visible($layout));
+        $lastSync = DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1');
+        $unmapped = (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'itflow'");
+        $unassigned = (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL');
+        $contract90 = isset($show['renewals']) || isset($show['kpis']) ? \Align\Budget\Contracts::upcoming(null, 90, date('Y-m-d')) : [];
+        $sla = isset($show['sla']) || isset($show['kpis']) ? self::slaSummary() : null;
+        $complianceAvg = $scores ? (int) round(array_sum($scores) / count($scores)) : null;
+        $upcomingCount = (int) DB::value("SELECT COUNT(*) FROM meetings WHERE status = 'scheduled' AND starts_at >= NOW() AND starts_at < ?", [date('Y-m-d', strtotime('+30 days'))]);
         View::render('dashboard', [
+            'layout' => $layout,
+            'show' => $show,
             'planning' => $planning,
             'setup' => \Align\Workflow\Readiness::setup(),
             'title' => 'Dashboard',
@@ -77,12 +88,10 @@ final class DashboardController
             'unplanned' => $unplanned,
             'contractDates' => array_values(array_filter(\Align\Budget\Contracts::upcoming(null, 90), fn($d) => $d['urgency'] !== 'later')),
             'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 8),
-            'lastSync' => DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1'),
-            'unmapped' => (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'itflow'"),
-            'unassigned' => (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL'),
-            'configured' => DB::value("SELECT COUNT(*) FROM settings WHERE name IN ('ninja_client_secret','itflow_api_key')") == 2,
+            'lastSync' => $lastSync,
             'upcoming' => DB::all("SELECT m.*, c.name AS client_name FROM meetings m LEFT JOIN clients c ON c.id = m.client_id
                 WHERE m.status = 'scheduled' AND m.starts_at >= NOW() AND m.starts_at < ? ORDER BY m.starts_at LIMIT 8", [date('Y-m-d', strtotime('+30 days'))]),
+            'upcomingCount' => $upcomingCount,
             // Things clients did in the portal that staff should act on (last 30 days)
             'clientActivity' => DB::all("SELECT a.action, a.detail, a.created_at, p.name AS portal_name, p.client_id, c.name AS client_name FROM audit_log a
                 JOIN portal_users p ON p.id = a.portal_user_id JOIN clients c ON c.id = p.client_id
@@ -91,11 +100,31 @@ final class DashboardController
             'overdueMeetings' => array_slice($overdue, 0, 8),
             'overdueCount' => count($overdue),
             'clientCount' => count($names),
-            'complianceAvg' => $scores ? (int) round(array_sum($scores) / count($scores)) : null,
-            'complianceCount' => count($scores),
-            'backupIssues' => self::backupIssues(),
-            'sla' => self::slaSummary(),
+            'backupIssues' => isset($show['backups']) ? self::backupIssues() : [],
+            'sla' => $sla,
+            'attention' => isset($show['attention']) ? \Align\Dashboard\Dashboard::attention([
+                'devices' => $devices, 'overdue' => $overdue, 'lastSync' => $lastSync, 'unmapped' => $unmapped, 'unassigned' => $unassigned,
+            ]) : [],
+            'kpis' => isset($show['kpis']) ? \Align\Dashboard\Dashboard::kpis([
+                'summary' => $summary, 'overdueCount' => count($overdue), 'upcomingCount' => $upcomingCount, 'complianceAvg' => $complianceAvg,
+                'complianceCount' => count($scores), 'forecast' => $forecast, 'planning' => $planning, 'contractDates90' => $contract90, 'sla' => $sla,
+            ]) : [],
         ]);
+    }
+
+    /** Saves the signed-in user's dashboard layout (POST layout = JSON {order:{top,main,side}, hidden:[]}, or reset=1). */
+    public static function saveLayout(): void
+    {
+        $u = Auth::require();
+        header('Content-Type: application/json');
+        $in = json_decode(post('layout'), true);
+        if (!post('reset') && !is_array($in)) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'Invalid layout.']);
+            return;
+        }
+        \Align\Dashboard\Dashboard::save((int) $u['id'], post('reset') ? null : $in);
+        echo json_encode(['ok' => true]);
     }
 
     /** Service levels across clients for the last 90 days, or null when SLA reporting isn't available. */

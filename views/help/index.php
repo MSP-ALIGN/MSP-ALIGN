@@ -62,6 +62,11 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     <span class="small text-muted">Click a guide to open it.<?= $isAdmin ? '' : ' Some tasks need a tech or admin account.' ?></span>
   </div>
   <h6 class="text-uppercase text-muted small font-weight-bold mt-3">Clients &amp; planning</h6>
+  <?= $guide('dashboard', 'fa-gauge-high', 'Use and customize the dashboard', 'viewer', [
+      '<b>Needs attention</b> at the top lists what to act on across every client, most urgent first (red, then amber, then blue). Use the buttons to show one area, such as Backups or Renewals. Each line opens the page that fixes it.',
+      '<b>Portfolio health</b> has four groups of tiles: service &amp; backups, lifecycle &amp; security, client engagement and money. Each tile opens the matching list or report.',
+      'Press <b>Customize</b> to drag cards by the handle (or use the arrows) into the order you want, across the full-width row and the two columns, and the eye button to hide a card. Hidden cards are listed in the Customize bar to add back. Press <b>Done</b> to save; <b>Reset to default</b> restores the standard layout. Everyone has their own layout.',
+  ], ['Dashboard' => '/']) ?>
   <?= $guide('add-client', 'fa-user-plus', 'Add a client or take one out of planning', 'tech', [
       'Clients from ITFlow appear on their own after a sync. To add one by hand: <b>Clients → New client</b> (or the <b>+</b> menu at the top).',
       'A hand-added client links to ITFlow automatically when a client with the same name shows up there.',
@@ -191,7 +196,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 <div class="tab-pane fade" id="tab-menus" role="tabpanel">
   <div class="row">
     <?php foreach ([
-        ['fa-gauge-high', 'Top', [['Dashboard', 'What needs attention across all clients, the 3-year plan and each client\'s planning progress.'], ['Clients', 'Every client. Open one for its own menu: overview, contacts, devices, licensing, backups, compliance, documents, roadmap, budget, meetings and client portal.'], ['Contacts', 'Everyone at every client, searchable.']]],
+        ['fa-gauge-high', 'Top', [['Dashboard', 'Needs attention (one list across every client), portfolio health tiles, the 3-year plan and the rest of your cards. Customize to reorder or hide cards.'], ['Clients', 'Every client. Open one for its own menu: overview, contacts, devices, licensing, backups, compliance, documents, roadmap, budget, meetings and client portal.'], ['Contacts', 'Everyone at every client, searchable.']]],
         ['fa-diagram-project', 'Planning', [['Projects', 'All projects across clients by quarter.'], ['Budgets', 'Every client\'s technology budget side by side.'], ['Licensing', 'Every license, with prices and contract dates.'], ['Renewals', 'Licenses and contracts ending or up for renegotiation.']]],
         ['fa-handshake', 'Meetings & reports', [['Meetings', 'Upcoming and past meetings, with the calendar as a second tab.'], ['Reports', 'Pick a client and open any report: QBR pack, assets, roadmap, budget, backups, compliance.']]],
         ['fa-clipboard-check', 'Compliance', [['Compliance', 'Scores for every client and framework (admins also see the Frameworks tab).'], ['Documents', 'Internal and client documents, policies and templates.']]],

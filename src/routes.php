@@ -31,6 +31,7 @@ $r->post('/logout', [AuthController::class, 'logout']);
 $r->get('/session/ping', [AuthController::class, 'ping']);
 
 $r->get('/', [DashboardController::class, 'index']);
+$r->post('/dashboard/layout', [DashboardController::class, 'saveLayout']);
 
 // Clients
 $r->get('/clients', [ClientController::class, 'index']);

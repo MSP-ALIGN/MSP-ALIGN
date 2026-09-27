@@ -811,3 +811,118 @@ document.addEventListener('click', (ev) => {
   modalEl.querySelector('[data-move-reset]').addEventListener('click', () => send(''));
   modalEl.querySelector('#move-note').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(target.start); } });
 })();
+
+// ---- Dashboard (1.21): "Needs attention" filters, and Customize (reorder / hide cards, saved per user)
+(() => {
+  const list = document.querySelector('.dash-att-list');
+  if (list) {
+    const limit = parseInt(list.dataset.attLimit || '8', 10);
+    let filter = '';
+    let all = false;
+    const more = document.querySelector('[data-att-more]');
+    const apply = () => {
+      let shown = 0;
+      list.querySelectorAll('li[data-att-cat]').forEach((li) => {
+        const match = !filter || li.dataset.attCat === filter;
+        const visible = match && (all || filter || shown < limit);
+        li.hidden = !visible;
+        if (visible) shown++;
+      });
+      if (more) more.closest('.card-footer').hidden = all || !!filter;
+    };
+    document.querySelectorAll('[data-att-filter]').forEach((b) => b.addEventListener('click', () => {
+      filter = b.dataset.attFilter;
+      document.querySelectorAll('[data-att-filter]').forEach((x) => {
+        x.classList.toggle('btn-primary', x === b);
+        x.classList.toggle('btn-outline-secondary', x !== b);
+      });
+      apply();
+    }));
+    if (more) more.addEventListener('click', () => { all = true; apply(); });
+    apply();
+  }
+
+  const dash = document.getElementById('dash');
+  const btn = document.getElementById('dash-customize');
+  const bar = document.getElementById('dash-editbar');
+  if (!dash || !btn || !bar) return;
+  const layout = JSON.parse(dash.dataset.layout || '{}');
+  const zones = [...dash.querySelectorAll('.dash-zone')];
+  const collect = () => {
+    const order = {};
+    zones.forEach((z) => { order[z.dataset.zone] = [...z.querySelectorAll(':scope > .dash-card')].map((c) => c.dataset.card); });
+    // Hidden cards aren't on the page: keep them at the end of the zone they were in
+    (layout.hidden || []).forEach((k) => {
+      const z = Object.keys(layout.order).find((zz) => layout.order[zz].includes(k)) || 'side';
+      if (!order[z].includes(k)) order[z].push(k);
+    });
+    return { order, hidden: layout.hidden || [] };
+  };
+  const save = (data, reload) => {
+    const body = new URLSearchParams({ _csrf: bar.dataset.csrf });
+    if (data === null) body.append('reset', '1'); else body.append('layout', JSON.stringify(data));
+    return fetch('/dashboard/layout', { method: 'POST', credentials: 'same-origin', body, headers: { Accept: 'application/json' } })
+      .then((r) => r.json()).then((j) => { if (j.ok && reload) location.reload(); return j; });
+  };
+  const setEditing = (on) => {
+    document.body.classList.toggle('dash-editing', on);
+    bar.hidden = !on;
+    btn.hidden = on;
+    dash.querySelectorAll('.dash-grip').forEach((g) => g.setAttribute('draggable', on ? 'true' : 'false'));
+  };
+  btn.addEventListener('click', () => setEditing(true));
+  document.getElementById('dash-done').addEventListener('click', () => { save(collect(), false).then(() => setEditing(false)); });
+  document.getElementById('dash-reset').addEventListener('click', () => save(null, true));
+  bar.querySelectorAll('[data-dash-show]').forEach((b) => b.addEventListener('click', () => {
+    const d = collect();
+    d.hidden = d.hidden.filter((k) => k !== b.dataset.dashShow);
+    save(d, true);
+  }));
+  dash.addEventListener('click', (e) => {
+    const card = e.target.closest('.dash-card');
+    if (!card || !document.body.classList.contains('dash-editing')) return;
+    if (e.target.closest('[data-dash-hide]')) {
+      layout.hidden = [...(layout.hidden || []), card.dataset.card];
+      const d = collect();
+      const z = card.closest('.dash-zone').dataset.zone;
+      if (!d.order[z].includes(card.dataset.card)) d.order[z].push(card.dataset.card);
+      save(d, true);
+      return;
+    }
+    const mv = e.target.closest('[data-dash-move]');
+    if (mv) {
+      // Up/down walks through all cards in page order, crossing from top to main to side
+      const all = zones.flatMap((z) => [...z.querySelectorAll(':scope > .dash-card')]);
+      const i = all.indexOf(card);
+      const j = i + parseInt(mv.dataset.dashMove, 10);
+      if (j < 0 || j >= all.length) return;
+      const other = all[j];
+      if (mv.dataset.dashMove === '-1') other.before(card); else other.after(card);
+      mv.focus();
+    }
+  });
+  let dragging = null;
+  dash.addEventListener('dragstart', (e) => {
+    const grip = e.target.closest && e.target.closest('.dash-grip');
+    if (!grip || !document.body.classList.contains('dash-editing')) return;
+    dragging = grip.closest('.dash-card');
+    dragging.classList.add('dash-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragging.dataset.card);
+    try { e.dataTransfer.setDragImage(dragging, 20, 20); } catch (err) { /* older browsers */ }
+  });
+  dash.addEventListener('dragover', (e) => {
+    if (!dragging) return;
+    const z = e.target.closest('.dash-zone');
+    if (!z) return;
+    e.preventDefault();
+    const after = [...z.querySelectorAll(':scope > .dash-card:not(.dash-dragging)')].find((c) => {
+      const r = c.getBoundingClientRect();
+      return e.clientY < r.top + r.height / 2;
+    });
+    if (after) after.before(dragging); else z.appendChild(dragging);
+  });
+  const end = () => { if (dragging) dragging.classList.remove('dash-dragging'); dragging = null; };
+  dash.addEventListener('drop', (e) => { if (dragging) { e.preventDefault(); end(); } });
+  dash.addEventListener('dragend', end);
+})();
