@@ -166,6 +166,7 @@ final class Job
     public function step(string $msg): void
     {
         $this->s['step'] = $msg;
+        $this->s['step_at'] = now();
         $this->line('==> ' . $msg);
         $this->save();
         maintenanceMessage($msg);
@@ -277,6 +278,7 @@ function maintenanceMessage(string $msg): void
     $m = readJson(STATE . '/maintenance.json');
     if ($m && (int) $m['pid'] === getmypid()) {
         $m['step'] = $msg;
+        $m['step_at'] = now();
         writeJson(STATE . '/maintenance.json', $m, 0644);
     }
 }

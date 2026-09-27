@@ -522,6 +522,71 @@ document.addEventListener('click', (ev) => {
   apply();
 })();
 
+// Updates & restores: a full-screen "please wait" panel with a progress bar
+const jobOverlay = (() => {
+  const ov = document.getElementById('job-overlay');
+  if (!ov) return null;
+  const q = (s) => ov.querySelector(s);
+  let t0 = Date.now(), timer = null, shown = 0;
+  const fmt = (s) => (s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' s' : s + ' s');
+  const clock = () => { q('[data-ov-time]').textContent = fmt(Math.round((Date.now() - t0) / 1000)); };
+  const api = {
+    show(title, step, elapsed) {
+      if (title) q('[data-ov-title]').textContent = title;
+      if (step) q('[data-ov-step]').textContent = step + '…';
+      if (typeof elapsed === 'number') t0 = Date.now() - elapsed * 1000;
+      ov.hidden = false;
+      if (!timer) { clock(); timer = setInterval(clock, 1000); }
+    },
+    update(pct, step, elapsed) {
+      if (ov.hidden) return;
+      if (typeof pct === 'number') {
+        shown = Math.max(shown, Math.min(99, pct)); // never goes backwards
+        q('[data-ov-bar]').style.width = shown + '%';
+        q('[data-ov-pct]').textContent = String(shown);
+      }
+      if (step) q('[data-ov-step]').textContent = step + '…';
+      if (typeof elapsed === 'number' && elapsed > 0) t0 = Date.now() - elapsed * 1000;
+    },
+    note(text) { q('[data-ov-note]').textContent = text; },
+    done(title) {
+      shown = 100;
+      q('[data-ov-bar]').style.width = '100%';
+      q('[data-ov-bar]').classList.remove('progress-bar-animated');
+      q('[data-ov-bar]').classList.add('bg-success');
+      q('[data-ov-pct]').textContent = '100';
+      q('[data-ov-icon]').className = 'fas fa-circle-check fa-2x text-success mb-3';
+      q('[data-ov-title]').textContent = title || 'Finished';
+      q('[data-ov-step]').textContent = 'Done';
+      q('[data-ov-note]').textContent = 'Reloading…';
+      clearInterval(timer);
+    },
+    fail(message) {
+      q('[data-ov-bar]').classList.remove('progress-bar-animated');
+      q('[data-ov-bar]').classList.add('bg-danger');
+      q('[data-ov-icon]').className = 'fas fa-triangle-exclamation fa-2x text-danger mb-3';
+      q('[data-ov-title]').textContent = 'That didn\'t work';
+      q('[data-ov-sub]').textContent = message || 'The job stopped with an error.';
+      q('[data-ov-note]').textContent = 'Nothing was lost: the details below show what happened.';
+      q('[data-ov-actions]').hidden = false;
+      clearInterval(timer);
+    },
+    hide() { ov.hidden = true; clearInterval(timer); timer = null; },
+  };
+  q('[data-ov-close]').addEventListener('click', () => api.hide());
+  // Show it the moment Update or Restore is pressed, before the page changes
+  document.querySelectorAll('form[action="/settings/system/update"], form[action="/settings/system/restore"]').forEach((f) => f.addEventListener('submit', () => {
+    const confirm = f.querySelector('[name=confirm]');
+    if (confirm && !confirm.checked) return; // the server explains what's missing
+    const restore = f.action.endsWith('/restore');
+    t0 = Date.now();
+    api.show(restore ? 'Restoring from the backup' : 'Updating Mountaineer Align', 'Starting', 0);
+    api.update(1);
+  }));
+  if (!ov.hidden) api.show();
+  return api;
+})();
+
 // Updates & backups: follow a job's progress, download a finished backup, upload with progress
 (() => {
   const box = document.querySelector('[data-job-watch]');
@@ -530,7 +595,7 @@ document.addEventListener('click', (ev) => {
     const $ = (s) => box.querySelector(s);
     const badges = { succeeded: ['success', 'Done'], failed: ['danger', 'Failed'], running: ['primary', 'Running'], queued: ['secondary', 'Queued'] };
     const dl = box.querySelector('[data-job-download]');
-    let done = false, sawMaintenance = false, started = false, downloaded = false;
+    let done = false, sawMaintenance = false, started = false, downloaded = false, fails = 0;
     const setState = (s) => {
       const [c, t] = badges[s] || ['secondary', s];
       const b = $('[data-job-state]');
@@ -565,6 +630,11 @@ document.addEventListener('click', (ev) => {
       el.appendChild(dlist);
     };
     const render = (j) => {
+      if (jobOverlay) {
+        jobOverlay.update(j.percent, j.step, j.elapsed);
+        if (fails >= 2) jobOverlay.note('Keep this tab open. It refreshes on its own when everything is finished; you don\'t need to do anything.');
+      }
+      fails = 0;
       setState(j.state);
       if (j.label) $('[data-job-label]').textContent = j.label;
       $('[data-job-step]').textContent = j.step || '';
@@ -580,6 +650,10 @@ document.addEventListener('click', (ev) => {
     };
     const finish = (j) => {
       done = true;
+      if (jobOverlay && ['update', 'restore'].includes(j.action)) {
+        if (j.state === 'succeeded') jobOverlay.done(j.action === 'update' ? 'Update complete' : 'Restore complete');
+        else jobOverlay.fail(j.message);
+      }
       if (j.download && dl) {
         dl.classList.remove('d-none');
         if (started && !downloaded) { downloaded = true; dl.submit(); }
@@ -598,12 +672,15 @@ document.addEventListener('click', (ev) => {
               setState('succeeded');
               $('[data-job-step]').textContent = 'Finished.';
               $('[data-job-message]').innerHTML = 'Everyone was signed out. <a href="/login">Sign in again</a> to see the result.';
+              if (jobOverlay) { jobOverlay.done('Restore complete'); jobOverlay.note('Everyone was signed out. Taking you to sign in…'); setTimeout(() => location.replace('/login'), 2500); }
             }
             return;
           }
           const j = await r.json();
           if (j.maintenance) {
             sawMaintenance = true;
+            fails = 0;
+            if (jobOverlay) jobOverlay.update(j.percent, j.step, j.elapsed);
             setState('running');
             $('[data-job-step]').textContent = j.step || j.message;
             return;
@@ -613,7 +690,11 @@ document.addEventListener('click', (ev) => {
           if (j.state === 'succeeded' || j.state === 'failed') finish(j);
           else started = true;
         })
-        .catch(() => {})
+        .catch(() => {
+          // The web server restarts during an update: keep waiting
+          fails++;
+          if (jobOverlay && fails >= 2) jobOverlay.note('Restarting the web server… this page reconnects on its own.');
+        })
         .finally(() => { if (!done) setTimeout(tick, 1500); });
     };
     const st = $('[data-job-state]').textContent.trim();

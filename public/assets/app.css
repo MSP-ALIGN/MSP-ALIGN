@@ -460,3 +460,11 @@ body.dash-editing .dash-card > .row .card { margin-bottom: 0; }
   .welcome-contacts td [data-f=email] { min-width: 190px; }
   .welcome-contacts td [data-f=title], .welcome-contacts td [data-f=phone], .welcome-contacts td [data-f=mobile] { min-width: 115px; }
 }
+
+/* Update / restore progress (1.23) */
+.progress-update { height: 14px; border-radius: 7px; background: #e9edf2; }
+.progress-update .progress-bar { transition: width 1.2s ease-out; border-radius: 7px; }
+.job-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(20, 28, 38, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.job-overlay[hidden] { display: none; }
+.job-overlay-card { width: 480px; max-width: 100%; margin: 0; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+@media (prefers-reduced-motion: reduce) { .progress-update .progress-bar { transition: none; } }

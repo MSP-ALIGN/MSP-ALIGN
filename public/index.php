@@ -43,11 +43,15 @@ if ($maint = Align\System\Agent::maintenance()) {
     $msg = ($maint['action'] ?? '') === 'restore' ? 'is being restored from a backup' : 'is being updated';
     if (str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')) {
         header('Content-Type: application/json');
-        echo json_encode(['maintenance' => true, 'job' => $maint['job'] ?? null, 'step' => $maint['step'] ?? '', 'message' => APP_NAME . ' ' . $msg . '.']);
+        echo json_encode(['maintenance' => true, 'job' => $maint['job'] ?? null, 'step' => $maint['step'] ?? '', 'message' => APP_NAME . ' ' . $msg . '.',
+            'percent' => Align\System\Agent::progress((string) ($maint['action'] ?? ''), 'running', (string) ($maint['step'] ?? 'Starting'), $maint['step_at'] ?? null, $maint['since'] ?? null),
+            'elapsed' => max(0, time() - (strtotime((string) ($maint['since'] ?? '')) ?: time()))]);
         exit;
     }
     // No database use here: during a restore the tables are being replaced
-    View::render('maintenance', ['message' => $msg, 'step' => (string) ($maint['step'] ?? '')], null);
+    View::render('maintenance', ['message' => $msg, 'step' => (string) ($maint['step'] ?? ''), 'action' => (string) ($maint['action'] ?? ''),
+        'percent' => Align\System\Agent::progress((string) ($maint['action'] ?? ''), 'running', (string) ($maint['step'] ?? 'Starting'), $maint['step_at'] ?? null, $maint['since'] ?? null),
+        'elapsed' => max(0, time() - (strtotime((string) ($maint['since'] ?? '')) ?: time()))], null);
     exit;
 }
 

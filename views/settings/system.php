@@ -16,6 +16,25 @@ $info = $upload['info'] ?? null;
     <code class="d-block mt-1">sudo mountaineer-align-update</code></div>
 <?php endif; ?>
 
+<?php $overlayOn = $watchJob && in_array($watchJob['action'] ?? '', ['update', 'restore'], true) && in_array($watchJob['state'], ['running', 'queued'], true); ?>
+<div class="job-overlay" id="job-overlay" <?= $overlayOn ? '' : 'hidden' ?> role="dialog" aria-modal="true" aria-labelledby="job-overlay-title" aria-live="polite">
+  <div class="job-overlay-card card card-outline card-primary">
+    <div class="card-body py-4">
+      <div class="text-center">
+        <i class="fas fa-gear fa-spin fa-2x text-primary mb-3" data-ov-icon></i>
+        <h2 class="h5 mb-1" id="job-overlay-title" data-ov-title><?= ($watchJob['action'] ?? '') === 'restore' ? 'Restoring from the backup' : 'Updating ' . e(APP_NAME) ?></h2>
+        <p class="text-muted mb-3" data-ov-sub>Please wait. This usually takes a few minutes.</p>
+      </div>
+      <div class="progress progress-update mb-1" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" data-ov-bar style="width: 2%"></div>
+      </div>
+      <div class="d-flex small text-muted mb-3"><span class="mr-auto" data-ov-step><?= e(($watchJob['step'] ?? '') ?: 'Starting') ?>…</span><span><span data-ov-pct>2</span>% · <span data-ov-time>0 s</span></span></div>
+      <p class="small mb-0 text-center" data-ov-note><i class="fas fa-rotate mr-1 text-muted"></i>Keep this tab open. It refreshes on its own when everything is finished; you don't need to do anything.</p>
+      <div class="text-center mt-3" data-ov-actions hidden><button type="button" class="btn btn-sm btn-default" data-ov-close>Close and see details</button></div>
+    </div>
+  </div>
+</div>
+
 <?php if ($watchJob): ?>
   <div class="card card-outline card-<?= $stateBadge($watchJob['state']) ?>" data-job-watch="<?= e($watchId) ?>" data-job-action="<?= e($watchJob['action'] ?? '') ?>">
     <div class="card-header py-2 d-flex align-items-center">

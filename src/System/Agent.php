@@ -154,6 +154,44 @@ final class Agent
         return self::json(self::state('system.json'));
     }
 
+    /**
+     * Stages of the long-running jobs as [step prefix, from %, to %, seconds to cover most of the range].
+     * The bar moves through each stage over time (it slows down near the end of a stage, never passes it),
+     * so it keeps moving during long steps like installing, and jumps ahead when the agent starts the next one.
+     */
+    private const STAGES = [
+        'update' => [
+            ['Starting', 1, 6, 5], ['Making a safety copy', 6, 10, 5], ['Backing up the database', 10, 26, 25], ['Backing up uploaded files', 26, 34, 15],
+            ['Downloading the latest version', 34, 44, 15], ['Installing', 44, 93, 70], ['Checking for newer updates', 93, 98, 8],
+        ],
+        'restore' => [
+            ['Starting', 1, 4, 5], ['Checking', 4, 8, 10], ['Making a safety copy', 8, 10, 5], ['Backing up the database', 10, 22, 25], ['Backing up uploaded files', 22, 28, 15],
+            ['Restoring the database', 28, 70, 60], ['Using the encryption key', 70, 72, 5], ['Restoring uploaded files', 72, 86, 30],
+            ['Updating the database structure', 86, 94, 20], ['Signing everyone out', 94, 98, 5],
+        ],
+        'backup' => [['Starting', 1, 5, 5], ['Backing up the database', 5, 70, 40], ['Backing up uploaded files', 70, 96, 25]],
+        'verify' => [['Starting', 1, 5, 5], ['Checking the database backup', 5, 70, 30], ['Checking uploaded files', 70, 96, 20]],
+    ];
+
+    /** Estimated percent done for a job (0-100), from its action, current step and how long that step has run. */
+    public static function progress(string $action, string $state, string $step, ?string $stepAt, ?string $startedAt = null): int
+    {
+        if ($state === 'succeeded') {
+            return 100;
+        }
+        $stages = self::STAGES[$action] ?? [['', 2, 95, 30]];
+        $stage = $stages[0];
+        foreach ($stages as $s) {
+            if ($s[0] !== '' && str_starts_with($step, $s[0])) {
+                $stage = $s;
+            }
+        }
+        [, $from, $to, $tau] = $stage;
+        $since = strtotime((string) ($stepAt ?: $startedAt ?: 'now')) ?: time();
+        $t = max(0, time() - $since);
+        return (int) min($to, round($from + ($to - $from) * (1 - exp(-$t / max(1, $tau)))));
+    }
+
     /** Set while the agent restores or updates. Ignored if older than 3 hours (the agent clears stale ones too). */
     public static function maintenance(): ?array
     {

@@ -316,6 +316,8 @@ final class SystemController
         echo json_encode([
             'id' => $id, 'action' => $j['action'] ?? null, 'label' => Agent::ACTIONS[$j['action'] ?? ''] ?? 'Job', 'state' => $j['state'], 'step' => $j['step'] ?? '',
             'message' => $j['message'] ?? null, 'result' => self::publicResult($j), 'log' => $log,
+            'percent' => Agent::progress((string) ($j['action'] ?? ''), (string) $j['state'], (string) ($j['step'] ?? ''), $j['step_at'] ?? null, $j['started'] ?? null),
+            'started' => $j['started'] ?? null, 'elapsed' => !empty($j['started']) ? max(0, (empty($j['finished']) ? time() : strtotime($j['finished'])) - strtotime($j['started'])) : 0,
             'download' => ($j['action'] ?? '') === 'backup' && $j['state'] === 'succeeded' && is_file((string) Agent::downloadPath($id)),
         ]);
     }
