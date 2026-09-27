@@ -29,7 +29,7 @@ CREATE TABLE roadmap_items (
 INSERT IGNORE INTO settings (name, value) VALUES
   ('fiscal_year_start', '1'),
   ('plan_start', 'current'),
-  ('company_name', 'Mountaineer IT'),
+  ('company_name', ''),
   ('company_phone', NULL),
   ('company_email', NULL),
   ('company_website', NULL),

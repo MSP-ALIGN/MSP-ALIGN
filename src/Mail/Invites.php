@@ -86,7 +86,7 @@ final class Invites
         if ($m['video_url']) {
             $h .= '<p><b>Join:</b> <a href="' . e($m['video_url']) . '">' . e($m['video_url']) . '</a></p>';
         }
-        return $h . '<p style="color:#7b8594">' . e(Settings::get('company_name') ?: 'Mountaineer IT') . '</p>';
+        return $h . '<p style="color:#7b8594">' . e(Settings::get('company_name') ?: 'Your company') . '</p>';
     }
 
     /** Where an existing calendar event lives: [provider, mailbox]. */
@@ -180,12 +180,12 @@ final class Invites
         $host = (string) (\Align\Config::get('fqdn') ?: parse_url((string) \Align\Config::get('base_url', ''), PHP_URL_HOST) ?: 'align.local');
         $esc = fn(string $s) => str_replace(["\\", ';', ',', "\r\n", "\n"], ['\\\\', '\;', '\,', '\n', '\n'], $s);
         $utc = fn(string $t) => gmdate('Ymd\THis\Z', (int) strtotime($t));
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mountaineer IT//Mountaineer Align//EN', 'METHOD:' . $method, 'BEGIN:VEVENT',
+        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mountaineer IT//MSP-ALIGN//EN', 'METHOD:' . $method, 'BEGIN:VEVENT',
             'UID:' . $m['uid'] . '@' . $host, 'SEQUENCE:' . $seq, 'DTSTAMP:' . gmdate('Ymd\THis\Z'),
             'DTSTART:' . $utc($m['starts_at']), 'DTEND:' . $utc($m['ends_at']), 'SUMMARY:' . $esc(self::subject($m)),
             'STATUS:' . ($method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED')];
         if ($organizer !== '') {
-            $lines[] = 'ORGANIZER;CN=' . $esc((string) (Settings::get('mail_from_name') ?: Settings::get('company_name') ?: 'Mountaineer IT')) . ':mailto:' . $organizer;
+            $lines[] = 'ORGANIZER;CN=' . $esc((string) (Settings::get('mail_from_name') ?: Settings::get('company_name') ?: 'Your company')) . ':mailto:' . $organizer;
         }
         foreach ($to as $r) {
             $lines[] = 'ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE' . ($r['name'] ? ';CN=' . $esc($r['name']) : '') . ':mailto:' . $r['address'];

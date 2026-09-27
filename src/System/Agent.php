@@ -53,7 +53,7 @@ final class Agent
             throw new \InvalidArgumentException('Unknown action');
         }
         if (!self::available()) {
-            throw new \RuntimeException('The update and backup service is not installed on this server yet. Run once on the server: sudo mountaineer-align-update');
+            throw new \RuntimeException('The update and backup service is not installed on this server yet. Run once on the server: sudo msp-align-update');
         }
         $u = \Align\Auth::user();
         $id = date('Ymd-His') . '-' . bin2hex(random_bytes(3));
@@ -238,11 +238,11 @@ final class Agent
         }
         $m = Tar::members($path);
         if (!isset($m['manifest.json'], $m['db.sql.gz.age'])) {
-            throw new \RuntimeException("This isn't a Mountaineer Align backup.");
+            throw new \RuntimeException("This isn't an MSP-ALIGN backup.");
         }
         foreach (array_keys($m) as $n) {
             if (!in_array($n, ['manifest.json', 'db.sql.gz.age', 'uploads.tar.gz.age', 'app-key.age'], true)) {
-                throw new \RuntimeException("This isn't a Mountaineer Align backup (unexpected part: $n).");
+                throw new \RuntimeException("This isn't an MSP-ALIGN backup (unexpected part: $n).");
             }
         }
         $man = json_decode(Tar::read($path, $m['manifest.json'], 65536), true);

@@ -1,5 +1,5 @@
 [Unit]
-Description=Mountaineer Align - send email and notifications
+Description=MSP-ALIGN - send email and notifications
 After=network-online.target mariadb.service
 Wants=network-online.target
 

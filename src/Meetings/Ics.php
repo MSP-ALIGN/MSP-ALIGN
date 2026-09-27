@@ -13,7 +13,7 @@ final class Ics
         $lines = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
-            'PRODID:-//Mountaineer IT//Mountaineer Align//EN',
+            'PRODID:-//Mountaineer IT//MSP-ALIGN//EN',
             'CALSCALE:GREGORIAN',
             'METHOD:PUBLISH',
             'X-WR-CALNAME:' . self::esc($name),

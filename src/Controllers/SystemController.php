@@ -104,7 +104,7 @@ final class SystemController
             flash('error', 'That backup was already downloaded or has expired (backups are deleted from the server after one download or an hour). Make a new one.');
             redirect('/settings/system');
         }
-        $name = preg_replace('/[^A-Za-z0-9._-]/', '', (string) ($job['result']['filename'] ?? 'mountaineer-align-backup.tar'));
+        $name = preg_replace('/[^A-Za-z0-9._-]/', '', (string) ($job['result']['filename'] ?? 'msp-align-backup.tar'));
         self::stream($path, $name);
         @unlink($path);
         $u = Auth::user();
@@ -137,7 +137,7 @@ final class SystemController
             redirect('/settings/system');
         }
         Audit::log('backup.safety_downloaded', $name);
-        self::stream($path, 'mountaineer-align-' . $name);
+        self::stream($path, 'msp-align-' . $name);
         exit;
     }
 
@@ -170,14 +170,14 @@ final class SystemController
             $fail('Choose a backup file.');
         }
         if ($f['error'] === UPLOAD_ERR_INI_SIZE || $f['error'] === UPLOAD_ERR_FORM_SIZE) {
-            $fail('That file is larger than this server accepts (' . fmt_bytes(self::maxUpload()) . '). Restore it from the command line instead: sudo mountaineer-align-restore FILE');
+            $fail('That file is larger than this server accepts (' . fmt_bytes(self::maxUpload()) . '). Restore it from the command line instead: sudo msp-align-restore FILE');
         }
         if ($f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name']) || $f['size'] < 100) {
             $fail('The upload failed. Try again.');
         }
         $dir = Agent::restoreDir();
         if (!is_dir($dir) || !is_writable($dir)) {
-            $fail('The update and backup service is not installed on this server yet. Run once on the server: sudo mountaineer-align-update');
+            $fail('The update and backup service is not installed on this server yet. Run once on the server: sudo msp-align-update');
         }
         if (!empty($_SESSION['restore_upload']['token'])) {
             @unlink($dir . '/' . $_SESSION['restore_upload']['token'] . '.tar');

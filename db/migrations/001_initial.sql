@@ -1,4 +1,4 @@
--- Mountaineer Align: initial schema
+-- MSP-ALIGN: initial schema
 
 CREATE TABLE users (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

@@ -1,5 +1,5 @@
 [Unit]
-Description=Nightly Mountaineer Align maintenance
+Description=Nightly MSP-ALIGN maintenance
 
 [Timer]
 OnCalendar=*-*-* 02:30:00

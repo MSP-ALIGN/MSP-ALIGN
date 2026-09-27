@@ -30,7 +30,7 @@ final class WelcomeController
 
     public static function company(): array
     {
-        return ['name' => Settings::get('company_name') ?: 'Mountaineer IT', 'phone' => Settings::get('company_phone'),
+        return ['name' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
             'email' => Settings::get('company_email'), 'website' => Settings::get('company_website')];
     }
 

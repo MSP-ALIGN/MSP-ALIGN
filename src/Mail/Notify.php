@@ -373,7 +373,7 @@ final class Notify
         if (!N::enabled($kind === 'self-reset' ? 'client_portal_reset' : 'client_portal_invite')) {
             return false;
         }
-        $company = Settings::get('company_name') ?: 'Mountaineer IT';
+        $company = Settings::get('company_name') ?: 'Your company';
         [$subject, $heading, $intro, $btn] = match ($kind) {
             'invite' => ["You're invited to the {$company} client portal", 'Welcome to your client portal',
                 "{$company} has invited you to the client portal for " . rtrim($u['client_name'], '.') . '. It shows your technology plan, budget, devices and documents in one place.', 'Set your password'],
@@ -384,7 +384,7 @@ final class Notify
         return (bool) Mailer::queue($kind === 'self-reset' ? 'client_portal_reset' : 'client_portal_invite', [['address' => $u['email'], 'name' => $u['name']]], $subject,
             T::render($heading, [T::p('Hi ' . $u['name'] . ','), T::p($intro), T::button($btn, $url),
                 T::p('The link works once and expires in ' . ($hours >= 48 ? intdiv($hours, 24) . ' days' : $hours . ' hour' . ($hours === 1 ? '' : 's')) . '. You\'ll also set up two-factor sign-in with an authenticator app.', true)],
-                'Sent by ' . $company . ' through Mountaineer Align.'),
+                'Sent by ' . $company . ' through MSP-ALIGN.'),
             // Self-service resets wait for the mail timer so response time never hints whether an account exists
             ['client_id' => (int) $u['client_id'], 'immediate' => $kind !== 'self-reset']);
     }
@@ -400,14 +400,14 @@ final class Notify
         }
         N::setState('update_notified', (string) $u['latest']);
         $changes = array_map(fn($c) => [$c['subject'], 'info'], array_slice($u['changes'] ?? [], 0, 15));
-        $blocks = [T::p('Mountaineer Align ' . $u['latest'] . ' is available. This server runs ' . APP_VERSION . '.')];
+        $blocks = [T::p('MSP-ALIGN ' . $u['latest'] . ' is available. This server runs ' . APP_VERSION . '.')];
         if ($changes) {
             $blocks[] = T::h2('What\'s new');
             $blocks[] = T::items($changes);
         }
         $blocks[] = T::button('Review and update', N::url('/settings/system'));
         $blocks[] = T::p('Updating takes a minute or two. Align makes a safety copy first and deletes it once the update succeeds.', true);
-        return Mailer::queue('updates', N::recipientsFor('updates', null), 'Mountaineer Align ' . $u['latest'] . ' is available', T::render('Update available', $blocks, N::footer()),
+        return Mailer::queue('updates', N::recipientsFor('updates', null), 'MSP-ALIGN ' . $u['latest'] . ' is available', T::render('Update available', $blocks, N::footer()),
             ['dedupe' => 'update:' . $u['latest'], 'created_by' => null]) ? 1 : 0;
     }
 
@@ -416,7 +416,7 @@ final class Notify
         if (!N::enabled('updates')) {
             return;
         }
-        Mailer::queue('updates', N::recipientsFor('updates', null), $ok ? 'Mountaineer Align updated' : 'Mountaineer Align update failed',
+        Mailer::queue('updates', N::recipientsFor('updates', null), $ok ? 'MSP-ALIGN updated' : 'MSP-ALIGN update failed',
             T::render($ok ? 'Update finished' : 'Update failed', [T::p($detail), $ok ? T::p('Everything is running on the new version.') : T::p('Align is still running the previous version. A safety copy of the data was kept; see the job log for details.'),
                 T::button('Open Updates & backups', N::url('/settings/system'))], N::footer()), ['created_by' => null]);
     }
@@ -434,9 +434,9 @@ final class Notify
             return null;
         }
         N::setState('backup_reminder_at', date('Y-m-d H:i:s', $t));
-        $n = Mailer::queue('backup_reminder', N::recipientsFor('backup_reminder', null), 'Download a Mountaineer Align backup',
+        $n = Mailer::queue('backup_reminder', N::recipientsFor('backup_reminder', null), 'Download an MSP-ALIGN backup',
             T::render('Time for a backup', [
-                T::p($last ? 'Nobody has downloaded a backup of Mountaineer Align since ' . date('M j, Y', strtotime($last)) . ' (' . (Settings::get('backup_last_download_by') ?: 'unknown') . ').' : 'No backup of Mountaineer Align has been downloaded yet.'),
+                T::p($last ? 'Nobody has downloaded a backup of MSP-ALIGN since ' . date('M j, Y', strtotime($last)) . ' (' . (Settings::get('backup_last_download_by') ?: 'unknown') . ').' : 'No backup of MSP-ALIGN has been downloaded yet.'),
                 T::p('Backups aren\'t stored on the Align server. Download one and keep it somewhere safe, such as your documentation system or file server.'),
                 T::button('Download a backup', N::url('/settings/system')),
             ], N::footer()), ['dedupe' => 'backup_reminder:' . date('Y-m-d', $t), 'created_by' => null]);

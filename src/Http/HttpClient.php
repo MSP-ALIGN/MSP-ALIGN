@@ -36,7 +36,7 @@ final class HttpClient
                 CURLOPT_TIMEOUT => $this->timeout,
                 CURLOPT_CONNECTTIMEOUT => 15,
                 CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_USERAGENT => 'MountaineerAlign/' . APP_VERSION,
+                CURLOPT_USERAGENT => 'MSP-ALIGN/' . APP_VERSION,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
             ]);
             if ($body !== null) {

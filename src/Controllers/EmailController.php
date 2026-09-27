@@ -248,14 +248,14 @@ final class EmailController
         try {
             $g = Mail::client();
             $html = T::render('Email is working', [
-                T::p('This test message was sent by Mountaineer Align through ' . Mail::providerName() . '.'),
+                T::p('This test message was sent by MSP-ALIGN through ' . Mail::providerName() . '.'),
                 T::facts(['Provider' => Mail::providerName(), 'Sign-in' => Mail::mode() === 'app' ? (Mail::provider() === 'google' ? 'Service account' : 'App-only') : 'Connected account', 'Sent from' => Mail::fromAddress(),
                     'Sent by' => Auth::user()['name'] ?? '', 'Time' => date('D M j, Y g:i:s a T')]),
                 T::button('Open Align', N::url('/')),
             ], 'Test message.');
             $logo = T::logo();
-            $g->sendMail([['address' => $to]], 'Mountaineer Align test email', $html, [], $logo ? [['name' => $logo['name'], 'type' => $logo['type'], 'content' => (string) file_get_contents($logo['path']), 'inline_id' => 'brandlogo']] : []);
-            DB::insert('mail_queue', ['kind' => 'test', 'recipients' => json_encode([['address' => $to, 'name' => '']]), 'subject' => 'Mountaineer Align test email',
+            $g->sendMail([['address' => $to]], 'MSP-ALIGN test email', $html, [], $logo ? [['name' => $logo['name'], 'type' => $logo['type'], 'content' => (string) file_get_contents($logo['path']), 'inline_id' => 'brandlogo']] : []);
+            DB::insert('mail_queue', ['kind' => 'test', 'recipients' => json_encode([['address' => $to, 'name' => '']]), 'subject' => 'MSP-ALIGN test email',
                 'status' => 'sent', 'attempts' => 1, 'send_after' => date('Y-m-d H:i:s'), 'sent_at' => date('Y-m-d H:i:s'), 'created_by' => Auth::id(), 'purged' => 1]);
             Audit::log('email.test', $to);
             flash('success', "Test email sent to $to. If it doesn't arrive in a minute, check junk mail and the mailbox's Sent Items.");

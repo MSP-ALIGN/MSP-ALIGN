@@ -9,7 +9,7 @@ namespace Align;
  */
 final class Branding
 {
-    public const DEFAULT_NAME = 'Mountaineer Align';
+    public const DEFAULT_NAME = 'MSP-ALIGN';
     public const DEFAULT_COLOR = '#007bff';
     public const MAX_BYTES = 2 * 1024 * 1024;
     public const TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
@@ -101,7 +101,7 @@ final class Branding
         }
         $dir = self::uploadDir();
         if (!is_dir($dir) && !@mkdir($dir, 0750, true)) {
-            return "Can't create the upload folder ($dir). Run sudo mountaineer-align-update to fix permissions.";
+            return "Can't create the upload folder ($dir). Run sudo msp-align-update to fix permissions.";
         }
         $name = 'logo-' . bin2hex(random_bytes(8)) . '.' . self::TYPES[$mime];
         if (!@move_uploaded_file($file['tmp_name'], "$dir/$name") && !@rename($file['tmp_name'], "$dir/$name")) {

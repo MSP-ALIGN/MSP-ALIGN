@@ -133,7 +133,7 @@ HTML],
             'client_name' => $client['name'] ?? '',
             'contact_name' => $contact ?: 'there',
             'contact_first_name' => $contact ? self::greetingName($contact) : 'there',
-            'company_name' => Settings::get('company_name') ?: 'Mountaineer IT',
+            'company_name' => Settings::get('company_name') ?: 'Your company',
             'company_phone' => Settings::get('company_phone') ?: '',
             'company_email' => Settings::get('company_email') ?: '',
             'company_website' => Settings::get('company_website') ?: '',
@@ -375,7 +375,7 @@ HTML],
 
     public static function export(): array
     {
-        $out = ['format' => 'mountaineer-align-onboarding', 'version' => 1, 'exported_at' => date('c'), 'templates' => []];
+        $out = ['format' => 'msp-align-onboarding', 'version' => 1, 'exported_at' => date('c'), 'templates' => []];
         foreach (self::templates() as $t) {
             $p = self::filePath($t);
             $out['templates'][] = [
@@ -390,7 +390,7 @@ HTML],
     /** Imports templates (replacing ones with the same slug). Returns the number imported, or throws. */
     public static function import(array $data): int
     {
-        if (($data['format'] ?? '') !== 'mountaineer-align-onboarding' || !is_array($data['templates'] ?? null)) {
+        if (!in_array($data['format'] ?? '', ['msp-align-onboarding', 'mountaineer-align-onboarding'], true) || !is_array($data['templates'] ?? null)) {
             throw new \InvalidArgumentException('That file isn\'t an Align onboarding export.');
         }
         $n = 0;

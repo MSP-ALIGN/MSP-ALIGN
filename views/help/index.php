@@ -65,6 +65,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.24', 'fa-signature', 'Renamed to MSP-ALIGN', 'Mountaineer Align is now MSP-ALIGN. Nothing to do: your data, settings and branding are unchanged. On the server the commands are now sudo msp-align-update and msp-align-restore (the old names still work).', 'update', 'admin'],
         ['1.23', 'fa-bars-progress', 'Progress window for updates and restores', 'Updating or restoring now shows each step, a progress bar and the time so far, and reloads on its own when it\'s done. Everyone else sees a Please wait page that refreshes itself.', 'update', 'admin'],
         ['1.22', 'fa-mountain-sun', 'Client onboarding', 'Send a welcome email with a private onboarding page: the client enters their contacts, reads how to reach you and how billing works, answers getting-started questions and sends new user or termination requests. Track progress on the client\'s Onboarding page; edit everything under Settings → Onboarding.', 'onboarding', 'tech'],
         ['1.22', 'fa-user-plus', 'New user and termination requests', 'Online request forms on the onboarding page and in the client portal. Each request becomes an ITFlow ticket.', 'requests', 'tech'],
@@ -216,7 +217,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Open <b>Settings → Updates &amp; backups</b>, read what\'s new, tick the confirmation and press <b>Update</b>. It makes a safety copy first and usually takes a few minutes.',
       'A progress window shows each step (safety copy, download, install, final checks) with a progress bar and the time so far. Leave the page open; it reloads on its own when the update is done. While it runs, everyone else sees a <b>Please wait</b> page that also refreshes itself.',
       'The web server restarts near the end, so the window may briefly say <i>Restarting the web server…</i>. That\'s normal. If something fails, the window says so; the details, the job log and any safety copy are on the same page.',
-      'From the server: <code>sudo mountaineer-align-update</code> does the same.',
+      'From the server: <code>sudo msp-align-update</code> does the same.',
   ], ['Updates & backups' => '/settings/system']) ?>
   <?= $guide('backup', 'fa-download', 'Back up and restore Align', 'admin', [
       'Backups aren\'t kept on the server. Open <b>Settings → Updates &amp; backups</b> and press <b>Download backup</b>; keep the file somewhere safe.',
@@ -332,7 +333,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       <div class="card flex-fill">
         <div class="card-body">
           <h3 class="h6"><i class="fas fa-scale-balanced fa-fw text-secondary mr-1"></i>License</h3>
-          <p class="small text-muted">Mountaineer Align is free software under the GNU Affero General Public License v3. Anyone who runs a changed version for others must share its source. Includes the third-party components and their licenses.</p>
+          <p class="small text-muted">MSP-ALIGN is free software under the GNU Affero General Public License v3. Anyone who runs a changed version for others must share its source. Includes the third-party components and their licenses.</p>
           <a class="btn btn-sm btn-default mr-1" href="/license">License &amp; credits</a><a class="btn btn-sm btn-default" href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" target="_blank" rel="noopener">Source code</a>
         </div>
       </div>

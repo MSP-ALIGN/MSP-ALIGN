@@ -1,10 +1,10 @@
 <?php
-// Mountaineer Align. Copyright (C) 2026 Mountaineer IT Inc.
+// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc.
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 declare(strict_types=1);
 
 define('APP_ROOT', dirname(__DIR__));
-define('APP_NAME', 'Mountaineer Align');
+define('APP_NAME', 'MSP-ALIGN');
 
 spl_autoload_register(function (string $class): void {
     if (!str_starts_with($class, 'Align\\')) {

@@ -1,6 +1,8 @@
-# Mountaineer Align
+# MSP-ALIGN
 
-Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
+Self-hosted vCIO toolkit for managed service providers, built by Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
+
+> **Formerly Mountaineer Align (renamed in 1.24).** Everything you see is now MSP-ALIGN and the commands are `sudo msp-align-update` and `sudo msp-align-restore` (the old `mountaineer-align-…` commands still work). On the server, folders, services, logs and the database keep their `mountaineer-align` names so existing installs update without any changes.
 
 **What's in it (1.7.0):**
 
@@ -34,9 +36,9 @@ Self-hosted vCIO toolkit for Mountaineer IT. It pulls clients and assets from **
 - **Service levels from ITFlow SLAs (1.20):** with ITFlow 26.08+ and SLAs set up there, the hourly sync copies each ticket's number, subject, priority, category and SLA times and results (never the ticket body; tickets older than 36 months aren't kept). Once a day every ticket is read; the hourly syncs in between read only the newest page and re-check open tickets one by one. Each ITFlow-linked client gets a **Service levels** page (responded and resolved on time against your goal with the change from the period before, tickets opened, average first response, open tickets past or close to target with links into ITFlow, 12 months by month, by priority, and missed tickets; 30 days to 12 months or the last full quarter). It also shows on the client overview, the dashboard (clients below goal, open tickets past target), meeting prep (talking point and report button), a printable **Service Level Report**, a **Service levels** section and highlight in the QBR pack, an internal all-clients report, and the client portal (summary and report, no ticket list). The switch and the goal percentage are on Integrations → ITFlow. The API key's user needs read access to Support tickets.
 - **Integrations (1.15):** every connected service has its own card on **Integrations** with a live status (connected, not set up, or the error from the last sync) and its own page with the settings, setup steps and a **Test connection** button: ITFlow, NinjaOne, Veeam Service Provider Console, Microsoft 365 / Google Workspace, Dell TechDirect and Lenovo. Client mapping, Sync and Unassigned hardware sit alongside in the same menu. Admin only; keys are encrypted and never shown again. The menu shows a badge when an integration has an error.
 - **Updates & backups (1.14):** Settings → Updates & backups. **Progress (1.23):** pressing Update (or Restore) opens a "please wait" panel with a progress bar, the current step and the time so far; it follows the job, keeps waiting through the web-server restart and reloads on its own when it's finished (or shows what went wrong). Anyone else opening Align meanwhile sees a please-wait page with the same progress bar that refreshes itself every few seconds.
-  - **Updates:** Align checks GitHub every 6 hours. Admins see a banner and can get an email when a new version is out, with the release notes. **Update now** makes a safety copy, pulls the new version, runs the installer (packages, migrations, services) and shows the live log. The safety copy is deleted once the update succeeds, and kept for download if it fails. `sudo mountaineer-align-update` does the same from the command line.
+  - **Updates:** Align checks GitHub every 6 hours. Admins see a banner and can get an email when a new version is out, with the release notes. **Update now** makes a safety copy, pulls the new version, runs the installer (packages, migrations, services) and shows the live log. The safety copy is deleted once the update succeeds, and kept for download if it fails. `sudo msp-align-update` does the same from the command line.
   - **Backups are downloaded, never stored on the server.** **Download backup** builds one file: the database, uploaded files and the key that decrypts saved API keys and two-factor secrets. It's encrypted with this server's backup key (age) and deleted from the server as soon as it's downloaded, or after an hour. Only encrypted data touches the disk. The file is a plain tar, so it can also be opened by hand: `tar -xf backup.tar`, then `age -d -i key.txt db.sql.gz.age | gunzip`. Admins get a reminder email when nobody has downloaded one for 7 days (adjustable).
-  - **Restore:** upload a backup, paste the backup private key (used once, never saved), and **Test this backup** or **Restore** the database, the uploaded files or both. Restoring needs your two-factor code and typing RESTORE. Align goes into maintenance mode, makes a safety copy and puts it back automatically if anything fails. Afterwards it applies any newer migrations and signs everyone out. A backup from another server (moving to new hardware) brings its encryption key along, so saved API keys keep working. Backups larger than the browser limit (2 GB): `sudo mountaineer-align-restore FILE`.
+  - **Restore:** upload a backup, paste the backup private key (used once, never saved), and **Test this backup** or **Restore** the database, the uploaded files or both. Restoring needs your two-factor code and typing RESTORE. Align goes into maintenance mode, makes a safety copy and puts it back automatically if anything fails. Afterwards it applies any newer migrations and signs everyone out. A backup from another server (moving to new hardware) brings its encryption key along, so saved API keys keep working. Backups larger than the browser limit (2 GB): `sudo msp-align-restore FILE`.
   - **How it works:** the web server can't run programs (they're disabled in PHP), so a small root service (`mountaineer-align-agent`) does the work. The page drops a request in `/run/mountaineer-align/requests` (in RAM), and the agent runs only a fixed list of jobs with validated input. Databases are imported as the app's own database user in sandbox mode, so a crafted backup can't run commands or touch other databases. Uploaded files are extracted as `www-data`, with unsafe paths refused.
 - **Reports hub (1.11):** Reports in the sidebar runs everything from one screen: pick a client, then open the QBR pack, asset, roadmap, budget (any plan year) or backup report with its options, download the compliance checklist or device list as CSV, or print a client document. Reports that need data the client doesn't have yet (Veeam link, a framework, documents) say so. All-client reports: portfolio summary, **backup status** (every Veeam client with failed jobs, overdue items and servers without backup) and contracts & renewals. Each client's Reports menu links to the hub with that client selected.
 - **Printable reports (redesigned in 1.7):** clean, brand-coloured Letter reports with page numbers and a running footer. Print → Save as PDF.
@@ -85,7 +87,7 @@ The installer asks for:
 
 | Prompt | Notes |
 |---|---|
-| Hostname | The name users browse to, e.g. `align.mountaineerit.com` |
+| Hostname | The name users browse to, e.g. `align.example.com` |
 | TLS mode | `selfsigned` (internal), `letsencrypt` (public DNS + port 80 open), or `proxy` (plain HTTP behind BunkerWeb or another reverse proxy that handles TLS) |
 | Proxy IP | Proxy mode only. The app trusts `X-Forwarded-*` headers from this IP only |
 | Admin email / name | First admin account. A random password is printed at the end |
@@ -113,7 +115,7 @@ Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus 
 **Settings → Updates & backups → Update now**, or on the server:
 
 ```bash
-sudo mountaineer-align-update
+sudo msp-align-update
 ```
 
 Either one makes a safety copy, pulls the latest `main`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds. Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
@@ -131,7 +133,7 @@ Either one makes a safety copy, pulls the latest `main`, installs any new packag
 | Sync timer status / logs | `systemctl list-timers mountaineer-align*` · `journalctl -u mountaineer-align-sync` · `journalctl -u mountaineer-align-itflow` · `journalctl -u mountaineer-align-mail` |
 | App errors | `/var/log/apache2/mountaineer-align-error.log` |
 | Download a backup | Settings → Updates & backups → Download backup (not kept on the server) |
-| Restore a backup | Settings → Updates & backups → Restore, or `sudo mountaineer-align-restore FILE [--db-only\|--uploads-only]` |
+| Restore a backup | Settings → Updates & backups → Restore, or `sudo msp-align-restore FILE [--db-only\|--uploads-only]` |
 | Check for updates now | Settings → Updates & backups → Check now, or `sudo systemctl start mountaineer-align-update-check` |
 | Update and backup service logs | `journalctl -u mountaineer-align-agent` · `journalctl -u mountaineer-align-update-check` · `journalctl -u mountaineer-align-nightly` (audit log check) |
 
@@ -169,7 +171,7 @@ Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, jQue
 
 ## License
 
-Mountaineer Align is free software, copyright © 2026 Mountaineer IT Inc., licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty.
+MSP-ALIGN is free software, copyright © 2026 Mountaineer IT Inc., licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty.
 
 Bundled third-party components keep their own licenses (all compatible): AdminLTE, Bootstrap, jQuery and FullCalendar (MIT), Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1, code MIT) and Quill (BSD-3-Clause). Their license files are in `public/vendor/`, and the in-app **License** page lists them.
 

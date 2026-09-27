@@ -1,5 +1,5 @@
 <?php
-// Mountaineer Align. Copyright (C) 2026 Mountaineer IT Inc.
+// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc.
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 declare(strict_types=1);
 

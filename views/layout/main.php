@@ -181,7 +181,7 @@ $item = function (array $i, string $active) {
         <?php if (!str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings') && Auth::can('admin') && ($upd = \Align\System\Agent::updateAvailable())): ?>
           <div class="alert alert-info py-2 d-flex align-items-center flex-wrap" role="status">
             <i class="fas fa-circle-arrow-up mr-2"></i>
-            <span class="mr-3">Mountaineer Align <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
+            <span class="mr-3">MSP-ALIGN <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
             <a class="btn btn-sm btn-light ml-auto" href="/settings/system">See what's new and update</a>
           </div>
         <?php endif; ?>

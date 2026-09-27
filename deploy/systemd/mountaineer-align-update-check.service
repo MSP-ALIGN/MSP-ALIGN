@@ -1,5 +1,5 @@
 [Unit]
-Description=Mountaineer Align - check GitHub for updates
+Description=MSP-ALIGN - check GitHub for updates
 After=network-online.target
 Wants=network-online.target
 

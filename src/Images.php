@@ -57,7 +57,7 @@ final class Images
             return ['Image should be between 16 and 8000 pixels on each side.', null];
         }
         if (!function_exists('imagecreatefromstring')) {
-            return ['Image support (php-gd) is missing on the server. Run sudo mountaineer-align-update.', null];
+            return ['Image support (php-gd) is missing on the server. Run sudo msp-align-update.', null];
         }
         $src = @imagecreatefromstring((string) file_get_contents($file['tmp_name']));
         if (!$src) {
@@ -90,7 +90,7 @@ final class Images
         $dir = self::dir($sub);
         if (!is_dir($dir) && !@mkdir($dir, 0750, true)) {
             imagedestroy($dst);
-            return ["Can't create the upload folder ($dir). Run sudo mountaineer-align-update to fix permissions.", null];
+            return ["Can't create the upload folder ($dir). Run sudo msp-align-update to fix permissions.", null];
         }
         $name = $prefix . '-' . bin2hex(random_bytes(8)) . ($alpha ? '.png' : '.jpg');
         $ok = $alpha ? imagepng($dst, "$dir/$name", 6) : imagejpeg($dst, "$dir/$name", 88);

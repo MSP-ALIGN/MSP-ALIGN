@@ -317,7 +317,7 @@ final class DocumentController
             'doc' => $doc,
             'opt' => [],
             'brand' => [
-                'company' => Settings::get('company_name') ?: 'Mountaineer IT',
+                'company' => Settings::get('company_name') ?: 'Your company',
                 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'),
                 'website' => Settings::get('company_website'),

@@ -62,7 +62,7 @@ final class ReportController
     {
         $portal = defined('IS_PORTAL') && IS_PORTAL;
         return [
-            'company' => Settings::get('company_name') ?: 'Mountaineer IT',
+            'company' => Settings::get('company_name') ?: 'Your company',
             'phone' => Settings::get('company_phone'),
             'email' => Settings::get('company_email'),
             'website' => Settings::get('company_website'),
@@ -179,7 +179,7 @@ final class ReportController
             'on' => $on,
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'people' => ReportData::people($id),
-            'provider' => ['company' => Settings::get('company_name') ?: 'Mountaineer IT', 'phone' => Settings::get('company_phone'),
+            'provider' => ['company' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],
             'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null),
         ], 'layout/print');

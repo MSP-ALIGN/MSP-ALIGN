@@ -1,4 +1,4 @@
-// Mountaineer Align - page behaviour on top of AdminLTE / Bootstrap 4.
+// MSP-ALIGN - page behaviour on top of AdminLTE / Bootstrap 4.
 document.addEventListener('DOMContentLoaded', () => {
   // Live table filter: <input data-filter-table="table-id">
   document.querySelectorAll('[data-filter-table]').forEach((input) => {
@@ -580,7 +580,7 @@ const jobOverlay = (() => {
     if (confirm && !confirm.checked) return; // the server explains what's missing
     const restore = f.action.endsWith('/restore');
     t0 = Date.now();
-    api.show(restore ? 'Restoring from the backup' : 'Updating Mountaineer Align', 'Starting', 0);
+    api.show(restore ? 'Restoring from the backup' : 'Updating MSP-ALIGN', 'Starting', 0);
     api.update(1);
   }));
   if (!ov.hidden) api.show();
@@ -716,7 +716,7 @@ const jobOverlay = (() => {
       const max = Number(f.dataset.max || 0);
       if (max && input.files[0].size > max) {
         e.preventDefault();
-        err.textContent = 'That file is larger than this server accepts through the browser. Copy it to the server and run: sudo mountaineer-align-restore FILE';
+        err.textContent = 'That file is larger than this server accepts through the browser. Copy it to the server and run: sudo msp-align-restore FILE';
         return;
       }
       e.preventDefault();
@@ -734,7 +734,7 @@ const jobOverlay = (() => {
         if (j && j.ok) { location.href = j.redirect; return; }
         btn.disabled = false;
         bar.classList.add('d-none');
-        err.textContent = j && j.error ? j.error : (xhr.status === 413 || xhr.status === 419 ? 'The file is too large for this server. Copy it to the server and run: sudo mountaineer-align-restore FILE' : 'The upload failed. Try again.');
+        err.textContent = j && j.error ? j.error : (xhr.status === 413 || xhr.status === 419 ? 'The file is too large for this server. Copy it to the server and run: sudo msp-align-restore FILE' : 'The upload failed. Try again.');
       });
       xhr.addEventListener('error', () => { btn.disabled = false; err.textContent = 'The upload failed. Check your connection and try again.'; });
       xhr.send(new FormData(f));

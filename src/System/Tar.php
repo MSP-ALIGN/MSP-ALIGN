@@ -36,7 +36,7 @@ final class Tar
                     $sum += ($i >= 148 && $i < 156) ? 32 : ord($h[$i]);
                 }
                 if ($sum !== octdec(trim(substr($h, 148, 8), " \0"))) {
-                    throw new \RuntimeException('This is not a Mountaineer Align backup (bad tar header).');
+                    throw new \RuntimeException('This is not an MSP-ALIGN backup (bad tar header).');
                 }
                 $name = rtrim(substr($h, 0, 100), "\0");
                 $prefix = rtrim(substr($h, 345, 155), "\0");

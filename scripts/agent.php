@@ -1,14 +1,14 @@
 #!/usr/bin/env php
 <?php
-// Mountaineer Align. Copyright (C) 2026 Mountaineer IT Inc.
+// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc.
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 /**
- * Mountaineer Align system agent. Runs as root, started by systemd:
+ * MSP-ALIGN system agent. Runs as root, started by systemd:
  *   mountaineer-align-agent.path/.service   when the web app drops a request in /run/mountaineer-align/requests
  *   mountaineer-align-update-check.timer    every 6 hours (check)
  *   mountaineer-align-nightly.timer         nightly clean-up and audit log checks
- *   sudo mountaineer-align-update           update from the command line
- *   sudo mountaineer-align-restore FILE     restore from the command line
+ *   sudo msp-align-update           update from the command line
+ *   sudo msp-align-restore FILE     restore from the command line
  *
  * The web server (www-data) runs with proc_open & co disabled, so it can't run programs. It asks this
  * agent for a fixed set of jobs: check for updates, update, make a backup for download, test or
@@ -356,7 +356,7 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
 {
     $rec = recipients();
     if (!$rec) {
-        throw new JobFailed('This server has no backup key (' . RECIPIENT . '). Run: sudo mountaineer-align-update');
+        throw new JobFailed('This server has no backup key (' . RECIPIENT . '). Run: sudo msp-align-update');
     }
     $R = implode(' ', array_map(fn($k) => '-r ' . q($k), array_merge($rec, $extra)));
     $tmp = WORK . '/tmp-' . bin2hex(random_bytes(6));
@@ -379,7 +379,7 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
         }
         $job->must("age $R -o " . q("$tmp/app-key.age"), 'Could not save the encryption key.', false, (string) conf()['app_key']);
         $manifest = [
-            'format' => 1, 'app' => 'Mountaineer Align', 'version' => version(), 'created' => now(), 'tag' => $tag,
+            'format' => 1, 'app' => 'MSP-ALIGN', 'version' => version(), 'created' => now(), 'tag' => $tag,
             'host' => (string) (conf()['fqdn'] ?? gethostname()), 'database' => $db, 'uploads_files' => $files,
             'recipients' => $rec, 'bytes' => ['db' => filesize("$tmp/db.sql.gz.age"), 'uploads' => is_file("$tmp/uploads.tar.gz.age") ? filesize("$tmp/uploads.tar.gz.age") : 0],
         ];
@@ -399,7 +399,7 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
 
 function nameFor(array $m): string
 {
-    return 'mountaineer-align-backup-' . preg_replace('/[^a-z0-9.-]+/', '-', strtolower($m['host'] ?: 'server')) . '-' . date('Ymd-His', strtotime($m['created'])) . '.tar';
+    return 'msp-align-backup-' . preg_replace('/[^a-z0-9.-]+/', '-', strtolower($m['host'] ?: 'server')) . '-' . date('Ymd-His', strtotime($m['created'])) . '.tar';
 }
 
 // ------------------------------------------------------------------------------------- inspection
@@ -446,11 +446,11 @@ function inspect(Job $job, string $file, string $keyFile): array
         }
         foreach (array_keys($members) as $n) {
             if (!in_array($n, PARTS, true)) {
-                throw new JobFailed("This isn't a Mountaineer Align backup (unexpected part: $n).");
+                throw new JobFailed("This isn't an MSP-ALIGN backup (unexpected part: $n).");
             }
         }
         if (!isset($members['manifest.json'], $members['db.sql.gz.age'])) {
-            throw new JobFailed("This isn't a Mountaineer Align backup (no manifest or database).");
+            throw new JobFailed("This isn't an MSP-ALIGN backup (no manifest or database).");
         }
         $m = json_decode(Tar::read($file, $members['manifest.json'], 65536), true);
         if (!is_array($m) || ($m['format'] ?? 0) !== 1 || !isset($m['version'], $m['created'])) {
@@ -472,7 +472,7 @@ function inspect(Job $job, string $file, string $keyFile): array
     }
     $tables = array_unique(array_filter(explode("\n", trim($out))));
     if (!in_array('CREATE TABLE `users`', $tables, true) || !in_array('CREATE TABLE `schema_migrations`', $tables, true)) {
-        throw new JobFailed('The database in this backup is not a Mountaineer Align database.');
+        throw new JobFailed('The database in this backup is not an MSP-ALIGN database.');
     }
     $info['tables'] = count($tables);
     if (isset($info['members']['uploads.tar.gz.age'])) {
@@ -722,7 +722,7 @@ function doUpdate(Job $job): array
 {
     $from = version();
     $safety = SAFETY . '/pre-update-' . $job->s['id'] . '.tar';
-    maintenanceOn($job, 'Updating Mountaineer Align');
+    maintenanceOn($job, 'Updating MSP-ALIGN');
     try {
         if (recipients()) {
             $job->step('Making a safety copy of the current data');
@@ -769,7 +769,7 @@ function process(array $req, bool $echo = false): Job
                 if ($s['error']) {
                     throw new JobFailed($s['error']);
                 }
-                $job->finish(true, $s['available'] ? "Version {$s['latest']} is available." : 'Mountaineer Align is up to date.', ['latest' => $s['latest']]);
+                $job->finish(true, $s['available'] ? "Version {$s['latest']} is available." : 'MSP-ALIGN is up to date.', ['latest' => $s['latest']]);
                 break;
 
             case 'update':
@@ -959,7 +959,7 @@ switch ($cmd) {
     case 'restore-cli':
         $src = $argv[2] ?? '';
         if ($src === '' || !is_file($src)) {
-            fwrite(STDERR, "Usage: sudo mountaineer-align-restore BACKUP-FILE [--db-only|--uploads-only]\n");
+            fwrite(STDERR, "Usage: sudo msp-align-restore BACKUP-FILE [--db-only|--uploads-only]\n");
             exit(1);
         }
         $token = bin2hex(random_bytes(16));

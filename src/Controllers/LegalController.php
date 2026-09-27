@@ -27,7 +27,7 @@ final class LegalController
     public static function company(): array
     {
         return [
-            'name' => Settings::get('company_name') ?: 'Mountaineer IT Inc.',
+            'name' => Settings::get('company_name') ?: 'Your company',
             'email' => Settings::get('company_email') ?: '',
             'phone' => Settings::get('company_phone') ?: '',
         ];

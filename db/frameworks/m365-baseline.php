@@ -7,7 +7,7 @@
 return [
     'slug' => 'm365-baseline',
     'name' => 'Microsoft 365 Secure Configuration Baseline',
-    'description' => 'Mountaineer IT\'s secure-configuration review for client Microsoft 365 tenants: identity, email, collaboration, devices, data protection, logging and backup. '
+    'description' => 'A secure-configuration review for client Microsoft 365 tenants: identity, email, collaboration, devices, data protection, logging and backup. '
         . 'Aligned with the CISA SCuBA Secure Configuration Baselines for M365 and the CIS Microsoft 365 Foundations Benchmark v7.0.0 (May 2026), and cross-checked against Microsoft Secure Score; '
         . 'source control IDs are cited in each item\'s guidance. Some items need Entra ID P1 (Conditional Access; included in Business Premium and E3), Entra ID P2 (Identity Protection, PIM; E5 or add-on), '
         . 'or Defender for Office 365 / Defender for Endpoint / Purview licensing; the guidance says which. Tenants without P1 should at least have Security Defaults on. '

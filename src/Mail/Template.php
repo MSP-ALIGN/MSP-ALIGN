@@ -15,7 +15,7 @@ final class Template
     public static function render(string $heading, array $blocks, string $footerNote = ''): string
     {
         $brand = \Align\Branding::color();
-        $company = Settings::get('company_name') ?: 'Mountaineer IT';
+        $company = Settings::get('company_name') ?: 'Your company';
         $contact = implode(' · ', array_filter([Settings::get('company_phone'), Settings::get('company_email'), Settings::get('company_website')]));
         $logo = self::logo() ? '<img src="cid:brandlogo" alt="' . e($company) . '" style="max-height:40px;max-width:200px;display:block">' : '<b style="font-size:18px;color:#1f2d3d">' . e($company) . '</b>';
         return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>'

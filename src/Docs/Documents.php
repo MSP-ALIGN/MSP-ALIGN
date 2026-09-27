@@ -56,7 +56,7 @@ final class Documents
             'client_phone' => ($client['main_phone'] ?? null) ?: ($client['contact_phone'] ?? '[phone]'),
             'client_website' => $client['website'] ?? '[website]',
             'vcio_name' => $vcio ?: (Auth::user()['name'] ?? '[vCIO]'),
-            'company_name' => Settings::get('company_name') ?: 'Mountaineer IT',
+            'company_name' => Settings::get('company_name') ?: 'Your company',
             'company_phone' => Settings::get('company_phone') ?: '[our phone]',
             'company_email' => Settings::get('company_email') ?: '[our email]',
             'company_website' => Settings::get('company_website') ?: '[our website]',

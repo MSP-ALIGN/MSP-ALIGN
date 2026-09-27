@@ -15,7 +15,7 @@ return function (): void {
         [
             'slug' => 'msp-baseline',
             'name' => 'MSP Security Baseline',
-            'description' => 'Mountaineer IT\'s standard for every managed client. Use it to spot gaps and drive the roadmap.',
+            'description' => 'A security standard for every managed client. Use it to spot gaps and drive the roadmap.',
             'controls' => [
                 ['Identity', 'MSB-1', 'MFA enforced for Microsoft 365 / email for all users', 'Conditional Access or Security Defaults; no per-user exclusions without a documented reason.'],
                 ['Identity', 'MSB-2', 'MFA required for all remote access (VPN, RDP gateways, remote tools)', null],

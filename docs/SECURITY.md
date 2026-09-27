@@ -1,6 +1,6 @@
-# Mountaineer Align security (1.5.0)
+# MSP-ALIGN security (1.5.0)
 
-This document describes how Mountaineer Align protects client information, how its controls map to
+This document describes how MSP-ALIGN protects client information, how its controls map to
 the HIPAA Security Rule technical safeguards (45 CFR 164.312), and what the operator (Mountaineer IT)
 is responsible for outside the application.
 
@@ -70,7 +70,7 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 
 - With `debug => false`, errors only go to the server log.
 
-## Server hardening (install.sh / mountaineer-align-update)
+## Server hardening (install.sh / msp-align-update)
 
 **Operating system**
 
