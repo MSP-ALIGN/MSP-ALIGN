@@ -28,9 +28,11 @@ final class ReportController
         foreach (DB::all("SELECT id, client_id, title, status FROM documents WHERE client_id IS NOT NULL ORDER BY status = 'active' DESC, title") as $r) {
             $docs[(int) $r['client_id']][] = ['id' => (int) $r['id'], 'name' => $r['title'] . ($r['status'] !== 'active' ? ' (draft)' : '')];
         }
+        $slaOn = \Align\Service\Sla::enabled() && \Align\Service\Sla::supported() !== false;
+        $withTickets = $slaOn ? array_flip(array_map('intval', array_column(DB::all('SELECT DISTINCT client_id FROM itflow_tickets WHERE client_id IS NOT NULL'), 'client_id'))) : [];
         $meta = [];
         foreach ($clients as $c) {
-            $meta[(int) $c['id']] = ['veeam' => !empty($c['veeam_company_uid']), 'frameworks' => $fw[(int) $c['id']] ?? [], 'documents' => $docs[(int) $c['id']] ?? []];
+            $meta[(int) $c['id']] = ['veeam' => !empty($c['veeam_company_uid']), 'sla' => isset($withTickets[(int) $c['id']]), 'frameworks' => $fw[(int) $c['id']] ?? [], 'documents' => $docs[(int) $c['id']] ?? []];
         }
         View::render('reports/index', [
             'title' => 'Reports',
@@ -40,6 +42,7 @@ final class ReportController
             'years' => \Align\Roadmap\Plan::years(),
             'currentYear' => \Align\Roadmap\Plan::quarters()[\Align\Roadmap\Plan::currentIndex()]['year'],
             'backupEnabled' => \Align\Backup\Backup::enabled(),
+            'slaEnabled' => $slaOn,
             'preselect' => (int) query('client'),
         ]);
     }
@@ -122,11 +125,11 @@ final class ReportController
     {
         Auth::require();
         $client = ClientController::load($id);
-        $opt = ['inventory' => query('inventory', '0') === '1'] + self::options() + self::qbrSections(true);
+        $opt = ['inventory' => query('inventory', '0') === '1', 'missed' => query('missed', '1') === '1'] + self::options() + self::qbrSections(true);
         self::renderQbr($client, $opt, array_keys(self::QBR_SECTIONS));
     }
 
-    public const QBR_SECTIONS = ['s_roadmap' => 'Roadmap', 's_budget' => 'Budget', 's_assets' => 'Assets', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_licensing' => 'Licensing'];
+    public const QBR_SECTIONS = ['s_roadmap' => 'Roadmap', 's_budget' => 'Budget', 's_assets' => 'Assets', 's_backup' => 'Backups', 's_sla' => 'Service levels', 's_compliance' => 'Compliance', 's_licensing' => 'Licensing'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -157,6 +160,11 @@ final class ReportController
             // Client not linked to Veeam: no backup switch in the toolbar
             $allowed = array_values(array_diff($allowed, ['s_backup']));
         }
+        $sla = in_array('s_sla', $allowed, true) && \Align\Service\Sla::enabled() ? \Align\Service\Sla::report($id, '90', 15) : null;
+        if (!$sla) {
+            $allowed = array_values(array_diff($allowed, ['s_sla']));
+            unset($opt['missed']);
+        }
         $vcio = $client['vcio_name'] ?? null;
         Audit::log('report.qbr', $client['name']);
         View::render('reports/qbr', [
@@ -165,15 +173,15 @@ final class ReportController
             'noMasthead' => true,
             'client' => $client,
             'opt' => array_filter($opt, fn($v, $k) => !str_starts_with($k, 's_') || in_array($k, $allowed, true), ARRAY_FILTER_USE_BOTH),
-            'optLabels' => array_intersect_key(self::QBR_SECTIONS, array_flip($allowed)),
+            'optLabels' => array_intersect_key(self::QBR_SECTIONS, array_flip($allowed)) + ['missed' => 'Missed tickets'],
             'brand' => self::branding($client),
             'quarter' => $q,
             'on' => $on,
-            'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null,
+            'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'people' => ReportData::people($id),
             'provider' => ['company' => Settings::get('company_name') ?: 'Mountaineer IT', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],
-            'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs'], $on('s_backup') ? $bk : null),
+            'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null),
         ], 'layout/print');
     }
 

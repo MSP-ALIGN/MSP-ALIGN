@@ -273,3 +273,4 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .bk-dot.bad { background: #e5534b; } .bk-dot.warn { background: #f0b429; } .bk-dot.ok { background: #3fb67a; }
 .small-note { font-size: .75rem; margin-top: .35rem; }
 .rtable td.bk-cell .sub { white-space: nowrap; }
+.tb-period { width: auto; max-width: 180px; }

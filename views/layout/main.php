@@ -54,6 +54,7 @@ $clientMenu = $client ? [
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
     ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],
     ...(!empty($client['veeam_company_uid']) || \Align\Integrations\VeeamSpc::configured() ? [['backups', '/clients/' . (int) $client['id'] . '/backups', 'Backups', 'fa-database']] : []),
+    ...(\Align\Service\Sla::enabled() && !empty($client['itflow_client_id']) ? [['service', '/clients/' . (int) $client['id'] . '/service-levels', 'Service levels', 'fa-stopwatch']] : []),
     ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
     ['documents', '/clients/' . (int) $client['id'] . '/documents', 'Documents', 'fa-file-lines'],
     ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', 'Roadmap & projects', 'fa-road'],

@@ -240,7 +240,7 @@ final class ReportData
         return $client ? \Align\Backup\Backup::forClient($client, self::devices($clientId)) : null;
     }
 
-    public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs, ?array $bk = null): array
+    public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs, ?array $bk = null, ?array $sla = null): array
     {
         $out = [];
         $bkOut = [];
@@ -287,6 +287,9 @@ final class ReportData
             $out[] = $low
                 ? ['tone' => 'warn', 'title' => 'Compliance: ' . $comp['avg'] . '% average across ' . count($comp['frameworks']) . ' framework' . (count($comp['frameworks']) == 1 ? '' : 's'), 'text' => count($comp['open']) . ' open item' . (count($comp['open']) == 1 ? '' : 's') . ' to close; ' . implode(', ', array_column($low, 'name')) . ' below 80%.']
                 : ['tone' => 'ok', 'title' => 'Compliance in good shape (' . $comp['avg'] . '% average)', 'text' => 'Keep reviews and evidence current.'];
+        }
+        if ($sla && ($h = \Align\Service\Sla::headline($sla))) {
+            $out[] = $h;
         }
         if ($bud) {
             $soon = array_filter($bud['dates'], fn($d) => $d['urgency'] !== 'later');

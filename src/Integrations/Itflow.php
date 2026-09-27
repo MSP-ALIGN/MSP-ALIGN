@@ -91,6 +91,23 @@ final class Itflow
         return $this->readAll('invoices');
     }
 
+    /** One page of tickets, oldest first (ITFlow orders by ticket_id). Includes the SLA fields on ITFlow 26.08+. */
+    public function ticketsPage(int $offset, int $limit = self::PAGE): array
+    {
+        return $this->read('tickets', ['limit' => $limit, 'offset' => $offset]);
+    }
+
+    /** A single ticket, or null if it no longer exists (or the API user can't see it). */
+    public function ticket(int $id): ?array
+    {
+        return $this->read('tickets', ['ticket_id' => $id])[0] ?? null;
+    }
+
+    public static function pageSize(): int
+    {
+        return self::PAGE;
+    }
+
     public function vendors(): array
     {
         return $this->readAll('vendors');

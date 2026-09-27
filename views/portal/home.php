@@ -86,6 +86,22 @@ $vcio = $provider['vcio'] ?? null;
       </div>
     </div>
   <?php endif; ?>
+  <?php if (!empty($sla) && $sla['stats']['overall_pct'] !== null): $ss = $sla['stats']; ?>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-stopwatch mr-2 text-secondary"></i>Support service levels</h3>
+          <div class="card-tools"><a href="/portal/report/sla" target="_blank" class="btn btn-tool">Report</a></div></div>
+        <div class="card-body py-2">
+          <div class="d-flex text-center mb-2">
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= \Align\Service\Sla::tone($ss['resp_pct']) ?>"><?= e(\Align\Service\Sla::pct($ss['resp_pct'])) ?></div><div class="small text-muted">answered on time</div></div>
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= \Align\Service\Sla::tone($ss['res_pct']) ?>"><?= e(\Align\Service\Sla::pct($ss['res_pct'])) ?></div><div class="small text-muted">resolved on time</div></div>
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= (int) $ss['tickets'] ?></div><div class="small text-muted">tickets</div></div>
+          </div>
+          <div class="small text-muted">Last 90 days, measured against the response and resolution targets in your service agreement.</div>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?>
   <?php if ($budget): ?>
     <div class="col-lg-6"><?= \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'limit' => 5, 'title' => 'Coming up: renewals & contracts', 'cardClass' => '', 'emptyText' => 'No renewals or contract dates in the next four months.']) ?></div>
   <?php endif; ?>

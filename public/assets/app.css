@@ -357,3 +357,14 @@ tr.xw-filled { background: rgba(23, 162, 184, .08); }
   table.checklist, table.checklist tbody, table.checklist tr, table.checklist td { display: block; width: 100% !important; }
   table.checklist td:first-child { padding-bottom: 0; }
 }
+
+/* Service levels (1.20) */
+.sla-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }
+.sla-key.success { background: #2f9e62; } .sla-key.warning { background: #d69a16; } .sla-key.danger { background: #d64541; }
+.sla-chart-wrap .chart { width: 100%; height: auto; display: block; max-height: 260px; }
+.sla-subject { max-width: 100%; min-width: 0; flex: 1 1 160px; }
+.sla-mini .progress { height: 6px; }
+.sla-months { display: flex; gap: 3px; }
+.sla-months span { flex: 1; text-align: center; font-size: .72rem; line-height: 1.5rem; border-radius: 3px; color: #fff; }
+.sla-months span.bg-warning { color: #1f2d3d; }
+.sla-months span.bg-secondary { opacity: .5; }

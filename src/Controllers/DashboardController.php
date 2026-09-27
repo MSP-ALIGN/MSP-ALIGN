@@ -94,7 +94,20 @@ final class DashboardController
             'complianceAvg' => $scores ? (int) round(array_sum($scores) / count($scores)) : null,
             'complianceCount' => count($scores),
             'backupIssues' => self::backupIssues(),
+            'sla' => self::slaSummary(),
         ]);
+    }
+
+    /** Service levels across clients for the last 90 days, or null when SLA reporting isn't available. */
+    private static function slaSummary(): ?array
+    {
+        if (!\Align\Service\Sla::enabled() || \Align\Service\Sla::supported() === false || !DB::value('SELECT 1 FROM itflow_tickets LIMIT 1')) {
+            return null;
+        }
+        [$from, $to] = \Align\Service\Sla::range('90');
+        $target = \Align\Service\Sla::target();
+        $clients = array_filter(\Align\Service\Sla::allClients($from, $to), fn($c) => $c['breached_open'] || ($c['overall_pct'] !== null && $c['overall_pct'] < $target));
+        return ['total' => \Align\Service\Sla::stats(null, $from, $to), 'open' => \Align\Service\Sla::openCounts(null), 'clients' => $clients, 'target' => $target];
     }
 
     /** Clients whose Veeam backups have a failed job or an overdue machine, worst first. */

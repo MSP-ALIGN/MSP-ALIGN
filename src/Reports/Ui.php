@@ -125,4 +125,55 @@ final class Ui
         }
         return $svg . '</svg>';
     }
+
+    /**
+     * Month-by-month share of SLA targets met (one scale, 0-100%), with the goal as a dashed line.
+     * Bars are coloured by status against the goal; the ticket count sits under each month.
+     * $months: Sla::monthly(). Text uses currentColor so it works on screen (light/dark) and in print.
+     */
+    public static function slaChart(array $months, int $target): string
+    {
+        $n = count($months);
+        if (!$n) {
+            return '';
+        }
+        $w = 700; $h = 120; $top = 26; $bottom = 32;
+        $slot = $w / $n; $bw = min(34, $slot * .56);
+        $y = fn(float $p) => $top + $h - $p / 100 * $h;
+        $col = ['success' => '#2f9e62', 'warning' => '#d69a16', 'danger' => '#d64541'];
+        $svg = '<svg class="chart sla-chart" viewBox="0 0 ' . $w . ' ' . ($h + $top + $bottom) . '" role="img" aria-label="Share of SLA targets met by month">';
+        foreach ([0, 50, 100] as $g) {
+            $svg .= '<line x1="30" x2="' . $w . '" y1="' . round($y($g), 1) . '" y2="' . round($y($g), 1) . '" style="stroke:currentColor;stroke-opacity:.12;stroke-width:1"/>'
+                . '<text x="0" y="' . round($y($g) + 3.5, 1) . '" style="fill:currentColor;fill-opacity:.6;font-size:10px">' . $g . '%</text>';
+        }
+        $i = 0;
+        foreach ($months as $ym => $m) {
+            $x = 30 + $i * (($w - 30) / $n) + ((($w - 30) / $n) - $bw) / 2;
+            $cx = $x + $bw / 2;
+            $p = $m['overall_pct'];
+            $label = date('M', strtotime($ym . '-01'));
+            $tip = date('F Y', strtotime($ym . '-01')) . ': ' . ($p === null ? 'no SLA results' : self::pctText($p) . ' of targets met (' . ($m['resp_met'] + $m['res_met']) . ' of ' . ($m['resp_met'] + $m['resp_missed'] + $m['res_met'] + $m['res_missed']) . ')') . ' · ' . $m['tickets'] . ' ticket' . ($m['tickets'] == 1 ? '' : 's');
+            $svg .= '<g><title>' . e($tip) . '</title><rect x="' . round($x - 3, 1) . '" y="0" width="' . round($bw + 6, 1) . '" height="' . ($h + $top + $bottom) . '" style="fill:transparent"/>';
+            if ($p !== null) {
+                $bh = max(2, $p / 100 * $h);
+                $svg .= '<rect x="' . round($x, 1) . '" y="' . round($top + $h - $bh, 1) . '" width="' . round($bw, 1) . '" height="' . round($bh, 1) . '" rx="3" style="fill:' . $col[\Align\Service\Sla::tone($p)] . '"/>'
+                    . '<text x="' . round($cx, 1) . '" y="' . round($top + $h - $bh - 3, 1) . '" text-anchor="middle" style="fill:currentColor;font-size:9.5px">' . e((string) round($p)) . '</text>';
+            } else {
+                $svg .= '<text x="' . round($cx, 1) . '" y="' . ($top + $h - 4) . '" text-anchor="middle" style="fill:currentColor;fill-opacity:.45;font-size:10px">—</text>';
+            }
+            $svg .= '<text x="' . round($cx, 1) . '" y="' . ($top + $h + 13) . '" text-anchor="middle" style="fill:currentColor;font-size:10px">' . e($label) . '</text>'
+                . '<text x="' . round($cx, 1) . '" y="' . ($top + $h + 25) . '" text-anchor="middle" style="fill:currentColor;fill-opacity:.55;font-size:9px">' . (int) $m['tickets'] . '</text></g>';
+            $i++;
+        }
+        $ty = round($y($target), 1);
+        $svg .= '<line x1="30" x2="' . $w . '" y1="' . $ty . '" y2="' . $ty . '" style="stroke:currentColor;stroke-opacity:.55;stroke-width:1.5;stroke-dasharray:5 4"/>'
+            . '<line x1="' . ($w - 78) . '" x2="' . ($w - 60) . '" y1="6" y2="6" style="stroke:currentColor;stroke-opacity:.55;stroke-width:1.5;stroke-dasharray:5 4"/>'
+            . '<text x="' . ($w - 2) . '" y="9.5" text-anchor="end" style="fill:currentColor;fill-opacity:.75;font-size:10px">Goal ' . $target . '%</text>';
+        return $svg . '</svg>';
+    }
+
+    private static function pctText(float $p): string
+    {
+        return rtrim(rtrim(number_format($p, 1), '0'), '.') . '%';
+    }
 }

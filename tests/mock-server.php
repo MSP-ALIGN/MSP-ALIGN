@@ -35,6 +35,24 @@ if ($path === '/mock/software-edit' || $path === '/mock/software-delete') {
     $json(['ok' => true]);
     return;
 }
+if (in_array($path, ['/mock/ticket-edit', '/mock/ticket-delete', '/mock/tickets-new', '/mock/tickets-nosla', '/mock/tickets-calls'], true)) {
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $loadState();
+    if ($path === '/mock/tickets-calls') {
+        $json(['calls' => $st['ticket_calls'] ?? []]);
+        return;
+    }
+    match ($path) {
+        '/mock/ticket-edit' => $st['ticket_updates'][(string) (int) $in['ticket_id']] = ($in['fields'] ?? []) + ($st['ticket_updates'][(string) (int) $in['ticket_id']] ?? []),
+        '/mock/ticket-delete' => $st['ticket_deleted'][] = (int) $in['ticket_id'],
+        '/mock/tickets-new' => $st['ticket_new'] = array_merge($st['ticket_new'] ?? [], $in['tickets'] ?? []),
+        '/mock/tickets-nosla' => $st['tickets_no_sla'] = !empty($in['on']),
+    };
+    $st['ticket_calls'] = [];
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
 if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     // Simulates someone editing (or deleting) an asset inside ITFlow.
     $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
@@ -531,6 +549,16 @@ switch (true) {
             $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 1, 'invoice_date' => date('Y-m-15', strtotime('first day of -2 months')), 'invoice_amount' => 4200.00, 'invoice_status' => 'Paid', 'invoice_recurring_invoice_id' => 0];
             $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 2, 'invoice_date' => date('Y-m-20', strtotime('first day of -1 months')), 'invoice_amount' => 300.00, 'invoice_status' => 'Draft', 'invoice_recurring_invoice_id' => 0];
             $rows = array_slice($inv, $offset, $limit);
+        } elseif ($path === '/api/v1/tickets/read.php') {
+            $st = $loadState();
+            $all = mockTickets($st);
+            $st['ticket_calls'][] = isset($_GET['ticket_id']) ? 'id:' . (int) $_GET['ticket_id'] : "page:$offset";
+            $saveState($st);
+            if (isset($_GET['ticket_id'])) {
+                $rows = array_values(array_filter($all, fn($t) => $t['ticket_id'] === (int) $_GET['ticket_id']));
+            } else {
+                $rows = array_slice($all, $offset, $limit);
+            }
         } elseif ($path === '/api/v1/vendors/read.php') {
             $rows = array_slice([
                 ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],
@@ -733,4 +761,128 @@ switch (true) {
     default:
         http_response_code(404);
         $json(['error' => 'not found', 'path' => $path]);
+}
+
+/**
+ * ITFlow tickets with SLA fields (ITFlow 26.08+). Deterministic: ~13 months for clients 1-4
+ * (client 2 misses more, client 4 has no SLA), one 4-year-old ticket, and open tickets that are
+ * breached, in warning and fine. $st can edit, delete and add tickets, or drop the SLA columns.
+ */
+function mockTickets(array $st): array
+{
+    date_default_timezone_set('America/Los_Angeles'); // ITFlow stores local time in its own timezone; same as the test config
+    static $base = null;
+    if ($base === null) {
+        mt_srand(4242);
+        $targets = ['Urgent' => [60, 240], 'High' => [120, 480], 'Medium' => [240, 1440], 'Low' => [480, 2880]];
+        $pri = ['Urgent', 'High', 'High', 'Medium', 'Medium', 'Medium', 'Medium', 'Low', 'Low'];
+        $subjects = ['Printer offline at front desk', 'Outlook not syncing', 'New user setup', 'VPN will not connect', 'Password reset', 'Scanner to email failing',
+            'Slow computer in operatory 2', 'Phone system dropping calls', 'Software update for imaging', 'Wi-Fi drops in the back office', 'Shared drive access', 'Suspicious email reported'];
+        $list = [];
+        $now = time();
+        $list[] = ['created' => $now - 4 * 365 * 86400, 'client' => 1, 'priority' => 'Low', 'subject' => 'Very old ticket', 'kind' => 'done'];
+        for ($day = 395; $day >= 0; $day--) {
+            foreach ([1 => 0.45, 2 => 0.35, 3 => 0.3, 4 => 0.2] as $client => $rate) {
+                if (mt_rand() / mt_getrandmax() > $rate) {
+                    continue;
+                }
+                $created = strtotime(date('Y-m-d 08:00:00', $now - $day * 86400)) + mt_rand(0, 9 * 3600);
+                if ($created > $now - 1800) {
+                    continue;
+                }
+                $list[] = ['created' => $created, 'client' => $client, 'priority' => $pri[mt_rand(0, count($pri) - 1)], 'subject' => $subjects[mt_rand(0, count($subjects) - 1)], 'kind' => $day <= 2 ? 'open' : 'done'];
+            }
+        }
+        // Open tickets in known states for client 1
+        $list[] = ['created' => $now - 5 * 3600, 'client' => 1, 'priority' => 'High', 'subject' => 'Server backup failing', 'kind' => 'breached_response'];
+        $list[] = ['created' => $now - 3 * 3600, 'client' => 1, 'priority' => 'Medium', 'subject' => 'Email bouncing for billing@', 'kind' => 'warning'];
+        $list[] = ['created' => $now - 30 * 3600, 'client' => 1, 'priority' => 'High', 'subject' => 'Imaging software crashes', 'kind' => 'breached_resolution'];
+        usort($list, fn($a, $b) => $a['created'] <=> $b['created']);
+        $base = [];
+        $f = fn($ts) => $ts === null ? null : date('Y-m-d H:i:s', $ts);
+        foreach ($list as $i => $t) {
+            $id = $i + 1;
+            [$resp, $res] = $targets[$t['priority']];
+            $sla = $t['client'] === 4 ? 0 : ($t['priority'] === 'Urgent' ? 1 : 2);
+            $miss = $t['client'] === 2 ? 0.25 : 0.07;
+            $row = ['ticket_id' => $id, 'ticket_prefix' => 'TCK-', 'ticket_number' => 1000 + $id, 'ticket_source' => 'Email', 'ticket_category' => 'Support',
+                'ticket_subject' => $t['subject'], 'ticket_details' => str_repeat('<p>Ticket details that Align never stores. </p>', 40),
+                'ticket_priority' => $t['priority'], 'ticket_status' => 5, 'ticket_sla_id' => $sla, 'ticket_created_at' => $f($t['created']),
+                'ticket_first_response_at' => null, 'ticket_response_due_at' => null, 'ticket_resolution_due_at' => null, 'ticket_resolved_at' => null, 'ticket_closed_at' => null,
+                'ticket_archived_at' => null, 'ticket_response_sla_met' => null, 'ticket_resolution_sla_met' => null,
+                'ticket_response_sla_alert_stage' => 0, 'ticket_resolution_sla_alert_stage' => 0, 'ticket_client_id' => $t['client']];
+            $respAt = $t['created'] + (int) ($resp * 60 * (mt_rand() / mt_getrandmax() < $miss ? 1.3 + mt_rand(0, 100) / 100 : 0.1 + mt_rand(0, 80) / 100));
+            $resAt = $t['created'] + (int) ($res * 60 * (mt_rand() / mt_getrandmax() < $miss ? 1.2 + mt_rand(0, 150) / 100 : 0.2 + mt_rand(0, 75) / 100));
+            if ($sla) {
+                $row['ticket_response_due_at'] = $f($t['created'] + $resp * 60);
+                $row['ticket_resolution_due_at'] = $f($t['created'] + $res * 60);
+            }
+            switch ($t['kind']) {
+                case 'done':
+                    $row['ticket_first_response_at'] = $f($respAt);
+                    $row['ticket_resolved_at'] = $f(max($resAt, $respAt + 60));
+                    $row['ticket_closed_at'] = $f(max($resAt, $respAt + 60) + 3 * 86400);
+                    break;
+                case 'open':
+                    if ($respAt < $now) {
+                        $row['ticket_first_response_at'] = $f($respAt);
+                    }
+                    $row['ticket_status'] = 2;
+                    break;
+                case 'breached_response':
+                    $row['ticket_status'] = 1;
+                    $row['ticket_response_sla_alert_stage'] = 2;
+                    $row['ticket_response_sla_met'] = 0;
+                    break;
+                case 'warning':
+                    $row['ticket_status'] = 1;
+                    $row['ticket_response_sla_alert_stage'] = 1;
+                    $row['ticket_response_due_at'] = $f($now + 30 * 60);
+                    break;
+                case 'breached_resolution':
+                    $row['ticket_status'] = 2;
+                    $row['ticket_first_response_at'] = $f($t['created'] + 40 * 60);
+                    $row['ticket_response_sla_met'] = 1;
+                    $row['ticket_resolution_sla_alert_stage'] = 2;
+                    $row['ticket_resolution_sla_met'] = 0;
+                    break;
+            }
+            if ($sla && $row['ticket_first_response_at'] && $row['ticket_response_sla_met'] === null) {
+                $row['ticket_response_sla_met'] = $row['ticket_first_response_at'] <= $row['ticket_response_due_at'] ? 1 : 0;
+            }
+            if ($sla && $row['ticket_resolved_at']) {
+                $row['ticket_resolution_sla_met'] = $row['ticket_resolved_at'] <= $row['ticket_resolution_due_at'] ? 1 : 0;
+            }
+            if ($t['kind'] === 'open' && $sla && !$row['ticket_first_response_at'] && $row['ticket_response_due_at'] < $f($now)) {
+                $row['ticket_response_sla_met'] = 0;
+                $row['ticket_response_sla_alert_stage'] = 2;
+            }
+            $base[] = $row;
+        }
+    }
+    $out = [];
+    $deleted = array_flip($st['ticket_deleted'] ?? []);
+    foreach ($base as $row) {
+        if (isset($deleted[$row['ticket_id']])) {
+            continue;
+        }
+        $out[] = ($st['ticket_updates'][(string) $row['ticket_id']] ?? []) + $row;
+    }
+    $next = count($base) + 1;
+    foreach ($st['ticket_new'] ?? [] as $n) {
+        if (isset($deleted[$next])) {
+            $next++;
+            continue;
+        }
+        $out[] = $n + ['ticket_id' => $next, 'ticket_prefix' => 'TCK-', 'ticket_number' => 1000 + $next, 'ticket_subject' => 'New ticket', 'ticket_priority' => 'Medium', 'ticket_status' => 1,
+            'ticket_sla_id' => 2, 'ticket_created_at' => date('Y-m-d H:i:s'), 'ticket_client_id' => 1, 'ticket_response_due_at' => date('Y-m-d H:i:s', time() + 7200),
+            'ticket_resolution_due_at' => date('Y-m-d H:i:s', time() + 86400), 'ticket_first_response_at' => null, 'ticket_resolved_at' => null, 'ticket_closed_at' => null,
+            'ticket_archived_at' => null, 'ticket_response_sla_met' => null, 'ticket_resolution_sla_met' => null, 'ticket_response_sla_alert_stage' => 0, 'ticket_resolution_sla_alert_stage' => 0];
+        $next++;
+    }
+    if (!empty($st['tickets_no_sla'])) {
+        $out = array_map(fn($r) => array_diff_key($r, array_flip(['ticket_sla_id', 'ticket_first_response_at', 'ticket_response_due_at', 'ticket_resolution_due_at',
+            'ticket_response_sla_met', 'ticket_resolution_sla_met', 'ticket_response_sla_alert_stage', 'ticket_resolution_sla_alert_stage'])), $out);
+    }
+    return $out;
 }

@@ -5,7 +5,7 @@ use Align\View;
 /**
  * Business review pack.
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
- * @var ?array $a, $r, $bd, $comp, $lic, $bk
+ * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla
  * @var callable $on  fn(section key): bool
  */
 $costs = (bool) $opt['costs'];
@@ -16,6 +16,7 @@ if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
 if ($on('s_budget') && $bd && $costs) $sections['budget'] = 'Technology budget'; // budget and licensing are all prices: left out when costs are off
 if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
 if ($bk) $sections['backup'] = 'Backup & recovery';
+if (!empty($sla)) $sections['sla'] = 'Service levels';
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
 if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing';
 $sections['people'] = 'Your team & next steps';
@@ -134,6 +135,11 @@ foreach ($sections as $k => $_) {
 <?php if (isset($sections['backup'])): ?>
 <div class="page-break"></div>
 <?= View::fetch('reports/sections/backup', ['b' => $bk, 'num' => $numOf['backup'], 'details' => true, 'machines' => true, 'limit' => 15]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['sla'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/sla', ['s' => $sla, 'num' => $numOf['sla'], 'missed' => !empty($opt['missed'])]) ?>
 <?php endif; ?>
 
 <?php if (isset($sections['compliance'])): ?>

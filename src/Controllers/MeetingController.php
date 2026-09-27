@@ -261,6 +261,7 @@ final class MeetingController
             'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($clientId, 120), fn($d) => $d['urgency'] !== 'later')),
             'proposed' => $proposed,
             'gaps' => $gaps,
+            'sla' => \Align\Service\Sla::overview($clientId),
         ];
     }
 

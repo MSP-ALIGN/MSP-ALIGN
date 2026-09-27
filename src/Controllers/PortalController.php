@@ -212,7 +212,7 @@ final class PortalController
             'client' => self::client($pu),
             'nextMeeting' => $pu['can_documents'] ? DB::one("SELECT * FROM meetings WHERE client_id = ? AND type <> 'internal' AND status = 'scheduled' AND starts_at >= NOW() ORDER BY starts_at LIMIT 1", [$cid]) : null,
             'pending' => $pu['can_roadmap'] ? DB::all("SELECT * FROM roadmap_items WHERE client_id = ? AND status = 'proposed' ORDER BY target_quarter IS NULL, target_quarter, title", [$cid]) : [],
-            'budget' => null, 'licensing' => null, 'dates' => [], 'summary' => null, 'frameworks' => [],
+            'budget' => null, 'licensing' => null, 'dates' => [], 'summary' => null, 'frameworks' => [], 'sla' => null,
         ];
         if ($pu['can_budget']) {
             $b = Budget::build($cid);
@@ -222,6 +222,7 @@ final class PortalController
         if ($pu['can_devices']) {
             $data['summary'] = Lifecycle::summarize((new Lifecycle())->devices($cid));
             $data['frameworks'] = self::frameworks($cid);
+            $data['sla'] = \Align\Service\Sla::overview($cid);
         }
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
     }
@@ -473,7 +474,7 @@ final class PortalController
     /** Printable reports the user has access to. */
     public static function report(string $kind): void
     {
-        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'backup' => 'can_devices', 'qbr' => ''][$kind] ?? null;
+        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'backup' => 'can_devices', 'sla' => 'can_devices', 'qbr' => ''][$kind] ?? null;
         if ($perm === null) {
             http_response_code(404);
             exit;
@@ -483,10 +484,16 @@ final class PortalController
         if ($kind === 'qbr') {
             // Only the sections this user may see; costs only with budget access
             $allowed = array_keys(array_filter(['s_roadmap' => $pu['can_roadmap'], 's_budget' => $pu['can_budget'], 's_assets' => $pu['can_devices'],
-                's_backup' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
+                's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
             $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',
-                'virtual' => false, 'notes' => query('notes', '1') === '1', '_hide' => $pu['can_budget'] ? [] : ['costs']] + ReportController::qbrSections(true);
+                'virtual' => false, 'notes' => query('notes', '1') === '1', 'missed' => false, '_hide' => $pu['can_budget'] ? ['missed'] : ['costs', 'missed']] + ReportController::qbrSections(true);
             ReportController::renderQbr($client, $opt, $allowed);
+            return;
+        }
+        if ($kind === 'sla') {
+            // Summary only in the portal: no ticket list
+            $period = query('period', '90');
+            \Align\Controllers\ServiceController::renderReport($client, ['missed' => false, '_hide' => ['missed']], isset(\Align\Service\Sla::PERIODS[$period]) || $period === 'quarter' ? $period : '90');
             return;
         }
         if ($kind === 'backup') {

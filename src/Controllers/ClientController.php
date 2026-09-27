@@ -284,6 +284,7 @@ final class ClientController
             'users' => self::users(),
             'itflowUrl' => Settings::get('itflow_url'),
             'backup' => \Align\Backup\Backup::forClient($client, $devices),
+            'sla' => \Align\Service\Sla::overview($id),
         ]);
     }
 

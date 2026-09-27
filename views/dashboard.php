@@ -84,6 +84,28 @@ $box = function (string $label, $value, string $bg, string $icon, string $href) 
       <?php if (count($incomplete) > 6): ?><div class="card-footer py-1 small text-muted"><?= count($incomplete) - 6 ?> more clients to finish. Open a client to see its checklist.</div><?php endif; ?>
       <?php endif; ?>
     </div>
+    <?php if (!empty($sla)): $t = $sla['total']; ?>
+      <div class="card card-outline card-<?= $sla['open']['breached'] ? 'danger' : \Align\Service\Sla::tone($t['overall_pct']) ?>">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-stopwatch mr-2 text-secondary"></i>Service levels · 90 days</h3>
+          <div class="card-tools"><a href="/reports/sla" target="_blank" class="btn btn-tool">Report</a></div></div>
+        <div class="card-body py-2">
+          <div class="d-flex text-center">
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= \Align\Service\Sla::tone($t['resp_pct']) ?>"><?= e(\Align\Service\Sla::pct($t['resp_pct'])) ?></div><div class="small text-muted">response</div></div>
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= \Align\Service\Sla::tone($t['res_pct']) ?>"><?= e(\Align\Service\Sla::pct($t['res_pct'])) ?></div><div class="small text-muted">resolution</div></div>
+            <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= $sla['open']['breached'] ? 'danger' : 'success' ?>"><?= (int) $sla['open']['breached'] ?></div><div class="small text-muted">open past target</div></div>
+          </div>
+        </div>
+        <?php if ($sla['clients']): ?>
+        <ul class="list-group list-group-flush small">
+          <?php foreach (array_slice($sla['clients'], 0, 6, true) as $ccid => $x): ?>
+            <li class="list-group-item py-2 d-flex"><a href="/clients/<?= (int) $ccid ?>/service-levels" class="mr-auto font-weight-bold"><?= e($x['name']) ?></a>
+              <span class="text-nowrap"><?php if ($x['overall_pct'] !== null && $x['overall_pct'] < $sla['target']): ?><span class="badge badge-<?= \Align\Service\Sla::tone($x['overall_pct']) ?> ml-1"><?= e(\Align\Service\Sla::pct($x['overall_pct'])) ?> met</span><?php endif; ?>
+              <?php if ($x['breached_open']): ?><span class="badge badge-danger ml-1"><?= (int) $x['breached_open'] ?> open past target</span><?php endif; ?></span></li>
+          <?php endforeach; ?>
+        </ul>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
     <?php if (!empty($backupIssues)): ?>
       <div class="card card-outline card-danger">
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-database mr-2 text-danger"></i>Backups needing attention</h3></div>

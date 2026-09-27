@@ -1,7 +1,7 @@
 <?php
 /**
  * Reports hub: every client report, export and all-client report in one place.
- * @var array $clients, $meta, $years; int $currentYear; bool $backupEnabled; int $preselect
+ * @var array $clients, $meta, $years; int $currentYear; bool $backupEnabled; bool $slaEnabled; int $preselect
  */
 $chk = function (string $name, string $label, bool $on = true) {
     $id = 'r-' . bin2hex(random_bytes(3));
@@ -39,8 +39,8 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
   <?= $card('fa-book-open', 'Business review pack (QBR)',
       'Cover, executive summary with highlights and decisions needed, then each section and your team &amp; next steps. Choose the sections to include (with costs off, budget and licensing are left out).',
       '/report/qbr',
-      $chk('s_roadmap', 'Roadmap') . $chk('s_budget', 'Budget') . $chk('s_assets', 'Assets') . ($backupEnabled ? $chk('s_backup', 'Backups') : '') . $chk('s_compliance', 'Compliance') . $chk('s_licensing', 'Licensing')
-      . '<div class="w-100"></div>' . $chk('costs', 'Costs') . $chk('users', 'Last user') . $chk('notes', 'Notes') . $chk('inventory', 'Full inventory appendix', false)) ?>
+      $chk('s_roadmap', 'Roadmap') . $chk('s_budget', 'Budget') . $chk('s_assets', 'Assets') . ($backupEnabled ? $chk('s_backup', 'Backups') : '') . ($slaEnabled ? $chk('s_sla', 'Service levels') : '') . $chk('s_compliance', 'Compliance') . $chk('s_licensing', 'Licensing')
+      . '<div class="w-100"></div>' . $chk('costs', 'Costs') . $chk('users', 'Last user') . $chk('notes', 'Notes') . ($slaEnabled ? $chk('missed', 'Missed tickets') : '') . $chk('inventory', 'Full inventory appendix', false)) ?>
   <?= $card('fa-desktop', 'Asset & lifecycle report',
       'Fleet at a glance, health by device type, operating systems, the replacement plan by quarter, devices needing attention and the full inventory.',
       '/report/assets',
@@ -60,6 +60,14 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       'Backup health from Veeam: job results, the 30-day history, protected machines, Microsoft 365, anything needing attention and items marked not required.',
       '/report/backup',
       $chk('details', 'Job details') . $chk('machines', 'Protected machines'), 'veeam') ?>
+  <?php endif; ?>
+  <?php if ($slaEnabled): ?>
+  <?= $card('fa-stopwatch', 'Service levels',
+      'Response and resolution SLA results from ITFlow tickets: on-time percentages with the change from the period before, 12 months by month, by priority, and tickets that missed a target.',
+      '/report/sla',
+      '<div class="form-group mb-1 mr-3"><select name="period" class="custom-select custom-select-sm" aria-label="Period">'
+      . implode('', array_map(fn($k, $l) => '<option value="' . e((string) $k) . '"' . ((string) $k === '90' ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(\Align\Controllers\ServiceController::periodChoices()), \Align\Controllers\ServiceController::periodChoices()))
+      . '</select></div>' . $chk('missed', 'Missed tickets'), 'sla') ?>
   <?php endif; ?>
   <?= $card('fa-clipboard-check', 'Compliance checklist (CSV)',
       'Every control in a framework with its status, owner, due date, notes, evidence and linked document, as a spreadsheet.',
@@ -92,6 +100,18 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
           <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-database mr-2 text-secondary"></i>Backup status</h3></div>
           <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Every client linked to Veeam: failed jobs, machines and Microsoft 365 items without a recent backup, servers with no backup, success rate and cloud storage.</p>
             <div class="d-flex flex-wrap small mb-2"><?= $chk('all', 'Include clients with no problems') ?></div>
+            <div class="mt-auto"><button class="btn btn-sm btn-default"><i class="fas fa-up-right-from-square mr-1"></i>Open report</button></div></div>
+        </form>
+      </div>
+      <?php endif; ?>
+      <?php if ($slaEnabled): ?>
+      <div class="col-xl-4 col-md-6 d-flex">
+        <form class="card card-outline card-secondary flex-fill" method="get" action="/reports/sla" target="_blank">
+          <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-stopwatch mr-2 text-secondary"></i>Service levels</h3></div>
+          <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Every client's response and resolution SLA results from ITFlow, worst first, with open tickets past or close to target.</p>
+            <div class="d-flex flex-wrap small mb-2"><?= '<div class="form-group mb-1 mr-3"><select name="period" class="custom-select custom-select-sm" aria-label="Period">'
+      . implode('', array_map(fn($k, $l) => '<option value="' . e((string) $k) . '"' . ((string) $k === '90' ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(\Align\Controllers\ServiceController::periodChoices()), \Align\Controllers\ServiceController::periodChoices()))
+      . '</select></div>' ?></div>
             <div class="mt-auto"><button class="btn btn-sm btn-default"><i class="fas fa-up-right-from-square mr-1"></i>Open report</button></div></div>
         </form>
       </div>

@@ -5,5 +5,5 @@ document.addEventListener('DOMContentLoaded', () => {
     ev.preventDefault();
     if (window.history.length > 1) window.history.back(); else window.close();
   }));
-  document.querySelectorAll('[data-autosubmit-check]').forEach((c) => c.addEventListener('change', () => c.form.submit()));
+  document.querySelectorAll('[data-autosubmit-check], [data-autosubmit-select]').forEach((c) => c.addEventListener('change', () => c.form.submit()));
 });

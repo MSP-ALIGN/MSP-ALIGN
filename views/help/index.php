@@ -100,6 +100,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Something that genuinely doesn\'t need a backup (a test VM, a kiosk)? A tech can mark it <b>Backup not required</b> with a reason; it stops counting as missing everywhere.',
       '<b>Reports → Backup &amp; recovery</b> prints it for the client, and <b>Reports → Backups (all clients)</b> shows the whole portfolio.',
   ], ['Backups report (all clients)' => '/reports/backups']) ?>
+  <?= $guide('service-levels', 'fa-stopwatch', 'Review a client\'s service levels (SLA)', 'viewer', [
+      'Needs ITFlow 26.08 or later with SLAs set up in ITFlow (<i>Admin → SLAs</i>: response and resolution targets per priority, assigned to clients or as the default). Turn on <b>Service levels</b> under <b>Integrations → ITFlow</b> and set your goal (90% by default). Tickets come in with the hourly sync.',
+      'Open the client and choose <b>Service levels</b>: responded and resolved on time (with the change from the period before), tickets opened, open tickets past or close to target, 12 months by month, results by priority and every ticket that missed a target. Ticket numbers open the ticket in ITFlow.',
+      'The client overview, dashboard and meeting prep show the last 90 days. <b>Reports → Service levels</b> prints it for the client (the missed-ticket list can be switched off), the QBR pack has a Service levels section, and <b>Reports → Service levels (all clients)</b> ranks every client. Portal users with Devices &amp; compliance access see the summary and can print the report, never the ticket list.',
+      'Targets are measured by ITFlow in business hours and the resolution clock pauses while a ticket is on hold; Align reports ITFlow\'s results as they are. Average times are clock time. Align\'s timezone (config) should match ITFlow\'s. Only ticket numbers, subjects, priorities and SLA times are copied, never ticket details.',
+  ], ['Service levels report (all clients)' => '/reports/sla']) ?>
 
   <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Compliance &amp; documents</h6>
   <?= $guide('compliance', 'fa-clipboard-check', 'Run a compliance assessment', 'tech', [

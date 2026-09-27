@@ -57,11 +57,15 @@ $past = strtotime($m['ends_at']) < time();
             <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/assets" target="_blank"><i class="fas fa-desktop mr-1"></i>Assets &amp; lifecycle</a>
             <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-road mr-1"></i>Roadmap</a>
             <a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-coins mr-1"></i>Budget</a>
+            <?php if (!empty($prep['sla'])): ?><a class="btn btn-xs btn-default mr-1 mb-1" href="/clients/<?= $cid ?>/report/sla" target="_blank"><i class="fas fa-stopwatch mr-1"></i>Service levels</a><?php endif; ?>
           </div>
           <div class="font-weight-bold mb-1">Talking points</div>
           <ul class="pl-3 mb-2">
             <?php foreach ($prep['proposed'] as $p): ?><li>Approve: <a href="/clients/<?= $cid ?>/roadmap"><?= e($p['title']) ?></a><?= $p['cost'] ? ' (' . money($p['cost']) . ')' : '' ?></li><?php endforeach; ?>
             <?php foreach (array_slice($prep['dates'], 0, 4) as $d): ?><li><?= e($d['label']) ?> <?= e(fmt_date($d['date'])) ?>: <a href="<?= e($d['link']) ?>"><?= e($d['name']) ?></a></li><?php endforeach; ?>
+            <?php if (!empty($prep['sla']) && $prep['sla']['stats']['overall_pct'] !== null): $ps = $prep['sla']['stats']; ?>
+              <li><a href="/clients/<?= $cid ?>/service-levels">Service levels</a>: <?= e(\Align\Service\Sla::pct($ps['resp_pct'])) ?> responded and <?= e(\Align\Service\Sla::pct($ps['res_pct'])) ?> resolved on time over 90 days<?= $ps['missed'] ? ' (' . (int) $ps['missed'] . ' missed)' : '' ?><?= $prep['sla']['open']['breached'] ? '; ' . (int) $prep['sla']['open']['breached'] . ' open past target' : '' ?></li>
+            <?php endif; ?>
             <?php if ($prep['gaps']): ?><li><a href="/clients/<?= $cid ?>/compliance"><?= (int) $prep['gaps'] ?> compliance item<?= $prep['gaps'] === 1 ? '' : 's' ?></a> not met or partial</li><?php endif; ?>
             <?php if (!$prep['proposed'] && !$prep['dates'] && !$prep['gaps']): ?><li class="text-muted">No proposed projects, upcoming renewals or open compliance gaps.</li><?php endif; ?>
           </ul>

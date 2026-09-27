@@ -93,6 +93,26 @@ $cid = (int) $client['id'];
       </div>
     </div>
     <?php endif; ?>
+    <?php if (!empty($sla)): $ss = $sla['stats']; ?>
+    <div class="card card-dark">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-stopwatch mr-2"></i>Service levels</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/service-levels" class="btn btn-tool">Open</a></div></div>
+      <div class="card-body py-2">
+        <div class="d-flex text-center mb-2">
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= \Align\Service\Sla::tone($ss['resp_pct']) ?>"><?= e(\Align\Service\Sla::pct($ss['resp_pct'])) ?></div><div class="small text-muted">response on time</div></div>
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold text-<?= \Align\Service\Sla::tone($ss['res_pct']) ?>"><?= e(\Align\Service\Sla::pct($ss['res_pct'])) ?></div><div class="small text-muted">resolved on time</div></div>
+          <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= (int) $ss['tickets'] ?></div><div class="small text-muted">tickets, 90d</div></div>
+        </div>
+        <div class="sla-months mb-2" role="img" aria-label="Share of SLA targets met, last 6 months">
+          <?php foreach ($sla['monthly'] as $ym => $m): ?><span class="bg-<?= \Align\Service\Sla::tone($m['overall_pct']) ?>" title="<?= e(date('M Y', strtotime($ym . '-01')) . ': ' . \Align\Service\Sla::pct($m['overall_pct']) . ' of targets met, ' . $m['tickets'] . ' tickets') ?>"><?= e(date('M', strtotime($ym . '-01'))) ?></span><?php endforeach; ?>
+        </div>
+        <?php foreach (array_slice($sla['late'], 0, 3) as $t): ?>
+          <div class="small text-truncate"><i class="fas fa-<?= $t['state'] === 'breached' ? 'circle-xmark text-danger' : 'clock text-warning' ?> mr-1"></i><?= e($t['number'] ?: '#' . $t['id']) ?> <?= e((string) $t['subject']) ?></div>
+        <?php endforeach; ?>
+        <?php if (!$sla['late'] && $sla['open']['with_sla']): ?><div class="small text-muted"><i class="fas fa-circle-check text-success mr-1"></i><?= (int) $sla['open']['open_total'] ?> open ticket<?= $sla['open']['open_total'] == 1 ? '' : 's' ?>, all on track</div><?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-address-book mr-2"></i>Key contacts</h3>
