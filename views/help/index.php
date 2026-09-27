@@ -27,6 +27,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 
 <ul class="nav nav-tabs settings-tabs mb-3" role="tablist">
   <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#tab-workflow" role="tab"><i class="fas fa-route fa-fw mr-1"></i>Workflow</a></li>
+  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-new" role="tab"><i class="fas fa-star fa-fw mr-1"></i>What's new</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-howto" role="tab"><i class="fas fa-list-check fa-fw mr-1"></i>How-to guides</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-menus" role="tab"><i class="fas fa-bars fa-fw mr-1"></i>Where things are</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-data" role="tab"><i class="fas fa-arrows-rotate fa-fw mr-1"></i>Data &amp; terms</a></li>
@@ -39,20 +40,45 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-route mr-2"></i>The vCIO workflow</h3></div>
     <div class="card-body">
       <h6 class="text-uppercase text-muted small font-weight-bold">Once, when you set up</h6>
-      <?= $step(1, 'fa-plug', 'Connect your tools', 'Open <b>Integrations</b>, set up ITFlow and NinjaOne (and Veeam, email and warranty lookups if you use them), press <b>Test connection</b> on each, then run a sync. After that Align syncs hourly and checks ITFlow for asset, contact and license changes every 2 minutes.', $isAdmin ? ['Integrations' => '/integrations', 'Sync' => '/sync'] : ['Sync' => '/sync']) ?>
+      <?= $step(1, 'fa-plug', 'Connect your tools', 'Open <b>Integrations</b>, set up ITFlow and NinjaOne (and Veeam, email and warranty lookups if you use them), press <b>Test connection</b> on each, then run a sync. Using SLAs in ITFlow? Turn on <b>Service levels</b> on the ITFlow card. After that Align syncs hourly and checks ITFlow for asset, contact and license changes every 2 minutes. Then set up your welcome email and onboarding guides under <b>Settings → Onboarding</b> (or import a saved set).', $isAdmin ? ['Integrations' => '/integrations', 'Sync' => '/sync', 'Settings → Onboarding' => '/settings/onboarding'] : ['Sync' => '/sync']) ?>
       <?= $step(2, 'fa-link', 'Link clients', 'Clients with the same name in each system link automatically. Link the rest (NinjaOne organization, Veeam company) on Client mapping. Clients you don\'t plan for (break-fix, vendors) can be removed from planning.', ['Client mapping' => '/mapping', 'Clients' => '/clients']) ?>
       <?= $step(3, 'fa-circle-question', 'Sort out unassigned hardware', 'ITFlow assets with a type Align doesn\'t recognize land in Unassigned hardware. Give them a type and ITFlow is updated to match.', ['Unassigned hardware' => '/devices/unassigned']) ?>
+      <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each new client</h6>
+      <?= $step(4, 'fa-mountain-sun', 'Welcome and onboard', 'When they sign, choose <b>⋮ → Welcome &amp; onboarding</b> on the client. The welcome email links to a private page (no sign-in) where they enter their team\'s contacts, read how to reach you and how billing works, answer a few getting-started questions and send new user or termination requests. Track their progress on the client\'s <b>Onboarding</b> page.', ['How onboarding works' => '#guide-onboarding']) ?>
       <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each client (the overview's Planning checklist tracks this)</h6>
-      <?= $step(4, 'fa-address-book', 'Contacts', 'Contacts come from ITFlow. Mark the <b>decision maker</b> and the people you <b>invite to reviews</b>. They can then be added to a meeting in one click.', ['Contacts' => '/contacts']) ?>
-      <?= $step(5, 'fa-desktop', 'Devices & lifecycle', 'Check devices without an in-service date (they can\'t be planned) and set replacement costs where the policy default is wrong. Edits go to ITFlow automatically.', []) ?>
-      <?= $step(6, 'fa-key', 'Licensing & contracts', 'Licenses sync from ITFlow\'s Software section without prices. Add the price and billing cycle, plus contract term, end and renegotiate-by dates.', ['Licenses needing a price' => '/licenses?filter=unpriced', 'Renewals' => '/renewals']) ?>
-      <?= $step(7, 'fa-database', 'Backups', 'With Veeam connected, each client\'s Backups page shows job results, protected machines, Microsoft 365 and servers with no backup. Mark anything that doesn\'t need a backup so it stops counting as missing.', []) ?>
-      <?= $step(8, 'fa-clipboard-check', 'Compliance & documents', 'Assign the frameworks the client must meet (including WISP / FTC Safeguards), work the checklist, and link written policies from Documents as evidence.', ['Compliance' => '/compliance', 'Documents' => '/documents']) ?>
-      <?= $step(9, 'fa-road', 'Roadmap & projects', 'Add projects with a target quarter, budget and description. Hardware reaching end of life, OS end of support and warranty dates appear on the roadmap automatically.', ['Projects' => '/projects']) ?>
-      <?= $step(10, 'fa-coins', 'Budget', 'The budget builds itself from licensing, hardware, projects and managed services. Add a <b>Managed services</b> line with your agreement amount, plus internet, phones, cloud and other costs.', ['Budgets' => '/budget']) ?>
-      <?= $step(11, 'fa-door-open', 'Client portal (optional)', 'Invite the owner or office manager from the client\'s <b>Client portal</b> page. Choose what they can see and do. They sign in at <b>/portal</b> and only ever see their own company; their approvals show on the roadmap and the dashboard.', ['Client portal users' => '/portal-users']) ?>
-      <?= $step(12, 'fa-handshake', 'Meet and report', 'Schedule the review (invitations go out as calendar invites if email is connected). The meeting page lists talking points; <b>Reports</b> builds the QBR pack and every other report for printing or PDF.', ['Meetings' => '/meetings', 'Reports' => '/reports']) ?>
+      <?= $step(5, 'fa-address-book', 'Contacts', 'Contacts come from ITFlow (and from onboarding). Mark the <b>decision maker</b> and the people you <b>invite to reviews</b>. They can then be added to a meeting in one click.', ['Contacts' => '/contacts']) ?>
+      <?= $step(6, 'fa-desktop', 'Devices & lifecycle', 'Check devices without an in-service date (they can\'t be planned) and set replacement costs where the policy default is wrong. Edits go to ITFlow automatically.', ['How to plan replacements' => '#guide-lifecycle']) ?>
+      <?= $step(7, 'fa-key', 'Licensing & contracts', 'Licenses sync from ITFlow\'s Software section without prices. Add the price and billing cycle, plus contract term, end and renegotiate-by dates.', ['Licenses needing a price' => '/licenses?filter=unpriced', 'Renewals' => '/renewals']) ?>
+      <?= $step(8, 'fa-database', 'Backups & service levels', 'With Veeam connected, each client\'s <b>Backups</b> page shows job results, protected machines, Microsoft 365 and servers with no backup. With ITFlow SLAs turned on, <b>Service levels</b> shows how many tickets were answered and resolved on time and which missed.', ['Backups (all clients)' => '/reports/backups', 'Service levels (all clients)' => '/reports/sla']) ?>
+      <?= $step(9, 'fa-clipboard-check', 'Compliance & documents', 'Assign the frameworks the client must meet (CMMC, NIST CSF, CIS, HIPAA, PCI, SOC 2, ISO 27001, WISP and more), work the checklist and let the <b>crosswalk</b> reuse answers across frameworks. Write policies from the templates in Documents and link them as evidence.', ['Compliance' => '/compliance', 'Documents' => '/documents']) ?>
+      <?= $step(10, 'fa-road', 'Roadmap & projects', 'Add projects with a target quarter, budget and description. Hardware reaching end of life, OS end of support and warranty dates appear on the roadmap automatically.', ['Projects' => '/projects']) ?>
+      <?= $step(11, 'fa-coins', 'Budget', 'The budget builds itself from licensing, hardware, projects and managed services. Add a <b>Managed services</b> line with your agreement amount, plus internet, phones, cloud and other costs.', ['Budgets' => '/budget']) ?>
+      <?= $step(12, 'fa-door-open', 'Client portal (optional)', 'Invite the owner or office manager from the client\'s <b>Client portal</b> page. Choose what they can see and do. They sign in at <b>/portal</b> and only ever see their own company; their approvals and requests show up for you, and their approvals appear on the roadmap and the dashboard.', ['Client portal users' => '/portal-users']) ?>
+      <?= $step(13, 'fa-handshake', 'Meet and report', 'Schedule the review (invitations go out as calendar invites if email is connected). The meeting page lists talking points; <b>Reports</b> builds the QBR pack (now with a Service levels section) and every other report for printing or PDF.', ['Meetings' => '/meetings', 'Reports' => '/reports']) ?>
+      <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Every day</h6>
+      <?= $step(14, 'fa-gauge-high', 'Work from the dashboard', 'Start with <b>Needs attention</b> on the dashboard: failed backups, missed service levels, stalled onboardings, decisions waiting on a client, renewals, compliance gaps and hardware due for replacement, across every client and most urgent first. Press <b>Customize</b> to arrange the rest of the dashboard your way.', ['Dashboard' => '/', 'How to customize it' => '#guide-dashboard']) ?>
     </div>
+  </div>
+</div>
+
+<div class="tab-pane fade" id="tab-new" role="tabpanel">
+  <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
+  <div class="list-group mb-3">
+    <?php foreach ([
+        ['1.23', 'fa-bars-progress', 'Progress window for updates and restores', 'Updating or restoring now shows each step, a progress bar and the time so far, and reloads on its own when it\'s done. Everyone else sees a Please wait page that refreshes itself.', 'update', 'admin'],
+        ['1.22', 'fa-mountain-sun', 'Client onboarding', 'Send a welcome email with a private onboarding page: the client enters their contacts, reads how to reach you and how billing works, answers getting-started questions and sends new user or termination requests. Track progress on the client\'s Onboarding page; edit everything under Settings → Onboarding.', 'onboarding', 'tech'],
+        ['1.22', 'fa-user-plus', 'New user and termination requests', 'Online request forms on the onboarding page and in the client portal. Each request becomes an ITFlow ticket.', 'requests', 'tech'],
+        ['1.21', 'fa-gauge-high', 'A new dashboard', 'Needs attention lists what to act on across every client, portfolio health tiles give the big picture, and Customize lets everyone reorder or hide cards.', 'dashboard', 'viewer'],
+        ['1.20', 'fa-stopwatch', 'Service levels from ITFlow', 'Response and resolution on time, missed tickets and trends per client, on the dashboard and meeting prep, in a printable report, in the QBR pack and in the client portal.', 'service-levels', 'viewer'],
+        ['1.19', 'fa-clipboard-check', 'More frameworks and the crosswalk', 'CMMC Level 1 and 2, NIST CSF 2.0, CIS v8.1, PCI DSS, SOC 2, ISO 27001, HIPAA, CCPA/CPRA and more. The crosswalk reuses answers across a client\'s frameworks.', 'compliance', 'tech'],
+        ['1.19', 'fa-file-lines', 'More document templates', 'Security policies, incident response, BCDR, the CMMC package (SSP, POA&M, CUI handling) and HIPAA and privacy templates.', 'document', 'tech'],
+    ] as [$ver, $icon, $title, $text, $g, $who]): $canOpen = Auth::can($who); ?>
+      <<?= $canOpen ? 'a' : 'div' ?> class="list-group-item<?= $canOpen ? ' list-group-item-action' : '' ?> d-flex"<?= $canOpen ? ' href="#guide-' . e($g) . '"' : '' ?>>
+        <i class="fas <?= $icon ?> fa-fw text-secondary mr-3 mt-1"></i>
+        <div class="flex-grow-1"><div class="d-flex flex-wrap align-items-center"><b class="mr-2"><?= e($title) ?></b><span class="badge badge-light border">v<?= e($ver) ?></span></div><div class="small text-muted"><?= e($text) ?></div></div>
+        <?php if ($canOpen): ?><i class="fas fa-angle-right text-muted ml-2 mt-1"></i><?php endif; ?>
+      </<?= $canOpen ? 'a' : 'div' ?>>
+    <?php endforeach; ?>
   </div>
 </div>
 
@@ -70,7 +96,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <?= $guide('onboarding', 'fa-mountain-sun', 'Welcome and onboard a new client', 'tech', [
       'Once they\'re officially a client, open the client and choose <b>⋮ → Welcome &amp; onboarding</b>. Pick who gets the welcome email, set the onsite week, adjust the message for this client if you like, and press <b>Send welcome email</b>. No email connected? Press <b>Create link only</b> and paste the link into your own email.',
       'The email has a <b>Start onboarding</b> button that opens a private page (no sign-in; the link works for 30 days by default and sending again replaces it). There the client fills in <b>their team\'s contacts</b> (or pastes them from a spreadsheet), marks who approves changes, gets invoices and is the main IT contact, reads <b>how to reach you, billing and email security</b> and confirms, gives <b>getting-started details</b> (current IT provider, preferred onsite week, pain points), and can send <b>new user</b> or <b>user termination</b> requests.',
-      'Contacts go straight into Align and ITFlow (with two-way sync on). Requests become ITFlow tickets, or an email to your company address without ITFlow. You get a notification as they go.',
+      'Contacts go straight into the client\'s contacts and ITFlow (with two-way sync on). Requests become ITFlow tickets, or an email to your company address without ITFlow. You get a notification as they go.',
       'Follow along on the client\'s <b>Onboarding</b> page: what\'s done, their answers, and their requests. The dashboard flags onboardings that stall or whose link expired. You can turn the link off, send it again or mark onboarding complete.',
       'Admins edit the welcome email and the page\'s guides in <b>Settings → Onboarding</b> (with placeholders like the client\'s name and your phone), attach a PDF to a guide, and import or export the whole set. Request forms can be turned off there; they\'re also in the client portal for users who can edit contacts.',
   ], ['Settings → Onboarding' => '/settings/onboarding']) ?>
@@ -116,7 +142,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Needs ITFlow 26.08 or later with SLAs set up in ITFlow (<i>Admin → SLAs</i>: response and resolution targets per priority, assigned to clients or as the default). Turn on <b>Service levels</b> under <b>Integrations → ITFlow</b> and set your goal (90% by default). Tickets come in with the hourly sync.',
       'Open the client and choose <b>Service levels</b>: responded and resolved on time (with the change from the period before), tickets opened, open tickets past or close to target, 12 months by month, results by priority and every ticket that missed a target. Ticket numbers open the ticket in ITFlow.',
       'The client overview, dashboard and meeting prep show the last 90 days. <b>Reports → Service levels</b> prints it for the client (the missed-ticket list can be switched off), the QBR pack has a Service levels section, and <b>Reports → Service levels (all clients)</b> ranks every client. Portal users with Devices &amp; compliance access see the summary and can print the report, never the ticket list.',
-      'Targets are measured by ITFlow in business hours and the resolution clock pauses while a ticket is on hold; Align reports ITFlow\'s results as they are. Average times are clock time. Align\'s timezone (config) should match ITFlow\'s. Only ticket numbers, subjects, priorities and SLA times are copied, never ticket details.',
+      'Targets are measured by ITFlow in business hours and the resolution clock pauses while a ticket is on hold; results are shown as ITFlow calculated them. Average times are clock time. The app\'s timezone (config) should match ITFlow\'s. Only ticket numbers, subjects, priorities and SLA times are copied, never ticket details.',
   ], ['Service levels report (all clients)' => '/reports/sla']) ?>
 
   <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Compliance &amp; documents</h6>
@@ -124,7 +150,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Open the client\'s <b>Compliance</b> and assign the frameworks they must meet: CMMC Level 1 or 2, NIST CSF 2.0, CIS Controls v8.1 (IG1 or IG2), PCI DSS 4.0.1, SOC 2, ISO/IEC 27001:2022, HIPAA, CCPA/CPRA, FTC Safeguards (WISP), the Microsoft 365 baseline, cyber insurance or the MSP baseline.',
       'Work through the checklist: set each control\'s status, add notes, and link evidence (a document or a file). Each control\'s guidance says what "met" looks like and the evidence to collect.',
       '<b>Crosswalk:</b> when a client has more than one framework, each control lists the matching controls in the others (<i>Matches N controls</i>). Press <b>Use this answer</b> to copy a status, notes, evidence and linked document, or <b>Fill from matching answers</b> to fill every not-assessed control that has a strong, consistent match. Filled rows are highlighted; review them, then save. Nothing is saved until you press Save.',
-      'Some controls check themselves from Align data (backups, OS support, encryption). Export the checklist as CSV or include it in the QBR pack.',
+      'Some controls check themselves from synced data (backups, OS support, encryption). Export the checklist as CSV or include it in the QBR pack.',
   ], ['Compliance' => '/compliance']) ?>
   <?= $guide('frameworks', 'fa-list-check', 'Create or edit a compliance framework', 'admin', [
       'Open <b>Compliance → Frameworks</b>.',
@@ -146,15 +172,22 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Everyone\'s meetings are also on <b>Meetings → Calendar</b>, which you can subscribe to from Outlook or Google.',
   ], ['Meetings' => '/meetings', 'Calendar' => '/calendar']) ?>
   <?= $guide('qbr', 'fa-print', 'Prepare a QBR pack', 'viewer', [
-      'Open <b>Reports</b>, pick the client, and choose the sections for the <b>Business review pack</b>.',
-      'Press <b>Open report</b>, check it, then Print → Save as PDF. Every other report (assets, roadmap, budget, backups, compliance CSV) is on the same page.',
+      'Open <b>Reports</b>, pick the client, and choose the sections for the <b>Business review pack</b>: summary, assets, roadmap, budget, backups, service levels, compliance and policies.',
+      'Press <b>Open report</b>, check it, then Print → Save as PDF. Every other report (assets, roadmap, budget, backup &amp; recovery, service levels, compliance CSV, device list) is on the same page. Reports with a period, such as service levels, let you pick it at the top of the printed page.',
+      'The <b>All clients (internal)</b> reports compare the whole portfolio: summary, backup status, service levels and contracts &amp; renewals. They\'re for your team, not clients.',
       'Tip: open reports from the meeting page too; it links the ones for that client.',
   ], ['Reports' => '/reports']) ?>
   <?= $guide('portal', 'fa-door-open', 'Invite someone from a client to the portal', 'tech', [
       'Open the client and choose <b>Client portal → Invite user</b>.',
-      'Tick what they can see (roadmap, budget, devices, documents) and do (approve projects, update contacts).',
+      'Tick what they can see (roadmap, budget, devices &amp; compliance, documents) and do (approve projects, update contacts).',
       'Align emails the invite if email is connected; otherwise copy the one-time link. They set a password and two-factor sign-in.',
+      'Users who can update contacts also get <b>Requests</b> in the portal to send new user and termination requests. Users with devices &amp; compliance access see the service levels summary and can print the report (never the ticket list).',
   ], ['Client portal users' => '/portal-users']) ?>
+  <?= $guide('requests', 'fa-user-plus', 'Handle new user and termination requests', 'tech', [
+      'Clients send these from the onboarding page or the portal\'s <b>Requests</b>. A new user request asks for the name, job title, start date, location, supervisor, login name and whose permissions to copy; a suspend or termination request asks when to disable the account, whether it\'s temporary, and what to do with their email, remote access, groups and files.',
+      'With ITFlow connected, each request becomes an ITFlow ticket for that client, so it lands in your normal queue. Without ITFlow, it\'s emailed to the company email in <b>Settings → General</b>. You also get a notification.',
+      'Requests from onboarding are listed on the client\'s <b>Onboarding</b> page. Admins can turn request forms off in <b>Settings → Onboarding</b>.',
+  ], ['Settings → Onboarding' => '/settings/onboarding']) ?>
   <?= $guide('my-emails', 'fa-bell', 'Choose which emails you get', 'viewer', [
       'Open <b>Account &amp; 2FA</b> from the menu under your name, then <b>Email notifications</b>.',
       'Turn each email on or off, and choose all clients or only the ones you\'re vCIO for.',
@@ -180,18 +213,23 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Users' => '/users']) ?>
   <?= $guide('update', 'fa-circle-arrow-up', 'Update Align', 'admin', [
       'When a new version is out you\'ll see a banner and a <b>new</b> badge on Settings.',
-      'Open <b>Settings → Updates &amp; backups</b>, read what\'s new, tick the confirmation and press <b>Update</b>. It takes a minute or two and makes a safety copy first.',
+      'Open <b>Settings → Updates &amp; backups</b>, read what\'s new, tick the confirmation and press <b>Update</b>. It makes a safety copy first and usually takes a few minutes.',
+      'A progress window shows each step (safety copy, download, install, final checks) with a progress bar and the time so far. Leave the page open; it reloads on its own when the update is done. While it runs, everyone else sees a <b>Please wait</b> page that also refreshes itself.',
+      'The web server restarts near the end, so the window may briefly say <i>Restarting the web server…</i>. That\'s normal. If something fails, the window says so; the details, the job log and any safety copy are on the same page.',
       'From the server: <code>sudo mountaineer-align-update</code> does the same.',
   ], ['Updates & backups' => '/settings/system']) ?>
   <?= $guide('backup', 'fa-download', 'Back up and restore Align', 'admin', [
       'Backups aren\'t kept on the server. Open <b>Settings → Updates &amp; backups</b> and press <b>Download backup</b>; keep the file somewhere safe.',
-      'To restore: upload the file under <b>Restore</b>, paste the backup private key (<code>AGE-SECRET-KEY-1…</code>) and press <b>Test this backup</b> first. <b>Restore</b> needs your two-factor code and signs everyone out.',
+      'To restore: upload the file under <b>Restore</b>, paste the backup private key (<code>AGE-SECRET-KEY-1…</code>) and press <b>Test this backup</b> first. <b>Restore</b> needs your two-factor code and signs everyone out. The same progress window follows the restore and reloads when it\'s done.',
       'Keep the backup key in your password manager; <b>Check key</b> confirms it matches this server.',
   ], ['Updates & backups' => '/settings/system']) ?>
-  <?= $guide('settings', 'fa-gear', 'Change planning defaults, branding or security', 'admin', [
+  <?= $guide('settings', 'fa-gear', 'Change settings: planning, onboarding, branding and more', 'admin', [
       '<b>Settings → General</b>: company details on reports and sign-out timers.',
       '<b>Settings → Planning &amp; lifecycle</b>: budget year, meeting length, warning thresholds, warranty re-checks, lifespans and replacement costs. <b>OS support dates</b> has the Windows end-of-support table.',
-      '<b>Settings → Branding</b>: app name, logo and colours (also used on the client portal and reports).',
+      '<b>Settings → Notifications</b>: which emails are sent and when (see <a href="#guide-email">Set up email</a>).',
+      '<b>Settings → Onboarding</b>: the welcome email, the guides on the onboarding page, how long links last, and whether request forms are on (see <a href="#guide-onboarding">Welcome and onboard</a>).',
+      '<b>Settings → Branding</b>: app name, logo and colours (also used on the client portal, onboarding page and reports).',
+      '<b>Settings → Updates &amp; backups</b>: new versions, downloading a backup and restoring one.',
   ], ['Settings' => '/settings']) ?>
   <?= $guide('audit', 'fa-clock-rotate-left', 'Review the audit log', 'admin', [
       'Open <b>Audit log</b>. Filter by person, client or action. Every change, sign-in, export and client-record view is recorded and hash-chained, so tampering is detected.',
@@ -203,12 +241,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 <div class="tab-pane fade" id="tab-menus" role="tabpanel">
   <div class="row">
     <?php foreach ([
-        ['fa-gauge-high', 'Top', [['Dashboard', 'Needs attention (one list across every client), portfolio health tiles, the 3-year plan and the rest of your cards. Customize to reorder or hide cards.'], ['Clients', 'Every client. Open one for its own menu: overview, contacts, devices, licensing, backups, compliance, documents, roadmap, budget, meetings and client portal.'], ['Contacts', 'Everyone at every client, searchable.']]],
+        ['fa-gauge-high', 'Top', [['Dashboard', 'Needs attention (one list across every client), portfolio health tiles, the 3-year plan and the rest of your cards. Customize to reorder or hide cards.'], ['Clients', 'Every client. Open one for its own menu: overview, onboarding (while it\'s under way), contacts, devices, licensing, backups, service levels, compliance, documents, roadmap, budget, meetings and client portal. The ⋮ menu has Welcome & onboarding.'], ['Contacts', 'Everyone at every client, searchable.']]],
         ['fa-diagram-project', 'Planning', [['Projects', 'All projects across clients by quarter.'], ['Budgets', 'Every client\'s technology budget side by side.'], ['Licensing', 'Every license, with prices and contract dates.'], ['Renewals', 'Licenses and contracts ending or up for renegotiation.']]],
-        ['fa-handshake', 'Meetings & reports', [['Meetings', 'Upcoming and past meetings, with the calendar as a second tab.'], ['Reports', 'Pick a client and open any report: QBR pack, assets, roadmap, budget, backups, compliance.']]],
-        ['fa-clipboard-check', 'Compliance', [['Compliance', 'Scores for every client and framework (admins also see the Frameworks tab).'], ['Documents', 'Internal and client documents, policies and templates.']]],
+        ['fa-handshake', 'Meetings & reports', [['Meetings', 'Upcoming and past meetings, with the calendar as a second tab.'], ['Reports', 'Pick a client and open any report: QBR pack, assets, roadmap, budget, backups, service levels, compliance. All-clients reports: portfolio, backups, service levels, renewals.']]],
+        ['fa-clipboard-check', 'Compliance', [['Compliance', 'Scores for every client and framework (admins also see the Frameworks tab and crosswalk tags).'], ['Documents', 'Internal and client documents, policies and templates (security policies, WISP, CMMC, HIPAA and privacy).']]],
         ['fa-plug', 'Integrations', [['Integrations', 'Admins: connect and check ITFlow, NinjaOne, Veeam, email and warranty lookups.'], ['Client mapping', 'Which NinjaOne organization and Veeam company belongs to each client.'], ['Sync', 'Sync history and Run sync now.'], ['Unassigned hardware', 'ITFlow assets waiting for a type.']]],
-        ['fa-user-shield', 'Admin', [['Settings', 'General, planning & lifecycle, OS support dates, notifications, branding, updates & backups.'], ['Users', 'Staff accounts and roles.'], ['Client portal users', 'Everyone with a client portal sign-in.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
+        ['fa-user-shield', 'Admin', [['Settings', 'General, planning & lifecycle, OS support dates, notifications, onboarding, branding, updates & backups.'], ['Users', 'Staff accounts and roles.'], ['Client portal users', 'Everyone with a client portal sign-in. In the portal, clients see their roadmap, budget, devices, service levels and documents, and can send requests.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
     ] as [$icon, $title, $items]): ?>
       <div class="col-md-6 col-xl-4 d-flex">
         <div class="card flex-fill">
@@ -229,16 +267,18 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
         <div class="card-body small">
           <table class="table table-sm mb-0">
             <tr><th>Clients &amp; address</th><td>ITFlow (read-only in Align)</td></tr>
-            <tr><th>Contacts</th><td>ITFlow, <b>two-way</b>: detail edits (in Align or the client portal) go back to ITFlow</td></tr>
+            <tr><th>Contacts</th><td>ITFlow, <b>two-way</b>: detail edits (in Align, the client portal or the onboarding page) go back to ITFlow, and new contacts from onboarding are created there</td></tr>
             <tr><th>Computers &amp; servers</th><td>NinjaOne</td></tr>
             <tr><th>Network gear, printers, UPS…</th><td>ITFlow assets, <b>two-way</b>: edits in either place sync</td></tr>
             <tr><th>Licenses</th><td>ITFlow Software (read-only); prices and contracts in Align</td></tr>
             <tr><th>Managed services estimate</th><td>ITFlow invoices, last 3 months</td></tr>
             <tr><th>Warranties</th><td>Dell / Lenovo lookups, or the ITFlow warranty date</td></tr>
+            <tr><th>Service levels (SLA)</th><td>ITFlow tickets and SLA results (26.08 or later), hourly; only numbers, subjects, priorities and times are copied</td></tr>
+            <tr><th>New user &amp; termination requests</th><td>Sent from onboarding or the portal; become ITFlow tickets (or an email without ITFlow)</td></tr>
             <tr><th>Backups</th><td>Veeam Service Provider Console (read-only), hourly: servers, VMs, agents and Microsoft 365</td></tr>
             <tr><th>Email &amp; invitations</th><td>Microsoft 365 or Google Workspace over OAuth, sent every minute</td></tr>
-            <tr><th>Updates &amp; Align backups</th><td>GitHub checked every 6 hours; backups downloaded from Settings → Updates &amp; backups</td></tr>
-            <tr><th>Projects, budget lines, compliance, documents, meetings</th><td>Align</td></tr>
+            <tr><th>Updates &amp; app backups</th><td>GitHub checked every 6 hours; backups downloaded from Settings → Updates &amp; backups</td></tr>
+            <tr><th>Projects, budget lines, compliance, documents, meetings, onboarding progress, dashboard layout</th><td>Align</td></tr>
           </table>
           <p class="mt-2 mb-0 text-muted">Fields marked <span class="badge badge-light border">ITFlow</span> are managed in ITFlow; change them there and they update here within minutes.</p>
         </div>
@@ -254,6 +294,10 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
             <dt>Planning checklist</dt><dd>On each client's overview: what's done and what's next before their plan and budget are complete.</dd>
             <dt>Unassigned</dt><dd>An ITFlow asset whose type needs choosing.</dd>
             <dt>Overdue backup</dt><dd>A machine or Microsoft 365 item whose newest restore point is older than the limit set on the Veeam integration (48 hours by default).</dd>
+            <dt>Needs attention</dt><dd>The dashboard's single to-do list across every client, ordered red (act now), amber (soon), then blue (for information).</dd>
+            <dt>Service level (SLA)</dt><dd>ITFlow's response and resolution targets per ticket priority. <i>On time</i> means ITFlow recorded the first response or resolution before the target; your goal (90% by default) sets when a client shows amber or red.</dd>
+            <dt>Crosswalk</dt><dd>Controls in different frameworks that ask for the same thing (for example MFA in CMMC, CIS and PCI DSS), matched by shared tags so one answer can fill several.</dd>
+            <dt>Onboarding link</dt><dd>A private, expiring link in the welcome email. Anyone with it can open that client's onboarding page without signing in, so it's only sent to the client's own people.</dd>
             <dt>Retired / archived</dt><dd>Hidden but kept. Sync never permanently deletes anything.</dd>
             <dt>Roles</dt><dd><b>Viewer</b> reads, <b>Tech</b> edits clients and plans and manages client portal access, <b>Admin</b> also manages settings, integrations and users.</dd>
             <dt>Client portal user</dt><dd>A sign-in for someone at a client. Separate from staff accounts; limited to one client and the sections you tick.</dd>
