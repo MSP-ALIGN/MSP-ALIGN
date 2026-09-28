@@ -123,22 +123,36 @@ final class VeeamSync
 
         // Protected machines: one row per machine, newest restore point wins when it's in several jobs
         $wl = [];
+        $wlJobs = [];
         $vms = $api->protectedVms();
         foreach ($vms ?? [] as $v) {
-            // A VM on the provider's own server belongs to the company its job is mapped to
-            self::addWorkload($wl, $v, 'vm', $now, $jobCompany[(string) ($v['jobUid'] ?? '')] ?? null);
+            // A VM on the provider's own server belongs to the company its job is mapped to (in VSPC)
+            self::addWorkload($wl, $v, 'vm', $now, $jobCompany[(string) ($v['jobUid'] ?? '')] ?? null, $wlJobs);
         }
         foreach ($api->protectedComputers() as $c) {
-            self::addWorkload($wl, $c, 'computer', $now);
+            self::addWorkload($wl, $c, 'computer', $now, null, $wlJobs);
         }
-        DB::transaction(function () use ($wl, $now) {
+        // Agent jobs name their computer
+        foreach ($jobs as $j) {
+            if (!empty($j['agent_uid']) && isset($wl['computer:' . $j['agent_uid']])) {
+                $wlJobs['computer:' . $j['agent_uid']][$j['uid']] = true;
+            }
+        }
+        DB::transaction(function () use ($wl, $wlJobs, $now) {
             foreach ($wl as $r) {
                 DB::upsert('backup_workloads', $r, ['uid']);
             }
             DB::run('DELETE FROM backup_workloads WHERE synced_at < ?', [$now]);
+            DB::run('DELETE FROM backup_workload_jobs');
+            foreach ($wlJobs as $w => $js) {
+                foreach (array_keys($js) as $ju) {
+                    DB::run('INSERT IGNORE INTO backup_workload_jobs (workload_uid, job_uid) VALUES (?, ?)', [mb_substr($w, 0, 100), mb_substr((string) $ju, 0, 64)]);
+                }
+            }
         });
         $parts[] = count($wl) . ' protected machines';
-        $parts[] = self::linkDevices() . ' matched to devices';
+        $a = self::assign();
+        $parts[] = $a['devices'] . ' matched to devices' . ($a['hosted'] ? ', ' . $a['hosted'] . ' hosted machines sorted into clients' : '') . ($a['unsorted'] ? ', ' . $a['unsorted'] . ' hosted machines not matched to a client' : '');
 
         return implode(', ', $parts);
     }
@@ -164,7 +178,7 @@ final class VeeamSync
         ];
     }
 
-    private static function addWorkload(array &$wl, array $r, string $kind, string $now, ?string $company = null): void
+    private static function addWorkload(array &$wl, array $r, string $kind, string $now, ?string $company = null, ?array &$wlJobs = null): void
     {
         $id = (string) V::pick($r, ['instanceUid', 'backupAgentUid', 'uid']);
         $name = trim((string) V::pick($r, ['name', 'hostName', 'computerName', 'guestDnsName']));
@@ -172,6 +186,9 @@ final class VeeamSync
             return;
         }
         $key = "$kind:$id";
+        if ($wlJobs !== null && ($ju = (string) ($r['jobUid'] ?? '')) !== '' && $ju !== V::ZERO_UID) {
+            $wlJobs[$key][$ju] = true;
+        }
         $row = [
             'uid' => mb_substr($key, 0, 100),
             'company_uid' => $company ?? V::orgOf($r),
@@ -317,32 +334,148 @@ final class VeeamSync
         return "$linked linked to clients" . ($matched ? " ($matched new)" : '');
     }
 
-    /** Points each protected machine at the client's device with the same host name. */
-    public static function linkDevices(): int
+    /** Veeam companies whose machines are sorted into clients one by one (hosting servers). */
+    public static function hostingCompanies(): array
     {
-        DB::run('UPDATE backup_workloads SET device_id = NULL');
-        $n = 0;
+        $flagged = json_decode((string) \Align\Settings::get('veeam_hosting_companies', '[]'), true);
+        $flagged = is_array($flagged) ? array_map('strval', $flagged) : [];
+        $unlinked = array_column(DB::all('SELECT v.uid FROM veeam_companies v LEFT JOIN clients c ON c.veeam_company_uid = v.uid WHERE c.id IS NULL'), 'uid');
+        return array_values(array_unique([...$unlinked, ...$flagged]));
+    }
+
+    /**
+     * Works out which client each protected machine and job belongs to, and links machines to devices.
+     * Machines on a hosting server (a Veeam company linked to no client, or one flagged as hosting) go by:
+     *   1. a machine assigned by hand, 2. its job assigned by hand, 3. a device with the same name at exactly
+     *   one client, 4. the client the company is linked to (if any).
+     * Everything else goes to the client its Veeam company is linked to, unless the machine was assigned by hand.
+     * Jobs count for the client(s) their machines belong to; a job assigned by hand counts for that client only.
+     * @return array{devices:int, hosted:int, unsorted:int}
+     */
+    public static function assign(): array
+    {
+        $companyClient = [];
         foreach (DB::all('SELECT id, veeam_company_uid FROM clients WHERE veeam_company_uid IS NOT NULL') as $c) {
-            $map = [];
-            $devs = DB::all('SELECT d.id, d.display_name, d.system_name FROM devices d ' . \Align\Lifecycle\Lifecycle::CLIENT_JOIN . '
-                WHERE d.removed_at IS NULL AND COALESCE(cm.id, cn.id) = ?', [$c['id']]);
-            foreach ($devs as $d) {
-                foreach ([$d['system_name'], $d['display_name']] as $nm) {
-                    $k = V::hostKey($nm);
-                    if ($k !== '') {
-                        $map[$k] ??= (int) $d['id'];
-                    }
-                }
-            }
-            foreach (DB::all('SELECT uid, name, hostname FROM backup_workloads WHERE company_uid = ?', [$c['veeam_company_uid']]) as $w) {
-                $id = $map[(string) $w['hostname']] ?? $map[V::hostKey($w['name'])] ?? null;
-                if ($id) {
-                    DB::run('UPDATE backup_workloads SET device_id = ? WHERE uid = ?', [$id, $w['uid']]);
-                    $n++;
+            $companyClient[$c['veeam_company_uid']] = (int) $c['id'];
+        }
+        $pool = array_flip(self::hostingCompanies());
+        $manual = ['job' => [], 'workload' => []];
+        foreach (DB::all('SELECT item_type, item_uid, client_id FROM backup_assignments') as $a) {
+            $manual[$a['item_type']][$a['item_uid']] = $a['client_id'] !== null ? (int) $a['client_id'] : 0; // 0 = ours
+        }
+        $jobsOf = [];
+        foreach (DB::all('SELECT workload_uid, job_uid FROM backup_workload_jobs') as $r) {
+            $jobsOf[$r['workload_uid']][] = $r['job_uid'];
+        }
+
+        // Device names per client, and which names belong to exactly one client
+        $devByClient = [];
+        $owners = [];
+        foreach (DB::all('SELECT d.id, d.display_name, d.system_name, COALESCE(cm.id, cn.id) AS client_id FROM devices d ' . \Align\Lifecycle\Lifecycle::CLIENT_JOIN . '
+                JOIN clients c ON c.id = COALESCE(cm.id, cn.id) AND c.is_archived = 0
+                WHERE d.removed_at IS NULL') as $d) {
+            foreach ([$d['system_name'], $d['display_name']] as $nm) {
+                $k = V::hostKey((string) $nm);
+                if ($k !== '') {
+                    $devByClient[(int) $d['client_id']][$k] ??= (int) $d['id'];
+                    $owners[$k][(int) $d['client_id']] = true;
                 }
             }
         }
-        return $n;
+        $uniqueOwner = fn(string $k) => $k !== '' && isset($owners[$k]) && count($owners[$k]) === 1 ? (int) array_key_first($owners[$k]) : null;
+
+        $devices = 0;
+        $hosted = 0;
+        $unsorted = 0;
+        $clientsOfJob = [];
+        $rows = DB::all('SELECT uid, company_uid, name, hostname FROM backup_workloads');
+        $updates = [];
+        foreach ($rows as $w) {
+            $cu = (string) $w['company_uid'];
+            $inPool = $cu === '' || isset($pool[$cu]);
+            $keys = array_values(array_unique(array_filter([(string) $w['hostname'], V::hostKey((string) $w['name'])])));
+            $client = null;
+            $how = null;
+            if (array_key_exists($w['uid'], $manual['workload'])) {
+                [$client, $how] = [$manual['workload'][$w['uid']] ?: null, 'machine'];
+            } elseif (!$inPool) {
+                [$client, $how] = [$companyClient[$cu] ?? null, 'company'];
+            } else {
+                foreach ($jobsOf[$w['uid']] ?? [] as $ju) {
+                    if (array_key_exists($ju, $manual['job'])) {
+                        [$client, $how] = [$manual['job'][$ju] ?: null, 'job'];
+                        break;
+                    }
+                }
+                if ($how === null) {
+                    foreach ($keys as $k) {
+                        if ($o = $uniqueOwner($k)) {
+                            [$client, $how] = [$o, 'device'];
+                            break;
+                        }
+                    }
+                }
+                if ($how === null && isset($companyClient[$cu])) {
+                    [$client, $how] = [$companyClient[$cu], 'company'];
+                }
+                if ($client !== null && ($companyClient[$cu] ?? null) !== $client) {
+                    $hosted++;
+                } elseif ($client === null && $how === null) {
+                    $unsorted++;
+                }
+            }
+            $dev = null;
+            if ($client !== null) {
+                foreach ($keys as $k) {
+                    if (isset($devByClient[$client][$k])) {
+                        $dev = $devByClient[$client][$k];
+                        break;
+                    }
+                }
+                foreach ($jobsOf[$w['uid']] ?? [] as $ju) {
+                    $clientsOfJob[$ju][$client] = true;
+                }
+            }
+            $devices += $dev ? 1 : 0;
+            $updates[] = [$client, $client !== null ? $how : ($how === 'machine' || $how === 'job' ? $how : null), $dev, $w['uid']];
+        }
+
+        DB::transaction(function () use ($updates, $clientsOfJob, $companyClient, $pool, $manual) {
+            foreach ($updates as $u) {
+                DB::run('UPDATE backup_workloads SET client_id = ?, client_how = ?, device_id = ? WHERE uid = ?', $u);
+            }
+            DB::run('DELETE FROM backup_job_clients');
+            foreach (DB::all('SELECT uid, company_uid FROM backup_jobs') as $j) {
+                $cu = (string) $j['company_uid'];
+                $set = [];
+                if (array_key_exists($j['uid'], $manual['job'])) {
+                    if ($manual['job'][$j['uid']]) {
+                        $set[$manual['job'][$j['uid']]] = 'job';
+                    }
+                } elseif ($cu !== '' && !isset($pool[$cu])) {
+                    if (isset($companyClient[$cu])) {
+                        $set[$companyClient[$cu]] = 'company';
+                    }
+                } else {
+                    foreach (array_keys($clientsOfJob[$j['uid']] ?? []) as $cid) {
+                        $set[$cid] = 'machines';
+                    }
+                    if (!$set && isset($companyClient[$cu])) {
+                        $set[$companyClient[$cu]] = 'company';
+                    }
+                }
+                foreach ($set as $cid => $how) {
+                    DB::run('INSERT INTO backup_job_clients (job_uid, client_id, how) VALUES (?, ?, ?)', [$j['uid'], $cid, $how]);
+                }
+            }
+        });
+        return ['devices' => $devices, 'hosted' => $hosted, 'unsorted' => $unsorted];
+    }
+
+    /** Re-sorts machines and jobs into clients (after mapping changes). Returns how many machines matched a device. */
+    public static function linkDevices(): int
+    {
+        return self::assign()['devices'];
     }
 
     private static function in(array $vals): string

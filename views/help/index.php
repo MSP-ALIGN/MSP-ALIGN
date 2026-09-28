@@ -65,6 +65,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.26', 'fa-building', 'Hosted clients\' backups', 'Servers you host and back up on your own Veeam server now show for the right client: matched by device name automatically, with Client mapping → Hosted backups to assign jobs or machines by hand.', 'hosted-backups', 'tech'],
         ['1.25', 'fa-list-ol', 'Reports in meeting order', 'The QBR pack now runs the way the meeting does: look back, what they have, is it protected, where it\'s going, what it costs, then decisions. Servers, hypervisor hosts and virtual servers sit together, and the budget, roadmap and backup reports read top to bottom.', 'qbr', 'viewer'],
         ['1.24', 'fa-signature', 'Renamed to MSP-ALIGN', 'Mountaineer Align is now MSP-ALIGN. Nothing to do: your data, settings and branding are unchanged. On the server the commands are now sudo msp-align-update and msp-align-restore (the old names still work).', 'update', 'admin'],
         ['1.23', 'fa-bars-progress', 'Progress window for updates and restores', 'Updating or restoring now shows each step, a progress bar and the time so far, and reloads on its own when it\'s done. Everyone else sees a Please wait page that refreshes itself.', 'update', 'admin'],
@@ -140,6 +141,14 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Something that genuinely doesn\'t need a backup (a test VM, a kiosk)? A tech can mark it <b>Backup not required</b> with a reason; it stops counting as missing everywhere.',
       '<b>Reports → Backup &amp; recovery</b> prints it for the client, and <b>Reports → Backups (all clients)</b> shows the whole portfolio.',
   ], ['Backups report (all clients)' => '/reports/backups']) ?>
+  <?= $guide('hosted-backups', 'fa-building', 'Match hosted clients\' backups on your own Veeam server', 'tech', [
+      'When you host a client\'s servers and back them up on your own backup server (BDR), Veeam files those backups under your company. Align sorts them into clients on every sync: a machine goes to the client that has a device with the <b>same name</b> in NinjaOne or ITFlow (a full name like <i>server.client.local</i> matches too). Jobs mapped to a company in Veeam Service Provider Console already go to the right client.',
+      'Open <b>Client mapping → Hosted backups</b> to see every job and machine on your servers and where each went. Machines that didn\'t match are listed first.',
+      'Fix what didn\'t match: assign a <b>job</b> to a client when it only backs up that client (machines added to the job later follow it), or pick the client for a single <b>machine</b>. Choose <b>Ours — not a client</b> for your own servers so they stop showing as unmatched. What you set is kept across syncs.',
+      'A job that backs up several clients counts for each of them. The client reports and portal leave out its error details, since they can name other clients\' machines; your staff pages still show them.',
+      'If your own company is also linked to a client (you\'re set up as a client in ITFlow), switch on <b>This is our backup server</b> for it on the same page, so its machines are sorted too.',
+      'Sorted machines count everywhere the client\'s own backups do (Backups page, reports, QBR, portal, dashboard, emails) and are marked <b>Hosted</b>. They also clear the client\'s servers from <i>Servers with no backup</i>.',
+  ], ['Hosted backups' => '/mapping/backups']) ?>
   <?= $guide('service-levels', 'fa-stopwatch', 'Review a client\'s service levels (SLA)', 'viewer', [
       'Needs ITFlow 26.08 or later with SLAs set up in ITFlow (<i>Admin → SLAs</i>: response and resolution targets per priority, assigned to clients or as the default). Turn on <b>Service levels</b> under <b>Integrations → ITFlow</b> and set your goal (90% by default). Tickets come in with the hourly sync.',
       'Open the client and choose <b>Service levels</b>: responded and resolved on time (with the change from the period before), tickets opened, open tickets past or close to target, 12 months by month, results by priority and every ticket that missed a target. Ticket numbers open the ticket in ITFlow.',

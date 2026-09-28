@@ -9,12 +9,15 @@ $canEx = Auth::can('tech');
 // "Not required" button that opens the exclusion dialog for one item
 $exBtn = fn(string $kind, string $ref, string $name) => $canEx
     ? '<button type="button" class="btn btn-xs btn-outline-secondary ml-2 text-nowrap" data-toggle="modal" data-target="#modal-bk-exempt" data-fill data-f-kind="' . e($kind) . '" data-f-ref="' . e($ref) . '" data-f-item="' . e($name) . '" title="This doesn\'t need a backup">Not required</button>' : '';
+$howText = ['device' => 'matched by device name', 'job' => 'its backup job is assigned to this client', 'machine' => 'assigned by hand'];
+$hostedBadge = fn(string $title) => ' <span class="badge badge-light border font-weight-normal" title="' . e($title) . '"><i class="fas fa-building mr-1 text-muted"></i>Hosted</span>';
 $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_class($tone === 'info' ? 'info' : $tone) . '">' . e($label) . '</span>';
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 mr-auto"><i class="fas fa-database text-secondary mr-2"></i>Backups</h1>
   <?php if ($b): ?>
-    <span class="small text-muted mr-2">From Veeam Service Provider Console · <?= e($b['company']['name']) ?> · updated <?= e(rel_time($b['synced'])) ?></span>
+    <span class="small text-muted mr-2">From Veeam Service Provider Console<?= $b['company'] ? ' · ' . e($b['company']['name']) : '' ?><?= $b['hosted'] ? ' · ' . (int) $b['hosted'] . ' machine' . ($b['hosted'] == 1 ? '' : 's') . ' on your own backup server' : '' ?><?= $b['synced'] ? ' · updated ' . e(rel_time($b['synced'])) : '' ?></span>
+    <?php if (Auth::can('tech')): ?><a class="btn btn-sm btn-default mr-1" href="/mapping/backups" title="Sort machines backed up on your own server into clients"><i class="fas fa-building mr-1"></i>Hosted backups</a><?php endif; ?>
     <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-print mr-1"></i>Report</a>
   <?php endif; ?>
 </div>
@@ -25,8 +28,8 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
       <p class="mb-1"><b>Veeam isn't connected yet.</b></p>
       <p class="text-muted mb-0">Add your Veeam Service Provider Console URL and an API key under <?= Auth::can('admin') ? '<a href="/integrations/veeam">Integrations → Veeam</a>' : 'Integrations → Veeam' ?>. Backup jobs, protected machines and cloud storage then sync every hour.</p>
     <?php else: ?>
-      <p class="mb-1"><b>This client isn't linked to a Veeam company.</b></p>
-      <p class="text-muted mb-0">Companies with the same name link automatically on sync. Otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>.</p>
+      <p class="mb-1"><b>No backups found for this client.</b></p>
+      <p class="text-muted mb-0">It isn't linked to a Veeam company, and nothing on your own backup server is matched to it. Companies with the same name link automatically on sync; otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>. If you back up this client's servers on your own Veeam server, match them under <?= Auth::can('tech') ? '<a href="/mapping/backups">Hosted backups</a>' : 'Hosted backups' ?>.</p>
     <?php endif; ?>
   </div>
 <?php else: $s = $b['stats']; ?>
@@ -78,7 +81,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
       <?php foreach ($b['jobs'] as $j): ?>
         <tr>
           <td class="align-middle"><?= $pill($j['label'], $j['tone']) ?></td>
-          <td><b><?= e($j['name']) ?></b>
+          <td><b><?= e($j['name']) ?></b><?= $j['hosted'] ? $hostedBadge('Runs on your own backup server') : '' ?><?= $j['shared'] ? ' <span class="badge badge-light border font-weight-normal" title="This job also backs up other clients\' machines. Its results count for each of them; the client report leaves out its error details.">Shared · ' . (int) $j['client_count'] . ' clients</span>' : '' ?>
             <?php if ($j['failure_message'] && in_array($j['status'], ['failed', 'warning'], true)): ?><div class="small text-<?= $j['status'] === 'failed' ? 'danger' : 'warning' ?>"><?= e(mb_strimwidth($j['failure_message'], 0, 220, '…')) ?></div><?php endif; ?>
             <?php if ($j['note']): ?><div class="small text-warning"><?= e($j['note']) ?></div><?php endif; ?></td>
           <td class="small"><?= e($j['kind']) ?></td>
@@ -88,7 +91,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
           <td class="small text-right text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$b['jobs']): ?><tr><td colspan="7" class="text-muted p-3">No backup jobs for this company in Veeam.</td></tr><?php endif; ?>
+      <?php if (!$b['jobs']): ?><tr><td colspan="7" class="text-muted p-3">No backup jobs for this client in Veeam.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>
@@ -104,7 +107,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
       <?php foreach ($b['workloads'] as $w): ?>
         <tr>
           <td class="align-middle"><?= $pill($w['label'], $w['tone']) ?></td>
-          <td class="font-weight-bold"><?= e($w['name']) ?></td>
+          <td class="font-weight-bold"><?= e($w['name']) ?><?= $w['hosted'] ? $hostedBadge('Backed up on your own server: ' . ($howText[$w['client_how']] ?? '')) : '' ?></td>
           <td class="small"><?= $w['kind'] === 'vm' ? 'Virtual machine' : 'Computer (agent)' ?></td>
           <td class="small text-nowrap"><?= $w['last_point'] ? e(Backup::age($w['age_h'])) . ' ago<div class="text-muted">' . e(fmt_datetime($w['last_point'])) . '</div>' : '<span class="text-danger">none</span>' ?></td>
           <td class="small text-right"><?= $w['restore_points'] !== null ? (int) $w['restore_points'] : '—' ?></td>
@@ -113,7 +116,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
           <?php if ($canEx): ?><td class="text-right"><?= $w['tone'] !== 'ok' ? $exBtn('workload', $w['uid'], $w['name']) : '' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$b['workloads']): ?><tr><td colspan="8" class="text-muted p-3">No protected machines reported for this company.</td></tr><?php endif; ?>
+      <?php if (!$b['workloads']): ?><tr><td colspan="8" class="text-muted p-3">No protected machines reported for this client.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>

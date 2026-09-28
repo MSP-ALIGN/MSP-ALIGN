@@ -17,7 +17,7 @@ use Align\Settings;
 final class VeeamSpc
 {
     private const PAGE = 500;
-    private const ZERO_UID = '00000000-0000-0000-0000-000000000000';
+    public const ZERO_UID = '00000000-0000-0000-0000-000000000000';
 
     private HttpClient $http;
 

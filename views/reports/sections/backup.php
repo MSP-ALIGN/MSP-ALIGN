@@ -20,7 +20,8 @@ $rateTone = $s['rate'] === null ? 'muted' : ($s['rate'] >= 95 ? 'ok' : ($s['rate
 $issues = [];
 foreach ($b['jobs'] as $j) {
     if ($j['is_enabled'] && ($j['status_counted'] ?? true) && in_array($j['status'], ['failed', 'warning'], true)) {
-        $issues[] = [$j['name'], 'Backup job', $j['status'] === 'failed' ? 'Last run failed' : 'Last run finished with a warning', $j['failure_message'], $j['last_run'], $j['tone']];
+        // A shared hosting job's message can name other clients' machines: leave it out of the client's report
+        $issues[] = [$j['name'], 'Backup job', $j['status'] === 'failed' ? 'Last run failed' : 'Last run finished with a warning', empty($j['shared']) ? $j['failure_message'] : 'Our team has the details.', $j['last_run'], $j['tone']];
     } elseif ($j['note']) {
         $issues[] = [$j['name'], 'Backup job', $j['note'], null, $j['last_run'], 'warn'];
     }

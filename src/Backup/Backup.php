@@ -31,26 +31,45 @@ final class Backup
         return \Align\Integrations\VeeamSpc::configured() || (int) DB::value('SELECT COUNT(*) FROM veeam_companies') > 0;
     }
 
+    private static array $hasCache = [];
+
+    /** Whether a client has any backup data: its own Veeam company, or machines / jobs sorted to it from a hosting server. */
+    public static function has(array|int $client): bool
+    {
+        $id = (int) (is_array($client) ? $client['id'] : $client);
+        if (is_array($client) && !empty($client['veeam_company_uid'])) {
+            return true;
+        }
+        return self::$hasCache[$id] ??= (bool) DB::value('SELECT 1 FROM clients c WHERE c.id = ? AND (c.veeam_company_uid IS NOT NULL
+            OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id) OR EXISTS (SELECT 1 FROM backup_job_clients j WHERE j.client_id = c.id))', [$id]);
+    }
+
     /**
-     * Everything the client page and reports show. Null when the client isn't linked to a VSPC company.
+     * Everything the client page and reports show. Null when the client has no backup data at all.
+     * Machines and jobs come from the client's own Veeam company and from hosting servers (see VeeamSync::assign()).
      * $devices: Lifecycle::devices() for the client (used to find servers with no backup).
      */
     public static function forClient(array $client, ?array $devices = null): ?array
     {
+        $cid = (int) $client['id'];
         $uid = $client['veeam_company_uid'] ?? null;
-        if (!$uid) {
-            return null;
-        }
-        $company = DB::one('SELECT * FROM veeam_companies WHERE uid = ?', [$uid]);
-        if (!$company) {
+        $company = $uid ? DB::one('SELECT * FROM veeam_companies WHERE uid = ?', [$uid]) : null;
+        $jobRows = DB::all('SELECT j.*, jc.how AS client_how, (SELECT COUNT(*) FROM backup_job_clients x WHERE x.job_uid = j.uid) AS client_count
+            FROM backup_jobs j JOIN backup_job_clients jc ON jc.job_uid = j.uid AND jc.client_id = ? ORDER BY j.name', [$cid]);
+        $wlRows = DB::all('SELECT w.*, d.display_name AS device_name FROM backup_workloads w LEFT JOIN devices d ON d.id = w.device_id
+            WHERE w.client_id = ? ORDER BY w.name', [$cid]);
+        if (!$company && !$jobRows && !$wlRows) {
             return null;
         }
         $stale = self::staleHours();
         $now = time();
-        $ex = self::exemptions((int) $client['id']);
+        $ex = self::exemptions($cid);
 
         $jobs = [];
-        foreach (DB::all('SELECT * FROM backup_jobs WHERE company_uid = ? ORDER BY name', [$uid]) as $j) {
+        foreach ($jobRows as $j) {
+            // A job on a hosting server that backs up several clients: its messages can name other clients' machines
+            $j['shared'] = (int) $j['client_count'] > 1;
+            $j['hosted'] = $j['client_how'] !== 'company';
             [$label, $tone] = self::STATUS[$j['status']] ?? self::STATUS['none'];
             $age = $j['last_run'] ? ($now - strtotime($j['last_run'])) / 3600 : null;
             $note = '';
@@ -67,7 +86,7 @@ final class Backup
         // An agent job for a machine marked "not required" doesn't count either
         if ($ex['list'] && ($agentJobs = array_filter($jobs, fn($j) => $j['agent_uid']))) {
             $agentDevice = [];
-            foreach (DB::all("SELECT uid, device_id FROM backup_workloads WHERE company_uid = ? AND kind = 'computer'", [$uid]) as $w) {
+            foreach (DB::all("SELECT uid, device_id FROM backup_workloads WHERE client_id = ? AND kind = 'computer'", [$cid]) as $w) {
                 $agentDevice[$w['uid']] = $w['device_id'];
             }
             foreach ($agentJobs as $i => $j) {
@@ -84,8 +103,8 @@ final class Backup
         usort($jobs, fn($a, $b) => [self::rank($a['tone']), $a['name']] <=> [self::rank($b['tone']), $b['name']]);
 
         $workloads = [];
-        foreach (DB::all('SELECT w.*, d.display_name AS device_name FROM backup_workloads w LEFT JOIN devices d ON d.id = w.device_id
-                WHERE w.company_uid = ? ORDER BY w.name', [$uid]) as $w) {
+        foreach ($wlRows as $w) {
+            $w['hosted'] = in_array($w['client_how'], ['device', 'job', 'machine'], true) && (string) $w['company_uid'] !== (string) $uid;
             $age = $w['last_point'] ? ($now - strtotime($w['last_point'])) / 3600 : null;
             $tone = match (true) {
                 $age === null => 'bad',
@@ -113,8 +132,9 @@ final class Backup
 
         // Run history: last 30 days, one cell per day showing the worst result
         $since = date('Y-m-d', strtotime('-29 days'));
-        $runs = DB::all('SELECT DATE(run_at) AS day, status, COUNT(*) AS n FROM backup_job_runs
-            WHERE company_uid = ? AND run_at >= ? GROUP BY DATE(run_at), status', [$uid, $since]);
+        $runs = DB::all('SELECT DATE(r.run_at) AS day, r.status, COUNT(*) AS n FROM backup_job_runs r
+            JOIN backup_job_clients jc ON jc.job_uid = r.job_uid AND jc.client_id = ?
+            WHERE r.run_at >= ? GROUP BY DATE(r.run_at), r.status', [$cid, $since]);
         $byDay = [];
         $tot = ['success' => 0, 'warning' => 0, 'failed' => 0];
         foreach ($runs as $r) {
@@ -130,7 +150,7 @@ final class Backup
         }
         $runCount = array_sum($tot);
 
-        $m365 = self::m365($uid, $stale, $jobs, $ex['items']);
+        $m365 = $uid ? self::m365($uid, $stale, $jobs, $ex['items']) : null;
         $all = $workloads;
         $workloads = array_values(array_filter($all, fn($w) => !$w['exempt']));
 
@@ -148,8 +168,8 @@ final class Backup
             'rate' => $runCount ? (int) floor(($tot['success'] + $tot['warning']) / $runCount * 100) : null,
             'last_point' => $workloads ? max(array_map(fn($w) => (string) $w['last_point'], $workloads)) ?: null : null,
             'backup_bytes' => array_sum(array_map(fn($w) => (int) $w['backup_bytes'], $workloads)),
-            'cloud_used' => $company['cloud_used_bytes'] !== null ? (int) $company['cloud_used_bytes'] : null,
-            'cloud_quota' => $company['cloud_quota_bytes'] !== null ? (int) $company['cloud_quota_bytes'] : null,
+            'cloud_used' => ($company['cloud_used_bytes'] ?? null) !== null ? (int) $company['cloud_used_bytes'] : null,
+            'cloud_quota' => ($company['cloud_quota_bytes'] ?? null) !== null ? (int) $company['cloud_quota_bytes'] : null,
         ];
         $stats['cloud_pct'] = $stats['cloud_quota'] ? (int) round($stats['cloud_used'] / $stats['cloud_quota'] * 100) : null;
         $stats['m365_overdue'] = $m365 ? $m365['overdue_count'] : 0;
@@ -167,7 +187,8 @@ final class Backup
             'days' => $days,
             'stats' => $stats,
             'stale' => $stale,
-            'synced' => $company['synced_at'],
+            'synced' => $company['synced_at'] ?? (max(array_merge(array_column($wlRows, 'synced_at'), array_column($jobRows, 'synced_at'))) ?: null),
+            'hosted' => count(array_filter($all, fn($w) => $w['hosted'])),
         ];
     }
 
@@ -253,21 +274,22 @@ final class Backup
         $stale = date('Y-m-d H:i:s', time() - self::staleHours() * 3600);
         $since = date('Y-m-d H:i:s', strtotime('-30 days'));
         $out = [];
+        $jc = 'FROM backup_jobs j JOIN backup_job_clients jc ON jc.job_uid = j.uid AND jc.client_id = c.id';
+        $agentExempt = "NOT EXISTS (SELECT 1 FROM backup_exemptions e JOIN backup_workloads w2 ON w2.uid = CONCAT('computer:', j.agent_uid) WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))";
         foreach (DB::all("SELECT c.id,
-                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1) AS jobs,
-                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'failed'
-                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e JOIN backup_workloads w2 ON w2.uid = CONCAT('computer:', j.agent_uid) WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))) AS failed,
-                (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = c.veeam_company_uid AND j.is_enabled = 1 AND j.status = 'warning'
-                    AND NOT EXISTS (SELECT 1 FROM backup_exemptions e JOIN backup_workloads w2 ON w2.uid = CONCAT('computer:', j.agent_uid) WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))) AS warning,
-                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid
+                (SELECT COUNT(*) $jc WHERE j.is_enabled = 1) AS jobs,
+                (SELECT COUNT(*) $jc WHERE j.is_enabled = 1 AND j.status = 'failed' AND $agentExempt) AS failed,
+                (SELECT COUNT(*) $jc WHERE j.is_enabled = 1 AND j.status = 'warning' AND $agentExempt) AS warning,
+                (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS protected,
-                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = c.veeam_company_uid AND (w.last_point IS NULL OR w.last_point < ?)
+                (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND (w.last_point IS NULL OR w.last_point < ?)
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS overdue,
                 (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND (m.last_point IS NULL OR m.last_point < ?)
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND e.item_uid = m.uid)) AS m365_overdue,
-                (SELECT COUNT(*) FROM backup_job_runs r WHERE r.company_uid = c.veeam_company_uid AND r.run_at >= ?) AS runs,
-                (SELECT COUNT(*) FROM backup_job_runs r WHERE r.company_uid = c.veeam_company_uid AND r.run_at >= ? AND r.status <> 'failed') AS runs_ok
-            FROM clients c WHERE c.veeam_company_uid IS NOT NULL", [$stale, $stale, $since, $since]) as $r) {
+                (SELECT COUNT(*) FROM backup_job_runs r JOIN backup_job_clients rc ON rc.job_uid = r.job_uid AND rc.client_id = c.id WHERE r.run_at >= ?) AS runs,
+                (SELECT COUNT(*) FROM backup_job_runs r JOIN backup_job_clients rc ON rc.job_uid = r.job_uid AND rc.client_id = c.id WHERE r.run_at >= ? AND r.status <> 'failed') AS runs_ok
+            FROM clients c WHERE c.veeam_company_uid IS NOT NULL OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
+                OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)", [$stale, $stale, $since, $since]) as $r) {
             $r = array_map('intval', $r);
             $r['overdue'] += $r['m365_overdue'];
             $r['rate'] = $r['runs'] ? (int) floor($r['runs_ok'] / $r['runs'] * 100) : null;
@@ -277,7 +299,7 @@ final class Backup
         return $out;
     }
 
-    /** device id => [last restore point, tone] for one client's devices. */
+    /** device id => [last restore point, tone] for one client's devices ($companyUid is no longer needed; kept for callers). */
     public static function deviceMap(?string $companyUid, ?int $clientId = null): array
     {
         $out = [];
@@ -286,11 +308,11 @@ final class Backup
                 $out[(int) $e['device_id']] = ['last_point' => null, 'tone' => 'muted', 'exempt' => true];
             }
         }
-        if (!$companyUid) {
+        if (!$clientId) {
             return $out;
         }
         $stale = self::staleHours();
-        foreach (DB::all('SELECT device_id, MAX(last_point) AS lp FROM backup_workloads WHERE company_uid = ? AND device_id IS NOT NULL GROUP BY device_id', [$companyUid]) as $r) {
+        foreach (DB::all('SELECT device_id, MAX(last_point) AS lp FROM backup_workloads WHERE client_id = ? AND device_id IS NOT NULL GROUP BY device_id', [$clientId]) as $r) {
             $age = $r['lp'] ? (time() - strtotime($r['lp'])) / 3600 : null;
             if (isset($out[(int) $r['device_id']])) {
                 $out[(int) $r['device_id']]['last_point'] = $r['lp'];

@@ -171,6 +171,8 @@ $r->post('/frameworks/{id}', [ComplianceController::class, 'frameworkSave']);
 // Integrations
 $r->get('/mapping', [MappingController::class, 'index']);
 $r->post('/mapping', [MappingController::class, 'save']);
+$r->get('/mapping/backups', [MappingController::class, 'backups']);
+$r->post('/mapping/backups', [MappingController::class, 'saveBackups']);
 $r->get('/sync', [SyncController::class, 'index']);
 $r->post('/sync', [SyncController::class, 'run']);
 $r->get('/sync/{id}', [SyncController::class, 'show']);

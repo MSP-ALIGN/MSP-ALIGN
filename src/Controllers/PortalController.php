@@ -304,7 +304,7 @@ final class PortalController
         }));
         self::render('devices', ['title' => 'Devices', 'nav' => 'devices', 'devices' => $rows, 'summary' => Lifecycle::summarize($all),
             'filter' => $filter, 'showCosts' => (bool) $pu['can_budget'],
-            'hasBackup' => (bool) DB::value('SELECT veeam_company_uid FROM clients WHERE id = ?', [$pu['client_id']])], $pu);
+            'hasBackup' => \Align\Backup\Backup::has((int) $pu['client_id'])], $pu);
     }
 
     public static function compliance(): void

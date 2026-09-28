@@ -51,7 +51,7 @@ $cid = (int) $client['id'];
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets?inventory=0" target="_blank"><i class="fas fa-fw fa-file-lines mr-2"></i>Asset summary (no inventory)</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-fw fa-road mr-2"></i>3-year roadmap</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-fw fa-coins mr-2"></i>Technology budget</a>
-          <?php if (!empty($client['veeam_company_uid'])): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-fw fa-database mr-2"></i>Backup &amp; recovery</a><?php endif; ?>
+          <?php if (\Align\Backup\Backup::has($client)): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-fw fa-database mr-2"></i>Backup &amp; recovery</a><?php endif; ?>
           <?php if (!empty($client['itflow_client_id']) && \Align\Service\Sla::enabled()): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/sla" target="_blank"><i class="fas fa-fw fa-stopwatch mr-2"></i>Service levels</a><?php endif; ?>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/export"><i class="fas fa-fw fa-file-csv mr-2"></i>Device list (CSV)</a>

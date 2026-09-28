@@ -678,6 +678,12 @@ switch (true) {
                 ['instanceUid' => 'j-2002', 'name' => 'DR replica', 'organizationUid' => $c['c2'], 'type' => 'ReplicationVM', 'status' => 'Success', 'isEnabled' => false,
                     'lastRun' => $iso(24 * 40), 'lastEndTime' => $iso(24 * 40)],
                 ['instanceUid' => 'j-0001', 'name' => 'Internal systems', 'organizationUid' => $c['c0'], 'type' => 'BackupVm', 'status' => 'Success', 'isEnabled' => true, 'lastRun' => $iso(3)],
+                // Hosted clients backed up on the provider's own server (not mapped to companies in VSPC)
+                ['instanceUid' => 'j-0100', 'name' => 'Hosted - Vet servers', 'organizationUid' => $c['c0'], 'type' => 'BackupVm', 'status' => 'Success', 'isEnabled' => true,
+                    'lastRun' => $iso(4), 'lastDuration' => 1800, 'destination' => 'BDR repository', 'backupChainSize' => 640 * 1024 ** 3],
+                ['instanceUid' => 'j-0101', 'name' => 'Hosted servers nightly', 'organizationUid' => $c['c0'], 'type' => 'BackupVm', 'status' => 'Failed', 'isEnabled' => true,
+                    'lastRun' => $iso(7), 'lastDuration' => 900, 'destination' => 'BDR repository', 'failureMessage' => 'Processing PC-0142 failed: snapshot creation timed out. PC-0124 completed.'],
+                ['instanceUid' => 'j-0102', 'name' => 'Law firm hosted', 'organizationUid' => $c['c0'], 'type' => 'BackupVm', 'status' => 'Success', 'isEnabled' => true, 'lastRun' => $iso(5), 'destination' => 'BDR repository'],
             ],
             '/api/v3/infrastructure/backupAgents' => [
                 ['instanceUid' => 'a-1', 'name' => 'PC-0001', 'organizationUid' => $c['c1'], 'managementMode' => 'ManagedByConsole'],
@@ -695,7 +701,14 @@ switch (true) {
                 ['instanceUid' => 'vm-sql', 'name' => 'SQL-TEST', 'organizationUid' => $c['c1'], 'latestRestorePointDate' => null, 'restorePoints' => 0],
                 ['instanceUid' => 'vm-35', 'name' => 'PC-0035', 'organizationUid' => $c['c0'], 'jobUid' => 'j-1002', 'latestRestorePointDate' => $iso(10), 'restorePoints' => 7, 'totalRestorePointSize' => 40 * 1024 ** 3],
                 ['instanceUid' => 'vm-16', 'name' => 'PC-0016', 'organizationUid' => $c['c2'], 'latestRestorePointDate' => $iso(24 * 5), 'restorePoints' => 7, 'totalRestorePointSize' => 450 * 1024 ** 3],
-            ], array_map(fn($i) => ['instanceUid' => "int-$i", 'name' => sprintf('INT-VM-%03d', $i), 'organizationUid' => $c['c0'], 'latestRestorePointDate' => $iso(3), 'restorePoints' => 7], range(1, 620))),
+                // Hosted: Vet's servers (devices PC-0040, PC-0082 in NinjaOne under Vet), a job shared by Vet and Northfield, and a law firm with no devices
+                ['instanceUid' => 'vm-h40', 'name' => 'PC-0040', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0100', 'latestRestorePointDate' => $iso(4), 'restorePoints' => 14, 'totalRestorePointSize' => 220 * 1024 ** 3],
+                ['instanceUid' => 'vm-h82', 'name' => 'pc-0082.vet.local', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0100', 'latestRestorePointDate' => $iso(4), 'restorePoints' => 14, 'totalRestorePointSize' => 180 * 1024 ** 3],
+                ['instanceUid' => 'vm-h124', 'name' => 'PC-0124', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0101', 'latestRestorePointDate' => $iso(7), 'restorePoints' => 7, 'totalRestorePointSize' => 90 * 1024 ** 3],
+                ['instanceUid' => 'vm-h142', 'name' => 'PC-0142', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0101', 'latestRestorePointDate' => $iso(24 * 3), 'restorePoints' => 7, 'totalRestorePointSize' => 75 * 1024 ** 3],
+                ['instanceUid' => 'vm-svl1', 'name' => 'HPLG-DC01', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0102', 'latestRestorePointDate' => $iso(5), 'restorePoints' => 14, 'totalRestorePointSize' => 60 * 1024 ** 3],
+                ['instanceUid' => 'vm-svl2', 'name' => 'HPLG-FS01', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0102', 'latestRestorePointDate' => $iso(5), 'restorePoints' => 14, 'totalRestorePointSize' => 410 * 1024 ** 3],
+            ], array_map(fn($i) => ['instanceUid' => "int-$i", 'name' => sprintf('INT-VM-%03d', $i), 'organizationUid' => $c['c0'], 'jobUid' => 'j-0001', 'latestRestorePointDate' => $iso(3), 'restorePoints' => 7], range(1, 620))),
             '/api/v3/protectedWorkloads/computersManagedByConsole' => [
                 ['backupAgentUid' => 'a-1', 'name' => 'PC-0001', 'organizationUid' => $c['c1'], 'numberOfJobs' => 1, 'operationMode' => 'Workstation', 'latestRestorePointDate' => $iso(12)],
                 ['backupAgentUid' => 'a-2', 'name' => 'PC-0008', 'organizationUid' => $c['c1'], 'numberOfJobs' => 1, 'operationMode' => 'Workstation', 'latestRestorePointDate' => $iso(24 * 6)],

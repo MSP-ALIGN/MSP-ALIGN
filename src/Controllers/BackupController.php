@@ -101,7 +101,9 @@ final class BackupController
             case 'workload':
             case 'm365':
                 $table = $kind === 'workload' ? 'backup_workloads' : 'backup_m365_objects';
-                $item = $uid !== '' ? \Align\DB::one("SELECT uid, name FROM $table WHERE uid = ? AND company_uid = ?", [$ref, $uid]) : null;
+                $item = $kind === 'workload'
+                    ? \Align\DB::one('SELECT uid, name FROM backup_workloads WHERE uid = ? AND client_id = ?', [$ref, $id])
+                    : ($uid !== '' ? \Align\DB::one('SELECT uid, name FROM backup_m365_objects WHERE uid = ? AND company_uid = ?', [$ref, $uid]) : null);
                 if (!$item) {
                     http_response_code(404);
                     exit('Not found');
@@ -136,7 +138,7 @@ final class BackupController
         $rows = [];
         $unlinked = [];
         foreach ($clients as $c) {
-            if (empty($c['veeam_company_uid'])) {
+            if (!\Align\Backup\Backup::has($c)) {
                 $unlinked[] = $c['name'];
                 continue;
             }

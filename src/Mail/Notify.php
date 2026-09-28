@@ -118,7 +118,8 @@ final class Notify
     private static function backupProblems(?array $ids): array
     {
         $out = [];
-        $clients = DB::all('SELECT c.* FROM clients c WHERE c.veeam_company_uid IS NOT NULL AND c.is_archived = 0 AND c.planning_excluded = 0' . self::clientFilter($ids) . ' ORDER BY c.name');
+        $clients = DB::all('SELECT c.* FROM clients c WHERE (c.veeam_company_uid IS NOT NULL OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
+            OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)) AND c.is_archived = 0 AND c.planning_excluded = 0' . self::clientFilter($ids) . ' ORDER BY c.name');
         foreach ($clients as $c) {
             $devs = array_values(array_filter((new \Align\Lifecycle\Lifecycle())->devices((int) $c['id']), fn($d) => $d['status'] !== 'excluded'));
             $b = \Align\Backup\Backup::forClient($c, $devs);
@@ -312,7 +313,8 @@ final class Notify
     public static function backupFailures(): int
     {
         $rows = DB::all("SELECT j.*, c.id AS client_id, c.name AS client_name FROM backup_jobs j
-            JOIN clients c ON c.veeam_company_uid = j.company_uid AND c.is_archived = 0 AND c.planning_excluded = 0
+            JOIN backup_job_clients jc ON jc.job_uid = j.uid
+            JOIN clients c ON c.id = jc.client_id AND c.is_archived = 0 AND c.planning_excluded = 0
             WHERE j.status = 'failed' AND j.is_enabled = 1 AND j.last_run IS NOT NULL AND j.last_run >= ?
               AND NOT EXISTS (SELECT 1 FROM backup_exemptions e JOIN backup_workloads w2 ON w2.uid = CONCAT('computer:', j.agent_uid)
                   WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))
