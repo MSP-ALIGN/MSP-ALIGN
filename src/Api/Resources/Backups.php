@@ -62,7 +62,8 @@ final class Backups
                 'newest_restore_point' => Out::ts($w['last_point']), 'restore_points' => Out::int($w['restore_points']), 'backup_bytes' => Out::int($w['backup_bytes']),
                 'device_id' => Out::int($w['device_id']), 'hosted' => (bool) $w['hosted'], 'not_required' => (bool) $w['exempt'],
             ], $b['all_workloads']),
-            'servers_without_backup' => array_map(fn($d) => ['device_id' => (int) $d['id'], 'name' => $d['name'], 'type' => $d['type']], $b['unprotected']),
+            // Which servers (names) needs devices:read; the count is in stats either way
+            'servers_without_backup' => Context::can('devices:read') ? array_map(fn($d) => ['device_id' => (int) $d['id'], 'name' => $d['name'], 'type' => $d['type']], $b['unprotected']) : null,
             'microsoft_365' => $b['m365'] ? ['health' => $b['m365']['tone'], 'protected_objects' => $b['m365']['total'], 'users' => $b['m365']['users'],
                 'overdue' => $b['m365']['overdue_count'], 'newest_restore_point' => Out::ts($b['m365']['last_point']),
                 'by_type' => array_map(fn($t) => ['protected' => $t['total'], 'current' => $t['ok'], 'overdue' => $t['overdue'], 'newest' => Out::ts($t['last'])], $b['m365']['types'])] : null,

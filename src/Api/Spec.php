@@ -15,7 +15,7 @@ final class Spec
         'Key' => ['The API key making the request.', [
             'name' => ['string', 'Name given to the key.'], 'prefix' => ['string', 'Public part of the key.'], 'scopes' => ['string[]', 'Permissions, e.g. projects:write.'],
             'client_ids' => ['integer[]', 'Clients the key is limited to; null = all clients.'], 'rate_limit_per_minute' => ['integer', ''], 'expires_at' => ['date-time', 'null = never.'],
-            'api_version' => ['integer', ''], 'app_version' => ['string', '']]],
+            'api_version' => ['integer', ''], 'app_version' => ['string', ''], 'openapi' => ['string', 'Path of the OpenAPI document.']]],
         'Client' => ['A client (details come from ITFlow and are read-only).', [
             'id' => ['integer', ''], 'name' => ['string', ''], 'industry' => ['string', ''], 'source' => ['string', 'itflow or manual.'], 'itflow_client_id' => ['integer', ''],
             'main_phone' => ['string', ''], 'website' => ['string', ''], 'address' => ['string', ''], 'primary_contact' => ['object', 'name, title, email, phone, mobile.'],
@@ -69,7 +69,7 @@ final class Spec
             'url' => ['string', ''], 'invitations' => ['string', 'After POST/PATCH with send_invites: what happened to the invitations.']]],
         'Framework' => ['A compliance framework.', ['id' => ['integer', ''], 'slug' => ['string', ''], 'name' => ['string', ''], 'description' => ['string', ''], 'built_in' => ['boolean', ''], 'controls' => ['integer', '']]],
         'Assessment' => ['A framework assigned to a client, with its score.', [
-            'framework_id' => ['integer', ''], 'framework' => ['string', ''], 'slug' => ['string', ''], 'assigned_at' => ['date-time', ''], 'last_reviewed' => ['date', ''], 'next_review' => ['date', ''],
+            'client_id' => ['integer', ''], 'framework_id' => ['integer', ''], 'framework' => ['string', ''], 'slug' => ['string', ''], 'assigned_at' => ['date-time', ''], 'last_reviewed' => ['date', ''], 'next_review' => ['date', ''],
             'score' => ['object', 'percent (partial counts half), met, partial, not_met, not_assessed, applicable, assessed_percent.'], 'url' => ['string', '']]],
         'Control' => ['A control and the client\'s status for it.', [
             'id' => ['integer', ''], 'ref' => ['string', ''], 'section' => ['string', ''], 'title' => ['string', ''], 'guidance' => ['string', 'What "met" looks like and the evidence to collect.'],
@@ -90,23 +90,23 @@ final class Spec
             'assignment' => ['string', '"auto", "ours" or a client id set by hand.'], 'device_id' => ['integer', ''], 'job_uids' => ['string[]', '']]],
         'HostedAssignment' => ['Result of assigning a hosted machine or job.', ['uid' => ['string', ''], 'name' => ['string', ''], 'client_id' => ['integer', 'Machines.'], 'client_ids' => ['integer[]', 'Jobs.'],
             'state' => ['string', 'Machines.'], 'machines' => ['integer', 'Jobs.']]],
-        'ServiceLevels' => ['SLA results for a period.', ['client_id' => ['integer', ''], 'period' => ['string', ''], 'label' => ['string', ''], 'goal_pct' => ['number', ''], 'has_sla' => ['boolean', ''],
+        'ServiceLevels' => ['SLA results for a period.', ['client_id' => ['integer', ''], 'period' => ['string', ''], 'label' => ['string', ''], 'goal_pct' => ['number', ''], 'has_sla' => ['boolean', ''], 'synced_at' => ['date-time', 'Last ticket sync.'],
             'stats' => ['object', 'tickets, responded_on_time_pct, resolved_on_time_pct, response_met/missed, resolution_met/missed, avg_first_response_minutes.'], 'previous_period' => ['object', 'Same shape.'],
-            'open' => ['object', 'total, past_target, close_to_target.'], 'monthly' => ['object[]', 'Last 12 months.'], 'by_priority' => ['object[]', ''],
+            'open' => ['object', 'total, past_target, close_to_target.'], 'monthly' => ['object[]', 'Last 12 months, oldest first: month (YYYY-MM) plus the stats fields.'], 'by_priority' => ['object[]', ''],
             'missed_tickets' => ['object[]', 'number, opened, priority, subject, missed_response, missed_resolution.'], 'url' => ['string', '']]],
     ];
 
     public const ERRORS = [
         400 => ['invalid_json, invalid_idempotency_key', 'The request body or a header is malformed.'],
-        401 => ['missing_key, invalid_key, key_expired, key_revoked', 'No usable API key.'],
+        401 => ['missing_key, invalid_key, key_expired, key_revoked, key_owner_inactive', 'No usable API key (a key stops when the staff account that created it is disabled).'],
         403 => ['insufficient_scope, all_clients_required', 'The key lacks the permission (see the X-Required-Scope header).'],
         404 => ['not_found, api_disabled, no_backup_data, no_service_data', 'Not found, or outside the clients the key is limited to.'],
         405 => ['method_not_allowed', 'See the Allow header.'],
-        409 => ['idempotency_conflict, managed_in_itflow, not_enabled', 'The request conflicts with the current state.'],
+        409 => ['idempotency_conflict, idempotency_in_progress, managed_in_itflow, not_enabled', 'The request conflicts with the current state.'],
         413 => ['body_too_large', 'Bodies are limited to 1 MB.'],
         415 => ['unsupported_media_type', 'Send JSON with Content-Type: application/json.'],
         422 => ['validation_failed', 'error.fields names each problem.'],
-        429 => ['rate_limited', 'Wait for Retry-After seconds.'],
+        429 => ['rate_limited, too_many_failed_requests', 'Wait for Retry-After seconds. Requests without a valid key are also limited per IP address.'],
         500 => ['internal_error', 'Logged on the server with the request_id.'],
     ];
 
@@ -272,7 +272,7 @@ final class Spec
     private static function type(string $t): array
     {
         if (str_ends_with($t, '[]')) {
-            return ['type' => 'array', 'items' => self::type(substr($t, 0, -2))];
+            return ['type' => ['array', 'null'], 'items' => self::type(substr($t, 0, -2))];
         }
         return match ($t) {
             'date' => ['type' => ['string', 'null'], 'format' => 'date'],

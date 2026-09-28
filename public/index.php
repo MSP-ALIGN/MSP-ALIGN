@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/src/bootstrap.php';
 use Align\Auth;
 use Align\View;
 
+header_remove('X-Powered-By'); // don't advertise the PHP version
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');

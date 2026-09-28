@@ -28,13 +28,13 @@ final class Meetings
             'owner_id' => ['int', ['min' => 1, 'desc' => 'Staff user who owns / organizes it (default: the key\'s creator). Invitations can go out from this person\'s mailbox, so only keys for all clients may set it.']],
             'status' => $creating ? null : ['string', ['enum' => ['scheduled', 'completed', 'cancelled'], 'desc' => 'Mark completed or cancelled (cancelling sends cancellations if invitations went out), or scheduled to reopen.']],
             'notes' => $creating ? null : ['string', ['max' => 50000, 'desc' => 'Meeting notes.']],
-            'send_invites' => ['bool', ['desc' => 'Email calendar invitations (or updates) to the attendees. Default false.']],
+            'send_invites' => ['bool', ['desc' => 'Email calendar invitations (or updates) to the attendees. Default false. Needs a key for all clients.']],
         ]);
     }
 
     public static function index(): array
     {
-        $where = ' WHERE 1 = 1';
+        $where = ' WHERE (m.client_id IS NULL OR m.client_id IN (SELECT id FROM clients WHERE is_archived = 0))';
         $args = [];
         if (($cid = Input::queryInt('client_id')) !== null) {
             Clients::load($cid);
@@ -44,8 +44,8 @@ final class Meetings
         foreach (['from' => '>=', 'to' => '<='] as $k => $op) {
             if (($v = Input::queryStr($k)) !== null) {
                 $t = strtotime($v);
-                if (!$t) {
-                    throw ApiError::invalid([$k => 'Must be a date or date and time.'], 'Invalid query parameter.');
+                if (!$t || !preg_match('/^\d{4}-\d{2}-\d{2}/', $v) || !Input::yearOk(date('Y-m-d', $t))) {
+                    throw ApiError::invalid([$k => 'Must be a date or date and time (YYYY-MM-DD…).'], 'Invalid query parameter.');
                 }
                 $where .= " AND m.starts_at $op ?";
                 $args[] = date('Y-m-d H:i:s', $k === 'to' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $t + 86399 : $t);
@@ -79,7 +79,8 @@ final class Meetings
 
     private static function load(int $id): array
     {
-        $m = DB::one('SELECT m.*, u.name AS owner_name FROM meetings m LEFT JOIN users u ON u.id = m.owner_id WHERE m.id = ?', [$id]);
+        $m = DB::one('SELECT m.*, u.name AS owner_name FROM meetings m LEFT JOIN users u ON u.id = m.owner_id
+            LEFT JOIN clients c ON c.id = m.client_id WHERE m.id = ? AND (m.client_id IS NULL OR c.is_archived = 0)', [$id]);
         if (!$m || !Context::allowsClient($m['client_id'] !== null ? (int) $m['client_id'] : null)) {
             throw ApiError::notFound('Meeting');
         }
@@ -109,6 +110,7 @@ final class Meetings
         if (array_key_exists('starts_at', $in) || array_key_exists('duration_minutes', $in)) {
             $cols['starts_at'] = date('Y-m-d H:i:s', $start);
             $cols['ends_at'] = date('Y-m-d H:i:s', $start + max(15, (int) $mins) * 60);
+            Input::requireYear($cols['ends_at'], 'duration_minutes');
         }
         foreach (['location', 'video_url', 'agenda', 'notes'] as $k) {
             if (array_key_exists($k, $in)) {
@@ -116,7 +118,15 @@ final class Meetings
             }
         }
         if (array_key_exists('attendees', $in)) {
-            $cols['attendees'] = $in['attendees'] ? mb_substr(implode("\n", $in['attendees']), 0, 4000) : null;
+            $joined = implode("\n", $in['attendees'] ?? []);
+            if (count($in['attendees'] ?? []) > 100 || mb_strlen($joined) > 4000) {
+                throw ApiError::invalid(['attendees' => 'At most 100 attendees (4000 characters).']); // never cut an address short
+            }
+            // Invitations go out from a staff mailbox: a key limited to certain clients can't redirect them
+            if ($current && $current['invites_sent_at'] && Context::clients() !== null && $joined !== (string) $current['attendees']) {
+                throw ApiError::invalid(['attendees' => 'Invitations already went out for this meeting; only a key for all clients can change who is invited.']);
+            }
+            $cols['attendees'] = $joined !== '' ? $joined : null;
         }
         if (array_key_exists('owner_id', $in) && $in['owner_id'] !== null) {
             if (Context::clients() !== null) {
@@ -136,9 +146,12 @@ final class Meetings
         if (!array_key_exists('client_id', $in) && Context::clients() !== null) {
             throw ApiError::invalid(['client_id' => 'Required for a key limited to certain clients.']);
         }
+        self::guardInvites($in);
         $in += ['type' => 'other', 'title' => null];
         $cols = self::columns($in, null);
-        $cols['owner_id'] ??= Context::$key['created_by'] ? (int) Context::$key['created_by'] : null;
+        // Default owner: whoever created the key, if they're still an active user
+        $creator = (int) (Context::$key['created_by'] ?? 0);
+        $cols['owner_id'] ??= $creator && DB::value('SELECT 1 FROM users WHERE id = ? AND is_active = 1', [$creator]) ? $creator : null;
         $id = DB::insert('meetings', $cols + ['uid' => M::newUid(), 'status' => 'scheduled', 'created_by' => null]);
         \Align\Audit::log('meeting.create', $cols['title']);
         $invite = !empty($in['send_invites']) ? \Align\Mail\Invites::send($id) : null;
@@ -152,6 +165,7 @@ final class Meetings
         if (!$in) {
             throw ApiError::invalid([], 'Send at least one field to change.');
         }
+        self::guardInvites($in);
         $cols = self::columns($in, $m);
         $status = $in['status'] ?? null;
         if ($status !== null && $status !== $m['status']) {
@@ -171,8 +185,8 @@ final class Meetings
         $invite = null;
         if ($action === 'cancel') {
             $invite = \Align\Mail\Invites::send($id, 'cancel'); // only when invitations had gone out
-        } elseif (($action === 'reopen' && $m['invites_sent_at']) || (!empty($in['send_invites']) && ($cols['status'] ?? $m['status']) === 'scheduled')) {
-            $invite = \Align\Mail\Invites::send($id);
+        } elseif (!empty($in['send_invites']) && ($cols['status'] ?? $m['status']) === 'scheduled') {
+            $invite = \Align\Mail\Invites::send($id); // only when asked, never implicitly (e.g. on reopen)
         }
         return Out::one(self::shape(self::load($id)) + ['invitations' => self::inviteResult($invite, $invite !== null)]);
     }
@@ -189,6 +203,14 @@ final class Meetings
         return str_contains($r, 'not sent') || str_contains(strtolower($r), 'fail')
             ? ['status' => 'failed', 'message' => 'Invitations could not be sent. Details are in the audit log.']
             : ['status' => 'sent', 'message' => $r];
+    }
+
+    /** Sending invitations uses a staff mailbox, so it needs a key for all clients. */
+    private static function guardInvites(array $in): void
+    {
+        if (!empty($in['send_invites']) && Context::clients() !== null) {
+            throw ApiError::invalid(['send_invites' => 'Only a key for all clients can send invitations (they go out from a staff mailbox).']);
+        }
     }
 
     public static function delete(int $id): array

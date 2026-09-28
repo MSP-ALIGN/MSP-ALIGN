@@ -41,7 +41,7 @@ final class ServiceLevels
             'stats' => $stats($st),
             'previous_period' => $stats($r['prior']),
             'open' => ['total' => $r['open']['open_total'] ?? 0, 'past_target' => $r['open']['breached'] ?? 0, 'close_to_target' => $r['open']['warning'] ?? 0],
-            'monthly' => $r['monthly'],
+            'monthly' => array_map(fn($ym, $m) => ['month' => $ym] + $stats($m), array_keys($r['monthly']), array_values($r['monthly'])),
             'by_priority' => array_map(fn($p) => ['priority' => $p['priority'], 'tickets' => $p['tickets'], 'responded_on_time_pct' => $p['resp_pct'], 'resolved_on_time_pct' => $p['res_pct'],
                 'avg_first_response_minutes' => $p['avg_response_min'], 'avg_resolution_minutes' => $p['avg_resolution_min']], $r['priority']),
             'missed_tickets' => array_map(fn($t) => ['number' => $t['number'] ?: '#' . $t['id'], 'opened' => Out::ts($t['created_at']), 'priority' => $t['priority'] ?? null,

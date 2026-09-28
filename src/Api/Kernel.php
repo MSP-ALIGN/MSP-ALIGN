@@ -15,6 +15,8 @@ final class Kernel
 {
     public const VERSION = 1;
     private static bool $reserved = false;
+    private static bool $quiet = false;      // over the failed-request limit: don't fill the request log
+    public const MAX_FAILED_PER_MINUTE = 30; // requests without a valid key, per IP
     public const MAX_BODY = 1048576; // 1 MB
 
     public static function handle(string $method, string $path): void
@@ -24,6 +26,7 @@ final class Kernel
         Context::$key = null;
         Context::$body = [];
         self::$reserved = false;
+        self::$quiet = false;
         header('Content-Type: application/json; charset=utf-8');
         header('X-Request-Id: ' . Context::$requestId);
         header('Cache-Control: no-store');
@@ -48,9 +51,9 @@ final class Kernel
             if (!str_starts_with($rel . '/', '/v1/')) {
                 throw new ApiError(404, 'not_found', 'Unknown API version. Use /api/v1.');
             }
-            $route = self::match($method, substr($rel, 3) ?: '/');
             self::authenticate();
             self::rateLimit();
+            $route = self::match($method, substr($rel, 3) ?: '/');
             if ($route['scope']) {
                 Context::require($route['scope']);
             }
@@ -132,18 +135,40 @@ final class Kernel
     private static function authenticate(): void
     {
         $token = self::bearer();
-        if ($token === '') {
+        $sentAuth = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '')) !== '';
+        if ($token === '' && !$sentAuth) {
+            self::failedAttempt(false);
             throw new ApiError(401, 'missing_key', 'Send your API key as "Authorization: Bearer <key>".', [], ['WWW-Authenticate' => 'Bearer realm="api"']);
         }
-        [$key, $err] = Keys::authenticate($token);
+        [$key, $err] = $token !== '' ? Keys::authenticate($token) : [null, 'invalid_key'];
         if (!$key) {
-            \Align\Security::logAuthFailure('api'); // fail2ban counts these like failed sign-ins
-            $msg = ['key_revoked' => 'This API key was revoked.', 'key_expired' => 'This API key has expired.'][$err] ?? 'The API key is not valid.';
+            self::failedAttempt(true);
+            $msg = ['key_revoked' => 'This API key was revoked.', 'key_expired' => 'This API key has expired.',
+                'key_owner_inactive' => 'The staff account that created this API key is disabled, so the key no longer works. An admin can create a new one.'][$err] ?? 'The API key is not valid.';
             throw new ApiError(401, $err, $msg, [], ['WWW-Authenticate' => 'Bearer realm="api", error="invalid_token"']);
         }
         Context::$key = $key;
         if (!$key['last_used_at'] || strtotime($key['last_used_at']) < time() - 60 || $key['last_ip'] !== client_ip()) {
             DB::run('UPDATE api_keys SET last_used_at = NOW(), last_ip = ? WHERE id = ?', [client_ip(), $key['id']]);
+        }
+    }
+
+    /**
+     * Counts a request without a valid key against its IP. Past the limit: 429, and it isn't logged
+     * (so a flood can't push real entries out of the request log). Bad keys are also reported for fail2ban.
+     */
+    private static function failedAttempt(bool $badKey): void
+    {
+        if ($badKey) {
+            \Align\Security::logAuthFailure('api');
+        }
+        $window = intdiv(time(), 60);
+        $ip = mb_substr(client_ip(), 0, 64);
+        DB::run('INSERT INTO api_ip_rate (ip, window_start, hits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE hits = hits + 1', [$ip, $window]);
+        $hits = (int) DB::value('SELECT hits FROM api_ip_rate WHERE ip = ? AND window_start = ?', [$ip, $window]);
+        if ($hits > self::MAX_FAILED_PER_MINUTE) {
+            self::$quiet = $hits > self::MAX_FAILED_PER_MINUTE + 1; // log the first refusal, then stay quiet
+            throw new ApiError(429, 'too_many_failed_requests', 'Too many requests without a valid API key from this address. Wait a minute.', [], ['Retry-After' => (string) max(1, ($window + 1) * 60 - time())]);
         }
     }
 
@@ -177,7 +202,7 @@ final class Kernel
             return [];
         }
         $ct = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
-        if (!str_starts_with($ct, 'application/json')) {
+        if (!preg_match('#^application/json\s*(;|$)#', $ct)) {
             throw new ApiError(415, 'unsupported_media_type', 'Send the body as JSON with "Content-Type: application/json".');
         }
         try {
@@ -233,9 +258,9 @@ final class Kernel
             throw new ApiError(409, 'idempotency_in_progress', 'A request with this Idempotency-Key is still being processed. Retry in a moment.', [], ['Retry-After' => '2']);
         }
         $body = json_decode($row['body'], true);
-        // The key may have lost access to that client since the first request
-        $cid = $body['data']['client_id'] ?? null;
-        if (is_int($cid) && !Context::allowsClient($cid)) {
+        // The key may have lost access to that client since the first request (null = internal: all-clients keys only)
+        $data = is_array($body['data'] ?? null) ? $body['data'] : [];
+        if (array_key_exists('client_id', $data) && !($data['client_id'] === null ? Context::clients() === null : Context::allowsClient((int) $data['client_id']))) {
             throw ApiError::notFound();
         }
         return [(int) $row['status'], $body];
@@ -256,6 +281,9 @@ final class Kernel
 
     private static function log(string $method, string $path, int $status, ?string $error, int $ms): void
     {
+        if (self::$quiet) {
+            return;
+        }
         try {
             DB::run('INSERT INTO api_requests (key_id, request_id, method, path, status, ms, ip, error_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
                 Context::$key['id'] ?? null, Context::$requestId, mb_substr($method, 0, 8), mb_substr($path, 0, 255), $status, $ms, client_ip(), $error,
@@ -263,6 +291,7 @@ final class Kernel
             if (random_int(1, 200) === 1) {
                 DB::run('DELETE FROM api_requests WHERE created_at < ?', [date('Y-m-d H:i:s', strtotime('-30 days'))]);
                 DB::run('DELETE FROM api_rate WHERE window_start < ?', [intdiv(time(), 60) - 10]);
+                DB::run('DELETE FROM api_ip_rate WHERE window_start < ?', [intdiv(time(), 60) - 10]);
                 DB::run('DELETE FROM api_idempotency WHERE created_at < ?', [date('Y-m-d H:i:s', time() - 86400)]);
             }
         } catch (\Throwable) {

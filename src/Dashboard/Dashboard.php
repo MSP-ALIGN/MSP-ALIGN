@@ -160,6 +160,14 @@ final class Dashboard
 
         // API keys about to expire (admins manage them)
         if (\Align\Auth::can('admin')) {
+            try {
+                $stopped = DB::all('SELECT k.id, k.name, u.name AS creator FROM api_keys k JOIN users u ON u.id = k.created_by WHERE k.revoked_at IS NULL AND u.is_active = 0 AND (k.expires_at IS NULL OR k.expires_at > NOW())');
+            } catch (\Throwable) {
+                $stopped = []; // before the API migration
+            }
+            foreach ($stopped as $k) {
+                $add('bad', 'system', 'API key "' . $k['name'] . '" stopped working', $k['creator'] . '\'s account is disabled, and keys stop with the account that created them. Create a replacement key and revoke this one.', '/settings/api/keys/' . (int) $k['id']);
+            }
             foreach (\Align\Api\Keys::expiringSoon() as $k) {
                 $days = max(0, (int) ceil((strtotime($k['expires_at']) - time()) / 86400));
                 $add($days <= 3 ? 'bad' : 'warn', 'system', 'API key "' . $k['name'] . '" expires ' . ($days === 0 ? 'today' : "in $days day" . ($days === 1 ? '' : 's')),

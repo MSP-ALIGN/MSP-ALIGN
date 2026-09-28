@@ -24,6 +24,11 @@ final class Budget
         $bd = \Align\Reports\ReportData::budget($id, $year);
         $b = $bd['b'];
         $cats = array_map(fn($c) => $c[0], B::CATEGORIES);
+        // Amounts are budget data; what a license or project is (name, price per seat, terms) needs that area's scope
+        $canLic = Context::can('licenses:read');
+        $canProj = Context::can('projects:read');
+        $named = fn(array $l) => match ($l['source']) { 'licensing' => $canLic, 'projects' => $canProj, default => true };
+        $dates = array_values(array_filter($bd['dates'], fn($d) => $canLic || !str_ends_with((string) $d['link'], '/licenses')));
         return Out::one([
             'client_id' => $id,
             'currency' => 'USD',
@@ -38,13 +43,14 @@ final class Budget
                 'by_category' => array_map(fn($cat) => Out::num($b['byCat'][$cat][$i] ?? 0), array_combine(array_keys($cats), array_keys($cats)))], $b['quarters'], array_keys($b['quarters'])),
             'categories' => $cats,
             'lines' => array_map(fn($l) => [
-                'key' => $l['key'], 'name' => $l['name'], 'category' => $l['category'], 'source' => $l['source'],
+                'key' => $named($l) ? $l['key'] : $l['source'] . '-' . substr(hash('sha256', $l['key']), 0, 8),
+                'name' => $named($l) ? $l['name'] : $cats[$l['category']] ?? 'Item', 'category' => $l['category'], 'source' => $l['source'],
                 'budget_line_id' => $l['source'] === 'manual' ? (int) $l['row']['id'] : null,
-                'detail' => $l['detail'], 'monthly' => Out::num($l['monthly'] ?? null), 'one_time' => (bool) $l['one_time'], 'tentative' => (bool) $l['tentative'],
+                'detail' => $named($l) ? $l['detail'] : null, 'monthly' => Out::num($l['monthly'] ?? null), 'one_time' => (bool) $l['one_time'], 'tentative' => (bool) $l['tentative'],
                 'by_quarter' => array_map(fn($v) => Out::num($v), $l['q']),
             ], $b['lines']),
             'contract_dates' => array_map(fn($d) => ['date' => $d['date'], 'kind' => $d['kind'], 'label' => $d['label'], 'name' => $d['name'],
-                'term' => $d['term'] ?: null, 'auto_renew' => (bool) $d['auto_renew'], 'annual_value' => Out::num($d['annual'] ?? null)], $bd['dates']),
+                'term' => $d['term'] ?: null, 'auto_renew' => (bool) $d['auto_renew'], 'annual_value' => Out::num($d['annual'] ?? null)], $dates),
         ]);
     }
 
@@ -123,6 +129,8 @@ final class Budget
             && (array_key_exists('notice_days', $in) || array_key_exists('contract_end', $in) || array_key_exists('contract_term_months', $in))) {
             $row['renegotiate_date'] = date('Y-m-d', strtotime("{$row['contract_end']} -{$row['notice_days']} days"));
         }
+        Input::requireYear($row['contract_end'] ?? null, 'contract_term_months');
+        Input::requireYear($row['renegotiate_date'] ?? null, 'notice_days');
         return $row;
     }
 

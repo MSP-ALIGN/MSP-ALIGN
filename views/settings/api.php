@@ -7,7 +7,7 @@ use Align\Api\Keys;
  */
 $tab = 'api';
 require __DIR__ . '/_tabs.php';
-$stateBadge = ['active' => ['Active', 'success'], 'expiring' => ['Expires soon', 'warning'], 'expired' => ['Expired', 'secondary'], 'revoked' => ['Revoked', 'dark']];
+$stateBadge = ['active' => ['Active', 'success'], 'expiring' => ['Expires soon', 'warning'], 'expired' => ['Expired', 'secondary'], 'revoked' => ['Revoked', 'dark'], 'owner_inactive' => ['Stopped: creator disabled', 'danger']];
 $scopeSummary = function (array $k): string {
     $s = $k['scope_list'];
     $all = Keys::allScopes();
@@ -84,7 +84,7 @@ $scopeSummary = function (array $k): string {
       <thead class="text-dark"><tr><th>Name</th><th>Key</th><th>Permissions</th><th>Clients</th><th>Expires</th><th>Last used</th><th class="text-right">24h</th><th></th></tr></thead>
       <tbody>
       <?php foreach ($keys as $k): $st = Keys::state($k); [$sl, $sc] = $stateBadge[$st]; ?>
-        <tr class="<?= in_array($st, ['revoked', 'expired'], true) ? 'text-muted' : '' ?>">
+        <tr class="<?= in_array($st, ['revoked', 'expired', 'owner_inactive'], true) ? 'text-muted' : '' ?>">
           <td class="align-middle"><a href="/settings/api/keys/<?= (int) $k['id'] ?>" class="font-weight-bold"><?= e($k['name']) ?></a> <span class="badge badge-<?= $sc ?>"><?= $sl ?></span>
             <?php if ($k['notes']): ?><div class="small text-muted"><?= e($k['notes']) ?></div><?php endif; ?></td>
           <td class="align-middle"><code class="small">msa_<?= e($k['prefix']) ?>_…</code></td>

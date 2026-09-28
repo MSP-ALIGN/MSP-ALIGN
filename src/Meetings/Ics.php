@@ -72,7 +72,7 @@ final class Ics
 
     private static function esc(string $s): string
     {
-        return str_replace(["\\", ';', ',', "\r\n", "\n"], ['\\\\', '\;', '\,', '\n', '\n'], $s);
+        return str_replace(["\\", ';', ',', "\r\n", "\n", "\r"], ['\\\\', '\;', '\,', '\n', '\n', '\n'], $s); // a lone CR must not start a new property
     }
 
     /** Lines longer than 75 octets are folded with CRLF + space. */

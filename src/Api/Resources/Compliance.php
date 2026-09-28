@@ -44,6 +44,7 @@ final class Compliance
     {
         $s = C::score($clientId, (int) $r['framework_id']);
         return [
+            'client_id' => $clientId,
             'framework_id' => (int) $r['framework_id'],
             'framework' => $r['name'],
             'slug' => $r['slug'],

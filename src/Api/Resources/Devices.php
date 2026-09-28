@@ -42,9 +42,10 @@ final class Devices
         $q = strtolower((string) Input::queryStr('search'));
         $since = Input::querySince();
         $allowed = Context::clients();
-        $rows = array_filter((new Lifecycle())->devices($clientId), function ($d) use ($allowed, $status, $type, $class, $virtual, $attention, $q, $since) {
+        $archived = array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients WHERE is_archived = 1'), 'id')));
+        $rows = array_filter((new Lifecycle())->devices($clientId), function ($d) use ($allowed, $archived, $status, $type, $class, $virtual, $attention, $q, $since) {
             return ($allowed === null || in_array((int) $d['client_id'], $allowed, true))
-                && $d['client_id'] !== null
+                && $d['client_id'] !== null && !isset($archived[(int) $d['client_id']])
                 && ($status === null || $d['status'] === $status)
                 && ($type === null || $d['type'] === $type)
                 && ($class === null || $d['device_class'] === $class)
@@ -65,7 +66,8 @@ final class Devices
     private static function load(int $id): array
     {
         $d = (new Lifecycle())->devices(null, false, $id)[0] ?? null;
-        if (!$d || $d['client_id'] === null || !Context::allowsClient((int) $d['client_id'])) {
+        if (!$d || $d['client_id'] === null || !Context::allowsClient((int) $d['client_id'])
+            || DB::value('SELECT is_archived FROM clients WHERE id = ?', [(int) $d['client_id']])) {
             throw ApiError::notFound('Device');
         }
         return $d;

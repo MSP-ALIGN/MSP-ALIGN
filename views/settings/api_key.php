@@ -9,7 +9,7 @@ $revoked = $st === 'revoked';
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h2 class="h5 mb-0 mr-auto"><a href="/settings/api" class="text-muted mr-2"><i class="fas fa-arrow-left"></i></a><i class="fas fa-key text-secondary mr-2"></i><?= e($apiKey['name']) ?>
-    <span class="badge badge-<?= ['active' => 'success', 'expiring' => 'warning', 'expired' => 'secondary', 'revoked' => 'dark'][$st] ?> ml-1"><?= ['active' => 'Active', 'expiring' => 'Expires soon', 'expired' => 'Expired', 'revoked' => 'Revoked'][$st] ?></span></h2>
+    <span class="badge badge-<?= ['active' => 'success', 'expiring' => 'warning', 'expired' => 'secondary', 'revoked' => 'dark', 'owner_inactive' => 'danger'][$st] ?> ml-1"><?= ['active' => 'Active', 'expiring' => 'Expires soon', 'expired' => 'Expired', 'revoked' => 'Revoked', 'owner_inactive' => 'Stopped: creator disabled'][$st] ?></span></h2>
   <span class="small text-muted"><code>msa_<?= e($apiKey['prefix']) ?>_…</code> · created <?= e(fmt_date($apiKey['created_at'])) ?><?= $apiKey['created_by_name'] ? ' by ' . e($apiKey['created_by_name']) : '' ?>
     · last used <?= $apiKey['last_used_at'] ? e(rel_time($apiKey['last_used_at'])) . ' from ' . e($apiKey['last_ip']) : 'never' ?></span>
 </div>

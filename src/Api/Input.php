@@ -60,7 +60,8 @@ final class Input
                 if (!is_string($v) && !is_int($v) && !is_float($v)) {
                     throw $bad('Must be a string.');
                 }
-                $v = trim((string) $v);
+                // Control characters (lone CR included) can break calendar files and logs; keep newlines and tabs
+                $v = trim(preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/u', '', str_replace("\r\n", "\n", (string) $v)) ?? '');
                 if (isset($o['enum']) && !in_array($v, $o['enum'], true)) {
                     throw $bad('Must be one of: ' . implode(', ', $o['enum']) . '.');
                 }
@@ -95,13 +96,20 @@ final class Input
                 if (!is_string($v) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) || !checkdate((int) substr($v, 5, 2), (int) substr($v, 8, 2), (int) substr($v, 0, 4))) {
                     throw $bad('Must be a date (YYYY-MM-DD).');
                 }
+                if (!self::yearOk($v)) {
+                    throw $bad('Must be between 1970 and 9998.');
+                }
                 return $v;
             case 'datetime':
                 $t = is_string($v) ? strtotime($v) : false;
                 if (!$t || !preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/', (string) $v)) {
                     throw $bad('Must be a date and time (ISO 8601, e.g. 2026-10-14T09:00:00-07:00).');
                 }
-                return date('Y-m-d H:i:s', $t);
+                $out = date('Y-m-d H:i:s', $t);
+                if (!self::yearOk($out)) {
+                    throw $bad('Must be between 1970 and 9998.');
+                }
+                return $out;
             case 'quarter':
                 if (!is_string($v) || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v) && !preg_match('/^(\d{4})-Q([1-4])$/i', $v)) {
                     throw $bad('Must be a quarter (2027-Q1) or any date in it (YYYY-MM-DD).');
@@ -142,6 +150,24 @@ final class Input
                 return array_values(array_unique(array_map('intval', $v)));
         }
         throw $bad('Unsupported field.');
+    }
+
+    /** Dates the database and calendars can store (also used for dates worked out from other fields). */
+    public static function yearOk(?string $date): bool
+    {
+        if ($date === null) {
+            return true;
+        }
+        $y = (int) substr($date, 0, 4);
+        return $y >= 1970 && $y <= 9998 && preg_match('/^\d{4}-/', $date) === 1;
+    }
+
+    /** Throws 422 naming $field when a worked-out date is out of range. */
+    public static function requireYear(?string $date, string $field): void
+    {
+        if (!self::yearOk($date)) {
+            throw ApiError::invalid([$field => 'Works out to a date outside 1970-9998.']);
+        }
     }
 
     /** Positive int from the query string, or null. */
@@ -189,7 +215,7 @@ final class Input
             return null;
         }
         $t = strtotime($v);
-        if (!$t) {
+        if (!$t || !self::yearOk(date('Y-m-d', $t)) || !preg_match('/^\d{4}-\d{2}-\d{2}/', $v)) {
             throw ApiError::invalid(['updated_since' => 'Must be a date or date and time (ISO 8601).'], 'Invalid query parameter.');
         }
         return date('Y-m-d H:i:s', $t);

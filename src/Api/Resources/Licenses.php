@@ -67,6 +67,9 @@ final class Licenses
             $where .= ' AND l.unit_price IS NULL';
         }
         if (($days = Input::queryInt('renewing_within_days')) !== null) {
+            if ($days > 3650) {
+                throw ApiError::invalid(['renewing_within_days' => 'At most 3650.'], 'Invalid query parameter.');
+            }
             $where .= ' AND ((l.expire_date BETWEEN CURDATE() AND ?) OR (l.contract_end BETWEEN CURDATE() AND ?) OR (l.renegotiate_date BETWEEN CURDATE() AND ?))';
             $until = date('Y-m-d', strtotime("+$days days"));
             array_push($args, $until, $until, $until);
@@ -119,6 +122,8 @@ final class Licenses
         if (!array_key_exists('renegotiate_date', $in) && array_intersect_key($in + $cols, array_flip(['notice_days', 'contract_end', 'contract_term_months'])) && !empty($row['contract_end']) && ($row['notice_days'] ?? null) !== null) {
             $cols['renegotiate_date'] = date('Y-m-d', strtotime("{$row['contract_end']} -{$row['notice_days']} days"));
         }
+        Input::requireYear($cols['contract_end'] ?? null, 'contract_term_months');
+        Input::requireYear($cols['renegotiate_date'] ?? null, 'notice_days');
         return $cols;
     }
 

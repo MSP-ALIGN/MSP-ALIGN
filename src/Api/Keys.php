@@ -116,6 +116,10 @@ final class Keys
         if ($row['expires_at'] && strtotime($row['expires_at']) <= time()) {
             return [null, 'key_expired'];
         }
+        // A key stops with the account that made it (e.g. an admin who left)
+        if ($row['created_by'] && !DB::value('SELECT is_active FROM users WHERE id = ?', [$row['created_by']])) {
+            return [null, 'key_owner_inactive'];
+        }
         return [self::decode($row), null];
     }
 
@@ -129,11 +133,14 @@ final class Keys
         return $row;
     }
 
-    /** active | expiring (within 14 days) | expired | revoked */
+    /** active | expiring (within 14 days) | expired | revoked | owner_inactive */
     public static function state(array $row): string
     {
         if ($row['revoked_at']) {
             return 'revoked';
+        }
+        if (isset($row['creator_active']) && $row['created_by'] && !(int) $row['creator_active']) {
+            return 'owner_inactive';
         }
         if ($row['expires_at']) {
             $t = strtotime($row['expires_at']);
