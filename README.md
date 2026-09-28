@@ -6,6 +6,7 @@ Self-hosted vCIO toolkit for managed service providers, built by Mountaineer IT.
 
 **What's in it (1.7.0):**
 
+- **New home (1.30.1):** the project now lives at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Updating to 1.30.1 switches an install that pulls from the old repository to the new one automatically (if the new one can't be reached, it keeps the old one and says so). The license page's source link points to the new repository too.
 - **Provider-neutral backup data (1.30):** Veeam Service Provider Console is now one *backup provider* (`src/Providers/Backup/BackupProvider.php`), and an install can run several backup products. Backup companies live in `backup_companies`, each client's company link moves to `client_links`, and every job, machine and Microsoft 365 record notes its provider, so one product's sync never removes another's data. Client mapping shows a company column per backup product (the old `veeam[]` form field still saves). Screens, reports, the portal and the API work exactly as before; see [docs/PROVIDERS.md](docs/PROVIDERS.md).
 - **Provider-neutral RMM data (1.29):** NinjaOne is now one *RMM provider* (`src/Providers/Rmm/RmmProvider.php`), and an install can run several RMMs at once. Each device records the RMM it came from and that RMM's device and organization ids (`devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, stored as text because some RMMs use non-numeric ids). Client ↔ organization links moved from `clients.ninja_org_id` to a `client_links` table (one link per client per provider), and `ninja_orgs` became `rmm_orgs`. Client mapping shows a column per RMM. The API still reports NinjaOne devices with `source: "ninja"` and `ninja_device_id`, plus a new `rmm` object.
 - **Provider-neutral PSA data (1.28):** ITFlow is now one *PSA provider* behind a common interface (`src/Providers/Psa/PsaProvider.php`). The sync, screens, reports and API only see neutral records, so another PSA can feed the same areas by adding a provider; see [docs/PROVIDERS.md](docs/PROVIDERS.md). ITFlow-named tables and columns were renamed (`itflow_assets` → `psa_assets`, `clients.itflow_client_id` → `psa_id` and so on) by an automatic migration; nothing changes in how Align behaves. The API keeps its `itflow_*` fields as deprecated aliases of the new `psa_*` ones.
@@ -81,14 +82,13 @@ Self-hosted vCIO toolkit for managed service providers, built by Mountaineer IT.
 
 Recommended VM: 2 vCPU, 4 GB RAM, 20 GB disk, static IP, Debian 13 minimal with SSH.
 
-1. In GitHub, create a **fine-grained token** limited to this repo with **Contents: Read-only**. The installer keeps it in `/etc/mountaineer-align/github-token` (root only) and uses it for updates.
-2. On the VM:
+1. On the VM:
 
 ```bash
-read -rs GH_TOKEN && export GH_TOKEN      # paste the token, press Enter
-curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
-  https://raw.githubusercontent.com/MountaineerIT/mountaineer-align/main/install.sh | sudo -E bash
+curl -fsSL https://raw.githubusercontent.com/MSP-ALIGN/MSP-ALIGN/main/install.sh | sudo -E bash
 ```
+
+2. Installing from a private fork? Create a **fine-grained token** limited to that repo with **Contents: Read-only**, then run `read -rs GH_TOKEN && export GH_TOKEN` first, add `-H "Authorization: Bearer $GH_TOKEN"` to the `curl` command, and set `ALIGN_REPO=owner/name`. The installer keeps the token in `/etc/mountaineer-align/github-token` (root only) and uses it for updates.
 
 The installer asks for:
 

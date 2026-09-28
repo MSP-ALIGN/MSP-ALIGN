@@ -12,7 +12,7 @@ final class LegalController
 {
     /** Change this (and the text) whenever the terms change. */
     public const TERMS_UPDATED = '2026-09-26';
-    public const DEFAULT_SOURCE = 'https://github.com/MountaineerIT/mountaineer-align';
+    public const DEFAULT_SOURCE = 'https://github.com/MSP-ALIGN/MSP-ALIGN';
 
     /** Bundled third-party software: [name, version, license, url]. */
     public const THIRD_PARTY = [

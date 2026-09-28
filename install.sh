@@ -3,10 +3,10 @@
 # =============================================================================
 #  MSP-ALIGN - installer / upgrader for Debian 13 (trixie)
 #
-#  Fresh install (private repo), run on a new Debian 13 VM:
-#    read -rs GH_TOKEN && export GH_TOKEN
-#    curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
-#      https://raw.githubusercontent.com/MountaineerIT/mountaineer-align/main/install.sh | sudo -E bash
+#  Fresh install, run on a new Debian 13 VM:
+#    curl -fsSL https://raw.githubusercontent.com/MSP-ALIGN/MSP-ALIGN/main/install.sh | sudo -E bash
+#  (from a private fork: export GH_TOKEN and ALIGN_REPO=owner/name, and add
+#   -H "Authorization: Bearer $GH_TOKEN" to curl)
 #
 #  Upgrade an existing install:
 #    sudo msp-align-update      (the older name, mountaineer-align-update, still works)
@@ -20,7 +20,8 @@
 set -Eeuo pipefail
 umask 022
 
-REPO="${ALIGN_REPO:-MountaineerIT/mountaineer-align}"
+REPO="${ALIGN_REPO:-MSP-ALIGN/MSP-ALIGN}"
+OLD_REPO=MountaineerIT/mountaineer-align   # where the project lived before 1.30.1
 BRANCH="${ALIGN_BRANCH:-main}"
 APP_DIR=/opt/mountaineer-align
 CONF_DIR=/etc/mountaineer-align
@@ -180,10 +181,27 @@ if [[ -n "${GH_TOKEN:-}" ]]; then
 fi
 
 # -------------------------------------------------------------------- code --
+# 1.30.1: the project moved to github.com/MSP-ALIGN/MSP-ALIGN. An install still pulling from the old
+# repository switches to the new one, if the new one answers; otherwise it keeps the old one and warns.
+# Installs set up from any other repository (a fork, ALIGN_REPO) are left alone.
+move_origin() {
+  local cur new
+  cur=$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)
+  [[ "${cur,,}" =~ ^https://github\.com/${OLD_REPO,,}(\.git)?/?$ ]] || return 0
+  [[ "${REPO,,}" != "${OLD_REPO,,}" ]] || return 0
+  new="https://github.com/$REPO.git"
+  if timeout 60 git -C "$APP_DIR" ls-remote -q "$new" "$BRANCH" >/dev/null 2>&1; then
+    git -C "$APP_DIR" remote set-url origin "$new"
+    log "Updates now come from github.com/$REPO (the project's new home)"
+  else
+    warn "Could not reach github.com/$REPO; still updating from github.com/$OLD_REPO for now."
+  fi
+}
 CRED_HELPER="!f() { test \"\$1\" = get || exit 0; test -s $TOKEN_FILE || exit 0; echo username=x-access-token; echo password=\$(cat $TOKEN_FILE); }; f"
 if [[ -d "$APP_DIR/.git" ]]; then
   log "Updating code"
   git -C "$APP_DIR" config credential.helper "$CRED_HELPER"
+  move_origin
   git -C "$APP_DIR" fetch -q origin "$BRANCH"
   git -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
 else
