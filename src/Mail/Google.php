@@ -186,7 +186,7 @@ final class Google
     public static function disconnect(): void
     {
         $rt = Settings::secret('g_refresh_token');
-        if ($rt) {
+        if ($rt && !\Align\Staging::on()) { // on a test server the token is production's: revoking it would cut production off
             try { // tell Google too, so the grant disappears from the account's third-party access list
                 (new HttpClient(10, 1))->request('POST', self::base('g_revoke_url', 'https://oauth2.googleapis.com/revoke'), [], ['token' => $rt]);
             } catch (\Throwable) {

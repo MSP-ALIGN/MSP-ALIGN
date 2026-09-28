@@ -46,13 +46,14 @@ final class Mail
         return self::provider() === 'google' ? Google::ready() : Graph::ready();
     }
 
-    /** @return Graph|Google */
+    /** @return Graph|Google|StagingMail */
     public static function client(): object
     {
         if (!self::ready()) {
             throw new \RuntimeException('Email is not set up (Integrations → Microsoft 365 / Google Workspace).');
         }
-        return self::provider() === 'google' ? new Google(self::mode()) : new Graph(self::mode());
+        $c = self::provider() === 'google' ? new Google(self::mode()) : new Graph(self::mode());
+        return \Align\Staging::on() ? new StagingMail($c) : $c; // a test server sends only to its test mailbox
     }
 
     public static function redirectUri(): string

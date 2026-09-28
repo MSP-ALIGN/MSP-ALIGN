@@ -22,10 +22,13 @@ umask 022
 
 REPO="${ALIGN_REPO:-MSP-ALIGN/MSP-ALIGN}"
 OLD_REPO=MountaineerIT/mountaineer-align   # where the project lived before 1.30.1
-BRANCH="${ALIGN_BRANCH:-main}"
 APP_DIR=/opt/mountaineer-align
 CONF_DIR=/etc/mountaineer-align
 CONF_FILE="$CONF_DIR/config.php"
+# Updates come from ALIGN_BRANCH, else the install's own setting ('update_branch' in config.php), else main
+CONF_BRANCH=$( [[ -r "$CONF_FILE" ]] && command -v php >/dev/null && php -r '$c = @include $argv[1]; echo is_array($c) ? (string) ($c["update_branch"] ?? "") : "";' "$CONF_FILE" 2>/dev/null || true)
+BRANCH="${ALIGN_BRANCH:-${CONF_BRANCH:-main}}"
+[[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,59}$ && "$BRANCH" != *..* ]] || BRANCH=main
 TOKEN_FILE="$CONF_DIR/github-token"
 DATA_DIR=/var/lib/mountaineer-align
 BACKUP_DIR=/var/backups/mountaineer-align   # old nightly backups (before 1.14); no longer written
@@ -255,6 +258,10 @@ return [
     'upload_path' => '$DATA_DIR/uploads',
     'php_cli' => '/usr/bin/php',
     'debug' => false,
+    'update_branch' => '$BRANCH',
+    // Test server on a copy of production data: uncomment both (see docs/TEST-SERVER.md)
+    // 'staging' => true,
+    // 'staging_mail_to' => 'align-test@example.com',
 ];
 PHP
   umask 022

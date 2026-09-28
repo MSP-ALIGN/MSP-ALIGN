@@ -78,7 +78,7 @@ $item = function (array $i, string $active) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php if (!empty($refresh)): ?><meta http-equiv="refresh" content="5"><?php endif; ?>
 <?php if ($u): ?><meta name="align-idle" content="<?= \Align\Security::idleSeconds() ?>" data-ping="/session/ping" data-logout="/logout" data-login="/login" data-csrf="<?= e(csrf_token()) ?>"><?php endif; ?>
-<title><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
+<title><?= \Align\Staging::on() ? '[TEST] ' : '' ?><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
 <link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
@@ -94,7 +94,7 @@ $item = function (array $i, string $active) {
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm">
 <div class="wrapper">
 
-  <nav class="main-header navbar navbar-expand navbar-dark navbar-primary">
+  <nav class="main-header navbar navbar-expand <?= \Align\Staging::on() ? 'navbar-light navbar-warning' : 'navbar-dark navbar-primary' ?>">
     <ul class="navbar-nav">
       <li class="nav-item"><a class="nav-link" data-widget="pushmenu" href="#" role="button" aria-label="Toggle menu"><i class="fas fa-bars"></i></a></li>
       <?php if ($client): ?>
@@ -173,6 +173,10 @@ $item = function (array $i, string $active) {
   <div class="content-wrapper">
     <section class="content">
       <div class="container-fluid pt-3 pb-4">
+        <?php if (\Align\Staging::on()): ?>
+          <div class="alert alert-warning border-warning py-2 mb-3" role="status"><i class="fas fa-flask mr-2"></i><b>Test server.</b> Changes here don't reach
+            <?= e(\Align\Providers\Providers::psaName()) ?> or anyone's inbox: email goes <?= \Align\Staging::mailTo() ? 'only to ' . e((string) \Align\Staging::mailTo()) : 'nowhere' ?>, and the client portal and API are off.</div>
+        <?php endif; ?>
         <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
           <div class="alert alert-<?= $t ?> alert-dismissible fade show">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button>

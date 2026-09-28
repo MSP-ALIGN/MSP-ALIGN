@@ -11,6 +11,7 @@
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
 <body class="hold-transition login-page">
+<?php if (\Align\Staging::on()): ?><div style="position:fixed;top:0;left:0;right:0;background:#ffc107;color:#000;text-align:center;font:bold 13px sans-serif;padding:6px;z-index:9999">Test server: a copy of <?= e(APP_NAME) ?>. Changes here don&#039;t reach real clients or tools.</div><?php endif; ?>
 <div class="login-box">
   <div class="login-logo">
     <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-logo-img mb-2 d-block mx-auto<?= \Align\Branding::hasLogo() ? ' is-custom' : '' ?>">

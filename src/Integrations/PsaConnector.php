@@ -33,7 +33,7 @@ abstract class PsaConnector extends Connector
 
     public function can(string $capability): bool
     {
-        return in_array($capability, $this->capabilities(), true);
+        return in_array($capability, $this->capabilities(), true) && !\Align\Staging::blocks($capability);
     }
 
     public function direction(): string

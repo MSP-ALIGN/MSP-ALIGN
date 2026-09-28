@@ -18,4 +18,10 @@ return [
     'debug' => true,          // never true in production: shows error details
     // Development only: allow an http:// ITFlow URL (e.g. a local mock). Production requires https://.
     'allow_insecure_integrations' => false,
+    // Where updates come from: 'main' (releases) or, on a test server, 'develop'
+    'update_branch' => 'main',
+    // Test server on a copy of production data (docs/TEST-SERVER.md): reads from connected tools still
+    // work, nothing is written back, all email goes to one test mailbox, the portal and API are off.
+    // 'staging' => true,
+    // 'staging_mail_to' => 'align-test@example.com',
 ];

@@ -46,6 +46,12 @@ if ($reqPath === '/api' || str_starts_with($reqPath, '/api/')) {
         echo json_encode(['error' => ['code' => 'maintenance', 'message' => 'Updating or restoring; try again shortly.']]);
         exit;
     }
+    if (Align\Staging::on()) { // a test server takes no API calls: tools pointed at it could act on real data
+        http_response_code(503);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => ['code' => 'test_server', 'message' => 'This is a test server; the API is turned off.']]);
+        exit;
+    }
     Align\Api\Kernel::handle($_SERVER['REQUEST_METHOD'] ?? 'GET', $reqPath);
     exit;
 }
@@ -66,6 +72,16 @@ if ($maint = Align\System\Agent::maintenance()) {
     View::render('maintenance', ['message' => $msg, 'step' => (string) ($maint['step'] ?? ''), 'action' => (string) ($maint['action'] ?? ''),
         'percent' => Align\System\Agent::progress((string) ($maint['action'] ?? ''), 'running', (string) ($maint['step'] ?? 'Starting'), $maint['step_at'] ?? null, $maint['since'] ?? null),
         'elapsed' => max(0, time() - (strtotime((string) ($maint['since'] ?? '')) ?: time()))], null);
+    exit;
+}
+
+// A test server has the clients' portal accounts and onboarding links too: none of them work here
+if (IS_PORTAL && Align\Staging::on()) {
+    http_response_code(503);
+    $n = htmlspecialchars(APP_NAME, ENT_QUOTES);
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Test server</title>'
+        . '<link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css"></head><body class="bg-light"><div class="container py-5" style="max-width:560px">'
+        . '<div class="card card-body"><h1 class="h4">Test server</h1><p class="mb-0">This is a test copy of ' . $n . '. The client portal is turned off here.</p></div></div></body></html>';
     exit;
 }
 

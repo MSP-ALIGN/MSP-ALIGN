@@ -16,7 +16,7 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', "\n", '<'], ['\\\\', '\
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($title ?? 'Report') ?></title>
+<title><?= \Align\Staging::on() ? '[TEST] ' : '' ?><?= e($title ?? 'Report') ?></title>
 <link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
@@ -32,6 +32,7 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', "\n", '<'], ['\\\\', '\
 </style>
 </head>
 <body class="report">
+<?php if (\Align\Staging::on()): ?><div style="background:#ffc107;color:#000;text-align:center;font:bold 12px sans-serif;padding:4px">TEST SERVER — not for clients</div><?php endif; ?>
 <div class="report-toolbar no-print">
   <div class="tb-inner">
     <a href="<?= $portal ? '/portal' : '/' ?>" class="btn btn-sm btn-light" data-back><i class="fas fa-arrow-left mr-1"></i>Back</a>

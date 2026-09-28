@@ -67,6 +67,8 @@ $info = $upload['info'] ?? null;
         <dl class="row mb-2">
           <dt class="col-5 font-weight-normal text-muted">This server</dt><dd class="col-7 mb-1"><b><?= e(APP_VERSION) ?></b></dd>
           <dt class="col-5 font-weight-normal text-muted">Latest</dt><dd class="col-7 mb-1"><?= $update && $update['latest'] ? e($update['latest']) . ($newer && ($update['behind'] ?? 0) ? ' <span class="text-muted small">(' . (int) $update['behind'] . ' change' . ((int) $update['behind'] === 1 ? '' : 's') . ')</span>' : '') : '<span class="text-muted">Not checked yet</span>' ?></dd>
+          <?php $br = (string) (\Align\Config::get('update_branch') ?: 'main'); // this server's own setting (config.php) ?>
+          <dt class="col-5 font-weight-normal text-muted">Updates from</dt><dd class="col-7 mb-1"><?= $br === 'main' || $br === '' ? 'Releases (main)' : '<span class="badge badge-warning">Test channel</span> ' . e($br) ?></dd>
           <dt class="col-5 font-weight-normal text-muted">Last checked</dt><dd class="col-7 mb-1"><?= $update ? e(rel_time(date('Y-m-d H:i:s', strtotime($update['checked_at'])))) : '<span class="text-muted">Never</span>' ?></dd>
         </dl>
         <?php if ($update && $update['error']): ?><div class="alert alert-warning py-2 small"><?= e($update['error']) ?></div><?php endif; ?>

@@ -27,13 +27,14 @@ case "$(realpath -m "$W")" in /|/tmp|"$HOME"|"$ROOT"|"$ROOT"/*) echo "Refusing t
 
 SUITES=(portal_e2e sec_e2e e2e ex_e2e rep_e2e order_e2e mail_e2e google_e2e int_e2e legal_e2e replace_e2e dnd_e2e
   compliance_e2e sla_e2e dash_e2e onb_e2e hosted_e2e api_e2e api_ui_e2e api_attack_e2e psa_e2e rmm_e2e backup_e2e
-  mapping_e2e sys_e2e upd_ui_e2e crawl crawl_fresh)
+  mapping_e2e staging_e2e sys_e2e upd_ui_e2e crawl crawl_fresh)
 [[ $# -gt 0 ]] && SUITES=("$@")
 
 serve() { # port docroot-args... (restarts whatever listens there)
   local port=$1; shift
   pkill -f "php .*-S 127.0.0.1:$port" 2>/dev/null; sleep 0.3
-  (cd "$ROOT" && nohup php -d upload_max_filesize=64M -d post_max_size=64M -S 127.0.0.1:$port "$@" >>"$W/server-$port.log" 2>&1 &)
+  # fully detached: nothing may keep this script's output open after it exits
+  (cd "$ROOT" && exec nohup php -d upload_max_filesize=64M -d post_max_size=64M -S 127.0.0.1:$port "$@" >>"$W/server-$port.log" 2>&1 </dev/null) >/dev/null 2>&1 </dev/null &
   for _ in $(seq 1 50); do
     # ours must be the one answering (another program on the port would make php -S exit)
     if pgrep -f "php .*-S 127.0.0.1:$port" >/dev/null && curl -s -o /dev/null "http://127.0.0.1:$port/"; then return 0; fi

@@ -35,7 +35,12 @@ define('PRIVKEY_FILE', '/root/mountaineer-align-backup-key.txt');
 define('RUNAS', $env('ALIGN_RUNAS', 'www-data'));
 define('SYSTEMCTL', $env('ALIGN_SYSTEMCTL', 'systemctl'));   // "none" in tests
 define('INSTALL_CMD', $env('ALIGN_INSTALL_CMD', ''));         // tests only: replaces install.sh --upgrade
-define('BRANCH', preg_match('/^[A-Za-z0-9._\/-]{1,60}$/', $env('ALIGN_BRANCH', 'main')) ? $env('ALIGN_BRANCH', 'main') : 'main');
+// Which branch updates come from: ALIGN_BRANCH, else 'update_branch' in config.php (a test server: 'develop'), else main
+$branch = $env('ALIGN_BRANCH', (static function (): string {
+    $c = is_readable(CONFIG) ? @include CONFIG : null;
+    return is_array($c) && is_string($c['update_branch'] ?? null) && $c['update_branch'] !== '' ? $c['update_branch'] : 'main';
+})());
+define('BRANCH', preg_match('/^[A-Za-z0-9][A-Za-z0-9._\/-]{0,59}$/', $branch) && !str_contains($branch, '..') ? $branch : 'main');
 // Agent state lives in its own root-owned folder (not inside the www-data-owned data folder)
 define('STATE', rtrim($env('ALIGN_AGENT_DIR', '/var/lib/mountaineer-align-agent'), '/'));
 define('JOBS', STATE . '/jobs');
@@ -699,7 +704,11 @@ function check(?Job $job = null): array
             $s['changes'][] = ['sha' => $sha, 'subject' => $subject, 'body' => mb_substr($body, 0, 2000), 'date' => $date];
         }
     }
-    $s['available'] = $s['latest'] !== null && (version_compare($s['latest'], $s['current'], '>') || $s['behind'] > 0);
+    // Never offer an older version (e.g. a test server switched from develop back to main): its code could meet newer tables
+    $s['available'] = $s['latest'] !== null && (version_compare($s['latest'], $s['current'], '>') || ($s['behind'] > 0 && version_compare($s['latest'], $s['current'], '>=')));
+    if ($s['latest'] !== null && version_compare($s['latest'], $s['current'], '<')) {
+        $s['error'] = 'The ' . BRANCH . ' branch has ' . $s['latest'] . ', older than this server (' . $s['current'] . '). Not updating to an older version.';
+    }
     writeJson(STATE . '/update.json', $s);
     systemInfo();
     return $s;
@@ -733,6 +742,10 @@ function doUpdate(Job $job): array
         }
         $job->step('Downloading the latest version');
         $job->must('git -C ' . q(APP) . ' fetch -q origin ' . q(BRANCH), 'Could not download the update from GitHub.');
+        [, $target] = $job->run('git -C ' . q(APP) . ' show ' . q('origin/' . BRANCH . ':VERSION'), true);
+        if (trim($target) !== '' && version_compare(trim($target), $from, '<')) {
+            throw new JobFailed('The ' . BRANCH . ' branch has ' . trim($target) . ', older than this server (' . $from . '). Not updating to an older version.');
+        }
         $job->must('umask 022; git -C ' . q(APP) . ' reset -q --hard ' . q('origin/' . BRANCH), 'Could not apply the update.');
         $job->step('Installing ' . version() . ' (packages, database, services)');
         $job->must(INSTALL_CMD !== '' ? INSTALL_CMD : 'umask 022; ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade',

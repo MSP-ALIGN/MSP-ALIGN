@@ -56,7 +56,8 @@ final class Providers
         if (!$c || !$c->configured()) {
             throw new \RuntimeException('No PSA is connected (Integrations).');
         }
-        return $c->provider($interactive);
+        $p = $c->provider($interactive);
+        return \Align\Staging::on() ? new \Align\Providers\Psa\StagingPsa($p) : $p; // a test server reads but never writes
     }
 
     /** The PSA's display name ("ITFlow"), or "PSA" when none is chosen yet. */
@@ -74,7 +75,7 @@ final class Providers
     public static function psaSupports(string $capability): bool
     {
         $c = self::psaConnector();
-        return $c && $c->configured() && in_array($capability, $c->capabilities(), true);
+        return $c && $c->configured() && in_array($capability, $c->capabilities(), true) && !\Align\Staging::blocks($capability);
     }
 
     /** A link into the PSA's own screens, or null. $kind: client, asset, ticket. */
