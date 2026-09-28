@@ -25,7 +25,15 @@ BOOTSTRAP = ROOT + "/src/bootstrap.php"
 ENV = {"ALIGN_CONFIG": CONFIG, "PATH": "/usr/local/bin:/usr/bin:/bin"}
 TECH_PASSWORD = "TechPassword123!"
 
-db = pymysql.connect(unix_socket=SOCKET, user="root", database=DB_MAIN, autocommit=True, cursorclass=pymysql.cursors.DictCursor)
+def tz_offset():
+    """This process's UTC offset as MariaDB wants it (run.sh sets TZ to the app's timezone)."""
+    z = time.strftime("%z")
+    return z[:3] + ":" + z[3:]
+
+
+# Same session timezone as the app (src/DB.php), so now() here matches the times the app stored
+db = pymysql.connect(unix_socket=SOCKET, user="root", database=DB_MAIN, autocommit=True, cursorclass=pymysql.cursors.DictCursor,
+                     init_command=f"SET time_zone = '{tz_offset()}'")
 
 
 def q(sql, *a):

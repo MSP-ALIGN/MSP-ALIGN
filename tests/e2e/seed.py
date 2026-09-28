@@ -40,7 +40,7 @@ def mysql(sql, database=""):
 def config(path, database):
     open(path, "w").write("<?php\nreturn " + php_array({
         "db": {"host": "localhost", "name": database, "user": "align_test", "pass": "testpass"},
-        "app_key": APP_KEY, "timezone": "America/Los_Angeles", "trusted_proxies": [],
+        "app_key": APP_KEY, "timezone": os.environ.get("TZ") or "America/Los_Angeles", "trusted_proxies": [],
         "upload_path": WORK + "/uploads", "session_path": WORK + "/sessions", "php_cli": shutil.which("php") or "/usr/bin/php",
         "data_dir": WORK + "/sys/data", "agent_dir": WORK + "/sys/agent", "run_dir": WORK + "/sys/run",
         "fqdn": "align.test", "debug": True, "allow_insecure_integrations": True,

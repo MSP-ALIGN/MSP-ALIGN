@@ -20,6 +20,10 @@ export ALIGN_TEST_DB=${ALIGN_TEST_DB:-align_test} ALIGN_TEST_DB_FRESH=${ALIGN_TE
 export ALIGN_TEST_SOCKET=${ALIGN_TEST_SOCKET:-/run/mysqld/mysqld.sock}
 export ALIGN_TEST_URL=http://127.0.0.1:8080 ALIGN_TEST_URL_FRESH=http://127.0.0.1:8081 ALIGN_TEST_MOCK=http://127.0.0.1:8099
 export PYTHONPATH=$E2E PYTHONUNBUFFERED=1
+# The suites, PHP and their database sessions all run in the app's timezone, whatever the machine uses
+# (GitHub's runners are UTC): tests compare times they make with times the app stored.
+export TZ=${ALIGN_TEST_TZ:-America/Los_Angeles}
+[[ -e /usr/share/zoneinfo/$TZ ]] || { echo "No timezone data for $TZ: install tzdata" >&2; exit 2; }
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy  # everything is local
 W=$ALIGN_TEST_WORK
 case "$ALIGN_TEST_DB $ALIGN_TEST_DB_FRESH" in align_test*\ align_test*) ;; *) echo "Test database names must start with align_test" >&2; exit 2 ;; esac
