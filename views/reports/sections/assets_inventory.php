@@ -1,5 +1,4 @@
 <?php
-use Align\Integrations\NinjaOne;
 use Align\Reports\ReportData;
 use Align\Reports\Ui;
 
@@ -20,7 +19,7 @@ $cols = 7 + ($users ? 1 : 0) + ($costs ? 1 : 0);
       <?php foreach ($list as $d): ?>
         <tr>
           <td><span class="name"><?= e($d['name']) ?></span><div class="sub"><?= e(implode(' · ', array_filter([$d['serial'] ? 'SN ' . $d['serial'] : null, $d['location'], $d['ip_address']]))) ?></div></td>
-          <?php if ($users): ?><td><?= $d['last_user'] ? e(NinjaOne::shortUser($d['last_user'])) : '<span class="muted">—</span>' ?></td><?php endif; ?>
+          <?php if ($users): ?><td><?= $d['last_user'] ? e(short_user($d['last_user'])) : '<span class="muted">—</span>' ?></td><?php endif; ?>
           <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="muted">—</span>' ?></td>
           <td><?= e($d['os_name'] ? short_os($d['os_name']) : (string) $d['firmware']) ?: '<span class="muted">—</span>' ?></td>
           <td class="nowrap"><?= e(fmt_date($d['start_date'])) ?: '<span class="muted">—</span>' ?><?php if ($d['age_years'] !== null): ?><div class="sub"><?= e($d['age_years']) ?> yrs<?= $d['start_estimated'] ? ' · est.' : '' ?></div><?php endif; ?></td>

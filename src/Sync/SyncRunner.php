@@ -4,16 +4,17 @@ declare(strict_types=1);
 namespace Align\Sync;
 
 use Align\DB;
-use Align\Integrations\NinjaOne;
 use Align\Integrations\Warranty\Dell;
 use Align\Integrations\Warranty\Lenovo;
 use Align\Integrations\Warranty\WarrantyResult;
 use Align\Providers\Providers;
+use Align\Providers\ClientLinks;
 use Align\Providers\Psa\PsaProvider;
+use Align\Providers\Rmm\RmmProvider;
 use Align\Settings;
 
 /**
- * Pulls PSA clients/assets and NinjaOne orgs/devices into the local database,
+ * Pulls PSA clients/assets and RMM organizations/devices into the local database,
  * links them together, looks up warranties, and optionally writes dates back to the PSA.
  */
 final class SyncRunner
@@ -52,15 +53,24 @@ final class SyncRunner
 
         $psaName = Providers::psaName();
         $psa = $this->client(fn() => Providers::psa(), $psaName);
-        $ninja = $this->client(fn() => NinjaOne::fromSettings(), 'NinjaOne');
+        $rmms = [];
+        foreach (Providers::rmmConnectors() as $key => $c) {
+            if ($p = $this->client(fn() => Providers::rmm($key), $c->name())) {
+                $rmms[$key] = $p;
+            }
+        }
 
         $psaOk = $psa && $this->step("$psaName clients", fn() => $this->syncPsaClients($psa));
-        $ninjaOk = $ninja && $this->step('NinjaOne organizations', fn() => $this->syncNinjaOrgs($ninja));
-        if ($psaOk && $ninjaOk) {
-            $this->step('Match clients to organizations', fn() => $this->autoMatchClients());
-        }
-        if ($ninjaOk) {
-            $this->step('NinjaOne devices', fn() => $this->syncNinjaDevices($ninja));
+        $single = count(Providers::rmmConnectors()) === 1;
+        foreach ($rmms as $rmm) {
+            $n = $rmm->name();
+            if (!$this->step("$n organizations", fn() => $this->syncRmmOrgs($rmm))) {
+                continue;
+            }
+            if ($psaOk) {
+                $this->step($single ? 'Match clients to organizations' : "Match clients to $n organizations", fn() => $this->autoMatchClients($rmm));
+            }
+            $this->step("$n devices", fn() => $this->syncRmmDevices($rmm));
         }
         if ($psaOk && $psa->supports('assets')) {
             $this->step("$psaName assets (" . (PsaAssetSync::twoWay() ? 'two-way' : 'one-way') . ')', fn() => PsaAssetSync::run($psa, fn($m) => $this->info($m)));
@@ -295,24 +305,26 @@ final class SyncRunner
         return ($updated ? "contact details updated for $updated" : 'contact details up to date') . $people;
     }
 
-    private function syncNinjaOrgs(NinjaOne $ninja): string
+    private function syncRmmOrgs(RmmProvider $rmm): string
     {
-        $orgs = $ninja->organizations();
+        $key = $rmm->key();
+        $orgs = $rmm->organizations();
         $now = date('Y-m-d H:i:s');
         $ids = [];
         foreach ($orgs as $o) {
-            $ids[] = (int) $o['id'];
-            DB::upsert('ninja_orgs', [
-                'id' => (int) $o['id'],
+            $ids[] = (string) $o['id'];
+            DB::upsert('rmm_orgs', [
+                'provider' => $key,
+                'org_id' => (string) $o['id'],
                 'name' => (string) ($o['name'] ?? 'Org ' . $o['id']),
                 'description' => $o['description'] ?? null,
                 'synced_at' => $now,
-            ], ['id']);
+            ], ['provider', 'org_id']);
         }
         if ($ids) {
-            $in = implode(',', array_map('intval', $ids));
-            DB::run("UPDATE clients SET ninja_org_id = NULL, match_method = NULL WHERE ninja_org_id IS NOT NULL AND ninja_org_id NOT IN ($in)");
-            DB::run("DELETE FROM ninja_orgs WHERE id NOT IN ($in)");
+            ClientLinks::prune($key, $ids);
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            DB::run("DELETE FROM rmm_orgs WHERE provider = ? AND org_id NOT IN ($in)", [$key, ...$ids]);
         }
         return count($ids) . ' organizations';
     }
@@ -326,47 +338,79 @@ final class SyncRunner
         return trim(preg_replace('/\s+/', ' ', $n) ?? '');
     }
 
-    private function autoMatchClients(): string
+    /** Links clients to the RMM's organizations with the same name (only clients with no link or decision yet). */
+    private function autoMatchClients(RmmProvider $rmm): string
     {
-        $orgs = DB::all('SELECT o.id, o.name FROM ninja_orgs o LEFT JOIN clients c ON c.ninja_org_id = o.id WHERE c.id IS NULL');
+        $key = $rmm->key();
+        $orgs = DB::all('SELECT o.org_id, o.name FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
+            WHERE o.provider = ? AND l.client_id IS NULL', [$key]);
         $byName = [];
         foreach ($orgs as $o) {
-            $byName[self::normalizeName($o['name'])][] = (int) $o['id'];
+            $byName[self::normalizeName($o['name'])][] = (string) $o['org_id'];
         }
         $matched = 0;
-        foreach (DB::all("SELECT id, name FROM clients WHERE ninja_org_id IS NULL AND match_method IS NULL AND is_archived = 0 AND planning_excluded = 0") as $c) {
-            $key = self::normalizeName($c['name']);
-            if ($key !== '' && isset($byName[$key]) && count($byName[$key]) === 1) {
-                DB::run("UPDATE clients SET ninja_org_id = ?, match_method = 'auto' WHERE id = ?", [$byName[$key][0], $c['id']]);
-                unset($byName[$key]);
+        foreach (DB::all("SELECT c.id, c.name FROM clients c LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
+                WHERE l.client_id IS NULL AND c.is_archived = 0 AND c.planning_excluded = 0", [$key]) as $c) {
+            $k = self::normalizeName($c['name']);
+            if ($k !== '' && isset($byName[$k]) && count($byName[$k]) === 1) {
+                ClientLinks::set((int) $c['id'], $key, $byName[$k][0], 'auto');
+                unset($byName[$k]);
                 $matched++;
             }
         }
-        $unmatched = (int) DB::value('SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0');
+        $unmatched = (int) DB::value('SELECT COUNT(*) FROM clients c LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
+            WHERE (l.external_id IS NULL) AND c.is_archived = 0', [$key]);
         return "$matched newly matched, $unmatched clients without an organization";
     }
 
-    private function syncNinjaDevices(NinjaOne $ninja): string
+    private function syncRmmDevices(RmmProvider $rmm): string
     {
-        $devices = $ninja->devicesDetailed();
+        $key = $rmm->key();
+        $n = $rmm->name();
+        $devices = $rmm->devices();
         $now = date('Y-m-d H:i:s');
-        DB::transaction(function () use ($devices, $now) {
+        DB::transaction(function () use ($devices, $now, $key) {
             $ids = [];
             foreach ($devices as $d) {
-                if (!isset($d['id'])) {
+                if (!isset($d['id']) || $d['id'] === '') {
                     continue;
                 }
-                $row = NinjaOne::mapDevice($d) + ['synced_at' => $now, 'removed_at' => null];
-                DB::upsert('devices', $row, ['ninja_device_id']);
-                $ids[] = (int) $d['id'];
+                $type = $d['device_type'] ?? 'Other';
+                DB::upsert('devices', [
+                    'source' => 'rmm',
+                    'rmm_provider' => $key,
+                    'rmm_device_id' => (string) $d['id'],
+                    'rmm_org_id' => isset($d['org_id']) && $d['org_id'] !== '' ? (string) $d['org_id'] : null,
+                    'display_name' => $d['display_name'] ?? null,
+                    'system_name' => $d['system_name'] ?? null,
+                    'node_class' => $d['node_class'] ?? null,
+                    'device_type' => $type,
+                    'device_class' => \Align\Lifecycle\Lifecycle::TYPES[$type][0] ?? 'other',
+                    'manufacturer' => $d['manufacturer'] ?? null,
+                    'model' => $d['model'] ?? null,
+                    'serial' => normalize_serial($d['serial'] ?? null),
+                    'chassis' => $d['chassis'] ?? null,
+                    'is_virtual' => !empty($d['is_virtual']) ? 1 : 0,
+                    'os_name' => $d['os_name'] ?? null,
+                    'os_build' => $d['os_build'] ?? null,
+                    'os_release_id' => $d['os_release_id'] ?? null,
+                    'last_contact' => $d['last_contact'] ?? null,
+                    'last_user' => $d['last_user'] ?? null,
+                    'rmm_created' => $d['created_at'] ?? null,
+                    'offline' => !empty($d['offline']) ? 1 : 0,
+                    'synced_at' => $now,
+                    'removed_at' => null,
+                ], ['rmm_provider', 'rmm_device_id']);
+                $ids[] = (string) $d['id'];
             }
-            // Devices NinjaOne no longer returns (matched by ID, not timestamp)
+            // Devices the RMM no longer returns (matched by id, not timestamp)
             if ($ids) {
-                DB::run("UPDATE devices SET removed_at = ? WHERE source = 'ninja' AND removed_at IS NULL AND ninja_device_id NOT IN (" . implode(',', $ids) . ')', [$now]);
+                $in = implode(',', array_fill(0, count($ids), '?'));
+                DB::run("UPDATE devices SET removed_at = ? WHERE source = 'rmm' AND rmm_provider = ? AND removed_at IS NULL AND rmm_device_id NOT IN ($in)", [$now, $key, ...$ids]);
             }
         });
-        $removed = (int) DB::value('SELECT COUNT(*) FROM devices WHERE removed_at = ?', [$now]);
-        return count($devices) . ' devices' . ($removed ? ", $removed no longer in NinjaOne" : '');
+        $removed = (int) DB::value('SELECT COUNT(*) FROM devices WHERE removed_at = ? AND rmm_provider = ?', [$now, $key]);
+        return count($devices) . ' devices' . ($removed ? ", $removed no longer in $n" : '');
     }
 
     public static function vendorFor(?string $manufacturer): ?string

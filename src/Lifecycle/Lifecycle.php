@@ -127,11 +127,12 @@ final class Lifecycle
     }
 
     /**
-     * SQL fragment that resolves a device's client: manual devices carry client_id,
-     * NinjaOne devices resolve through their organization's mapping.
+     * SQL fragment that resolves a device's client: hand-added and PSA devices carry client_id,
+     * RMM devices resolve through their organization's link (client_links).
      */
     public const CLIENT_JOIN = 'LEFT JOIN clients cm ON cm.id = d.client_id
-            LEFT JOIN clients cn ON d.client_id IS NULL AND cn.ninja_org_id = d.ninja_org_id';
+            LEFT JOIN client_links cl ON d.client_id IS NULL AND cl.provider = d.rmm_provider AND cl.external_id = d.rmm_org_id
+            LEFT JOIN clients cn ON cn.id = cl.client_id';
 
     /** Loads devices joined with everything lifecycle needs. $clientId null = all clients. */
     public function devices(?int $clientId = null, bool $includeRemoved = false, ?int $deviceId = null): array
@@ -139,9 +140,16 @@ final class Lifecycle
         $where = ['1=1'];
         $params = [];
         if ($clientId !== null) {
-            // Written so the client_id / ninja_org_id indexes are used (COALESCE() = ? scans every device)
-            $where[] = '(d.client_id = ? OR (d.client_id IS NULL AND d.ninja_org_id = (SELECT ninja_org_id FROM clients WHERE id = ?)))';
-            array_push($params, $clientId, $clientId);
+            // One single-value comparison per RMM, so the client_id and (rmm_provider, rmm_org_id) indexes are used
+            // (COALESCE() = ? or a row IN (subquery) inside the OR scans every device)
+            $or = ['d.client_id = ?'];
+            $params[] = $clientId;
+            foreach (array_keys(\Align\Providers\Providers::rmmConnectors()) as $key) {
+                $k = preg_replace('/[^a-z0-9_-]/', '', $key);
+                $or[] = "(d.client_id IS NULL AND d.rmm_provider = '$k' AND d.rmm_org_id = (SELECT external_id FROM client_links WHERE client_id = ? AND provider = '$k'))";
+                $params[] = $clientId;
+            }
+            $where[] = '(' . implode(' OR ', $or) . ')';
         }
         if ($deviceId !== null) {
             $where[] = 'd.id = ?';
@@ -182,14 +190,14 @@ final class Lifecycle
         $d['is_virtual'] = $virtual ? 1 : 0;
         $isHardware = !$virtual && in_array($class, self::HARDWARE_CLASSES, true);
 
-        // Start of life: override > PSA purchase > vendor ship > vendor warranty start > PSA install > first seen in NinjaOne
+        // Start of life: override > PSA purchase > vendor ship > vendor warranty start > PSA install > first seen in the RMM
         $startSources = [
             ['o_purchase', 'Manual override'],
             ['psa_purchase', psa_name() . ' purchase date'],
             ['w_ship', 'Vendor ship date'],
             ['w_start', 'Warranty start'],
             ['psa_install', psa_name() . ' install date'],
-            ['ninja_created', 'First seen in NinjaOne (estimate)'],
+            ['rmm_created', 'First seen in ' . \Align\Providers\Providers::rmmName($d['rmm_provider'] ?? null) . ' (estimate)'],
         ];
         $start = null;
         $startSource = null;
@@ -279,7 +287,7 @@ final class Lifecycle
             'is_hardware' => $isHardware,
             'start_date' => $start,
             'start_source' => $startSource,
-            'start_estimated' => $startSource === 'First seen in NinjaOne (estimate)',
+            'start_estimated' => $startSource !== null && str_starts_with($startSource, 'First seen in '),
             'age_years' => $ageYears,
             'lifespan' => $lifespan,
             'eol_date' => $eol,

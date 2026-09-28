@@ -60,7 +60,7 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
             <?php if ($d['ip_address']): ?><div class="small text-muted ml-4"><?= e($d['ip_address']) ?></div><?php endif; ?>
           </td>
           <td><?= e($d['type']) ?></td>
-          <td class="small text-nowrap"><?php if ($d['last_user']): ?><span title="<?= e($d['last_user']) ?>"><i class="fas fa-user fa-xs text-muted mr-1"></i><?= e(\Align\Integrations\NinjaOne::shortUser($d['last_user'])) ?></span><?php if ($d['last_contact']): ?><div class="text-muted"><?= e(rel_time($d['last_contact'])) ?></div><?php endif; ?><?php else: ?><span class="text-muted">—</span><?php endif; ?></td>
+          <td class="small text-nowrap"><?php if ($d['last_user']): ?><span title="<?= e($d['last_user']) ?>"><i class="fas fa-user fa-xs text-muted mr-1"></i><?= e(short_user($d['last_user'])) ?></span><?php if ($d['last_contact']): ?><div class="text-muted"><?= e(rel_time($d['last_contact'])) ?></div><?php endif; ?><?php else: ?><span class="text-muted">—</span><?php endif; ?></td>
           <?php if ($bkOn): $bk = $backupMap[(int) $d['id']] ?? null; ?><td class="small text-nowrap"><?php if ($bk && !empty($bk['exempt'])): ?><span class="text-muted" title="Marked as not needing a backup"><i class="fas fa-ban mr-1"></i>not required</span><?php elseif ($bk): ?><span class="text-<?= tone_class($bk['tone']) ?>" title="Newest restore point <?= e(fmt_datetime($bk['last_point'])) ?>"><i class="fas fa-<?= $bk['tone'] === 'ok' ? 'circle-check' : 'triangle-exclamation' ?> mr-1"></i><?= e($bk['last_point'] ? rel_time($bk['last_point']) : 'none') ?></span><?php elseif ($d['device_class'] === 'server' && $d['type'] !== 'Hypervisor host' && $d['status'] !== 'excluded'): ?><span class="text-danger" title="No Veeam job protects this server"><i class="fas fa-shield-halved mr-1"></i>none</span><?php else: ?><span class="text-muted">—</span><?php endif; ?></td><?php endif; ?>
           <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e($d['serial'] ?? '') ?></td>
@@ -92,7 +92,7 @@ $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_fil
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <p class="small text-muted">For gear NinjaOne doesn't manage: printers, switches, firewalls, access points, NAS, UPS, hypervisor hosts. Dell and Lenovo serials get warranty lookups too.</p>
+          <p class="small text-muted">For gear <?= e(\Align\Providers\Providers::rmmNames()) ?> doesn't manage: printers, switches, firewalls, access points, NAS, UPS, hypervisor hosts. Dell and Lenovo serials get warranty lookups too.</p>
           <?= \Align\View::fetch('partials/device_fields', ['d' => null, 'manual' => true]) ?>
           <?php if (\Align\Sync\PsaAssetSync::createsAssets() && !empty($client['psa_id'])): ?>
             <div class="custom-control custom-checkbox mt-1">

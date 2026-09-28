@@ -15,7 +15,7 @@ $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
     <input name="display_name" class="form-control" value="<?= e($d['display_name'] ?? '') ?>" <?= $manual ? 'required' : 'readonly' ?> placeholder="e.g. Front office switch">
   </div>
   <div class="form-group col-md-6">
-    <label>Type<?= $manual ? '' : ' <small class="text-muted">(override what NinjaOne reports)</small>' ?></label>
+    <label>Type<?= $manual ? '' : ' <small class="text-muted">(override what ' . e(\Align\Providers\Providers::rmmName($d['rmm_provider'] ?? null)) . ' reports)</small>' ?></label>
     <select name="device_type" class="form-control">
       <?php foreach (Lifecycle::TYPES as $t => [$class, , $virt]): ?>
         <option value="<?= e($t) ?>" <?= $sel($t, $type) ?>><?= e($t) ?> — <?= e(Lifecycle::CLASSES[$class]) ?><?= $virt ? ' (OS support only)' : '' ?></option>

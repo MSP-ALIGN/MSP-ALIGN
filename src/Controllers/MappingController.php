@@ -6,6 +6,8 @@ namespace Align\Controllers;
 use Align\Audit;
 use Align\Auth;
 use Align\DB;
+use Align\Providers\ClientLinks;
+use Align\Providers\Providers;
 use Align\View;
 
 final class MappingController
@@ -13,19 +15,36 @@ final class MappingController
     public static function index(): void
     {
         Auth::requireRole('tech');
-        $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = c.ninja_org_id AND d.removed_at IS NULL) AS device_count,
+        $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d JOIN client_links l ON l.provider = d.rmm_provider AND l.external_id = d.rmm_org_id
+                WHERE l.client_id = c.id AND d.client_id IS NULL AND d.removed_at IS NULL) AS device_count,
             (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id) AS veeam_machines,
             (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND w.client_how IN (\'device\',\'job\',\'machine\')) AS veeam_hosted,
             (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND m.object_type = \'user\') AS veeam_m365_users
             FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 ORDER BY c.name');
-        $orgs = DB::all('SELECT o.*, (SELECT COUNT(*) FROM devices d WHERE d.ninja_org_id = o.id AND d.removed_at IS NULL) AS device_count,
-            c.id AS client_id FROM ninja_orgs o LEFT JOIN clients c ON c.ninja_org_id = o.id ORDER BY o.name');
+        // One column per RMM: its organizations and each client's link
+        $rmms = [];
+        foreach (Providers::rmmConnectors() as $key => $c) {
+            $rmms[$key] = [
+                'name' => $c->name(),
+                'orgs' => DB::all('SELECT o.org_id AS id, o.name, (SELECT COUNT(*) FROM devices d WHERE d.rmm_provider = o.provider AND d.rmm_org_id = o.org_id AND d.removed_at IS NULL) AS device_count,
+                    l.client_id FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id WHERE o.provider = ? ORDER BY o.name', [$key]),
+                'links' => ClientLinks::forProvider($key),
+            ];
+        }
+        $unmappedOrgs = [];
+        foreach ($rmms as $r) {
+            foreach ($r['orgs'] as $o) {
+                if (!$o['client_id']) {
+                    $unmappedOrgs[] = $o + ['rmm' => $r['name']];
+                }
+            }
+        }
         View::render('mapping/index', [
             'title' => 'Client mapping',
             'nav' => 'mapping',
             'clients' => $clients,
-            'orgs' => $orgs,
-            'unmappedOrgs' => array_values(array_filter($orgs, fn($o) => !$o['client_id'])),
+            'rmms' => $rmms,
+            'unmappedOrgs' => $unmappedOrgs,
             'veeamConfigured' => \Align\Integrations\VeeamSpc::configured(),
             'veeam' => $veeam = DB::all('SELECT v.uid, v.name, c.id AS client_id,
                 (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = v.uid) AS workloads
@@ -34,23 +53,42 @@ final class MappingController
         ]);
     }
 
-    /** Receives org[<client id>] = <ninja org id | 0> and veeam[<client id>] = <VSPC company uid | ''> for every client on the page. */
+    /**
+     * Receives rmm[<rmm key>][<client id>] = <organization id | ''> and veeam[<client id>] = <VSPC company uid | ''>
+     * for every client on the page. (org[<client id>] from pages before 1.29 counts as the first RMM.)
+     */
     public static function save(): void
     {
         Auth::requireRole('tech');
-        $posted = $_POST['org'] ?? [];
+        $postedRmm = $_POST['rmm'] ?? [];
         $postedVeeam = $_POST['veeam'] ?? [];
-        if (!is_array($posted) || !is_array($postedVeeam)) {
+        $keys = array_keys(Providers::rmmConnectors());
+        if (isset($_POST['org']) && is_array($_POST['org']) && $keys) {
+            $postedRmm = [$keys[0] => $_POST['org']] + (is_array($postedRmm) ? $postedRmm : []);
+        }
+        if (!is_array($postedRmm) || !is_array($postedVeeam)) {
             redirect('/mapping');
         }
+        // provider => [client id => org id ('' = not linked)], only organizations the provider has
         $wanted = [];
-        foreach ($posted as $clientId => $orgId) {
-            $wanted[(int) $clientId] = (int) $orgId;
-        }
-        $picked = array_filter($wanted);
-        if (count($picked) !== count(array_unique($picked))) {
-            flash('error', 'Each NinjaOne organization can only be linked to one client. Nothing was saved.');
-            redirect('/mapping');
+        foreach ($postedRmm as $key => $rows) {
+            if (!in_array($key, $keys, true) || !is_array($rows)) {
+                continue;
+            }
+            $known = array_flip(array_column(DB::all('SELECT org_id FROM rmm_orgs WHERE provider = ?', [$key]), 'org_id'));
+            foreach ($rows as $clientId => $orgId) {
+                $orgId = is_scalar($orgId) ? (string) $orgId : '';
+                if ($orgId === '' || $orgId === '0') {
+                    $wanted[$key][(int) $clientId] = '';
+                } elseif (isset($known[$orgId])) {
+                    $wanted[$key][(int) $clientId] = $orgId;
+                } // an organization that's gone since the page loaded: leave that client as it is
+            }
+            $picked = array_filter($wanted[$key], fn($o) => $o !== '');
+            if (count($picked) !== count(array_unique($picked))) {
+                flash('error', 'Each ' . Providers::rmmName($key) . ' organization can only be linked to one client. Nothing was saved.');
+                redirect('/mapping');
+            }
         }
         $known = array_flip(array_column(DB::all('SELECT uid FROM veeam_companies'), 'uid'));
         $wantedV = [];
@@ -64,13 +102,19 @@ final class MappingController
             redirect('/mapping');
         }
 
-        $current = [];
         $currentV = [];
-        foreach (DB::all('SELECT id, ninja_org_id, veeam_company_uid FROM clients') as $c) {
-            $current[(int) $c['id']] = (int) $c['ninja_org_id'];
+        foreach (DB::all('SELECT id, veeam_company_uid FROM clients') as $c) {
             $currentV[(int) $c['id']] = (string) $c['veeam_company_uid'];
         }
-        $changed = array_filter($wanted, fn($org, $cid) => isset($current[$cid]) && $current[$cid] !== $org, ARRAY_FILTER_USE_BOTH);
+        $changed = [];
+        foreach ($wanted as $key => $rows) {
+            $links = ClientLinks::forProvider($key);
+            foreach ($rows as $cid => $org) {
+                if (isset($currentV[$cid]) && (string) ($links[$cid]['external_id'] ?? '') !== $org) {
+                    $changed[$key][$cid] = $org;
+                }
+            }
+        }
         $changedV = array_filter($wantedV, fn($uid, $cid) => isset($currentV[$cid]) && $currentV[$cid] !== $uid, ARRAY_FILTER_USE_BOTH);
         if (!$changed && !$changedV) {
             flash('success', 'No changes.');
@@ -78,17 +122,14 @@ final class MappingController
         }
 
         DB::transaction(function () use ($changed, $changedV) {
-            if ($changed) {
-                $ids = implode(',', array_map('intval', array_keys($changed)));
-                // Clear first so swapping orgs between clients doesn't hit the unique key.
-                DB::run("UPDATE clients SET ninja_org_id = NULL WHERE id IN ($ids)");
-                foreach ($changed as $clientId => $orgId) {
-                    if ($orgId > 0) {
-                        // Take the org away from any client not on this form.
-                        DB::run('UPDATE clients SET ninja_org_id = NULL, match_method = NULL WHERE ninja_org_id = ?', [$orgId]);
-                    }
-                    // match_method 'manual' with a NULL org means "intentionally unlinked": auto-match leaves it alone.
-                    DB::run("UPDATE clients SET ninja_org_id = ?, match_method = 'manual' WHERE id = ?", [$orgId ?: null, $clientId]);
+            foreach ($changed as $key => $rows) {
+                // Clear first so swapping organizations between clients doesn't hit the unique key.
+                foreach (array_keys($rows) as $clientId) {
+                    DB::run('UPDATE client_links SET external_id = NULL WHERE client_id = ? AND provider = ?', [$clientId, $key]);
+                }
+                foreach ($rows as $clientId => $orgId) {
+                    // A manual link with no organization means "deliberately not linked": auto-match leaves it alone.
+                    ClientLinks::set((int) $clientId, $key, $orgId === '' ? null : $orgId, 'manual');
                 }
             }
             if ($changedV) {
@@ -105,8 +146,8 @@ final class MappingController
         if ($changedV || $changed) {
             \Align\Sync\VeeamSync::assign(); // re-sort hosted machines and jobs, re-link devices
         }
-        $n = count($changed) + count($changedV);
-        Audit::log('mapping.save', "$n change(s): " . json_encode(['ninja' => $changed, 'veeam' => $changedV]));
+        $n = array_sum(array_map('count', $changed)) + count($changedV);
+        Audit::log('mapping.save', "$n change(s): " . json_encode($changed + ['veeam' => $changedV]));
         flash('success', "Saved $n change(s).");
         redirect('/mapping');
     }

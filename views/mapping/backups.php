@@ -6,7 +6,7 @@
  * @var array $companies, $jobs, $machines, $shown, $clients, $manual, $counts; string $show; array $pool, $flagged (uid => i); bool $configured
  */
 $howLabel = [
-    'device' => ['Device name', 'success', 'A device with the same name belongs to this client (NinjaOne or ' . psa_name() . ')'],
+    'device' => ['Device name', 'success', 'A device with the same name belongs to this client (' . \Align\Providers\Providers::rmmNames() . ' or ' . psa_name() . ')'],
     'job' => ['Job', 'info', 'Its backup job is assigned'],
     'machine' => ['By hand', 'primary', 'Assigned by hand'],
     'company' => ['Company', 'secondary', 'The Veeam company this machine is under is linked to this client'],
@@ -28,7 +28,7 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
   <a class="btn btn-sm btn-default mr-1" href="/help#guide-hosted-backups"><i class="fas fa-circle-question mr-1"></i>How it works</a>
   <a class="btn btn-sm btn-default" href="/mapping"><i class="fas fa-link mr-1"></i>Client mapping</a>
 </div>
-<p class="text-muted small mb-3" style="max-width:900px">Servers you host and back up on your own Veeam server are filed by Veeam under your company. Each sync matches them to clients by device name (NinjaOne or <?= e(psa_name()) ?>).
+<p class="text-muted small mb-3" style="max-width:900px">Servers you host and back up on your own Veeam server are filed by Veeam under your company. Each sync matches them to clients by device name (<?= e(\Align\Providers\Providers::rmmNames()) ?> or <?= e(psa_name()) ?>).
   Pick the client for anything that didn't match, or assign a whole job; mark your own servers as <b>Ours</b>. You can also do this from a client's <b>Backups</b> page.</p>
 
 <?php if (!$companies): ?>

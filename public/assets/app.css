@@ -474,3 +474,9 @@ body.dash-editing .dash-card > .row .card { margin-bottom: 0; }
   .settings-tabs .nav-link > i.mr-1 { display: none; }
   .settings-tabs .nav-link { padding-left: .7rem; padding-right: .7rem; }
 }
+
+/* Link buttons in dark card headers: AdminLTE makes header links white, which vanishes on a light button */
+.card-dark .card-header a.btn-default,
+.card-dark .card-header a.btn-light { color: #444; }
+.card-dark .card-header a.btn-default:hover,
+.card-dark .card-header a.btn-light:hover { color: #212529; }

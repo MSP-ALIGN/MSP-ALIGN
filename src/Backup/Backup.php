@@ -202,7 +202,7 @@ final class Backup
         $key = fn($w) => [self::rank($w['tone']), $w['tone'] === 'ok' ? 0 : -($w['age_h'] ?? 1e9), $w['kind'] === 'vm' ? 0 : 1, strtolower((string) $w['name'])];
         usort($workloads, fn($a, $b) => $key($a) <=> $key($b));
 
-        // Servers NinjaOne or the PSA know about that no backup covers
+        // Servers the RMM or the PSA know about that no backup covers
         $covered = array_flip(array_filter(array_map(fn($w) => (int) $w['device_id'], $workloads)));
         $unprotected = [];
         foreach ($devices ?? [] as $d) {

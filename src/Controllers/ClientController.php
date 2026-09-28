@@ -46,8 +46,8 @@ final class ClientController
             'all' => '1=1',
             default => 'c.is_archived = 0 AND c.planning_excluded = 0',
         };
-        $clients = DB::all("SELECT c.*, o.name AS org_name, u.name AS vcio_name FROM clients c
-            LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id
+        $clients = DB::all("SELECT c.*, " . \Align\Providers\ClientLinks::rmmOrgNamesSql() . " AS org_name, u.name AS vcio_name FROM clients c
+            LEFT JOIN users u ON u.id = c.vcio_user_id
             WHERE $where ORDER BY c.name");
         $counts = DB::one('SELECT SUM(is_archived = 0 AND planning_excluded = 0) AS active, SUM(planning_excluded = 1) AS removed,
             SUM(is_archived = 1) AS archived, COUNT(*) AS `all` FROM clients');
@@ -70,11 +70,12 @@ final class ClientController
         return DB::all("SELECT id, name FROM users WHERE is_active = 1 AND role IN ('admin','tech') ORDER BY name");
     }
 
-    /** Client row with vCIO and NinjaOne org names, or null. */
+    /** Client row with vCIO and RMM organization names, or null. */
     public static function loadRow(int $id): ?array
     {
-        return DB::one('SELECT c.*, o.name AS org_name, u.name AS vcio_name, u.avatar_file AS vcio_avatar_file FROM clients c
-            LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id LEFT JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$id]);
+        return DB::one('SELECT c.*, ' . \Align\Providers\ClientLinks::rmmOrgNamesSql() . ' AS org_name,
+            u.name AS vcio_name, u.avatar_file AS vcio_avatar_file FROM clients c
+            LEFT JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$id]);
     }
 
     public static function load(int $id): array
@@ -344,7 +345,7 @@ final class ClientController
             'End of life', 'Status', 'Est. replacement cost', 'Last check-in', 'Last logged-in user', 'Notes'], escape: '');
         foreach ($devices as $d) {
             fputcsv($out, array_map([\Align\Security::class, 'csvCell'], [
-                $d['name'], $d['type'], source_label($d['source']), $d['manufacturer'], $d['model'],
+                $d['name'], $d['type'], source_label($d['source'], $d['rmm_provider'] ?? null), $d['manufacturer'], $d['model'],
                 $d['serial'], $d['ip_address'], $d['location'], $d['os_name'] ?: $d['firmware'],
                 $d['os_rule']['eos_date'] ?? '', $d['start_date'], $d['start_source'], $d['age_years'],
                 $d['warranty_end'], $d['warranty_source'], $d['eol_date'], $d['status_label'],

@@ -309,7 +309,7 @@ final class VeeamSync
         return ['jobs' => $jobs, 'summary' => 'Microsoft 365: ' . count($orgs) . ' organizations, ' . count($jobs) . ' jobs, ' . $n . ' protected objects'];
     }
 
-    /** Links VSPC companies to clients with the same name (or the same name as the client's NinjaOne org). */
+    /** Links VSPC companies to clients with the same name (or the same name as the client's RMM organization). */
     public static function autoMatch(): string
     {
         $free = DB::all('SELECT v.uid, v.name FROM veeam_companies v LEFT JOIN clients c ON c.veeam_company_uid = v.uid WHERE c.id IS NULL');
@@ -318,7 +318,7 @@ final class VeeamSync
             $byName[SyncRunner::normalizeName($v['name'])][] = $v['uid'];
         }
         $matched = 0;
-        $clients = DB::all('SELECT c.id, c.name, o.name AS org_name FROM clients c LEFT JOIN ninja_orgs o ON o.id = c.ninja_org_id
+        $clients = DB::all('SELECT c.id, c.name, ' . \Align\Providers\ClientLinks::rmmOrgNamesSql() . ' AS org_name FROM clients c
             WHERE c.veeam_company_uid IS NULL AND c.veeam_match IS NULL AND c.is_archived = 0 AND c.planning_excluded = 0');
         foreach ($clients as $c) {
             foreach (array_unique(array_filter([SyncRunner::normalizeName($c['name']), SyncRunner::normalizeName((string) $c['org_name'])])) as $key) {

@@ -27,7 +27,7 @@ final class IntegrationController
             'nav' => 'integrations',
             'groups' => $groups,
             'lastRun' => $last,
-            'unmapped' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0 AND ninja_org_id IS NULL AND psa_id IS NOT NULL'),
+            'unmapped' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 AND NOT ' . \Align\Providers\ClientLinks::rmmLinkedSql() . ' AND c.psa_id IS NOT NULL'),
         ]);
     }
 

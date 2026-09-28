@@ -33,7 +33,7 @@
         <tr>
           <td class="text-nowrap"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><b><?= e($d['name']) ?></b><?= $d['is_virtual'] ? ' <span class="badge badge-light border">virtual</span>' : '' ?></td>
           <td class="small"><?= e($d['type']) ?></td>
-          <td class="small text-nowrap"><?= $d['last_user'] ? '<span title="' . e($d['last_user']) . '">' . e(\Align\Integrations\NinjaOne::shortUser($d['last_user'])) . '</span>' : '<span class="text-muted">—</span>' ?></td>
+          <td class="small text-nowrap"><?= $d['last_user'] ? '<span title="' . e($d['last_user']) . '">' . e(short_user($d['last_user'])) . '</span>' : '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e($d['serial'] ?? '') ?></td>
           <td class="small"><?= e($d['os_name'] ?: $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>

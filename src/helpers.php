@@ -255,12 +255,22 @@ function psa_name(): string
     return $n ??= \Align\Providers\Providers::psaName();
 }
 
-/** Label for a record's source: psa, manual, ninja. */
-function source_label(?string $source): string
+/** Shows "jsmith" for "CONTOSO\\jsmith" (an RMM's last logged-in user) when a short form is wanted. */
+function short_user(?string $u): string
+{
+    $u = (string) $u;
+    if (str_contains($u, '\\')) {
+        $u = substr($u, strrpos($u, '\\') + 1);
+    }
+    return $u;
+}
+
+/** Label for a record's source: psa, rmm (with the device's RMM), manual. */
+function source_label(?string $source, ?string $rmmProvider = null): string
 {
     return match ($source) {
         'psa' => psa_name(),
-        'ninja' => 'NinjaOne',
+        'rmm' => \Align\Providers\Providers::rmmName($rmmProvider),
         'manual' => 'Manual',
         default => (string) $source,
     };

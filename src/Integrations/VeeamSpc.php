@@ -220,7 +220,7 @@ final class VeeamSpc
         return null;
     }
 
-    /** "DC01.contoso.local" → "dc01"; used to line workloads up with NinjaOne devices. */
+    /** "DC01.contoso.local" → "dc01"; used to line workloads up with RMM devices. */
     public static function hostKey(?string $name): string
     {
         $n = strtolower(trim((string) $name));

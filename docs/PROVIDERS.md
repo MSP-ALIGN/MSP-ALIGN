@@ -6,7 +6,7 @@ portal and the REST API read only neutral tables, so they don't know or care whi
 | Area | Provider today | Neutral tables |
 |---|---|---|
 | PSA (exactly one per install) | ITFlow | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
-| RMM | NinjaOne | moving behind a provider interface in 1.29 |
+| RMM (any number) | NinjaOne | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links` |
 | Backup | Veeam Service Provider Console | moving behind a provider interface in 1.30 |
 
 ## PSA providers
@@ -32,3 +32,19 @@ from it have `source = 'psa'`; the API reports the provider's key (for example `
 Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`): clients → client details, contacts and
 locations → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,
 reconciled field by field with newest-edit-wins) → tickets and SLAs → invoices (managed-services estimate).
+
+## RMM providers
+
+An RMM provider implements [`Align\Providers\Rmm\RmmProvider`](../src/Providers/Rmm/RmmProvider.php):
+`organizations()` and `devices()` return neutral records (documented at the top of the interface), and
+`deviceUrl()` links a device to the RMM's console. The provider decides each device's Align type (see
+`Lifecycle::TYPES`), because only it knows what its device classes mean. Ids are strings.
+
+The connector extends [`RmmConnector`](../src/Integrations/RmmConnector.php); [`NinjaOneRmm`](../src/Providers/Rmm/NinjaOneRmm.php)
+and `Connectors\NinjaOne` are the reference. Register it in `Registry::CONNECTORS`.
+
+An install can run several RMMs. Each device belongs to the RMM that reports it (`source = 'rmm'`,
+`rmm_provider` = the provider's key). Each client links to at most one organization per RMM through
+`client_links` (`provider`, `external_id`, `match_method`); organizations whose name matches a client's
+link automatically on sync, and a manual link with no organization means "deliberately not linked".
+RMM devices find their client through that link (`Lifecycle::CLIENT_JOIN`).

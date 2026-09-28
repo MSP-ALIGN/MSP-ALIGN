@@ -3,18 +3,17 @@ declare(strict_types=1);
 
 namespace Align\Integrations\Connectors;
 
-use Align\Integrations\Connector;
+use Align\Integrations\RmmConnector;
+use Align\Providers\Rmm\NinjaOneRmm;
+use Align\Providers\Rmm\RmmProvider;
 use Align\Settings;
 
-final class NinjaOne extends Connector
+final class NinjaOne extends RmmConnector
 {
     public function key(): string { return 'ninjaone'; }
     public function name(): string { return 'NinjaOne'; }
     public function icon(): string { return 'fas fa-user-ninja'; }
-    public function category(): string { return 'RMM'; }
     public function summary(): string { return 'Computers, servers and VMs with hardware, OS, last check-in and serial numbers.'; }
-    public function syncSteps(): array { return ['NinjaOne', 'Match clients']; }
-    public function hasTest(): bool { return true; }
 
     public function configured(): bool
     {
@@ -38,8 +37,8 @@ final class NinjaOne extends Connector
         ];
     }
 
-    public function test(): string
+    public function provider(bool $forLinks = false): RmmProvider
     {
-        return \Align\Integrations\NinjaOne::fromSettings()->test();
+        return NinjaOneRmm::fromSettings($forLinks);
     }
 }

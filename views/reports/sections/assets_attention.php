@@ -1,5 +1,4 @@
 <?php
-use Align\Integrations\NinjaOne;
 use Align\Reports\ReportData;
 use Align\Reports\Ui;
 
@@ -19,7 +18,7 @@ $shown = $limit ? array_slice($list, 0, $limit) : $list;
     <?php foreach ($shown as $d): ?>
       <tr>
         <td><span class="name"><?= e($d['name']) ?></span>
-          <div class="sub"><?= e(implode(' · ', array_filter([$users && $d['last_user'] ? NinjaOne::shortUser($d['last_user']) : null, $d['serial'] ? 'SN ' . $d['serial'] : null]))) ?></div></td>
+          <div class="sub"><?= e(implode(' · ', array_filter([$users && $d['last_user'] ? short_user($d['last_user']) : null, $d['serial'] ? 'SN ' . $d['serial'] : null]))) ?></div></td>
         <td><?= e($d['type']) ?></td>
         <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="muted">—</span>' ?></td>
         <td><?= Ui::pill($d['status_label'], Ui::tone($d['status_tone'])) ?><div class="sub"><?= e(ReportData::issue($d)) ?></div></td>

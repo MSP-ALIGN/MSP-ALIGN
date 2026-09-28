@@ -37,7 +37,8 @@ final class DeviceController
             'clientNav' => 'devices',
             'd' => $d,
             'lookup' => $d['serial'] ? DB::one('SELECT * FROM warranty_lookups WHERE serial = ? ORDER BY looked_up_at DESC LIMIT 1', [$d['serial']]) : null,
-            'ninjaInstance' => Settings::get('ninja_instance', 'app.ninjarmm.com'),
+            'rmmUrl' => \Align\Providers\Providers::rmmDeviceLink($d['rmm_provider'] ?? null, $d['rmm_device_id'] ?? null),
+            'rmmName' => \Align\Providers\Providers::rmmName($d['rmm_provider'] ?? null),
             'sync' => PsaAssetSync::status($id),
             'syncRow' => DB::one('SELECT psa_sync, retired_at, updated_at FROM devices WHERE id = ?', [$id]),
             'twoWay' => PsaAssetSync::twoWay(),
@@ -159,7 +160,7 @@ final class DeviceController
         ];
     }
 
-    /** Hardware fields that only manual devices can edit (NinjaOne owns them otherwise). */
+    /** Hardware fields that only manual devices can edit (the RMM owns them otherwise). */
     private static function manualFields(): array
     {
         $type = post('device_type');
@@ -227,7 +228,7 @@ final class DeviceController
                 DB::run("UPDATE devices SET $sets WHERE id = ?", [...array_values($f), $id]);
                 $o['device_type'] = null;
             } elseif ($o['device_type'] === $d['device_type']) {
-                $o['device_type'] = null; // same as what NinjaOne says: no override needed
+                $o['device_type'] = null; // same as what the RMM says: no override needed
             }
             DB::upsert('device_overrides', $o, ['device_id']);
         });
@@ -357,8 +358,9 @@ final class DeviceController
     {
         Auth::requireRole('tech');
         $d = self::find($id);
-        if ($d['source'] === 'ninja') {
-            flash('error', 'NinjaOne devices disappear automatically when they leave NinjaOne. Use "Exclude" to hide one.');
+        if ($d['source'] === 'rmm') {
+            $n = \Align\Providers\Providers::rmmName($d['rmm_provider']);
+            flash('error', "$n devices disappear automatically when they leave $n. Use \"Exclude\" to hide one.");
             redirect("/devices/$id");
         }
         $back = $d['client_id'] ? "/clients/{$d['client_id']}/devices" : '/clients';

@@ -662,7 +662,7 @@ final class PsaAssetSync
     {
         $claimed = array_flip(array_map('intval', array_column(DB::all(
             "SELECT DISTINCT d.psa_asset_id FROM devices d JOIN psa_assets a ON a.psa_asset_id = d.psa_asset_id
-             WHERE d.source IN ('ninja','manual') AND (d.removed_at IS NULL OR d.retired_at IS NOT NULL)"), 'psa_asset_id')));
+             WHERE d.source IN ('rmm','manual') AND (d.removed_at IS NULL OR d.retired_at IS NOT NULL)"), 'psa_asset_id')));
         $bySerial = [];
         $byName = [];
         foreach (DB::all('SELECT psa_asset_id, psa_client_id, name, serial FROM psa_assets WHERE is_archived = 0') as $a) {
@@ -679,7 +679,7 @@ final class PsaAssetSync
         $devices = DB::all('SELECT d.id, d.serial, d.display_name, d.system_name, COALESCE(cm.psa_id, cn.psa_id) AS psa_client_id
             FROM devices d ' . Lifecycle::CLIENT_JOIN . "
             LEFT JOIN psa_assets a ON a.psa_asset_id = d.psa_asset_id
-            WHERE d.removed_at IS NULL AND d.source IN ('ninja','manual') AND a.psa_asset_id IS NULL");
+            WHERE d.removed_at IS NULL AND d.source IN ('rmm','manual') AND a.psa_asset_id IS NULL");
         $linked = 0;
         foreach ($devices as $dv) {
             $cid = $dv['psa_client_id'];
@@ -705,7 +705,7 @@ final class PsaAssetSync
                 $linked++;
             }
         }
-        $total = (int) DB::value("SELECT COUNT(*) FROM devices WHERE source IN ('ninja','manual') AND removed_at IS NULL AND psa_asset_id IS NOT NULL");
+        $total = (int) DB::value("SELECT COUNT(*) FROM devices WHERE source IN ('rmm','manual') AND removed_at IS NULL AND psa_asset_id IS NOT NULL");
         return "$total devices linked" . ($linked ? " ($linked new)" : '');
     }
 
@@ -714,13 +714,13 @@ final class PsaAssetSync
     {
         $cats = array_filter(array_map('trim', explode(',', (string) Settings::get('psa_import_types', 'network,printer,ups,storage,camera,phone,server,workstation,vm,other'))));
         $claimed = array_flip(array_map('intval', array_column(DB::all(
-            "SELECT DISTINCT psa_asset_id FROM devices WHERE source IN ('ninja','manual') AND psa_asset_id IS NOT NULL
+            "SELECT DISTINCT psa_asset_id FROM devices WHERE source IN ('rmm','manual') AND psa_asset_id IS NOT NULL
              AND (removed_at IS NULL OR retired_at IS NOT NULL)"), 'psa_asset_id')));
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         // Serials already covered by an RMM / hand-added device, per client (avoids importing duplicates)
         $serials = [];
         foreach (DB::all("SELECT COALESCE(cm.id, cn.id) AS cid, d.serial FROM devices d " . Lifecycle::CLIENT_JOIN . "
-                WHERE d.source IN ('ninja','manual') AND d.removed_at IS NULL AND d.serial IS NOT NULL") as $r) {
+                WHERE d.source IN ('rmm','manual') AND d.removed_at IS NULL AND d.serial IS NOT NULL") as $r) {
             $serials[$r['cid']][$r['serial']] = true;
         }
         $existing = [];

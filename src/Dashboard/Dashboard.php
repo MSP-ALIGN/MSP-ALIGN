@@ -138,7 +138,7 @@ final class Dashboard
             }
         }
         if (!empty($ctx['unmapped']) || !empty($ctx['unassigned'])) {
-            $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' ' . psa_name() . ' client(s) without a NinjaOne organization. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' NinjaOne device(s) in an unlinked organization.' : '')), '/mapping');
+            $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' ' . psa_name() . ' client(s) without an organization in ' . \Align\Providers\Providers::rmmNames() . '. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' ' . \Align\Providers\Providers::rmmNames() . ' device(s) in an unlinked organization.' : '')), '/mapping');
         }
 
         // Service levels: open tickets past or close to target

@@ -80,7 +80,7 @@ final class Compliance
         $withOs = $count(fn($d) => $d['os_rule'] !== null);
         $hw = $count(fn($d) => $d['is_hardware']);
         $infra = $count(fn($d) => $d['is_hardware'] && in_array($d['device_class'], ['server', 'network'], true));
-        $agents = $count(fn($d) => $d['source'] === 'ninja');
+        $agents = $count(fn($d) => $d['source'] === 'rmm');
 
         $bad = [
             'os_supported' => $count(fn($d) => in_array('os_eos', $d['flags'], true)),

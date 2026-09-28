@@ -30,12 +30,12 @@ final class Spec
             'psa_id' => ['integer', 'The contact\'s id in the PSA.'], 'itflow_contact_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'], 'archived' => ['boolean', ''], 'updated_at' => ['date-time', '']]],
         'Device' => ['A device with its computed lifecycle.', [
             'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'name' => ['string', ''], 'type' => ['string', 'e.g. Server, Hypervisor host, Laptop.'],
-            'category' => ['string', 'Lifecycle category: desktop, laptop, server, network, printer, storage, power, other.'], 'is_virtual' => ['boolean', ''], 'source' => ['string', 'ninja, the PSA\'s key (e.g. itflow) or manual.'],
+            'category' => ['string', 'Lifecycle category: desktop, laptop, server, network, printer, storage, power, other.'], 'is_virtual' => ['boolean', ''], 'source' => ['string', 'ninja (NinjaOne), another RMM\'s key, the PSA\'s key (e.g. itflow) or manual.'], 'rmm' => ['object', 'For RMM devices: provider (e.g. ninjaone), device_id, organization_id. null otherwise.'],
             'manufacturer' => ['string', ''], 'model' => ['string', ''], 'serial' => ['string', ''], 'ip_address' => ['string', ''], 'location' => ['string', ''], 'last_user' => ['string', ''],
             'last_seen' => ['date-time', ''], 'os' => ['object', 'name, build, support_ends.'],
             'lifecycle' => ['object', 'status, status_label, health (ok/warn/bad/muted), flags, in_service_date, in_service_source, in_service_estimated, age_years, lifespan_years, end_of_life, replace_by, planned_replacement {quarter, label, note, deferred}, replacement_cost, excluded.'],
             'warranty' => ['object', 'end, source.'], 'overrides' => ['object', 'Values set in Align (null = using the synced value or policy default).'],
-            'psa_asset_id' => ['integer', 'The linked PSA asset.'], 'itflow_asset_id' => ['integer', 'Older name for psa_asset_id, kept for existing integrations.'], 'ninja_device_id' => ['integer', ''], 'synced_at' => ['date-time', ''], 'url' => ['string', ''],
+            'psa_asset_id' => ['integer', 'The linked PSA asset.'], 'itflow_asset_id' => ['integer', 'Older name for psa_asset_id, kept for existing integrations.'], 'ninja_device_id' => ['integer', 'NinjaOne devices only: same as rmm.device_id. Older field, kept for existing integrations.'], 'synced_at' => ['date-time', ''], 'url' => ['string', ''],
             'psa_sync' => ['object', 'After PATCH only: status (ok, off, queued, error) and message.'], 'itflow_sync' => ['object', 'Older name for psa_sync, kept for existing integrations.']]],
         'Project' => ['A roadmap project.', [
             'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'title' => ['string', ''], 'category' => ['string', ''], 'category_label' => ['string', ''],

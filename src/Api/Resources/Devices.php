@@ -123,7 +123,8 @@ final class Devices
             'type' => $d['type'],
             'category' => $d['device_class'],
             'is_virtual' => (bool) $d['is_virtual'],
-            'source' => Out::source($d['source']),
+            'source' => Out::source($d['source'], $d['rmm_provider']),
+            'rmm' => $d['rmm_provider'] ? ['provider' => $d['rmm_provider'], 'device_id' => $d['rmm_device_id'], 'organization_id' => $d['rmm_org_id']] : null,
             'manufacturer' => $d['manufacturer'],
             'model' => $d['model'],
             'serial' => $d['serial'],
@@ -155,7 +156,7 @@ final class Devices
             ],
             'psa_asset_id' => Out::int($d['psa_asset_id']),
             'itflow_asset_id' => Out::int($d['psa_asset_id']), // deprecated alias of psa_asset_id
-            'ninja_device_id' => Out::int($d['ninja_device_id']),
+            'ninja_device_id' => $d['rmm_provider'] === 'ninjaone' ? Out::int($d['rmm_device_id']) : null, // older field, kept for existing integrations
             'synced_at' => Out::ts($d['synced_at']),
             'url' => Out::url('/devices/' . (int) $d['id']),
         ];

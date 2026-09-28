@@ -35,6 +35,9 @@ return function (): void {
     $enumSwap = function (string $table, string $col, array $final, string $old, string $new, ?string $default, bool $null) use ($db): void {
         $type = (string) Align\DB::value('SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?', [$table, $col]);
         $q = fn(array $vals) => 'ENUM(' . implode(',', array_map(fn($v) => "'$v'", $vals)) . ')';
+        // Keep values this migration doesn't own (a later migration may have added some before a re-run)
+        preg_match_all("/'([^']*)'/", $type, $m);
+        $final = array_values(array_unique([...$final, ...array_diff($m[1], [$old])]));
         $tail = ($null ? ' NULL' : ' NOT NULL') . ($default !== null ? " DEFAULT '$default'" : ($null ? ' DEFAULT NULL' : ''));
         if (str_contains($type, "'$old'")) {
             $wide = array_values(array_unique([...$final, $old]));

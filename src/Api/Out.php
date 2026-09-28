@@ -46,12 +46,17 @@ final class Out
     }
 
     /**
-     * A record's source as the API reports it: the PSA's key ("itflow") for PSA records, so v1 answers
-     * stay the same as before PSA data became provider-neutral; otherwise manual / ninja.
+     * A record's source as the API reports it, so v1 answers stay the same as before the data became
+     * provider-neutral: the PSA's key ("itflow") for PSA records, "ninja" for NinjaOne devices, the
+     * RMM's key for other RMMs, otherwise manual.
      */
-    public static function source(?string $s): ?string
+    public static function source(?string $s, ?string $rmmProvider = null): ?string
     {
-        return $s === 'psa' ? (\Align\Providers\Providers::psaKey() ?? 'psa') : $s;
+        return match ($s) {
+            'psa' => \Align\Providers\Providers::psaKey() ?? 'psa',
+            'rmm' => $rmmProvider === 'ninjaone' ? 'ninja' : ($rmmProvider ?? 'rmm'),
+            default => $s,
+        };
     }
 
     /** Link into the web app for a person to open. */

@@ -10,8 +10,7 @@ $alignOnly = (int) $syncRow['psa_sync'] === 0;
 $psa = psa_name();
 $psaAssetUrl = $d['psa_asset_id'] ? \Align\Providers\Providers::psaLink('asset', (int) $d['psa_client_id'], (int) $d['psa_asset_id']) : null;
 $retired = (bool) $syncRow['retired_at'];
-$srcLabel = $d['source'] === 'manual' ? 'Added manually' : source_label($d['source']);
-$ninjaBase = str_contains($ninjaInstance, '://') ? rtrim($ninjaInstance, '/') : 'https://' . $ninjaInstance;
+$srcLabel = $d['source'] === 'manual' ? 'Added manually' : source_label($d['source'], $d['rmm_provider'] ?? null);
 $row = fn(string $k, string $v) => '<tr><th class="text-muted font-weight-normal w-40">' . e($k) . '</th><td>' . $v . '</td></tr>';
 if ($client) {
     require __DIR__ . '/../partials/client_header.php';
@@ -21,14 +20,14 @@ if ($client) {
   <h1 class="h4 mb-0 mr-3"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><?= e($d['name']) ?></h1>
   <div class="mr-auto">
     <?php require __DIR__ . '/../partials/status.php'; ?>
-    <span class="badge badge-light border"><?= $d['source'] === 'ninja' ? '<i class="fas fa-user-ninja mr-1"></i>' : ($d['source'] === 'psa' ? '<i class="fas fa-screwdriver-wrench mr-1"></i>' : '') ?><?= e($srcLabel) ?></span>
+    <span class="badge badge-light border"><?= $d['source'] === 'rmm' ? '<i class="' . e(\Align\Providers\Providers::rmmIcon($d['rmm_provider'])) . ' mr-1"></i>' : ($d['source'] === 'psa' ? '<i class="fas fa-screwdriver-wrench mr-1"></i>' : '') ?><?= e($srcLabel) ?></span>
     <?php if ($retired): ?><span class="badge badge-dark"><i class="fas fa-box-archive mr-1"></i>Retired <?= e(fmt_date($syncRow['retired_at'])) ?></span>
     <?php elseif ($d['removed_at']): ?><span class="badge badge-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
     <?php if ($linked && !$alignOnly && $twoWay): ?><span class="badge badge-success"><i class="fas fa-arrows-rotate mr-1"></i>Synced with <?= e(psa_name()) ?></span>
     <?php elseif ($alignOnly): ?><span class="badge badge-secondary">Align only</span><?php endif; ?>
   </div>
   <div class="btn-group btn-group-sm">
-    <?php if ($d['source'] === 'ninja'): ?><a class="btn btn-default" href="<?= e($ninjaBase . '/#/deviceDashboard/' . (int) $d['ninja_device_id'] . '/overview') ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>NinjaOne</a><?php endif; ?>
+    <?php if ($rmmUrl): ?><a class="btn btn-default" href="<?= e($rmmUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i><?= e($rmmName) ?></a><?php endif; ?>
     <?php if ($psaAssetUrl): ?>
       <a class="btn btn-default" href="<?= e($psaAssetUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i><?= e($psa) ?> asset</a>
     <?php endif; ?>
@@ -54,8 +53,8 @@ if ($client) {
           <?php if ($d['firmware']) echo $row('Firmware / version', e($d['firmware'])); ?>
           <?= $row('Operating system', e($d['os_name'] ?? '—') . ($d['os_build'] ? ' <span class="small text-muted">build ' . e($d['os_build']) . '</span>' : '')) ?>
           <?php if ($d['os_name']) echo $row('OS support ends', $d['os_rule'] ? e(fmt_date($d['os_rule']['eos_date'])) . ' <span class="small text-muted">(' . e($d['os_rule']['label']) . ')</span>' : '<span class="text-muted">No matching rule — <a href="/settings/os">OS support dates</a></span>'); ?>
-          <?php if ($d['source'] === 'ninja') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
-          <?php if ($d['source'] === 'ninja') echo $row('Last logged-in user', $d['last_user'] ? '<i class="fas fa-user fa-xs text-muted mr-1"></i>' . e($d['last_user']) : '<span class="text-muted">Not reported by NinjaOne</span>'); ?>
+          <?php if ($d['source'] === 'rmm') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
+          <?php if ($d['source'] === 'rmm') echo $row('Last logged-in user', $d['last_user'] ? '<i class="fas fa-user fa-xs text-muted mr-1"></i>' . e($d['last_user']) : '<span class="text-muted">Not reported by ' . e($rmmName) . '</span>'); ?>
           <?php if ($backups !== null):
               $bw = $backups[0] ?? null;
               $bage = $bw && $bw['last_point'] ? (time() - strtotime($bw['last_point'])) / 3600 : null;
@@ -139,7 +138,7 @@ $poll = $sync['poll'];
       <?php if (!$alignOnly && $twoWay && ($linked || ($d['source'] === 'manual' && $clientInPsa))): ?>
         <form method="post" action="/devices/<?= (int) $d['id'] ?>/push" class="d-inline"><?= csrf_field() ?><button class="btn btn-tool" title="Send any queued changes and pull the latest from <?= e(psa_name()) ?>"><i class="fas fa-rotate mr-1"></i>Sync now</button></form>
       <?php endif; ?>
-      <?php if ($d['source'] !== 'ninja' || $linked): ?>
+      <?php if ($d['source'] !== 'rmm' || $linked): ?>
       <form method="post" action="/devices/<?= (int) $d['id'] ?>/psa-sync" class="d-inline"><?= csrf_field() ?>
         <input type="hidden" name="on" value="<?= $alignOnly ? '1' : '0' ?>">
         <button class="btn btn-tool" <?= $alignOnly ? '' : 'data-confirm="Stop syncing this device with ' . psa_name() . '? Changes on either side will no longer be copied."' ?>><?= $alignOnly ? '<i class="fas fa-link mr-1"></i>Sync with ' . psa_name() : '<i class="fas fa-link-slash mr-1"></i>Make Align-only' ?></button>
@@ -155,7 +154,7 @@ $poll = $sync['poll'];
       <p class="mb-1"><i class="fas fa-arrow-down text-info mr-1"></i>Two-way sync is off (Integrations → <?= e(psa_name()) ?>), so <?= e(psa_name()) ?> changes are copied in but Align changes stay in Align.</p>
     <?php elseif ($linked): ?>
       <p class="mb-1"><i class="fas fa-check-circle text-success mr-1"></i>Changes made here go to <?= e(psa_name()) ?> as soon as you save. Changes made in <?= e(psa_name()) ?> show up here within about 2 minutes<?= $poll && $poll['last_ok'] ? ' (last checked ' . e(rel_time($poll['last_ok'])) . ')' : '' ?>. If both sides change the same field, the newest edit wins.
-      <?php if ($d['source'] === 'ninja'): ?><br><span class="text-muted">Hardware details are owned by NinjaOne; the type, purchase date and warranty date you set in Align are sent to <?= e(psa_name()) ?>.</span><?php endif; ?></p>
+      <?php if ($d['source'] === 'rmm'): ?><br><span class="text-muted">Hardware details are owned by <?= e($rmmName) ?>; the type, purchase date and warranty date you set in Align are sent to <?= e(psa_name()) ?>.</span><?php endif; ?></p>
     <?php elseif ($d['source'] === 'manual' && $clientInPsa): ?>
       <p class="mb-1"><i class="fas fa-hourglass-half text-warning mr-1"></i>Not in <?= e(psa_name()) ?> yet. It will be created there on the next sync, or use <b>Sync now</b>.</p>
     <?php elseif ($d['source'] === 'manual'): ?>
