@@ -323,7 +323,7 @@ final class ClientController
             'client' => $client,
             'clientNav' => 'devices',
             'devices' => self::filter($all, $filter, $class),
-            'backupMap' => \Align\Backup\Backup::deviceMap($client['veeam_company_uid'] ?? null, $id),
+            'backupMap' => \Align\Backup\Backup::deviceMap(null, $id),
             'total' => count($all),
             'filter' => $filter,
             'class' => $class,

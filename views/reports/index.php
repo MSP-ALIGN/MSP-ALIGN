@@ -55,7 +55,7 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       $chk('costs', 'Costs') . $chk('inventory', 'Full inventory') . $chk('users', 'Last user') . $chk('virtual', 'Virtual machines', false) . $chk('notes', 'Device notes')) ?>
   <?php if ($backupEnabled): ?>
   <?= $card('fa-database', 'Backup & recovery',
-      'Backup health from Veeam: job results, the 30-day history, protected machines, Microsoft 365, anything needing attention and items marked not required.',
+      'Backup health from ' . \Align\Providers\Providers::backupNames() . ': job results, the 30-day history, protected machines, Microsoft 365, anything needing attention and items marked not required.',
       '/report/backup',
       $chk('details', 'Job details') . $chk('machines', 'Protected machines'), 'veeam') ?>
   <?php endif; ?>
@@ -98,7 +98,7 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       <div class="col-xl-4 col-md-6 d-flex">
         <form class="card card-outline card-secondary flex-fill" method="get" action="/reports/backups" target="_blank">
           <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-database mr-2 text-secondary"></i>Backup status</h3></div>
-          <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Every client linked to Veeam: failed jobs, machines and Microsoft 365 items without a recent backup, servers with no backup, success rate and cloud storage.</p>
+          <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Every client linked to <?= e(\Align\Providers\Providers::backupNames()) ?>: failed jobs, machines and Microsoft 365 items without a recent backup, servers with no backup, success rate and cloud storage.</p>
             <div class="d-flex flex-wrap small mb-2"><?= $chk('all', 'Include clients with no problems') ?></div>
             <div class="mt-auto"><button class="btn btn-sm btn-default"><i class="fas fa-up-right-from-square mr-1"></i>Open report</button></div></div>
         </form>

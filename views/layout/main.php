@@ -56,7 +56,7 @@ $clientMenu = $client ? [
     ['contacts', '/clients/' . (int) $client['id'] . '/contacts', 'Contacts', 'fa-address-book'],
     ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
     ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],
-    ...(\Align\Backup\Backup::has($client) || \Align\Integrations\VeeamSpc::configured() ? [['backups', '/clients/' . (int) $client['id'] . '/backups', 'Backups', 'fa-database']] : []),
+    ...(\Align\Backup\Backup::has($client) || \Align\Providers\Providers::anyBackup() ? [['backups', '/clients/' . (int) $client['id'] . '/backups', 'Backups', 'fa-database']] : []),
     ...(\Align\Service\Sla::enabled() && !empty($client['psa_id']) ? [['service', '/clients/' . (int) $client['id'] . '/service-levels', 'Service levels', 'fa-stopwatch']] : []),
     ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
     ['documents', '/clients/' . (int) $client['id'] . '/documents', 'Documents', 'fa-file-lines'],

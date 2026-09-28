@@ -8,6 +8,7 @@ use Align\Auth;
 use Align\DB;
 use Align\Providers\ClientLinks;
 use Align\Providers\Providers;
+use Align\Sync\BackupSync;
 use Align\View;
 
 final class MappingController
@@ -17,9 +18,10 @@ final class MappingController
         Auth::requireRole('tech');
         $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d JOIN client_links l ON l.provider = d.rmm_provider AND l.external_id = d.rmm_org_id
                 WHERE l.client_id = c.id AND d.client_id IS NULL AND d.removed_at IS NULL) AS device_count,
-            (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id) AS veeam_machines,
-            (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND w.client_how IN (\'device\',\'job\',\'machine\')) AS veeam_hosted,
-            (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND m.object_type = \'user\') AS veeam_m365_users
+            ' . ClientLinks::backupLinkedSql() . ' AS backup_linked,
+            (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id) AS backup_machines,
+            (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND w.client_how IN (\'device\',\'job\',\'machine\')) AS backup_hosted,
+            (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid IN ' . ClientLinks::backupCompaniesSql() . ' AND m.object_type = \'user\') AS backup_m365_users
             FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 ORDER BY c.name');
         // One column per RMM: its organizations and each client's link
         $rmms = [];
@@ -39,147 +41,154 @@ final class MappingController
                 }
             }
         }
+        // One column per backup product: its companies and each client's link
+        $backups = [];
+        $unmappedCompanies = [];
+        foreach (Providers::backupConnectors() as $key => $c) {
+            $backups[$key] = [
+                'name' => $c->shortName(),
+                'configured' => $c->configured(),
+                'companies' => DB::all('SELECT b.uid, b.name, l.client_id,
+                    (SELECT COUNT(*) FROM backup_workloads w WHERE w.provider = b.provider AND w.company_uid = b.uid) AS workloads
+                    FROM backup_companies b LEFT JOIN client_links l ON l.provider = b.provider AND l.external_id = b.uid WHERE b.provider = ? ORDER BY b.name', [$key]),
+                'links' => ClientLinks::forProvider($key),
+            ];
+            foreach ($backups[$key]['companies'] as $o) {
+                if (!$o['client_id']) {
+                    $unmappedCompanies[] = $o + ['backup' => $c->shortName()];
+                }
+            }
+        }
         View::render('mapping/index', [
             'title' => 'Client mapping',
             'nav' => 'mapping',
             'clients' => $clients,
             'rmms' => $rmms,
             'unmappedOrgs' => $unmappedOrgs,
-            'veeamConfigured' => \Align\Integrations\VeeamSpc::configured(),
-            'veeam' => $veeam = DB::all('SELECT v.uid, v.name, c.id AS client_id,
-                (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = v.uid) AS workloads
-                FROM veeam_companies v LEFT JOIN clients c ON c.veeam_company_uid = v.uid ORDER BY v.name'),
-            'unmappedVeeam' => array_values(array_filter($veeam, fn($v) => !$v['client_id'])),
+            'backups' => $backups,
+            'unmappedCompanies' => $unmappedCompanies,
         ]);
     }
 
     /**
-     * Receives rmm[<rmm key>][<client id>] = <organization id | ''> and veeam[<client id>] = <VSPC company uid | ''>
-     * for every client on the page. (org[<client id>] from pages before 1.29 counts as the first RMM.)
+     * Receives rmm[<rmm key>][<client id>] = <organization id | ''> and backup[<backup key>][<client id>] =
+     * <company uid | ''> for every client on the page. (Older pages' org[<client id>] counts as the first RMM,
+     * and veeam[<client id>] as Veeam.)
      */
     public static function save(): void
     {
         Auth::requireRole('tech');
-        $postedRmm = $_POST['rmm'] ?? [];
-        $postedVeeam = $_POST['veeam'] ?? [];
-        $keys = array_keys(Providers::rmmConnectors());
-        if (isset($_POST['org']) && is_array($_POST['org']) && $keys) {
-            $postedRmm = [$keys[0] => $_POST['org']] + (is_array($postedRmm) ? $postedRmm : []);
-        }
-        if (!is_array($postedRmm) || !is_array($postedVeeam)) {
+        $rmmKeys = array_keys(Providers::rmmConnectors());
+        $backupKeys = array_keys(Providers::backupConnectors());
+        $posted = ['rmm' => $_POST['rmm'] ?? [], 'backup' => $_POST['backup'] ?? []];
+        if (!is_array($posted['rmm']) || !is_array($posted['backup'])) {
             redirect('/mapping');
         }
-        // provider => [client id => org id ('' = not linked)], only organizations the provider has
-        $wanted = [];
-        foreach ($postedRmm as $key => $rows) {
-            if (!in_array($key, $keys, true) || !is_array($rows)) {
-                continue;
-            }
-            $known = array_flip(array_column(DB::all('SELECT org_id FROM rmm_orgs WHERE provider = ?', [$key]), 'org_id'));
-            foreach ($rows as $clientId => $orgId) {
-                $orgId = is_scalar($orgId) ? (string) $orgId : '';
-                if ($orgId === '' || $orgId === '0') {
-                    $wanted[$key][(int) $clientId] = '';
-                } elseif (isset($known[$orgId])) {
-                    $wanted[$key][(int) $clientId] = $orgId;
-                } // an organization that's gone since the page loaded: leave that client as it is
-            }
-            $picked = array_filter($wanted[$key], fn($o) => $o !== '');
-            if (count($picked) !== count(array_unique($picked))) {
-                flash('error', 'Each ' . Providers::rmmName($key) . ' organization can only be linked to one client. Nothing was saved.');
+        if (isset($_POST['org']) && is_array($_POST['org']) && $rmmKeys) {
+            $posted['rmm'] = [$rmmKeys[0] => $_POST['org']] + $posted['rmm'];
+        }
+        if (isset($_POST['veeam']) && in_array('veeam', $backupKeys, true)) {
+            if (!is_array($_POST['veeam'])) {
                 redirect('/mapping');
             }
+            $posted['backup'] = ['veeam' => $_POST['veeam']] + $posted['backup'];
         }
-        $known = array_flip(array_column(DB::all('SELECT uid FROM veeam_companies'), 'uid'));
-        $wantedV = [];
-        foreach ($postedVeeam as $clientId => $uid) {
-            $uid = (string) $uid;
-            $wantedV[(int) $clientId] = $uid !== '' && isset($known[$uid]) ? $uid : '';
-        }
-        $pickedV = array_filter($wantedV);
-        if (count($pickedV) !== count(array_unique($pickedV))) {
-            flash('error', 'Each Veeam company can only be linked to one client. Nothing was saved.');
-            redirect('/mapping');
-        }
-
-        $currentV = [];
-        foreach (DB::all('SELECT id, veeam_company_uid FROM clients') as $c) {
-            $currentV[(int) $c['id']] = (string) $c['veeam_company_uid'];
-        }
-        $changed = [];
-        foreach ($wanted as $key => $rows) {
-            $links = ClientLinks::forProvider($key);
-            foreach ($rows as $cid => $org) {
-                if (isset($currentV[$cid]) && (string) ($links[$cid]['external_id'] ?? '') !== $org) {
-                    $changed[$key][$cid] = $org;
+        // provider => [client id => outside id ('' = not linked)], only records the provider has
+        $wanted = [];
+        foreach (['rmm' => $rmmKeys, 'backup' => $backupKeys] as $kind => $keys) {
+            foreach ($posted[$kind] as $key => $rows) {
+                if (!in_array($key, $keys, true) || !is_array($rows)) {
+                    continue;
+                }
+                $known = array_flip(array_map('strval', array_column($kind === 'rmm'
+                    ? DB::all('SELECT org_id AS id FROM rmm_orgs WHERE provider = ?', [$key])
+                    : DB::all('SELECT uid AS id FROM backup_companies WHERE provider = ?', [$key]), 'id')));
+                $wanted[$key] = [];
+                foreach ($rows as $clientId => $id) {
+                    $id = is_scalar($id) ? (string) $id : '';
+                    if ($id === '' || ($kind === 'rmm' && $id === '0')) {
+                        $wanted[$key][(int) $clientId] = '';
+                    } elseif (isset($known[$id])) {
+                        $wanted[$key][(int) $clientId] = $id;
+                    } // a record that's gone since the page loaded: leave that client as it is
+                }
+                $picked = array_filter($wanted[$key], fn($o) => $o !== '');
+                if (count($picked) !== count(array_unique($picked))) {
+                    flash('error', $kind === 'rmm'
+                        ? 'Each ' . Providers::rmmName($key) . ' organization can only be linked to one client. Nothing was saved.'
+                        : 'Each ' . Providers::backupName($key) . ' company can only be linked to one client. Nothing was saved.');
+                    redirect('/mapping');
                 }
             }
         }
-        $changedV = array_filter($wantedV, fn($uid, $cid) => isset($currentV[$cid]) && $currentV[$cid] !== $uid, ARRAY_FILTER_USE_BOTH);
-        if (!$changed && !$changedV) {
+
+        $clientIds = array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients'), 'id')));
+        $changed = [];
+        foreach ($wanted as $key => $rows) {
+            $links = ClientLinks::forProvider($key);
+            foreach ($rows as $cid => $id) {
+                if (isset($clientIds[$cid]) && (string) ($links[$cid]['external_id'] ?? '') !== $id) {
+                    $changed[$key][$cid] = $id;
+                }
+            }
+        }
+        if (!$changed) {
             flash('success', 'No changes.');
             redirect('/mapping');
         }
 
-        DB::transaction(function () use ($changed, $changedV) {
+        DB::transaction(function () use ($changed) {
             foreach ($changed as $key => $rows) {
-                // Clear first so swapping organizations between clients doesn't hit the unique key.
+                // Clear first so swapping records between clients doesn't hit the unique key.
                 foreach (array_keys($rows) as $clientId) {
                     DB::run('UPDATE client_links SET external_id = NULL WHERE client_id = ? AND provider = ?', [$clientId, $key]);
                 }
-                foreach ($rows as $clientId => $orgId) {
-                    // A manual link with no organization means "deliberately not linked": auto-match leaves it alone.
-                    ClientLinks::set((int) $clientId, $key, $orgId === '' ? null : $orgId, 'manual');
-                }
-            }
-            if ($changedV) {
-                $ids = implode(',', array_map('intval', array_keys($changedV)));
-                DB::run("UPDATE clients SET veeam_company_uid = NULL WHERE id IN ($ids)");
-                foreach ($changedV as $clientId => $uid) {
-                    if ($uid !== '') {
-                        DB::run('UPDATE clients SET veeam_company_uid = NULL, veeam_match = NULL WHERE veeam_company_uid = ?', [$uid]);
-                    }
-                    DB::run("UPDATE clients SET veeam_company_uid = ?, veeam_match = 'manual' WHERE id = ?", [$uid ?: null, $clientId]);
+                foreach ($rows as $clientId => $id) {
+                    // A manual link with no record means "deliberately not linked": auto-match leaves it alone.
+                    ClientLinks::set((int) $clientId, $key, $id === '' ? null : $id, 'manual');
                 }
             }
         });
-        if ($changedV || $changed) {
-            \Align\Sync\VeeamSync::assign(); // re-sort hosted machines and jobs, re-link devices
-        }
-        $n = array_sum(array_map('count', $changed)) + count($changedV);
-        Audit::log('mapping.save', "$n change(s): " . json_encode($changed + ['veeam' => $changedV]));
+        BackupSync::assign(); // re-sort hosted machines and jobs, re-link devices (RMM links decide which devices a client has)
+        $n = array_sum(array_map('count', $changed));
+        Audit::log('mapping.save', "$n change(s): " . json_encode($changed));
         flash('success', "Saved $n change(s).");
         redirect('/mapping');
     }
 
     /**
-     * Backups on your own Veeam servers: machines and jobs from hosting companies (a Veeam company linked to
+     * Backups on your own backup servers: machines and jobs from hosting companies (a backup company linked to
      * no client, or one flagged as hosting), how each was sorted into a client, and manual corrections.
      */
     public static function backups(): void
     {
         Auth::requireRole('tech');
-        $pool = \Align\Sync\VeeamSync::hostingCompanies();
-        $flagged = json_decode((string) \Align\Settings::get('veeam_hosting_companies', '[]'), true) ?: [];
-        $companies = DB::all('SELECT v.uid, v.name, c.id AS client_id, c.name AS client_name,
-            (SELECT COUNT(*) FROM backup_workloads w WHERE w.company_uid = v.uid) AS machines,
-            (SELECT COUNT(*) FROM backup_jobs j WHERE j.company_uid = v.uid) AS jobs
-            FROM veeam_companies v LEFT JOIN clients c ON c.veeam_company_uid = v.uid ORDER BY v.name');
+        $pool = BackupSync::hostingCompanies();
+        $flagged = [];
+        foreach (array_keys(Providers::backupConnectors()) as $key) {
+            $f = json_decode((string) \Align\Settings::get($key . '_hosting_companies', '[]'), true);
+            array_push($flagged, ...(is_array($f) ? array_map('strval', $f) : []));
+        }
+        $companies = DB::all('SELECT b.provider, b.uid, b.name, c.id AS client_id, c.name AS client_name,
+            (SELECT COUNT(*) FROM backup_workloads w WHERE w.provider = b.provider AND w.company_uid = b.uid) AS machines,
+            (SELECT COUNT(*) FROM backup_jobs j WHERE j.provider = b.provider AND j.company_uid = b.uid) AS jobs
+            FROM backup_companies b LEFT JOIN client_links l ON l.provider = b.provider AND l.external_id = b.uid
+            LEFT JOIN clients c ON c.id = l.client_id ORDER BY b.name');
         $in = $pool ? implode(',', array_fill(0, count($pool), '?')) : "''";
         $manual = ['job' => [], 'workload' => []];
         foreach (DB::all('SELECT item_type, item_uid, client_id FROM backup_assignments') as $a) {
             $manual[$a['item_type']][$a['item_uid']] = $a['client_id'] === null ? 'none' : (string) (int) $a['client_id'];
         }
-        $jobs = DB::all("SELECT j.uid, j.name, j.status, j.job_type, j.source, j.last_run, j.company_uid, v.name AS company_name,
+        $jobs = DB::all("SELECT j.uid, j.provider, j.name, j.status, j.job_type, j.source, j.last_run, j.company_uid, v.name AS company_name,
                 (SELECT COUNT(*) FROM backup_workload_jobs x WHERE x.job_uid = j.uid) AS machines,
                 (SELECT GROUP_CONCAT(c.name ORDER BY c.name SEPARATOR '|') FROM backup_job_clients jc JOIN clients c ON c.id = jc.client_id WHERE jc.job_uid = j.uid) AS client_names
-            FROM backup_jobs j LEFT JOIN veeam_companies v ON v.uid = j.company_uid
+            FROM backup_jobs j LEFT JOIN backup_companies v ON v.provider = j.provider AND v.uid = j.company_uid
             WHERE (j.company_uid IN ($in) OR j.company_uid IS NULL) AND j.source <> 'm365' ORDER BY j.name", $pool); // Microsoft 365 goes by tenant, not machine
-        $machines = DB::all("SELECT w.uid, w.name, w.kind, w.last_point, w.company_uid, w.client_id, w.client_how, w.device_id,
+        $machines = DB::all("SELECT w.uid, w.provider, w.name, w.kind, w.last_point, w.company_uid, w.client_id, w.client_how, w.device_id,
                 c.name AS client_name, d.display_name AS device_name, v.name AS company_name,
                 (SELECT GROUP_CONCAT(j.name ORDER BY j.name SEPARATOR '|') FROM backup_workload_jobs x JOIN backup_jobs j ON j.uid = x.job_uid WHERE x.workload_uid = w.uid) AS job_names
             FROM backup_workloads w LEFT JOIN clients c ON c.id = w.client_id LEFT JOIN devices d ON d.id = w.device_id
-            LEFT JOIN veeam_companies v ON v.uid = w.company_uid
+            LEFT JOIN backup_companies v ON v.provider = w.provider AND v.uid = w.company_uid
             WHERE w.company_uid IN ($in) OR w.company_uid IS NULL
                OR w.uid IN (SELECT item_uid FROM backup_assignments WHERE item_type = 'workload')
             ORDER BY (w.client_id IS NULL AND w.client_how IS NULL) DESC, c.name, w.name", $pool);
@@ -201,10 +210,11 @@ final class MappingController
             'counts' => $counts,
             'shown' => $shown,
             'nav' => 'hosted-backups',
-            'configured' => \Align\Integrations\VeeamSpc::configured(),
+            'configured' => Providers::anyBackup(),
+            'several' => count(Providers::backupConnectors()) > 1,
             'companies' => $companies,
             'pool' => array_flip($pool),
-            'flagged' => array_flip(array_map('strval', $flagged)),
+            'flagged' => array_flip($flagged),
             'jobs' => $jobs,
             'machines' => $machines,
             'manual' => $manual,
@@ -217,9 +227,15 @@ final class MappingController
     {
         Auth::requireRole('tech');
         $clientIds = array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients'), 'id')));
-        $known = array_flip(array_column(DB::all('SELECT uid FROM veeam_companies'), 'uid'));
-        $hosting = array_values(array_filter(array_map('strval', (array) ($_POST['hosting'] ?? [])), fn($u) => isset($known[$u])));
-        \Align\Settings::set('veeam_hosting_companies', json_encode($hosting));
+        // Hosting flags, kept per backup product ({key}_hosting_companies)
+        $postedHosting = array_map('strval', array_filter((array) ($_POST['hosting'] ?? []), 'is_scalar'));
+        $hosting = [];
+        foreach (array_keys(Providers::backupConnectors()) as $key) {
+            $known = array_flip(array_map('strval', array_column(DB::all('SELECT uid FROM backup_companies WHERE provider = ?', [$key]), 'uid')));
+            $mine = array_values(array_filter($postedHosting, fn($u) => isset($known[$u])));
+            \Align\Settings::set($key . '_hosting_companies', json_encode($mine));
+            array_push($hosting, ...$mine);
+        }
 
         $names = ['job' => array_column(DB::all('SELECT uid, name FROM backup_jobs'), 'name', 'uid'),
             'workload' => array_column(DB::all('SELECT uid, name FROM backup_workloads'), 'name', 'uid')];
@@ -254,7 +270,7 @@ final class MappingController
                 $log[] = $names[$type][$uid] . ' → ' . $want;
             }
         }
-        $r = \Align\Sync\VeeamSync::assign();
+        $r = BackupSync::assign();
         Audit::log('backup.assign', $changes . ' change(s)' . ($log ? ': ' . mb_strimwidth(implode('; ', $log), 0, 900, '…') : '') . '; hosting companies: ' . count($hosting));
         flash('success', ($changes ? "Saved $changes change(s). " : 'Saved. ') . $r['hosted'] . ' hosted machine' . ($r['hosted'] == 1 ? '' : 's') . ' sorted into clients'
             . ($r['unsorted'] ? ', ' . $r['unsorted'] . ' still not matched.' : '.'));
@@ -291,7 +307,7 @@ final class MappingController
             }
             $n++;
         }
-        \Align\Sync\VeeamSync::assign();
+        BackupSync::assign();
         $label = $to === 'none' ? 'yours (not a client\'s)' : ($to === 'auto' ? 'back to automatic' : $clientName);
         Audit::log('backup.assign', "$n machine(s) → $label (bulk)");
         flash('success', "$n machine" . ($n === 1 ? '' : 's') . " set to $label.");

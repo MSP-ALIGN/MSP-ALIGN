@@ -19,7 +19,7 @@ final class ReportController
     public static function index(): void
     {
         Auth::require();
-        $clients = DB::all('SELECT id, name, veeam_company_uid FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
+        $clients = DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
         $fw = [];
         foreach (DB::all('SELECT cf.client_id, f.id, f.name FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id ORDER BY f.name') as $r) {
             $fw[(int) $r['client_id']][] = ['id' => (int) $r['id'], 'name' => $r['name']];
@@ -158,7 +158,7 @@ final class ReportController
         $lic = in_array('s_licensing', $allowed, true) ? ReportData::licensing($id) : null;
         $bk = in_array('s_backup', $allowed, true) ? ReportData::backup($id) : null;
         if (!$bk) {
-            // Client not linked to Veeam: no backup switch in the toolbar
+            // Client not linked to a backup product: no backup switch in the toolbar
             $allowed = array_values(array_diff($allowed, ['s_backup']));
         }
         $sla = in_array('s_sla', $allowed, true) && \Align\Service\Sla::enabled() ? \Align\Service\Sla::report($id, '90', 15) : null;

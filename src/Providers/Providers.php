@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace Align\Providers;
 
+use Align\Integrations\BackupConnector;
 use Align\Integrations\PsaConnector;
 use Align\Integrations\Registry;
 use Align\Integrations\RmmConnector;
+use Align\Providers\Backup\BackupProvider;
 use Align\Providers\Psa\PsaProvider;
 use Align\Providers\Rmm\RmmProvider;
 use Align\Settings;
@@ -13,7 +15,8 @@ use Align\Settings;
 /**
  * Which provider fills each data area. An install has exactly one PSA (the source of truth for
  * clients): the one named in the psa_provider setting, or else the only PSA connector set up. It can
- * have any number of RMMs; each device records the RMM it came from (devices.rmm_provider).
+ * have any number of RMMs; each device records the RMM it came from (devices.rmm_provider). It can
+ * also have any number of backup products; every stored backup record notes its provider.
  */
 final class Providers
 {
@@ -158,5 +161,56 @@ final class Providers
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    // ---- Backup ----
+
+    /** @return array<string, BackupConnector> */
+    public static function backupConnectors(): array
+    {
+        return array_filter(Registry::all(), fn($c) => $c instanceof BackupConnector);
+    }
+
+    /** Backup connectors that are set up. @return array<string, BackupConnector> */
+    public static function backupConfigured(): array
+    {
+        return array_filter(self::backupConnectors(), fn(BackupConnector $c) => $c->configured());
+    }
+
+    public static function anyBackup(): bool
+    {
+        return (bool) self::backupConfigured();
+    }
+
+    /** A backup provider by key, ready to call. Throws when it isn't set up. */
+    public static function backup(string $key): BackupProvider
+    {
+        $c = self::backupConnectors()[$key] ?? null;
+        if (!$c || !$c->configured()) {
+            throw new \RuntimeException(($c ? $c->name() : "The backup provider \"$key\"") . ' is not configured (Integrations).');
+        }
+        return $c->provider();
+    }
+
+    /** A backup provider's short name ("Veeam"); "Backup" for an unknown key. */
+    public static function backupName(?string $key): string
+    {
+        return $key !== null && isset(self::backupConnectors()[$key]) ? self::backupConnectors()[$key]->shortName() : 'Backup';
+    }
+
+    /** A backup provider's full name ("Veeam Service Provider Console"); "Backup" for an unknown key. */
+    public static function backupFullName(?string $key): string
+    {
+        return $key !== null && isset(self::backupConnectors()[$key]) ? self::backupConnectors()[$key]->name() : 'Backup';
+    }
+
+    /** Names of the backup products in use, for sentences; the only one Align supports when none is set up; else "your backup product". */
+    public static function backupNames(string $join = ' or '): string
+    {
+        $n = array_map(fn($c) => $c->shortName(), array_values(self::backupConfigured()));
+        if (!$n && count(self::backupConnectors()) === 1) {
+            $n = [array_values(self::backupConnectors())[0]->shortName()];
+        }
+        return $n ? implode($join, $n) : 'your backup product';
     }
 }

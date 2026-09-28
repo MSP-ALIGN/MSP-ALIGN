@@ -81,10 +81,9 @@ final class SyncRunner
         if ($psaOk && $psa->supports('invoices') && Settings::get('budget_msp_estimate', '1') === '1') {
             $this->step("Managed-services estimate ($psaName invoices)", fn() => \Align\Budget\Billing::syncFromPsa($psa));
         }
-        if (\Align\Integrations\VeeamSpc::configured()) {
-            $veeam = $this->client(fn() => \Align\Integrations\VeeamSpc::fromSettings(), 'Veeam');
-            if ($veeam) {
-                $this->step('Veeam backups', fn() => VeeamSync::run($veeam, fn($m) => $this->info($m)));
+        foreach (Providers::backupConfigured() as $key => $c) {
+            if ($backup = $this->client(fn() => Providers::backup($key), $c->shortName())) {
+                $this->step($c->shortName() . ' backups', fn() => BackupSync::run($backup, fn($m) => $this->info($m)));
             }
         }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());

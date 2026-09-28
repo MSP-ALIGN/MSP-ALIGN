@@ -182,7 +182,7 @@ final class Dashboard
                     continue;
                 }
                 if ($x['failed']) {
-                    $add('bad', 'backup', $x['failed'] . ' backup job' . ($x['failed'] === 1 ? '' : 's') . ' failed', ($x['overdue'] ? $x['overdue'] . ' item(s) without a recent restore point. ' : '') . 'Check the job in Veeam, or mark items that don\'t need a backup.', '/clients/' . $id . '/backups', $names[$id]);
+                    $add('bad', 'backup', $x['failed'] . ' backup job' . ($x['failed'] === 1 ? '' : 's') . ' failed', ($x['overdue'] ? $x['overdue'] . ' item(s) without a recent restore point. ' : '') . 'Check the job in ' . \Align\Providers\Providers::backupNames() . ', or mark items that don\'t need a backup.', '/clients/' . $id . '/backups', $names[$id]);
                 } elseif ($x['overdue']) {
                     $add('warn', 'backup', $x['overdue'] . ' item' . ($x['overdue'] === 1 ? '' : 's') . ' without a recent backup', 'No restore point within ' . \Align\Backup\Backup::staleHours() . ' hours.', '/clients/' . $id . '/backups', $names[$id]);
                 } elseif ($x['warning']) {

@@ -281,10 +281,10 @@ final class ReportData
      * Plain-language highlights for the QBR executive summary, most important first.
      * @return array<int, array{tone:string, title:string, text:string}>
      */
-    /** Backup status (Veeam) for a client, or null when the client isn't linked to a Veeam company. */
+    /** Backup status for a client, or null when it has no backup data. */
     public static function backup(int $clientId): ?array
     {
-        $client = DB::one('SELECT id, veeam_company_uid FROM clients WHERE id = ?', [$clientId]);
+        $client = DB::one('SELECT id FROM clients WHERE id = ?', [$clientId]);
         return $client ? \Align\Backup\Backup::forClient($client, self::devices($clientId)) : null;
     }
 

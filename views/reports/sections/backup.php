@@ -3,7 +3,7 @@ use Align\Backup\Backup;
 use Align\Reports\Ui;
 
 /**
- * Backup & recovery (Veeam). Client-facing.
+ * Backup & recovery (from the client's backup products). Client-facing.
  * @var array $b Backup::forClient(); ?string $num; bool $details (jobs table); bool $machines; ?int $limit (machines shown)
  */
 $s = $b['stats'];
@@ -55,7 +55,7 @@ usort($issues, fn($x, $y) => ($x[5] === 'bad' ? 0 : 1) <=> ($y[5] === 'bad' ? 0 
 $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
 ?>
 <section class="rsection">
-  <?= Ui::head('Backup & recovery', $num ?? null, 'Veeam · updated ' . rel_time($b['synced'])) ?>
+  <?= Ui::head('Backup & recovery', $num ?? null, $b['source'] . ' · updated ' . rel_time($b['synced'])) ?>
   <p class="lede">Whether your data can be restored: how your backup jobs are running and how recent the newest restore point is for each protected machine<?= $m ? ' and your Microsoft 365 data' : '' ?>.</p>
   <div class="kpi-row<?= $tiles === 5 ? ' cols-5' : ($tiles === 6 ? ' cols-3' : '') ?>">
     <?= Ui::kpi($s['protected'] ? $s['ok'] . ' of ' . $s['protected'] : '0', 'Machines current', 'restore point within ' . $b['stale'] . ' hrs', $s['protected'] && $s['ok'] === $s['protected'] ? 'ok' : ($s['protected'] ? 'warn' : 'muted')) ?>

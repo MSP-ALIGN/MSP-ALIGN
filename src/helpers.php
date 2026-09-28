@@ -275,3 +275,16 @@ function source_label(?string $source, ?string $rmmProvider = null): string
         default => (string) $source,
     };
 }
+
+/** "DC01.contoso.local" → "dc01": the short host name used to line up backups, RMM devices and PSA assets. */
+function host_key(?string $name): string
+{
+    $n = strtolower(trim((string) $name));
+    if (str_contains($n, '\\')) {
+        $n = substr($n, strrpos($n, '\\') + 1);
+    }
+    if (!filter_var($n, FILTER_VALIDATE_IP) && str_contains($n, '.')) {
+        $n = substr($n, 0, strpos($n, '.'));
+    }
+    return $n;
+}

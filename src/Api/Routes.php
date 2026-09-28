@@ -120,7 +120,7 @@ final class Routes
 
             $r('GET', '/backups', 'backups:read', [Backups::class, 'index'], 'Backups', 'Backup health for every client', ['list' => true, 'returns' => 'BackupSummary', 'query' => $page]),
             $r('GET', '/clients/{id}/backups', 'backups:read', [Backups::class, 'client'], 'Backups', 'Get a client\'s backups', ['returns' => 'ClientBackups',
-                'description' => 'Stats, 30-day history, jobs (with Veeam\'s messages), protected machines, Microsoft 365 and servers with no backup. Includes machines backed up on your own server.']),
+                'description' => 'Stats, 30-day history, jobs (with the backup product\'s messages), protected machines, Microsoft 365 and servers with no backup. Includes machines backed up on your own server.']),
             $r('GET', '/clients/{id}/backup-exemptions', 'backups:read', [Backups::class, 'exemptions'], 'Backups', 'List items marked "backup not required"', ['list' => true, 'returns' => 'Exemption', 'query' => $page]),
             $r('POST', '/clients/{id}/backup-exemptions', 'backups:write', [Backups::class, 'exempt'], 'Backups', 'Mark an item "backup not required"', ['returns' => 'Exemption', 'status' => 201, 'creating' => true,
                 'body' => ['kind' => ['string', ['required' => true, 'enum' => ['device', 'workload', 'm365']]], 'device_id' => ['int', ['desc' => 'For kind=device.']], 'item_uid' => ['string', ['desc' => 'For kind=workload or m365.']], 'reason' => ['string', ['required' => true, 'max' => 255]]]]),

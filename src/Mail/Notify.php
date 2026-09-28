@@ -118,7 +118,7 @@ final class Notify
     private static function backupProblems(?array $ids): array
     {
         $out = [];
-        $clients = DB::all('SELECT c.* FROM clients c WHERE (c.veeam_company_uid IS NOT NULL OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
+        $clients = DB::all('SELECT c.* FROM clients c WHERE (' . \Align\Providers\ClientLinks::backupLinkedSql() . ' OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
             OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)) AND c.is_archived = 0 AND c.planning_excluded = 0' . self::clientFilter($ids) . ' ORDER BY c.name');
         foreach ($clients as $c) {
             $devs = array_values(array_filter((new \Align\Lifecycle\Lifecycle())->devices((int) $c['id']), fn($d) => $d['status'] !== 'excluded'));
@@ -332,7 +332,7 @@ final class Notify
             $name = $jobs[0]['client_name'];
             $blocks = [T::p(count($jobs) === 1 ? 'A backup job failed on its last run.' : count($jobs) . ' backup jobs failed on their last run.')];
             foreach ($jobs as $j) {
-                $blocks[] = T::facts(['Job' => $j['name'], 'Type' => \Align\Backup\Backup::jobKind($j), 'Last run' => fmt_datetime($j['last_run']), 'Error' => $j['failure_message'] ?: 'No details from Veeam']);
+                $blocks[] = T::facts(['Job' => $j['name'], 'Type' => \Align\Backup\Backup::jobKind($j), 'Last run' => fmt_datetime($j['last_run']), 'Error' => $j['failure_message'] ?: 'No details from ' . \Align\Providers\Providers::backupNames()]);
             }
             $blocks[] = T::button('Open backups for ' . $name, N::url('/clients/' . $cid . '/backups'));
             if (Mailer::queue('backup_failed', N::recipientsFor('backup_failed', $cid), 'Backup failed: ' . $name . ' — ' . implode(', ', array_column($jobs, 'name')),

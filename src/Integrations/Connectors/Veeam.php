@@ -3,17 +3,17 @@ declare(strict_types=1);
 
 namespace Align\Integrations\Connectors;
 
-use Align\Integrations\Connector;
+use Align\Integrations\BackupConnector;
+use Align\Providers\Backup\BackupProvider;
+use Align\Providers\Backup\VeeamBackup;
 
-final class Veeam extends Connector
+final class Veeam extends BackupConnector
 {
     public function key(): string { return 'veeam'; }
     public function name(): string { return 'Veeam Service Provider Console'; }
     public function icon(): string { return 'fas fa-database'; }
-    public function category(): string { return 'Backup'; }
+    public function shortName(): string { return 'Veeam'; }
     public function summary(): string { return 'Backup jobs and results, protected machines, Microsoft 365 backups and Cloud Connect storage for each client.'; }
-    public function syncSteps(): array { return ['Veeam']; }
-    public function hasTest(): bool { return true; }
 
     public function configured(): bool
     {
@@ -37,8 +37,8 @@ final class Veeam extends Connector
         ];
     }
 
-    public function test(): string
+    public function provider(): BackupProvider
     {
-        return \Align\Integrations\VeeamSpc::fromSettings()->test();
+        return VeeamBackup::fromSettings();
     }
 }

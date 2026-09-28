@@ -7,7 +7,7 @@ portal and the REST API read only neutral tables, so they don't know or care whi
 |---|---|---|
 | PSA (exactly one per install) | ITFlow | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
 | RMM (any number) | NinjaOne | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links` |
-| Backup | Veeam Service Provider Console | moving behind a provider interface in 1.30 |
+| Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
 
 ## PSA providers
 
@@ -48,3 +48,23 @@ An install can run several RMMs. Each device belongs to the RMM that reports it 
 `client_links` (`provider`, `external_id`, `match_method`); organizations whose name matches a client's
 link automatically on sync, and a manual link with no organization means "deliberately not linked".
 RMM devices find their client through that link (`Lifecycle::CLIENT_JOIN`).
+
+## Backup providers
+
+A backup provider implements [`Align\Providers\Backup\BackupProvider`](../src/Providers/Backup/BackupProvider.php):
+`snapshot()` returns the product's companies, jobs with their last result, protected machines (with the
+jobs that protect them) and, where the product has them, cloud storage and Microsoft 365 backups, all as
+neutral records (documented at the top of the interface). Align stores the records, keeps 30 days of job
+runs and works out every client's backup health; the provider only reads. Uids must be unique across
+providers (GUIDs are; otherwise prefix them with the provider's key). `supports()` says which optional
+parts (`cloud_storage`, `m365`, `agents`) the product has.
+
+The connector extends [`BackupConnector`](../src/Integrations/BackupConnector.php); [`VeeamBackup`](../src/Providers/Backup/VeeamBackup.php)
+and `Connectors\Veeam` are the reference. Register it in `Registry::CONNECTORS`.
+
+An install can run several backup products. Every stored record carries its `provider`, so one product's
+sync never prunes another's. Each client links to at most one company per product through `client_links`;
+companies whose name matches a client's link automatically on sync. Machines under a company linked to
+no client, or under one flagged in `<key>_hosting_companies`, are treated as backups on your own server
+and sorted into clients by device name, by job, or by hand (**Client mapping → Hosted backups**).
+

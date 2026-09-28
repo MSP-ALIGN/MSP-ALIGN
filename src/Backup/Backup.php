@@ -4,9 +4,11 @@ declare(strict_types=1);
 namespace Align\Backup;
 
 use Align\DB;
+use Align\Providers\ClientLinks;
+use Align\Providers\Providers;
 use Align\Settings;
 
-/** Backup status per client, built from what the Veeam sync stored. */
+/** Backup status per client, built from what the backup sync stored (any backup provider). */
 final class Backup
 {
     public const STATUS = [
@@ -28,7 +30,7 @@ final class Backup
 
     public static function enabled(): bool
     {
-        return \Align\Integrations\VeeamSpc::configured() || (int) DB::value('SELECT COUNT(*) FROM veeam_companies') > 0;
+        return Providers::anyBackup() || (int) DB::value('SELECT COUNT(*) FROM backup_companies') > 0;
     }
 
     private static array $hasCache = [];
@@ -72,10 +74,10 @@ final class Backup
             }
         }
         $keys = array_values(array_unique(array_filter($keys, fn($k) => strlen($k) >= 3)));
-        $servers = array_values(array_filter(array_map(fn($n) => \Align\Integrations\VeeamSpc::hostKey((string) $n), $serverNames)));
+        $servers = array_values(array_filter(array_map(fn($n) => host_key((string) $n), $serverNames)));
         $score = function (string $name) use ($keys, $servers): int {
             $n = strtolower($name);
-            $host = \Align\Integrations\VeeamSpc::hostKey($name);
+            $host = host_key($name);
             foreach ($servers as $sv) {
                 if ($sv !== '' && ($host === $sv || str_contains($host, $sv) || str_contains($sv, $host))) {
                     return 3;
@@ -115,27 +117,31 @@ final class Backup
             'suggested' => count(array_filter($machines, fn($m) => $m['score'] > 0)) + count(array_filter($jobs, fn($j) => $j['score'] > 0))];
     }
 
-    /** Whether a client has any backup data: its own Veeam company, or machines / jobs sorted to it from a hosting server. */
+    /** Whether a client has any backup data: its own backup company, or machines / jobs sorted to it from a hosting server. */
     public static function has(array|int $client): bool
     {
         $id = (int) (is_array($client) ? $client['id'] : $client);
-        if (is_array($client) && !empty($client['veeam_company_uid'])) {
-            return true;
-        }
-        return self::$hasCache[$id] ??= (bool) DB::value('SELECT 1 FROM clients c WHERE c.id = ? AND (c.veeam_company_uid IS NOT NULL
+        return self::$hasCache[$id] ??= (bool) DB::value('SELECT 1 FROM clients c WHERE c.id = ? AND (' . ClientLinks::backupLinkedSql() . '
             OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id) OR EXISTS (SELECT 1 FROM backup_job_clients j WHERE j.client_id = c.id))', [$id]);
     }
 
     /**
      * Everything the client page and reports show. Null when the client has no backup data at all.
-     * Machines and jobs come from the client's own Veeam company and from hosting servers (see VeeamSync::assign()).
+     * Machines and jobs come from the client's own backup companies and from hosting servers (see BackupSync::assign()).
      * $devices: Lifecycle::devices() for the client (used to find servers with no backup).
      */
     public static function forClient(array $client, ?array $devices = null): ?array
     {
         $cid = (int) $client['id'];
-        $uid = $client['veeam_company_uid'] ?? null;
-        $company = $uid ? DB::one('SELECT * FROM veeam_companies WHERE uid = ?', [$uid]) : null;
+        // The client's own backup companies (one per backup product at most)
+        $companies = [];
+        foreach (ClientLinks::backupCompanies($cid) as $l) {
+            if ($row = DB::one('SELECT * FROM backup_companies WHERE provider = ? AND uid = ?', [$l['provider'], $l['uid']])) {
+                $companies[] = $row;
+            }
+        }
+        $uids = array_column($companies, 'uid');
+        $company = $companies[0] ?? null;
         $jobRows = DB::all('SELECT j.*, jc.how AS client_how, (SELECT COUNT(*) FROM backup_job_clients x WHERE x.job_uid = j.uid) AS client_count
             FROM backup_jobs j JOIN backup_job_clients jc ON jc.job_uid = j.uid AND jc.client_id = ? ORDER BY j.name', [$cid]);
         $wlRows = DB::all('SELECT w.*, d.display_name AS device_name FROM backup_workloads w LEFT JOIN devices d ON d.id = w.device_id
@@ -186,7 +192,7 @@ final class Backup
 
         $workloads = [];
         foreach ($wlRows as $w) {
-            $w['hosted'] = in_array($w['client_how'], ['device', 'job', 'machine'], true) && (string) $w['company_uid'] !== (string) $uid;
+            $w['hosted'] = in_array($w['client_how'], ['device', 'job', 'machine'], true) && !in_array((string) $w['company_uid'], $uids ?: [''], true); // no company of its own: a machine with no company isn't hosted
             $age = $w['last_point'] ? ($now - strtotime($w['last_point'])) / 3600 : null;
             $tone = match (true) {
                 $age === null => 'bad',
@@ -232,7 +238,7 @@ final class Backup
         }
         $runCount = array_sum($tot);
 
-        $m365 = $uid ? self::m365($uid, $stale, $jobs, $ex['items']) : null;
+        $m365 = $uids ? self::m365($uids, $stale, $jobs, $ex['items']) : null;
         $all = $workloads;
         $workloads = array_values(array_filter($all, fn($w) => !$w['exempt']));
 
@@ -250,16 +256,22 @@ final class Backup
             'rate' => $runCount ? (int) floor(($tot['success'] + $tot['warning']) / $runCount * 100) : null,
             'last_point' => $workloads ? max(array_map(fn($w) => (string) $w['last_point'], $workloads)) ?: null : null,
             'backup_bytes' => array_sum(array_map(fn($w) => (int) $w['backup_bytes'], $workloads)),
-            'cloud_used' => ($company['cloud_used_bytes'] ?? null) !== null ? (int) $company['cloud_used_bytes'] : null,
-            'cloud_quota' => ($company['cloud_quota_bytes'] ?? null) !== null ? (int) $company['cloud_quota_bytes'] : null,
+            'cloud_used' => ($cUsed = array_filter(array_column($companies, 'cloud_used_bytes'), fn($x) => $x !== null)) ? (int) array_sum($cUsed) : null,
+            'cloud_quota' => ($cQuota = array_filter(array_column($companies, 'cloud_quota_bytes'), fn($x) => $x !== null)) ? (int) array_sum($cQuota) : null,
         ];
         $stats['cloud_pct'] = $stats['cloud_quota'] ? (int) round($stats['cloud_used'] / $stats['cloud_quota'] * 100) : null;
         $stats['m365_overdue'] = $m365 ? $m365['overdue_count'] : 0;
         $stats['tone'] = $stats['failed'] || $stats['unprotected'] || count(array_filter($workloads, fn($w) => $w['tone'] === 'bad')) ? 'bad'
             : ($stats['warning'] || $stats['overdue'] || $stats['m365_overdue'] || array_filter($jobs, fn($j) => $j['tone'] === 'warn') ? 'warn' : 'ok');
 
+        // Which backup products this client's data came from (names for headings: "Veeam")
+        $from = array_values(array_unique(array_filter([...array_column($companies, 'provider'), ...array_column($jobRows, 'provider'), ...array_column($wlRows, 'provider')])));
         return [
             'company' => $company,
+            'companies' => $companies,
+            'providers' => $from,
+            'source' => $from ? implode(', ', array_map(fn($k) => Providers::backupName($k), $from)) : Providers::backupNames(', '),
+            'source_full' => $from ? implode(', ', array_map(fn($k) => Providers::backupFullName($k), $from)) : Providers::backupNames(', '),
             'jobs' => $jobs,
             'workloads' => $workloads,
             'all_workloads' => array_merge($workloads, array_values(array_filter($all, fn($w) => $w['exempt']))),
@@ -275,13 +287,14 @@ final class Backup
     }
 
     /**
-     * Microsoft 365 backup for one company: tenants, counts per object type, overdue objects.
-     * Null when the company has no Veeam Backup for Microsoft 365 data.
+     * Microsoft 365 backup for a client's companies: tenants, counts per object type, overdue objects.
+     * Null when the companies have no Microsoft 365 backup data.
      */
-    private static function m365(string $uid, int $stale, array $jobs, array $exempt = []): ?array
+    private static function m365(array $uids, int $stale, array $jobs, array $exempt = []): ?array
     {
-        $orgs = DB::all('SELECT * FROM backup_m365_orgs WHERE company_uid = ? ORDER BY name', [$uid]);
-        $objects = DB::all('SELECT * FROM backup_m365_objects WHERE company_uid = ? ORDER BY name', [$uid]);
+        $in = implode(',', array_fill(0, count($uids), '?'));
+        $orgs = DB::all("SELECT * FROM backup_m365_orgs WHERE company_uid IN ($in) ORDER BY name", $uids);
+        $objects = DB::all("SELECT * FROM backup_m365_objects WHERE company_uid IN ($in) ORDER BY name", $uids);
         $m365Jobs = array_values(array_filter($jobs, fn($j) => $j['source'] === 'm365'));
         if (!$orgs && !$objects && !$m365Jobs) {
             return null;
@@ -366,11 +379,11 @@ final class Backup
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS protected,
                 (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND (w.last_point IS NULL OR w.last_point < ?)
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS overdue,
-                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid = c.veeam_company_uid AND (m.last_point IS NULL OR m.last_point < ?)
+                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid IN " . ClientLinks::backupCompaniesSql() . " AND (m.last_point IS NULL OR m.last_point < ?)
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND e.item_uid = m.uid)) AS m365_overdue,
                 (SELECT COUNT(*) FROM backup_job_runs r JOIN backup_job_clients rc ON rc.job_uid = r.job_uid AND rc.client_id = c.id WHERE r.run_at >= ?) AS runs,
                 (SELECT COUNT(*) FROM backup_job_runs r JOIN backup_job_clients rc ON rc.job_uid = r.job_uid AND rc.client_id = c.id WHERE r.run_at >= ? AND r.status <> 'failed') AS runs_ok
-            FROM clients c WHERE c.veeam_company_uid IS NOT NULL OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
+            FROM clients c WHERE " . ClientLinks::backupLinkedSql() . " OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
                 OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)", [$stale, $stale, $since, $since]) as $r) {
             $r = array_map('intval', $r);
             $r['overdue'] += $r['m365_overdue'];

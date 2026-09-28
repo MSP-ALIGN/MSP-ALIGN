@@ -18,7 +18,7 @@ final class Notifications
 {
     /** key => [label, group, audience, timing, description, default roles, vCIO by default, on by default] */
     public const CATALOG = [
-        'backup_failed' => ['Backup job failed', 'Backups & sync', 'staff', 'immediate', 'When a sync finds a Veeam job that failed on its last run (once per failure).', ['admin', 'tech'], true, true],
+        'backup_failed' => ['Backup job failed', 'Backups & sync', 'staff', 'immediate', 'When a sync finds a backup job that failed on its last run (once per failure).', ['admin', 'tech'], true, true],
         'backup_digest' => ['Daily backup summary', 'Backups & sync', 'staff', 'daily', 'Failed jobs, overdue machines and Microsoft 365 items, and servers with no backup. Skipped when everything is healthy.', ['admin'], true, true],
         'sync_failed' => ['Sync problems', 'Backups & sync', 'staff', 'immediate', 'When the hourly sync fails or partly fails, and again when it recovers.', ['admin'], false, true],
         'renewals' => ['Contracts & renewals', 'Planning', 'staff', 'weekly', 'Contract end dates, renegotiation deadlines and license renewals in the next 60 days.', ['admin', 'tech'], true, true],

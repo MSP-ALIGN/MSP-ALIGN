@@ -73,7 +73,7 @@ if ($client) {
                     . ($bw['last_point'] ? ' <span class="small text-muted">' . e(fmt_datetime($bw['last_point'])) . ' · ' . (int) $bw['restore_points'] . ' restore points · ' . e(fmt_bytes($bw['backup_bytes'])) . '</span>' : '')
                     . ' <a class="small" href="/clients/' . (int) $client['id'] . '/backups">Backups</a>'
                   . $exForm
-                  : '<span class="text-' . $btone . '">No Veeam backup found for this device</span>' . $exForm);
+                  : '<span class="text-' . $btone . '">No ' . e(\Align\Providers\Providers::backupNames()) . ' backup found for this device</span>' . $exForm);
           endif; ?>
           <?= $row(psa_name() . ' asset', $d['psa_asset_id'] ? 'Linked (#' . (int) $d['psa_asset_id'] . ')' : '<span class="text-muted">Not linked</span>') ?>
         </table>

@@ -139,7 +139,7 @@ final class DashboardController
         return ['total' => \Align\Service\Sla::stats(null, $from, $to), 'open' => \Align\Service\Sla::openCounts(null), 'clients' => $clients, 'target' => $target];
     }
 
-    /** Clients whose Veeam backups have a failed job or an overdue machine, worst first. */
+    /** Clients whose backups have a failed job or an overdue machine, worst first. */
     private static function backupIssues(): array
     {
         if (!\Align\Backup\Backup::enabled()) {

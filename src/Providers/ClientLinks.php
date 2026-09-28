@@ -69,11 +69,44 @@ final class ClientLinks
         DB::run("DELETE FROM client_links WHERE provider = ? AND external_id IS NOT NULL AND external_id NOT IN ($in)", [$provider, ...array_map('strval', $existingIds)]);
     }
 
-    /** Quoted, comma-separated keys of the RMM connectors, for SQL IN lists (keys are fixed class constants). */
+    /** Quoted, comma-separated connector keys for SQL IN lists (keys are fixed class constants). */
+    private static function sqlKeys(array $keys): string
+    {
+        return $keys ? implode(',', array_map(fn($k) => "'" . preg_replace('/[^a-z0-9_-]/', '', (string) $k) . "'", $keys)) : "''";
+    }
+
     private static function rmmKeys(): string
     {
-        $keys = array_keys(Providers::rmmConnectors());
-        return $keys ? implode(',', array_map(fn($k) => "'" . preg_replace('/[^a-z0-9_-]/', '', $k) . "'", $keys)) : "''";
+        return self::sqlKeys(array_keys(Providers::rmmConnectors()));
+    }
+
+    private static function backupKeys(): string
+    {
+        return self::sqlKeys(array_keys(Providers::backupConnectors()));
+    }
+
+    /** SQL condition: the client (alias $c) is linked to a company in some backup product. */
+    public static function backupLinkedSql(string $c = 'c'): string
+    {
+        return "EXISTS (SELECT 1 FROM client_links bl WHERE bl.client_id = $c.id AND bl.external_id IS NOT NULL AND bl.provider IN (" . self::backupKeys() . '))';
+    }
+
+    /** SQL subquery for `x IN (...)`: the client's (alias $c) backup company uids. */
+    public static function backupCompaniesSql(string $c = 'c'): string
+    {
+        return "(SELECT bl.external_id FROM client_links bl WHERE bl.client_id = $c.id AND bl.external_id IS NOT NULL AND bl.provider IN (" . self::backupKeys() . '))';
+    }
+
+    /** The client's backup company uids. @return string[] */
+    public static function backupCompanyUids(int $clientId): array
+    {
+        return array_map('strval', array_column(self::backupCompanies($clientId), 'uid'));
+    }
+
+    /** The client's backup companies: [[provider, uid], ...]. */
+    public static function backupCompanies(int $clientId): array
+    {
+        return DB::all('SELECT provider, external_id AS uid FROM client_links WHERE client_id = ? AND external_id IS NOT NULL AND provider IN (' . self::backupKeys() . ')', [$clientId]);
     }
 
     /** SQL condition: the client (alias $c) is linked to an organization in some RMM. */

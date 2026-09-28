@@ -7,10 +7,11 @@ use Align\Audit;
 use Align\Auth;
 use Align\Backup\Backup;
 use Align\Lifecycle\Lifecycle;
+use Align\Providers\Providers;
 use Align\Reports\ReportData;
 use Align\View;
 
-/** Backup status from the Veeam Service Provider Console. */
+/** Backup status from the connected backup products. */
 final class BackupController
 {
     public static function client(int $id): void
@@ -34,7 +35,7 @@ final class BackupController
             'clientNav' => 'backups',
             'b' => $b,
             'claim' => $claim,
-            'configured' => \Align\Integrations\VeeamSpc::configured(),
+            'configured' => Providers::anyBackup(),
         ]);
     }
 
@@ -55,7 +56,7 @@ final class BackupController
         \Align\DB::run('DELETE FROM backup_assignments WHERE item_type = ? AND item_uid = ?', [$kind, $row['uid']]);
         \Align\DB::insert('backup_assignments', ['item_type' => $kind, 'item_uid' => $row['uid'], 'client_id' => $id,
             'item_name' => mb_substr($row['name'], 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
-        \Align\Sync\VeeamSync::assign();
+        \Align\Sync\BackupSync::assign();
         Audit::log('backup.assign', "{$row['name']} → {$client['name']} (from the client's Backups page)");
         $n = $kind === 'job' ? (int) \Align\DB::value('SELECT COUNT(*) FROM backup_workloads WHERE client_id = ? AND uid IN (SELECT workload_uid FROM backup_workload_jobs WHERE job_uid = ?)', [$id, $row['uid']]) : 1;
         flash('success', ($kind === 'job' ? "Job {$row['name']} ($n machine" . ($n === 1 ? '' : 's') . ')' : $row['name']) . " now counts for {$client['name']}. Change it any time under Hosted backups.");
@@ -78,7 +79,7 @@ final class BackupController
             if (defined('IS_PORTAL') && IS_PORTAL) {
                 exit('Not found');
             }
-            View::render('error', ['title' => 'No backup data', 'message' => 'This client is not linked to a Veeam company yet.']);
+            View::render('error', ['title' => 'No backup data', 'message' => 'This client is not linked to a ' . Providers::backupNames() . ' company yet.']);
             return;
         }
         Audit::log('report.backup', $client['name']);
@@ -121,7 +122,7 @@ final class BackupController
             redirect($back);
         }
         $row = ['client_id' => $id, 'kind' => $kind, 'device_id' => null, 'item_uid' => null, 'reason' => $reason, 'created_by' => Auth::user()['id'] ?? null];
-        $uid = (string) ($client['veeam_company_uid'] ?? '');
+        $uids = \Align\Providers\ClientLinks::backupCompanyUids($id);
         switch ($kind) {
             case 'device':
                 $d = ctype_digit($ref) ? (new Lifecycle())->devices($id, false, (int) $ref)[0] ?? null : null;
@@ -137,7 +138,7 @@ final class BackupController
                 $table = $kind === 'workload' ? 'backup_workloads' : 'backup_m365_objects';
                 $item = $kind === 'workload'
                     ? \Align\DB::one('SELECT uid, name FROM backup_workloads WHERE uid = ? AND client_id = ?', [$ref, $id])
-                    : ($uid !== '' ? \Align\DB::one('SELECT uid, name FROM backup_m365_objects WHERE uid = ? AND company_uid = ?', [$ref, $uid]) : null);
+                    : ($uids ? \Align\DB::one('SELECT uid, name FROM backup_m365_objects WHERE uid = ? AND company_uid IN (' . implode(',', array_fill(0, count($uids), '?')) . ')', [$ref, ...$uids]) : null);
                 if (!$item) {
                     http_response_code(404);
                     exit('Not found');
@@ -157,7 +158,7 @@ final class BackupController
         redirect($back);
     }
 
-    /** Internal all-clients backup status (every client linked to a Veeam company). */
+    /** Internal all-clients backup status (every client linked to a backup company). */
     public static function portfolio(): void
     {
         Auth::require();
@@ -189,7 +190,7 @@ final class BackupController
         View::render('reports/backups', [
             'title' => 'Backup Status — All Clients',
             'reportTitle' => 'Backup Status',
-            'reportSubtitle' => count($rows) . ' clients linked to Veeam · internal · as of ' . date('F j, Y'),
+            'reportSubtitle' => count($rows) . ' clients linked to ' . Providers::backupNames() . ' · internal · as of ' . date('F j, Y'),
             'opt' => ['all' => $all],
             'optLabels' => ['all' => 'Clients with no problems'],
             'brand' => ReportController::branding(),

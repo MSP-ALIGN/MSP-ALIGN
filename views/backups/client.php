@@ -16,7 +16,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 mr-auto"><i class="fas fa-database text-secondary mr-2"></i>Backups</h1>
   <?php if ($b): ?>
-    <span class="small text-muted mr-2">From Veeam Service Provider Console<?= $b['company'] ? ' · ' . e($b['company']['name']) : '' ?><?= $b['hosted'] ? ' · ' . (int) $b['hosted'] . ' machine' . ($b['hosted'] == 1 ? '' : 's') . ' on your own backup server' : '' ?><?= $b['synced'] ? ' · updated ' . e(rel_time($b['synced'])) : '' ?></span>
+    <span class="small text-muted mr-2">From <?= e($b['source_full']) ?><?= $b['company'] ? ' · ' . e($b['company']['name']) : '' ?><?= $b['hosted'] ? ' · ' . (int) $b['hosted'] . ' machine' . ($b['hosted'] == 1 ? '' : 's') . ' on your own backup server' : '' ?><?= $b['synced'] ? ' · updated ' . e(rel_time($b['synced'])) : '' ?></span>
     <?php if (Auth::can('tech')): ?><a class="btn btn-sm btn-default mr-1" href="/mapping/backups" title="Sort machines backed up on your own server into clients"><i class="fas fa-building mr-1"></i>Hosted backups</a><?php endif; ?>
     <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-print mr-1"></i>Report</a>
   <?php endif; ?>
@@ -25,11 +25,11 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php if (!$b): ?>
   <div class="card card-body">
     <?php if (!$configured): ?>
-      <p class="mb-1"><b>Veeam isn't connected yet.</b></p>
-      <p class="text-muted mb-0">Add your Veeam Service Provider Console URL and an API key under <?= Auth::can('admin') ? '<a href="/integrations/veeam">Integrations → Veeam</a>' : 'Integrations → Veeam' ?>. Backup jobs, protected machines and cloud storage then sync every hour.</p>
+      <p class="mb-1"><b><?= e($bn = \Align\Providers\Providers::backupNames()) ?> isn't connected yet.</b></p>
+      <p class="text-muted mb-0"><?php $bc = \Align\Providers\Providers::backupConnectors(); if (count($bc) === 1): $one = reset($bc); ?>Add your <?= e($one->name()) ?> URL and an API key under <?= Auth::can('admin') ? '<a href="/integrations/' . e($one->key()) . '">Integrations → ' . e($one->shortName()) . '</a>' : 'Integrations → ' . e($one->shortName()) ?>.<?php else: ?>Connect your backup product under <?= Auth::can('admin') ? '<a href="/integrations">Integrations</a>' : 'Integrations' ?>.<?php endif; ?> Backup jobs, protected machines and cloud storage then sync every hour.</p>
     <?php else: ?>
       <p class="mb-1"><b>No backups found for this client.</b></p>
-      <p class="text-muted mb-0">It isn't linked to a Veeam company, and nothing on your own backup server is matched to it. Companies with the same name link automatically on sync; otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>. If you back up this client's servers on your own Veeam server, match them under <?= Auth::can('tech') ? '<a href="/mapping/backups">Hosted backups</a>' : 'Hosted backups' ?>.</p>
+      <p class="text-muted mb-0">It isn't linked to a<?= preg_match('/^[AEIOU]/i', $bn = \Align\Providers\Providers::backupNames()) ? 'n' : '' ?> <?= e($bn) ?> company, and nothing on your own backup server is matched to it. Companies with the same name link automatically on sync; otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>. If you back up this client's servers on your own <?= e($bn) ?> server, match them under <?= Auth::can('tech') ? '<a href="/mapping/backups">Hosted backups</a>' : 'Hosted backups' ?>.</p>
     <?php endif; ?>
   </div>
   <?php if (!empty($claim)) echo \Align\View::fetch('backups/_claim', ['client' => $client, 'claim' => $claim]); ?>
@@ -59,7 +59,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php if ($b['unprotected']): ?>
 <div class="card card-outline card-danger">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved text-danger mr-2"></i>Servers with no backup (<?= count($b['unprotected']) ?>)</h3></div>
-  <div class="card-body py-2 small text-muted border-bottom">Servers from <?= e(\Align\Providers\Providers::rmmNames()) ?> or <?= e(psa_name()) ?> that no Veeam job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
+  <div class="card-body py-2 small text-muted border-bottom">Servers from <?= e(\Align\Providers\Providers::rmmNames()) ?> or <?= e(psa_name()) ?> that no <?= e($b['source']) ?> job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
   <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex align-items-center"><a href="/devices/' . (int) $d['id'] . '" class="mr-auto font-weight-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted mr-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
   <ul class="list-group list-group-flush">
     <?php foreach (array_slice($b['unprotected'], 0, 8) as $d) echo $li($d); ?>
@@ -93,7 +93,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
           <td class="small text-right text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$b['jobs']): ?><tr><td colspan="7" class="text-muted p-3">No backup jobs for this client in Veeam.</td></tr><?php endif; ?>
+      <?php if (!$b['jobs']): ?><tr><td colspan="7" class="text-muted p-3">No backup jobs for this client in <?= e($b['source']) ?>.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>
@@ -146,7 +146,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
           <?php foreach ($o['service_labels'] as $sl): ?><span class="badge badge-light border ml-1"><?= e($sl) ?></span><?php endforeach; ?>
           <span class="ml-1">· last backup <?= e(rel_time($o['last_backup'])) ?></span></div>
       <?php endforeach; ?>
-      <?php if ($m['users']): ?><div><i class="fas fa-id-badge fa-fw mr-1"></i><?= (int) $m['licensed'] ?> of <?= (int) $m['users'] ?> protected users use a Veeam license.</div><?php endif; ?>
+      <?php if ($m['users']): ?><div><i class="fas fa-id-badge fa-fw mr-1"></i><?= (int) $m['licensed'] ?> of <?= (int) $m['users'] ?> protected users use a<?= preg_match('/^[AEIOU]/i', $b['source']) ? 'n' : '' ?> <?= e($b['source']) ?> license.</div><?php endif; ?>
     </div>
   </div>
   <?php if ($m['overdue']): ?>
@@ -207,5 +207,5 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
   </div></div>
 </div>
 <?php endif; ?>
-<p class="small text-muted">A machine or Microsoft 365 item is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?= Auth::can('admin') ? ' (change this in <a href="/integrations/veeam">Integrations → Veeam</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
+<p class="small text-muted">A machine or Microsoft 365 item is <b>overdue</b> when its newest restore point is older than <?= (int) $b['stale'] ?> hours<?php $bc = \Align\Providers\Providers::backupConnectors(); $one = count($bc) === 1 ? reset($bc) : null; ?><?= Auth::can('admin') ? ' (change this in <a href="/integrations/' . e($one ? $one->key() : '') . '">Integrations' . ($one ? ' → ' . e($one->shortName()) : '') . '</a>)' : '' ?>. The success rate counts job runs recorded by the hourly sync; warnings count as completed.</p>
 <?php endif; ?>

@@ -16,7 +16,7 @@ $label = ['ok' => ['Healthy', 'ok'], 'warn' => ['Attention', 'warn'], 'bad' => [
 <section class="rsection">
   <?= Ui::head('Backups at a glance', null, $n . ' clients') ?>
   <div class="kpi-row cols-5">
-    <?= Ui::kpi((string) $n, 'Clients on Veeam', count($unlinked) . ' not linked', 'muted') ?>
+    <?= Ui::kpi((string) $n, 'Clients on ' . \Align\Providers\Providers::backupNames(), count($unlinked) . ' not linked', 'muted') ?>
     <?= Ui::kpi($rate === null ? '—' : $rate . '%', 'Backup success', $runs . ' runs in 30 days', $rate === null ? 'muted' : ($rate >= 95 ? 'ok' : ($rate >= 80 ? 'warn' : 'bad'))) ?>
     <?= Ui::kpi((string) $failedClients, 'With failed jobs', $sum(fn($r) => $r['b']['stats']['failed']) . ' jobs failed last run', $failedClients ? 'bad' : 'ok') ?>
     <?= Ui::kpi((string) $overdueClients, 'With overdue items', 'no restore point in ' . Backup::staleHours() . ' hrs', $overdueClients ? 'warn' : 'ok') ?>
@@ -82,4 +82,4 @@ $label = ['ok' => ['Healthy', 'ok'], 'warn' => ['Attention', 'warn'], 'bad' => [
   </table>
 </section>
 <?php endif; ?>
-<?php if ($unlinked): ?><p class="footnote">Not linked to a Veeam company: <?= e(implode(', ', $unlinked)) ?>. Link them on Client mapping if Veeam protects them. Internal: not for client distribution.</p><?php endif; ?>
+<?php if ($unlinked): ?><p class="footnote">Not linked to a<?= preg_match('/^[AEIOU]/i', $bn = \Align\Providers\Providers::backupNames()) ? 'n' : '' ?> <?= e($bn) ?> company: <?= e(implode(', ', $unlinked)) ?>. Link them on Client mapping if <?= e($bn) ?> protects them. Internal: not for client distribution.</p><?php endif; ?>

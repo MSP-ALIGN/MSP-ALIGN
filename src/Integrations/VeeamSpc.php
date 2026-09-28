@@ -220,16 +220,9 @@ final class VeeamSpc
         return null;
     }
 
-    /** "DC01.contoso.local" → "dc01"; used to line workloads up with RMM devices. */
+    /** Kept for callers from before 1.30; see host_key(). */
     public static function hostKey(?string $name): string
     {
-        $n = strtolower(trim((string) $name));
-        if (str_contains($n, '\\')) {
-            $n = substr($n, strrpos($n, '\\') + 1);
-        }
-        if (!filter_var($n, FILTER_VALIDATE_IP) && str_contains($n, '.')) {
-            $n = substr($n, 0, strpos($n, '.'));
-        }
-        return $n;
+        return host_key($name);
     }
 }

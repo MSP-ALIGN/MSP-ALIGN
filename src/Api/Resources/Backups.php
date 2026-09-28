@@ -10,7 +10,7 @@ use Align\Api\Out;
 use Align\Backup\Backup;
 use Align\DB;
 
-/** Backup status (Veeam), "not required" exemptions and hosted backup assignments. */
+/** Backup status (from the backup products), "not required" exemptions and hosted backup assignments. */
 final class Backups
 {
     /** One line per client with backup data. */
@@ -35,7 +35,7 @@ final class Backups
         $client = Clients::load($id);
         $b = Backup::forClient($client, (new \Align\Lifecycle\Lifecycle())->devices($id));
         if (!$b) {
-            throw new ApiError(404, 'no_backup_data', 'No backup data for this client (not linked to a Veeam company and nothing on your own backup server is matched to it).');
+            throw new ApiError(404, 'no_backup_data', 'No backup data for this client (not linked to a' . (preg_match('/^[AEIOU]/i', $bn = \Align\Providers\Providers::backupNames()) ? 'n' : '') . ' ' . $bn . ' company and nothing on your own backup server is matched to it).');
         }
         $s = $b['stats'];
         return Out::one([
@@ -106,7 +106,7 @@ final class Backups
         } else {
             $item = empty($in['item_uid']) ? null : ($in['kind'] === 'workload'
                 ? DB::one('SELECT uid, name FROM backup_workloads WHERE uid = ? AND client_id = ?', [$in['item_uid'], $id])
-                : (!empty($client['veeam_company_uid']) ? DB::one('SELECT uid, name FROM backup_m365_objects WHERE uid = ? AND company_uid = ?', [$in['item_uid'], $client['veeam_company_uid']]) : null));
+                : (($uids = \Align\Providers\ClientLinks::backupCompanyUids($id)) ? DB::one('SELECT uid, name FROM backup_m365_objects WHERE uid = ? AND company_uid IN (' . implode(',', array_fill(0, count($uids), '?')) . ')', [$in['item_uid'], ...$uids]) : null));
             if (!$item) {
                 throw ApiError::invalid(['item_uid' => 'No such item in this client\'s backups.']);
             }
@@ -132,7 +132,7 @@ final class Backups
         return Out::none();
     }
 
-    // ---- Hosted backups (machines and jobs on your own Veeam server) ----
+    // ---- Hosted backups (machines and jobs on your own backup server) ----
 
     private static function requireAllClients(): void
     {
@@ -144,7 +144,7 @@ final class Backups
     public static function hosted(): array
     {
         self::requireAllClients();
-        $pool = \Align\Sync\VeeamSync::hostingCompanies();
+        $pool = \Align\Sync\BackupSync::hostingCompanies();
         $in = $pool ? implode(',', array_fill(0, count($pool), '?')) : "''";
         $show = Input::queryStr('show', ['unmatched', 'sorted', 'ours', 'all']) ?? 'all';
         $manual = [];
@@ -201,7 +201,7 @@ final class Backups
         if ($v !== 'auto') {
             DB::insert('backup_assignments', ['item_type' => $type, 'item_uid' => $uid, 'client_id' => $v === 'ours' ? null : (int) $v, 'item_name' => mb_substr($name, 0, 255), 'created_by' => null]);
         }
-        \Align\Sync\VeeamSync::assign();
+        \Align\Sync\BackupSync::assign();
         \Align\Audit::log('backup.assign', "$name → " . ($v === 'ours' ? 'ours' : ($v === 'auto' ? 'automatic' : "client #$v")));
     }
 

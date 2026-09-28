@@ -3,7 +3,7 @@ use Align\Reports\Ui;
 
 /** @var array $rows; array $opt; array $yearsMeta */
 $costs = (bool) $opt['costs'];
-$bk = $backups ?? null; // Backup::summaries() when Veeam is in use
+$bk = $backups ?? null; // Backup::summaries() when a backup product is in use
 $tot = ['devices' => 0, 'healthy' => 0, 'replace' => 0, 'os' => 0, 'y' => [0, 0, 0], 'planned' => 0];
 foreach ($rows as $r) {
     $tot['devices'] += $r['summary']['total'];
@@ -59,5 +59,5 @@ $hp = $tot['devices'] ? (int) round($tot['healthy'] / $tot['devices'] * 100) : 0
     <?php endif; ?>
   </table>
   <div class="legend"><span><i style="background:#3fb67a"></i>Healthy</span><span><i style="background:#f0b429"></i>Plan / warranty</span><span><i style="background:#e5534b"></i>Replace / unsupported</span></div>
-  <p class="footnote">Hardware = estimated replacement cost of devices reaching end of life in each plan year (overdue devices count in the current year). Projects = open roadmap items (not done or declined). Compliance = average score across assigned frameworks.<?= $bk !== null ? ' Backups = share of Veeam job runs that completed in the last 30 days; failed jobs and machines without a recent restore point are listed under it.' : '' ?> Internal: not for client distribution.</p>
+  <p class="footnote">Hardware = estimated replacement cost of devices reaching end of life in each plan year (overdue devices count in the current year). Projects = open roadmap items (not done or declined). Compliance = average score across assigned frameworks.<?= $bk !== null ? ' Backups = share of ' . e(\Align\Providers\Providers::backupNames()) . ' job runs that completed in the last 30 days; failed jobs and machines without a recent restore point are listed under it.' : '' ?> Internal: not for client distribution.</p>
 </section>
