@@ -3,7 +3,7 @@ use Align\Auth;
 use Align\Meetings\Meetings;
 
 /** @var array $client */
-$itflowUrl = $itflowUrl ?? \Align\Settings::get('itflow_url');
+$psaClientUrl = !empty($client['psa_id']) ? \Align\Providers\Providers::psaLink('client', (int) $client['psa_id']) : null;
 $cid = (int) $client['id'];
 ?>
 <?php if ($client['planning_excluded']): ?>
@@ -25,7 +25,7 @@ $cid = (int) $client['id'];
     <div class="mr-auto client-header-info">
       <h4 class="mb-0"><?= e($client['name']) ?>
         <?php if ($client['source'] === 'manual'): ?><span class="badge badge-secondary align-middle ml-1">Added in Align</span><?php endif; ?>
-        <?php if ($client['is_archived']): ?><span class="badge badge-dark align-middle ml-1">Archived in ITFlow</span><?php endif; ?>
+        <?php if ($client['is_archived']): ?><span class="badge badge-dark align-middle ml-1">Archived in <?= e(psa_name()) ?></span><?php endif; ?>
       </h4>
       <div class="text-muted small">
         <?php if ($client['industry']): ?><span class="text-nowrap"><i class="fas fa-industry mr-1"></i><?= e($client['industry']) ?></span><span class="mx-2">·</span><?php endif; ?>
@@ -39,8 +39,8 @@ $cid = (int) $client['id'];
       </div>
     </div>
     <div class="btn-group mt-2 mt-md-0">
-      <?php if ($client['itflow_client_id'] && $itflowUrl): ?>
-        <a class="btn btn-default btn-sm" href="<?= e(rtrim($itflowUrl, '/') . '/agent/client_overview.php?client_id=' . (int) $client['itflow_client_id']) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i>ITFlow</a>
+      <?php if ($psaClientUrl): ?>
+        <a class="btn btn-default btn-sm" href="<?= e($psaClientUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i><?= e(psa_name()) ?></a>
       <?php endif; ?>
       <div class="btn-group">
         <button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"><i class="fas fa-print mr-1"></i>Reports</button>
@@ -52,7 +52,7 @@ $cid = (int) $client['id'];
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-fw fa-road mr-2"></i>3-year roadmap</a>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-fw fa-coins mr-2"></i>Technology budget</a>
           <?php if (\Align\Backup\Backup::has($client)): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-fw fa-database mr-2"></i>Backup &amp; recovery</a><?php endif; ?>
-          <?php if (!empty($client['itflow_client_id']) && \Align\Service\Sla::enabled()): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/sla" target="_blank"><i class="fas fa-fw fa-stopwatch mr-2"></i>Service levels</a><?php endif; ?>
+          <?php if (!empty($client['psa_id']) && \Align\Service\Sla::enabled()): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/sla" target="_blank"><i class="fas fa-fw fa-stopwatch mr-2"></i>Service levels</a><?php endif; ?>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/export"><i class="fas fa-fw fa-file-csv mr-2"></i>Device list (CSV)</a>
           <div class="dropdown-divider"></div>
@@ -86,7 +86,7 @@ $cid = (int) $client['id'];
         <?= csrf_field() ?><input type="hidden" name="action" value="exclude">
         <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-eye-slash mr-2"></i>Remove from planning</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
         <div class="modal-body">
-          <p>Hide <b><?= e($client['name']) ?></b> from the dashboard, meetings, compliance, mapping and reports. Nothing is deleted<?= $client['source'] === 'itflow' ? ', and the ITFlow sync keeps it hidden' : '' ?>. You can restore it any time from Clients → Removed.</p>
+          <p>Hide <b><?= e($client['name']) ?></b> from the dashboard, meetings, compliance, mapping and reports. Nothing is deleted<?= $client['source'] === 'psa' ? ', and the ' . psa_name() . ' sync keeps it hidden' : '' ?>. You can restore it any time from Clients → Removed.</p>
           <div class="form-group mb-0"><label>Reason <small class="text-muted">(optional)</small></label>
             <input name="reason" class="form-control" placeholder="e.g. Break-fix only, no vCIO services" list="exclude-reasons">
             <datalist id="exclude-reasons"><option value="Break-fix only"><option value="Not a managed client"><option value="Former client"><option value="Vendor / partner record"><option value="Internal / test"></datalist></div>

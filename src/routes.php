@@ -94,7 +94,8 @@ $r->get('/devices/unassigned', [DeviceController::class, 'unassigned']);
 $r->post('/devices/bulk-type', [DeviceController::class, 'bulkType']);
 $r->get('/devices/{id}', [DeviceController::class, 'show']);
 $r->post('/devices/{id}/push', [DeviceController::class, 'push']);
-$r->post('/devices/{id}/itflow-sync', [DeviceController::class, 'toggleSync']);
+$r->post('/devices/{id}/psa-sync', [DeviceController::class, 'toggleSync']);
+$r->post('/devices/{id}/itflow-sync', [DeviceController::class, 'toggleSync']); // before 1.28
 $r->post('/devices/{id}/restore', [DeviceController::class, 'restore']);
 $r->post('/devices/{id}/replacement', [DeviceController::class, 'replacement']);
 $r->post('/clients/{id}/devices/replacement', [DeviceController::class, 'bulkReplacement']);

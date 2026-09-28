@@ -22,7 +22,7 @@ final class Dashboard
         'kpis' => ['Portfolio health', 'fa-gauge-high', 'top', 'Tiles for service levels and backups, lifecycle and security, client engagement, and money.'],
         'forecast' => ['3-year forecast', 'fa-chart-column', 'main', 'Hardware replacements and projects by quarter across all clients.'],
         'clients' => ['Clients needing attention', 'fa-triangle-exclamation', 'main', 'Clients with devices past end of life, on an unsupported OS or otherwise out of policy.'],
-        'sla' => ['Service levels', 'fa-stopwatch', 'main', 'Last 90 days of ITFlow SLA results and the clients below goal.'],
+        'sla' => ['Service levels', 'fa-stopwatch', 'main', 'Last 90 days of ticket SLA results and the clients below goal.'],
         'planning' => ['Client planning', 'fa-list-check', 'main', 'Each client\'s planning checklist and the next step.'],
         'meetings' => ['Next 30 days', 'fa-calendar-days', 'side', 'Scheduled meetings for the next month.'],
         'due' => ['Due for a meeting', 'fa-clock', 'side', 'Clients past their meeting cadence with nothing scheduled.'],
@@ -138,20 +138,20 @@ final class Dashboard
             }
         }
         if (!empty($ctx['unmapped']) || !empty($ctx['unassigned'])) {
-            $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' ITFlow client(s) without a NinjaOne organization. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' NinjaOne device(s) in an unlinked organization.' : '')), '/mapping');
+            $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' ' . psa_name() . ' client(s) without a NinjaOne organization. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' NinjaOne device(s) in an unlinked organization.' : '')), '/mapping');
         }
 
         // Service levels: open tickets past or close to target
         if (Sla::enabled() && Sla::supported() !== false) {
             foreach (DB::all("SELECT t.client_id, SUM(t.response_met = 0 OR t.resolution_met = 0) AS b,
                     SUM(NOT (t.response_met <=> 0) AND NOT (t.resolution_met <=> 0) AND ((t.first_response_at IS NULL AND t.response_stage = 1) OR (t.first_response_at IS NOT NULL AND t.resolution_stage = 1))) AS w
-                FROM itflow_tickets t WHERE t.client_id IS NOT NULL AND t.closed_at IS NULL AND t.resolved_at IS NULL AND t.archived_at IS NULL AND t.sla_id > 0
+                FROM psa_tickets t WHERE t.client_id IS NOT NULL AND t.closed_at IS NULL AND t.resolved_at IS NULL AND t.archived_at IS NULL AND t.sla_id > 0
                 GROUP BY t.client_id") as $r) {
                 if (!isset($names[$r['client_id']])) {
                     continue;
                 }
                 if ((int) $r['b']) {
-                    $add('bad', 'service', (int) $r['b'] . ' open ticket' . ((int) $r['b'] === 1 ? '' : 's') . ' past SLA target', ((int) $r['w'] ? (int) $r['w'] . ' more close to target. ' : '') . 'Follow up in ITFlow.', '/clients/' . (int) $r['client_id'] . '/service-levels', $names[$r['client_id']]);
+                    $add('bad', 'service', (int) $r['b'] . ' open ticket' . ((int) $r['b'] === 1 ? '' : 's') . ' past SLA target', ((int) $r['w'] ? (int) $r['w'] . ' more close to target. ' : '') . 'Follow up in ' . psa_name() . '.', '/clients/' . (int) $r['client_id'] . '/service-levels', $names[$r['client_id']]);
                 } elseif ((int) $r['w']) {
                     $add('warn', 'service', (int) $r['w'] . ' open ticket' . ((int) $r['w'] === 1 ? '' : 's') . ' close to SLA target', 'Due soon; respond or resolve to stay within target.', '/clients/' . (int) $r['client_id'] . '/service-levels', $names[$r['client_id']]);
                 }
@@ -196,7 +196,7 @@ final class Dashboard
 
         // Onboarding: requests that didn't reach the service desk, and onboardings waiting on the client
         foreach (DB::all("SELECT client_id, title, created_at FROM service_requests WHERE delivery = 'failed' AND created_at >= ? ORDER BY id DESC LIMIT 10", [date('Y-m-d', strtotime('-14 days'))]) as $r) {
-            $add('bad', 'onboarding', 'Client request not delivered: ' . $r['title'], 'It couldn\'t be sent to ITFlow or by email. Open it and follow up.', '/clients/' . (int) $r['client_id'] . '/onboarding', $names[$r['client_id']] ?? null, $r['created_at']);
+            $add('bad', 'onboarding', 'Client request not delivered: ' . $r['title'], 'It couldn\'t be sent to ' . psa_name() . ' or by email. Open it and follow up.', '/clients/' . (int) $r['client_id'] . '/onboarding', $names[$r['client_id']] ?? null, $r['created_at']);
         }
         foreach (DB::all('SELECT * FROM client_onboardings WHERE sent_at IS NOT NULL AND completed_at IS NULL') as $o) {
             if (!isset($names[$o['client_id']])) {

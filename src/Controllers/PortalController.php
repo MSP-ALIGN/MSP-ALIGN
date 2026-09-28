@@ -366,7 +366,7 @@ final class PortalController
     {
         $pu = PortalAuth::require('can_documents');
         self::render('contacts', ['title' => 'Contacts', 'nav' => 'contacts', 'contacts' => Contacts::load((int) $pu['client_id']),
-            'itflowEditable' => Contacts::canPush(self::client($pu))], $pu);
+            'psaEditable' => Contacts::canPush(self::client($pu))], $pu);
     }
 
     private static function contactFields(): array
@@ -391,7 +391,7 @@ final class PortalController
         return $pu;
     }
 
-    /** New contact: created in ITFlow too when two-way sync is on, so it is not duplicated by the next sync. */
+    /** New contact: created in the PSA too when two-way sync is on, so it is not duplicated by the next sync. */
     public static function contactCreate(): void
     {
         $pu = self::requireContactEdit();
@@ -403,11 +403,11 @@ final class PortalController
         }
         $row = $f + ['client_id' => (int) $pu['client_id'], 'source' => 'manual', 'created_by_portal_user_id' => (int) $pu['id']];
         if (Contacts::canPush($client)) {
-            [$itId, $err] = Contacts::pushCreate($f, (int) $client['itflow_client_id']);
+            [$itId, $err] = Contacts::pushCreate($f, (int) $client['psa_id']);
             if ($itId) {
-                $row = ['source' => 'itflow', 'itflow_contact_id' => $itId] + $row;
+                $row = ['source' => 'psa', 'psa_id' => $itId] + $row;
             } else {
-                error_log('Portal contact create in ITFlow failed: ' . $err);
+                error_log('Portal contact create in ' . psa_name() . ' failed: ' . $err);
             }
         }
         DB::insert('contacts', $row);
@@ -427,24 +427,24 @@ final class PortalController
             flash('error', 'That contact was not found.');
             redirect('/portal/contacts');
         }
-        $itflow = $k['source'] === 'itflow';
+        $fromPsa = $k['source'] === 'psa';
         if (post('action') === 'remove') {
-            // Removing hides the contact in Align; ITFlow contacts are archived by the IT provider in ITFlow
+            // Removing hides the contact in Align; PSA contacts are archived by the IT provider in the PSA
             DB::run("UPDATE contacts SET archived_at = NOW(), archived_reason = 'align' WHERE id = ?", [$id]);
             Audit::log('portal.contact_removed', "{$pu['client_name']}: {$k['name']}");
             \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'removed the contact ' . $k['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
-            flash('success', "Removed {$k['name']}." . ($itflow ? ' Your IT provider has been notified.' : ''));
+            flash('success', "Removed {$k['name']}." . ($fromPsa ? ' Your IT provider has been notified.' : ''));
             redirect('/portal/contacts');
         }
         $f = self::contactFields();
         if ($f['name'] === '') {
             $f['name'] = $k['name'];
         }
-        if ($itflow) {
+        if ($fromPsa) {
             if (!Contacts::canPush($client)) {
-                $f = array_intersect_key($f, ['decision_maker' => 1, 'qbr' => 1]); // details are managed in ITFlow
-            } elseif ($err = Contacts::pushUpdate($k, $f, (int) $client['itflow_client_id'])) {
-                error_log("Portal contact update in ITFlow failed for contact {$k['id']}: $err");
+                $f = array_intersect_key($f, ['decision_maker' => 1, 'qbr' => 1]); // details are managed in the PSA
+            } elseif ($err = Contacts::pushUpdate($k, $f, (int) $client['psa_id'])) {
+                error_log("Portal contact update in " . psa_name() . " failed for contact {$k['id']}: $err");
                 flash('error', 'We could not save those details right now. Please try again, or contact your IT provider.');
                 redirect('/portal/contacts');
             }

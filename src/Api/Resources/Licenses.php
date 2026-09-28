@@ -11,26 +11,26 @@ use Align\DB;
 use Align\Licensing\Licenses as L;
 
 /**
- * Licenses. Those synced from ITFlow keep their name, seats, vendor and dates in ITFlow (read-only here);
+ * Licenses. Those synced from the PSA keep their name, seats, vendor and dates in the PSA (read-only here);
  * prices, billing, contract dates and notes are Align's and writable for every license.
  */
 final class Licenses
 {
-    /** Fields ITFlow manages for synced licenses (API names). */
-    private const ITFLOW_OWNED = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date'];
+    /** Fields the PSA manages for synced licenses (API names). */
+    private const PSA_OWNED = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date'];
 
     public static function rules(bool $creating = false): array
     {
         return array_filter([
             'client_id' => $creating ? ['int', ['required' => true, 'min' => 1, 'desc' => 'Client (can\'t be changed later).']] : null,
-            'name' => ['string', ['required' => true, 'max' => 255, 'desc' => 'Product name (ITFlow-synced licenses: read-only).']],
+            'name' => ['string', ['required' => true, 'max' => 255, 'desc' => 'Product name (read-only for licenses synced from the PSA).']],
             'version' => ['string', ['max' => 100]],
             'software_type' => ['string', ['max' => 60]],
             'license_type' => ['string', ['enum' => array_keys(L::TYPES)]],
-            'seats' => ['int', ['min' => 0, 'max' => 1000000, 'desc' => 'Seats purchased (ITFlow-synced: read-only).']],
+            'seats' => ['int', ['min' => 0, 'max' => 1000000, 'desc' => 'Seats purchased (read-only for licenses synced from the PSA).']],
             'vendor' => ['string', ['max' => 190]],
             'purchase_date' => ['date'],
-            'expire_date' => ['date', ['desc' => 'Renewal / expiry date (ITFlow-synced: read-only).']],
+            'expire_date' => ['date', ['desc' => 'Renewal / expiry date (read-only for licenses synced from the PSA).']],
             'category' => ['string', ['enum' => array_keys(L::CATEGORIES)]],
             'pricing' => ['string', ['enum' => ['per_seat', 'flat'], 'desc' => 'per_seat: unit_price × seats; flat: unit_price is the whole charge.']],
             'unit_price' => ['number', ['min' => 0, 'max' => 10000000, 'desc' => 'Price per seat (or flat price) per billing period. null = not priced yet.']],
@@ -151,8 +151,8 @@ final class Licenses
         if (!$in) {
             throw ApiError::invalid([], 'Send at least one field to change.');
         }
-        if ($l['source'] === 'itflow' && ($owned = array_intersect(array_keys($in), self::ITFLOW_OWNED))) {
-            throw ApiError::invalid(array_fill_keys(array_values($owned), 'Managed in ITFlow for this license; change it there.'), 'Some fields are managed in ITFlow.');
+        if ($l['source'] === 'psa' && ($owned = array_intersect(array_keys($in), self::PSA_OWNED))) {
+            throw ApiError::invalid(array_fill_keys(array_values($owned), 'Managed in ' . psa_name() . ' for this license; change it there.'), 'Some fields are managed in ' . psa_name() . '.');
         }
         foreach (['category' => 'other', 'pricing' => 'per_seat', 'billing_cycle' => 'monthly', 'license_type' => 'user'] as $k => $d) {
             if (array_key_exists($k, $in) && $in[$k] === null) {
@@ -176,8 +176,9 @@ final class Licenses
     public static function delete(int $id): array
     {
         $l = self::load($id);
-        if ($l['source'] === 'itflow') {
-            throw new ApiError(409, 'managed_in_itflow', 'Licenses from ITFlow can\'t be deleted (they would come back on the next sync). Retire it instead: PATCH {"retired": true}.');
+        if ($l['source'] === 'psa') {
+            throw new ApiError(409, 'managed_in_' . Out::source('psa'), // managed_in_itflow for ITFlow, as in v1
+                 'Licenses from ' . psa_name() . ' can\'t be deleted (they would come back on the next sync). Retire it instead: PATCH {"retired": true}.');
         }
         DB::run('DELETE FROM licenses WHERE id = ?', [$id]);
         \Align\Audit::log('license.delete', "{$l['client_name']}: {$l['name']}");
@@ -190,8 +191,9 @@ final class Licenses
         return [
             'id' => (int) $l['id'],
             'client_id' => (int) $l['client_id'],
-            'source' => $l['source'],
-            'itflow_software_id' => Out::int($l['itflow_software_id']),
+            'source' => Out::source($l['source']),
+            'psa_id' => Out::int($l['psa_id']),
+            'itflow_software_id' => Out::int($l['psa_id']), // deprecated alias of psa_id
             'name' => $l['name'],
             'version' => $l['version'],
             'software_type' => $l['software_type'],
@@ -216,7 +218,8 @@ final class Licenses
             'notice_days' => Out::int($l['notice_days']),
             'renegotiate_date' => $l['renegotiate_date'],
             'notes' => $l['align_notes'],
-            'itflow_notes' => $l['notes'],
+            'psa_notes' => $l['notes'],
+            'itflow_notes' => $l['notes'], // deprecated alias of psa_notes
             'retired' => $l['retired_at'] !== null,
             'updated_at' => Out::ts($l['updated_at'] ?? $l['created_at']),
         ];

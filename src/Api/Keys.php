@@ -25,7 +25,7 @@ final class Keys
         'meetings' => ['Meetings', 'Meetings, agendas and notes', 'Schedule, change, complete, cancel and delete meetings (optionally sending calendar invitations)'],
         'compliance' => ['Compliance', 'Frameworks, scores and each control\'s status', 'Control status, notes, evidence, owner and due date; assign and remove frameworks'],
         'backups' => ['Backups', 'Backup status, jobs, protected machines and hosted backups', '"Not required" exemptions and hosted backup assignments'],
-        'service' => ['Service levels', 'SLA results from ITFlow tickets', null],
+        'service' => ['Service levels', 'SLA results from PSA tickets', null],
     ];
 
     /** Ready-made scope sets offered when creating a key. */

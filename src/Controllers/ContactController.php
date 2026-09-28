@@ -65,19 +65,19 @@ final class ContactController
         return \Align\Security::safePath($b, "/clients/$clientId/contacts");
     }
 
-    private static function fields(bool $itflow, bool $details = false): array
+    private static function fields(bool $fromPsa, bool $details = false): array
     {
         $f = [
             'decision_maker' => isset($_POST['decision_maker']) ? 1 : 0,
             'qbr' => isset($_POST['qbr']) ? 1 : 0,
             'align_notes' => mb_substr(post('align_notes'), 0, 5000) ?: null,
         ];
-        if ($itflow && $details) { // two-way: details are pushed to ITFlow, flags and location stay managed there
+        if ($fromPsa && $details) { // two-way: details are pushed to the PSA, flags and location stay managed there
             $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
             $f += ['name' => mb_substr(post('name'), 0, 190), 'title' => $s('title'), 'department' => $s('department'),
                 'email' => filter_var(post('email'), FILTER_VALIDATE_EMAIL) ?: null, 'phone' => $s('phone', 60), 'extension' => $s('extension', 20), 'mobile' => $s('mobile', 60)];
         }
-        if (!$itflow) {
+        if (!$fromPsa) {
             $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
             $f += [
                 'name' => mb_substr(post('name'), 0, 190),
@@ -102,10 +102,10 @@ final class ContactController
         }
         $row = $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()];
         $note = '';
-        if (\Align\Contacts\Contacts::canPush($client)) { // two-way: create it in ITFlow so the next sync doesn't duplicate it
-            [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['itflow_client_id']);
-            $row = $itId ? ['source' => 'itflow', 'itflow_contact_id' => $itId] + $row : $row;
-            $note = $itId ? ' Created in ITFlow too.' : " Saved in Align only; ITFlow refused it ($err).";
+        if (\Align\Contacts\Contacts::canPush($client)) { // two-way: create it in the PSA so the next sync doesn't duplicate it
+            [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['psa_id']);
+            $row = $itId ? ['source' => 'psa', 'psa_id' => $itId] + $row : $row;
+            $note = $itId ? ' Created in ' . psa_name() . ' too.' : " Saved in Align only; " . psa_name() . " refused it ($err).";
         }
         DB::insert('contacts', $row);
         Audit::log('contact.create', "{$client['name']}: {$f['name']}");
@@ -121,19 +121,19 @@ final class ContactController
             redirect('/contacts');
         }
         $back = self::back((int) $k['client_id']);
-        $itflow = $k['source'] === 'itflow';
+        $fromPsa = $k['source'] === 'psa';
         switch (post('action')) {
             case 'archive':
                 DB::run("UPDATE contacts SET archived_at = NOW(), archived_reason = 'align' WHERE id = ?", [$id]);
-                flash('success', "Archived {$k['name']}." . ($itflow ? ' It stays archived in Align even though it is still active in ITFlow.' : ''));
+                flash('success', "Archived {$k['name']}." . ($fromPsa ? ' It stays archived in Align even though it is still active in ' . psa_name() . '.' : ''));
                 redirect($back);
             case 'restore':
                 DB::run('UPDATE contacts SET archived_at = NULL, archived_reason = NULL WHERE id = ?', [$id]);
                 flash('success', "Restored {$k['name']}.");
                 redirect($back);
             case 'delete':
-                if ($itflow) {
-                    flash('error', 'Contacts from ITFlow can be archived but not deleted (they would come back on the next sync).');
+                if ($fromPsa) {
+                    flash('error', 'Contacts from ' . psa_name() . ' can be archived but not deleted (they would come back on the next sync).');
                     redirect($back);
                 }
                 DB::run('DELETE FROM contacts WHERE id = ?', [$id]);
@@ -142,13 +142,13 @@ final class ContactController
                 redirect($back);
         }
         $client = DB::one('SELECT * FROM clients WHERE id = ?', [$k['client_id']]);
-        $push = $itflow && \Align\Contacts\Contacts::canPush($client);
-        $f = self::fields($itflow, $push);
+        $push = $fromPsa && \Align\Contacts\Contacts::canPush($client);
+        $f = self::fields($fromPsa, $push);
         if (array_key_exists('name', $f) && $f['name'] === '') {
             $f['name'] = $k['name'];
         }
-        if ($push && ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['itflow_client_id']))) {
-            flash('error', "Not saved: ITFlow did not accept the change ($err).");
+        if ($push && ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['psa_id']))) {
+            flash('error', "Not saved: " . psa_name() . " did not accept the change ($err).");
             redirect($back);
         }
         $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));

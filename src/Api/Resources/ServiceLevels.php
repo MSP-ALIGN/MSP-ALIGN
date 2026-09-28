@@ -8,17 +8,17 @@ use Align\Api\Input;
 use Align\Api\Out;
 use Align\Service\Sla;
 
-/** SLA results from ITFlow tickets for one client. */
+/** SLA results from PSA tickets for one client. */
 final class ServiceLevels
 {
     public static function client(int $id): array
     {
         $c = Clients::load($id);
         if (!Sla::enabled()) {
-            throw new ApiError(409, 'not_enabled', 'Service levels are turned off (Integrations → ITFlow).');
+            throw new ApiError(409, 'not_enabled', 'Service levels are turned off (Integrations → ' . psa_name() . ').');
         }
-        if (!$c['itflow_client_id']) {
-            throw new ApiError(404, 'no_service_data', 'This client isn\'t linked to ITFlow.');
+        if (!$c['psa_id']) {
+            throw new ApiError(404, 'no_service_data', 'This client isn\'t linked to ' . psa_name() . '.');
         }
         $periods = array_keys(\Align\Controllers\ServiceController::periodChoices());
         $period = Input::queryStr('period', array_map('strval', $periods)) ?? '90';

@@ -6,7 +6,7 @@
  * @var array $companies, $jobs, $machines, $shown, $clients, $manual, $counts; string $show; array $pool, $flagged (uid => i); bool $configured
  */
 $howLabel = [
-    'device' => ['Device name', 'success', 'A device with the same name belongs to this client (NinjaOne or ITFlow)'],
+    'device' => ['Device name', 'success', 'A device with the same name belongs to this client (NinjaOne or ' . psa_name() . ')'],
     'job' => ['Job', 'info', 'Its backup job is assigned'],
     'machine' => ['By hand', 'primary', 'Assigned by hand'],
     'company' => ['Company', 'secondary', 'The Veeam company this machine is under is linked to this client'],
@@ -28,7 +28,7 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
   <a class="btn btn-sm btn-default mr-1" href="/help#guide-hosted-backups"><i class="fas fa-circle-question mr-1"></i>How it works</a>
   <a class="btn btn-sm btn-default" href="/mapping"><i class="fas fa-link mr-1"></i>Client mapping</a>
 </div>
-<p class="text-muted small mb-3" style="max-width:900px">Servers you host and back up on your own Veeam server are filed by Veeam under your company. Each sync matches them to clients by device name (NinjaOne or ITFlow).
+<p class="text-muted small mb-3" style="max-width:900px">Servers you host and back up on your own Veeam server are filed by Veeam under your company. Each sync matches them to clients by device name (NinjaOne or <?= e(psa_name()) ?>).
   Pick the client for anything that didn't match, or assign a whole job; mark your own servers as <b>Ours</b>. You can also do this from a client's <b>Backups</b> page.</p>
 
 <?php if (!$companies): ?>
@@ -114,7 +114,7 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
       <i class="fas fa-fw fa-server text-secondary mr-2"></i><span class="font-weight-bold mr-2">Which Veeam companies are your backup servers</span>
       <span class="small text-muted mr-auto"><?= count($pool) ?> of <?= count($companies) ?></span><i class="fas fa-angle-down text-muted"></i></a>
     <div class="collapse" id="hb-servers">
-      <div class="card-body py-2 small text-muted border-bottom">Machines under a Veeam company that isn't linked to any client are always sorted. If your own company is linked to a client (for example you're set up as a client in ITFlow), switch it on here so its machines are sorted too; anything that doesn't match stays with that client.</div>
+      <div class="card-body py-2 small text-muted border-bottom">Machines under a Veeam company that isn't linked to any client are always sorted. If your own company is linked to a client (for example you're set up as a client in <?= e(psa_name()) ?>), switch it on here so its machines are sorted too; anything that doesn't match stays with that client.</div>
       <div class="card-body p-0 table-responsive">
         <table class="table table-sm table-borderless table-striped mb-0">
           <thead class="text-dark"><tr><th>Veeam company</th><th>Linked client</th><th class="text-right">Jobs</th><th class="text-right">Machines</th><th>Sort its machines into clients</th></tr></thead>

@@ -255,7 +255,7 @@ HTML],
 
     /**
      * Saves the contact list from the onboarding page: updates changed contacts, adds new ones
-     * (created in ITFlow too when two-way sync is on) and removes ones marked as gone.
+     * (created in the PSA too when two-way sync is on) and removes ones marked as gone.
      * $rows: [['id'=>?, 'first','last','title','email','phone','mobile','approver','billing','technical','remove'], ...]
      * Returns [added, updated, removed, errors[]].
      */
@@ -301,13 +301,13 @@ HTML],
                 if (!$diff) {
                     continue;
                 }
-                if ($k['source'] === 'itflow') {
+                if ($k['source'] === 'psa') {
                     if ($push) {
-                        if ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['itflow_client_id'])) {
-                            $errors[] = $k['name'] . ': saved here, but ITFlow didn\'t accept the change (' . $err . ').';
+                        if ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['psa_id'])) {
+                            $errors[] = $k['name'] . ': saved here, but ' . psa_name() . ' didn\'t accept the change (' . $err . ').';
                         }
                     } else {
-                        // ITFlow manages these details: keep the Align-only flags, note the rest for staff
+                        // the PSA manages these details: keep the Align-only flags, note the rest for staff
                         $flags = array_intersect_key($diff, ['decision_maker' => 1]);
                         $rest = array_diff_key($diff, $flags);
                         $diff = $flags;
@@ -335,11 +335,11 @@ HTML],
             }
             $row = $f + ['client_id' => $cid, 'source' => 'manual', 'align_notes' => "Added during onboarding by $who on " . date('Y-m-d') . '.'];
             if ($push) {
-                [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['itflow_client_id']);
+                [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['psa_id']);
                 if ($itId) {
-                    $row = ['source' => 'itflow', 'itflow_contact_id' => $itId] + $row;
+                    $row = ['source' => 'psa', 'psa_id' => $itId] + $row;
                 } elseif ($err) {
-                    error_log('Onboarding contact create in ITFlow failed: ' . $err);
+                    error_log('Onboarding contact create in ' . psa_name() . ' failed: ' . $err);
                 }
             }
             $newId = DB::insert('contacts', $row);

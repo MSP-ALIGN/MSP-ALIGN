@@ -24,7 +24,7 @@ final class Lenovo extends Connector
     public function setup(): string
     {
         return '<ol class="pl-3 mb-0"><li>Lenovo issues a <b>ClientID</b> token to partners for its warranty API.</li><li>Paste it here, save and press <b>Test</b>.</li>'
-            . '<li>Other brands use the ITFlow warranty date or a date entered on the device.</li></ol>';
+            . '<li>Other brands use the ' . psa_name() . ' warranty date or a date entered on the device.</li></ol>';
     }
 
     public function fields(): array

@@ -9,7 +9,7 @@ $yr = $b['years'][$year];
 $qIdx = array_keys(array_filter($b['quarters'], fn($q) => $q['year'] === $year));
 $srcBadge = [
     'licensing' => ['Licensing', 'fa-key'], 'hardware' => ['Lifecycle', 'fa-recycle'], 'projects' => ['Project', 'fa-diagram-project'],
-    'itflow' => ['ITFlow estimate', 'fa-file-invoice-dollar'], 'manual' => ['Manual', 'fa-pen'],
+    'psa' => [psa_name() . ' estimate', 'fa-file-invoice-dollar'], 'manual' => ['Manual', 'fa-pen'],
 ];
 $byCat = [];
 foreach ($b['lines'] as $l) {
@@ -43,7 +43,7 @@ foreach ($b['lines'] as $l) {
     if (!empty($n['unpriced'])) $bits[] = '<a href="/clients/' . $cid . '/licenses">' . (int) $n['unpriced'] . ' license' . ($n['unpriced'] == 1 ? '' : 's') . ' without a price</a>';
     if (!empty($n['nodate'])) $bits[] = '<a href="/clients/' . $cid . '/devices?filter=noplan">' . (int) $n['nodate'] . ' device' . ($n['nodate'] == 1 ? '' : 's') . ' with no in-service date</a>';
     if (!empty($n['unscheduled'])) $bits[] = '<a href="/clients/' . $cid . '/roadmap">' . (int) $n['unscheduled'] . ' project' . ($n['unscheduled'] == 1 ? '' : 's') . ' without a target quarter</a>';
-    if (!$billing && !array_filter($b['lines'], fn($l) => $l['category'] === 'managed')) $bits[] = 'managed services (no ITFlow invoices found; add a Managed services line)';
+    if (!$billing && !array_filter($b['lines'], fn($l) => $l['category'] === 'managed')) $bits[] = 'managed services (no ' . psa_name() . ' invoices found; add a Managed services line)';
     echo implode(' · ', $bits); ?>
   </div>
 <?php endif; ?>
@@ -69,7 +69,7 @@ foreach ($b['lines'] as $l) {
               <?php if ($l['source'] === 'manual' && $canEdit): ?><a href="#" data-toggle="modal" data-target="#modal-budget-<?= (int) $l['id'] ?>"><?= e($l['name']) ?></a>
               <?php elseif ($l['link']): ?><a href="<?= e($l['link']) ?>"><?= e($l['name']) ?></a><?php else: ?><?= e($l['name']) ?><?php endif; ?>
               <span class="badge badge-light border font-weight-normal ml-1" title="Where this line comes from"><i class="fas <?= $si ?> mr-1"></i><?= e($sl) ?></span>
-              <?php if ($l['tentative']): ?><span class="badge badge-warning font-weight-normal"><?= $l['source'] === 'itflow' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
+              <?php if ($l['tentative']): ?><span class="badge badge-warning font-weight-normal"><?= $l['source'] === 'psa' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
               <div class="small text-muted"><?= e($l['detail']) ?></div>
             </td>
             <?php foreach ($qIdx as $i): ?><td class="num"><?= $l['q'][$i] ? money($l['q'][$i]) : '<span class="text-muted">—</span>' ?></td><?php endforeach; ?>
@@ -103,7 +103,7 @@ foreach ($b['lines'] as $l) {
 </div>
 <div class="col-xl-5"><?= \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'limit' => 8]) ?></div>
 </div>
-<p class="small text-muted">The budget updates on its own from licensing, device lifecycle and projects. Proposed projects and the ITFlow managed-services estimate are shown in italics. Add a <b>Managed services</b> line to use your exact agreement amount.</p>
+<p class="small text-muted">The budget updates on its own from licensing, device lifecycle and projects. Proposed projects and the <?= e(psa_name()) ?> managed-services estimate are shown in italics. Add a <b>Managed services</b> line to use your exact agreement amount.</p>
 
 <?php if ($canEdit) {
     echo \Align\View::fetch('budget/_modal', ['m' => null, 'cid' => $cid, 'back' => $back]);

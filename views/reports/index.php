@@ -43,7 +43,7 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       . '<div class="w-100"></div>' . $chk('costs', 'Costs') . $chk('users', 'Last user') . $chk('virtual', 'Virtual machines', false) . $chk('notes', 'Notes') . ($slaEnabled ? $chk('missed', 'Missed tickets') : '') . $chk('inventory', 'Full inventory appendix', false)) ?>
   <?php if ($slaEnabled): ?>
   <?= $card('fa-stopwatch', 'Service levels',
-      'Response and resolution SLA results from ITFlow tickets: on-time percentages with the change from the period before, 12 months by month, by priority, and tickets that missed a target.',
+      'Response and resolution SLA results from ' . psa_name() . ' tickets: on-time percentages with the change from the period before, 12 months by month, by priority, and tickets that missed a target.',
       '/report/sla',
       '<div class="form-group mb-1 mr-3"><select name="period" class="custom-select custom-select-sm" aria-label="Period">'
       . implode('', array_map(fn($k, $l) => '<option value="' . e((string) $k) . '"' . ((string) $k === '90' ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(\Align\Controllers\ServiceController::periodChoices()), \Align\Controllers\ServiceController::periodChoices()))
@@ -108,7 +108,7 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       <div class="col-xl-4 col-md-6 d-flex">
         <form class="card card-outline card-secondary flex-fill" method="get" action="/reports/sla" target="_blank">
           <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-stopwatch mr-2 text-secondary"></i>Service levels</h3></div>
-          <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Every client's response and resolution SLA results from ITFlow, worst first, with open tickets past or close to target.</p>
+          <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Every client's response and resolution SLA results from <?= e(psa_name()) ?>, worst first, with open tickets past or close to target.</p>
             <div class="d-flex flex-wrap small mb-2"><?= '<div class="form-group mb-1 mr-3"><select name="period" class="custom-select custom-select-sm" aria-label="Period">'
       . implode('', array_map(fn($k, $l) => '<option value="' . e((string) $k) . '"' . ((string) $k === '90' ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(\Align\Controllers\ServiceController::periodChoices()), \Align\Controllers\ServiceController::periodChoices()))
       . '</select></div>' ?></div>

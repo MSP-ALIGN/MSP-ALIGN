@@ -13,7 +13,7 @@ use Align\Roadmap\Plan;
  *   - licensing (charged in the months each license actually bills),
  *   - hardware replacements (quarter of end of life; overdue rolls into the current quarter),
  *   - projects (one-time budget in the target quarter, recurring cost from then on),
- *   - managed services (a manual line, or the estimate from ITFlow invoices),
+ *   - managed services (a manual line, or the estimate from PSA invoices),
  *   - manual budget lines (internet, phones, cloud, contracts...).
  * Nothing is stored: it's recalculated on every view so it always matches the source data.
  */
@@ -78,7 +78,7 @@ final class Budget
         $lines = [];
         $notes = [];
 
-        // Manual lines first (a manual "Managed services" line replaces the ITFlow estimate)
+        // Manual lines first (a manual "Managed services" line replaces the PSA estimate)
         $manual = DB::all('SELECT * FROM budget_lines WHERE client_id = ? ORDER BY category, name', [$clientId]);
         $hasManualManaged = false;
         foreach ($manual as $m) {
@@ -111,12 +111,12 @@ final class Budget
             $lines[] = $l;
         }
 
-        // Managed services estimate from ITFlow invoices
+        // Managed services estimate from PSA invoices
         if (!$hasManualManaged && ($b = Billing::forClient($clientId)) && (float) $b['monthly'] > 0) {
-            $l = self::newLine('managed-itflow', 'managed', 'Managed services', 'itflow', ['tentative' => true]);
+            $l = self::newLine('managed-psa', 'managed', 'Managed services', 'psa', ['tentative' => true]);
             self::spread($l, 'monthly', (float) $b['monthly'], null, null);
             $l['monthly'] = (float) $b['monthly'];
-            $l['detail'] = money_exact($b['monthly']) . '/mo estimated from ' . $b['invoices'] . ' ITFlow ' . $b['method'] . ' over ' . $b['months'] . ' month' . ($b['months'] == 1 ? '' : 's');
+            $l['detail'] = money_exact($b['monthly']) . '/mo estimated from ' . $b['invoices'] . ' ' . psa_name() . ' ' . $b['method'] . ' over ' . $b['months'] . ' month' . ($b['months'] == 1 ? '' : 's');
             $lines[] = $l;
         }
 

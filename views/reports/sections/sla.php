@@ -3,7 +3,7 @@ use Align\Reports\Ui;
 use Align\Service\Sla;
 
 /**
- * Service levels (ITFlow ticket SLAs). Client-facing.
+ * Service levels (the PSA ticket SLAs). Client-facing.
  * @var array $s Sla::report(); ?string $num; bool $missed (list missed tickets); ?bool $pageBreak
  */
 $st = $s['stats'];
@@ -20,7 +20,7 @@ $delta = function (?float $now, ?float $before): string {
 };
 ?>
 <section class="rsection">
-  <?= Ui::head('Service levels', $num ?? null, $s['label'] . ($s['synced'] ? ' · ITFlow · updated ' . rel_time($s['synced']) : '')) ?>
+  <?= Ui::head('Service levels', $num ?? null, $s['label'] . ($s['synced'] ? ' · ' . psa_name() . ' · updated ' . rel_time($s['synced']) : '')) ?>
   <p class="lede">How quickly we answered and resolved your support tickets against the response and resolution targets in your service agreement. Targets are measured in business hours; time a ticket spends waiting on you doesn't count.</p>
   <?php if (!$s['hasSla']): ?>
     <p class="muted">No SLA targets apply to your tickets yet, so there's nothing to measure. <?= $st['tickets'] ?> ticket<?= $st['tickets'] == 1 ? '' : 's' ?> in this period.</p>

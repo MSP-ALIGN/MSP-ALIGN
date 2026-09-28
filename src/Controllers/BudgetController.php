@@ -99,7 +99,7 @@ final class BudgetController
         }
         DB::insert('budget_lines', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
         Audit::log('budget.create', "{$client['name']}: {$f['name']}");
-        flash('success', "Added {$f['name']} to the budget." . ($f['category'] === 'managed' ? ' It replaces the managed-services estimate from ITFlow.' : ''));
+        flash('success', "Added {$f['name']} to the budget." . ($f['category'] === 'managed' ? ' It replaces the managed-services estimate from ' . psa_name() . '.' : ''));
         redirect(self::back($id));
     }
 

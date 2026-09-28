@@ -16,8 +16,8 @@ final class Devices
     public static function rules(): array
     {
         return [
-            'purchase_date' => ['date', ['desc' => 'Purchase / in-service date. Overrides what NinjaOne or ITFlow says. null = use the synced date.']],
-            'warranty_end' => ['date', ['desc' => 'Warranty end. null = use the warranty lookup or ITFlow date.']],
+            'purchase_date' => ['date', ['desc' => 'Purchase / in-service date. Overrides what the RMM or PSA says. null = use the synced date.']],
+            'warranty_end' => ['date', ['desc' => 'Warranty end. null = use the warranty lookup or PSA date.']],
             'lifespan_years' => ['int', ['min' => 1, 'max' => 29, 'desc' => 'Lifespan for this device. null = the policy default for its type.']],
             'replacement_cost' => ['number', ['min' => 0, 'max' => 10000000, 'desc' => 'Replacement cost. null = the policy default for its type.']],
             'replace_quarter' => ['quarter', ['desc' => 'Plan the replacement in this quarter instead of at end of life (2027-Q2 or any date in it). null = follow end of life.']],
@@ -80,7 +80,7 @@ final class Devices
         if (!$in) {
             throw ApiError::invalid([], 'Send at least one field to change.');
         }
-        $before = \Align\Sync\ItflowSync::snapshot($id);
+        $before = \Align\Sync\PsaAssetSync::snapshot($id);
         DB::transaction(function () use ($d, $id, $in) {
             $o = DB::one('SELECT * FROM device_overrides WHERE device_id = ?', [$id]) ?: ['device_id' => $id];
             $map = ['purchase_date' => 'purchase_date', 'warranty_end' => 'warranty_end', 'lifespan_years' => 'lifespan_years',
@@ -103,12 +103,13 @@ final class Devices
                 \Align\Controllers\DeviceController::setType(['id' => $id, 'device_type' => $d['device_type']] + $d, $in['device_type']);
             }
         });
-        \Align\Sync\ItflowSync::recordAlignEdit($id, $before);
+        \Align\Sync\PsaAssetSync::recordAlignEdit($id, $before);
         \Align\Audit::log('device.update', $d['name'] . ': ' . implode(', ', array_keys($in)));
-        $push = \Align\Sync\ItflowSync::pushDevice($id, null);
+        $push = \Align\Sync\PsaAssetSync::pushDevice($id, null);
         $out = self::shape(self::load($id));
-        $msg = $push['status'] === 'error' ? 'ITFlow wasn\'t updated; the next sync tries again. Details are on the device page.' : ($push['message'] ?: null);
-        return Out::one($out + ['itflow_sync' => ['status' => $push['status'], 'message' => $msg]]);
+        $msg = $push['status'] === 'error' ? psa_name() . ' wasn\'t updated; the next sync tries again. Details are on the device page.' : ($push['message'] ?: null);
+        $sync = ['status' => $push['status'], 'message' => $msg];
+        return Out::one($out + ['psa_sync' => $sync, 'itflow_sync' => $sync]); // itflow_sync: deprecated alias
     }
 
     public static function shape(array $d): array
@@ -122,7 +123,7 @@ final class Devices
             'type' => $d['type'],
             'category' => $d['device_class'],
             'is_virtual' => (bool) $d['is_virtual'],
-            'source' => $d['source'],
+            'source' => Out::source($d['source']),
             'manufacturer' => $d['manufacturer'],
             'model' => $d['model'],
             'serial' => $d['serial'],
@@ -152,7 +153,8 @@ final class Devices
                 'purchase_date' => $d['o_purchase'], 'warranty_end' => $d['o_warranty'], 'lifespan_years' => Out::int($d['o_lifespan']),
                 'replacement_cost' => Out::num($d['o_cost']), 'device_type' => $d['o_type'], 'notes' => $d['o_notes'],
             ],
-            'itflow_asset_id' => Out::int($d['itflow_asset_id']),
+            'psa_asset_id' => Out::int($d['psa_asset_id']),
+            'itflow_asset_id' => Out::int($d['psa_asset_id']), // deprecated alias of psa_asset_id
             'ninja_device_id' => Out::int($d['ninja_device_id']),
             'synced_at' => Out::ts($d['synced_at']),
             'url' => Out::url('/devices/' . (int) $d['id']),

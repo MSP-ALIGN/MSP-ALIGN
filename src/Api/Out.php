@@ -45,6 +45,15 @@ final class Out
         return $v === null || $v === '' ? null : (int) $v;
     }
 
+    /**
+     * A record's source as the API reports it: the PSA's key ("itflow") for PSA records, so v1 answers
+     * stay the same as before PSA data became provider-neutral; otherwise manual / ninja.
+     */
+    public static function source(?string $s): ?string
+    {
+        return $s === 'psa' ? (\Align\Providers\Providers::psaKey() ?? 'psa') : $s;
+    }
+
     /** Link into the web app for a person to open. */
     public static function url(string $path): string
     {

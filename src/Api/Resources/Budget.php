@@ -43,8 +43,8 @@ final class Budget
                 'by_category' => array_map(fn($cat) => Out::num($b['byCat'][$cat][$i] ?? 0), array_combine(array_keys($cats), array_keys($cats)))], $b['quarters'], array_keys($b['quarters'])),
             'categories' => $cats,
             'lines' => array_map(fn($l) => [
-                'key' => $named($l) ? $l['key'] : $l['source'] . '-' . substr(hash('sha256', $l['key']), 0, 8),
-                'name' => $named($l) ? $l['name'] : $cats[$l['category']] ?? 'Item', 'category' => $l['category'], 'source' => $l['source'],
+                'key' => $named($l) ? ($l['key'] === 'managed-psa' ? 'managed-' . Out::source('psa') : $l['key']) : $l['source'] . '-' . substr(hash('sha256', $l['key']), 0, 8),
+                'name' => $named($l) ? $l['name'] : $cats[$l['category']] ?? 'Item', 'category' => $l['category'], 'source' => Out::source($l['source']),
                 'budget_line_id' => $l['source'] === 'manual' ? (int) $l['row']['id'] : null,
                 'detail' => $named($l) ? $l['detail'] : null, 'monthly' => Out::num($l['monthly'] ?? null), 'one_time' => (bool) $l['one_time'], 'tentative' => (bool) $l['tentative'],
                 'by_quarter' => array_map(fn($v) => Out::num($v), $l['q']),
@@ -61,7 +61,7 @@ final class Budget
         return array_filter([
             'client_id' => $creating ? ['int', ['required' => true, 'min' => 1, 'desc' => 'Client (can\'t be changed later).']] : null,
             'name' => ['string', ['required' => true, 'max' => 255, 'desc' => 'What the cost is for.']],
-            'category' => ['string', ['enum' => array_keys(B::CATEGORIES), 'desc' => 'Budget category (default "other"). A "managed" line replaces the ITFlow managed-services estimate.']],
+            'category' => ['string', ['enum' => array_keys(B::CATEGORIES), 'desc' => 'Budget category (default "other"). A "managed" line replaces the managed-services estimate from PSA invoices.']],
             'vendor' => ['string', ['max' => 190]],
             'amount' => ['number', ['required' => $creating, 'min' => 0, 'max' => 100000000, 'desc' => 'Amount per billing period.']],
             'frequency' => ['string', ['enum' => array_keys(B::FREQUENCIES), 'desc' => 'How often it\'s billed (default "monthly").']],

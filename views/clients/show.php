@@ -127,7 +127,7 @@ $cid = (int) $client['id'];
             </li>
           <?php endforeach; ?>
         </ul>
-      <?php else: ?><div class="card-body py-2 small text-muted">No key contacts yet. Contacts sync from ITFlow; mark decision makers and meeting invitees on the Contacts page.</div><?php endif; ?>
+      <?php else: ?><div class="card-body py-2 small text-muted">No key contacts yet. Contacts sync from <?= e(psa_name()) ?>; mark decision makers and meeting invitees on the Contacts page.</div><?php endif; ?>
     </div>
 
     <?php $lt = $licensing; ?>
@@ -143,7 +143,7 @@ $cid = (int) $client['id'];
           </div>
           <?php if ($lt['unpriced']): ?><div class="small text-warning"><i class="fas fa-tag mr-1"></i><?= (int) $lt['unpriced'] ?> without a price</div><?php endif; ?>
           <?php foreach (array_slice($lt['renewals'], 0, 3) as $r): ?><div class="small"><i class="fas fa-rotate mr-1 text-<?= $r['renewal'] === 'expired' ? 'danger' : 'warning' ?>"></i><?= e($r['name']) ?> <?= $r['renewal'] === 'expired' ? 'expired' : 'renews' ?> <?= e(fmt_date($r['expire_date'])) ?></div><?php endforeach; ?>
-        <?php else: ?><p class="small text-muted mb-1">No licenses yet. They sync from ITFlow's Software section, or add them on the Licensing page.</p><?php endif; ?>
+        <?php else: ?><p class="small text-muted mb-1">No licenses yet. They sync from <?= e(psa_name()) ?>, or add them on the Licensing page.</p><?php endif; ?>
       </div>
     </div>
 
@@ -167,7 +167,7 @@ $cid = (int) $client['id'];
         <?php if ($client['website']): ?><p class="mb-2"><i class="fas fa-globe mr-1 text-muted"></i><?= e($client['website']) ?></p><?php endif; ?>
         <?php if ($client['address']): ?><p class="mb-2 pre-line"><i class="fas fa-location-dot mr-1 text-muted"></i><?= e($client['address']) ?></p><?php endif; ?>
         <?php if ($client['main_phone']): ?><p class="mb-2"><i class="fas fa-building mr-1 text-muted"></i>Main office: <?= e($client['main_phone']) ?></p><?php endif; ?>
-        <?php if (!empty($client['itflow_fields'])): ?><p class="mb-2 text-muted"><i class="fas fa-rotate mr-1"></i>Contact details sync from ITFlow's primary contact and location.</p><?php endif; ?>
+        <?php if (!empty($client['psa_fields'])): ?><p class="mb-2 text-muted"><i class="fas fa-rotate mr-1"></i>Contact details sync from <?= e(psa_name()) ?>'s primary contact and location.</p><?php endif; ?>
         <?php if ($client['notes']): ?><p class="mb-0 pre-line"><?= e($client['notes']) ?></p><?php endif; ?>
       </div>
     </div>

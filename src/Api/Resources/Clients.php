@@ -9,7 +9,7 @@ use Align\Api\Input;
 use Align\Api\Out;
 use Align\DB;
 
-/** Clients (read-only: details come from ITFlow) and their contacts. */
+/** Clients (read-only: details come from the PSA) and their contacts. */
 final class Clients
 {
     private const SELECT = 'SELECT c.*, u.name AS vcio_name FROM clients c LEFT JOIN users u ON u.id = c.vcio_user_id';
@@ -61,8 +61,9 @@ final class Clients
             'id' => (int) $c['id'],
             'name' => $c['name'],
             'industry' => $c['industry'],
-            'source' => $c['source'],
-            'itflow_client_id' => Out::int($c['itflow_client_id']),
+            'source' => Out::source($c['source']),
+            'psa_id' => Out::int($c['psa_id']),
+            'itflow_client_id' => Out::int($c['psa_id']), // deprecated alias of psa_id
             'main_phone' => $c['main_phone'],
             'website' => $c['website'],
             'address' => $c['address'],
@@ -106,7 +107,7 @@ final class Clients
             $scores = array_map(fn($f) => \Align\Compliance\Compliance::score($id, (int) $f['framework_id'])['score'], $fws);
             $out['compliance'] = ['frameworks' => count($fws), 'average_score' => $scores ? (int) round(array_sum($scores) / count($scores)) : null];
         }
-        if (Context::can('service:read') && \Align\Service\Sla::enabled() && $c['itflow_client_id']) {
+        if (Context::can('service:read') && \Align\Service\Sla::enabled() && $c['psa_id']) {
             $r = \Align\Service\Sla::report($id, '90', 0);
             $out['service_levels_90d'] = $r ? ['tickets' => $r['stats']['tickets'], 'responded_on_time_pct' => $r['stats']['resp_pct'], 'resolved_on_time_pct' => $r['stats']['res_pct'], 'goal_pct' => $r['target']] : null;
         }
@@ -186,8 +187,9 @@ final class Clients
             'location' => $k['location'],
             'roles' => array_keys(array_filter(self::ROLE_COLS, fn($col) => !empty($k[$col]))),
             'notes' => $k['align_notes'],
-            'source' => $k['source'],
-            'itflow_contact_id' => Out::int($k['itflow_contact_id']),
+            'source' => Out::source($k['source']),
+            'psa_id' => Out::int($k['psa_id']),
+            'itflow_contact_id' => Out::int($k['psa_id']), // deprecated alias of psa_id
             'archived' => $k['archived_at'] !== null,
             'updated_at' => Out::ts($k['updated_at'] ?? $k['created_at']),
         ];

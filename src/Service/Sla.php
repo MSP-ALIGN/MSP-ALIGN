@@ -4,19 +4,20 @@ declare(strict_types=1);
 namespace Align\Service;
 
 use Align\DB;
-use Align\Integrations\Itflow;
+use Align\Providers\Providers;
+use Align\Providers\Psa\PsaProvider;
 use Align\Settings;
 
 /**
- * Service levels from ITFlow's ticket SLAs (ITFlow 26.08 and later).
+ * Service levels from the PSA's ticket SLAs.
  *
- * ITFlow works out the targets (response and resolution, in business hours, per client and priority)
+ * The PSA works out the targets (response and resolution, in business hours, per client and priority)
  * and records whether each was met. Align copies the SLA fields of each ticket (never the ticket body)
  * and reports on them: met percentages, trends, by priority, open tickets at risk, missed tickets.
  *
- * Sync: once a day every ticket is read (ITFlow's API returns tickets oldest first, 100 per page, and
- * has no "changed since" filter). The hourly syncs in between read only the newest pages, then
- * re-read open tickets one by one so status changes and breaches show up within the hour.
+ * Sync: the provider reads tickets in full or incrementally (see PsaProvider::tickets). After an
+ * incremental read, open tickets it didn't return are re-read one by one so status changes and
+ * breaches show up within the hour.
  */
 final class Sla
 {
@@ -28,13 +29,13 @@ final class Sla
 
     public static function enabled(): bool
     {
-        return Settings::get('itflow_sla_sync', '1') === '1' && Settings::get('itflow_url');
+        return Settings::get('psa_sla_sync', '1') === '1' && Providers::psaSupports('sla');
     }
 
-    /** False when ITFlow's tickets have no SLA fields (ITFlow older than 26.08). Null = not synced yet. */
+    /** False when the PSA's tickets have no SLA fields (e.g. ITFlow older than 26.08). Null = not synced yet. */
     public static function supported(): ?bool
     {
-        $v = Settings::get('itflow_sla_supported');
+        $v = Settings::get('psa_sla_supported');
         return $v === null ? null : $v === '1';
     }
 
@@ -54,130 +55,112 @@ final class Sla
 
     public static function ticketUrl(int $id): ?string
     {
-        $base = Settings::get('itflow_url');
-        return $base ? rtrim($base, '/') . '/agent/ticket.php?ticket_id=' . $id : null;
+        return Providers::psaLink('ticket', $id);
     }
 
     // ---- Sync -------------------------------------------------------------------
 
-    public static function sync(Itflow $it): string
+    public static function sync(PsaProvider $p): string
     {
-        $state = json_decode((string) Settings::get('itflow_tickets_state', ''), true) ?: [];
-        $full = empty($state['full_at']) || strtotime($state['full_at']) < time() - 20 * 3600 || !empty($state['force_full'])
-            || !DB::value('SELECT 1 FROM itflow_tickets LIMIT 1');
-        $clients = array_map('intval', array_column(DB::all('SELECT id, itflow_client_id FROM clients WHERE itflow_client_id IS NOT NULL'), 'id', 'itflow_client_id'));
+        $state = json_decode((string) Settings::get('psa_tickets_state', ''), true) ?: [];
+        if (!DB::value('SELECT 1 FROM psa_tickets LIMIT 1')) {
+            $state['force_full'] = true;
+        }
+        $clients = array_map('intval', array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id'));
         $cutoff = date('Y-m-d H:i:s', strtotime('-' . self::KEEP_MONTHS . ' months'));
         $now = date('Y-m-d H:i:s');
-        $page = Itflow::pageSize();
         $seen = [];
-        $supported = null;
-        $total = 0;
 
-        $offset = $full ? 0 : max(0, (int) ($state['total'] ?? 0) - $page);
-        $start = $offset;
-        while (true) {
-            $rows = $it->ticketsPage($offset, $page);
-            if ($supported === null && $rows) {
-                $supported = array_key_exists('ticket_response_due_at', $rows[0]);
-            }
+        $read = $p->tickets($cutoff, $state, function (array $rows) use ($clients, $cutoff, $now, &$seen) {
             self::store($rows, $clients, $cutoff, $now, $seen);
-            $offset += count($rows);
-            if (count($rows) < $page) {
-                break;
-            }
-        }
-        $total = $offset;
+        });
+        $full = $read['complete'];
+        $supported = $read['sla'];
 
         $removed = 0;
         $refreshed = 0;
         if ($full) {
-            // Anything not returned by a full read was deleted in ITFlow (or has aged out)
+            // Anything not returned by a full read was deleted in the PSA (or has aged out)
             $removed = self::removeMissing($seen);
         } else {
-            if ($total === $start && $start > 0) {
-                $state['force_full'] = true; // tickets were deleted and offsets moved: read everything next time
-            }
-            $open = DB::all('SELECT id FROM itflow_tickets WHERE closed_at IS NULL ORDER BY id DESC LIMIT ' . self::OPEN_REFRESH_MAX);
+            $open = DB::all('SELECT id FROM psa_tickets WHERE closed_at IS NULL ORDER BY id DESC LIMIT ' . self::OPEN_REFRESH_MAX);
             foreach ($open as $o) {
                 $id = (int) $o['id'];
                 if (isset($seen[$id])) {
                     continue;
                 }
-                $row = $it->ticket($id);
+                $row = $p->ticket($id);
                 if ($row) {
                     self::store([$row], $clients, $cutoff, $now, $seen);
                     $refreshed++;
                 } else {
-                    DB::run('DELETE FROM itflow_tickets WHERE id = ?', [$id]);
+                    DB::run('DELETE FROM psa_tickets WHERE id = ?', [$id]);
                     $removed++;
                 }
             }
         }
-        DB::run('DELETE FROM itflow_tickets WHERE created_at < ?', [$cutoff]);
+        DB::run('DELETE FROM psa_tickets WHERE created_at < ?', [$cutoff]);
         // Re-link after client mapping changes
-        DB::run('UPDATE itflow_tickets t LEFT JOIN clients c ON c.itflow_client_id = t.itflow_client_id SET t.client_id = c.id WHERE NOT (t.client_id <=> c.id)');
+        DB::run('UPDATE psa_tickets t LEFT JOIN clients c ON c.psa_id = t.psa_client_id SET t.client_id = c.id WHERE NOT (t.client_id <=> c.id)');
 
         if ($supported !== null) {
-            Settings::set('itflow_sla_supported', $supported ? '1' : '0');
+            Settings::set('psa_sla_supported', $supported ? '1' : '0');
         }
-        $state = ['total' => $total, 'full_at' => $full ? $now : ($state['full_at'] ?? null), 'force_full' => !empty($state['force_full']) && !$full, 'last_at' => $now];
-        Settings::set('itflow_tickets_state', json_encode($state));
+        Settings::set('psa_tickets_state', json_encode($read['state'] + ['last_at' => $now]));
 
-        $open = (int) DB::value('SELECT COUNT(*) FROM itflow_tickets WHERE closed_at IS NULL AND resolved_at IS NULL');
+        $open = (int) DB::value('SELECT COUNT(*) FROM psa_tickets WHERE closed_at IS NULL AND resolved_at IS NULL');
         $msg = ($full ? 'full read: ' . count($seen) . ' tickets' : 'incremental: ' . count($seen) . ' recent re-read, ' . $refreshed . ' open re-checked') . ", $open open";
         if ($removed) {
             $msg .= ", $removed removed";
         }
         if ($supported === false) {
-            $msg .= ' (this ITFlow has no SLA fields; update ITFlow to 26.08 or later)';
+            $c = Providers::psaConnector();
+            $msg .= ' (' . ($c ? $c->noSlaMessage() : 'no SLA fields') . ')';
         }
         return $msg;
     }
 
+    /** Stores neutral ticket records (see PsaProvider). */
     private static function store(array $rows, array $clients, string $cutoff, string $now, array &$seen): void
     {
-        $dt = fn($v) => $v && $v !== '0000-00-00 00:00:00' ? substr((string) $v, 0, 19) : null;
-        $flag = fn($v) => $v === null || $v === '' ? null : ((int) $v ? 1 : 0);
+        $cut = fn($v, int $len) => mb_substr((string) ($v ?? ''), 0, $len) ?: null;
+        $flag = fn($v) => $v === null ? null : ($v ? 1 : 0);
         $batch = [];
         foreach ($rows as $r) {
-            $id = (int) ($r['ticket_id'] ?? 0);
-            $itc = (int) ($r['ticket_client_id'] ?? 0);
-            $created = $dt($r['ticket_created_at'] ?? null);
-            if (!$id || !$itc || !$created || $created < $cutoff) {
+            $id = (int) ($r['id'] ?? 0);
+            $pc = (int) ($r['client_id'] ?? 0);
+            $created = $r['created_at'] ?? null;
+            if (!$id || !$pc || !$created || $created < $cutoff) {
                 continue;
             }
             $seen[$id] = true;
-            $number = trim(($r['ticket_prefix'] ?? '') . ($r['ticket_number'] ?? ''));
             $batch[] = [
-                $id, $itc, $clients[$itc] ?? null, mb_substr($number, 0, 60) ?: null,
-                mb_substr(trim(html_entity_decode(strip_tags((string) ($r['ticket_subject'] ?? '')), ENT_QUOTES)), 0, 500) ?: null,
-                mb_substr((string) ($r['ticket_category'] ?? ''), 0, 200) ?: null,
-                mb_substr((string) ($r['ticket_source'] ?? ''), 0, 100) ?: null,
-                mb_substr((string) ($r['ticket_priority'] ?? ''), 0, 40) ?: null,
-                (int) ($r['ticket_status'] ?? 0), (int) ($r['ticket_sla_id'] ?? 0), $created,
-                $dt($r['ticket_first_response_at'] ?? null), $dt($r['ticket_response_due_at'] ?? null), $dt($r['ticket_resolution_due_at'] ?? null),
-                $dt($r['ticket_resolved_at'] ?? null), $dt($r['ticket_closed_at'] ?? null), $dt($r['ticket_archived_at'] ?? null),
-                $flag($r['ticket_response_sla_met'] ?? null), $flag($r['ticket_resolution_sla_met'] ?? null),
-                (int) ($r['ticket_response_sla_alert_stage'] ?? 0), (int) ($r['ticket_resolution_sla_alert_stage'] ?? 0), $now,
+                $id, $pc, $clients[$pc] ?? null, $cut($r['number'] ?? null, 60), $cut($r['subject'] ?? null, 500),
+                $cut($r['category'] ?? null, 200), $cut($r['source'] ?? null, 100), $cut($r['priority'] ?? null, 40),
+                (int) ($r['status_id'] ?? 0), (int) ($r['sla_id'] ?? 0), $created,
+                $r['first_response_at'] ?? null, $r['response_due_at'] ?? null, $r['resolution_due_at'] ?? null,
+                $r['resolved_at'] ?? null, $r['closed_at'] ?? null, $r['archived_at'] ?? null,
+                $flag($r['response_met'] ?? null), $flag($r['resolution_met'] ?? null),
+                (int) ($r['response_stage'] ?? 0), (int) ($r['resolution_stage'] ?? 0), $now,
             ];
         }
         if (!$batch) {
             return;
         }
-        $cols = ['id', 'itflow_client_id', 'client_id', 'number', 'subject', 'category', 'source', 'priority', 'status_id', 'sla_id', 'created_at',
+        $cols = ['id', 'psa_client_id', 'client_id', 'number', 'subject', 'category', 'source', 'priority', 'status_id', 'sla_id', 'created_at',
             'first_response_at', 'response_due_at', 'resolution_due_at', 'resolved_at', 'closed_at', 'archived_at',
             'response_met', 'resolution_met', 'response_stage', 'resolution_stage', 'synced_at'];
         $row = '(' . implode(',', array_fill(0, count($cols), '?')) . ')';
-        DB::run('INSERT INTO itflow_tickets (' . implode(',', $cols) . ') VALUES ' . implode(',', array_fill(0, count($batch), $row))
+        DB::run('INSERT INTO psa_tickets (' . implode(',', $cols) . ') VALUES ' . implode(',', array_fill(0, count($batch), $row))
             . ' ON DUPLICATE KEY UPDATE ' . implode(',', array_map(fn($c) => "$c = VALUES($c)", array_slice($cols, 1))), array_merge(...$batch));
     }
 
     private static function removeMissing(array $seen): int
     {
-        $local = array_map('intval', array_column(DB::all('SELECT id FROM itflow_tickets'), 'id'));
+        $local = array_map('intval', array_column(DB::all('SELECT id FROM psa_tickets'), 'id'));
         $gone = array_values(array_filter($local, fn($id) => !isset($seen[$id])));
         foreach (array_chunk($gone, 500) as $chunk) {
-            DB::run('DELETE FROM itflow_tickets WHERE id IN (' . implode(',', $chunk) . ')');
+            DB::run('DELETE FROM psa_tickets WHERE id IN (' . implode(',', $chunk) . ')');
         }
         return count($gone);
     }
@@ -232,13 +215,13 @@ final class Sla
     public static function stats(?int $clientId, string $from, string $to): array
     {
         [$w, $p] = self::where($clientId);
-        return self::finish(DB::one('SELECT ' . self::statSelect() . " FROM itflow_tickets t WHERE $w AND t.archived_at IS NULL AND t.created_at BETWEEN ? AND ?", [...$p, $from, $to]) ?? []);
+        return self::finish(DB::one('SELECT ' . self::statSelect() . " FROM psa_tickets t WHERE $w AND t.archived_at IS NULL AND t.created_at BETWEEN ? AND ?", [...$p, $from, $to]) ?? []);
     }
 
     public static function byPriority(?int $clientId, string $from, string $to): array
     {
         [$w, $p] = self::where($clientId);
-        $rows = DB::all('SELECT COALESCE(t.priority, \'None\') AS priority, ' . self::statSelect() . " FROM itflow_tickets t
+        $rows = DB::all('SELECT COALESCE(t.priority, \'None\') AS priority, ' . self::statSelect() . " FROM psa_tickets t
             WHERE $w AND t.archived_at IS NULL AND t.created_at BETWEEN ? AND ? GROUP BY COALESCE(t.priority, 'None')", [...$p, $from, $to]);
         $order = array_flip([...self::PRIORITIES, 'None']);
         usort($rows, fn($a, $b) => ($order[$a['priority']] ?? 9) <=> ($order[$b['priority']] ?? 9) ?: strcmp($a['priority'], $b['priority']));
@@ -250,7 +233,7 @@ final class Sla
     {
         [$w, $p] = self::where($clientId);
         $from = date('Y-m-01 00:00:00', strtotime('first day of -' . ($months - 1) . ' months'));
-        $rows = DB::all("SELECT DATE_FORMAT(t.created_at, '%Y-%m') AS ym, " . self::statSelect() . " FROM itflow_tickets t
+        $rows = DB::all("SELECT DATE_FORMAT(t.created_at, '%Y-%m') AS ym, " . self::statSelect() . " FROM psa_tickets t
             WHERE $w AND t.archived_at IS NULL AND t.created_at >= ? GROUP BY ym", [...$p, $from]);
         $by = array_column($rows, null, 'ym');
         $out = [];
@@ -265,7 +248,7 @@ final class Sla
     public static function open(?int $clientId, int $limit = 50): array
     {
         [$w, $p] = self::where($clientId);
-        $rows = DB::all("SELECT t.*, c.name AS client_name FROM itflow_tickets t JOIN clients c ON c.id = t.client_id
+        $rows = DB::all("SELECT t.*, c.name AS client_name FROM psa_tickets t JOIN clients c ON c.id = t.client_id
             WHERE $w AND t.closed_at IS NULL AND t.resolved_at IS NULL AND t.archived_at IS NULL AND t.sla_id > 0
             ORDER BY (t.response_met = 0 OR t.resolution_met = 0) DESC, GREATEST(t.response_stage, t.resolution_stage) DESC,
               COALESCE(CASE WHEN t.first_response_at IS NULL THEN t.response_due_at END, t.resolution_due_at) IS NULL,
@@ -296,7 +279,7 @@ final class Sla
                 SUM(t.sla_id > 0 AND (t.response_met = 0 OR t.resolution_met = 0)) AS breached,
                 SUM(t.sla_id > 0 AND NOT (t.response_met <=> 0) AND NOT (t.resolution_met <=> 0)
                     AND ((t.first_response_at IS NULL AND t.response_stage = 1) OR (t.first_response_at IS NOT NULL AND t.resolution_stage = 1))) AS warning
-            FROM itflow_tickets t WHERE $w AND t.closed_at IS NULL AND t.resolved_at IS NULL AND t.archived_at IS NULL", $p) ?? [];
+            FROM psa_tickets t WHERE $w AND t.closed_at IS NULL AND t.resolved_at IS NULL AND t.archived_at IS NULL", $p) ?? [];
         return array_map('intval', $r + ['open_total' => 0, 'with_sla' => 0, 'breached' => 0, 'warning' => 0]);
     }
 
@@ -304,7 +287,7 @@ final class Sla
     public static function missed(?int $clientId, string $from, string $to, int $limit = 25): array
     {
         [$w, $p] = self::where($clientId);
-        return DB::all("SELECT t.*, c.name AS client_name FROM itflow_tickets t JOIN clients c ON c.id = t.client_id
+        return DB::all("SELECT t.*, c.name AS client_name FROM psa_tickets t JOIN clients c ON c.id = t.client_id
             WHERE $w AND t.archived_at IS NULL AND t.created_at BETWEEN ? AND ? AND (t.response_met = 0 OR t.resolution_met = 0)
             ORDER BY t.created_at DESC LIMIT " . (int) $limit, [...$p, $from, $to]);
     }
@@ -312,7 +295,7 @@ final class Sla
     /** Every client with tickets in the range (or open SLA tickets): [client_id => stats + open counts + name]. */
     public static function allClients(string $from, string $to): array
     {
-        $rows = DB::all('SELECT t.client_id, c.name, ' . self::statSelect() . ' FROM itflow_tickets t JOIN clients c ON c.id = t.client_id AND c.is_archived = 0
+        $rows = DB::all('SELECT t.client_id, c.name, ' . self::statSelect() . ' FROM psa_tickets t JOIN clients c ON c.id = t.client_id AND c.is_archived = 0
             WHERE t.archived_at IS NULL AND t.created_at BETWEEN ? AND ? GROUP BY t.client_id, c.name', [$from, $to]);
         $out = [];
         foreach ($rows as $r) {
@@ -321,7 +304,7 @@ final class Sla
         foreach (DB::all("SELECT t.client_id, c.name,
                 SUM(t.response_met = 0 OR t.resolution_met = 0) AS b,
                 SUM(NOT (t.response_met <=> 0) AND NOT (t.resolution_met <=> 0) AND ((t.first_response_at IS NULL AND t.response_stage = 1) OR (t.first_response_at IS NOT NULL AND t.resolution_stage = 1))) AS w
-            FROM itflow_tickets t JOIN clients c ON c.id = t.client_id AND c.is_archived = 0
+            FROM psa_tickets t JOIN clients c ON c.id = t.client_id AND c.is_archived = 0
             WHERE t.closed_at IS NULL AND t.resolved_at IS NULL AND t.archived_at IS NULL AND t.sla_id > 0 GROUP BY t.client_id, c.name") as $r) {
             $cid = (int) $r['client_id'];
             $out[$cid] ??= self::finish(['name' => $r['name'], 'tickets' => 0, 'avg_response_min' => null, 'avg_resolution_min' => null]) + ['client_id' => $cid];
@@ -357,7 +340,7 @@ final class Sla
             'missed' => self::missed($clientId, $from, $to, $missedLimit),
             'target' => self::target(),
             'synced' => self::lastSync(),
-            'hasSla' => $stats['with_sla'] > 0 || (bool) DB::value('SELECT 1 FROM itflow_tickets WHERE client_id = ? AND sla_id > 0 LIMIT 1', [$clientId]),
+            'hasSla' => $stats['with_sla'] > 0 || (bool) DB::value('SELECT 1 FROM psa_tickets WHERE client_id = ? AND sla_id > 0 LIMIT 1', [$clientId]),
         ];
     }
 
@@ -395,12 +378,12 @@ final class Sla
     /** Does this client have any ticket data at all? */
     public static function hasData(int $clientId): bool
     {
-        return (bool) DB::value('SELECT 1 FROM itflow_tickets WHERE client_id = ? LIMIT 1', [$clientId]);
+        return (bool) DB::value('SELECT 1 FROM psa_tickets WHERE client_id = ? LIMIT 1', [$clientId]);
     }
 
     public static function lastSync(): ?string
     {
-        return (json_decode((string) Settings::get('itflow_tickets_state', ''), true) ?: [])['last_at'] ?? null;
+        return (json_decode((string) Settings::get('psa_tickets_state', ''), true) ?: [])['last_at'] ?? null;
     }
 
     /** "in 25m" / "3h 10m ago" for a due time. */

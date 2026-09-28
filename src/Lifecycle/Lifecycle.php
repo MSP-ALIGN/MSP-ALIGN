@@ -50,7 +50,7 @@ final class Lifecycle
         'Unassigned' => ['other', 'fa-circle-question', false],
     ];
 
-    /** Type given to ITFlow assets whose type doesn't map to anything in Align yet. */
+    /** Type given to PSA assets whose type doesn't map to anything in Align yet. */
     public const UNASSIGNED = 'Unassigned';
 
     public const DEFAULT_TYPE = [
@@ -151,9 +151,9 @@ final class Lifecycle
             $where[] = 'd.removed_at IS NULL';
         }
         $rows = DB::all('SELECT d.*, COALESCE(cm.id, cn.id) AS client_id, COALESCE(cm.name, cn.name) AS client_name,
-                COALESCE(cm.itflow_client_id, cn.itflow_client_id) AS itflow_client_id,
+                COALESCE(cm.psa_id, cn.psa_id) AS psa_client_id,
                 COALESCE(cm.planning_excluded, cn.planning_excluded, 0) + COALESCE(cm.is_archived, cn.is_archived, 0) AS client_inactive,
-                a.purchase_date AS itf_purchase, a.warranty_expire AS itf_warranty, a.install_date AS itf_install,
+                a.purchase_date AS psa_purchase, a.warranty_expire AS psa_warranty, a.install_date AS psa_install,
                 w.ship_date AS w_ship, w.warranty_start AS w_start, w.warranty_end AS w_end, w.status AS w_status,
                 w.description AS w_desc, w.looked_up_at AS w_checked,
                 o.purchase_date AS o_purchase, o.warranty_end AS o_warranty, o.replacement_cost AS o_cost,
@@ -161,7 +161,7 @@ final class Lifecycle
                 o.replace_on AS o_replace, o.replace_note AS o_replace_note
             FROM devices d
             ' . self::CLIENT_JOIN . '
-            LEFT JOIN itflow_assets a ON a.itflow_asset_id = d.itflow_asset_id
+            LEFT JOIN psa_assets a ON a.psa_asset_id = d.psa_asset_id
             LEFT JOIN warranty_lookups w ON w.serial = d.serial AND w.status = \'ok\'
             LEFT JOIN device_overrides o ON o.device_id = d.id
             WHERE ' . implode(' AND ', $where) . '
@@ -182,13 +182,13 @@ final class Lifecycle
         $d['is_virtual'] = $virtual ? 1 : 0;
         $isHardware = !$virtual && in_array($class, self::HARDWARE_CLASSES, true);
 
-        // Start of life: override > ITFlow purchase > vendor ship > vendor warranty start > ITFlow install > first seen in NinjaOne
+        // Start of life: override > PSA purchase > vendor ship > vendor warranty start > PSA install > first seen in NinjaOne
         $startSources = [
             ['o_purchase', 'Manual override'],
-            ['itf_purchase', 'ITFlow purchase date'],
+            ['psa_purchase', psa_name() . ' purchase date'],
             ['w_ship', 'Vendor ship date'],
             ['w_start', 'Warranty start'],
-            ['itf_install', 'ITFlow install date'],
+            ['psa_install', psa_name() . ' install date'],
             ['ninja_created', 'First seen in NinjaOne (estimate)'],
         ];
         $start = null;
@@ -203,7 +203,7 @@ final class Lifecycle
 
         $warranty = null;
         $warrantySource = null;
-        foreach ([['o_warranty', 'Manual override'], ['w_end', 'Vendor lookup'], ['itf_warranty', 'ITFlow']] as [$col, $label]) {
+        foreach ([['o_warranty', 'Manual override'], ['w_end', 'Vendor lookup'], ['psa_warranty', psa_name()]] as [$col, $label]) {
             if (!empty($d[$col])) {
                 $warranty = substr($d[$col], 0, 10);
                 $warrantySource = $label;

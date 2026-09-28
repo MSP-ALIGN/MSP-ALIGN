@@ -45,7 +45,7 @@ final class Readiness
             $out[(int) $r['client_id']]['projects'] = (int) $r['n'];
         }
         foreach (DB::all("SELECT client_id, COUNT(*) AS n FROM budget_lines WHERE client_id IN ($in) AND category = 'managed' GROUP BY client_id
-            UNION ALL SELECT client_id, COUNT(*) FROM itflow_billing WHERE client_id IN ($in) AND monthly > 0 GROUP BY client_id") as $r) {
+            UNION ALL SELECT client_id, COUNT(*) FROM psa_billing WHERE client_id IN ($in) AND monthly > 0 GROUP BY client_id") as $r) {
             $out[(int) $r['client_id']]['managed'] += (int) $r['n'];
         }
         foreach (DB::all("SELECT client_id, MIN(starts_at) AS s FROM meetings WHERE client_id IN ($in) AND status = 'scheduled' AND starts_at >= NOW() GROUP BY client_id") as $r) {
@@ -67,8 +67,8 @@ final class Readiness
         $plural = fn(int $n, string $w) => $n . ' ' . $w . ($n === 1 ? '' : 's');
 
         $steps = [
-            ['key' => 'itflow', 'label' => 'Linked to ITFlow', 'ok' => $client['source'] === 'manual' && !$client['itflow_client_id'] ? null : (bool) $client['itflow_client_id'],
-                'detail' => $client['itflow_client_id'] ? 'Contacts, assets and licenses sync' : 'Added in Align; links automatically when the same name appears in ITFlow',
+            ['key' => 'psa', 'label' => 'Linked to ' . psa_name(), 'ok' => $client['source'] === 'manual' && !$client['psa_id'] ? null : (bool) $client['psa_id'],
+                'detail' => $client['psa_id'] ? 'Contacts, assets and licenses sync' : 'Added in Align; links automatically when the same name appears in ' . psa_name(),
                 'link' => '/mapping', 'action' => 'Client mapping'],
             ['key' => 'ninja', 'label' => 'Linked to NinjaOne', 'ok' => !(Settings::get('ninja_client_id') && Settings::hasSecret('ninja_client_secret')) && !$client['ninja_org_id'] ? null : (bool) $client['ninja_org_id'],
                 'detail' => $client['ninja_org_id'] ? count($devices) . ' devices tracked' : 'Link the NinjaOne organization so computers and servers come in',
@@ -83,7 +83,7 @@ final class Readiness
                 'detail' => $noDate ? $plural($noDate, 'device') . ' left out of the plan' : 'All hardware is in the lifecycle plan',
                 'link' => "$base/devices?filter=noplan", 'action' => 'Add dates'],
             ['key' => 'licenses', 'label' => 'Licenses priced', 'ok' => (int) $lic['n'] === 0 ? null : (int) $lic['unpriced'] === 0,
-                'detail' => (int) $lic['n'] === 0 ? 'No licenses yet (sync from ITFlow Software or add them)' : ((int) $lic['unpriced'] ? $plural((int) $lic['unpriced'], 'license') . ' without a price' : $plural((int) $lic['n'], 'license') . ' priced'),
+                'detail' => (int) $lic['n'] === 0 ? 'No licenses yet (sync from ' . psa_name() . ' or add them)' : ((int) $lic['unpriced'] ? $plural((int) $lic['unpriced'], 'license') . ' without a price' : $plural((int) $lic['n'], 'license') . ' priced'),
                 'link' => "$base/licenses", 'action' => 'Licensing'],
             ['key' => 'managed', 'label' => 'Managed services in budget', 'ok' => $managed > 0,
                 'detail' => $managed ? 'Included in the budget' : 'Add your agreement as a Managed services budget line',
@@ -105,21 +105,23 @@ final class Readiness
     /** System-wide setup checklist for the dashboard. */
     public static function setup(): array
     {
-        $itflow = (bool) Settings::get('itflow_url') && Settings::hasSecret('itflow_api_key');
+        $psaConn = \Align\Providers\Providers::psaConnector() ?? (array_values(\Align\Providers\Providers::psaConnectors())[0] ?? null);
+        $psa = (bool) $psaConn?->configured();
+        $psaName = $psaConn?->name() ?? 'your PSA';
         $ninja = (bool) Settings::get('ninja_client_id') && Settings::hasSecret('ninja_client_secret');
         $synced = (bool) DB::value("SELECT COUNT(*) FROM sync_runs WHERE status IN ('success','partial')");
         $clients = (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0');
-        $unmapped = (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0 AND ninja_org_id IS NULL AND itflow_client_id IS NOT NULL');
+        $unmapped = (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0 AND ninja_org_id IS NULL AND psa_id IS NOT NULL');
         $unassigned = (int) DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
             WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0");
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses l JOIN clients c ON c.id = l.client_id WHERE l.retired_at IS NULL AND l.unit_price IS NULL AND c.planning_excluded = 0 AND c.is_archived = 0');
         $steps = [
-            ['key' => 'itflow', 'label' => 'Connect ITFlow', 'ok' => $itflow, 'detail' => 'Clients, contacts, assets, licenses and invoices', 'link' => '/integrations/itflow', 'action' => 'Integrations'],
+            ['key' => 'psa', 'label' => "Connect $psaName", 'ok' => $psa, 'detail' => 'Clients, contacts, assets, licenses and invoices', 'link' => $psaConn ? $psaConn->url() : '/integrations', 'action' => 'Integrations'],
             ['key' => 'ninja', 'label' => 'Connect NinjaOne', 'ok' => $ninja, 'detail' => 'Computers, servers, OS and warranty data', 'link' => '/integrations/ninjaone', 'action' => 'Integrations'],
-            ['key' => 'sync', 'label' => 'Run the first sync', 'ok' => $synced, 'detail' => $synced ? 'Runs hourly; ITFlow changes every 2 minutes' : 'Pulls everything in', 'link' => '/sync', 'action' => 'Sync'],
-            ['key' => 'clients', 'label' => 'Clients in Align', 'ok' => $clients > 0, 'detail' => $clients ? "$clients clients in planning" : 'Sync from ITFlow or add clients by hand', 'link' => '/clients', 'action' => 'Clients'],
+            ['key' => 'sync', 'label' => 'Run the first sync', 'ok' => $synced, 'detail' => $synced ? "Runs hourly; $psaName changes every 2 minutes" : 'Pulls everything in', 'link' => '/sync', 'action' => 'Sync'],
+            ['key' => 'clients', 'label' => 'Clients in Align', 'ok' => $clients > 0, 'detail' => $clients ? "$clients clients in planning" : "Sync from $psaName or add clients by hand", 'link' => '/clients', 'action' => 'Clients'],
             ['key' => 'mapping', 'label' => 'Clients linked to NinjaOne', 'ok' => !$ninja ? null : $unmapped === 0, 'detail' => $unmapped ? "$unmapped clients not linked yet" : 'All linked', 'link' => '/mapping', 'action' => 'Client mapping'],
-            ['key' => 'unassigned', 'label' => 'Hardware categorized', 'ok' => $unassigned === 0, 'detail' => $unassigned ? "$unassigned ITFlow assets need a type" : 'Nothing waiting', 'link' => '/devices/unassigned', 'action' => 'Categorize'],
+            ['key' => 'unassigned', 'label' => 'Hardware categorized', 'ok' => $unassigned === 0, 'detail' => $unassigned ? "$unassigned $psaName assets need a type" : 'Nothing waiting', 'link' => '/devices/unassigned', 'action' => 'Categorize'],
             ['key' => 'licenses', 'label' => 'Licenses priced', 'ok' => $unpriced === 0, 'detail' => $unpriced ? "$unpriced licenses without a price" : 'All priced', 'link' => '/licenses?filter=unpriced', 'action' => 'Licensing'],
         ];
         $applicable = array_filter($steps, fn($s) => $s['ok'] !== null);

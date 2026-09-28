@@ -158,7 +158,7 @@ final class ClientController
             flash('error', "Client added, but the logo wasn't saved: $err");
             redirect("/clients/$id");
         }
-        flash('success', "Added {$f['name']}. If it's later created in ITFlow with the same name, the sync links them automatically.");
+        flash('success', "Added {$f['name']}. If it's later created in " . psa_name() . " with the same name, the sync links them automatically.");
         redirect("/clients/$id");
     }
 
@@ -168,8 +168,8 @@ final class ClientController
         $client = self::load($id);
         $manual = $client['source'] === 'manual';
         $f = self::fields($manual);
-        // Fields ITFlow supplied are managed there; ignore them from the form.
-        foreach (array_filter(explode(',', (string) ($client['itflow_fields'] ?? ''))) as $k) {
+        // Fields the PSA supplied are managed there; ignore them from the form.
+        foreach (array_filter(explode(',', (string) ($client['psa_fields'] ?? ''))) as $k) {
             unset($f[$k]);
         }
         if ($manual && ($f['name'] ?? '') === '') {
@@ -209,7 +209,7 @@ final class ClientController
         Auth::requireRole('admin');
         $client = self::load($id);
         if ($client['source'] !== 'manual') {
-            flash('error', 'Clients synced from ITFlow come back on the next sync. Use "Remove from planning" instead.');
+            flash('error', 'Clients synced from ' . psa_name() . ' come back on the next sync. Use "Remove from planning" instead.');
             redirect("/clients/$id");
         }
         if (post('confirm_name') !== $client['name']) {
@@ -282,7 +282,6 @@ final class ClientController
             'recent' => DB::all("SELECT * FROM meetings WHERE client_id = ? AND (status = 'completed' OR starts_at < NOW()) AND status <> 'cancelled' ORDER BY starts_at DESC LIMIT 3", [$id]),
             'cadence' => Meetings::cadence()[$id] ?? null,
             'users' => self::users(),
-            'itflowUrl' => Settings::get('itflow_url'),
             'backup' => \Align\Backup\Backup::forClient($client, $devices),
             'sla' => \Align\Service\Sla::overview($id),
         ]);
@@ -301,7 +300,7 @@ final class ClientController
                 'warranty' => (bool) array_intersect(['warranty_expired', 'warranty_soon'], $d['flags']) || ($d['is_hardware'] && !$d['warranty_end']),
                 'stale' => $d['stale'],
                 'manual' => $d['source'] === 'manual',
-                'itflow' => $d['source'] === 'itflow',
+                'psa' => $d['source'] === 'psa',
                 'virtual' => (bool) $d['is_virtual'],
                 'unassigned' => $d['type'] === Lifecycle::UNASSIGNED,
                 'noplan' => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'],
@@ -315,7 +314,7 @@ final class ClientController
         Auth::require();
         $client = self::load($id);
         $all = (new Lifecycle())->devices($id);
-        $filter = query('filter');
+        $filter = query('filter') === 'itflow' ? 'psa' : query('filter'); // itflow: links saved before 1.28
         $class = query('class');
         View::render('clients/devices', [
             'title' => $client['name'] . ' · Devices',
@@ -345,7 +344,7 @@ final class ClientController
             'End of life', 'Status', 'Est. replacement cost', 'Last check-in', 'Last logged-in user', 'Notes'], escape: '');
         foreach ($devices as $d) {
             fputcsv($out, array_map([\Align\Security::class, 'csvCell'], [
-                $d['name'], $d['type'], ['manual' => 'Manual', 'itflow' => 'ITFlow', 'ninja' => 'NinjaOne'][$d['source']] ?? $d['source'], $d['manufacturer'], $d['model'],
+                $d['name'], $d['type'], source_label($d['source']), $d['manufacturer'], $d['model'],
                 $d['serial'], $d['ip_address'], $d['location'], $d['os_name'] ?: $d['firmware'],
                 $d['os_rule']['eos_date'] ?? '', $d['start_date'], $d['start_source'], $d['age_years'],
                 $d['warranty_end'], $d['warranty_source'], $d['eol_date'], $d['status_label'],

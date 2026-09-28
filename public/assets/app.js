@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.report-document').forEach((s) => fill(s, m.documents));
       document.querySelectorAll('form.report-card').forEach((f) => {
         const need = f.dataset.needs;
-        const msg = { veeam: 'This client is not linked to a Veeam company yet (Client mapping).', frameworks: 'No compliance framework is assigned to this client yet.', documents: 'This client has no documents yet.', sla: 'No ITFlow tickets for this client yet.' }[need];
+        const msg = { veeam: 'This client is not linked to a Veeam company yet (Client mapping).', frameworks: 'No compliance framework is assigned to this client yet.', documents: 'This client has no documents yet.', sla: 'No tickets with SLA data for this client yet.' }[need];
         const ok = !need || (need === 'veeam' || need === 'sla' ? m[need] : (m[need] || []).length > 0);
         f.querySelector('button').disabled = !ok;
         const note = f.querySelector('.report-unavailable');

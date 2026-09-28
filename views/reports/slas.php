@@ -9,7 +9,7 @@ $below = array_filter($rows, fn($r) => $r['overall_pct'] !== null && $r['overall
 ?>
 <section class="rsection">
   <?= Ui::head('Across all clients') ?>
-  <?php if ($supported === false): ?><p class="muted">Your ITFlow has no SLA fields. Ticket SLAs arrived in ITFlow 26.08.</p><?php endif; ?>
+  <?php if ($supported === false): ?><p class="muted"><?= e(ucfirst(\Align\Providers\Providers::psaConnector()?->noSlaMessage() ?? 'no SLA fields')) ?>.</p><?php endif; ?>
   <div class="kpi-row">
     <?= Ui::kpi(Sla::pct($total['resp_pct']), 'Responded on time', $total['resp_met'] . ' of ' . ($total['resp_met'] + $total['resp_missed']), $tone($total['resp_pct'])) ?>
     <?= Ui::kpi(Sla::pct($total['res_pct']), 'Resolved on time', $total['res_met'] . ' of ' . ($total['res_met'] + $total['res_missed']), $tone($total['res_pct'])) ?>

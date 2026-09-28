@@ -61,7 +61,7 @@ final class Routes
                     'search' => ['string', 'Name, serial, model or last user contains.']] + $since + $page]),
             $r('GET', '/devices/{id}', 'devices:read', [Devices::class, 'show'], 'Devices', 'Get a device', ['returns' => 'Device']),
             $r('PATCH', '/devices/{id}', 'devices:write', [Devices::class, 'update'], 'Devices', 'Change a device\'s lifecycle details', ['returns' => 'Device', 'body' => [Devices::class, 'rules'],
-                'description' => 'Same as editing the device page: dates, lifespan and cost override the synced values and the policy defaults; the change goes to ITFlow when two-way sync is on. Send null to clear an override.']),
+                'description' => 'Same as editing the device page: dates, lifespan and cost override the synced values and the policy defaults; the change goes to the PSA when two-way sync is on. Send null to clear an override.']),
 
             $r('GET', '/projects', 'projects:read', [Projects::class, 'index'], 'Projects', 'List projects', ['list' => true, 'returns' => 'Project',
                 'query' => $client + ['status' => ['string', 'proposed, approved, scheduled, done or declined.'], 'category' => ['string', 'Project category.'],
@@ -88,9 +88,9 @@ final class Routes
                     'renewing_within_days' => ['int', 'Expiry, contract end or renegotiate-by date within this many days.'], 'include_retired' => ['bool', 'Include retired licenses.']] + $since + $page]),
             $r('GET', '/licenses/{id}', 'licenses:read', [Licenses::class, 'show'], 'Licensing', 'Get a license', ['returns' => 'License']),
             $r('POST', '/licenses', 'licenses:write', [Licenses::class, 'create'], 'Licensing', 'Add a license', ['returns' => 'License', 'status' => 201, 'creating' => true,
-                'body' => fn() => Licenses::rules(true), 'description' => 'For licenses you track only in Align. Licenses from ITFlow arrive with the sync.']),
+                'body' => fn() => Licenses::rules(true), 'description' => 'For licenses you track only in Align. Licenses from the PSA arrive with the sync.']),
             $r('PATCH', '/licenses/{id}', 'licenses:write', [Licenses::class, 'update'], 'Licensing', 'Change a license', ['returns' => 'License', 'body' => fn() => Licenses::rules(),
-                'description' => 'For licenses synced from ITFlow, name, version, type, seats, vendor and dates are managed in ITFlow and refused here.']),
+                'description' => 'For licenses synced from the PSA, name, version, type, seats, vendor and dates are managed there and refused here.']),
             $r('DELETE', '/licenses/{id}', 'licenses:write', [Licenses::class, 'delete'], 'Licensing', 'Delete a license you added', ['status' => 204]),
 
             $r('GET', '/meetings', 'meetings:read', [Meetings::class, 'index'], 'Meetings', 'List meetings', ['list' => true, 'returns' => 'Meeting',

@@ -3,11 +3,11 @@ use Align\Licensing\Licenses;
 
 /** @var ?array $l  license (null = new); $cid client id for new; $back return path */
 $l = $l ?? null;
-$itflow = $l && $l['source'] === 'itflow';
+$fromPsa = $l && $l['source'] === 'psa';
 $id = $l ? 'modal-license-' . (int) $l['id'] : 'modal-license';
 $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
-$ro = $itflow ? 'readonly' : '';
-$tag = $itflow ? ' <span class="badge badge-light border font-weight-normal" title="Managed in ITFlow">ITFlow</span>' : '';
+$ro = $fromPsa ? 'readonly' : '';
+$tag = $fromPsa ? ' <span class="badge badge-light border font-weight-normal" title="Managed in ' . psa_name() . '">' . psa_name() . '</span>' : '';
 ?>
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -20,18 +20,18 @@ $tag = $itflow ? ' <span class="badge badge-light border font-weight-normal" tit
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <?php if ($itflow): ?>
-            <div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This license comes from ITFlow (Software). Its name, type, seats, vendor and dates are updated from ITFlow every few minutes, so change those in ITFlow. Price, billing, category and seats in use are kept in Align.</div>
+          <?php if ($fromPsa): ?>
+            <div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This license comes from <?= e(psa_name()) ?>. Its name, type, seats, vendor and dates are updated from <?= e(psa_name()) ?> every few minutes, so change those in <?= e(psa_name()) ?>. Price, billing, category and seats in use are kept in Align.</div>
           <?php endif; ?>
           <div class="form-row">
-            <div class="form-group col-md-6"><label>Product<?= $tag ?></label><input name="name" class="form-control" value="<?= e($l['name'] ?? '') ?>" <?= $itflow ? 'readonly' : 'required' ?> placeholder="Microsoft 365 Business Premium"></div>
+            <div class="form-group col-md-6"><label>Product<?= $tag ?></label><input name="name" class="form-control" value="<?= e($l['name'] ?? '') ?>" <?= $fromPsa ? 'readonly' : 'required' ?> placeholder="Microsoft 365 Business Premium"></div>
             <div class="form-group col-md-3"><label>Vendor<?= $tag ?></label><input name="vendor" class="form-control" value="<?= e($l['vendor'] ?? '') ?>" <?= $ro ?> placeholder="Pax8, Microsoft…"></div>
             <div class="form-group col-md-3"><label>Category</label>
               <select name="category" class="form-control"><?php foreach (Licenses::CATEGORIES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $l['category'] ?? 'productivity') ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
           </div>
           <div class="form-row">
             <div class="form-group col-md-3"><label>License type<?= $tag ?></label>
-              <?php if ($itflow): ?><input class="form-control" value="<?= e(Licenses::TYPES[$l['license_type']]) ?>" readonly>
+              <?php if ($fromPsa): ?><input class="form-control" value="<?= e(Licenses::TYPES[$l['license_type']]) ?>" readonly>
               <?php else: ?><select name="license_type" class="form-control"><?php foreach (Licenses::TYPES as $k => $label): ?><option value="<?= $k ?>" <?= $sel($k, $l['license_type'] ?? 'user') ?>><?= e($label) ?></option><?php endforeach; ?></select><?php endif; ?></div>
             <div class="form-group col-md-3"><label>Seats / licenses<?= $tag ?></label><input type="number" min="0" name="seats" class="form-control" value="<?= e($l['seats'] ?? '') ?>" <?= $ro ?> data-lic="seats"></div>
             <div class="form-group col-md-3"><label>In use <small class="text-muted">(optional)</small></label><input type="number" min="0" name="seats_used" class="form-control" value="<?= e($l['seats_used'] ?? '') ?>"></div>
@@ -55,7 +55,7 @@ $tag = $itflow ? ' <span class="badge badge-light border font-weight-normal" tit
               <label class="custom-control-label font-weight-normal" for="<?= $id ?>-renew" title="If unticked, the budget stops this cost at the contract end (or expiry) date">Auto-renews</label></div></div>
           </div>
           <?= \Align\View::fetch('partials/contract_fields', ['r' => $l, 'withStart' => true, 'startField' => 'purchase_date']) ?>
-          <?php if ($itflow && $l['notes']): ?><div class="form-group"><label>ITFlow notes<?= $tag ?></label><textarea class="form-control" rows="2" readonly><?= e($l['notes']) ?></textarea></div><?php endif; ?>
+          <?php if ($fromPsa && $l['notes']): ?><div class="form-group"><label><?= e(psa_name()) ?> notes<?= $tag ?></label><textarea class="form-control" rows="2" readonly><?= e($l['notes']) ?></textarea></div><?php endif; ?>
           <div class="form-group mb-0"><label>Notes <small class="text-muted">(Align)</small></label><textarea name="align_notes" class="form-control" rows="2" placeholder="SKU, term, reseller, who to contact at renewal…"><?= e($l['align_notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
@@ -65,7 +65,7 @@ $tag = $itflow ? ' <span class="badge badge-light border font-weight-normal" tit
             <?php else: ?>
               <button class="btn btn-outline-secondary mr-auto" name="action" value="retire" formnovalidate data-confirm="Retire <?= e($l['name']) ?>? It stops counting toward costs; you can restore it."><i class="fas fa-box-archive mr-1"></i>Retire</button>
             <?php endif; ?>
-            <?php if (!$itflow): ?><button class="btn btn-outline-danger mr-2" name="action" value="delete" formnovalidate data-confirm="Delete <?= e($l['name']) ?> permanently?"><i class="fas fa-trash"></i></button><?php endif; ?>
+            <?php if (!$fromPsa): ?><button class="btn btn-outline-danger mr-2" name="action" value="delete" formnovalidate data-confirm="Delete <?= e($l['name']) ?> permanently?"><i class="fas fa-trash"></i></button><?php endif; ?>
           <?php endif; ?>
           <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check mr-1"></i>Save</button>

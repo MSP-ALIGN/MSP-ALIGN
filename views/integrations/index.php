@@ -8,7 +8,7 @@ $runTone = ['success' => 'success', 'partial' => 'warning', 'failed' => 'danger'
   <a class="btn btn-sm btn-default mr-2" href="/help#guide-integration" title="How to connect an integration"><i class="fas fa-circle-question"></i></a>
   <a class="btn btn-sm btn-default" href="/sync"><i class="fas fa-rotate mr-1"></i>Sync<?= $lastRun ? ' <span class="badge badge-' . ($runTone[$lastRun['status']] ?? 'secondary') . '">' . e(rel_time($lastRun['finished_at'] ?? $lastRun['started_at'])) . '</span>' : '' ?></a>
 </div>
-<p class="text-muted small">Everything Align connects to. API keys are encrypted on this server and never shown again after saving. The sync runs every hour (ITFlow asset changes every 2 minutes); results show on each card.</p>
+<p class="text-muted small">Everything Align connects to. API keys are encrypted on this server and never shown again after saving. The sync runs every hour (<?= e(psa_name()) ?> asset changes every 2 minutes); results show on each card.</p>
 
 <div class="row">
 <?php foreach ($groups as $cat => $list): foreach ($list as $c): [$tone, $label, $detail] = $c->status(); ?>

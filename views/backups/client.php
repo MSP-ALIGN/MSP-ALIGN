@@ -59,7 +59,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php if ($b['unprotected']): ?>
 <div class="card card-outline card-danger">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved text-danger mr-2"></i>Servers with no backup (<?= count($b['unprotected']) ?>)</h3></div>
-  <div class="card-body py-2 small text-muted border-bottom">Servers from NinjaOne or ITFlow that no Veeam job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
+  <div class="card-body py-2 small text-muted border-bottom">Servers from NinjaOne or <?= e(psa_name()) ?> that no Veeam job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
   <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex align-items-center"><a href="/devices/' . (int) $d['id'] . '" class="mr-auto font-weight-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted mr-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
   <ul class="list-group list-group-flush">
     <?php foreach (array_slice($b['unprotected'], 0, 8) as $d) echo $li($d); ?>

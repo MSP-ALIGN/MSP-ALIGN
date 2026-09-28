@@ -32,8 +32,8 @@ $cols = $showClient ? 9 : 8;
       <tr class="<?= $l['retired_at'] ? 'text-muted' : '' ?>">
         <td>
           <?php if ($canEdit): ?><a href="#" class="font-weight-bold" data-toggle="modal" data-target="#modal-license-<?= (int) $l['id'] ?>"><?= e($l['name']) ?></a><?php else: ?><b><?= e($l['name']) ?></b><?php endif; ?>
-          <?php if ($l['source'] === 'itflow'): ?><span class="badge badge-light border" title="Synced from ITFlow Software">ITFlow</span><?php endif; ?>
-          <?php if ($l['retired_at']): ?><span class="badge badge-secondary">retired<?= $l['retired_reason'] === 'itflow' ? ' in ITFlow' : '' ?></span><?php endif; ?>
+          <?php if ($l['source'] === 'psa'): ?><span class="badge badge-light border" title="Synced from <?= e(psa_name()) ?>"><?= e(psa_name()) ?></span><?php endif; ?>
+          <?php if ($l['retired_at']): ?><span class="badge badge-secondary">retired<?= $l['retired_reason'] === 'psa' ? ' in ' . psa_name() : '' ?></span><?php endif; ?>
           <?php if ($l['vendor'] || $l['version']): ?><div class="small text-muted"><?= e(implode(' · ', array_filter([$l['vendor'], $l['version']]))) ?></div><?php endif; ?>
           <?php if ($cs = \Align\Budget\Contracts::summary($l)): $u = \Align\Budget\Contracts::urgency($l['renegotiate_date'] ?: $l['contract_end']); ?>
             <div class="small <?= $u === 'past' ? 'text-danger' : ($u === 'soon' ? 'text-warning font-weight-bold' : 'text-muted') ?>"><i class="fas fa-file-signature mr-1"></i><?= e($cs) ?></div>

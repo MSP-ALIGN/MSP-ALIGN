@@ -8,7 +8,7 @@ use Align\Settings;
 
 /**
  * Online versions of the "New user setup" and "User suspend / termination" forms. A submitted form
- * becomes an ITFlow ticket for the client (or, without ITFlow, an email to your service address).
+ * becomes a PSA ticket for the client (or, without a PSA that takes tickets, an email to your service address).
  * Used on the onboarding page and in the client portal.
  */
 final class Requests
@@ -118,7 +118,7 @@ final class Requests
 
     /**
      * Saves and delivers a request. $by: ['name','email','portal_user_id'?, 'via' => onboarding|portal].
-     * Returns the service_requests row (with itflow_ticket_id / delivery).
+     * Returns the service_requests row (with psa_ticket_id / delivery).
      */
     public static function submit(array $client, string $kind, array $data, array $by): array
     {
@@ -137,19 +137,19 @@ final class Requests
         $delivery = 'failed';
         $ticket = null;
         $error = null;
-        if (!empty($client['itflow_client_id']) && Settings::get('itflow_url') && Settings::secret('itflow_api_key')) {
+        if (!empty($client['psa_id']) && \Align\Providers\Providers::psaSupports('tickets.create')) {
             try {
                 $contactId = null;
                 if ($by['email']) {
-                    $contactId = DB::value('SELECT itflow_contact_id FROM contacts WHERE client_id = ? AND email = ? AND itflow_contact_id IS NOT NULL AND archived_at IS NULL LIMIT 1', [$client['id'], $by['email']]);
+                    $contactId = DB::value('SELECT psa_id FROM contacts WHERE client_id = ? AND email = ? AND psa_id IS NOT NULL AND archived_at IS NULL LIMIT 1', [$client['id'], $by['email']]);
                 }
-                $ticket = \Align\Integrations\Itflow::fromSettings(true)->createTicket((int) $client['itflow_client_id'], $title, $html, 'Medium', $contactId ? (int) $contactId : null);
-                $delivery = 'itflow';
+                $ticket = \Align\Providers\Providers::psa(true)->createTicket((int) $client['psa_id'], $title, $html, 'Medium', $contactId ? (int) $contactId : null);
+                $delivery = 'psa';
             } catch (\Throwable $e) {
                 $error = $e->getMessage();
             }
         }
-        if ($delivery !== 'itflow') {
+        if ($delivery !== 'psa') {
             $to = Settings::get('company_email');
             $queued = $to ? \Align\Mail\Mailer::queue('service_request', [$to], $client['name'] . ': ' . $title,
                 \Align\Mail\Template::render($title, [\Align\Mail\Template::p($client['name']), \Align\Mail\Template::facts(['Submitted by' => $by['name'] . ($by['email'] ? " ({$by['email']})" : '')] + $rows)]),
@@ -157,10 +157,10 @@ final class Requests
             if ($queued) {
                 $delivery = 'email';
             } else {
-                $error ??= 'ITFlow isn\'t connected for this client and email isn\'t set up.';
+                $error ??= psa_name() . ' isn\'t connected for this client and email isn\'t set up.';
             }
         }
-        DB::run('UPDATE service_requests SET itflow_ticket_id = ?, delivery = ?, delivery_error = ? WHERE id = ?', [$ticket, $delivery, $error ? mb_substr($error, 0, 500) : null, $id]);
+        DB::run('UPDATE service_requests SET psa_ticket_id = ?, delivery = ?, delivery_error = ? WHERE id = ?', [$ticket, $delivery, $error ? mb_substr($error, 0, 500) : null, $id]);
         \Align\Audit::log('client.request', "{$client['name']}: $title ($delivery)");
         \Align\Mail\Notify::portalActivity((int) $client['id'], $client['name'], $by['name'], 'submitted a request: ' . $title, '/clients/' . (int) $client['id'] . '/onboarding');
         return DB::one('SELECT * FROM service_requests WHERE id = ?', [$id]);

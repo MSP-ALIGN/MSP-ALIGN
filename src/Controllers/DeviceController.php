@@ -8,7 +8,7 @@ use Align\Auth;
 use Align\DB;
 use Align\Lifecycle\Lifecycle;
 use Align\Settings;
-use Align\Sync\ItflowSync;
+use Align\Sync\PsaAssetSync;
 use Align\View;
 
 final class DeviceController
@@ -37,19 +37,18 @@ final class DeviceController
             'clientNav' => 'devices',
             'd' => $d,
             'lookup' => $d['serial'] ? DB::one('SELECT * FROM warranty_lookups WHERE serial = ? ORDER BY looked_up_at DESC LIMIT 1', [$d['serial']]) : null,
-            'itflowUrl' => Settings::get('itflow_url'),
             'ninjaInstance' => Settings::get('ninja_instance', 'app.ninjarmm.com'),
-            'sync' => ItflowSync::status($id),
-            'syncRow' => DB::one('SELECT itflow_sync, retired_at, updated_at FROM devices WHERE id = ?', [$id]),
-            'twoWay' => ItflowSync::twoWay(),
-            'clientInItflow' => $client && !empty($client['itflow_client_id']),
+            'sync' => PsaAssetSync::status($id),
+            'syncRow' => DB::one('SELECT psa_sync, retired_at, updated_at FROM devices WHERE id = ?', [$id]),
+            'twoWay' => PsaAssetSync::twoWay(),
+            'clientInPsa' => $client && !empty($client['psa_id']),
             'backups' => $client && \Align\Backup\Backup::has($client) ? DB::all('SELECT * FROM backup_workloads WHERE device_id = ? ORDER BY last_point DESC', [$id]) : null,
             'backupExempt' => DB::one('SELECT e.*, u.name AS created_by_name FROM backup_exemptions e LEFT JOIN users u ON u.id = e.created_by
                 WHERE e.device_id = ? OR e.item_uid IN (SELECT uid FROM backup_workloads WHERE device_id = ?) LIMIT 1', [$id, $id]),
         ]);
     }
 
-    /** Flashes the result of pushing a device to ITFlow. */
+    /** Flashes the result of pushing a device to the PSA. */
     private static function flashPush(array $r, string $saved = 'Saved.'): void
     {
         match ($r['status']) {
@@ -206,9 +205,9 @@ final class DeviceController
         });
         Audit::log('device.create', "{$f['display_name']} ({$f['device_type']}) for {$client['name']}");
         if (isset($_POST['align_only'])) {
-            DB::run('UPDATE devices SET itflow_sync = 0 WHERE id = ?', [$deviceId]);
+            DB::run('UPDATE devices SET psa_sync = 0 WHERE id = ?', [$deviceId]);
         }
-        self::flashPush(ItflowSync::pushDevice($deviceId, Auth::id()), "Added {$f['display_name']}.");
+        self::flashPush(PsaAssetSync::pushDevice($deviceId, Auth::id()), "Added {$f['display_name']}.");
         redirect(post('again') === '1' ? "/clients/$id/devices?add=1" : "/devices/$deviceId");
     }
 
@@ -216,10 +215,10 @@ final class DeviceController
     {
         Auth::requireRole('tech');
         $d = self::find($id);
-        $before = ItflowSync::snapshot($id);
+        $before = PsaAssetSync::snapshot($id);
         DB::transaction(function () use ($d, $id) {
             $o = self::overrideRow($id);
-            if (ItflowSync::owns($d)) {
+            if (PsaAssetSync::owns($d)) {
                 $f = self::manualFields();
                 if (!$f['display_name']) {
                     $f['display_name'] = $d['display_name'];
@@ -232,9 +231,9 @@ final class DeviceController
             }
             DB::upsert('device_overrides', $o, ['device_id']);
         });
-        ItflowSync::recordAlignEdit($id, $before);
+        PsaAssetSync::recordAlignEdit($id, $before);
         Audit::log('device.update', $d['name']);
-        self::flashPush(ItflowSync::pushDevice($id, Auth::id()), 'Saved. ' . self::planNote($id));
+        self::flashPush(PsaAssetSync::pushDevice($id, Auth::id()), 'Saved. ' . self::planNote($id));
         redirect("/devices/$id");
     }
 
@@ -256,7 +255,7 @@ final class DeviceController
     public static function setType(array $d, string $type): void
     {
         [$class, , $virtual] = Lifecycle::TYPES[$type];
-        if (ItflowSync::owns($d)) {
+        if (PsaAssetSync::owns($d)) {
             DB::run('UPDATE devices SET device_type = ?, device_class = ?, is_virtual = ? WHERE id = ?', [$type, $class, $virtual ? 1 : 0, $d['id']]);
             DB::run('UPDATE device_overrides SET device_type = NULL WHERE device_id = ?', [$d['id']]);
         } else {
@@ -270,14 +269,14 @@ final class DeviceController
         Auth::require();
         $rows = array_values(array_filter((new Lifecycle())->devices(), fn($d) => $d['type'] === Lifecycle::UNASSIGNED));
         $types = [];
-        foreach (DB::all('SELECT itflow_asset_id, type FROM itflow_assets') as $a) {
-            $types[(int) $a['itflow_asset_id']] = $a['type'];
+        foreach (DB::all('SELECT psa_asset_id, type FROM psa_assets') as $a) {
+            $types[(int) $a['psa_asset_id']] = $a['type'];
         }
         View::render('devices/unassigned', [
             'title' => 'Unassigned hardware',
             'nav' => 'unassigned',
             'rows' => $rows,
-            'itflowTypes' => $types,
+            'psaTypes' => $types,
         ]);
     }
 
@@ -294,65 +293,65 @@ final class DeviceController
         $done = 0;
         $queued = 0;
         foreach ($ids as $id) {
-            $d = ItflowSync::loadDevice($id);
+            $d = PsaAssetSync::loadDevice($id);
             if (!$d) {
                 continue;
             }
-            $before = ItflowSync::snapshot($id);
+            $before = PsaAssetSync::snapshot($id);
             self::setType($d, $type);
-            ItflowSync::recordAlignEdit($id, $before);
-            $r = ItflowSync::pushDevice($id, Auth::id());
+            PsaAssetSync::recordAlignEdit($id, $before);
+            $r = PsaAssetSync::pushDevice($id, Auth::id());
             $queued += in_array($r['status'], ['queued', 'error'], true) ? 1 : 0;
             $done++;
         }
         Audit::log('device.bulk_type', "$done devices set to $type");
         flash($queued ? 'warning' : 'success', "Set $done device" . ($done === 1 ? '' : 's') . " to $type."
-            . ($queued ? " $queued couldn't reach ITFlow yet and will be sent automatically." : (ItflowSync::twoWay() ? ' ITFlow updated.' : '')));
+            . ($queued ? " $queued couldn't reach " . psa_name() . " yet and will be sent automatically." : (PsaAssetSync::twoWay() ? ' ' . psa_name() . ' updated.' : '')));
         redirect($back);
     }
 
-    /** Push now / pull latest from ITFlow. */
+    /** Push now / pull latest from the PSA. */
     public static function push(int $id): void
     {
         Auth::requireRole('tech');
         self::find($id);
-        self::flashPush(ItflowSync::pushDevice($id, Auth::id()), '');
+        self::flashPush(PsaAssetSync::pushDevice($id, Auth::id()), '');
         redirect("/devices/$id");
     }
 
-    /** Turns ITFlow sync on or off for one device ("Align only"). */
+    /** Turns the PSA sync on or off for one device ("Align only"). */
     public static function toggleSync(int $id): void
     {
         Auth::requireRole('tech');
         $d = self::find($id);
         $on = post('on') === '1';
-        DB::run('UPDATE devices SET itflow_sync = ? WHERE id = ?', [$on ? 1 : 0, $id]);
-        DB::run('DELETE FROM itflow_sync_state WHERE device_id = ?', [$id]); // re-baseline when turned back on
-        Audit::log('device.itflow_sync', $d['name'] . ($on ? ' synced with ITFlow' : ' set to Align only'));
+        DB::run('UPDATE devices SET psa_sync = ? WHERE id = ?', [$on ? 1 : 0, $id]);
+        DB::run('DELETE FROM psa_sync_state WHERE device_id = ?', [$id]); // re-baseline when turned back on
+        Audit::log('device.psa_sync', $d['name'] . ($on ? ' synced with ' . psa_name() : ' set to Align only'));
         if ($on) {
-            self::flashPush(ItflowSync::pushDevice($id, Auth::id()), 'ITFlow sync turned on.');
+            self::flashPush(PsaAssetSync::pushDevice($id, Auth::id()), psa_name() . ' sync turned on.');
         } else {
-            flash('success', 'This device is now Align-only. Changes won\'t be sent to or taken from ITFlow.');
+            flash('success', 'This device is now Align-only. Changes won\'t be sent to or taken from ' . psa_name() . '.');
         }
         redirect("/devices/$id");
     }
 
-    /** Brings a retired device back (and marks the ITFlow asset Deployed). */
+    /** Brings a retired device back (and marks the PSA asset Deployed). */
     public static function restore(int $id): void
     {
         Auth::requireRole('tech');
         $d = self::find($id);
-        $before = ItflowSync::snapshot($id);
+        $before = PsaAssetSync::snapshot($id);
         DB::run('UPDATE devices SET retired_at = NULL, removed_at = NULL WHERE id = ?', [$id]);
-        ItflowSync::recordAlignEdit($id, $before);
+        PsaAssetSync::recordAlignEdit($id, $before);
         Audit::log('device.restore', $d['name']);
-        self::flashPush(ItflowSync::pushDevice($id, Auth::id()), "Restored {$d['name']}.");
+        self::flashPush(PsaAssetSync::pushDevice($id, Auth::id()), "Restored {$d['name']}.");
         redirect("/devices/$id");
     }
 
     /**
-     * Hand-added devices never sent to ITFlow are deleted. Anything linked to ITFlow is retired instead:
-     * hidden in Align and marked Retired in ITFlow, so nothing is permanently removed by sync.
+     * Hand-added devices never sent to the PSA are deleted. Anything linked to the PSA is retired instead:
+     * hidden in Align and marked Retired in the PSA, so nothing is permanently removed by sync.
      */
     public static function delete(int $id): void
     {
@@ -363,18 +362,18 @@ final class DeviceController
             redirect("/devices/$id");
         }
         $back = $d['client_id'] ? "/clients/{$d['client_id']}/devices" : '/clients';
-        if ($d['source'] === 'manual' && !$d['itflow_asset_id']) {
+        if ($d['source'] === 'manual' && !$d['psa_asset_id']) {
             DB::run('DELETE FROM devices WHERE id = ?', [$id]);
             Audit::log('device.delete', $d['name']);
             flash('success', "Deleted {$d['name']}.");
             redirect($back);
         }
-        $before = ItflowSync::snapshot($id);
+        $before = PsaAssetSync::snapshot($id);
         DB::run('UPDATE devices SET retired_at = NOW(), removed_at = COALESCE(removed_at, NOW()) WHERE id = ?', [$id]);
-        ItflowSync::recordAlignEdit($id, $before);
+        PsaAssetSync::recordAlignEdit($id, $before);
         Audit::log('device.retire', $d['name']);
-        $r = ItflowSync::pushDevice($id, Auth::id());
-        self::flashPush($r, "Retired {$d['name']}." . ($r['status'] === 'ok' ? ' The ITFlow asset is marked Retired.' : ''));
+        $r = PsaAssetSync::pushDevice($id, Auth::id());
+        self::flashPush($r, "Retired {$d['name']}." . ($r['status'] === 'ok' ? ' The ' . psa_name() . ' asset is marked Retired.' : ''));
         redirect("/devices/$id");
     }
 }

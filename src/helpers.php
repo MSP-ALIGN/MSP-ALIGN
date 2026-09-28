@@ -247,3 +247,21 @@ function fmt_bytes(int|float|string|null $b): string
     $n = $i === 0 || $b >= 10 ? number_format($b, 0) : preg_replace('/\.0$/', '', number_format($b, 1));
     return $n . ' ' . $units[$i];
 }
+
+/** The connected PSA's name ("ITFlow"), or "PSA" when none is chosen yet. */
+function psa_name(): string
+{
+    static $n = null;
+    return $n ??= \Align\Providers\Providers::psaName();
+}
+
+/** Label for a record's source: psa, manual, ninja. */
+function source_label(?string $source): string
+{
+    return match ($source) {
+        'psa' => psa_name(),
+        'ninja' => 'NinjaOne',
+        'manual' => 'Manual',
+        default => (string) $source,
+    };
+}

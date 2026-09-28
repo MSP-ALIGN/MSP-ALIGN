@@ -209,19 +209,6 @@ final class Itflow
         return $id;
     }
 
-    public const IMPORT_CATEGORIES = [
-        'network' => 'Network gear (Firewall/Router, Switch, Access Point)',
-        'printer' => 'Printers & copiers',
-        'ups' => 'UPS / battery backup',
-        'storage' => 'NAS / storage',
-        'camera' => 'Cameras / NVR',
-        'phone' => 'Phones',
-        'server' => 'Servers & hosts not in NinjaOne',
-        'workstation' => 'Desktops & laptops not in NinjaOne',
-        'vm' => 'Virtual machines not in NinjaOne',
-        'other' => 'Everything else → Unassigned, to categorize in Align (type "Other", Display, Tablet, custom types…)',
-    ];
-
     /** Updates only the given asset fields; ITFlow keeps existing values for fields not sent. */
     public function updateAsset(int $clientId, int $assetId, array $fields): bool
     {

@@ -3,16 +3,16 @@ use Align\Auth;
 use Align\Lifecycle\Lifecycle;
 
 $canEdit = Auth::can('tech');
-$twoWay = \Align\Sync\ItflowSync::twoWay();
+$twoWay = \Align\Sync\PsaAssetSync::twoWay();
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 mr-auto"><i class="fas fa-circle-question text-warning mr-2"></i>Unassigned hardware <span class="badge badge-warning align-middle"><?= count($rows) ?></span></h1>
 </div>
-<p class="text-muted small">ITFlow assets whose type doesn't match an Align category (ITFlow's "Other", Display, Tablet, custom types…) land here.
-  Pick the right type and they move into the correct category for lifecycle, budgets and reports<?= $twoWay ? ', and the ITFlow asset type is updated to match' : '' ?>.</p>
+<p class="text-muted small"><?= e(psa_name()) ?> assets whose type doesn't match an Align category (<?= e(psa_name()) ?>'s "Other", Display, Tablet, custom types…) land here.
+  Pick the right type and they move into the correct category for lifecycle, budgets and reports<?= $twoWay ? ', and the ' . psa_name() . ' asset type is updated to match' : '' ?>.</p>
 
 <?php if (!$rows): ?>
-  <div class="card card-body text-center text-muted py-5"><i class="fas fa-check-circle fa-2x text-success mb-2"></i>Nothing to categorize. Everything from ITFlow has a type.</div>
+  <div class="card card-body text-center text-muted py-5"><i class="fas fa-check-circle fa-2x text-success mb-2"></i>Nothing to categorize. Everything from <?= e(psa_name()) ?> has a type.</div>
 <?php else: ?>
 <form method="post" action="/devices/bulk-type" id="bulk-type-form">
   <?= csrf_field() ?>
@@ -36,7 +36,7 @@ $twoWay = \Align\Sync\ItflowSync::twoWay();
       <table class="table table-sm table-hover mb-0">
         <thead><tr>
           <?php if ($canEdit): ?><th class="w-1"><input type="checkbox" id="select-all" aria-label="Select all"></th><?php endif; ?>
-          <th>Name</th><th>Client</th><th>ITFlow type</th><th>Make / model</th><th>Serial</th><th>Location</th>
+          <th>Name</th><th>Client</th><th><?= e(psa_name()) ?> type</th><th>Make / model</th><th>Serial</th><th>Location</th>
         </tr></thead>
         <tbody>
           <?php foreach ($rows as $d): ?>
@@ -44,7 +44,7 @@ $twoWay = \Align\Sync\ItflowSync::twoWay();
               <?php if ($canEdit): ?><td><input type="checkbox" name="ids[]" value="<?= (int) $d['id'] ?>" class="row-check" aria-label="Select <?= e($d['name']) ?>"></td><?php endif; ?>
               <td><a href="/devices/<?= (int) $d['id'] ?>" class="font-weight-bold"><?= e($d['name']) ?></a></td>
               <td><?= $d['client_id'] ? '<a href="/clients/' . (int) $d['client_id'] . '/devices">' . e($d['client_name']) . '</a>' : '—' ?></td>
-              <td><span class="badge badge-light border"><?= e($itflowTypes[(int) $d['itflow_asset_id']] ?? '—') ?></span></td>
+              <td><span class="badge badge-light border"><?= e($psaTypes[(int) $d['psa_asset_id']] ?? '—') ?></span></td>
               <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '—' ?></td>
               <td class="text-monospace small"><?= e($d['serial'] ?? '—') ?></td>
               <td class="small"><?= e($d['location'] ?? '') ?></td>

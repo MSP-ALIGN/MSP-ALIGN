@@ -43,7 +43,6 @@ final class OnboardingController
             'requests' => Requests::forClient($id),
             'mailReady' => Mail::ready(),
             'link' => $_SESSION['onboarding_link_once'][$id] ?? null,
-            'itflowUrl' => Settings::get('itflow_url'),
             'editor' => true,
         ]);
         unset($_SESSION['onboarding_link_once'][$id]);

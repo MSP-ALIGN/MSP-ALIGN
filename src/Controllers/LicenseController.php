@@ -91,7 +91,7 @@ final class LicenseController
         return \Align\Security::safePath($b, $default);
     }
 
-    private static function fields(bool $itflow): array
+    private static function fields(bool $fromPsa): array
     {
         $num = fn(string $k) => ctype_digit(post($k)) ? min(1000000, (int) post($k)) : null;
         $date = fn(string $k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', post($k)) ? post($k) : null;
@@ -108,7 +108,7 @@ final class LicenseController
         $cs = preg_match('/^\d{4}-\d{2}-\d{2}$/', post('contract_start')) ? post('contract_start') : null;
         $f['contract_start'] = $cs;
         $f += \Align\Budget\Contracts::fromPost($cs ?: (preg_match('/^\d{4}-\d{2}-\d{2}$/', post('purchase_date')) ? post('purchase_date') : null));
-        if (!$itflow) { // details are managed in ITFlow for synced licenses
+        if (!$fromPsa) { // details are managed in the PSA for synced licenses
             $f += [
                 'name' => mb_substr(post('name'), 0, 255),
                 'version' => mb_substr(post('version'), 0, 100) ?: null,
@@ -148,20 +148,20 @@ final class LicenseController
             redirect('/licenses');
         }
         $back = self::back("/clients/{$l['client_id']}/licenses");
-        $itflow = $l['source'] === 'itflow';
+        $fromPsa = $l['source'] === 'psa';
         switch (post('action')) {
             case 'retire':
                 DB::run("UPDATE licenses SET retired_at = NOW(), retired_reason = 'align' WHERE id = ?", [$id]);
                 Audit::log('license.retire', "{$l['client_name']}: {$l['name']}");
-                flash('success', "Retired {$l['name']}. It no longer counts toward licensing totals." . ($itflow ? ' Archive it in ITFlow too; ITFlow\'s API doesn\'t allow Align to do that.' : ''));
+                flash('success', "Retired {$l['name']}. It no longer counts toward licensing totals." . ($fromPsa ? ' Archive it in ' . psa_name() . ' too; ' . psa_name() . '\'s API doesn\'t allow Align to do that.' : ''));
                 redirect($back);
             case 'restore':
                 DB::run('UPDATE licenses SET retired_at = NULL, retired_reason = NULL WHERE id = ?', [$id]);
                 flash('success', "Restored {$l['name']}.");
                 redirect($back);
             case 'delete':
-                if ($itflow) {
-                    flash('error', 'Licenses from ITFlow can be retired but not deleted (they would come back on the next sync).');
+                if ($fromPsa) {
+                    flash('error', 'Licenses from ' . psa_name() . ' can be retired but not deleted (they would come back on the next sync).');
                     redirect($back);
                 }
                 DB::run('DELETE FROM licenses WHERE id = ?', [$id]);
@@ -169,8 +169,8 @@ final class LicenseController
                 flash('success', "Deleted {$l['name']}.");
                 redirect($back);
         }
-        $f = self::fields($itflow);
-        if (!$itflow && $f['name'] === '') {
+        $f = self::fields($fromPsa);
+        if (!$fromPsa && $f['name'] === '') {
             $f['name'] = $l['name'];
         }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));

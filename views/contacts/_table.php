@@ -16,8 +16,8 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
     <tr class="<?= $k['archived_at'] ? 'text-muted' : '' ?>">
       <td>
         <?php if ($canEdit): ?><a href="#" class="font-weight-bold" data-toggle="modal" data-target="#modal-contact-<?= (int) $k['id'] ?>"><?= e($k['name']) ?></a><?php else: ?><b><?= e($k['name']) ?></b><?php endif; ?>
-        <?php if ($k['source'] === 'itflow'): ?><span class="badge badge-light border">ITFlow</span><?php endif; ?>
-        <?php if ($k['archived_at']): ?><span class="badge badge-secondary">archived<?= $k['archived_reason'] === 'itflow' ? ' in ITFlow' : '' ?></span><?php endif; ?>
+        <?php if ($k['source'] === 'psa'): ?><span class="badge badge-light border"><?= e(psa_name()) ?></span><?php endif; ?>
+        <?php if ($k['archived_at']): ?><span class="badge badge-secondary">archived<?= $k['archived_reason'] === 'psa' ? ' in ' . psa_name() : '' ?></span><?php endif; ?>
         <?php if ($k['title'] || $k['department'] || $k['location']): ?><div class="small text-muted"><?= e(implode(' · ', array_filter([$k['title'], $k['department'], $k['location']]))) ?></div><?php endif; ?>
         <?php if ($k['align_notes']): ?><div class="small text-muted text-truncate" style="max-width:360px" title="<?= e($k['align_notes']) ?>"><i class="fas fa-note-sticky mr-1"></i><?= e($k['align_notes']) ?></div><?php endif; ?>
       </td>

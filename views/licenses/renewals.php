@@ -15,4 +15,4 @@ $annual = array_sum(array_map(fn($d) => $d['kind'] === 'renegotiate' ? $d['annua
   <div class="col-md-4"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-handshake-angle"></i></span><div class="info-box-content"><span class="info-box-text">Annual value up for renegotiation</span><span class="info-box-number"><?= money($annual) ?></span></div></div></div>
 </div>
 <?= \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Coming up', 'showClient' => true, 'limit' => 500]) ?>
-<p class="small text-muted">Dates come from the contract details on licenses and budget lines (renegotiate-by, contract end) and from license expiry dates synced from ITFlow. They also appear on the calendar.</p>
+<p class="small text-muted">Dates come from the contract details on licenses and budget lines (renegotiate-by, contract end) and from license expiry dates synced from <?= e(psa_name()) ?>. They also appear on the calendar.</p>

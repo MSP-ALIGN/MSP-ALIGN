@@ -27,7 +27,7 @@ $stateBadge = ['breached' => '<span class="badge badge-danger">Past target</span
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 mr-auto"><i class="fas fa-stopwatch text-secondary mr-2"></i>Service levels <a href="/help#guide-service-levels" class="text-muted small" title="How service levels work"><i class="fas fa-circle-question fa-sm"></i></a></h1>
   <?php if ($s): ?>
-    <span class="small text-muted mr-2">From ITFlow ticket SLAs<?= $s['synced'] ? ' · updated ' . e(rel_time($s['synced'])) : '' ?></span>
+    <span class="small text-muted mr-2">From <?= e(psa_name()) ?> ticket SLAs<?= $s['synced'] ? ' · updated ' . e(rel_time($s['synced'])) : '' ?></span>
     <div class="btn-group btn-group-sm mr-2 mt-1 mt-md-0">
       <?php foreach (\Align\Controllers\ServiceController::periodChoices() as $k => $l): ?>
         <a class="btn <?= $period === (string) $k ? 'btn-primary' : 'btn-default' ?>" href="?period=<?= e((string) $k) ?>"><?= e(str_replace(['Last ', ' months', ' days', 'full quarter'], ['', 'mo', 'd', 'Last quarter'], $l)) ?></a>
@@ -41,22 +41,22 @@ $stateBadge = ['breached' => '<span class="badge badge-danger">Past target</span
   <div class="card card-body">
     <?php if (!$enabled): ?>
       <p class="mb-1"><b>Service levels are turned off.</b></p>
-      <p class="text-muted mb-0">Turn on <i>Service levels</i> under <?= Auth::can('admin') ? '<a href="/integrations/itflow">Integrations → ITFlow</a>' : 'Integrations → ITFlow' ?>.</p>
+      <p class="text-muted mb-0">Turn on <i>Service levels</i> under <?= Auth::can('admin') ? '<a href="' . e(\Align\Providers\Providers::psaConnector()?->url() ?? '/integrations') . '">Integrations → ' . psa_name() . '</a>' : 'Integrations → ' . psa_name() ?>.</p>
     <?php elseif ($supported === false): ?>
-      <p class="mb-1"><b>Your ITFlow doesn't have SLAs yet.</b></p>
-      <p class="text-muted mb-0">Ticket SLAs arrived in ITFlow 26.08. Update ITFlow, set up SLAs under <i>Admin → SLAs</i>, and they appear here after the next sync.</p>
+      <p class="mb-1"><b>Your <?= e(psa_name()) ?> doesn't have SLAs yet.</b></p>
+      <p class="text-muted mb-0"><?= \Align\Providers\Providers::psaConnector()?->slaSetupHint() ?? '' ?></p>
     <?php elseif (!$linked): ?>
-      <p class="mb-1"><b>This client isn't linked to ITFlow.</b></p>
+      <p class="mb-1"><b>This client isn't linked to <?= e(psa_name()) ?>.</b></p>
       <p class="text-muted mb-0">Link it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>, then run a sync.</p>
     <?php else: ?>
       <p class="mb-1"><b>No tickets yet.</b></p>
-      <p class="text-muted mb-0">Tickets and their SLA results come in with the hourly sync. If this client has tickets in ITFlow, check that the ITFlow API key's user can read Support.</p>
+      <p class="text-muted mb-0">Tickets and their SLA results come in with the hourly sync. If this client has tickets in <?= e(psa_name()) ?>, check that its API key can read tickets.</p>
     <?php endif; ?>
   </div>
 <?php else: $st = $s['stats']; $pr = $s['prior']; ?>
 
 <?php if (!$s['hasSla']): ?>
-  <div class="alert alert-info py-2 small"><i class="fas fa-circle-info mr-1"></i>None of this client's tickets have an SLA. In ITFlow, assign an SLA to the client or set a default under <i>Admin → SLAs</i>; ticket counts and times still show below.</div>
+  <div class="alert alert-info py-2 small"><i class="fas fa-circle-info mr-1"></i>None of this client's tickets have an SLA. In <?= e(psa_name()) ?>, assign an SLA to the client or set a default one; ticket counts and times still show below.</div>
 <?php endif; ?>
 
 <div class="row">
@@ -95,7 +95,7 @@ $stateBadge = ['breached' => '<span class="badge badge-danger">Past target</span
           </tbody>
         </table>
       </div>
-      <div class="card-footer small text-muted py-2">Targets are in business hours and ITFlow pauses the resolution clock while a ticket is on hold. Average times are clock time.</div>
+      <div class="card-footer small text-muted py-2">Targets are in business hours and <?= e(psa_name()) ?> pauses the resolution clock while a ticket is on hold. Average times are clock time.</div>
     </div>
   </div>
   <div class="col-xl-6">

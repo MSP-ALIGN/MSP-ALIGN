@@ -3,7 +3,7 @@ use Align\Auth;
 
 $q = $_GET['q'] ?? '';
 $canEdit = Auth::can('tech');
-$tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archived' => 'Archived in ITFlow', 'all' => 'All'];
+$tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archived' => 'Archived in ' . psa_name(), 'all' => 'All'];
 ?>
 <form method="post" action="/clients/bulk" id="bulk-form">
 <?= csrf_field() ?>
@@ -61,7 +61,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
             <?php if ($c['source'] === 'manual'): ?><span class="badge badge-light border" title="Added in Align">manual</span><?php endif; ?>
             <?php if ($c['is_archived']): ?><span class="badge badge-dark">archived</span><?php endif; ?>
             <?php if ($c['planning_excluded']): ?><span class="badge badge-secondary" title="<?= e($c['excluded_reason'] ?? '') ?>">removed<?= $c['excluded_reason'] ? ': ' . e($c['excluded_reason']) : '' ?></span><?php endif; ?>
-            <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link mr-1"></i>' . e($c['org_name']) : ($c['source'] === 'itflow' && !$c['planning_excluded'] ? '<span class="text-warning">Not linked to NinjaOne</span>' : '') ?></div>
+            <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link mr-1"></i>' . e($c['org_name']) : ($c['source'] === 'psa' && !$c['planning_excluded'] ? '<span class="text-warning">Not linked to NinjaOne</span>' : '') ?></div>
           </td>
           <td class="small"><?= e($c['industry'] ?? '') ?></td>
           <td class="small"><?= e($c['vcio_name'] ?? '') ?></td>
@@ -82,7 +82,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? 'No clients yet. Add one, or connect ITFlow under Integrations and run a sync.' : 'None.' ?></td></tr><?php endif; ?>
+      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? 'No clients yet. Add one, or connect ' . psa_name() . ' under Integrations and run a sync.' : 'None.' ?></td></tr><?php endif; ?>
       </tbody>
     </table>
     </div>

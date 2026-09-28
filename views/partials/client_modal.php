@@ -5,11 +5,11 @@ use Align\Meetings\Meetings;
 $c = $c ?? null; // null = new client
 $manual = !$c || $c['source'] === 'manual';
 $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
-$fromItflow = array_flip(array_filter(explode(',', (string) ($c['itflow_fields'] ?? ''))));
-// Text input that becomes read-only when the value comes from ITFlow
-$field = function (string $name, string $label, string $type = 'text', string $placeholder = '') use ($c, $fromItflow) {
-    $synced = isset($fromItflow[$name]);
-    return '<label>' . e($label) . ($synced ? ' <span class="badge badge-light border font-weight-normal" title="Synced from ITFlow; edit it there">ITFlow</span>' : '') . '</label>'
+$psaFields = array_flip(array_filter(explode(',', (string) ($c['psa_fields'] ?? ''))));
+// Text input that becomes read-only when the value comes from the PSA
+$field = function (string $name, string $label, string $type = 'text', string $placeholder = '') use ($c, $psaFields) {
+    $synced = isset($psaFields[$name]);
+    return '<label>' . e($label) . ($synced ? ' <span class="badge badge-light border font-weight-normal" title="Synced from ' . psa_name() . '; edit it there">' . psa_name() . '</span>' : '') . '</label>'
         . '<input type="' . $type . '" name="' . $name . '" class="form-control" value="' . e($c[$name] ?? '') . '"' . ($synced ? ' readonly' : '')
         . ($placeholder ? ' placeholder="' . e($placeholder) . '"' : '') . '>';
 };
@@ -25,7 +25,7 @@ $field = function (string $name, string $label, string $type = 'text', string $p
         </div>
         <div class="modal-body">
           <?php if (!$manual): ?>
-            <div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This client syncs from ITFlow. The name, and anything marked <span class="badge badge-light border">ITFlow</span>, comes from its primary contact and primary location and is updated automatically, so edit those in ITFlow. Anything empty in ITFlow can be filled in here.</div>
+            <div class="alert alert-light border small py-2"><i class="fas fa-circle-info mr-1"></i>This client syncs from <?= e(psa_name()) ?>. The name, and anything marked <span class="badge badge-light border"><?= e(psa_name()) ?></span>, comes from its primary contact and primary location and is updated automatically, so edit those in <?= e(psa_name()) ?>. Anything empty in <?= e(psa_name()) ?> can be filled in here.</div>
           <?php endif; ?>
           <div class="form-row">
             <div class="form-group col-md-8">
@@ -87,7 +87,7 @@ $field = function (string $name, string $label, string $type = 'text', string $p
               </div>
             </div>
           </div>
-          <div class="form-group"><label>Address<?= isset($fromItflow['address']) ? ' <span class="badge badge-light border font-weight-normal" title="Primary location in ITFlow">ITFlow</span>' : '' ?></label><textarea name="address" class="form-control" rows="2" <?= isset($fromItflow['address']) ? 'readonly' : '' ?>><?= e($c['address'] ?? '') ?></textarea></div>
+          <div class="form-group"><label>Address<?= isset($psaFields['address']) ? ' <span class="badge badge-light border font-weight-normal" title="Primary location in ' . psa_name() . '">' . psa_name() . '</span>' : '' ?></label><textarea name="address" class="form-control" rows="2" <?= isset($psaFields['address']) ? 'readonly' : '' ?>><?= e($c['address'] ?? '') ?></textarea></div>
           <div class="form-group mb-0"><label>Notes</label><textarea name="notes" class="form-control" rows="3"><?= e($c['notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">

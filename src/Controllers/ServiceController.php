@@ -8,7 +8,7 @@ use Align\Auth;
 use Align\Service\Sla;
 use Align\View;
 
-/** Service levels from ITFlow ticket SLAs: client page, client report, all-clients report. */
+/** Service levels from the PSA ticket SLAs: client page, client report, all-clients report. */
 final class ServiceController
 {
     private static function period(): string
@@ -36,7 +36,7 @@ final class ServiceController
             's' => Sla::report($id, $period, 50),
             'enabled' => Sla::enabled(),
             'supported' => Sla::supported(),
-            'linked' => !empty($client['itflow_client_id']),
+            'linked' => !empty($client['psa_id']),
         ]);
     }
 
@@ -55,7 +55,7 @@ final class ServiceController
             if (defined('IS_PORTAL') && IS_PORTAL) {
                 exit('Not found');
             }
-            View::render('error', ['title' => 'No service-level data', 'message' => 'There are no ITFlow tickets for this client yet. Service levels come from ITFlow ticket SLAs (Integrations → ITFlow).']);
+            View::render('error', ['title' => 'No service-level data', 'message' => 'There are no ' . psa_name() . ' tickets for this client yet. Service levels come from ' . psa_name() . ' ticket SLAs (Integrations → ' . psa_name() . ').']);
             return;
         }
         Audit::log('report.sla', $client['name']);

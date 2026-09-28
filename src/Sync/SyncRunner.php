@@ -4,16 +4,17 @@ declare(strict_types=1);
 namespace Align\Sync;
 
 use Align\DB;
-use Align\Integrations\Itflow;
 use Align\Integrations\NinjaOne;
 use Align\Integrations\Warranty\Dell;
 use Align\Integrations\Warranty\Lenovo;
 use Align\Integrations\Warranty\WarrantyResult;
+use Align\Providers\Providers;
+use Align\Providers\Psa\PsaProvider;
 use Align\Settings;
 
 /**
- * Pulls ITFlow clients/assets and NinjaOne orgs/devices into the local database,
- * links them together, looks up warranties, and optionally writes dates back to ITFlow.
+ * Pulls PSA clients/assets and NinjaOne orgs/devices into the local database,
+ * links them together, looks up warranties, and optionally writes dates back to the PSA.
  */
 final class SyncRunner
 {
@@ -49,25 +50,26 @@ final class SyncRunner
         ]);
         $this->info('Sync started (' . $this->trigger . ')');
 
-        $itflow = $this->client(fn() => Itflow::fromSettings(), 'ITFlow');
+        $psaName = Providers::psaName();
+        $psa = $this->client(fn() => Providers::psa(), $psaName);
         $ninja = $this->client(fn() => NinjaOne::fromSettings(), 'NinjaOne');
 
-        $itflowOk = $itflow && $this->step('ITFlow clients', fn() => $this->syncItflowClients($itflow));
+        $psaOk = $psa && $this->step("$psaName clients", fn() => $this->syncPsaClients($psa));
         $ninjaOk = $ninja && $this->step('NinjaOne organizations', fn() => $this->syncNinjaOrgs($ninja));
-        if ($itflowOk && $ninjaOk) {
+        if ($psaOk && $ninjaOk) {
             $this->step('Match clients to organizations', fn() => $this->autoMatchClients());
         }
         if ($ninjaOk) {
             $this->step('NinjaOne devices', fn() => $this->syncNinjaDevices($ninja));
         }
-        if ($itflowOk) {
-            $this->step('ITFlow assets (' . (ItflowSync::twoWay() ? 'two-way' : 'one-way') . ')', fn() => ItflowSync::run($itflow, fn($m) => $this->info($m)));
+        if ($psaOk && $psa->supports('assets')) {
+            $this->step("$psaName assets (" . (PsaAssetSync::twoWay() ? 'two-way' : 'one-way') . ')', fn() => PsaAssetSync::run($psa, fn($m) => $this->info($m)));
         }
-        if ($itflowOk && Settings::get('itflow_sla_sync', '1') === '1') {
-            $this->step('ITFlow tickets & SLAs', fn() => \Align\Service\Sla::sync($itflow));
+        if ($psaOk && $psa->supports('tickets') && Settings::get('psa_sla_sync', '1') === '1') {
+            $this->step("$psaName tickets & SLAs", fn() => \Align\Service\Sla::sync($psa));
         }
-        if ($itflowOk && Settings::get('budget_msp_estimate', '1') === '1') {
-            $this->step('Managed-services estimate (ITFlow invoices)', fn() => \Align\Budget\Billing::syncFromItflow($itflow));
+        if ($psaOk && $psa->supports('invoices') && Settings::get('budget_msp_estimate', '1') === '1') {
+            $this->step("Managed-services estimate ($psaName invoices)", fn() => \Align\Budget\Billing::syncFromPsa($psa));
         }
         if (\Align\Integrations\VeeamSpc::configured()) {
             $veeam = $this->client(fn() => \Align\Integrations\VeeamSpc::fromSettings(), 'Veeam');
@@ -76,8 +78,8 @@ final class SyncRunner
             }
         }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
-        if ($itflowOk && Settings::get('itflow_writeback', 'off') !== 'off') {
-            $this->step('Write warranty dates to ITFlow', fn() => $this->writeBack($itflow));
+        if ($psaOk && $psa->supports('assets.write') && Settings::get('psa_writeback', 'off') !== 'off') {
+            $this->step("Write warranty dates to $psaName", fn() => $this->writeBack($psa));
         }
 
         $status = !$this->errors ? 'success' : (count($this->summary) > count($this->errors) ? 'partial' : 'failed');
@@ -139,54 +141,55 @@ final class SyncRunner
 
     // ---- Steps -------------------------------------------------------------
 
-    private function syncItflowClients(Itflow $itflow): string
+    private function syncPsaClients(PsaProvider $psa): string
     {
-        $rows = $itflow->clients();
+        $rows = $psa->clients();
+        $n = $psa->name();
         $now = date('Y-m-d H:i:s');
         $ids = [];
         foreach ($rows as $r) {
-            $id = (int) ($r['client_id'] ?? 0);
+            $id = (int) ($r['id'] ?? 0);
             if (!$id) {
                 continue;
             }
             $ids[] = $id;
-            $existing = DB::one('SELECT id FROM clients WHERE itflow_client_id = ?', [$id]);
+            $existing = DB::one('SELECT id FROM clients WHERE psa_id = ?', [$id]);
             if (!$existing) {
-                // Adopt a client that was added by hand before it existed in ITFlow.
-                $key = self::normalizeName((string) ($r['client_name'] ?? ''));
-                foreach (DB::all("SELECT id, name FROM clients WHERE itflow_client_id IS NULL AND source = 'manual'") as $m) {
+                // Adopt a client that was added by hand before it existed in the PSA.
+                $key = self::normalizeName((string) ($r['name'] ?? ''));
+                foreach (DB::all("SELECT id, name FROM clients WHERE psa_id IS NULL AND source = 'manual'") as $m) {
                     if ($key !== '' && self::normalizeName($m['name']) === $key) {
-                        DB::run("UPDATE clients SET itflow_client_id = ?, source = 'itflow' WHERE id = ?", [$id, $m['id']]);
-                        $this->info("Linked manually added client \"{$m['name']}\" to ITFlow client #$id");
+                        DB::run("UPDATE clients SET psa_id = ?, source = 'psa' WHERE id = ?", [$id, $m['id']]);
+                        $this->info("Linked manually added client \"{$m['name']}\" to $n client #$id");
                         $existing = ['id' => $m['id']];
                         break;
                     }
                 }
             }
             $data = [
-                'name' => (string) ($r['client_name'] ?? "Client $id"),
-                'is_archived' => empty($r['client_archived_at']) ? 0 : 1,
+                'name' => (string) ($r['name'] ?? "Client $id"),
+                'is_archived' => !empty($r['archived']) ? 1 : 0,
                 'synced_at' => $now,
             ];
             if ($existing) {
                 DB::run('UPDATE clients SET name = ?, is_archived = ?, synced_at = ? WHERE id = ?', [...array_values($data), $existing['id']]);
             } else {
-                DB::insert('clients', $data + ['itflow_client_id' => $id]);
+                DB::insert('clients', $data + ['psa_id' => $id, 'source' => 'psa']);
             }
         }
         if ($ids) {
             $in = implode(',', array_map('intval', $ids));
-            DB::run("UPDATE clients SET is_archived = 1 WHERE source = 'itflow' AND itflow_client_id NOT IN ($in)");
+            DB::run("UPDATE clients SET is_archived = 1 WHERE source = 'psa' AND psa_id NOT IN ($in)");
         }
         try {
-            $details = self::syncClientDetails($itflow, $rows);
+            $details = self::syncClientDetails($psa, $rows);
         } catch (\Throwable $e) {
             $details = 'contact details not updated (' . $e->getMessage() . ')';
         }
         return count($ids) . ' clients; ' . $details;
     }
 
-    /** Align client field => label, for fields that can come from ITFlow. */
+    /** Align client field => label, for fields that can come from the PSA. */
     public const CLIENT_DETAIL_FIELDS = [
         'contact_name' => 'Primary contact', 'contact_title' => 'Title', 'contact_email' => 'Email',
         'contact_phone' => 'Contact phone', 'contact_mobile' => 'Mobile', 'main_phone' => 'Main phone',
@@ -194,78 +197,78 @@ final class SyncRunner
     ];
 
     /**
-     * Fills client details from ITFlow: address + main phone from the primary location, name /
-     * title / email / phones from the primary contact, and the website. ITFlow values replace
-     * Align's; a field that's empty in ITFlow keeps whatever Align has and stays editable.
-     * Older ITFlow versions kept address/phone on the client row, which is used as a fallback.
+     * Fills client details from the PSA: address + main phone from the primary location, name /
+     * title / email / phones from the primary contact, and the website. PSA values replace
+     * Align's; a field that's empty in the PSA keeps whatever Align has and stays editable.
+     * Address, phone, email and contact on the client record are used when there's no location or contact.
      */
-    public static function syncClientDetails(Itflow $itflow, ?array $clientRows = null): string
+    public static function syncClientDetails(PsaProvider $psa, ?array $clientRows = null): string
     {
-        $clientRows ??= $itflow->clients();
-        $pick = function (array $rows, string $prefix): array {
+        $clientRows ??= $psa->clients();
+        $pick = function (array $rows): array {
             $by = [];
             foreach ($rows as $r) {
-                $cid = (int) ($r[$prefix . '_client_id'] ?? 0);
-                if (!$cid || !empty($r[$prefix . '_archived_at'])) {
+                $cid = (int) ($r['client_id'] ?? 0);
+                if (!$cid || !empty($r['archived'])) {
                     continue;
                 }
-                $rank = !empty($r[$prefix . '_primary']) ? 0 : (!empty($r[$prefix . '_important']) ? 1 : 2);
+                $rank = !empty($r['primary']) ? 0 : (!empty($r['important']) ? 1 : 2);
                 if (!isset($by[$cid]) || $rank < $by[$cid][0]) {
                     $by[$cid] = [$rank, $r];
                 }
             }
             return array_map(fn($x) => $x[1], $by);
         };
-        $rawContacts = $itflow->contacts();
-        $rawLocations = $itflow->locations();
-        $contacts = $pick($rawContacts, 'contact');
-        $locations = $pick($rawLocations, 'location');
+        $rawContacts = $psa->supports('contacts') ? $psa->contacts() : [];
+        $rawLocations = $psa->supports('locations') ? $psa->locations() : [];
+        $contacts = $pick($rawContacts);
+        $locations = $pick($rawLocations);
         $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len);
         $updated = 0;
         foreach ($clientRows as $r) {
-            $cid = (int) ($r['client_id'] ?? 0);
-            $client = $cid ? DB::one('SELECT * FROM clients WHERE itflow_client_id = ?', [$cid]) : null;
+            $cid = (int) ($r['id'] ?? 0);
+            $client = $cid ? DB::one('SELECT * FROM clients WHERE psa_id = ?', [$cid]) : null;
             if (!$client) {
                 continue;
             }
             $c = $contacts[$cid] ?? [];
             $l = $locations[$cid] ?? [];
-            $street = $t($l['location_address'] ?? $r['client_address'] ?? '', 500);
-            $city = $t($l['location_city'] ?? $r['client_city'] ?? '');
-            $state = $t($l['location_state'] ?? $r['client_state'] ?? '');
-            $zip = $t($l['location_zip'] ?? $r['client_zip'] ?? '');
-            $country = $t($l['location_country'] ?? '');
+            $street = $t($l['address'] ?? $r['address'] ?? '', 500);
+            $city = $t($l['city'] ?? $r['city'] ?? '');
+            $state = $t($l['state'] ?? $r['state'] ?? '');
+            $zip = $t($l['zip'] ?? $r['zip'] ?? '');
+            $country = $t($l['country'] ?? '');
             $cityLine = trim($city . ($city && ($state || $zip) ? ', ' : '') . trim("$state $zip"));
             $address = implode("\n", array_filter([$street, $cityLine,
                 $country && !preg_match('/^(us|usa|united states( of america)?)$/i', $country) ? $country : '']));
-            $phone = $t($c['contact_phone'] ?? '', 60);
-            if ($phone !== '' && !empty($c['contact_extension'])) {
-                $phone .= ' x' . $t($c['contact_extension'], 10);
+            $phone = $t($c['phone'] ?? '', 60);
+            if ($phone !== '' && !empty($c['extension'])) {
+                $phone .= ' x' . $t($c['extension'], 10);
             }
-            $email = $t($c['contact_email'] ?? $r['client_email'] ?? '');
+            $email = $t($c['email'] ?? $r['email'] ?? '');
             $vals = [
-                'contact_name' => $t($c['contact_name'] ?? $r['client_contact'] ?? ''),
-                'contact_title' => $t($c['contact_title'] ?? ''),
+                'contact_name' => $t($c['name'] ?? $r['contact_name'] ?? ''),
+                'contact_title' => $t($c['title'] ?? ''),
                 'contact_email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '',
                 'contact_phone' => $phone,
-                'contact_mobile' => $t($c['contact_mobile'] ?? '', 60),
-                'main_phone' => $t($l['location_phone'] ?? $r['client_phone'] ?? '', 60),
+                'contact_mobile' => $t($c['mobile'] ?? '', 60),
+                'main_phone' => $t($l['phone'] ?? $r['phone'] ?? '', 60),
                 'address' => $address,
-                'website' => $t($r['client_website'] ?? '', 255),
+                'website' => $t($r['website'] ?? '', 255),
             ];
             $set = [];
             $from = [];
             foreach ($vals as $k => $v) {
                 if ($v === '') {
-                    continue; // empty in ITFlow: keep Align's value
+                    continue; // empty in the PSA: keep Align's value
                 }
                 $from[] = $k;
                 if ((string) $client[$k] !== $v) {
                     $set[$k] = $v;
                 }
             }
-            // ITFlow's client type fills the industry when Align doesn't have one yet
-            $type = $t($r['client_type'] ?? '');
+            // The PSA's client type fills the industry when Align doesn't have one yet
+            $type = $t($r['type'] ?? '');
             if (!$client['industry'] && $type !== '') {
                 foreach (\Align\Controllers\ClientController::INDUSTRIES as $ind) {
                     if (strcasecmp($ind, $type) === 0 || stripos($ind, $type) === 0) {
@@ -275,8 +278,8 @@ final class SyncRunner
                 }
             }
             $fromStr = implode(',', $from) ?: null;
-            if ($fromStr !== $client['itflow_fields']) {
-                $set['itflow_fields'] = $fromStr;
+            if ($fromStr !== $client['psa_fields']) {
+                $set['psa_fields'] = $fromStr;
             }
             if ($set) {
                 $cols = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($set)));
@@ -286,10 +289,10 @@ final class SyncRunner
         }
         $locNames = [];
         foreach ($rawLocations as $l) {
-            $locNames[(int) ($l['location_id'] ?? 0)] = (string) ($l['location_name'] ?? '');
+            $locNames[(int) ($l['id'] ?? 0)] = (string) ($l['name'] ?? '');
         }
-        $people = \Align\Contacts\Contacts::syncFromItflow($rawContacts, $locNames);
-        return ($updated ? "contact details updated for $updated" : 'contact details up to date') . "; $people";
+        $people = $psa->supports('contacts') ? '; ' . \Align\Contacts\Contacts::syncFromPsa($rawContacts, $locNames, $psa->name()) : '';
+        return ($updated ? "contact details updated for $updated" : 'contact details up to date') . $people;
     }
 
     private function syncNinjaOrgs(NinjaOne $ninja): string
@@ -454,14 +457,14 @@ final class SyncRunner
         return implode('; ', $parts);
     }
 
-    private function writeBack(Itflow $itflow): string
+    private function writeBack(PsaProvider $psa): string
     {
-        $mode = Settings::get('itflow_writeback', 'off');
-        $rows = DB::all("SELECT d.id, a.itflow_asset_id, a.itflow_client_id, a.warranty_expire, a.purchase_date,
+        $mode = Settings::get('psa_writeback', 'off');
+        $rows = DB::all("SELECT d.id, a.psa_asset_id, a.psa_client_id, a.warranty_expire, a.purchase_date,
                 COALESCE(o.warranty_end, w.warranty_end) AS new_warranty,
                 COALESCE(o.purchase_date, w.ship_date) AS new_purchase
             FROM devices d
-            JOIN itflow_assets a ON a.itflow_asset_id = d.itflow_asset_id
+            JOIN psa_assets a ON a.psa_asset_id = d.psa_asset_id
             LEFT JOIN warranty_lookups w ON w.serial = d.serial AND w.status = 'ok'
             LEFT JOIN device_overrides o ON o.device_id = d.id
             WHERE d.removed_at IS NULL");
@@ -477,21 +480,21 @@ final class SyncRunner
                 if ($mode === 'fill_empty' && $r[$col]) {
                     continue;
                 }
-                $fields['asset_' . $col] = $new;
+                $fields[$col] = $new;
             }
             if (!$fields) {
                 continue;
             }
             try {
-                if ($itflow->updateAsset((int) $r['itflow_client_id'], (int) $r['itflow_asset_id'], $fields)) {
+                if ($psa->updateAsset((int) $r['psa_client_id'], (int) $r['psa_asset_id'], $fields)) {
                     DB::run(
-                        'UPDATE itflow_assets SET warranty_expire = COALESCE(?, warranty_expire), purchase_date = COALESCE(?, purchase_date) WHERE itflow_asset_id = ?',
-                        [$fields['asset_warranty_expire'] ?? null, $fields['asset_purchase_date'] ?? null, $r['itflow_asset_id']]
+                        'UPDATE psa_assets SET warranty_expire = COALESCE(?, warranty_expire), purchase_date = COALESCE(?, purchase_date) WHERE psa_asset_id = ?',
+                        [$fields['warranty_expire'] ?? null, $fields['purchase_date'] ?? null, $r['psa_asset_id']]
                     );
-                    // Align wrote these, so the two-way sync shouldn't report them as ITFlow edits.
-                    foreach (['asset_warranty_expire' => 'warranty', 'asset_purchase_date' => 'purchase'] as $k => $f) {
+                    // Align wrote these, so the two-way sync shouldn't report them as PSA edits.
+                    foreach (['warranty_expire' => 'warranty', 'purchase_date' => 'purchase'] as $k => $f) {
                         if (isset($fields[$k])) {
-                            ItflowSync::acknowledge((int) $r['id'], $f, (string) $fields[$k]);
+                            PsaAssetSync::acknowledge((int) $r['id'], $f, (string) $fields[$k]);
                         }
                     }
                     $updated++;
@@ -500,7 +503,7 @@ final class SyncRunner
                 }
             } catch (\Throwable $e) {
                 $failed++;
-                $this->info("ITFlow asset {$r['itflow_asset_id']} update failed: " . $e->getMessage());
+                $this->info($psa->name() . " asset {$r['psa_asset_id']} update failed: " . $e->getMessage());
             }
         }
         if ($failed && !$updated) {

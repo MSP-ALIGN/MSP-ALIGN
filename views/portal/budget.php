@@ -43,7 +43,7 @@ foreach ($b['lines'] as $l) {
           <th class="num"><?= money($yr['by_cat'][$cat]) ?></th></tr>
         <?php foreach ($byCat[$cat] as $l): ?>
           <tr class="<?= $l['tentative'] ? 'tentative' : '' ?>">
-            <td class="line-name"><?= e($l['name']) ?><?php if ($l['tentative']): ?> <span class="badge badge-warning font-weight-normal"><?= $l['source'] === 'itflow' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
+            <td class="line-name"><?= e($l['name']) ?><?php if ($l['tentative']): ?> <span class="badge badge-warning font-weight-normal"><?= $l['source'] === 'psa' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
               <div class="small text-muted"><?= e($l['detail']) ?></div></td>
             <?php foreach ($qIdx as $i): ?><td class="num"><?= $l['q'][$i] ? money($l['q'][$i]) : '<span class="text-muted">—</span>' ?></td><?php endforeach; ?>
             <td class="num font-weight-bold"><?= money(Budget::lineYear($l, $year)) ?></td>

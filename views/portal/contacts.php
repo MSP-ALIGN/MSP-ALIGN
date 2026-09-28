@@ -1,12 +1,12 @@
 <?php
 use Align\Contacts\Contacts;
 
-/** @var array $pu, $contacts; bool $itflowEditable */
+/** @var array $pu, $contacts; bool $psaEditable */
 $canEdit = (bool) $pu['can_contacts'];
 $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
-$modal = function (?array $k) use ($itflowEditable): string {
+$modal = function (?array $k) use ($psaEditable): string {
     $id = $k ? 'pc-' . (int) $k['id'] : 'pc-new';
-    $locked = $k && $k['source'] === 'itflow' && !$itflowEditable;
+    $locked = $k && $k['source'] === 'psa' && !$psaEditable;
     $ro = $locked ? 'readonly' : '';
     $chk = fn(string $n) => !empty($k[$n]) ? 'checked' : '';
     ob_start(); ?>

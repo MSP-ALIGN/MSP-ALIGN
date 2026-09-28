@@ -27,7 +27,7 @@ final class IntegrationController
             'nav' => 'integrations',
             'groups' => $groups,
             'lastRun' => $last,
-            'unmapped' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0 AND ninja_org_id IS NULL AND itflow_client_id IS NOT NULL'),
+            'unmapped' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0 AND ninja_org_id IS NULL AND psa_id IS NOT NULL'),
         ]);
     }
 
@@ -71,6 +71,11 @@ final class IntegrationController
         } catch (\InvalidArgumentException $e) {
             flash('error', $e->getMessage() . ' Nothing was saved.');
             redirect('/integrations/' . $key);
+        }
+        // The first PSA set up becomes the install's PSA (the source of truth for clients)
+        if ($c instanceof \Align\Integrations\PsaConnector && $c->configured() && (string) \Align\Settings::get('psa_provider', '') === '') {
+            \Align\Settings::set('psa_provider', $c->key());
+            $changed[] = 'psa_provider';
         }
         if ($changed) {
             Audit::log('integration.save', $c->name() . ': ' . implode(', ', $changed));

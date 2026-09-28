@@ -19,7 +19,7 @@ $t = $totals;
   <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $t['renewals'] ? 'warning' : 'success' ?>"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Renewing ≤ 90 days</span><span class="info-box-number"><?= count($t['renewals']) ?></span></div></div></div>
 </div>
 <?php if ($t['unpriced']): ?>
-  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. ITFlow doesn't store license prices; click a license to add its price and billing cycle.</div>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. <?= e(psa_name()) ?> doesn't store license prices; click a license to add its price and billing cycle.</div>
 <?php endif; ?>
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>
 <div class="card card-dark">
@@ -28,5 +28,5 @@ $t = $totals;
   </div>
 </div>
 <?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates']); ?>
-<p class="small text-muted">Licenses from ITFlow (Software) sync every few minutes: new ones appear here, and ones archived or deleted in ITFlow are retired. Prices, billing cycle, category and seats in use are kept in Align.</p>
+<p class="small text-muted">Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. Prices, billing cycle, category and seats in use are kept in Align.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('licenses/_modal', ['l' => null, 'cid' => $cid, 'back' => $back]); ?>

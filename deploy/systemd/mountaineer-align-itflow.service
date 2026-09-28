@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - two-way ITFlow asset sync
+Description=MSP-ALIGN - two-way PSA asset sync
 After=network-online.target mariadb.service
 Wants=network-online.target
 
@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 User=www-data
 Group=www-data
-ExecStart=/usr/bin/php /opt/mountaineer-align/bin/align itflow:poll --quiet
+ExecStart=/usr/bin/php /opt/mountaineer-align/bin/align psa:poll --quiet
 TimeoutStartSec=10min
 Nice=5
 NoNewPrivileges=yes

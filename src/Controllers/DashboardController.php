@@ -70,7 +70,7 @@ final class DashboardController
         $layout = \Align\Dashboard\Dashboard::layout();
         $show = array_flip(\Align\Dashboard\Dashboard::visible($layout));
         $lastSync = DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1');
-        $unmapped = (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'itflow'");
+        $unmapped = (int) DB::value("SELECT COUNT(*) FROM clients WHERE ninja_org_id IS NULL AND is_archived = 0 AND planning_excluded = 0 AND source = 'psa'");
         $unassigned = (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL');
         $contract90 = isset($show['renewals']) || isset($show['kpis']) ? \Align\Budget\Contracts::upcoming(null, 90, date('Y-m-d')) : [];
         $sla = isset($show['sla']) || isset($show['kpis']) ? self::slaSummary() : null;
@@ -130,7 +130,7 @@ final class DashboardController
     /** Service levels across clients for the last 90 days, or null when SLA reporting isn't available. */
     private static function slaSummary(): ?array
     {
-        if (!\Align\Service\Sla::enabled() || \Align\Service\Sla::supported() === false || !DB::value('SELECT 1 FROM itflow_tickets LIMIT 1')) {
+        if (!\Align\Service\Sla::enabled() || \Align\Service\Sla::supported() === false || !DB::value('SELECT 1 FROM psa_tickets LIMIT 1')) {
             return null;
         }
         [$from, $to] = \Align\Service\Sla::range('90');
