@@ -19,6 +19,49 @@ use Align\Roadmap\Roadmap;
  */
 final class ReportData
 {
+    /**
+     * How devices are grouped in reports: infrastructure first (servers with their hosts and
+     * virtual servers, then storage, network and power), then computers, then everything else.
+     * Family => types, in order.
+     */
+    public const FAMILIES = [
+        'Servers & virtualization' => ['Hypervisor host', 'Server', 'Virtual server'],
+        'Storage' => ['NAS / Storage'],
+        'Network & security' => ['Firewall', 'Router', 'Switch', 'Access point'],
+        'Power' => ['UPS'],
+        'Computers' => ['Desktop', 'Laptop', 'VDI / virtual desktop'],
+        'Printers, phones & other' => ['Printer', 'Phone', 'Camera / NVR', 'Other', 'Unassigned'],
+    ];
+
+    /** Rows of the "By device type" table, in report order (virtual machines next to their physical kind). */
+    public const CLASS_ORDER = ['server', 'virtual_server', 'storage', 'network', 'power', 'desktop', 'laptop', 'virtual_desktop', 'printer', 'other'];
+
+    /** Position of a device type in report order (unknown types go last, alphabetically). */
+    public static function typeRank(string $type): array
+    {
+        $n = 0;
+        foreach (self::FAMILIES as $types) {
+            foreach ($types as $t) {
+                if ($t === $type) {
+                    return [$n, ''];
+                }
+                $n++;
+            }
+        }
+        return [$n, strtolower($type)];
+    }
+
+    /** The report family a device type belongs to. */
+    public static function family(string $type): string
+    {
+        foreach (self::FAMILIES as $f => $types) {
+            if (in_array($type, $types, true)) {
+                return $f;
+            }
+        }
+        return 'Printers, phones & other';
+    }
+
     private static array $deviceCache = [];
 
     /** Evaluated devices for a client (optionally without virtual machines), excluding excluded ones. */
@@ -62,9 +105,12 @@ final class ReportData
         // Fleet by lifecycle class
         $classes = [];
         foreach ($devices as $d) {
-            $cls = $d['is_virtual'] ? 'virtual' : (Lifecycle::TYPES[$d['type']][0] ?? 'other');
+            $cls = Lifecycle::TYPES[$d['type']][0] ?? 'other';
+            if ($d['is_virtual']) {
+                $cls = $cls === 'desktop' ? 'virtual_desktop' : 'virtual_server';
+            }
             $c = &$classes[$cls];
-            $c ??= ['label' => $cls === 'virtual' ? 'Virtual machines' : Lifecycle::CLASSES[$cls], 'count' => 0, 'ok' => 0, 'warn' => 0, 'bad' => 0, 'ages' => [], 'value' => 0.0, 'overdue_cost' => 0.0];
+            $c ??= ['label' => ['virtual_server' => 'Virtual servers', 'virtual_desktop' => 'Virtual desktops'][$cls] ?? Lifecycle::CLASSES[$cls], 'count' => 0, 'ok' => 0, 'warn' => 0, 'bad' => 0, 'ages' => [], 'value' => 0.0, 'overdue_cost' => 0.0];
             $c['count']++;
             $tone = $d['status_tone'] === 'bad' ? 'bad' : ($d['status_tone'] === 'warn' ? 'warn' : 'ok');
             $c[$tone]++;
@@ -79,8 +125,8 @@ final class ReportData
             }
             unset($c);
         }
-        $order = array_flip([...array_keys(Lifecycle::CLASSES), 'virtual']);
-        uksort($classes, fn($a, $b) => $order[$a] <=> $order[$b]);
+        $order = array_flip(self::CLASS_ORDER);
+        uksort($classes, fn($a, $b) => ($order[$a] ?? 99) <=> ($order[$b] ?? 99));
         foreach ($classes as &$c) {
             $c['avg_age'] = $c['ages'] ? round(array_sum($c['ages']) / count($c['ages']), 1) : null;
             unset($c['ages']);
@@ -127,13 +173,15 @@ final class ReportData
         unset($i);
 
         $attention = array_values(array_filter($devices, fn($d) => in_array($d['status_tone'], ['bad', 'warn'], true)));
-        usort($attention, fn($a, $b) => [self::severity($a), (string) $a['eol_date']] <=> [self::severity($b), (string) $b['eol_date']]);
+        // Most urgent first; within the same urgency, servers and infrastructure before computers
+        usort($attention, fn($a, $b) => [self::severity($a), self::typeRank($a['type']), (string) $a['eol_date'], strtolower($a['name'])]
+            <=> [self::severity($b), self::typeRank($b['type']), (string) $b['eol_date'], strtolower($b['name'])]);
 
         $byType = [];
         foreach ($devices as $d) {
             $byType[$d['type']][] = $d;
         }
-        ksort($byType);
+        uksort($byType, fn($a, $b) => self::typeRank((string) $a) <=> self::typeRank((string) $b));
         foreach ($byType as &$list) {
             usort($list, fn($a, $b) => strnatcasecmp($a['name'], $b['name']));
         }

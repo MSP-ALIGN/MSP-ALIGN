@@ -6,6 +6,8 @@ Self-hosted vCIO toolkit for managed service providers, built by Mountaineer IT.
 
 **What's in it (1.7.0):**
 
+- **Reports in meeting order (1.25):** the QBR pack runs executive summary → service levels → assets & lifecycle → software & licensing → backup & recovery → compliance → roadmap → budget → decisions & next steps (projects awaiting approval with tick boxes, key contacts, next meeting), with the full inventory as an appendix. Devices are grouped servers & virtualization (hosts, servers, virtual servers) → storage → network & security → power → computers (desktops, laptops, virtual desktops) → printers & other, in the device-type table, devices needing attention, inventory and protected machines. The budget report goes this year → line items → three-year chart and outlook → contracts & renewals; the roadmap report starts with where things stand today.
+
 - **Security (HIPAA-oriented):**
   - Two-factor sign-in required for every staff and client-portal account; codes can't be reused.
   - Argon2id passwords, and common passwords refused.

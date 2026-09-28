@@ -87,6 +87,20 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
     </table>
   <?php endif; ?>
 
+  <?php if (!empty($b['exemptions'])): ?>
+    <h3>Not requiring a backup</h3>
+    <p class="muted small-note" style="margin-top:-.2rem">Agreed with you and left out of the counts above.</p>
+    <table class="rtable fixed compact">
+      <?= Ui::cols(['item' => 30, 'type' => 20, 'reason' => 50]) ?>
+      <thead><tr><th>Item</th><th>Type</th><th>Reason</th></tr></thead>
+      <tbody>
+      <?php foreach ($b['exemptions'] as $x): ?>
+        <tr><td><span class="name"><?= e($x['item_name']) ?></span></td><td><?= e(Backup::EXEMPT_KINDS[$x['kind']] ?? '') ?></td><td><?= e($x['reason']) ?><div class="sub">Since <?= e(fmt_date($x['created_at'])) ?></div></td></tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+
   <?php if ($details && $b['jobs']): ?>
     <h3>Backup jobs</h3>
     <table class="rtable fixed compact dense">
@@ -141,17 +155,5 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
     <?php foreach ($m['orgs'] as $o): ?>
       <p class="muted small-note"><b><?= e($o['name']) ?></b><?= $o['service_labels'] ? ': ' . e(implode(', ', $o['service_labels'])) : '' ?> · last backup <?= e(rel_time($o['last_backup'])) ?></p>
     <?php endforeach; ?>
-  <?php endif; ?>
-  <?php if (!empty($b['exemptions'])): ?>
-    <h3>Not requiring a backup</h3>
-    <table class="rtable fixed compact">
-      <?= Ui::cols(['item' => 30, 'type' => 20, 'reason' => 50]) ?>
-      <thead><tr><th>Item</th><th>Type</th><th>Reason</th></tr></thead>
-      <tbody>
-      <?php foreach ($b['exemptions'] as $x): ?>
-        <tr><td><span class="name"><?= e($x['item_name']) ?></span></td><td><?= e(Backup::EXEMPT_KINDS[$x['kind']] ?? '') ?></td><td><?= e($x['reason']) ?><div class="sub">Since <?= e(fmt_date($x['created_at'])) ?></div></td></tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
   <?php endif; ?>
 </section>

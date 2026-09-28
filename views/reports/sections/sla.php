@@ -32,6 +32,10 @@ $delta = function (?float $now, ?float $before): string {
     <?= Ui::kpi(Sla::duration($st['avg_response_min']), 'Average first response', 'clock time, not business hours', 'muted') ?>
   </div>
 
+  <?php if ($s['open']['with_sla']): ?>
+    <p class="small muted">Open right now: <?= $s['open']['open_total'] ?> ticket<?= $s['open']['open_total'] == 1 ? '' : 's' ?><?= $s['open']['breached'] ? ', ' . $s['open']['breached'] . ' past target' : '' ?><?= $s['open']['warning'] ? ', ' . $s['open']['warning'] . ' close to target' : '' ?>.</p>
+  <?php endif; ?>
+
   <h3>Month by month</h3>
   <?= Ui::slaChart($s['monthly'], $s['target']) ?>
   <div class="legend"><span><i style="background:#2f9e62"></i>At or above goal</span><span><i style="background:#d69a16"></i>Within 10 points</span><span><i style="background:#d64541"></i>Below</span><span class="muted">Share of response and resolution targets met · tickets opened under each month</span></div>
@@ -48,10 +52,6 @@ $delta = function (?float $now, ?float $before): string {
       <?php endforeach; ?>
       </tbody>
     </table>
-  <?php endif; ?>
-
-  <?php if ($s['open']['with_sla']): ?>
-    <p class="small muted">Open right now: <?= $s['open']['open_total'] ?> ticket<?= $s['open']['open_total'] == 1 ? '' : 's' ?><?= $s['open']['breached'] ? ', ' . $s['open']['breached'] . ' past target' : '' ?><?= $s['open']['warning'] ? ', ' . $s['open']['warning'] . ' close to target' : '' ?>.</p>
   <?php endif; ?>
 
   <?php if ($missed && $s['missed']): ?>

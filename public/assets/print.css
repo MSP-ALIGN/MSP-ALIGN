@@ -109,6 +109,11 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .rtable tbody tr:last-child td { border-bottom-color: var(--line); }
 .rtable .sub { font-size: .7rem; color: var(--ink-3); line-height: 1.35; margin-top: .05rem; }
 .rtable tr.group td { background: var(--line-2); font-weight: 750; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); padding-top: .3rem; padding-bottom: .3rem; }
+/* Family band above device-type groups (inventory): servers & virtualization, network… */
+.rtable tr.family td { background: var(--ink); color: #fff; font-weight: 750; font-size: .74rem; letter-spacing: .04em; padding-top: .35rem; padding-bottom: .35rem; border-bottom: 0; }
+.rtable tr.family + tr.group td { border-top: 0; }
+.rtable tr.family { break-after: avoid; page-break-after: avoid; }
+.rtable tr.group { break-after: avoid; page-break-after: avoid; }
 .rtable tr.total td, .rtable tfoot td, .rtable tfoot th { font-weight: 780; border-top: 1.5px solid var(--ink-2); border-bottom: 0; color: var(--ink); font-size: 11.5px; text-transform: none; letter-spacing: 0; }
 .rtable tr.dim td { color: var(--ink-3); }
 .rtable tr.tentative td { color: var(--ink-2); font-style: italic; }
@@ -276,3 +281,8 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .tb-period { width: auto; max-width: 180px; }
 @media (max-width: 480px) { .report-toolbar .tb-inner { flex-wrap: wrap; } .report-toolbar .tb-period { max-width: 150px; } }
 .masthead .meta { min-width: 0; overflow-wrap: anywhere; }
+
+/* Decisions table: tick boxes to mark in the meeting */
+.rtable td.decide { white-space: nowrap; color: var(--ink-2); font-size: .74rem; }
+.check-box { display: inline-block; width: .8rem; height: .8rem; border: 1.5px solid var(--ink-2); border-radius: 2px; vertical-align: -2px; margin: 0 .15rem 0 .35rem; }
+.check-box:first-child { margin-left: 0; }

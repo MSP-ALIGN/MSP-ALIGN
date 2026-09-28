@@ -3,7 +3,17 @@ use Align\Reports\Ui;
 use Align\View;
 
 /**
- * Business review pack.
+ * Business review pack, in the order the meeting runs:
+ *   1 Executive summary        where things stand, highlights, what's coming
+ *   2 Service levels           how we did (look back)
+ *   3 Assets & lifecycle       what you have: servers with hosts and VMs, network, computers
+ *   4 Software & licensing     what you have: subscriptions and renewals
+ *   5 Backup & recovery        is it protected
+ *   6 Compliance               is it secure and compliant
+ *   7 Roadmap & projects       where we're going
+ *   8 Technology budget        what it costs (this year, three years, dates to act on)
+ *   9 Decisions & next steps   what we need from you, who to call, next meeting
+ *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
  * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla
  * @var callable $on  fn(section key): bool
@@ -12,14 +22,14 @@ $costs = (bool) $opt['costs'];
 $users = (bool) ($opt['users'] ?? true);
 $clientLogo = client_logo_url($client);
 $sections = [];
-if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
-if ($on('s_budget') && $bd && $costs) $sections['budget'] = 'Technology budget'; // budget and licensing are all prices: left out when costs are off
-if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
-if ($bk) $sections['backup'] = 'Backup & recovery';
 if (!empty($sla)) $sections['sla'] = 'Service levels';
+if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
+if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing'; // budget and licensing are all prices: left out when costs are off
+if ($bk) $sections['backup'] = 'Backup & recovery';
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
-if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing';
-$sections['people'] = 'Your team & next steps';
+if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
+if ($on('s_budget') && $bd && $costs) $sections['budget'] = 'Technology budget';
+$sections['people'] = !empty($r['pending']) ? 'Decisions & next steps' : 'Your team & next steps';
 $n = 1;
 $numOf = [];
 foreach ($sections as $k => $_) {
@@ -46,6 +56,7 @@ foreach ($sections as $k => $_) {
     <div class="toc">
       <div><span><b>01</b>Executive summary</span></div>
       <?php foreach ($sections as $k => $label): ?><div><span><b><?= $numOf[$k] ?></b><?= e($label) ?></span></div><?php endforeach; ?>
+      <?php if (isset($sections['assets']) && $opt['inventory']): ?><div><span><b>A</b>Appendix: full inventory</span></div><?php endif; ?>
     </div>
   </div>
   <div class="cover-foot">
@@ -96,20 +107,34 @@ foreach ($sections as $k => $_) {
     </table>
   <?php endif; endif; ?>
 
-  <?php if ($r && $r['pending']): ?>
-    <h3>Decisions needed</h3>
-    <table class="rtable">
-      <thead><tr><th>Project</th><th>When</th><th>Priority</th><?php if ($costs): ?><th class="num">One-time</th><th class="num">Monthly</th><?php endif; ?></tr></thead>
-      <tbody>
-      <?php foreach ($r['pending'] as $p): ?>
-        <tr><td><span class="name"><?= e($p['title']) ?></span><?php if ($opt['notes'] && $p['description']): ?><div class="sub"><?= e(mb_strimwidth($p['description'], 0, 180, '…')) ?></div><?php endif; ?></td>
-          <td class="nowrap"><?= e($p['when']) ?></td><td><?= Ui::pill(\Align\Roadmap\Roadmap::PRIORITIES[$p['priority']][0], ['critical' => 'bad', 'high' => 'warn', 'medium' => 'info', 'low' => 'muted'][$p['priority']] ?? 'muted') ?></td>
-          <?php if ($costs): ?><td class="num"><?= (float) $p['cost'] ? money($p['cost']) : '—' ?></td><td class="num"><?= (float) $p['recurring_monthly'] ? money($p['recurring_monthly']) : '—' ?></td><?php endif; ?></tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-  <?php endif; ?>
 </section>
+
+<?php if (isset($sections['sla'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/sla', ['s' => $sla, 'num' => $numOf['sla'], 'missed' => !empty($opt['missed'])]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['assets'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/assets_overview', ['a' => $a, 'costs' => $costs, 'users' => $users, 'num' => $numOf['assets']]) ?>
+<?= View::fetch('reports/sections/assets_plan', ['a' => $a, 'costs' => $costs, 'planChart' => !isset($sections['roadmap'])]) ?>
+<?= View::fetch('reports/sections/assets_attention', ['a' => $a, 'costs' => $costs, 'users' => $users, 'limit' => 12, 'moreNote' => $opt['inventory'] ? 'Every device is listed in the inventory at the end.' : 'Ask us for the full asset report.']) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['licensing'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/licensing', ['l' => $lic, 'num' => $numOf['licensing']]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['backup'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/backup', ['b' => $bk, 'num' => $numOf['backup'], 'details' => true, 'machines' => true, 'limit' => 15]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['compliance'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/compliance', ['c' => $comp, 'num' => $numOf['compliance']]) ?>
+<?php endif; ?>
 
 <?php if (isset($sections['roadmap'])): ?>
 <div class="page-break"></div>
@@ -121,38 +146,12 @@ foreach ($sections as $k => $_) {
 <?php if (isset($sections['budget'])): ?>
 <div class="page-break"></div>
 <?= View::fetch('reports/sections/budget_overview', ['bd' => $bd, 'num' => $numOf['budget']]) ?>
-<?= View::fetch('reports/sections/budget_contracts', ['bd' => $bd]) ?>
 <?= View::fetch('reports/sections/budget_outlook', ['bd' => $bd, 'notes' => (bool) $opt['notes']]) ?>
+<?= View::fetch('reports/sections/budget_contracts', ['bd' => $bd]) ?>
 <?php endif; ?>
 
-<?php if (isset($sections['assets'])): ?>
 <div class="page-break"></div>
-<?= View::fetch('reports/sections/assets_overview', ['a' => $a, 'costs' => $costs, 'users' => $users, 'num' => $numOf['assets']]) ?>
-<?= View::fetch('reports/sections/assets_plan', ['a' => $a, 'costs' => $costs, 'planChart' => !isset($sections['roadmap'])]) ?>
-<?= View::fetch('reports/sections/assets_attention', ['a' => $a, 'costs' => $costs, 'users' => $users, 'limit' => 12, 'moreNote' => $opt['inventory'] ? 'Every device is listed in the inventory at the end.' : 'Ask us for the full asset report.']) ?>
-<?php endif; ?>
-
-<?php if (isset($sections['backup'])): ?>
-<div class="page-break"></div>
-<?= View::fetch('reports/sections/backup', ['b' => $bk, 'num' => $numOf['backup'], 'details' => true, 'machines' => true, 'limit' => 15]) ?>
-<?php endif; ?>
-
-<?php if (isset($sections['sla'])): ?>
-<div class="page-break"></div>
-<?= View::fetch('reports/sections/sla', ['s' => $sla, 'num' => $numOf['sla'], 'missed' => !empty($opt['missed'])]) ?>
-<?php endif; ?>
-
-<?php if (isset($sections['compliance'])): ?>
-<div class="page-break"></div>
-<?= View::fetch('reports/sections/compliance', ['c' => $comp, 'num' => $numOf['compliance']]) ?>
-<?php endif; ?>
-
-<?php if (isset($sections['licensing'])): ?>
-<?= isset($sections['compliance']) ? '' : '<div class="page-break"></div>' ?>
-<?= View::fetch('reports/sections/licensing', ['l' => $lic, 'num' => $numOf['licensing']]) ?>
-<?php endif; ?>
-
-<?= View::fetch('reports/sections/people', ['p' => $people, 'provider' => $provider, 'num' => $numOf['people']]) ?>
+<?= View::fetch('reports/sections/people', ['p' => $people, 'provider' => $provider, 'num' => $numOf['people'], 'pending' => $r['pending'] ?? [], 'costs' => $costs, 'notes' => (bool) $opt['notes']]) ?>
 
 <?php if (isset($sections['assets']) && $opt['inventory']): ?>
 <?= View::fetch('reports/sections/assets_inventory', ['a' => $a, 'costs' => $costs, 'users' => $users, 'num' => 'A']) ?>

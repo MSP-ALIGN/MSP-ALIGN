@@ -14,10 +14,6 @@ $b = $bd['b']; $yr = $bd['yr']; $qIdx = $bd['qIdx'];
     <?= Ui::kpi(money($yr['one_time']), 'One-time / capital', 'hardware, projects, purchases', 'muted') ?>
   </div>
   <div class="avoid-break">
-    <h3>By quarter, three years</h3>
-    <?= \Align\View::fetch('budget/_chart', ['b' => $b, 'year' => $bd['year']]) ?>
-  </div>
-  <div class="avoid-break">
     <h3><?= e($yr['label']) ?> by category</h3>
     <table class="rtable">
       <thead><tr><th>Category</th><?php foreach ($qIdx as $i): ?><th class="num"><?= e($b['quarters'][$i]['short']) ?></th><?php endforeach; ?><th class="num">Year</th><th style="width:18%">Share</th></tr></thead>

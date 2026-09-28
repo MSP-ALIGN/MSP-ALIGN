@@ -65,6 +65,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.25', 'fa-list-ol', 'Reports in meeting order', 'The QBR pack now runs the way the meeting does: look back, what they have, is it protected, where it\'s going, what it costs, then decisions. Servers, hypervisor hosts and virtual servers sit together, and the budget, roadmap and backup reports read top to bottom.', 'qbr', 'viewer'],
         ['1.24', 'fa-signature', 'Renamed to MSP-ALIGN', 'Mountaineer Align is now MSP-ALIGN. Nothing to do: your data, settings and branding are unchanged. On the server the commands are now sudo msp-align-update and msp-align-restore (the old names still work).', 'update', 'admin'],
         ['1.23', 'fa-bars-progress', 'Progress window for updates and restores', 'Updating or restoring now shows each step, a progress bar and the time so far, and reloads on its own when it\'s done. Everyone else sees a Please wait page that refreshes itself.', 'update', 'admin'],
         ['1.22', 'fa-mountain-sun', 'Client onboarding', 'Send a welcome email with a private onboarding page: the client enters their contacts, reads how to reach you and how billing works, answers getting-started questions and sends new user or termination requests. Track progress on the client\'s Onboarding page; edit everything under Settings → Onboarding.', 'onboarding', 'tech'],
@@ -173,7 +174,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Everyone\'s meetings are also on <b>Meetings → Calendar</b>, which you can subscribe to from Outlook or Google.',
   ], ['Meetings' => '/meetings', 'Calendar' => '/calendar']) ?>
   <?= $guide('qbr', 'fa-print', 'Prepare a QBR pack', 'viewer', [
-      'Open <b>Reports</b>, pick the client, and choose the sections for the <b>Business review pack</b>: summary, assets, roadmap, budget, backups, service levels, compliance and policies.',
+      'Open <b>Reports</b>, pick the client, and choose the sections for the <b>Business review pack</b>. It runs in meeting order: executive summary, service levels (how we did), assets and licensing (what they have, with servers, hosts and virtual servers together), backups and compliance (is it protected), roadmap and budget (where it\'s going and what it costs), then <b>Decisions &amp; next steps</b> with a tick box for each project awaiting approval. The full inventory is an appendix.',
       'Press <b>Open report</b>, check it, then Print → Save as PDF. Every other report (assets, roadmap, budget, backup &amp; recovery, service levels, compliance CSV, device list) is on the same page. Reports with a period, such as service levels, let you pick it at the top of the printed page.',
       'The <b>All clients (internal)</b> reports compare the whole portfolio: summary, backup status, service levels and contracts &amp; renewals. They\'re for your team, not clients.',
       'Tip: open reports from the meeting page too; it links the ones for that client.',

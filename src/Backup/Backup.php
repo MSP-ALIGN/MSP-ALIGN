@@ -97,7 +97,9 @@ final class Backup
             $workloads[] = $w + ['age_h' => $age, 'tone' => $exempt ? 'muted' : $tone, 'exempt' => $exempt,
                 'label' => $exempt ? 'Not required' : ($age === null ? 'No restore point' : ($tone === 'ok' ? 'Protected' : 'Overdue'))];
         }
-        usort($workloads, fn($a, $b) => [self::rank($a['tone']), -($a['age_h'] ?? 1e9), $a['name']] <=> [self::rank($b['tone']), -($b['age_h'] ?? 1e9), $b['name']]);
+        // Problems first (oldest restore point first); healthy machines grouped: virtual machines (servers) together, then computers
+        $key = fn($w) => [self::rank($w['tone']), $w['tone'] === 'ok' ? 0 : -($w['age_h'] ?? 1e9), $w['kind'] === 'vm' ? 0 : 1, strtolower((string) $w['name'])];
+        usort($workloads, fn($a, $b) => $key($a) <=> $key($b));
 
         // Servers NinjaOne/ITFlow know about that no backup covers
         $covered = array_flip(array_filter(array_map(fn($w) => (int) $w['device_id'], $workloads)));

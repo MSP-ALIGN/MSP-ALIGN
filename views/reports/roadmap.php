@@ -1,11 +1,12 @@
 <?php
 use Align\Reports\Ui;
 
-/** @var array $r ReportData::roadmap(); array $opt; ?array $comp; ?array $summary */
+/**
+ * 3-year roadmap: where things stand today, the plan, the quarter-by-quarter timeline, the projects,
+ * then compliance progress.
+ * @var array $r ReportData::roadmap(); array $opt; ?array $comp; ?array $summary
+ */
 $costs = (bool) $opt['costs'];
-echo \Align\View::fetch('reports/sections/roadmap_overview', ['r' => $r, 'costs' => $costs]);
-echo \Align\View::fetch('reports/sections/roadmap_timeline', ['r' => $r, 'costs' => $costs]);
-echo \Align\View::fetch('reports/sections/roadmap_projects', ['r' => $r, 'costs' => $costs, 'notes' => (bool) $opt['notes']]);
 if (!empty($summary)): ?>
 <section class="rsection avoid-break">
   <?= Ui::head('Where things stand today') ?>
@@ -17,6 +18,9 @@ if (!empty($summary)): ?>
   </div>
 </section>
 <?php endif;
+echo \Align\View::fetch('reports/sections/roadmap_overview', ['r' => $r, 'costs' => $costs]);
+echo \Align\View::fetch('reports/sections/roadmap_timeline', ['r' => $r, 'costs' => $costs]);
+echo \Align\View::fetch('reports/sections/roadmap_projects', ['r' => $r, 'costs' => $costs, 'notes' => (bool) $opt['notes']]);
 if (!empty($comp['frameworks'])) {
     echo \Align\View::fetch('reports/sections/compliance', ['c' => ['open' => []] + $comp]);
 }

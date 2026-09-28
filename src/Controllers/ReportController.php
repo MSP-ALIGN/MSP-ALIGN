@@ -129,7 +129,8 @@ final class ReportController
         self::renderQbr($client, $opt, array_keys(self::QBR_SECTIONS));
     }
 
-    public const QBR_SECTIONS = ['s_roadmap' => 'Roadmap', 's_budget' => 'Budget', 's_assets' => 'Assets', 's_backup' => 'Backups', 's_sla' => 'Service levels', 's_compliance' => 'Compliance', 's_licensing' => 'Licensing'];
+    /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
+    public const QBR_SECTIONS = ['s_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array

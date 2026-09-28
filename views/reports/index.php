@@ -37,30 +37,10 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
 
 <div class="row">
   <?= $card('fa-book-open', 'Business review pack (QBR)',
-      'Cover, executive summary with highlights and decisions needed, then each section and your team &amp; next steps. Choose the sections to include (with costs off, budget and licensing are left out).',
+      'Runs in meeting order: summary, service levels, assets (servers with their hosts and VMs), licensing, backups, compliance, roadmap, budget, then decisions &amp; next steps. Choose the sections to include (with costs off, budget and licensing are left out).',
       '/report/qbr',
-      $chk('s_roadmap', 'Roadmap') . $chk('s_budget', 'Budget') . $chk('s_assets', 'Assets') . ($backupEnabled ? $chk('s_backup', 'Backups') : '') . ($slaEnabled ? $chk('s_sla', 'Service levels') : '') . $chk('s_compliance', 'Compliance') . $chk('s_licensing', 'Licensing')
-      . '<div class="w-100"></div>' . $chk('costs', 'Costs') . $chk('users', 'Last user') . $chk('notes', 'Notes') . ($slaEnabled ? $chk('missed', 'Missed tickets') : '') . $chk('inventory', 'Full inventory appendix', false)) ?>
-  <?= $card('fa-desktop', 'Asset & lifecycle report',
-      'Fleet at a glance, health by device type, operating systems, the replacement plan by quarter, devices needing attention and the full inventory.',
-      '/report/assets',
-      $chk('costs', 'Costs') . $chk('inventory', 'Full inventory') . $chk('users', 'Last user') . $chk('virtual', 'Virtual machines', false) . $chk('notes', 'Device notes')) ?>
-  <?= $card('fa-road', '3-year technology roadmap',
-      'Year tiles, the quarterly hardware and project chart, a quarter-by-quarter timeline and projects with status and decisions.',
-      '/report/roadmap',
-      $chk('costs', 'Costs') . $chk('notes', 'Project descriptions')) ?>
-  <?= $card('fa-coins', 'Technology budget',
-      'Summary tiles, the three-year quarterly chart, categories, line items, contracts &amp; renewals and the three-year outlook.',
-      '/report/budget',
-      '<div class="form-group mb-1 mr-3"><select name="year" class="custom-select custom-select-sm" aria-label="Budget year">'
-      . implode('', array_map(fn($y, $i) => '<option value="' . $i . '"' . ($i === $currentYear ? ' selected' : '') . '>' . e($y['label']) . ' (' . e($y['range']) . ')</option>', $years, array_keys($years)))
-      . '</select></div>' . $chk('details', 'Line items') . $chk('notes', 'Notes')) ?>
-  <?php if ($backupEnabled): ?>
-  <?= $card('fa-database', 'Backup & recovery',
-      'Backup health from Veeam: job results, the 30-day history, protected machines, Microsoft 365, anything needing attention and items marked not required.',
-      '/report/backup',
-      $chk('details', 'Job details') . $chk('machines', 'Protected machines'), 'veeam') ?>
-  <?php endif; ?>
+      ($slaEnabled ? $chk('s_sla', 'Service levels') : '') . $chk('s_assets', 'Assets') . $chk('s_licensing', 'Licensing') . ($backupEnabled ? $chk('s_backup', 'Backups') : '') . $chk('s_compliance', 'Compliance') . $chk('s_roadmap', 'Roadmap') . $chk('s_budget', 'Budget')
+      . '<div class="w-100"></div>' . $chk('costs', 'Costs') . $chk('users', 'Last user') . $chk('virtual', 'Virtual machines', false) . $chk('notes', 'Notes') . ($slaEnabled ? $chk('missed', 'Missed tickets') : '') . $chk('inventory', 'Full inventory appendix', false)) ?>
   <?php if ($slaEnabled): ?>
   <?= $card('fa-stopwatch', 'Service levels',
       'Response and resolution SLA results from ITFlow tickets: on-time percentages with the change from the period before, 12 months by month, by priority, and tickets that missed a target.',
@@ -69,6 +49,30 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       . implode('', array_map(fn($k, $l) => '<option value="' . e((string) $k) . '"' . ((string) $k === '90' ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(\Align\Controllers\ServiceController::periodChoices()), \Align\Controllers\ServiceController::periodChoices()))
       . '</select></div>' . $chk('missed', 'Missed tickets'), 'sla') ?>
   <?php endif; ?>
+  <?= $card('fa-desktop', 'Asset & lifecycle report',
+      'Fleet at a glance, health by device type, operating systems, the replacement plan by quarter, devices needing attention and the full inventory, grouped servers &amp; virtualization, storage, network, power, then computers.',
+      '/report/assets',
+      $chk('costs', 'Costs') . $chk('inventory', 'Full inventory') . $chk('users', 'Last user') . $chk('virtual', 'Virtual machines', false) . $chk('notes', 'Device notes')) ?>
+  <?php if ($backupEnabled): ?>
+  <?= $card('fa-database', 'Backup & recovery',
+      'Backup health from Veeam: job results, the 30-day history, protected machines, Microsoft 365, anything needing attention and items marked not required.',
+      '/report/backup',
+      $chk('details', 'Job details') . $chk('machines', 'Protected machines'), 'veeam') ?>
+  <?php endif; ?>
+  <?= $card('fa-road', '3-year technology roadmap',
+      'Where things stand today, then year tiles and the quarterly chart, a quarter-by-quarter timeline and projects with status and decisions.',
+      '/report/roadmap',
+      $chk('costs', 'Costs') . $chk('notes', 'Project descriptions')) ?>
+  <?= $card('fa-coins', 'Technology budget',
+      'This year by category and line item, then the three-year chart and outlook, then contracts &amp; renewals to act on.',
+      '/report/budget',
+      '<div class="form-group mb-1 mr-3"><select name="year" class="custom-select custom-select-sm" aria-label="Budget year">'
+      . implode('', array_map(fn($y, $i) => '<option value="' . $i . '"' . ($i === $currentYear ? ' selected' : '') . '>' . e($y['label']) . ' (' . e($y['range']) . ')</option>', $years, array_keys($years)))
+      . '</select></div>' . $chk('details', 'Line items') . $chk('notes', 'Notes')) ?>
+  <?= $card('fa-file-lines', 'Policies & documents',
+      'Print any of the client\'s documents (WISP, policies, procedures) with your branding.',
+      'document',
+      '<div class="form-group mb-1 w-100"><select class="custom-select custom-select-sm report-document" aria-label="Document"></select></div>', 'documents', 'Open document') ?>
   <?= $card('fa-clipboard-check', 'Compliance checklist (CSV)',
       'Every control in a framework with its status, owner, due date, notes, evidence and linked document, as a spreadsheet.',
       'compliance',
@@ -76,10 +80,6 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
   <?= $card('fa-file-csv', 'Device list (CSV)',
       'All of the client\'s devices with type, make and model, serial, OS, last user, dates, lifecycle status and replacement cost.',
       '/export', '', '', 'Download CSV', '_self') ?>
-  <?= $card('fa-file-lines', 'Policies & documents',
-      'Print any of the client\'s documents (WISP, policies, procedures) with your branding.',
-      'document',
-      '<div class="form-group mb-1 w-100"><select class="custom-select custom-select-sm report-document" aria-label="Document"></select></div>', 'documents', 'Open document') ?>
 </div>
 
 <div class="card card-dark mt-2">

@@ -6,8 +6,14 @@ use Align\Reports\Ui;
 $b = $bd['b'];
 $max = max(1, ...array_column($b['years'], 'total'));
 ?>
-<section class="rsection avoid-break">
+<section class="rsection">
   <?= Ui::head('Three-year outlook', $num ?? null) ?>
+  <div class="avoid-break">
+    <h3>By quarter</h3>
+    <?= \Align\View::fetch('budget/_chart', ['b' => $b, 'year' => $bd['year']]) ?>
+  </div>
+  <div class="avoid-break">
+  <h3>By year</h3>
   <table class="rtable">
     <thead><tr><th>Category</th><?php foreach ($b['years'] as $yy): ?><th class="num"><?= e($yy['label']) ?></th><?php endforeach; ?></tr></thead>
     <tbody>
@@ -23,4 +29,5 @@ $max = max(1, ...array_column($b['years'], 'total'));
   <?php if (!empty($notes)): ?>
   <p class="footnote">Recurring costs (managed services, licensing and other services) are budgeted in the months they're billed. Hardware is budgeted in the quarter it reaches end of life; equipment already past end of life is shown in the current quarter. Projects fall in their target quarter. Figures are planning estimates and may change with pricing and scope.</p>
   <?php endif; ?>
+  </div>
 </section>
