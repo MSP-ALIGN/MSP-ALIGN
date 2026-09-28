@@ -1,0 +1,304 @@
+<?php
+declare(strict_types=1);
+
+namespace Align\Api;
+
+/**
+ * OpenAPI 3.1 description of v1, generated from Routes (paths, parameters, request bodies from the same
+ * validation rules the API enforces) plus the response schemas below. Served at /api/v1/openapi.json and
+ * rendered as the docs page under Settings -> API.
+ */
+final class Spec
+{
+    /** Response objects: name => [description, [field => [type, description]]]. Types: string, integer, number, boolean, object, array, date, date-time, T[] (array of schema T). */
+    public const SCHEMAS = [
+        'Key' => ['The API key making the request.', [
+            'name' => ['string', 'Name given to the key.'], 'prefix' => ['string', 'Public part of the key.'], 'scopes' => ['string[]', 'Permissions, e.g. projects:write.'],
+            'client_ids' => ['integer[]', 'Clients the key is limited to; null = all clients.'], 'rate_limit_per_minute' => ['integer', ''], 'expires_at' => ['date-time', 'null = never.'],
+            'api_version' => ['integer', ''], 'app_version' => ['string', '']]],
+        'Client' => ['A client (details come from ITFlow and are read-only).', [
+            'id' => ['integer', ''], 'name' => ['string', ''], 'industry' => ['string', ''], 'source' => ['string', 'itflow or manual.'], 'itflow_client_id' => ['integer', ''],
+            'main_phone' => ['string', ''], 'website' => ['string', ''], 'address' => ['string', ''], 'primary_contact' => ['object', 'name, title, email, phone, mobile.'],
+            'vcio' => ['object', 'Staff user who is vCIO for the client: id, name.'], 'meeting_cadence' => ['string', 'How often you meet.'], 'in_planning' => ['boolean', 'false = taken out of planning.'],
+            'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''], 'url' => ['string', 'Link to the client in the web app.']]],
+        'ClientDetail' => ['A client plus a health summary.', ['(all Client fields)' => ['object', ''],
+            'summary' => ['object', 'devices {total, healthy, past_end_of_life, unsupported_os, out_of_warranty}, projects {active, awaiting_decision}, next_meeting, backups {health, jobs, failed_jobs, ...}, compliance {frameworks, average_score}, service_levels_90d. Only the sections the key can read.']]],
+        'Contact' => ['A client contact.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'name' => ['string', ''], 'title' => ['string', ''], 'department' => ['string', ''], 'email' => ['string', ''],
+            'phone' => ['string', ''], 'extension' => ['string', ''], 'mobile' => ['string', ''], 'location' => ['string', ''],
+            'roles' => ['string[]', 'primary, billing, technical, important, decision_maker, meeting_invitee.'], 'notes' => ['string', 'Align notes.'], 'source' => ['string', ''],
+            'itflow_contact_id' => ['integer', ''], 'archived' => ['boolean', ''], 'updated_at' => ['date-time', '']]],
+        'Device' => ['A device with its computed lifecycle.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'name' => ['string', ''], 'type' => ['string', 'e.g. Server, Hypervisor host, Laptop.'],
+            'category' => ['string', 'Lifecycle category: desktop, laptop, server, network, printer, storage, power, other.'], 'is_virtual' => ['boolean', ''], 'source' => ['string', 'ninja, itflow or manual.'],
+            'manufacturer' => ['string', ''], 'model' => ['string', ''], 'serial' => ['string', ''], 'ip_address' => ['string', ''], 'location' => ['string', ''], 'last_user' => ['string', ''],
+            'last_seen' => ['date-time', ''], 'os' => ['object', 'name, build, support_ends.'],
+            'lifecycle' => ['object', 'status, status_label, health (ok/warn/bad/muted), flags, in_service_date, in_service_source, in_service_estimated, age_years, lifespan_years, end_of_life, replace_by, planned_replacement {quarter, label, note, deferred}, replacement_cost, excluded.'],
+            'warranty' => ['object', 'end, source.'], 'overrides' => ['object', 'Values set in Align (null = using the synced value or policy default).'],
+            'itflow_asset_id' => ['integer', ''], 'ninja_device_id' => ['integer', ''], 'synced_at' => ['date-time', ''], 'url' => ['string', ''],
+            'itflow_sync' => ['object', 'After PATCH only: status (ok, off, queued, error) and message.']]],
+        'Project' => ['A roadmap project.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'title' => ['string', ''], 'category' => ['string', ''], 'category_label' => ['string', ''],
+            'description' => ['string', ''], 'target_quarter' => ['date', 'First day of the planned quarter; null = backlog.'], 'quarter_label' => ['string', 'e.g. Q1 2027 or FY2027 Q3.'],
+            'cost' => ['number', 'One-time.'], 'recurring_monthly' => ['number', ''], 'priority' => ['string', 'critical, high, medium, low.'],
+            'status' => ['string', 'proposed, approved, scheduled, done, declined.'], 'decision' => ['object', 'Who approved or declined it (e.g. in the client portal): by, at, comment, via_portal.'],
+            'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''], 'url' => ['string', '']]],
+        'BudgetSummary' => ['A client\'s three-year technology budget.', [
+            'client_id' => ['integer', ''], 'currency' => ['string', ''], 'recurring_monthly' => ['number', 'Current recurring monthly run rate.'],
+            'selected_year' => ['object', 'label, from, to, total, one_time, by_category.'], 'years' => ['object[]', 'The three plan years, same shape.'],
+            'quarters' => ['object[]', 'label, start, end, year_index, total, by_category.'], 'categories' => ['object', 'Category key => label.'],
+            'lines' => ['object[]', 'Every budget line: key, name, category, source (manual, license, hardware, project, itflow...), budget_line_id, detail, monthly, one_time, tentative, by_quarter (12 values).'],
+            'contract_dates' => ['object[]', 'date, kind, label, name, term, auto_renew, annual_value.']]],
+        'BudgetLine' => ['A budget line you added.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'name' => ['string', ''], 'category' => ['string', ''], 'vendor' => ['string', ''], 'amount' => ['number', 'Per billing period.'],
+            'frequency' => ['string', 'monthly, quarterly, annual, one_time.'], 'start_date' => ['date', ''], 'end_date' => ['date', ''], 'contract_term_months' => ['integer', ''],
+            'contract_end' => ['date', ''], 'notice_days' => ['integer', ''], 'renegotiate_date' => ['date', ''], 'auto_renew' => ['boolean', ''], 'notes' => ['string', ''],
+            'created_at' => ['date-time', ''], 'updated_at' => ['date-time', '']]],
+        'License' => ['A software license or subscription.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'source' => ['string', 'itflow or manual.'], 'itflow_software_id' => ['integer', ''], 'name' => ['string', ''],
+            'version' => ['string', ''], 'software_type' => ['string', ''], 'license_type' => ['string', ''], 'category' => ['string', ''], 'vendor' => ['string', ''],
+            'seats' => ['integer', ''], 'seats_used' => ['integer', ''], 'pricing' => ['string', 'per_seat or flat.'], 'unit_price' => ['number', ''], 'billing_cycle' => ['string', ''],
+            'priced' => ['boolean', ''], 'cost_per_cycle' => ['number', ''], 'monthly' => ['number', ''], 'annual' => ['number', ''], 'purchase_date' => ['date', ''], 'expire_date' => ['date', ''],
+            'auto_renew' => ['boolean', ''], 'contract_start' => ['date', ''], 'contract_term_months' => ['integer', ''], 'contract_end' => ['date', ''], 'notice_days' => ['integer', ''],
+            'renegotiate_date' => ['date', ''], 'notes' => ['string', 'Align notes.'], 'itflow_notes' => ['string', ''], 'retired' => ['boolean', ''], 'updated_at' => ['date-time', '']]],
+        'Meeting' => ['A meeting.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', 'null = internal.'], 'title' => ['string', ''], 'type' => ['string', ''], 'type_label' => ['string', ''],
+            'status' => ['string', 'scheduled, completed, cancelled.'], 'starts_at' => ['date-time', ''], 'ends_at' => ['date-time', ''], 'duration_minutes' => ['integer', ''],
+            'location' => ['string', ''], 'video_url' => ['string', ''], 'attendees' => ['object[]', 'email, name.'], 'agenda' => ['string', ''], 'notes' => ['string', ''],
+            'owner' => ['object', 'id, name.'], 'series_id' => ['integer', ''], 'invitations_sent_at' => ['date-time', ''], 'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''],
+            'url' => ['string', ''], 'invitations' => ['string', 'After POST/PATCH with send_invites: what happened to the invitations.']]],
+        'Framework' => ['A compliance framework.', ['id' => ['integer', ''], 'slug' => ['string', ''], 'name' => ['string', ''], 'description' => ['string', ''], 'built_in' => ['boolean', ''], 'controls' => ['integer', '']]],
+        'Assessment' => ['A framework assigned to a client, with its score.', [
+            'framework_id' => ['integer', ''], 'framework' => ['string', ''], 'slug' => ['string', ''], 'assigned_at' => ['date-time', ''], 'last_reviewed' => ['date', ''], 'next_review' => ['date', ''],
+            'score' => ['object', 'percent (partial counts half), met, partial, not_met, not_assessed, applicable, assessed_percent.'], 'url' => ['string', '']]],
+        'Control' => ['A control and the client\'s status for it.', [
+            'id' => ['integer', ''], 'ref' => ['string', ''], 'section' => ['string', ''], 'title' => ['string', ''], 'guidance' => ['string', 'What "met" looks like and the evidence to collect.'],
+            'automatic_check' => ['string', 'Check Align runs from its own data, if any.'], 'crosswalk_tags' => ['string[]', ''], 'status' => ['string', ''], 'notes' => ['string', ''],
+            'evidence' => ['string', ''], 'owner' => ['string', ''], 'due_date' => ['date', ''], 'document_id' => ['integer', ''], 'updated_at' => ['date-time', '']]],
+        'BulkResult' => ['Result of a bulk update.', ['updated' => ['integer', ''], 'unchanged' => ['integer', ''], 'assessment' => ['object', 'The framework\'s score afterwards.']]],
+        'BackupSummary' => ['Backup health for one client.', ['client_id' => ['integer', ''], 'client_name' => ['string', ''], 'health' => ['string', 'ok, warn, bad or muted.'],
+            'jobs' => ['integer', ''], 'failed_jobs' => ['integer', ''], 'jobs_with_warnings' => ['integer', ''], 'protected_machines' => ['integer', ''], 'overdue' => ['integer', ''], 'success_rate_30d' => ['integer', '']]],
+        'ClientBackups' => ['A client\'s backups.', ['client_id' => ['integer', ''], 'health' => ['string', ''], 'synced_at' => ['date-time', ''], 'stale_after_hours' => ['integer', ''],
+            'stats' => ['object', ''], 'history_30d' => ['object[]', 'date, result (success, warning, failed, none).'],
+            'jobs' => ['object[]', 'uid, name, kind, status, label, health, enabled, last_run, duration_seconds, message, target, size_bytes, hosted, shared_with_other_clients.'],
+            'machines' => ['object[]', 'uid, name, kind, status, health, newest_restore_point, restore_points, backup_bytes, device_id, hosted, not_required.'],
+            'servers_without_backup' => ['object[]', 'device_id, name, type.'], 'microsoft_365' => ['object', ''], 'url' => ['string', '']]],
+        'Exemption' => ['An item marked "backup not required".', ['id' => ['integer', ''], 'client_id' => ['integer', ''], 'kind' => ['string', 'device, workload or m365.'],
+            'device_id' => ['integer', ''], 'item_uid' => ['string', ''], 'name' => ['string', ''], 'reason' => ['string', ''], 'created_at' => ['date-time', '']]],
+        'HostedMachine' => ['A machine on your own backup server.', ['uid' => ['string', ''], 'name' => ['string', ''], 'kind' => ['string', 'vm or computer.'], 'newest_restore_point' => ['date-time', ''],
+            'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'matched_by' => ['string', 'device_name, job, manual or company.'], 'state' => ['string', 'sorted, ours or unmatched.'],
+            'assignment' => ['string', '"auto", "ours" or a client id set by hand.'], 'device_id' => ['integer', ''], 'job_uids' => ['string[]', '']]],
+        'HostedAssignment' => ['Result of assigning a hosted machine or job.', ['uid' => ['string', ''], 'name' => ['string', ''], 'client_id' => ['integer', 'Machines.'], 'client_ids' => ['integer[]', 'Jobs.'],
+            'state' => ['string', 'Machines.'], 'machines' => ['integer', 'Jobs.']]],
+        'ServiceLevels' => ['SLA results for a period.', ['client_id' => ['integer', ''], 'period' => ['string', ''], 'label' => ['string', ''], 'goal_pct' => ['number', ''], 'has_sla' => ['boolean', ''],
+            'stats' => ['object', 'tickets, responded_on_time_pct, resolved_on_time_pct, response_met/missed, resolution_met/missed, avg_first_response_minutes.'], 'previous_period' => ['object', 'Same shape.'],
+            'open' => ['object', 'total, past_target, close_to_target.'], 'monthly' => ['object[]', 'Last 12 months.'], 'by_priority' => ['object[]', ''],
+            'missed_tickets' => ['object[]', 'number, opened, priority, subject, missed_response, missed_resolution.'], 'url' => ['string', '']]],
+    ];
+
+    public const ERRORS = [
+        400 => ['invalid_json, invalid_idempotency_key', 'The request body or a header is malformed.'],
+        401 => ['missing_key, invalid_key, key_expired, key_revoked', 'No usable API key.'],
+        403 => ['insufficient_scope, all_clients_required', 'The key lacks the permission (see the X-Required-Scope header).'],
+        404 => ['not_found, api_disabled, no_backup_data, no_service_data', 'Not found, or outside the clients the key is limited to.'],
+        405 => ['method_not_allowed', 'See the Allow header.'],
+        409 => ['idempotency_conflict, managed_in_itflow, not_enabled', 'The request conflicts with the current state.'],
+        413 => ['body_too_large', 'Bodies are limited to 1 MB.'],
+        415 => ['unsupported_media_type', 'Send JSON with Content-Type: application/json.'],
+        422 => ['validation_failed', 'error.fields names each problem.'],
+        429 => ['rate_limited', 'Wait for Retry-After seconds.'],
+        500 => ['internal_error', 'Logged on the server with the request_id.'],
+    ];
+
+    public static function build(): array
+    {
+        $paths = [];
+        $tags = [];
+        $seen = [];
+        foreach (Routes::all() as $r) {
+            $tags[$r['tag']] = true;
+            $oaPath = '/api/v1' . rtrim(preg_replace(['#\{(\w+):str\}#'], ['{$1}'], $r['path']), '/');
+            $oaPath = $oaPath === '/api/v1' ? '/api/v1' : $oaPath;
+            $params = [];
+            preg_match_all('#\{(\w+)(:str)?\}#', $r['path'], $m, PREG_SET_ORDER);
+            foreach ($m as $p) {
+                $params[] = ['name' => $p[1], 'in' => 'path', 'required' => true, 'schema' => ['type' => empty($p[2]) ? 'integer' : 'string']];
+            }
+            foreach ($r['query'] as $name => [$type, $desc]) {
+                $params[] = ['name' => $name, 'in' => 'query', 'required' => false, 'description' => $desc, 'schema' => ['type' => ['int' => 'integer', 'bool' => 'boolean'][$type] ?? 'string']];
+            }
+            $op = [
+                'operationId' => $id = self::uniqueId(self::opId($r), $seen),
+                'tags' => [$r['tag']],
+                'summary' => $r['summary'],
+                'description' => trim($r['description'] . ($r['scope'] ? "\n\nRequires the `{$r['scope']}` scope." : '')),
+                'parameters' => $params,
+                'responses' => self::responses($r),
+            ];
+            if ($r['scope']) {
+                $op['security'] = [['bearer' => [$r['scope']]]];
+            }
+            if ($r['body'] !== null) {
+                $op['requestBody'] = ['required' => true, 'content' => ['application/json' => ['schema' => self::bodySchema(self::rules($r), $r['creating'])]]];
+                if ($r['method'] === 'POST') {
+                    $op['parameters'][] = ['name' => 'Idempotency-Key', 'in' => 'header', 'required' => false, 'schema' => ['type' => 'string', 'maxLength' => 100],
+                        'description' => 'Send a unique value to make retries safe: the same key within 24 hours returns the first response instead of creating a duplicate.'];
+                }
+            }
+            $paths[$oaPath][strtolower($r['method'])] = $op;
+        }
+        $schemas = ['Error' => ['type' => 'object', 'properties' => [
+            'error' => ['type' => 'object', 'properties' => ['code' => ['type' => 'string'], 'message' => ['type' => 'string'], 'fields' => ['type' => 'object', 'additionalProperties' => ['type' => 'string']]], 'required' => ['code', 'message']],
+            'request_id' => ['type' => 'string']]], 'Meta' => ['type' => 'object', 'properties' => ['page' => ['type' => 'integer'], 'per_page' => ['type' => 'integer'], 'total' => ['type' => 'integer'], 'has_more' => ['type' => 'boolean']]]];
+        foreach (self::SCHEMAS as $name => [$desc, $fields]) {
+            $props = [];
+            foreach ($fields as $f => [$t, $d]) {
+                if ($f[0] === '(') {
+                    continue;
+                }
+                $props[$f] = self::type($t) + ($d !== '' ? ['description' => $d] : []);
+            }
+            $schemas[$name] = ['type' => 'object', 'description' => $desc, 'properties' => $props];
+        }
+        if (isset($schemas['ClientDetail'])) {
+            $schemas['ClientDetail'] = ['allOf' => [['$ref' => '#/components/schemas/Client'], $schemas['ClientDetail']]];
+        }
+        return [
+            'openapi' => '3.1.0',
+            'info' => [
+                'title' => \Align\Branding::name() . ' API',
+                'version' => (string) Kernel::VERSION . '.0',
+                'description' => self::intro(),
+            ],
+            'servers' => [['url' => rtrim((string) \Align\Config::get('base_url', ''), '/') ?: '/']],
+            'security' => [['bearer' => []]],
+            'tags' => array_map(fn($t) => ['name' => $t], array_keys($tags)),
+            'paths' => $paths,
+            'components' => [
+                'securitySchemes' => ['bearer' => ['type' => 'http', 'scheme' => 'bearer', 'description' => 'API key from Settings → API: "Authorization: Bearer msa_…".']],
+                'schemas' => $schemas,
+            ],
+        ];
+    }
+
+    private static function uniqueId(string $id, array &$seen): string
+    {
+        $base = $id;
+        for ($n = 2; isset($seen[$id]); $n++) {
+            $id = $base . $n;
+        }
+        $seen[$id] = true;
+        return $id;
+    }
+
+    public static function intro(): string
+    {
+        return "Read and change planning data in " . \Align\Branding::name() . ". JSON in and out.\n\n"
+            . "**Authentication**: send the key from Settings → API as `Authorization: Bearer msa_…` (or `X-API-Key`). Each key has scopes (area:read / area:write) and can be limited to certain clients; everything else answers 404.\n\n"
+            . "**Responses**: one item is `{\"data\": {...}}`; lists are `{\"data\": [...], \"meta\": {\"page\", \"per_page\", \"total\", \"has_more\"}}` with `?page=` and `?per_page=` (max 200). Errors are `{\"error\": {\"code\", \"message\", \"fields\"}, \"request_id\"}`.\n\n"
+            . "**Changes**: PATCH changes only the fields you send; null clears a field. Unknown fields are refused (422) so typos don't pass silently. Every change is written to the audit log with the key's name.\n\n"
+            . "**Rate limit**: per key per minute (X-RateLimit-* headers; 429 with Retry-After). **Retries**: send an `Idempotency-Key` header on POST.\n\n"
+            . "**Dates**: dates are YYYY-MM-DD; times are ISO 8601 with offset. Quarters accept `2027-Q1` or any date in the quarter and come back as the quarter's first day (Q = calendar quarter).";
+    }
+
+    /** Validation rules for a route's body. */
+    public static function rules(array $r): array
+    {
+        $b = $r['body'];
+        return is_callable($b) ? $b() : (array) $b;
+    }
+
+    private static function bodySchema(array $rules, bool $creating): array
+    {
+        $props = [];
+        $required = [];
+        foreach ($rules as $name => $rule) {
+            [$type, $o] = $rule + [1 => []];
+            $s = match ($type) {
+                'int' => ['type' => 'integer'],
+                'number' => ['type' => 'number'],
+                'bool' => ['type' => 'boolean'],
+                'date' => ['type' => 'string', 'format' => 'date'],
+                'datetime' => ['type' => 'string', 'format' => 'date-time'],
+                'quarter' => ['type' => 'string', 'examples' => ['2027-Q1', '2027-01-01']],
+                'url' => ['type' => 'string', 'format' => 'uri'],
+                'email_list' => ['type' => 'array', 'items' => ['type' => 'string']],
+                'id_list' => ['type' => 'array', 'items' => ['type' => 'integer']],
+                'array' => ['type' => 'array', 'items' => ['type' => 'object']],
+                default => ['type' => 'string'],
+            };
+            foreach (['min' => 'minimum', 'max' => $type === 'string' ? 'maxLength' : 'maximum'] as $k => $oa) {
+                if (isset($o[$k]) && in_array($type, ['int', 'number', 'string'], true)) {
+                    $s[$oa] = $o[$k];
+                }
+            }
+            if (isset($o['enum'])) {
+                $s['enum'] = $o['enum'];
+            }
+            if (!empty($o['desc'])) {
+                $s['description'] = $o['desc'];
+            }
+            if (empty($o['required'])) {
+                $s['type'] = [$s['type'], 'null'];
+            } elseif ($creating) {
+                $required[] = $name;
+            }
+            $props[$name] = $s;
+        }
+        return ['type' => 'object', 'additionalProperties' => false, 'properties' => $props] + ($required ? ['required' => $required] : []);
+    }
+
+    private static function responses(array $r): array
+    {
+        $out = [];
+        if ($r['status'] === 204) {
+            $out['204'] = ['description' => 'Done (no content).'];
+        } else {
+            $ref = $r['returns'] ? ['$ref' => '#/components/schemas/' . $r['returns']] : ['type' => 'object'];
+            $schema = $r['list']
+                ? ['type' => 'object', 'properties' => ['data' => ['type' => 'array', 'items' => $ref], 'meta' => ['$ref' => '#/components/schemas/Meta']]]
+                : ['type' => 'object', 'properties' => ['data' => $ref]];
+            $out[(string) $r['status']] = ['description' => $r['status'] === 201 ? 'Created.' : 'OK.', 'content' => ['application/json' => ['schema' => $schema]]];
+        }
+        foreach ([401, 403, 404, 422, 429] as $code) {
+            if ($code === 422 && $r['body'] === null && !$r['query']) {
+                continue;
+            }
+            $out[(string) $code] = ['description' => self::ERRORS[$code][1] . ' Codes: ' . self::ERRORS[$code][0] . '.', 'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/Error']]]];
+        }
+        return $out;
+    }
+
+    private static function type(string $t): array
+    {
+        if (str_ends_with($t, '[]')) {
+            return ['type' => 'array', 'items' => self::type(substr($t, 0, -2))];
+        }
+        return match ($t) {
+            'date' => ['type' => ['string', 'null'], 'format' => 'date'],
+            'date-time' => ['type' => ['string', 'null'], 'format' => 'date-time'],
+            'integer', 'number', 'string', 'boolean', 'object', 'array' => ['type' => [$t, 'null']],
+            default => ['type' => 'object'],
+        };
+    }
+
+    /** listProjects, getProject, createProject, updateProject, deleteProject, updateManyClientsComplianceControls ... */
+    public static function opId(array $r): string
+    {
+        $parts = array_values(array_filter(explode('/', $r['path']), fn($p) => $p !== '' && !str_starts_with($p, '{')));
+        $words = array_map(fn($p) => str_replace(' ', '', ucwords(str_replace('-', ' ', $p))), $parts);
+        $one = str_ends_with($r['path'], '}') || $r['method'] === 'POST';
+        if ($words && $one) {
+            $last = array_pop($words);
+            $words[] = str_ends_with($last, 'ies') ? substr($last, 0, -3) . 'y' : (str_ends_with($last, 's') && !str_ends_with($last, 'ss') ? substr($last, 0, -1) : $last);
+        }
+        $verb = match ($r['method']) {
+            'GET' => $r['list'] ? 'list' : 'get',
+            'POST' => 'create',
+            'PATCH' => $one ? 'update' : 'updateMany',
+            'PUT' => 'set',
+            'DELETE' => 'delete',
+        };
+        return $verb . (implode('', $words) ?: 'Key');
+    }
+}

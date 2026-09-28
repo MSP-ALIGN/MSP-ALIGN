@@ -65,6 +65,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.27', 'fa-code', 'REST API', 'Read and write planning data from n8n, Zapier, Power Automate, AI agents and your own scripts. Keys with per-area permissions, client limits, expiry and rate limits, under Settings → API.', 'api', 'admin'],
         ['1.26', 'fa-building', 'Hosted clients\' backups', 'Servers you host and back up on your own Veeam server now show for the right client: matched by device name automatically, with Client mapping → Hosted backups to assign jobs or machines by hand.', 'hosted-backups', 'tech'],
         ['1.25', 'fa-list-ol', 'Reports in meeting order', 'The QBR pack now runs the way the meeting does: look back, what they have, is it protected, where it\'s going, what it costs, then decisions. Servers, hypervisor hosts and virtual servers sit together, and the budget, roadmap and backup reports read top to bottom.', 'qbr', 'viewer'],
         ['1.24', 'fa-signature', 'Renamed to MSP-ALIGN', 'Mountaineer Align is now MSP-ALIGN. Nothing to do: your data, settings and branding are unchanged. On the server the commands are now sudo msp-align-update and msp-align-restore (the old names still work).', 'update', 'admin'],
@@ -241,8 +242,16 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       '<b>Settings → Notifications</b>: which emails are sent and when (see <a href="#guide-email">Set up email</a>).',
       '<b>Settings → Onboarding</b>: the welcome email, the guides on the onboarding page, how long links last, and whether request forms are on (see <a href="#guide-onboarding">Welcome and onboard</a>).',
       '<b>Settings → Branding</b>: app name, logo and colours (also used on the client portal, onboarding page and reports).',
+      '<b>Settings → API</b>: turn the REST API on and manage its keys (see <a href="#guide-api">Use the API</a>).',
       '<b>Settings → Updates &amp; backups</b>: new versions, downloading a backup and restoring one.',
   ], ['Settings' => '/settings']) ?>
+  <?= $guide('api', 'fa-code', 'Use the API (n8n, Zapier, AI agents, scripts)', 'admin', [
+      'Open <b>Settings → API</b> and press <b>Turn on</b>. The API lives at <code>/api/v1</code> and speaks JSON.',
+      'Press <b>New API key</b>. Name it after the tool that will use it, tick only the permissions it needs (<b>read</b> or <b>write</b> per area; presets help), and limit it to certain clients if it only works with a few. Set an expiry and a rate limit, then <b>Create key</b>.',
+      'Copy the key straight away; it\'s shown once. In the tool, send it as the header <code>Authorization: Bearer msa_…</code>. For AI agents and tools that import API descriptions, use the <b>OpenAPI (JSON)</b> file.',
+      '<b>API reference</b> on the same page lists every endpoint with its parameters, fields and a ready-to-run example. Changes go through the same rules as the screens: device edits reach ITFlow, meeting invitations only go out when asked, and fields ITFlow manages stay read-only.',
+      'Every change made with a key is in the audit log with the key\'s name, and every request is in <b>Recent requests</b> for 30 days. Open a key to change what it may do, or <b>Revoke</b> it the moment it\'s no longer needed or might have leaked. The dashboard warns two weeks before a key expires.',
+  ], ['Settings → API' => '/settings/api', 'API reference' => '/settings/api/docs']) ?>
   <?= $guide('audit', 'fa-clock-rotate-left', 'Review the audit log', 'admin', [
       'Open <b>Audit log</b>. Filter by person, client or action. Every change, sign-in, export and client-record view is recorded and hash-chained, so tampering is detected.',
       'Review it and the user lists at least quarterly.',
@@ -258,7 +267,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
         ['fa-handshake', 'Meetings & reports', [['Meetings', 'Upcoming and past meetings, with the calendar as a second tab.'], ['Reports', 'Pick a client and open any report: QBR pack, assets, roadmap, budget, backups, service levels, compliance. All-clients reports: portfolio, backups, service levels, renewals.']]],
         ['fa-clipboard-check', 'Compliance', [['Compliance', 'Scores for every client and framework (admins also see the Frameworks tab and crosswalk tags).'], ['Documents', 'Internal and client documents, policies and templates (security policies, WISP, CMMC, HIPAA and privacy).']]],
         ['fa-plug', 'Integrations', [['Integrations', 'Admins: connect and check ITFlow, NinjaOne, Veeam, email and warranty lookups.'], ['Client mapping', 'Which NinjaOne organization and Veeam company belongs to each client.'], ['Sync', 'Sync history and Run sync now.'], ['Unassigned hardware', 'ITFlow assets waiting for a type.']]],
-        ['fa-user-shield', 'Admin', [['Settings', 'General, planning & lifecycle, OS support dates, notifications, onboarding, branding, updates & backups.'], ['Users', 'Staff accounts and roles.'], ['Client portal users', 'Everyone with a client portal sign-in. In the portal, clients see their roadmap, budget, devices, service levels and documents, and can send requests.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
+        ['fa-user-shield', 'Admin', [['Settings', 'General, planning & lifecycle, OS support dates, notifications, onboarding, branding, API, updates & backups.'], ['Users', 'Staff accounts and roles.'], ['Client portal users', 'Everyone with a client portal sign-in. In the portal, clients see their roadmap, budget, devices, service levels and documents, and can send requests.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
     ] as [$icon, $title, $items]): ?>
       <div class="col-md-6 col-xl-4 d-flex">
         <div class="card flex-fill">

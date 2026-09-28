@@ -468,3 +468,9 @@ body.dash-editing .dash-card > .row .card { margin-bottom: 0; }
 .job-overlay[hidden] { display: none; }
 .job-overlay-card { width: 480px; max-width: 100%; margin: 0; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
 @media (prefers-reduced-motion: reduce) { .progress-update .progress-bar { transition: none; } }
+
+/* Settings tabs: drop the icons on narrower screens so every tab fits (Integrations and Help stay as icons) */
+@media (max-width: 1499.98px) and (min-width: 992px) {
+  .settings-tabs .nav-link > i.mr-1 { display: none; }
+  .settings-tabs .nav-link { padding-left: .7rem; padding-right: .7rem; }
+}

@@ -1074,3 +1074,36 @@ const jobOverlay = (() => {
     list.appendChild(row);
   }));
 })();
+
+// Settings -> API key form: presets, write implies read, client list, custom expiry date
+(() => {
+  document.querySelectorAll('[data-api-form]').forEach((form) => {
+    const boxes = () => Array.from(form.querySelectorAll('input[name="scopes[]"]'));
+    form.querySelectorAll('[data-api-preset]').forEach((btn) => btn.addEventListener('click', () => {
+      const want = new Set(btn.dataset.apiPreset.split(' ').filter(Boolean));
+      boxes().forEach((b) => { b.checked = want.has(b.value); });
+    }));
+    form.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.matches('[data-api-write]') && t.checked) {
+        const r = form.querySelector('[data-api-read][data-api-scope="' + t.dataset.apiScope + '"]');
+        if (r) r.checked = true;
+      }
+      if (t.matches('[data-api-read]') && !t.checked) {
+        const w = form.querySelector('[data-api-write][data-api-scope="' + t.dataset.apiScope + '"]');
+        if (w) w.checked = false;
+      }
+      if (t.name === 'client_scope') {
+        const list = form.querySelector('#api-clients');
+        if (list) list.classList.toggle('d-none', t.value !== 'some');
+      }
+    });
+    const exp = form.querySelector('[data-api-expires]');
+    const on = form.querySelector('[data-api-expires-on]');
+    if (exp && on) {
+      const sync = () => { on.classList.toggle('d-none', exp.value !== 'date'); on.required = exp.value === 'date'; };
+      exp.addEventListener('change', sync);
+      sync();
+    }
+  });
+})();

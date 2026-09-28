@@ -7,6 +7,7 @@ $tabs = [
     'notifications' => ['/settings/notifications', 'Notifications', 'fa-bell'],
     'onboarding' => ['/settings/onboarding', 'Onboarding', 'fa-mountain-sun'],
     'branding' => ['/settings/branding', 'Branding', 'fa-palette'],
+    'api' => ['/settings/api', 'API', 'fa-code'],
     'system' => ['/settings/system', 'Updates & backups', 'fa-arrows-rotate'],
 ];
 $newer = \Align\System\Agent::updateAvailable();
@@ -16,6 +17,6 @@ $newer = \Align\System\Agent::updateAvailable();
   <?php foreach ($tabs as $k => [$href, $label, $icon]): ?>
     <li class="nav-item"><a class="nav-link<?= $tab === $k ? ' active' : '' ?>" href="<?= $href ?>"<?= $tab === $k ? ' aria-current="page"' : '' ?>><i class="<?= str_contains($icon, 'fab') ? $icon : 'fas ' . $icon ?> fa-fw mr-1"></i><?= e($label) ?><?= $k === 'system' && $newer ? ' <span class="badge badge-info">new</span>' : '' ?></a></li>
   <?php endforeach; ?>
-  <li class="nav-item ml-auto"><a class="nav-link" href="/integrations"><i class="fas fa-plug fa-fw mr-1"></i>Integrations</a></li>
-  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'onboarding' => 'onboarding'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="sr-only">Help</span></a></li>
+  <li class="nav-item ml-auto"><a class="nav-link" href="/integrations" title="Integrations"><i class="fas fa-plug fa-fw"></i><span class="d-none d-xxl-inline ml-1">Integrations</span><span class="sr-only">Integrations</span></a></li>
+  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'onboarding' => 'onboarding', 'api' => 'api'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="sr-only">Help</span></a></li>
 </ul>

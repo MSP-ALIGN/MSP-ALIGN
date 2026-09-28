@@ -343,6 +343,9 @@ Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains
 # Keep secret links (calendar feed tokens, invite links) out of the access log
 SetEnvIf Request_URI "^/ics/" align_secret_url
 SetEnvIf Request_URI "^/portal/invite/" align_secret_url
+
+# REST API: make sure "Authorization: Bearer <key>" reaches PHP (PHP-FPM setups drop it otherwise)
+SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 EOF
 a2enconf -q mountaineer-align-hardening >/dev/null
 

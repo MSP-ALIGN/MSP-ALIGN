@@ -11,6 +11,9 @@ final class Audit
         $userId ??= $portal ? null : Auth::id();
         $portalUserId ??= $portal ? \Align\Portal\PortalAuth::id() : null;
         $ip = PHP_SAPI === 'cli' ? 'cli' : client_ip();
+        if (\Align\Api\Context::active()) {
+            $detail .= ' — via ' . \Align\Api\Context::label(); // changes made through the API name the key
+        }
         try {
             AuditChain::append([
                 'user_id' => $userId,

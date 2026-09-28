@@ -36,6 +36,19 @@ if ($profile = Align\Config::get('profile')) {
 $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 define('IS_PORTAL', $reqPath === '/portal' || str_starts_with($reqPath, '/portal/'));
 
+// REST API: no session or cookies; keys come in a header (see src/Api/Kernel.php)
+if ($reqPath === '/api' || str_starts_with($reqPath, '/api/')) {
+    if (Align\System\Agent::maintenance()) {
+        http_response_code(503);
+        header('Content-Type: application/json');
+        header('Retry-After: 30');
+        echo json_encode(['error' => ['code' => 'maintenance', 'message' => 'Updating or restoring; try again shortly.']]);
+        exit;
+    }
+    Align\Api\Kernel::handle($_SERVER['REQUEST_METHOD'] ?? 'GET', $reqPath);
+    exit;
+}
+
 // Restore or update in progress: nothing else runs until the agent finishes
 if ($maint = Align\System\Agent::maintenance()) {
     http_response_code(503);

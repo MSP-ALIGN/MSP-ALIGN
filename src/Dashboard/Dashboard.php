@@ -158,6 +158,15 @@ final class Dashboard
             }
         }
 
+        // API keys about to expire (admins manage them)
+        if (\Align\Auth::can('admin')) {
+            foreach (\Align\Api\Keys::expiringSoon() as $k) {
+                $days = max(0, (int) ceil((strtotime($k['expires_at']) - time()) / 86400));
+                $add($days <= 3 ? 'bad' : 'warn', 'system', 'API key "' . $k['name'] . '" expires ' . ($days === 0 ? 'today' : "in $days day" . ($days === 1 ? '' : 's')),
+                    'Whatever uses it stops working then. Create a replacement key, or extend this one.', '/settings/api/keys/' . (int) $k['id'], null, $k['expires_at']);
+            }
+        }
+
         // Backups
         if (\Align\Backup\Backup::enabled()) {
             foreach (\Align\Backup\Backup::summaries() as $id => $x) {

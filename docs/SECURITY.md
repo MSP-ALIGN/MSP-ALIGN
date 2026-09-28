@@ -70,6 +70,15 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 
 - With `debug => false`, errors only go to the server log.
 
+## REST API (1.27)
+
+- **Off by default.** An admin turns it on under Settings → API; while it's off every request gets 404.
+- **Keys, not sessions.** `/api/*` never starts a session or reads cookies, so a browser can't be tricked into making API calls (no CSRF exposure), and no CORS headers are sent. Keys are `msa_<prefix>_<secret>` (32 random characters), shown once and stored only as a SHA-256 hash; the prefix finds the row and the hash is compared in constant time.
+- **Least privilege.** Each key has read / write scopes per area and can be limited to specific clients; anything outside them answers 404 so ids can't be probed. Only admins create, change or revoke keys, and those actions are audited.
+- **Expiry, revocation, rate limits.** Keys can expire (the dashboard warns admins two weeks ahead) and be revoked instantly; each has a per-minute limit (429 with Retry-After). Failed key attempts are written to the same log fail2ban watches.
+- **Accountability.** Every change made through the API is written to the hash-chained audit log with the key's name. Every request (key, method, path, status, IP, request id; never the key or the body) is kept in the API request log for 30 days. Idempotency records (for safe retries) are kept 24 hours.
+- **Input.** JSON only, 1 MB limit, strict validation: unknown fields are refused, enums and lengths are checked, and fields ITFlow owns stay read-only.
+
 ## Server hardening (install.sh / msp-align-update)
 
 **Operating system**
