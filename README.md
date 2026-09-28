@@ -6,6 +6,7 @@ Self-hosted vCIO toolkit for managed service providers, built by Mountaineer IT.
 
 **What's in it (1.7.0):**
 
+- **Tests in the repository (1.32):** the 28 end-to-end suites (about 1,100 checks: every screen, the client portal, the REST API and its attack tests, email through Microsoft 365 and Google, sync with ITFlow / NinjaOne / Veeam, updates and backups, upgrades from 1.27, 1.28 and 1.29, and a crawl of every page for each role) now live in `tests/e2e/`, with one command to run them and GitHub Actions running them on every push. They start from a seed built from scratch with fictional data, so nothing from a real install is needed or stored.
 - **One client mapping screen (1.31):** Client mapping works the same for every connected tool that keeps its own customer list (each RMM's organizations, each backup product's companies): a card per tool with how many clients are linked and which records aren't, a **Missing a link** view, and plain labels for each link (*by name*, *by hand*, *kept unlinked*). Connectors plug in through one interface (`LinksClients`), and RMM and backup auto-matching now share one routine (same results as before). Forms from older pages still save. Help has a new *Link clients* guide.
 - **Fictional test data (1.30.2):** the mock servers used by the test suites now use made-up businesses, people, addresses and 555 phone numbers. Nothing changes in the app.
 - **New home (1.30.1):** the project now lives at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Updating to 1.30.1 switches an install that pulls from the old repository to the new one automatically (if the new one can't be reached, it keeps the old one and says so). The license page's source link points to the new repository too.
@@ -171,6 +172,8 @@ php -S 127.0.0.1:8080 -t public tests/dev-router.php
 ```
 
 To point at the mocks, set `ninja_instance`, `itflow_url`, `dell_api_base` and `lenovo_api_base` to `http://127.0.0.1:8099` in the `settings` table. The mock credentials are `ninja-id` / `ninja-secret` and `itflow-key`.
+
+**Tests:** `tests/e2e/run.sh` builds a throwaway install (fictional data from `tests/mock-server.php`), starts the app and the mock server and runs every end-to-end suite; see [tests/README.md](tests/README.md). GitHub Actions runs them on every push and pull request.
 
 **Adding an integration:** write a class in `src/Integrations/Connectors/` that extends `Align\Integrations\Connector` (name, icon, category, summary, `fields()`, `setup()` steps, `configured()` and `test()`), and add it to `Registry::CONNECTORS`. Its card, settings page, form, validation (https-only URLs, encrypted secrets, nothing saved on an error), Test button, audit log entries, security alert on key changes and status badge (from the sync steps named in `syncSteps()`) come from the base class. Field types: text, url, secret, select, switch, checkboxes, number.
 

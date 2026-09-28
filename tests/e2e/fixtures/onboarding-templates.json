@@ -1,0 +1,60 @@
+{
+ "format": "msp-align-onboarding",
+ "version": 1,
+ "exported_at": "2026-09-28T12:00:00",
+ "templates": [
+  {
+   "slug": "welcome-email",
+   "kind": "email",
+   "title": "Welcome email",
+   "subject": "Welcome to Example MSP, {{client_name}}!",
+   "sort": 10,
+   "is_active": true,
+   "file": null,
+   "body_html": "<p>Hi {{contact_first_name}},</p>\n<p>Welcome to Example MSP! We're glad to be looking after {{client_name}}.</p>\n<p>We'll be on site the week of {{onsite_week}}. Before then, please look through your onboarding page: {{onboarding_link}}</p>\n<p>Thanks,<br>{{sender_name}}</p>"
+  },
+  {
+   "slug": "intro",
+   "kind": "page",
+   "title": "Welcome to Example MSP!",
+   "subject": null,
+   "sort": 10,
+   "is_active": true,
+   "file": null,
+   "body_html": "<p>This page walks {{client_name}} through how we work together: who to contact, how billing works and how to stay safe online.</p>"
+  },
+  {
+   "slug": "how-to-reach-us",
+   "kind": "page",
+   "title": "How to reach us",
+   "subject": null,
+   "sort": 20,
+   "is_active": true,
+   "file": null,
+   "body_html": "<ul>\n<li><strong>Email:</strong> support@examplemsp.example</li>\n<li><strong>Phone:</strong> (555) 010-0100</li>\n<li><strong>Office:</strong> 100 Example Ave, Springfield</li>\n</ul>"
+  },
+  {
+   "slug": "billing",
+   "kind": "page",
+   "title": "How our billing platform works",
+   "subject": null,
+   "sort": 30,
+   "is_active": true,
+   "file": null,
+   "body_html": "<p>Invoices arrive by email on the first of the month and can be paid online by card or bank transfer.</p>"
+  },
+  {
+   "slug": "email-security",
+   "kind": "page",
+   "title": "Email security basics",
+   "subject": null,
+   "sort": 40,
+   "is_active": true,
+   "file": {
+    "name": "Email Security Guide.pdf",
+    "data": "JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgNjEyIDc5Ml0vQ29udGVudHMgNCAwIFIvUmVzb3VyY2VzPDwvRm9udDw8L0YxIDUgMCBSPj4+Pj4+ZW5kb2JqCjQgMCBvYmo8PC9MZW5ndGggNTg+PnN0cmVhbQpCVCAvRjEgMTggVGYgNzIgNzAwIFRkIChFbWFpbCBzZWN1cml0eSBndWlkZSAtIGV4YW1wbGUpIFRqIEVUCmVuZHN0cmVhbSBlbmRvYmoKNSAwIG9iajw8L1R5cGUvRm9udC9TdWJ0eXBlL1R5cGUxL0Jhc2VGb250L0hlbHZldGljYT4+ZW5kb2JqCnRyYWlsZXI8PC9Sb290IDEgMCBSPj4KJSVFT0YK"
+   },
+   "body_html": "<p>Our email filter stops spam and dangerous messages before they reach you. The guide below shows how to release a message you were expecting.</p>"
+  }
+ ]
+}

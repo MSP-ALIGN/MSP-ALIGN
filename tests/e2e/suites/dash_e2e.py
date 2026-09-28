@@ -1,0 +1,71 @@
+from lib import *
+from playwright.sync_api import sync_playwright
+import time
+q("update users set dashboard_layout=NULL")
+st=login("chris@example.com","LongPassword123!")
+t0=time.time(); r=st.get(B+"/"); dt=time.time()-t0
+t=r.text; ok(r.status_code==200 and not errs(t),"dashboard renders (%.2fs)"%dt)
+ok("Good " in t and "Customize" in t,"greeting and Customize button")
+for k in ["attention","kpis","forecast","clients","sla","planning","meetings","due","backups","renewals","portal"]:
+    ok(f'data-card="{k}"' in t, f"card {k} shown by default")
+order=re.findall(r'data-card="(\w+)"',t); ok(order[:2]==["attention","kpis"],"Needs attention first, then health tiles: "+",".join(order[:3]))
+ok("past SLA target" in t and "backup job" in t and "Due for a meeting" in t,"attention list mixes SLA, backups and meetings")
+ok(re.search(r'att-bad.*?att-warn',t,re.S) is not None and not re.search(r'att-info.*?att-bad',t,re.S),"urgent items come before the rest")
+ok(all(x in t for x in ["Service &amp; backups","Lifecycle &amp; security","Client engagement","Money"]),"four tile groups")
+ok("SLA targets met" in t and "Replace now" in t and "Awaiting decision" in t and "Renewals in 90 days" in t and "Licenses per month" in t,"tiles in each group")
+# save a layout: hide portal, move due to top
+lay={"order":{"top":["due","attention","kpis"],"main":["forecast","clients","sla","planning"],"side":["meetings","backups","renewals","portal"]},"hidden":["portal","bogus"]}
+r=st.post(B+"/dashboard/layout",data={"_csrf":csrf(st,"/"),"layout":json.dumps(lay)}); ok(r.json()["ok"],"layout saved")
+saved=json.loads(q("select dashboard_layout from users where email='chris@example.com'")[0]["dashboard_layout"])
+ok(saved["hidden"]==["portal"],"unknown cards dropped from the saved layout")
+t=st.get(B+"/").text; order=re.findall(r'data-card="(\w+)"',t)
+ok(order[0]=="due" and 'data-card="portal"' not in t and "data-dash-show=\"portal\"" in t,"order and hidden card applied; hidden card offered in the Customize bar")
+ok(st.post(B+"/dashboard/layout",data={"_csrf":"x","layout":"{}"}).status_code==419,"CSRF required")
+ok(st.post(B+"/dashboard/layout",data={"_csrf":csrf(st,"/"),"layout":"not json"}).status_code==400,"bad layout refused")
+# another user unaffected
+v=login("viewer@example.com","ViewerPassword123!"); tv=v.get(B+"/").text
+ok(re.findall(r'data-card="(\w+)"',tv)[0]=="attention" and 'data-card="portal"' in tv,"other users keep the default layout")
+ok(v.post(B+"/dashboard/layout",data={"_csrf":csrf(v,"/"),"layout":json.dumps({"order":{"top":["kpis"]},"hidden":["forecast"]})}).json()["ok"],"viewers can customize their own dashboard")
+tv=v.get(B+"/").text; ok(re.findall(r'data-card="(\w+)"',tv)[0]=="kpis" and 'data-card="attention"' in tv and 'data-card="forecast"' not in tv,"partial layouts are completed with the missing cards")
+v.post(B+"/dashboard/layout",data={"_csrf":csrf(v,"/"),"reset":"1"}); ok(q("select dashboard_layout from users where email='viewer@example.com'")[0]["dashboard_layout"] is None,"reset")
+# browser: customize with arrows, drag, hide, show, reset
+q("update users set dashboard_layout=NULL")
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={"width":1400,"height":1000})
+    pg.goto(B+"/login"); pg.fill("input[name=email]","chris@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"chris@example.com")
+    pg.goto(B+"/"); pg.wait_for_timeout(300)
+    lis=pg.locator(".dash-att-list li:visible").count(); ok(lis==8,"attention list shows 8 at first (%d)"%lis)
+    pg.click("[data-att-filter='meeting']"); ok(pg.locator(".dash-att-list li:visible").count()==q("select 1")[0]["1"]*pg.locator(".dash-att-list li[data-att-cat='meeting']").count(),"category filter")
+    pg.click("[data-att-filter='']"); pg.click("[data-att-more]"); ok(pg.locator(".dash-att-list li:visible").count()==pg.locator(".dash-att-list li").count(),"Show all")
+    ok(not pg.locator(".dash-card-tools").first.is_visible(),"card tools hidden until Customize")
+    pg.click("#dash-customize"); ok(pg.locator("#dash-editbar").is_visible() and pg.locator(".dash-card-tools").first.is_visible(),"Customize shows the edit bar and card tools")
+    pg.locator('.dash-card[data-card="kpis"] [data-dash-move="-1"]').click()
+    first=pg.eval_on_selector('.dash-zone[data-zone="top"]',"z=>z.querySelector('.dash-card').dataset.card"); ok(first=="kpis","arrow moves a card up")
+    # drag "renewals" from side to the top of main
+    pg.set_viewport_size({"width":1400,"height":3200})  # no scrolling mid-drag (Playwright scrolls the target into view with the button down)
+    src=pg.locator('.dash-card[data-card="renewals"] .dash-grip'); dst=pg.locator('.dash-card[data-card="forecast"]')
+    src.scroll_into_view_if_needed(); src.drag_to(dst, target_position={"x":60,"y":10}); pg.wait_for_timeout(300)
+    z=pg.eval_on_selector('.dash-card[data-card="renewals"]',"c=>c.closest('.dash-zone').dataset.zone")
+    if z!="main":  # fall back to manual mouse events (HTML5 drag in headless)
+        bb=src.bounding_box(); tb=dst.bounding_box(); pg.mouse.move(bb['x']+5,bb['y']+5); pg.mouse.down(); pg.mouse.move(tb['x']+50,tb['y']+10,steps=12); pg.mouse.up(); pg.wait_for_timeout(300)
+        z=pg.eval_on_selector('.dash-card[data-card="renewals"]',"c=>c.closest('.dash-zone').dataset.zone")
+    zs=pg.evaluate("Object.fromEntries([...document.querySelectorAll('.dash-zone')].map(z=>[z.dataset.zone,[...z.querySelectorAll(':scope>.dash-card')].map(c=>c.dataset.card)]))")
+    ok(z=="main" and zs["main"][:2]==["renewals","forecast"] and "meetings" in zs["side"],"drag moves a card to another column: "+json.dumps(zs))
+    pg.set_viewport_size({"width":1400,"height":1000})
+    pg.screenshot(path=WORK+"/shots/dash_editing.png")
+    pg.click("#dash-done"); pg.wait_for_timeout(600)
+    saved=json.loads(q("select dashboard_layout from users where email='chris@example.com'")[0]["dashboard_layout"])
+    ok(saved["order"]["top"][0]=="kpis" and "renewals" in saved["order"]["main"],"Done saves the order: "+json.dumps(saved["order"]))
+    pg.reload(); pg.wait_for_timeout(300)
+    ok(pg.eval_on_selector('#dash',"d=>d.querySelector('.dash-card').dataset.card")=="kpis","layout kept after reload")
+    pg.click("#dash-customize"); pg.locator('.dash-card[data-card="clients"] [data-dash-hide]').click(); pg.wait_for_load_state(); pg.wait_for_timeout(500)
+    ok(pg.locator('.dash-card[data-card="clients"]').count()==0 and "clients" in json.loads(q("select dashboard_layout from users where email='chris@example.com'")[0]["dashboard_layout"])["hidden"],"hide a card")
+    pg.click("#dash-customize"); pg.click('[data-dash-show="clients"]'); pg.wait_for_load_state(); pg.wait_for_timeout(500)
+    ok(pg.locator('.dash-card[data-card="clients"]').count()==1,"show it again")
+    pg.click("#dash-customize"); pg.click("#dash-reset"); pg.wait_for_load_state(); pg.wait_for_timeout(500)
+    ok(q("select dashboard_layout from users where email='chris@example.com'")[0]["dashboard_layout"] is None and pg.eval_on_selector('#dash',"d=>d.querySelector('.dash-card').dataset.card")=="attention","Reset to default")
+    pg.set_viewport_size({"width":390,"height":844}); pg.goto(B+"/"); pg.wait_for_timeout(400)
+    ok(pg.evaluate("document.documentElement.scrollWidth<=window.innerWidth+1"),"no horizontal scroll on a phone")
+    pg.screenshot(path=WORK+"/shots/dash_mobile.png")
+    b.close()
+print("FAILURES:",len(fails)); [print(" -",f) for f in fails]

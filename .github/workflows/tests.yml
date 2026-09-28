@@ -1,0 +1,68 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: End-to-end suites (Debian 13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The same OS as a production install; everything runs as root inside the container.
+    container: debian:trixie
+    steps:
+      - name: Install packages
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd \
+            mariadb-server mariadb-client git ca-certificates curl openssl age procps python3 python3-pip \
+            chromium fonts-liberation >/dev/null   # chromium: the libraries Playwright's browser needs
+          # the suites call the classic client names
+          for pair in mysql:mariadb mysqldump:mariadb-dump mysqladmin:mariadb-admin; do
+            command -v "${pair%%:*}" >/dev/null || ln -s "$(command -v "${pair#*:}")" "/usr/local/bin/${pair%%:*}"
+          done
+          php -v | head -1; mariadb --version
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the upgrade tests build databases from older release tags
+
+      - name: Syntax check
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          find src views bin scripts public db tests -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+          bash -n install.sh scripts/*.sh tests/e2e/run.sh
+
+      - name: Python and browser
+        run: |
+          pip3 install --break-system-packages -q requests pymysql playwright openapi-spec-validator
+          python3 -m playwright install chromium >/dev/null
+
+      - name: Start MariaDB
+        run: |
+          mkdir -p /run/mysqld && chown mysql:mysql /run/mysqld
+          ($(command -v mariadbd-safe || command -v mysqld_safe) >/dev/null 2>&1 &)
+          for i in $(seq 1 30); do mysqladmin ping >/dev/null 2>&1 && break; sleep 1; done
+          mysqladmin ping
+
+      - name: Run the suites
+        run: tests/e2e/run.sh
+
+      - name: Keep the logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: /tmp/msp-align-tests/*.log
+          retention-days: 14

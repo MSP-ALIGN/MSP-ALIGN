@@ -1,0 +1,20 @@
+from lib import *
+anon=requests.Session()
+r=anon.get(B+"/terms"); ok(r.status_code==200 and "Terms of use" in r.text and "Keep sensitive personal data out" in r.text and "Back to sign in" in r.text and not errs(r.text),"staff terms public")
+r=anon.get(B+"/license"); ok(r.status_code==200 and "GNU Affero General Public License" in r.text and "AdminLTE" in r.text and "Quill" in r.text,"license page public")
+r=anon.get(B+"/license/full"); ok(r.headers["Content-Type"].startswith("text/plain") and "GNU AFFERO GENERAL PUBLIC LICENSE" in r.text and "END OF TERMS AND CONDITIONS" in r.text and len(r.text.splitlines())==661,"full AGPL text")
+for n in ["adminlte","bootstrap","jquery","font-awesome-free","fullcalendar","quill"]:
+    r=anon.get(B+"/license/third-party/"+n); ok(r.status_code==200 and len(r.text)>200,"third-party license: "+n)
+ok(anon.get(B+"/license/third-party/..%2F..%2Fconfig").status_code==404 and anon.get(B+"/license/third-party/nope").status_code==404,"only listed license files")
+r=anon.get(B+"/portal/terms"); ok(r.status_code==200 and "Client portal terms of use" in r.text and "Agreement" in r.text and "/portal/login" in r.text,"portal terms public")
+ok('href="/terms"' in anon.get(B+"/login").text and 'href="/license"' in anon.get(B+"/login").text,"staff sign-in links terms and license")
+ok('href="/portal/terms"' in anon.get(B+"/portal/login").text,"portal sign-in links terms")
+st=login("chris@example.com","LongPassword123!")
+t=st.get(B+"/terms").text; ok('main-sidebar' in t and "Terms of use" in t,"signed-in staff see terms in the app layout")
+d=st.get(B+"/").text; ok('href="/terms"' in d and 'href="/license"' in d and "Source" in d,"footer links")
+t=st.get(B+"/help").text; ok("Terms &amp; license" in t and 'href="/portal/terms"' in t,"help tab")
+F=form(st,"/settings",'action="/settings"')
+r=st.post(B+"/settings",data={**F,"source_url":"javascript:alert(1)"}); ok("must be a web address" in flash(r.text),"bad source link refused")
+st.post(B+"/settings",data={**F,"source_url":"https://git.example.com/align"}); ok('href="https://git.example.com/align"' in st.get(B+"/license").text,"source link used")
+st.post(B+"/settings",data={**F,"source_url":""}); ok("github.com/MSP-ALIGN/MSP-ALIGN" in st.get(B+"/license").text,"defaults to the project repo on GitHub")
+print("FAILURES:",len(fails)); [print(" -",f) for f in fails]
