@@ -6,8 +6,8 @@ namespace Align\Providers;
 use Align\DB;
 
 /**
- * Which record in another system each client is linked to (an RMM organization today; more providers
- * later). One link per client per provider, and each outside record belongs to at most one client.
+ * Which record in another system each client is linked to (an RMM organization, a backup company; see
+ * Integrations\LinksClients). One link per client per provider, and each outside record belongs to at most one client.
  * A row with external_id NULL and match_method 'manual' means "deliberately not linked": auto-match
  * leaves that client alone.
  */
@@ -57,6 +57,65 @@ final class ClientLinks
         }
         DB::run('INSERT INTO client_links (client_id, provider, external_id, match_method) VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE external_id = VALUES(external_id), match_method = VALUES(match_method)', [$clientId, $provider, $externalId, $method]);
+    }
+
+    /** A company name reduced for matching: lower case, "&" as "and", no punctuation or Inc/LLC/Corp. */
+    public static function normalizeName(string $name): string
+    {
+        $n = strtolower($name);
+        $n = str_replace('&', ' and ', $n);
+        $n = preg_replace('/[^a-z0-9 ]+/', ' ', $n) ?? '';
+        $n = preg_replace('/\b(the|inc|incorporated|llc|l l c|ltd|limited|co|corp|corporation|company|pllc|pc|lp|llp)\b/', ' ', $n) ?? '';
+        return trim(preg_replace('/\s+/', ' ', $n) ?? '');
+    }
+
+    /**
+     * Links clients that have no link (and no "deliberately not linked" decision) for $provider to the
+     * provider's unlinked record with the same name. A name shared by two records matches neither.
+     * $alsoRmmNames: a client's RMM organization names count as its names too.
+     * Only active clients that are planned for. Returns how many were linked.
+     */
+    public static function autoMatch(string $provider, bool $alsoRmmNames = false): int
+    {
+        $table = self::recordTable($provider);
+        if ($table === null) {
+            return 0;
+        }
+        [$t, $id] = $table;
+        $byName = [];
+        foreach (DB::all("SELECT r.$id AS id, r.name FROM $t r LEFT JOIN client_links l ON l.provider = r.provider AND l.external_id = r.$id
+                WHERE r.provider = ? AND l.client_id IS NULL", [$provider]) as $r) {
+            $byName[self::normalizeName((string) $r['name'])][] = (string) $r['id'];
+        }
+        $matched = 0;
+        foreach (DB::all('SELECT c.id, c.name' . ($alsoRmmNames ? ', ' . self::rmmOrgNamesSql() . ' AS org_name' : '') . ' FROM clients c
+                LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
+                WHERE l.client_id IS NULL AND c.is_archived = 0 AND c.planning_excluded = 0', [$provider]) as $c) {
+            $names = [self::normalizeName((string) $c['name'])];
+            if ($alsoRmmNames) {
+                $names[] = self::normalizeName((string) $c['org_name']);
+            }
+            // (the backup match has always skipped names that reduce to "0" as well as empty ones)
+            foreach (array_unique($alsoRmmNames ? array_filter($names) : array_filter($names, fn($k) => $k !== '')) as $k) {
+                if (isset($byName[$k]) && count($byName[$k]) === 1) {
+                    self::set((int) $c['id'], $provider, $byName[$k][0], 'auto');
+                    unset($byName[$k]);
+                    $matched++;
+                    break;
+                }
+            }
+        }
+        return $matched;
+    }
+
+    /** Where a provider's linkable records live: [table, id column]. */
+    private static function recordTable(string $provider): ?array
+    {
+        return match (true) {
+            isset(Providers::rmmConnectors()[$provider]) => ['rmm_orgs', 'org_id'],
+            isset(Providers::backupConnectors()[$provider]) => ['backup_companies', 'uid'],
+            default => null,
+        };
     }
 
     /** Removes links to outside records that no longer exist (keeps "deliberately not linked" rows). */

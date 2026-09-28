@@ -68,3 +68,18 @@ companies whose name matches a client's link automatically on sync. Machines und
 no client, or under one flagged in `<key>_hosting_companies`, are treated as backups on your own server
 and sorted into clients by device name, by job, or by hand (**Client mapping → Hosted backups**).
 
+## Client links
+
+A connector whose records are linked one-to-one to clients implements
+[`Align\Integrations\LinksClients`](../src/Integrations/LinksClients.php): the records (id, name, how many
+devices or machines each holds, and the client it's linked to), what one is called ("organization",
+"company"), and what each client gets through its link. `RmmConnector` and `BackupConnector` already do,
+so an RMM or backup provider gets its column on **Client mapping** without extra code. A new kind of
+area (a security product's organizations, a Microsoft 365 tenant) implements the interface itself, and
+adds its record table to `ClientLinks::recordTable()` so sync can auto-match it by name.
+
+Links live in `client_links` (one per client per provider; each outside record belongs to one client). A
+row with `external_id` NULL and `match_method` 'manual' means "kept unlinked" and is left alone by sync.
+`ClientLinks::autoMatch()` links clients with no row yet to the record with the same normalized name
+(`ClientLinks::normalizeName()`); backup products also match on the client's RMM organization name.
+

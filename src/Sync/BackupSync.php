@@ -119,26 +119,7 @@ final class BackupSync
     /** Links a backup provider's companies to clients with the same name (or the same name as the client's RMM organization). */
     public static function autoMatch(string $key): string
     {
-        $free = DB::all('SELECT b.uid, b.name FROM backup_companies b LEFT JOIN client_links l ON l.provider = b.provider AND l.external_id = b.uid
-            WHERE b.provider = ? AND l.client_id IS NULL', [$key]);
-        $byName = [];
-        foreach ($free as $v) {
-            $byName[SyncRunner::normalizeName($v['name'])][] = $v['uid'];
-        }
-        $matched = 0;
-        $clients = DB::all('SELECT c.id, c.name, ' . ClientLinks::rmmOrgNamesSql() . ' AS org_name FROM clients c
-            LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
-            WHERE l.client_id IS NULL AND c.is_archived = 0 AND c.planning_excluded = 0', [$key]);
-        foreach ($clients as $c) {
-            foreach (array_unique(array_filter([SyncRunner::normalizeName($c['name']), SyncRunner::normalizeName((string) $c['org_name'])])) as $k) {
-                if (isset($byName[$k]) && count($byName[$k]) === 1) {
-                    ClientLinks::set((int) $c['id'], $key, $byName[$k][0], 'auto');
-                    unset($byName[$k]);
-                    $matched++;
-                    break;
-                }
-            }
-        }
+        $matched = ClientLinks::autoMatch($key, true);
         $linked = (int) DB::value('SELECT COUNT(*) FROM client_links WHERE provider = ? AND external_id IS NOT NULL', [$key]);
         return "$linked linked to clients" . ($matched ? " ($matched new)" : '');
     }

@@ -1,0 +1,40 @@
+<?php
+declare(strict_types=1);
+
+namespace Align\Integrations;
+
+/**
+ * A connector whose records (an RMM's organizations, a backup product's companies, later a security
+ * product's organizations or a Microsoft 365 tenant) are linked one-to-one to Align clients. Client
+ * mapping shows one column per such connector; links live in client_links (see ClientLinks).
+ */
+interface LinksClients
+{
+    public function key(): string;
+
+    /** Name for columns and sentences ("NinjaOne", "Veeam"). */
+    public function linkName(): string;
+
+    /** What one record is called ("organization", "company"). */
+    public function linkNoun(): string;
+
+    /** Icon classes for the column ("fas fa-user-ninja"). */
+    public function icon(): string;
+
+    public function configured(): bool;
+
+    /**
+     * The records clients can be linked to, sorted by name.
+     * @return list<array{id:string, name:string, count:int, client_id:?int}> count = what the record holds (devices, machines)
+     */
+    public function linkRecords(): array;
+
+    /** What a record's count counts, plural ("devices", "machines"). */
+    public function linkCountLabel(): string;
+
+    /**
+     * What each client gets through its link, for the mapping screen.
+     * @return array<int, array{n:int, html:string}> client id => count and a short, already escaped HTML summary
+     */
+    public function linkClientSummary(): array;
+}

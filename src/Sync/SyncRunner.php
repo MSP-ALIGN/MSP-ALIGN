@@ -328,35 +328,17 @@ final class SyncRunner
         return count($ids) . ' organizations';
     }
 
+    /** Kept for callers from before 1.31; see ClientLinks::normalizeName(). */
     public static function normalizeName(string $name): string
     {
-        $n = strtolower($name);
-        $n = str_replace('&', ' and ', $n);
-        $n = preg_replace('/[^a-z0-9 ]+/', ' ', $n) ?? '';
-        $n = preg_replace('/\b(the|inc|incorporated|llc|l l c|ltd|limited|co|corp|corporation|company|pllc|pc|lp|llp)\b/', ' ', $n) ?? '';
-        return trim(preg_replace('/\s+/', ' ', $n) ?? '');
+        return ClientLinks::normalizeName($name);
     }
 
     /** Links clients to the RMM's organizations with the same name (only clients with no link or decision yet). */
     private function autoMatchClients(RmmProvider $rmm): string
     {
         $key = $rmm->key();
-        $orgs = DB::all('SELECT o.org_id, o.name FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
-            WHERE o.provider = ? AND l.client_id IS NULL', [$key]);
-        $byName = [];
-        foreach ($orgs as $o) {
-            $byName[self::normalizeName($o['name'])][] = (string) $o['org_id'];
-        }
-        $matched = 0;
-        foreach (DB::all("SELECT c.id, c.name FROM clients c LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
-                WHERE l.client_id IS NULL AND c.is_archived = 0 AND c.planning_excluded = 0", [$key]) as $c) {
-            $k = self::normalizeName($c['name']);
-            if ($k !== '' && isset($byName[$k]) && count($byName[$k]) === 1) {
-                ClientLinks::set((int) $c['id'], $key, $byName[$k][0], 'auto');
-                unset($byName[$k]);
-                $matched++;
-            }
-        }
+        $matched = ClientLinks::autoMatch($key);
         $unmatched = (int) DB::value('SELECT COUNT(*) FROM clients c LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
             WHERE (l.external_id IS NULL) AND c.is_archived = 0', [$key]);
         return "$matched newly matched, $unmatched clients without an organization";

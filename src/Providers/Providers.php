@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Align\Providers;
 
 use Align\Integrations\BackupConnector;
+use Align\Integrations\LinksClients;
 use Align\Integrations\PsaConnector;
 use Align\Integrations\Registry;
 use Align\Integrations\RmmConnector;
@@ -96,6 +97,16 @@ final class Providers
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    // ---- Client links ----
+
+    /** Connectors whose records are linked to clients (Client mapping columns), RMMs first. @return array<string, LinksClients> */
+    public static function linkConnectors(): array
+    {
+        $all = array_filter(Registry::all(), fn($c) => $c instanceof LinksClients);
+        uasort($all, fn($a, $b) => ($a instanceof RmmConnector ? 0 : 1) <=> ($b instanceof RmmConnector ? 0 : 1));
+        return $all;
     }
 
     // ---- RMM ----

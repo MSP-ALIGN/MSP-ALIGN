@@ -16,108 +16,109 @@ final class MappingController
     public static function index(): void
     {
         Auth::requireRole('tech');
-        $clients = DB::all('SELECT c.*, (SELECT COUNT(*) FROM devices d JOIN client_links l ON l.provider = d.rmm_provider AND l.external_id = d.rmm_org_id
-                WHERE l.client_id = c.id AND d.client_id IS NULL AND d.removed_at IS NULL) AS device_count,
-            ' . ClientLinks::backupLinkedSql() . ' AS backup_linked,
-            (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id) AS backup_machines,
-            (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND w.client_how IN (\'device\',\'job\',\'machine\')) AS backup_hosted,
-            (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid IN ' . ClientLinks::backupCompaniesSql() . ' AND m.object_type = \'user\') AS backup_m365_users
-            FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 ORDER BY c.name');
-        // One column per RMM: its organizations and each client's link
-        $rmms = [];
-        foreach (Providers::rmmConnectors() as $key => $c) {
-            $rmms[$key] = [
-                'name' => $c->name(),
-                'orgs' => DB::all('SELECT o.org_id AS id, o.name, (SELECT COUNT(*) FROM devices d WHERE d.rmm_provider = o.provider AND d.rmm_org_id = o.org_id AND d.removed_at IS NULL) AS device_count,
-                    l.client_id FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id WHERE o.provider = ? ORDER BY o.name', [$key]),
-                'links' => ClientLinks::forProvider($key),
-            ];
-        }
-        $unmappedOrgs = [];
-        foreach ($rmms as $r) {
-            foreach ($r['orgs'] as $o) {
-                if (!$o['client_id']) {
-                    $unmappedOrgs[] = $o + ['rmm' => $r['name']];
-                }
-            }
-        }
-        // One column per backup product: its companies and each client's link
-        $backups = [];
-        $unmappedCompanies = [];
-        foreach (Providers::backupConnectors() as $key => $c) {
-            $backups[$key] = [
-                'name' => $c->shortName(),
+        $clients = DB::all('SELECT id, name, source FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
+        $ids = array_flip(array_map('intval', array_column($clients, 'id')));
+        // One column per connector that links clients (each RMM, each backup product, ...)
+        $providers = [];
+        foreach (Providers::linkConnectors() as $key => $c) {
+            $records = $c->linkRecords();
+            $links = ClientLinks::forProvider($key);
+            $linked = count(array_filter($links, fn($l, $cid) => $l['external_id'] !== null && isset($ids[$cid]), ARRAY_FILTER_USE_BOTH));
+            $providers[$key] = [
+                'name' => $c->linkName(),
+                'noun' => $c->linkNoun(),
+                'icon' => $c->icon(),
+                'count_label' => $c->linkCountLabel(),
                 'configured' => $c->configured(),
-                'companies' => DB::all('SELECT b.uid, b.name, l.client_id,
-                    (SELECT COUNT(*) FROM backup_workloads w WHERE w.provider = b.provider AND w.company_uid = b.uid) AS workloads
-                    FROM backup_companies b LEFT JOIN client_links l ON l.provider = b.provider AND l.external_id = b.uid WHERE b.provider = ? ORDER BY b.name', [$key]),
-                'links' => ClientLinks::forProvider($key),
+                'backup' => $c instanceof \Align\Integrations\BackupConnector,
+                'connector_name' => $c->name(),
+                'records' => $records,
+                'unlinked' => array_values(array_filter($records, fn($r) => $r['client_id'] === null)),
+                'links' => $links,
+                'summary' => $c->linkClientSummary(),
+                'linked' => $linked,
             ];
-            foreach ($backups[$key]['companies'] as $o) {
-                if (!$o['client_id']) {
-                    $unmappedCompanies[] = $o + ['backup' => $c->shortName()];
-                }
-            }
         }
+        // "Missing a link": a client with no link (and no "kept unlinked" decision) for a provider that has records to link to
+        $missing = fn(array $cl) => (bool) array_filter($providers, fn($p) => $p['records'] && !isset($p['links'][(int) $cl['id']]));
+        $show = query('show', '') === 'missing' ? 'missing' : 'all';
         View::render('mapping/index', [
             'title' => 'Client mapping',
             'nav' => 'mapping',
-            'clients' => $clients,
-            'rmms' => $rmms,
-            'unmappedOrgs' => $unmappedOrgs,
-            'backups' => $backups,
-            'unmappedCompanies' => $unmappedCompanies,
+            'clients' => $show === 'missing' ? array_values(array_filter($clients, $missing)) : $clients,
+            'total' => count($clients),
+            'missing' => count(array_filter($clients, $missing)),
+            'show' => $show,
+            'providers' => $providers,
+            'anyBackupCompanies' => (bool) array_filter($providers, fn($p) => $p['backup'] && $p['records']),
         ]);
     }
 
     /**
-     * Receives rmm[<rmm key>][<client id>] = <organization id | ''> and backup[<backup key>][<client id>] =
-     * <company uid | ''> for every client on the page. (Older pages' org[<client id>] counts as the first RMM,
-     * and veeam[<client id>] as Veeam.)
+     * Receives link[<provider key>][<client id>] = <record id | ''> for every client on the page ('' = not
+     * linked, kept that way). Older pages' fields still work: rmm[<key>][<id>] and backup[<key>][<id>]
+     * (1.29, 1.30), org[<id>] (the first RMM, before 1.29) and veeam[<id>] (Veeam, before 1.30).
      */
     public static function save(): void
     {
         Auth::requireRole('tech');
-        $rmmKeys = array_keys(Providers::rmmConnectors());
-        $backupKeys = array_keys(Providers::backupConnectors());
-        $posted = ['rmm' => $_POST['rmm'] ?? [], 'backup' => $_POST['backup'] ?? []];
-        if (!is_array($posted['rmm']) || !is_array($posted['backup'])) {
-            redirect('/mapping');
-        }
-        if (isset($_POST['org']) && is_array($_POST['org']) && $rmmKeys) {
-            $posted['rmm'] = [$rmmKeys[0] => $_POST['org']] + $posted['rmm'];
-        }
-        if (isset($_POST['veeam']) && in_array('veeam', $backupKeys, true)) {
-            if (!is_array($_POST['veeam'])) {
+        $connectors = Providers::linkConnectors();
+        foreach (['link', 'rmm', 'backup', 'org', 'veeam'] as $field) {
+            if (isset($_POST[$field]) && !is_array($_POST[$field])) {
                 redirect('/mapping');
             }
-            $posted['backup'] = ['veeam' => $_POST['veeam']] + $posted['backup'];
         }
-        // provider => [client id => outside id ('' = not linked)], only records the provider has
+        // Older field names map onto the same providers, with the precedence they had before:
+        // org[] over rmm[<first RMM>] (1.29), veeam[] over backup[veeam] (1.30); link[] over everything.
+        $rmmKeys = array_keys(Providers::rmmConnectors());
+        $legacy = ($_POST['rmm'] ?? []) + ($_POST['backup'] ?? []);
+        if (isset($_POST['org']) && $rmmKeys) {
+            $legacy = [$rmmKeys[0] => $_POST['org']] + $legacy;
+        }
+        if (isset($_POST['veeam']) && isset($connectors['veeam'])) {
+            $legacy = ['veeam' => $_POST['veeam']] + $legacy;
+        }
+        $posted = ($_POST['link'] ?? []) + $legacy;
+        // provider => [client id => record id ('' = not linked)], only records the provider has
         $wanted = [];
-        foreach (['rmm' => $rmmKeys, 'backup' => $backupKeys] as $kind => $keys) {
-            foreach ($posted[$kind] as $key => $rows) {
-                if (!in_array($key, $keys, true) || !is_array($rows)) {
-                    continue;
+        foreach ($posted as $key => $rows) {
+            $key = (string) $key;
+            if (!isset($connectors[$key]) || !is_array($rows)) {
+                continue;
+            }
+            $c = $connectors[$key];
+            $known = array_flip(array_column($c->linkRecords(), 'id'));
+            $wanted[$key] = [];
+            $isRmm = in_array($key, $rmmKeys, true);
+            foreach ($rows as $clientId => $id) {
+                if (!is_scalar($id)) {
+                    continue; // malformed: leave that client as it is
                 }
-                $known = array_flip(array_map('strval', array_column($kind === 'rmm'
-                    ? DB::all('SELECT org_id AS id FROM rmm_orgs WHERE provider = ?', [$key])
-                    : DB::all('SELECT uid AS id FROM backup_companies WHERE provider = ?', [$key]), 'id')));
-                $wanted[$key] = [];
-                foreach ($rows as $clientId => $id) {
-                    $id = is_scalar($id) ? (string) $id : '';
-                    if ($id === '' || ($kind === 'rmm' && $id === '0')) {
-                        $wanted[$key][(int) $clientId] = '';
-                    } elseif (isset($known[$id])) {
-                        $wanted[$key][(int) $clientId] = $id;
-                    } // a record that's gone since the page loaded: leave that client as it is
-                }
-                $picked = array_filter($wanted[$key], fn($o) => $o !== '');
-                if (count($picked) !== count(array_unique($picked))) {
-                    flash('error', $kind === 'rmm'
-                        ? 'Each ' . Providers::rmmName($key) . ' organization can only be linked to one client. Nothing was saved.'
-                        : 'Each ' . Providers::backupName($key) . ' company can only be linked to one client. Nothing was saved.');
-                    redirect('/mapping');
+                $id = (string) $id;
+                if ($id === '' || ($isRmm && $id === '0' && !isset($known['0']))) { // '0' meant "none" on RMM pages before 1.29
+                    $wanted[$key][(int) $clientId] = '';
+                } elseif (isset($known[$id])) {
+                    $wanted[$key][(int) $clientId] = $id;
+                } // a record that's gone since the page loaded: leave that client as it is
+            }
+            $picked = array_filter($wanted[$key], fn($o) => $o !== '');
+            if (count($picked) !== count(array_unique($picked))) {
+                flash('error', 'Each ' . $c->linkName() . ' ' . $c->linkNoun() . ' can only be linked to one client. Nothing was saved.');
+                redirect('/mapping' . self::showQuery());
+            }
+            // A record already linked to a client that isn't on this form (Missing a link hides it): say where,
+            // instead of quietly taking it away. Clients not on the screen at all (archived, not planned) lose it as before.
+            $holders = [];
+            foreach (DB::all("SELECT l.client_id, l.external_id, c.name FROM client_links l JOIN clients c ON c.id = l.client_id
+                    WHERE l.provider = ? AND l.external_id IS NOT NULL AND c.is_archived = 0 AND c.planning_excluded = 0", [$key]) as $h) {
+                $holders[(string) $h['external_id']] = $h;
+            }
+            $names = array_column($c->linkRecords(), 'name', 'id');
+            foreach ($picked as $cid => $id) {
+                $h = $holders[$id] ?? null;
+                if ($h && (int) $h['client_id'] !== $cid && !array_key_exists((int) $h['client_id'], $wanted[$key])) {
+                    flash('error', ($names[$id] ?? 'That ' . $c->linkNoun()) . ' is already linked to ' . $h['name'] . '. Set ' . $h['name'] . ' to Not linked first (under All clients). Nothing was saved.');
+                    redirect('/mapping' . self::showQuery());
                 }
             }
         }
@@ -134,7 +135,7 @@ final class MappingController
         }
         if (!$changed) {
             flash('success', 'No changes.');
-            redirect('/mapping');
+            redirect('/mapping' . self::showQuery());
         }
 
         DB::transaction(function () use ($changed) {
@@ -153,7 +154,12 @@ final class MappingController
         $n = array_sum(array_map('count', $changed));
         Audit::log('mapping.save', "$n change(s): " . json_encode($changed));
         flash('success', "Saved $n change(s).");
-        redirect('/mapping');
+        redirect('/mapping' . self::showQuery());
+    }
+
+    private static function showQuery(): string
+    {
+        return post('show') === 'missing' ? '?show=missing' : '';
     }
 
     /**
