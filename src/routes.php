@@ -77,6 +77,7 @@ $r->get('/clients/{id}/report/sla', [\Align\Controllers\ServiceController::class
 $r->get('/clients/{id}/service-levels', [\Align\Controllers\ServiceController::class, 'client']);
 $r->get('/clients/{id}/backups', [\Align\Controllers\BackupController::class, 'client']);
 $r->post('/clients/{id}/backups/exempt', [\Align\Controllers\BackupController::class, 'exempt']);
+$r->post('/clients/{id}/backups/claim', [\Align\Controllers\BackupController::class, 'claim']);
 $r->get('/clients/{id}/devices', [ClientController::class, 'devices']);
 $r->post('/clients/{id}/devices', [DeviceController::class, 'create']);
 $r->get('/clients/{id}/export', [ClientController::class, 'export']);
@@ -173,6 +174,7 @@ $r->get('/mapping', [MappingController::class, 'index']);
 $r->post('/mapping', [MappingController::class, 'save']);
 $r->get('/mapping/backups', [MappingController::class, 'backups']);
 $r->post('/mapping/backups', [MappingController::class, 'saveBackups']);
+$r->post('/mapping/backups/bulk', [MappingController::class, 'bulkBackups']);
 $r->get('/sync', [SyncController::class, 'index']);
 $r->post('/sync', [SyncController::class, 'run']);
 $r->get('/sync/{id}', [SyncController::class, 'show']);

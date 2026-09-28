@@ -142,9 +142,24 @@ final class MappingController
             WHERE w.company_uid IN ($in) OR w.company_uid IS NULL
                OR w.uid IN (SELECT item_uid FROM backup_assignments WHERE item_type = 'workload')
             ORDER BY (w.client_id IS NULL AND w.client_how IS NULL) DESC, c.name, w.name", $pool);
+        $isUnmatched = fn($m) => $m['client_id'] === null && $m['client_how'] === null;
+        $isOurs = fn($m) => $m['client_id'] === null && $m['client_how'] !== null;
+        $counts = ['unmatched' => count(array_filter($machines, $isUnmatched)), 'ours' => count(array_filter($machines, $isOurs))];
+        $counts['sorted'] = count($machines) - $counts['unmatched'] - $counts['ours'];
+        $counts['all'] = count($machines);
+        $show = query('show', '');
+        if (!isset($counts[$show])) {
+            $show = $counts['unmatched'] ? 'unmatched' : 'all';
+        }
+        $shown = array_values(array_filter($machines, fn($m) => match ($show) {
+            'unmatched' => $isUnmatched($m), 'ours' => $isOurs($m), 'sorted' => $m['client_id'] !== null, default => true,
+        }));
         View::render('mapping/backups', [
             'title' => 'Hosted backups',
-            'nav' => 'mapping',
+            'show' => $show,
+            'counts' => $counts,
+            'shown' => $shown,
+            'nav' => 'hosted-backups',
             'configured' => \Align\Integrations\VeeamSpc::configured(),
             'companies' => $companies,
             'pool' => array_flip($pool),
@@ -202,6 +217,43 @@ final class MappingController
         Audit::log('backup.assign', $changes . ' change(s)' . ($log ? ': ' . mb_strimwidth(implode('; ', $log), 0, 900, '…') : '') . '; hosting companies: ' . count($hosting));
         flash('success', ($changes ? "Saved $changes change(s). " : 'Saved. ') . $r['hosted'] . ' hosted machine' . ($r['hosted'] == 1 ? '' : 's') . ' sorted into clients'
             . ($r['unsorted'] ? ', ' . $r['unsorted'] . ' still not matched.' : '.'));
-        redirect('/mapping/backups');
+        $show = preg_replace('/[^a-z]/', '', post('show'));
+        redirect('/mapping/backups' . ($show !== '' ? '?show=' . $show : ''));
+    }
+
+    /** Assigns several machines at once (the bulk bar on the Hosted backups page). */
+    public static function bulkBackups(): void
+    {
+        Auth::requireRole('tech');
+        $ids = array_values(array_filter(array_map('strval', (array) ($_POST['ids'] ?? []))));
+        $to = post('client');
+        $show = preg_replace('/[^a-z]/', '', post('show'));
+        $back = '/mapping/backups' . ($show !== '' ? '?show=' . $show : '');
+        $clientName = null;
+        if ($to !== 'none' && $to !== 'auto') {
+            $clientName = ctype_digit($to) ? DB::value('SELECT name FROM clients WHERE id = ?', [(int) $to]) : null;
+            if ($clientName === null) {
+                flash('error', 'Pick a client (or Ours) for the selected machines.');
+                redirect($back);
+            }
+        }
+        $n = 0;
+        foreach ($ids as $uid) {
+            $name = DB::value('SELECT name FROM backup_workloads WHERE uid = ?', [$uid]);
+            if ($name === null) {
+                continue;
+            }
+            DB::run("DELETE FROM backup_assignments WHERE item_type = 'workload' AND item_uid = ?", [$uid]);
+            if ($to !== 'auto') {
+                DB::insert('backup_assignments', ['item_type' => 'workload', 'item_uid' => $uid, 'client_id' => $to === 'none' ? null : (int) $to,
+                    'item_name' => mb_substr((string) $name, 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
+            }
+            $n++;
+        }
+        \Align\Sync\VeeamSync::assign();
+        $label = $to === 'none' ? 'yours (not a client\'s)' : ($to === 'auto' ? 'back to automatic' : $clientName);
+        Audit::log('backup.assign', "$n machine(s) → $label (bulk)");
+        flash('success', "$n machine" . ($n === 1 ? '' : 's') . " set to $label.");
+        redirect($back);
     }
 }

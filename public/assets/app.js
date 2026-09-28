@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!table) return;
     const apply = () => {
       const q = input.value.trim().toLowerCase();
-      table.querySelectorAll('tbody tr').forEach((tr) => {
+      table.querySelectorAll('tbody tr, li.list-group-item').forEach((tr) => {
         tr.hidden = q !== '' && !tr.textContent.toLowerCase().includes(q);
       });
     };

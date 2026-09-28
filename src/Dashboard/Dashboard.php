@@ -172,6 +172,9 @@ final class Dashboard
                     $add('info', 'backup', $x['warning'] . ' backup job' . ($x['warning'] === 1 ? '' : 's') . ' finished with a warning', 'The last run completed with warnings.', '/clients/' . $id . '/backups', $names[$id]);
                 }
             }
+            if (\Align\Auth::can('tech') && ($n = \Align\Backup\Backup::hostedUnmatched())) {
+                $add('warn', 'backup', $n . ' machine' . ($n === 1 ? '' : 's') . ' on your backup server not matched to a client', 'Their backups don\'t show for any client yet. Pick the client for each (or its job), or mark your own servers as yours.', '/mapping/backups');
+            }
         }
 
         // Onboarding: requests that didn't reach the service desk, and onboardings waiting on the client

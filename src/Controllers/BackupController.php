@@ -18,14 +18,48 @@ final class BackupController
         Auth::require();
         $client = ClientController::load($id);
         Audit::access('backups', "#$id {$client['name']}");
+        $devices = (new Lifecycle())->devices($id);
+        $b = Backup::forClient($client, $devices);
+        // Machines on your own backup server that aren't matched to anyone: offer them here, likeliest first
+        $claim = null;
+        if (Auth::can('tech') && Backup::hostedUnmatched() > 0) {
+            $servers = $b ? array_column($b['unprotected'], 'name')
+                : array_column(array_filter($devices, fn($d) => $d['device_class'] === 'server' && $d['status'] !== 'excluded'), 'name');
+            $claim = Backup::claimable($client, $servers);
+        }
         View::render('backups/client', [
             'title' => $client['name'] . ' · Backups',
             'nav' => 'clients',
             'client' => $client,
             'clientNav' => 'backups',
-            'b' => Backup::forClient($client, (new Lifecycle())->devices($id)),
+            'b' => $b,
+            'claim' => $claim,
             'configured' => \Align\Integrations\VeeamSpc::configured(),
         ]);
+    }
+
+    /** "This client's": assigns an unmatched hosted job or machine to this client from its Backups page. */
+    public static function claim(int $id): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $kind = post('kind') === 'job' ? 'job' : 'workload';
+        $uid = post('uid');
+        $row = $kind === 'job'
+            ? \Align\DB::one("SELECT uid, name FROM backup_jobs WHERE uid = ? AND source <> 'm365'", [$uid])
+            : \Align\DB::one('SELECT uid, name FROM backup_workloads WHERE uid = ? AND client_id IS NULL', [$uid]);
+        if (!$row) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        \Align\DB::run('DELETE FROM backup_assignments WHERE item_type = ? AND item_uid = ?', [$kind, $row['uid']]);
+        \Align\DB::insert('backup_assignments', ['item_type' => $kind, 'item_uid' => $row['uid'], 'client_id' => $id,
+            'item_name' => mb_substr($row['name'], 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
+        \Align\Sync\VeeamSync::assign();
+        Audit::log('backup.assign', "{$row['name']} → {$client['name']} (from the client's Backups page)");
+        $n = $kind === 'job' ? (int) \Align\DB::value('SELECT COUNT(*) FROM backup_workloads WHERE client_id = ? AND uid IN (SELECT workload_uid FROM backup_workload_jobs WHERE job_uid = ?)', [$id, $row['uid']]) : 1;
+        flash('success', ($kind === 'job' ? "Job {$row['name']} ($n machine" . ($n === 1 ? '' : 's') . ')' : $row['name']) . " now counts for {$client['name']}. Change it any time under Hosted backups.");
+        redirect("/clients/$id/backups");
     }
 
     public static function report(int $id): void

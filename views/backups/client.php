@@ -2,7 +2,7 @@
 use Align\Auth;
 use Align\Backup\Backup;
 
-/** @var array $client; ?array $b Backup::forClient(); bool $configured */
+/** @var array $client; ?array $b Backup::forClient(); ?array $claim Backup::claimable() (techs, when anything is unmatched); bool $configured */
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 $canEx = Auth::can('tech');
@@ -32,6 +32,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
       <p class="text-muted mb-0">It isn't linked to a Veeam company, and nothing on your own backup server is matched to it. Companies with the same name link automatically on sync; otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>. If you back up this client's servers on your own Veeam server, match them under <?= Auth::can('tech') ? '<a href="/mapping/backups">Hosted backups</a>' : 'Hosted backups' ?>.</p>
     <?php endif; ?>
   </div>
+  <?php if (!empty($claim)) echo \Align\View::fetch('backups/_claim', ['client' => $client, 'claim' => $claim]); ?>
 <?php else: $s = $b['stats']; ?>
 <div class="row">
   <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= tone_class($s['tone']) ?>"><i class="fas fa-<?= $s['tone'] === 'ok' ? 'circle-check' : 'triangle-exclamation' ?>"></i></span><div class="info-box-content"><span class="info-box-text">Backup health</span><span class="info-box-number"><?= ['ok' => 'Healthy', 'warn' => 'Needs attention', 'bad' => 'Action needed'][$s['tone']] ?></span></div></div></div>
@@ -70,6 +71,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
   <?php endif; ?>
 </div>
 <?php endif; ?>
+<?php if (!empty($claim)) echo \Align\View::fetch('backups/_claim', ['client' => $client, 'claim' => $claim]); ?>
 
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check mr-2"></i>Backup jobs</h3>

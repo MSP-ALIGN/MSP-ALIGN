@@ -32,6 +32,88 @@ final class Backup
     }
 
     private static array $hasCache = [];
+    private static ?int $unmatched = null;
+
+    /** Machines on your own backup server(s) not matched to any client and not marked as yours. */
+    public static function hostedUnmatched(): int
+    {
+        try {
+            return self::$unmatched ??= (int) DB::value('SELECT COUNT(*) FROM backup_workloads WHERE client_id IS NULL AND client_how IS NULL');
+        } catch (\Throwable) {
+            return 0; // before the 1.26 migration
+        }
+    }
+
+    /**
+     * Unmatched hosted jobs and machines for one client's Backups page, likeliest first.
+     * A name "looks like" the client when it contains the client's initials (Harbor Point Law Group -> HPLG),
+     * a distinctive word from its name (Veterinary -> VET…), or the name of one of its servers with no backup.
+     * @param string[] $serverNames names of the client's servers with no backup
+     * @return array{jobs: array, machines: array, suggested: int}
+     */
+    public static function claimable(array $client, array $serverNames = []): array
+    {
+        $stop = ['inc', 'llc', 'llp', 'ltd', 'the', 'and', 'of', 'co', 'corp', 'company', 'group', 'services', 'pc', 'pllc', 'dds', 'md'];
+        $words = array_values(array_filter(preg_split('/[^a-z0-9]+/', strtolower((string) $client['name'])) ?: [], fn($w) => $w !== '' && !in_array($w, $stop, true)));
+        $allWords = array_values(array_filter(preg_split('/[^a-z0-9]+/', strtolower((string) $client['name'])) ?: [], fn($w) => $w !== '' && !in_array($w, ['inc', 'llc', 'llp', 'ltd', 'the', 'and', 'of'], true)));
+        $keys = [];
+        if (count($allWords) >= 2) {
+            $keys[] = implode('', array_map(fn($w) => $w[0], $allWords)); // initials
+        }
+        if (count($words) >= 2) {
+            $keys[] = implode('', array_map(fn($w) => $w[0], $words));
+        }
+        foreach ($words as $w) {
+            if (strlen($w) >= 4) {
+                $keys[] = $w;                 // dental -> DENTAL-SRV
+            }
+            if (strlen($w) >= 8) {
+                $keys[] = substr($w, 0, 3);   // veterinary -> VET-APP01
+            }
+        }
+        $keys = array_values(array_unique(array_filter($keys, fn($k) => strlen($k) >= 3)));
+        $servers = array_values(array_filter(array_map(fn($n) => \Align\Integrations\VeeamSpc::hostKey((string) $n), $serverNames)));
+        $score = function (string $name) use ($keys, $servers): int {
+            $n = strtolower($name);
+            $host = \Align\Integrations\VeeamSpc::hostKey($name);
+            foreach ($servers as $sv) {
+                if ($sv !== '' && ($host === $sv || str_contains($host, $sv) || str_contains($sv, $host))) {
+                    return 3;
+                }
+            }
+            $tokens = preg_split('/[^a-z0-9]+/', $n) ?: [];
+            foreach ($keys as $k) {
+                foreach ($tokens as $t) {
+                    if ($t !== '' && str_starts_with($t, $k)) {
+                        return 2;
+                    }
+                }
+            }
+            return 0;
+        };
+        $machines = DB::all("SELECT w.uid, w.name, w.kind, w.last_point,
+                (SELECT GROUP_CONCAT(j.name ORDER BY j.name SEPARATOR ', ') FROM backup_workload_jobs x JOIN backup_jobs j ON j.uid = x.job_uid WHERE x.workload_uid = w.uid) AS job_names
+            FROM backup_workloads w WHERE w.client_id IS NULL AND w.client_how IS NULL ORDER BY w.name");
+        foreach ($machines as &$m) {
+            $m['score'] = max($score($m['name']), $score((string) $m['job_names']) ? 1 : 0);
+        }
+        unset($m);
+        // Jobs whose machines are all unmatched
+        $jobs = DB::all("SELECT j.uid, j.name, j.last_run, COUNT(x.workload_uid) AS machines, GROUP_CONCAT(w.name ORDER BY w.name SEPARATOR ', ') AS machine_names
+            FROM backup_jobs j JOIN backup_workload_jobs x ON x.job_uid = j.uid JOIN backup_workloads w ON w.uid = x.workload_uid
+            WHERE j.source <> 'm365' AND NOT EXISTS (SELECT 1 FROM backup_job_clients jc WHERE jc.job_uid = j.uid)
+              AND NOT EXISTS (SELECT 1 FROM backup_assignments a WHERE a.item_type = 'job' AND a.item_uid = j.uid)
+            GROUP BY j.uid, j.name, j.last_run HAVING SUM(w.client_id IS NULL AND w.client_how IS NULL) = COUNT(*) ORDER BY j.name");
+        foreach ($jobs as &$j) {
+            $j['score'] = max($score($j['name']), $score((string) $j['machine_names']));
+        }
+        unset($j);
+        $by = fn($a, $b) => [-$a['score'], strtolower($a['name'])] <=> [-$b['score'], strtolower($b['name'])];
+        usort($machines, $by);
+        usort($jobs, $by);
+        return ['jobs' => $jobs, 'machines' => $machines,
+            'suggested' => count(array_filter($machines, fn($m) => $m['score'] > 0)) + count(array_filter($jobs, fn($j) => $j['score'] > 0))];
+    }
 
     /** Whether a client has any backup data: its own Veeam company, or machines / jobs sorted to it from a hosting server. */
     public static function has(array|int $client): bool

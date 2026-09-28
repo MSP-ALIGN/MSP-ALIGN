@@ -34,6 +34,7 @@ $navSections = [
     'INTEGRATIONS' => [
         ['integrations', '/integrations', 'Integrations', 'fa-plug', 'admin', $isAdmin ? \Align\Integrations\Registry::problems() : 0],
         ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
+        ...($u && Auth::can('tech') && \Align\Backup\Backup::enabled() ? [['hosted-backups', '/mapping/backups', 'Hosted backups', 'fa-building', 'tech', \Align\Backup\Backup::hostedUnmatched()]] : []),
         ['sync', '/sync', 'Sync', 'fa-rotate', 'viewer'],
         ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
     ],
