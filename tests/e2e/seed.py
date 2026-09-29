@@ -40,7 +40,7 @@ def mysql(sql, database=""):
 def config(path, database):
     open(path, "w").write("<?php\nreturn " + php_array({
         "db": {"host": "localhost", "name": database, "user": "align_test", "pass": "testpass"},
-        "app_key": APP_KEY, "timezone": "America/Los_Angeles", "trusted_proxies": [],
+        "app_key": APP_KEY, "timezone": os.environ.get("TZ") or "America/Los_Angeles", "trusted_proxies": [],
         "upload_path": WORK + "/uploads", "session_path": WORK + "/sessions", "php_cli": shutil.which("php") or "/usr/bin/php",
         "data_dir": WORK + "/sys/data", "agent_dir": WORK + "/sys/agent", "run_dir": WORK + "/sys/run",
         "fqdn": "align.test", "debug": True, "allow_insecure_integrations": True,
@@ -166,4 +166,7 @@ sh(["git", "clone", "-q", f"{S}/remote.git", f"{S}/work"])
 g = f"cd {S}/work && git -c user.name=Test -c user.email=test@example.com"
 sh(f"{g} checkout -q -B main && echo 1.99.0 > VERSION && {g} commit -qam 'v1.99.0: Shiny new thing' -m 'Adds a thing.' -m 'Co-Authored-By: X <x@y>'"
    f" && echo '# Typo fixed' >> README.md && {g} commit -qam 'Fix a typo' && git push -q -f origin HEAD:main")
+# Clones check out main, like GitHub's default branch. Without this they'd get whatever the tests run from:
+# on a pull request that's GitHub's merge commit (a detached HEAD), not main.
+sh(["git", f"--git-dir={S}/remote.git", "symbolic-ref", "HEAD", "refs/heads/main"])
 print("seed: done")

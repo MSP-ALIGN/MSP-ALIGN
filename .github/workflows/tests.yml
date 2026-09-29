@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
 
@@ -26,15 +26,15 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
           apt-get install -y -qq php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd \
-            mariadb-server mariadb-client git ca-certificates curl openssl age procps python3 python3-pip \
-            chromium fonts-liberation >/dev/null   # chromium: the libraries Playwright's browser needs
+            mariadb-server mariadb-client tzdata git ca-certificates curl openssl age procps python3 python3-pip \
+            chromium fonts-liberation >/dev/null   # chromium: the libraries Playwright's browser needs; tzdata: the suites run in the app's timezone
           # the suites call the classic client names
           for pair in mysql:mariadb mysqldump:mariadb-dump mysqladmin:mariadb-admin; do
             command -v "${pair%%:*}" >/dev/null || ln -s "$(command -v "${pair#*:}")" "/usr/local/bin/${pair%%:*}"
           done
           php -v | head -1; mariadb --version
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # the upgrade tests build databases from older release tags
 
@@ -61,7 +61,7 @@ jobs:
 
       - name: Keep the logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: e2e-logs
           path: /tmp/msp-align-tests/*.log
