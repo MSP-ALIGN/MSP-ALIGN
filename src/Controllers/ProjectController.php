@@ -50,6 +50,8 @@ final class ProjectController
         }
         $items = DB::all('SELECT r.*, c.name AS client_name FROM roadmap_items r JOIN clients c ON c.id = r.client_id
             WHERE ' . implode(' AND ', $where) . ' ORDER BY r.target_quarter IS NULL, r.target_quarter, c.name, r.title', $params);
+        $search = \Align\Paging::q();
+        $items = \Align\Paging::search($items, $search, ['title', 'description', 'client_name', 'category']);
 
         $quarters = [];
         foreach (Plan::quarters() as $q) {
@@ -98,7 +100,11 @@ final class ProjectController
             'unscheduled' => $year === null ? $unscheduled : [],
             'beyond' => $year === null ? $beyond : [],
             'years' => $years,
-            'count' => count($items),
+            // What the page lists (a year picked leaves out the other years and the unscheduled)
+            'count' => array_sum(array_map(fn($qt) => count($qt['items']), $year === null ? $quarters : array_filter($quarters, fn($qt) => $qt['year'] === $year)))
+                + ($year === null ? count($unscheduled) + count($beyond) : 0),
+            'q' => $search,
+            'limit' => \Align\Paging::limit(),
             'status' => $status,
             'clientId' => $clientId,
             'category' => $category,

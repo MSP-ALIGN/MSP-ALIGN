@@ -12,17 +12,23 @@ foreach ($rows as $r) {
 }
 $shown = array_values(array_filter($cats, fn($c) => $tot[$c] > 0));
 ?>
-<div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-3"><i class="fas fa-coins text-secondary mr-2"></i>Technology budgets</h1>
-  <div class="btn-group btn-group-sm mr-auto mt-2 mt-md-0">
-    <?php foreach ($years as $y => $yy): ?><a class="btn <?= $y === $year ? 'btn-primary' : 'btn-default' ?>" href="?year=<?= $y ?>"><?= e($yy['label']) ?></a><?php endforeach; ?>
-  </div>
-</div>
-<div class="row">
-  <div class="col-md-4"><div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-coins"></i></span><div class="info-box-content"><span class="info-box-text"><?= e($years[$year]['label']) ?>, all clients</span><span class="info-box-number"><?= money($grand) ?></span></div></div></div>
-  <div class="col-md-4"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Monthly recurring (today)</span><span class="info-box-number"><?= money($run) ?></span></div></div></div>
-  <div class="col-md-4"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-users"></i></span><div class="info-box-content"><span class="info-box-text">Clients in planning</span><span class="info-box-number"><?= count($rows) ?></span></div></div></div>
-</div>
+<?php
+$yearBtns = '<div class="btn-group btn-group-sm">';
+foreach ($years as $y => $yy) {
+    $yearBtns .= '<a class="btn ' . ($y === $year ? 'btn-primary' : 'btn-default') . '" href="?year=' . $y . '">' . e($yy['label']) . '</a>';
+}
+$yearBtns .= '</div>';
+echo \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-coins', 'title' => 'Technology budgets', 'count' => count($rows),
+    'desc' => 'Each client\'s plan for the year: recurring services, licensing, projects and hardware reaching end of life. Open a client for the line-by-line budget.',
+    'secondary' => [$yearBtns, '<a class="btn btn-sm btn-default" href="/projects"><i class="fas fa-diagram-project mr-1"></i>Projects</a>'],
+]);
+echo \Align\View::fetch('partials/tiles', ['tiles' => [
+    ['label' => $years[$year]['label'] . ', all clients', 'value' => money($grand), 'tone' => 'dark'],
+    ['label' => 'Monthly recurring (today)', 'value' => money($run), 'tone' => 'dark'],
+    ['label' => 'Clients in planning', 'value' => count($rows), 'tone' => 'dark'],
+]]);
+?>
 <div class="card card-dark">
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-hover mb-0 budget-table">

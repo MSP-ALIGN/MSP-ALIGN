@@ -58,10 +58,16 @@ final class LicenseController
             unset($c);
         }
         usort($byClient, fn($a, $b) => $b['monthly'] <=> $a['monthly']);
+        $q = \Align\Paging::q();
+        $rows = \Align\Paging::search($rows, $q, ['name', 'vendor', 'version', 'client_name', 'software_type', 'notes', 'align_notes']);
+        $limit = \Align\Paging::limit();
         View::render('licenses/index', [
             'title' => 'Licensing',
             'nav' => 'licenses',
-            'licenses' => $rows,
+            'licenses' => array_slice($rows, 0, $limit),
+            'matched' => count($rows),
+            'limit' => $limit,
+            'q' => $q,
             'totals' => Licenses::totals($all),
             'byClient' => $byClient,
             'filter' => $filter,

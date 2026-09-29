@@ -32,7 +32,7 @@ final class DeviceController
         \Align\Audit::access('device', "#$id {$d['name']}" . ($client ? " ({$client['name']})" : ''));
         View::render('devices/show', [
             'title' => $d['name'],
-            'nav' => 'clients',
+            'nav' => $client ? 'clients' : 'devices',
             'client' => $client,
             'clientNav' => 'devices',
             'd' => $d,
@@ -265,10 +265,71 @@ final class DeviceController
         }
     }
 
+    /** Every client's devices (1.42): the same table and filters as a client's page, with a Client column. */
+    public static function index(): void
+    {
+        Auth::require();
+        $all = self::allClients();
+        $filter = query('filter') === 'itflow' ? 'psa' : query('filter');
+        $class = query('class');
+        $cid = (int) query('client');
+        if ($cid) {
+            $all = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === $cid));
+        }
+        $q = \Align\Paging::q();
+        $rows = \Align\Paging::search(ClientController::filter($all, $filter, $class), $q, ClientController::DEVICE_SEARCH);
+        $limit = \Align\Paging::limit();
+        $count = fn(string $f) => count(ClientController::filter($all, $f, ''));
+        View::render('devices/index', [
+            'title' => 'Devices & assets',
+            'nav' => 'devices',
+            'devices' => array_slice($rows, 0, $limit),
+            'matched' => count($rows),
+            'total' => count($all),
+            'limit' => $limit,
+            'q' => $q,
+            'filter' => $filter,
+            'class' => $class,
+            'clientId' => $cid,
+            'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
+            // Each tile counts exactly what its view lists
+            'tiles' => ['attention' => $count('attention'), 'replace' => $count('replace'), 'os' => $count('os'), 'warranty' => $count('warranty'), 'stale' => $count('stale')],
+            'counts' => ['attention' => $count('attention'), 'unassigned' => $count('unassigned')],
+        ]);
+    }
+
+    /** Devices of clients in planning, then devices whose RMM organization isn't linked to a client (last, so they can still be found). */
+    private static function allClients(): array
+    {
+        $linked = $unlinked = [];
+        foreach ((new Lifecycle())->devices() as $d) {
+            if (!$d['client_id']) {
+                $unlinked[] = $d;
+            } elseif (!$d['client_inactive']) {
+                $linked[] = $d;
+            }
+        }
+        return array_merge($linked, $unlinked);
+    }
+
+    /** CSV of every client's devices, as filtered on the list. */
+    public static function export(): void
+    {
+        Auth::require();
+        $all = self::allClients();
+        if ($cid = (int) query('client')) {
+            $all = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === $cid));
+        }
+        $filter = query('filter') === 'itflow' ? 'psa' : query('filter');
+        $rows = \Align\Paging::search(ClientController::filter($all, $filter, query('class')), \Align\Paging::q(), ClientController::DEVICE_SEARCH);
+        Audit::log('devices.export', count($rows) . ' devices');
+        ClientController::csv($rows, 'devices-' . date('Y-m-d') . '.csv', true);
+    }
+
     public static function unassigned(): void
     {
         Auth::require();
-        $rows = array_values(array_filter((new Lifecycle())->devices(), fn($d) => $d['type'] === Lifecycle::UNASSIGNED));
+        $rows = array_values(array_filter((new Lifecycle())->devices(null, false, null, true), fn($d) => $d['type'] === Lifecycle::UNASSIGNED));
         $types = [];
         foreach (DB::all('SELECT psa_asset_id, type FROM psa_assets') as $a) {
             $types[(string) $a['psa_asset_id']] = $a['type'];
@@ -317,7 +378,7 @@ final class DeviceController
         Auth::requireRole('tech');
         self::find($id);
         self::flashPush(PsaAssetSync::pushDevice($id, Auth::id()), '');
-        redirect("/devices/$id");
+        redirect("/devices/$id#sync");
     }
 
     /** Turns the PSA sync on or off for one device ("Align only"). */
@@ -334,7 +395,7 @@ final class DeviceController
         } else {
             flash('success', 'This device is now Align-only. Changes won\'t be sent to or taken from ' . psa_name() . '.');
         }
-        redirect("/devices/$id");
+        redirect("/devices/$id#sync");
     }
 
     /** Brings a retired device back (and marks the PSA asset Deployed). */

@@ -3,6 +3,11 @@ use Align\Auth;
 use Align\Meetings\Meetings;
 
 ?>
+<?= \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-handshake', 'title' => 'Meetings',
+    'desc' => 'Business reviews and other client meetings. Invitations and reminders go out from here; the calendar feed keeps your own calendar in step.',
+    'primary' => Auth::can('tech') ? '<button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-plus mr-1"></i>Schedule</button>' : '',
+]) ?>
 <?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/meetings', 'Meetings', 'fa-handshake', false], ['/calendar', 'Calendar', 'fa-calendar-days', true]]]) ?>
 <div class="row">
   <div class="col-lg-9">

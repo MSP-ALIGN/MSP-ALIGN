@@ -288,7 +288,10 @@ final class ClientController
         ]);
     }
 
-    private static function filter(array $devices, string $filter, string $class): array
+    /** What the device search box looks in. */
+    public const DEVICE_SEARCH = ['name', 'display_name', 'system_name', 'serial', 'last_user', 'manufacturer', 'model', 'os_name', 'ip_address', 'type', 'client_name', 'location'];
+
+    public static function filter(array $devices, string $filter, string $class): array
     {
         return array_values(array_filter($devices, function ($d) use ($filter, $class) {
             if ($class !== '' && $d['device_class'] !== $class) {
@@ -317,12 +320,18 @@ final class ClientController
         $all = (new Lifecycle())->devices($id);
         $filter = query('filter') === 'itflow' ? 'psa' : query('filter'); // itflow: links saved before 1.28
         $class = query('class');
+        $q = \Align\Paging::q();
+        $rows = \Align\Paging::search(self::filter($all, $filter, $class), $q, self::DEVICE_SEARCH);
+        $limit = \Align\Paging::limit();
         View::render('clients/devices', [
             'title' => $client['name'] . ' · Devices',
             'nav' => 'clients',
             'client' => $client,
             'clientNav' => 'devices',
-            'devices' => self::filter($all, $filter, $class),
+            'devices' => array_slice($rows, 0, $limit),
+            'matched' => count($rows),
+            'limit' => $limit,
+            'q' => $q,
             'backupMap' => \Align\Backup\Backup::deviceMap(null, $id),
             'total' => count($all),
             'filter' => $filter,
@@ -336,15 +345,20 @@ final class ClientController
         $client = self::load($id);
         $devices = (new Lifecycle())->devices($id);
         Audit::log('client.export', $client['name']);
-        $fname = preg_replace('/[^A-Za-z0-9]+/', '-', $client['name']) . '-lifecycle-' . date('Y-m-d') . '.csv';
+        self::csv($devices, preg_replace('/[^A-Za-z0-9]+/', '-', $client['name']) . '-lifecycle-' . date('Y-m-d') . '.csv');
+    }
+
+    /** Sends devices as a lifecycle CSV; $withClient adds a Client column first (the all-clients list). */
+    public static function csv(array $devices, string $fname, bool $withClient = false): void
+    {
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $fname . '"');
         $out = fopen('php://output', 'w');
-        fputcsv($out, ['Device', 'Type', 'Source', 'Manufacturer', 'Model', 'Serial', 'IP', 'Location', 'OS / firmware',
+        fputcsv($out, [...($withClient ? ['Client'] : []), 'Device', 'Type', 'Source', 'Manufacturer', 'Model', 'Serial', 'IP', 'Location', 'OS / firmware',
             'OS support ends', 'In service since', 'Start date source', 'Age (years)', 'Warranty ends', 'Warranty source',
             'End of life', 'Status', 'Est. replacement cost', 'Last check-in', 'Last logged-in user', 'Notes'], escape: '');
         foreach ($devices as $d) {
-            fputcsv($out, array_map([\Align\Security::class, 'csvCell'], [
+            fputcsv($out, array_map([\Align\Security::class, 'csvCell'], [...($withClient ? [$d['client_name']] : []),
                 $d['name'], $d['type'], source_label($d['source'], $d['rmm_provider'] ?? null), $d['manufacturer'], $d['model'],
                 $d['serial'], $d['ip_address'], $d['location'], $d['os_name'] ?: $d['firmware'],
                 $d['os_rule']['eos_date'] ?? '', $d['start_date'], $d['start_source'], $d['age_years'],

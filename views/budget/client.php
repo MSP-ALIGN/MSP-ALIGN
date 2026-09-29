@@ -24,6 +24,7 @@ foreach ($b['lines'] as $l) {
     <?php foreach ($b['years'] as $y => $yy): ?><a class="btn <?= $y === $year ? 'btn-primary' : 'btn-default' ?>" href="?year=<?= $y ?>"><?= e($yy['label']) ?></a><?php endforeach; ?>
   </div>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
+    <a class="btn btn-default" href="/clients/<?= $cid ?>/roadmap"><i class="fas fa-road mr-1"></i>Roadmap</a>
     <a class="btn btn-default" href="/clients/<?= $cid ?>/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print mr-1"></i>Print budget</a>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-budget"><i class="fas fa-plus mr-1"></i>Add budget line</button><?php endif; ?>
   </div>

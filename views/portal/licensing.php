@@ -14,12 +14,7 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
   <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0" data-toggle="modal" data-target="#modal-suggest"><i class="fas fa-plus mr-1"></i>Suggest a license</button><?php endif; ?>
 </div>
 
-<div class="row">
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Monthly</span><span class="info-box-number"><?= money_exact($totals['monthly']) ?></span></div></div></div>
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-calendar"></i></span><div class="info-box-content"><span class="info-box-text">Annual</span><span class="info-box-number"><?= money($totals['annual']) ?></span></div></div></div>
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-cubes"></i></span><div class="info-box-content"><span class="info-box-text">Products</span><span class="info-box-number"><?= (int) $totals['count'] ?></span></div></div></div>
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-warning"><i class="fas fa-calendar-check"></i></span><div class="info-box-content"><span class="info-box-text">Renewing soon</span><span class="info-box-number"><?= count($totals['renewals']) ?></span></div></div></div>
-</div>
+<?= \Align\View::fetch('partials/tiles', ['tiles' => [['label' => 'Monthly', 'value' => money_exact($totals['monthly'])], ['label' => 'Annual', 'value' => money($totals['annual'])], ['label' => 'Products', 'value' => (int) $totals['count']], ['label' => 'Renewing soon', 'value' => count($totals['renewals']), 'tone' => count($totals['renewals']) ? 'warning' : 'dark']]]) ?>
 
 <?= \Align\View::fetch('portal/_suggestions', ['kind' => 'license', 'subs' => $subs, 'canSubmit' => $canSubmit, 'pu' => $pu]) ?>
 <div class="card">

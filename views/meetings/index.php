@@ -1,19 +1,20 @@
 <?php use Align\Auth; ?>
+<?= \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-handshake', 'title' => 'Meetings',
+    'desc' => 'Business reviews and other client meetings. Invitations and reminders go out from here; the calendar feed keeps your own calendar in step.',
+    'primary' => Auth::can('tech') ? '<button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-plus mr-1"></i>Schedule</button>' : '',
+]) ?>
 <?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/meetings', 'Meetings', 'fa-handshake', true], ['/calendar', 'Calendar', 'fa-calendar-days', false]]]) ?>
 <div class="row">
   <div class="col-lg-9">
-    <div class="card card-dark">
-      <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-handshake mr-2"></i>Meetings</h3>
-        <div class="card-tools d-flex">
-          <div class="btn-group btn-group-sm mr-2">
-            <?php foreach (['upcoming' => 'Upcoming', 'past' => 'Past', 'all' => 'All'] as $k => $l): ?>
-              <a class="btn <?= $view === $k ? 'btn-light' : 'btn-outline-light' ?>" href="/meetings?view=<?= $k ?>"><?= $l ?></a>
-            <?php endforeach; ?>
-          </div>
-          <input type="search" class="form-control form-control-sm mr-2 filter-input" data-filter-table="meeting-table" placeholder="Filter…">
-          <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-plus mr-1"></i>Schedule</button><?php endif; ?>
-        </div>
+    <div class="card">
+      <div class="card-header list-toolbar d-flex flex-wrap align-items-center">
+        <ul class="nav nav-pills view-tabs mr-auto">
+          <?php foreach (['upcoming' => 'Upcoming', 'past' => 'Past', 'all' => 'All'] as $k => $l): ?>
+            <li class="nav-item"><a class="nav-link<?= $view === $k ? ' active' : '' ?>" href="/meetings?view=<?= $k ?>"><?= $l ?></a></li>
+          <?php endforeach; ?>
+        </ul>
+        <input type="search" class="form-control form-control-sm list-search my-1" data-filter-table="meeting-table" placeholder="Filter meetings…" aria-label="Filter meetings">
       </div>
       <div class="card-body p-0 table-responsive">
         <?php $showClient = true; require __DIR__ . '/_table.php'; ?>

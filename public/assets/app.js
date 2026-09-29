@@ -21,6 +21,82 @@ const alignFmt = (() => {
       : ((d.getHours() % 12) || 12) + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + (d.getHours() < 12 ? 'am' : 'pm'),
   };
 })();
+// Set-up that also has to run on parts of the page loaded later (edit forms opened from long lists):
+// alignInit.add((root) => ...) runs now on the page and again on each loaded part.
+const alignInit = {
+  fns: [],
+  add(fn) {
+    this.fns.push(fn);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => fn(document));
+    else fn(document);
+  },
+  run(root) { this.fns.forEach((fn) => fn(root)); },
+};
+
+// Confirm before submitting: <button data-confirm="Are you sure?"> (one listener, so loaded forms get it too)
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest && ev.target.closest('[data-confirm]');
+  if (el && !window.confirm(el.dataset.confirm)) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+}, true);
+
+// Edit forms on long lists load when opened: <a data-lazy-modal="/licenses/5/form?back=…" data-target="#modal-license-5">
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest && ev.target.closest('[data-lazy-modal]');
+  if (!el || !window.jQuery) return;
+  ev.preventDefault();
+  const sel = el.dataset.target;
+  const show = () => window.jQuery(sel).modal('show');
+  if (document.querySelector(sel)) { show(); return; }
+  if (el.dataset.loading) return;
+  el.dataset.loading = '1';
+  el.classList.add('is-loading');
+  fetch(el.dataset.lazyModal, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+    .then((r) => {
+      // Signed out meanwhile (the request was sent to the sign-in page): reload, which asks to sign in
+      if (r.redirected || r.status === 401 || r.status === 419) { window.location.reload(); return null; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then((html) => {
+      if (html === null) return;
+      const box = document.createElement('div');
+      box.innerHTML = html;
+      const parts = Array.from(box.children);
+      parts.forEach((n) => document.body.appendChild(n));
+      parts.forEach((n) => alignInit.run(n));
+      if (!document.querySelector(sel)) throw new Error('form missing');
+      show();
+    })
+    .catch((e) => window.alert("Couldn't open the form (" + e.message + '). Reload the page and try again.'))
+    .finally(() => { delete el.dataset.loading; el.classList.remove('is-loading'); });
+});
+
+// Long pickers repeated on every row (client mapping) carry only their current choice; the full list is
+// copied in from one <template> the first time the select is used: <select data-options="template-id" data-client="7">
+const fillOptions = (ev) => {
+  const sel = ev.target.closest && ev.target.closest('select[data-options]');
+  if (!sel || sel.dataset.filled) return;
+  const tpl = document.getElementById(sel.dataset.options);
+  if (!tpl) return;
+  sel.dataset.filled = '1';
+  const value = sel.value;
+  const keep = sel.options[0];
+  const frag = document.createDocumentFragment();
+  frag.appendChild(keep);
+  tpl.content.querySelectorAll('option').forEach((o) => {
+    const opt = o.cloneNode(true);
+    if (opt.dataset.client && opt.dataset.client !== sel.dataset.client) opt.textContent += ' (linked elsewhere)';
+    opt.defaultSelected = opt.value === value; // so a form reset or a restored page keeps the saved choice
+    frag.appendChild(opt);
+  });
+  sel.replaceChildren(frag);
+  sel.value = value;
+};
+['mousedown', 'focusin', 'keydown', 'touchstart'].forEach((t) => document.addEventListener(t, fillOptions, true));
+
 document.addEventListener('DOMContentLoaded', () => {
   // Live table filter: <input data-filter-table="table-id">
   document.querySelectorAll('[data-filter-table]').forEach((input) => {
@@ -39,13 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Submit a select's form on change: <select data-autosubmit>
   document.querySelectorAll('select[data-autosubmit]').forEach((sel) => {
     sel.addEventListener('change', () => sel.form.submit());
-  });
-
-  // Confirm before submitting: <button data-confirm="Are you sure?">
-  document.querySelectorAll('[data-confirm]').forEach((el) => {
-    el.addEventListener('click', (ev) => {
-      if (!window.confirm(el.dataset.confirm)) ev.preventDefault();
-    });
   });
 
   // Show/hide a block based on a select: <select data-toggle-target="#id"> (hidden when value = "none")
@@ -344,7 +413,7 @@ document.addEventListener('change', (e) => {
 });
 
 // License form: live cost preview (per period, per month, per year)
-document.addEventListener('DOMContentLoaded', () => {
+alignInit.add((root) => {
   const fmt = (n) => alignFmt.money(n);
   const months = { monthly: 1, quarterly: 3, annual: 12, one_time: 0 };
   const calc = (form) => {
@@ -359,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
     out.innerHTML = '<b>' + fmt(per) + '</b> ' + q('cycle').selectedOptions[0].text.toLowerCase()
       + (m ? '<br><span class="text-muted">' + fmt(per / m) + '/mo · ' + fmt(per / m * 12) + '/yr</span>' : '');
   };
-  document.querySelectorAll('[data-lic="out"]').forEach((o) => {
+  root.querySelectorAll('[data-lic="out"]').forEach((o) => {
     const form = o.closest('form');
     calc(form);
     form.addEventListener('input', () => calc(form));
@@ -368,8 +437,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Contract fields: show derived end / renegotiate dates as you type (the server fills them in the same way)
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('[data-contract]').forEach((box) => {
+alignInit.add((root) => {
+  root.querySelectorAll('[data-contract]').forEach((box) => {
     const form = box.closest('form');
     const q = (k) => box.querySelector('[data-c="' + k + '"]');
     const startIn = () => q('start') && q('start').value ? q('start') : form.querySelector('[name="' + box.dataset.startField + '"]');
@@ -1159,4 +1228,35 @@ document.addEventListener('DOMContentLoaded', () => {
   // On a phone the section bar scrolls sideways: keep the current section in view
   const cur = document.querySelector('.portal-sections .nav-link.active');
   if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+});
+
+// Optional table columns (1.42): <div data-columns="device-table"> holding <input type="checkbox" data-col="serial">.
+// The choice is kept in this browser (per table) and turns on class show-col-<key> on the table.
+alignInit.add((root) => {
+  root.querySelectorAll('[data-columns]').forEach((box) => {
+    const table = document.getElementById(box.dataset.columns);
+    if (!table) return;
+    const key = 'align-cols-' + box.dataset.columns;
+    let saved = null;
+    try { saved = JSON.parse(window.localStorage.getItem(key) || 'null'); } catch (e) { saved = null; }
+    const boxes = Array.from(box.querySelectorAll('input[data-col]'));
+    const apply = () => boxes.forEach((b) => table.classList.toggle('show-col-' + b.dataset.col, b.checked));
+    if (Array.isArray(saved)) boxes.forEach((b) => { b.checked = saved.includes(b.dataset.col); });
+    apply();
+    box.addEventListener('click', (ev) => ev.stopPropagation()); // keep the menu open while ticking
+    boxes.forEach((b) => b.addEventListener('change', () => {
+      apply();
+      try { window.localStorage.setItem(key, JSON.stringify(boxes.filter((x) => x.checked).map((x) => x.dataset.col))); } catch (e) { /* private window */ }
+    }));
+  });
+});
+
+// Record-page tabs (1.42): open the tab named in the address (#lifecycle) and keep the address in step
+document.addEventListener('DOMContentLoaded', () => {
+  if (!window.jQuery) return;
+  const tabs = document.querySelectorAll('.record-tabs [data-toggle="tab"]');
+  if (!tabs.length) return;
+  const pick = window.location.hash && document.querySelector('.record-tabs [data-toggle="tab"][href="' + CSS.escape(window.location.hash) + '"]');
+  if (pick) window.jQuery(pick).tab('show');
+  window.jQuery(tabs).on('shown.bs.tab', (ev) => { try { window.history.replaceState(null, '', ev.target.getAttribute('href')); } catch (e) { /* ignore */ } });
 });

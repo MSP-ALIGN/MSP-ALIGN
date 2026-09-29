@@ -45,7 +45,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       <h6 class="text-uppercase text-muted small font-weight-bold">Once, when you set up</h6>
       <?= $step(1, 'fa-plug', 'Connect your tools', 'Open <b>Integrations</b>, set up ' . (psa_on() ? psa_name() . ' and ' : '') . \Align\Providers\Providers::rmmNames() . (psa_on() ? '' : ' (a PSA is optional: see <i>Run MSP-ALIGN without a PSA</i>)') . ' (and ' . $bk() . ', email and warranty lookups if you use them), press <b>Test connection</b> on each, then run a sync. Using SLAs in ' . psa_name() . '? Turn on <b>Service levels</b> on the ' . psa_name() . ' card. After that Align syncs hourly and checks ' . psa_name() . ' for asset, contact and license changes every 2 minutes. Then set up your welcome email and onboarding guides under <b>Settings → Onboarding</b> (or import a saved set).', $isAdmin ? ['Integrations' => '/integrations', 'Sync' => '/sync', 'Settings → Onboarding' => '/settings/onboarding'] : ['Sync' => '/sync']) ?>
       <?= $step(2, 'fa-link', 'Link clients', 'Clients with the same name in each system link automatically. Link the rest (' . \Align\Providers\Providers::rmmNames() . ' organization, ' . $bk() . ' company) on Client mapping. Clients you don\'t plan for (break-fix, vendors) can be removed from planning.', ['Client mapping' => '/mapping', 'Clients' => '/clients']) ?>
-      <?= $step(3, 'fa-circle-question', 'Sort out unassigned hardware', psa_name() . ' assets with a type Align doesn\'t recognize land in Unassigned hardware. Give them a type and ' . psa_name() . ' is updated to match.', ['Unassigned hardware' => '/devices/unassigned']) ?>
+      <?= $step(3, 'fa-list-check', 'Clear the To do list', psa_name() . ' assets with a type Align doesn\'t recognize, licenses without a price and clients not linked to a tool all show on <b>To do</b>. Give hardware a type and ' . psa_name() . ' is updated to match.', ['To do' => '/todo', 'Unassigned hardware' => '/devices/unassigned']) ?>
       <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each new client</h6>
       <?= $step(4, 'fa-mountain-sun', 'Welcome and onboard', 'When they sign, choose <b>⋮ → Welcome &amp; onboarding</b> on the client. The welcome email links to a private page (no sign-in) where they enter their team\'s contacts, read how to reach you and how billing works, answer a few getting-started questions and send new user or termination requests. Track their progress on the client\'s <b>Onboarding</b> page.', ['How onboarding works' => '#guide-onboarding']) ?>
       <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each client (the overview's Planning checklist tracks this)</h6>
@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.42', 'fa-gauge-high', 'Faster, and easier to find your way', 'Pages stay under a second at 150 clients and 10,000 devices, and long lists load a fraction of what they did. The menu is shorter, with a new <b>To do</b> list and a <b>Devices &amp; assets</b> list across every client; the top search also finds devices by serial, contacts and licenses. Client menus are grouped, every page has the same header and filter row, device pages have tabs, and the client portal has six tabs instead of ten.', 'todo', 'viewer'],
         ['1.41', 'fa-flask', 'Demo data', 'Try MSP-ALIGN with four made-up clients before adding your own: load them from the setup wizard or Settings → General, and remove them with one click.', 'demo', 'admin'],
         ['1.40', 'fa-wand-magic-sparkles', 'Setup wizard', 'New installs start with a step-by-step setup: company, currency & dates, PSA, RMM, backups & warranty, email, clients and team. Skip any step; open it again any time from Settings → General.', 'setup', 'admin'],
         ['1.39', 'fa-door-open', 'Client portal update', 'Clients can suggest licenses and budget items from the portal; you add them (edited if needed) or decline with a note, and they see each one as waiting until then. Portal contacts are view-only, and the portal has a clearer layout with every section on one bar.', 'suggestions', 'tech'],
@@ -125,13 +126,22 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'A hand-added client links to ' . psa_name() . ' automatically when a client with the same name shows up there.',
       'For break-fix clients or vendors: tick them on <b>Clients</b> and choose <b>Remove from planning</b>. They drop out of budgets, reports and reminders but nothing is deleted.',
   ], ['Clients' => '/clients']) ?>
+  <?= $guide('todo', 'fa-list-check', 'Work the To do list', 'viewer', [
+      '<b>To do</b> (top of the menu) lists everything waiting on your team from every client: hardware without a type, licenses without a price, clients not linked to a connected tool, hosted backups to match and suggestions sent from the client portal.',
+      'Each line has a button that goes straight to the fix. A line leaves the list by itself once the work is done; the badge in the menu shows how many are left.',
+      'The dashboard\'s <b>Needs attention</b> is the other list: problems at clients (failed backups, missed service levels, renewals, hardware due). To do is setup and upkeep for you.',
+  ], ['To do' => '/todo']) ?>
+  <?= $guide('search', 'fa-magnifying-glass', 'Find a device, contact or license', 'viewer', [
+      'Type in the search box at the top of any page: a client name, a device name, a <b>serial number</b>, a last-logged-in user, a contact\'s name, email or phone, or a license or vendor.',
+      'Results are grouped by clients, devices, contacts and licenses. On long lists (Devices &amp; assets, Licensing, Contacts, Projects) the search box searches every row, not just the ones on screen; lists show 100 rows and a <b>Show 100 more</b> button.',
+  ], ['Devices & assets' => '/devices']) ?>
   <?= $guide('unassigned', 'fa-circle-question', 'Categorize unassigned hardware', 'viewer', [
-      'Open <b>Integrations → Unassigned hardware</b> (the badge shows how many are waiting).',
+      'Open <b>To do</b> and choose <b>Categorize</b>, or <b>Devices &amp; assets → Unassigned hardware</b> (the badge shows how many are waiting).',
       'Tick the devices of one kind, choose a type and press <b>Apply</b>. ' . psa_name() . ' is updated to match.',
       'Things you don\'t plan for (monitors, cables) can be excluded from planning instead.',
   ], ['Unassigned hardware' => '/devices/unassigned']) ?>
   <?= $guide('lifecycle', 'fa-recycle', 'Plan device replacements', 'tech', [
-      'Open the client\'s <b>Devices &amp; assets</b>. Filter <b>No plan date</b> to find devices without an in-service date.',
+      'Open the client\'s <b>Devices &amp; assets</b> (or <b>Devices &amp; assets</b> in the main menu for every client). Choose <b>More → No in-service date</b> to find devices that can\'t be planned yet. <b>Columns</b> adds Type, Serial, Warranty, Backup and cost to the table.',
       'Open a device to set the purchase or in-service date, warranty, lifespan or replacement cost. These override the defaults.',
       'Client wants to keep it longer, or replace it sooner? On the client\'s <b>Roadmap &amp; projects</b>, open a quarter\'s <b>Replace … devices</b> list and drag a device (or the whole group by its heading) to another quarter. You can also use <b>Replace in</b> on the device, or tick several on the devices list and choose <b>Set replacement</b> to pick a quarter and note why. The roadmap, 3-year plan and budget move it there; a device past end of life that was put off shows as <b>Replacement deferred</b>. Choose <b>Automatic</b> to go back to the end-of-life date.',
       'Default lifespans and costs per category are under <b>Settings → Planning &amp; lifecycle</b>.',
@@ -159,7 +169,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       '<b>Reports → Backup &amp; recovery</b> prints it for the client, and <b>Reports → Backups (all clients)</b> shows the whole portfolio.',
   ], ['Backups report (all clients)' => '/reports/backups']) ?>
   <?= $guide('mapping', 'fa-link', 'Link clients to your RMM and backup records', 'tech', [
-      'Every connected tool that keeps its own list of customers gets a column on <b>Client mapping</b> (under Integrations): an organization in each RMM, a company in each backup product. The cards at the top show how many clients each tool has linked and which of its records aren\'t linked to anyone.',
+      'Every connected tool that keeps its own list of customers gets a column on <b>Client mapping</b> (a tab of Integrations): an organization in each RMM, a company in each backup product. The cards at the top show how many clients each tool has linked and which of its records aren\'t linked to anyone.',
       'On every sync, a client with no link yet is linked to the record with the <b>same name</b> (ignoring punctuation and words like Inc or LLC). Backup companies also match the client\'s RMM organization name. <b>How</b> shows <i>by name</i> for these.',
       'Pick a record to link a client by hand (<i>by hand</i>), or <b>— Not linked —</b> to keep it unlinked (<i>kept unlinked</i>): sync then leaves it alone. Each record can belong to one client only; one already used shows <i>(linked elsewhere)</i>. To move it, set the other client to <b>— Not linked —</b> in the same save.',
       'Open <b>Missing a link</b> to see only clients that still need a link in some tool, then press <b>Save mapping</b>. A client\'s devices come from its RMM organization, and its backups from its backup company, so fixing a link updates both straight away.',
@@ -172,7 +182,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Client mapping' => '/mapping', 'Import' => '/clients/import']) ?>
   <?= $guide('hosted-backups', 'fa-building', 'Match hosted clients\' backups on your own backup server', 'tech', [
       'When you host a client\'s servers and back them up on your own backup server (BDR), ' . $bk() . ' files those backups under your company. Align sorts them into clients on every sync: a machine goes to the client that has a device with the <b>same name</b> in ' . \Align\Providers\Providers::rmmNames() . ' or ' . psa_name() . ' (a full name like <i>server.client.local</i> matches too). Jobs mapped to a company in Veeam Service Provider Console already go to the right client.',
-      'Open <b>Hosted backups</b> in the menu (under Integrations; the badge counts machines not matched yet), or follow the dashboard\'s <i>Needs attention</i> item. It opens on <b>Not matched</b>; the other tabs show what\'s sorted into clients and what\'s yours.',
+      'Open the <b>Hosted backups</b> tab of Integrations (its badge counts machines not matched yet), the To do list, or follow the dashboard\'s <i>Needs attention</i> item. It opens on <b>Not matched</b>; the other tabs show what\'s sorted into clients and what\'s yours.',
       'Quickest from a client: on the client\'s <b>Backups</b> page, <b>Backed up on your own server?</b> lists unmatched machines and jobs, with the ones that look like that client (its initials, a word from its name, or one of its servers with no backup) first. Press <b>This client\'s</b>.',
       'On Hosted backups, assign a <b>job</b> to a client when it only backs up that client (machines added to the job later follow it), or pick the client for a <b>machine</b>. Tick several machines to set them at once. Choose <b>Ours — not a client</b> for your own servers so they stop showing as unmatched. What you set is kept across syncs.',
       'A job that backs up several clients counts for each of them. The client reports and portal leave out its error details, since they can name other clients\' machines; your staff pages still show them.',
@@ -246,7 +256,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <?= $guide('integration', 'fa-plug', 'Connect or change an integration', 'admin', [
       'Open <b>Integrations</b> and click the card (' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', Email, Dell, Lenovo).',
       'Follow <b>How to set it up</b> on the right, enter the details and <b>Save</b>. Keys are encrypted and never shown again; leave a key blank to keep it.',
-      'Press <b>Test connection</b>, then run a sync (<b>Integrations → Sync</b>). Each card shows the result of the last sync.',
+      'Press <b>Test connection</b>, then run a sync (<b>Integrations → Sync history → Run sync now</b>). Each card shows the result of the last sync.',
   ], ['Integrations' => '/integrations']) ?>
   <?= $guide('setup', 'fa-wand-magic-sparkles', 'Use the setup wizard', 'admin', [
       'On a new install it opens after the first admin signs in (once per sign-in until it\'s finished or skipped). On any install, open it from <b>Settings → General → Open the setup wizard</b>.',
@@ -317,12 +327,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 <div class="tab-pane fade" id="tab-menus" role="tabpanel">
   <div class="row">
     <?php foreach ([
-        ['fa-gauge-high', 'Top', [['Dashboard', 'Needs attention (one list across every client), portfolio health tiles, the 3-year plan and the rest of your cards. Customize to reorder or hide cards.'], ['Clients', 'Every client. Open one for its own menu: overview, onboarding (while it\'s under way), contacts, devices, licensing, backups, service levels, compliance, documents, roadmap, budget, meetings and client portal. The ⋮ menu has Welcome & onboarding.'], ['Contacts', 'Everyone at every client, searchable.']]],
+        ['fa-gauge-high', 'Top', [['Dashboard', 'Needs attention (one list across every client), portfolio health tiles, the 3-year plan and the rest of your cards. Customize to reorder or hide cards.'], ['To do', 'Setup and upkeep waiting on your team: hardware to categorize, licenses to price, clients to link, hosted backups to match, client suggestions to review.']]],
+        ['fa-users', 'Clients', [['Clients', 'Every client. Open one for its own menu, grouped as Their IT (contacts, devices, licensing, backups, service levels), The plan (roadmap, budget, compliance, documents) and Meetings (meetings, reports, client portal). The … menu has Welcome & onboarding and the PSA link.'], ['Contacts', 'Everyone at every client, searchable.'], ['Devices & assets', 'Every client\'s devices in one list, searchable by name, serial or user, with the same views as a client\'s page. Unassigned hardware is a button on it.']]],
         ['fa-diagram-project', 'Planning', [['Projects', 'All projects across clients by quarter.'], ['Budgets', 'Every client\'s technology budget side by side.'], ['Licensing', 'Every license, with prices and contract dates.'], ['Renewals', 'Licenses and contracts ending or up for renegotiation.']]],
         ['fa-handshake', 'Meetings & reports', [['Meetings', 'Upcoming and past meetings, with the calendar as a second tab.'], ['Reports', 'Pick a client and open any report: QBR pack, assets, roadmap, budget, backups, service levels, compliance. All-clients reports: portfolio, backups, service levels, renewals.']]],
         ['fa-clipboard-check', 'Compliance', [['Compliance', 'Scores for every client and framework (admins also see the Frameworks tab and crosswalk tags).'], ['Documents', 'Internal and client documents, policies and templates (security policies, WISP, CMMC, HIPAA and privacy).']]],
-        ['fa-plug', 'Integrations', [['Integrations', 'Admins: connect and check ' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', email and warranty lookups.'], ['Client mapping', 'Which ' . \Align\Providers\Providers::rmmNames() . ' organization and ' . $bk() . ' company belongs to each client.'], ['Sync', 'Sync history and Run sync now.'], ['Unassigned hardware', psa_name() . ' assets waiting for a type.']]],
-        ['fa-user-shield', 'Admin', [['Settings', 'General, planning & lifecycle, OS support dates, notifications, onboarding, branding, API, updates & backups.'], ['Users', 'Staff accounts and roles.'], ['Client portal users', 'Everyone with a client portal sign-in. In the portal, clients see their roadmap, budget, devices, service levels and documents, and can send requests.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
+        ['fa-user-shield', 'Admin', [['Integrations', 'Tabs: Connections (admins: connect and check ' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', email and warranty lookups), Client mapping (which ' . \Align\Providers\Providers::rmmNames() . ' organization and ' . $bk() . ' company belongs to each client), Hosted backups and Sync history (with Run sync now).'], ['People', 'Tabs: Staff (accounts and roles, admins) and Client portal users (everyone with a portal sign-in).'], ['Settings', 'General, planning & lifecycle, OS support dates, notifications, onboarding, branding, API, updates & backups.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
     ] as [$icon, $title, $items]): ?>
       <div class="col-md-6 col-xl-4 d-flex">
         <div class="card flex-fill">
@@ -332,7 +342,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       </div>
     <?php endforeach; ?>
   </div>
-  <p class="small text-muted">Top bar: search clients from any page, <b>+</b> to schedule a meeting or add a client or device, and your name for your account, two-factor and email choices.</p>
+  <p class="small text-muted">Top bar: search clients, devices (name, serial, user), contacts and licenses from any page, <b>+</b> to schedule a meeting or add a client or device, <b>?</b> for this help, and your name for your account, two-factor and email choices.</p>
 </div>
 
 <div class="tab-pane fade" id="tab-data" role="tabpanel">

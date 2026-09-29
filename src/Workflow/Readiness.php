@@ -117,8 +117,7 @@ final class Readiness
         $synced = (bool) DB::value("SELECT COUNT(*) FROM sync_runs WHERE status IN ('success','partial')");
         $clients = (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0');
         $unmapped = (int) DB::value('SELECT COUNT(*) FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 AND NOT ' . \Align\Providers\ClientLinks::rmmLinkedSql());
-        $unassigned = (int) DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
-            WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0");
+        $unassigned = \Align\Lifecycle\Lifecycle::unassignedCount();
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses l JOIN clients c ON c.id = l.client_id WHERE l.retired_at IS NULL AND l.unit_price IS NULL AND c.planning_excluded = 0 AND c.is_archived = 0');
         $steps = [
             // A PSA is optional once an RMM is connected: clients can come from the RMM, a CSV file or by hand

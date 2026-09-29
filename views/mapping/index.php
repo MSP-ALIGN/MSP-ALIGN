@@ -19,7 +19,6 @@ $cols = 1 + 3 * count($providers);
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 mr-auto"><i class="fas fa-link text-secondary mr-2"></i>Client mapping</h1>
-  <?php if ($anyBackupCompanies): ?><a class="btn btn-sm btn-default mr-1" href="/mapping/backups" title="Backups of hosted clients that run on your own backup server"><i class="fas fa-building mr-1"></i>Hosted backups</a><?php endif; ?>
   <a class="btn btn-sm btn-default" href="/help#guide-mapping"><i class="fas fa-circle-question mr-1"></i>How it works</a>
 </div>
 <p class="text-muted small mb-3" style="max-width:900px">Link each client to its record in every connected tool<?= $providers ? ' (' . e(implode(', ', array_map(fn($p) => $p['name'] . ' ' . $p['noun'], $providers))) . ')' : '' ?>. Matching names link automatically on sync; anything you set here is kept, including <b>Not linked</b>. Clients added by hand can be linked too.</p>
@@ -85,17 +84,21 @@ $cols = 1 + 3 * count($providers);
           <tr class="small"><?php foreach ($providers as $p): ?><th class="border-left font-weight-normal text-muted"><?= e(ucfirst($p['noun'])) ?></th><th class="font-weight-normal text-muted">How</th><th class="text-right font-weight-normal text-muted"><?= e(ucfirst($p['count_label'])) ?></th><?php endforeach; ?></tr>
         </thead>
         <tbody>
+        <?php foreach ($providers as $key => &$p) {
+            $p['byId'] = array_column($p['records'], null, 'id');
+        }
+        unset($p); ?>
         <?php foreach ($clients as $c): $cid = (int) $c['id']; ?>
           <tr>
             <td class="align-middle"><?= e($c['name']) ?><?= $c['source'] === 'manual' ? ' <span class="badge badge-light border">manual</span>' : '' ?></td>
             <?php foreach ($providers as $key => $p): $link = $p['links'][$cid] ?? null; $sum = $p['summary'][$cid] ?? null; ?>
             <td class="border-left" style="min-width:200px">
               <?php if ($p['records']): ?>
-              <select name="link[<?= e($key) ?>][<?= $cid ?>]" class="custom-select custom-select-sm" aria-label="<?= e($p['name'] . ' ' . $p['noun']) ?> for <?= e($c['name']) ?>">
+              <?php // Only the current choice is written here; the full list is filled in from one copy per tool when the select is used (app.js)
+              $cur = (string) ($link['external_id'] ?? ''); $r = $cur !== '' ? ($p['byId'][$cur] ?? null) : null; ?>
+              <select name="link[<?= e($key) ?>][<?= $cid ?>]" class="custom-select custom-select-sm" data-options="map-opts-<?= e($key) ?>" data-client="<?= $cid ?>" aria-label="<?= e($p['name'] . ' ' . $p['noun']) ?> for <?= e($c['name']) ?>">
                 <option value="">— Not linked —</option>
-                <?php foreach ($p['records'] as $r): ?>
-                  <option value="<?= e($r['id']) ?>" <?= (string) ($link['external_id'] ?? '') === $r['id'] ? 'selected' : '' ?>><?= e($r['name']) ?><?= $r['client_id'] !== null && $r['client_id'] !== $cid ? ' (linked elsewhere)' : '' ?></option>
-                <?php endforeach; ?>
+                <?php if ($r): ?><option value="<?= e($r['id']) ?>" selected><?= e($r['name']) ?><?= $r['client_id'] !== null && $r['client_id'] !== $cid ? ' (linked elsewhere)' : '' ?></option><?php endif; ?>
               </select>
               <?php else: ?>
               <select class="custom-select custom-select-sm" disabled aria-label="<?= e($p['name'] . ' ' . $p['noun']) ?> for <?= e($c['name']) ?>"><option><?= $p['configured'] ? 'Run a sync to load ' . e($p['name']) . ' ' . e($plural($p['noun'], 2)) : e($p['name']) . ' not connected' ?></option></select>
@@ -109,6 +112,9 @@ $cols = 1 + 3 * count($providers);
         <?php if (!$clients): ?><tr><td colspan="<?= $cols ?>" class="text-muted p-3"><?= $show === 'missing' && $total ? 'Every client is linked in every connected tool.' : 'No clients yet.' ?></td></tr><?php endif; ?>
         </tbody>
       </table>
+      <?php foreach ($providers as $key => $p): if ($p['records']): ?>
+      <template id="map-opts-<?= e($key) ?>"><?php foreach ($p['records'] as $r): ?><option value="<?= e($r['id']) ?>" data-client="<?= $r['client_id'] === null ? '' : (int) $r['client_id'] ?>"><?= e($r['name']) ?></option><?php endforeach; ?></template>
+      <?php endif; endforeach; ?>
     </div>
     <?php if ($clients): ?><div class="card-footer py-2 d-flex align-items-center"><span class="small text-muted mr-auto">Pick <b>— Not linked —</b> to keep a client unlinked; sync won't link it by name later.</span><button class="btn btn-sm btn-primary"><i class="fas fa-check mr-1"></i>Save mapping</button></div><?php endif; ?>
   </div>

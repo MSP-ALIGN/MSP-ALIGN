@@ -52,7 +52,7 @@ with sync_playwright() as p:
         f=pg.locator("form.card").filter(has_text=t)
         with ctx.expect_page() as np: f.locator("button").click()
         rp=np.value; rp.wait_for_load_state(); ok(path in rp.url and "Print / Save as PDF" in rp.inner_text("body"),f"{t} opens"); rp.close()
-    pg.goto(B+"/clients/1"); ok(pg.locator("a[href='/reports?client=1']").count()==1,"client header links to reports hub")
+    pg.goto(B+"/clients/1"); ok(pg.locator("a[href='/clients/1/reports']").count()>=1,"client header and menu link to the client's reports page")
     b.close()
     db.cursor().execute("delete from clients where name='Zz Empty Report Client'")
 print("FAILURES:",len(fails)); [print(" -",f) for f in fails]

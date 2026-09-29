@@ -5,25 +5,22 @@ $q = $_GET['q'] ?? '';
 $canEdit = Auth::can('tech');
 $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archived' => psa_on() ? 'Archived in ' . psa_name() : 'Archived', 'all' => 'All'];
 ?>
+<?= \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-users', 'title' => 'Clients', 'count' => (int) ($counts[$view] ?? 0),
+    'desc' => 'Every client' . (psa_on() ? ' from ' . e(psa_name()) : '') . ' and any added by hand. Clients removed from planning stay here but leave the dashboard, meetings and reports.',
+    'primary' => $canEdit ? '<button type="button" class="btn btn-sm btn-primary text-nowrap" data-toggle="modal" data-target="#modal-client" data-autoopen="add"><i class="fas fa-plus mr-1"></i>New client</button>' : '',
+    'secondary' => $canEdit ? ['<a class="btn btn-sm btn-default text-nowrap" href="/clients/import"><i class="fas fa-file-import mr-1"></i>Import</a>'] : [],
+]) ?>
 <form method="post" action="/clients/bulk" id="bulk-form">
 <?= csrf_field() ?>
-<div class="card card-dark">
-  <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-users mr-2"></i>Clients</h3>
-    <div class="card-tools d-flex">
-      <input type="search" class="form-control form-control-sm mr-2 filter-input" data-filter-table="clients-table" placeholder="Filter…" value="<?= e($q) ?>">
-      <?php if ($canEdit): ?>
-        <a class="btn btn-sm btn-default mr-1 text-nowrap" href="/clients/import"><i class="fas fa-file-import mr-1"></i>Import</a>
-        <button type="button" class="btn btn-sm btn-primary text-nowrap" data-toggle="modal" data-target="#modal-client" data-autoopen="add"><i class="fas fa-plus mr-1"></i>New client</button>
-      <?php endif; ?>
-    </div>
-  </div>
-  <div class="card-body py-2 border-bottom d-flex flex-wrap align-items-center">
-    <ul class="nav nav-pills nav-sm mr-auto">
+<div class="card">
+  <div class="card-header list-toolbar d-flex flex-wrap align-items-center">
+    <ul class="nav nav-pills view-tabs mr-auto">
       <?php foreach ($tabs as $k => $label): ?>
-        <li class="nav-item"><a class="nav-link py-1 <?= $view === $k ? 'active' : '' ?>" href="/clients?view=<?= $k ?>"><?= e($label) ?> <span class="badge badge-light border"><?= (int) ($counts[$k] ?? 0) ?></span></a></li>
+        <li class="nav-item"><a class="nav-link <?= $view === $k ? 'active' : '' ?>" href="/clients?view=<?= $k ?>"><?= e($label) ?> <span class="badge <?= $view === $k ? 'badge-light' : 'badge-secondary' ?>"><?= (int) ($counts[$k] ?? 0) ?></span></a></li>
       <?php endforeach; ?>
     </ul>
+    <input type="search" class="form-control form-control-sm list-search my-1 mr-1" data-filter-table="clients-table" placeholder="Filter clients…" aria-label="Filter clients" value="<?= e($q) ?>">
     <?php if ($canEdit): ?>
       <div class="bulk-bar d-none form-inline" id="bulk-bar">
         <span class="small mr-2"><b id="bulk-count">0</b> selected</span>

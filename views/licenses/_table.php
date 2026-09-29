@@ -15,7 +15,7 @@ if (!$showClient) {
 $cols = $showClient ? 9 : 8;
 ?>
 <div class="table-responsive">
-<table class="table table-sm table-hover mb-0 license-table">
+<table class="table table-sm table-hover mb-0 license-table" id="licenses-table">
   <thead><tr>
     <th>Product</th><?php if ($showClient): ?><th>Client</th><?php endif; ?><th>Type</th><th class="text-right">Seats</th><th class="text-right">Price</th><th>Billed</th>
     <th class="text-right">Monthly</th><th class="text-right">Annual</th><th>Renews</th>
@@ -31,7 +31,7 @@ $cols = $showClient ? 9 : 8;
     <?php foreach ($rows as $l): ?>
       <tr class="<?= $l['retired_at'] ? 'text-muted' : '' ?>">
         <td>
-          <?php if ($canEdit): ?><a href="#" class="font-weight-bold" data-toggle="modal" data-target="#modal-license-<?= (int) $l['id'] ?>"><?= e($l['name']) ?></a><?php else: ?><b><?= e($l['name']) ?></b><?php endif; ?>
+          <?php if ($canEdit): ?><a href="#" class="font-weight-bold" data-lazy-modal="/licenses/<?= (int) $l['id'] ?>/form?back=<?= e(rawurlencode($back)) ?>" data-target="#modal-license-<?= (int) $l['id'] ?>"><?= e($l['name']) ?></a><?php else: ?><b><?= e($l['name']) ?></b><?php endif; ?>
           <?php if ($l['source'] === 'psa'): ?><span class="badge badge-light border" title="Synced from <?= e(psa_name()) ?>"><?= e(psa_name()) ?></span><?php endif; ?>
           <?php if ($l['retired_at']): ?><span class="badge badge-secondary">retired<?= $l['retired_reason'] === 'psa' ? ' in ' . psa_name() : '' ?></span><?php endif; ?>
           <?php if ($l['vendor'] || $l['version']): ?><div class="small text-muted"><?= e(implode(' · ', array_filter([$l['vendor'], $l['version']]))) ?></div><?php endif; ?>
@@ -56,4 +56,3 @@ $cols = $showClient ? 9 : 8;
   </tbody>
 </table>
 </div>
-<?php if ($canEdit) foreach ($licenses as $l) echo \Align\View::fetch('licenses/_modal', ['l' => $l, 'back' => $back]); ?>

@@ -20,12 +20,7 @@ foreach ($b['lines'] as $l) {
   <a class="btn btn-sm btn-default mt-2 mt-md-0" href="/portal/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print mr-1"></i>Print budget</a>
 </div>
 
-<div class="row">
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-coins"></i></span><div class="info-box-content"><span class="info-box-text"><?= e($yr['label']) ?> budget</span><span class="info-box-number"><?= money($yr['total']) ?></span><span class="small text-muted"><?= e($yr['range']) ?></span></div></div></div>
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Monthly recurring</span><span class="info-box-number"><?= money_exact($b['runRate']) ?></span><span class="small text-muted">today</span></div></div></div>
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-cart-shopping"></i></span><div class="info-box-content"><span class="info-box-text">One-time purchases</span><span class="info-box-number"><?= money($yr['one_time']) ?></span><span class="small text-muted">hardware and projects</span></div></div></div>
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-teal"><i class="fas fa-calendar-day"></i></span><div class="info-box-content"><span class="info-box-text">Average per month</span><span class="info-box-number"><?= money($yr['total'] / 12) ?></span><span class="small text-muted">across <?= e($yr['label']) ?></span></div></div></div>
-</div>
+<?= \Align\View::fetch('partials/tiles', ['tiles' => [['label' => $yr['label'] . ' budget', 'value' => money($yr['total']), 'title' => $yr['range']], ['label' => 'Monthly recurring', 'value' => money_exact($b['runRate'])], ['label' => 'One-time purchases', 'value' => money($yr['one_time']), 'title' => 'Hardware and projects'], ['label' => 'Average per month', 'value' => money($yr['total'] / 12)]]]) ?>
 
 <?= \Align\View::fetch('portal/_suggestions', ['kind' => 'budget', 'subs' => $subs, 'canSubmit' => $canSubmit, 'pu' => $pu]) ?>
 <div class="card">

@@ -87,7 +87,7 @@ ok(json.loads(q("select value from settings where name='veeam_hosting_companies'
 t=st.get(B+"/clients/1/backups").text; ok("From Veeam Service Provider Console" in t and not errs(t),"client Backups page names the product")
 t=st.get(B+"/clients/1/report/backup").text; ok("Veeam · updated" in t and not errs(t),"backup report names the product")
 t=st.get(B+"/clients/4/backups").text; ok("From Veeam Service Provider Console" in t and "Hosted" in t,"hosted-only client (no company) still names the product")
-t=st.get(B+"/clients/1/devices").text; ok("<th>Backup</th>" in t,"device list shows the Backup column for a linked client")
+t=st.get(B+"/clients/1/devices").text; ok('col-backup">Backup</th>' in t,"device list shows the Backup column for a linked client")
 t=st.get(B+"/reports/backups").text; ok("Clients on Veeam" in t and not errs(t),"all-clients backup report")
 
 # ---- API keeps v1 answers

@@ -113,6 +113,19 @@ final class Lifecycle
             $this->policy['cost'][$class] = Settings::float("cost_$class", $cost);
         }
         $this->osRules = DB::all('SELECT * FROM os_support');
+        // Worked out once, not per device (evaluate() runs for every device on the dashboard and reports)
+        $this->today = date('Y-m-d');
+        $this->planCutoff = date('Y-m-d', strtotime('+' . $this->policy['eol_plan_months'] . ' months'));
+        $this->warnCutoff = date('Y-m-d', strtotime('+' . $this->policy['warranty_warn_days'] . ' days'));
+        $psa = psa_name();
+        $this->startSources = [
+            ['o_purchase', 'Manual override'],
+            ['psa_purchase', $psa . ' purchase date'],
+            ['w_ship', 'Vendor ship date'],
+            ['w_start', 'Warranty start'],
+            ['psa_install', $psa . ' install date'],
+        ];
+        $this->warrantySources = [['o_warranty', 'Manual override'], ['w_end', 'Vendor lookup'], ['psa_warranty', $psa]];
         usort($this->osRules, fn($a, $b) => strlen($b['name_contains']) <=> strlen($a['name_contains']));
     }
 
@@ -134,11 +147,29 @@ final class Lifecycle
             LEFT JOIN client_links cl ON d.client_id IS NULL AND cl.provider = d.rmm_provider AND cl.external_id = d.rmm_org_id
             LEFT JOIN clients cn ON cn.id = cl.client_id';
 
+    /**
+     * Devices waiting to be categorized (type Unassigned, set by an override or by the import; an override with
+     * an empty type counts as none, as in evaluate() and the Unassigned hardware list). Two indexed
+     * counts instead of COALESCE() over every device: this runs on every page for the menu badge.
+     */
+    public static function unassignedCount(bool $withExcluded = false): int
+    {
+        $ex = $withExcluded ? '' : ' AND o.excluded = 0';
+        return (int) DB::value("SELECT
+            (SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
+              WHERE d.device_type = 'Unassigned' AND d.removed_at IS NULL AND (o.device_id IS NULL OR ((o.device_type IS NULL OR o.device_type = '')$ex)))
+          + (SELECT COUNT(*) FROM device_overrides o JOIN devices d ON d.id = o.device_id
+              WHERE o.device_type = 'Unassigned' AND d.removed_at IS NULL$ex)");
+    }
+
     /** Loads devices joined with everything lifecycle needs. $clientId null = all clients. */
-    public function devices(?int $clientId = null, bool $includeRemoved = false, ?int $deviceId = null): array
+    public function devices(?int $clientId = null, bool $includeRemoved = false, ?int $deviceId = null, bool $unassignedOnly = false): array
     {
         $where = ['1=1'];
         $params = [];
+        if ($unassignedOnly) { // same rule as evaluate(): an override's type wins, else the device's own
+            $where[] = "(o.device_type = '" . self::UNASSIGNED . "' OR ((o.device_type IS NULL OR o.device_type = '') AND d.device_type = '" . self::UNASSIGNED . "'))";
+        }
         if ($clientId !== null) {
             // One single-value comparison per RMM, so the client_id and (rmm_provider, rmm_org_id) indexes are used
             // (COALESCE() = ? or a row IN (subquery) inside the OR scans every device)
@@ -158,7 +189,7 @@ final class Lifecycle
         if (!$includeRemoved) {
             $where[] = 'd.removed_at IS NULL';
         }
-        $rows = DB::all('SELECT d.*, COALESCE(cm.id, cn.id) AS client_id, COALESCE(cm.name, cn.name) AS client_name,
+        $st = DB::run('SELECT d.*, COALESCE(cm.id, cn.id) AS client_id, COALESCE(cm.name, cn.name) AS client_name,
                 COALESCE(cm.psa_id, cn.psa_id) AS psa_client_id,
                 COALESCE(cm.planning_excluded, cn.planning_excluded, 0) + COALESCE(cm.is_archived, cn.is_archived, 0) AS client_inactive,
                 a.purchase_date AS psa_purchase, a.warranty_expire AS psa_warranty, a.install_date AS psa_install,
@@ -174,12 +205,27 @@ final class Lifecycle
             LEFT JOIN device_overrides o ON o.device_id = d.id
             WHERE ' . implode(' AND ', $where) . '
             ORDER BY client_name, d.display_name, d.system_name', $params);
-        return array_map(fn($r) => $this->evaluate($r), $rows);
+        // Row by row, so the raw rows and the evaluated ones aren't both held (10,000 devices is ~100 MB as arrays)
+        $out = [];
+        while ($r = $st->fetch()) {
+            $out[] = $this->evaluate($r);
+        }
+        return $out;
     }
+
+    private string $today;
+    private string $planCutoff;
+    private string $warnCutoff;
+    private array $startSources;
+    private array $warrantySources;
+    /** @var array<string, string> "First seen in <RMM> (estimate)" by RMM key */
+    private array $seenLabels = [];
+    /** @var array<string, ?array> OS support rule by name + build */
+    private array $osCache = [];
 
     public function evaluate(array $d): array
     {
-        $today = date('Y-m-d');
+        $today = $this->today;
         $type = $d['o_type'] ?: ($d['device_type'] ?: (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other'));
         if (!isset(self::TYPES[$type])) {
             $type = $d['is_virtual'] ? self::virtualType($d['os_name'] ?? null, (string) ($d['node_class'] ?? '')) : (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other');
@@ -191,14 +237,9 @@ final class Lifecycle
         $isHardware = !$virtual && in_array($class, self::HARDWARE_CLASSES, true);
 
         // Start of life: override > PSA purchase > vendor ship > vendor warranty start > PSA install > first seen in the RMM
-        $startSources = [
-            ['o_purchase', 'Manual override'],
-            ['psa_purchase', psa_name() . ' purchase date'],
-            ['w_ship', 'Vendor ship date'],
-            ['w_start', 'Warranty start'],
-            ['psa_install', psa_name() . ' install date'],
-            ['rmm_created', 'First seen in ' . \Align\Providers\Providers::rmmName($d['rmm_provider'] ?? null) . ' (estimate)'],
-        ];
+        $rmmKey = (string) ($d['rmm_provider'] ?? '');
+        $startSources = $this->startSources;
+        $startSources[] = ['rmm_created', $this->seenLabels[$rmmKey] ??= 'First seen in ' . \Align\Providers\Providers::rmmName($d['rmm_provider'] ?? null) . ' (estimate)'];
         $start = null;
         $startSource = null;
         foreach ($startSources as [$col, $label]) {
@@ -211,7 +252,7 @@ final class Lifecycle
 
         $warranty = null;
         $warrantySource = null;
-        foreach ([['o_warranty', 'Manual override'], ['w_end', 'Vendor lookup'], ['psa_warranty', psa_name()]] as [$col, $label]) {
+        foreach ($this->warrantySources as [$col, $label]) {
             if (!empty($d[$col])) {
                 $warranty = substr($d[$col], 0, 10);
                 $warrantySource = $label;
@@ -228,10 +269,11 @@ final class Lifecycle
         $ageYears = $start ? round((time() - strtotime($start)) / (365.25 * 86400), 1) : null;
         $cost = $d['o_cost'] !== null ? (float) $d['o_cost'] : ($this->policy['cost'][$class] ?? 0.0);
 
-        $os = $this->osSupport($d['os_name'] ?? '', (string) ($d['os_build'] ?? ''));
+        $osKey = ($d['os_name'] ?? '') . "\0" . ($d['os_build'] ?? '');
+        $os = array_key_exists($osKey, $this->osCache) ? $this->osCache[$osKey] : ($this->osCache[$osKey] = $this->osSupport($d['os_name'] ?? '', (string) ($d['os_build'] ?? '')));
 
-        $planCutoff = date('Y-m-d', strtotime('+' . $this->policy['eol_plan_months'] . ' months'));
-        $warnCutoff = date('Y-m-d', strtotime('+' . $this->policy['warranty_warn_days'] . ' days'));
+        $planCutoff = $this->planCutoff;
+        $warnCutoff = $this->warnCutoff;
 
         // A replacement quarter set by hand (client deferred or brought it forward) wins over end of life
         $planned = $isHardware && !empty($d['o_replace']) ? substr($d['o_replace'], 0, 10) : null;

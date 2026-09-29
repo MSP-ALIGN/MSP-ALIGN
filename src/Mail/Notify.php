@@ -76,6 +76,7 @@ final class Notify
     /** Sends one digest to every subscriber (each sees only their clients) and the extra addresses. */
     public static function digest(string $key, string $period): int
     {
+        self::$devices = self::$backups = null; // worked out once per digest, shared by every subscriber's copy
         $n = 0;
         $send = function (array $to, ?array $clients, string $who) use ($key, $period, &$n) {
             $mail = match ($key) {
@@ -99,7 +100,26 @@ final class Notify
         if ($extra = N::extra($key)) {
             $send($extra, null, 'extra');
         }
+        self::$devices = self::$backups = null;
         return $n;
+    }
+
+    /** @var array<int, array<int, array>>|null every device by client, for the digest being built */
+    private static ?array $devices = null;
+
+    /** @var array<int, array|null>|null backup status by client, for the digest being built */
+    private static ?array $backups = null;
+
+    /** Devices by client id (lifecycle-evaluated, removed ones left out); one query however many clients and subscribers. */
+    private static function devicesByClient(): array
+    {
+        if (self::$devices === null) {
+            self::$devices = [];
+            foreach ((new \Align\Lifecycle\Lifecycle())->devices() as $d) {
+                self::$devices[(int) $d['client_id']][] = $d;
+            }
+        }
+        return self::$devices;
     }
 
     private static function clientFilter(?array $ids): string
@@ -121,8 +141,8 @@ final class Notify
         $clients = DB::all('SELECT c.* FROM clients c WHERE (' . \Align\Providers\ClientLinks::backupLinkedSql() . ' OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
             OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)) AND c.is_archived = 0 AND c.planning_excluded = 0' . self::clientFilter($ids) . ' ORDER BY c.name');
         foreach ($clients as $c) {
-            $devs = array_values(array_filter((new \Align\Lifecycle\Lifecycle())->devices((int) $c['id']), fn($d) => $d['status'] !== 'excluded'));
-            $b = \Align\Backup\Backup::forClient($c, $devs);
+            $b = self::$backups[(int) $c['id']] ??= \Align\Backup\Backup::forClient($c,
+                array_values(array_filter(self::devicesByClient()[(int) $c['id']] ?? [], fn($d) => $d['status'] !== 'excluded')));
             if ($b && $b['stats']['tone'] !== 'ok') {
                 $out[] = ['client' => $c, 'b' => $b];
             }
@@ -217,7 +237,7 @@ final class Notify
         $today = date('Y-m-d');
         $until = date('Y-m-d', strtotime('+90 days'));
         $rows = [];
-        foreach ((new \Align\Lifecycle\Lifecycle())->devices() as $d) {
+        foreach (array_merge(...array_values(self::devicesByClient())) as $d) {
             if (!$d['client_id'] || $d['client_inactive'] || $d['status'] === 'excluded' || !$d['is_hardware'] || ($ids !== null && !in_array((int) $d['client_id'], $ids, true))) {
                 continue;
             }

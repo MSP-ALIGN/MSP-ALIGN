@@ -317,3 +317,39 @@ function host_key(?string $name): string
     }
     return $n;
 }
+
+/** "Windows 11 Enterprise Edition" + 24H2 rule → "Win 11 Ent · 24H2"; "Windows Server 2022 Standard" → "Server 2022 · 20348". */
+function os_label(?string $name, ?string $build = null, ?array $rule = null): string
+{
+    $n = trim((string) $name);
+    if ($n === '') {
+        return '';
+    }
+    $n = str_replace(['Microsoft ', 'Windows Server ', 'Windows ', ' Professional', ' Enterprise', ' Education', ' Edition', ' Standard', ' Datacenter'],
+        ['', 'Server ', 'Win ', ' Pro', ' Ent', ' Edu', '', '', ' DC'], $n);
+    $rel = $rule && preg_match('/\b(\d{2}H\d)\b/', (string) $rule['label'], $m) ? $m[1] : (string) $build;
+    return trim(preg_replace('/\s+/', ' ', $n)) . ($rel !== '' && !str_contains($n, $rel) ? ' · ' . $rel : '');
+}
+
+/** "Dell Inc." → "Dell", "LENOVO" → "Lenovo", "VMware, Inc." → "VMware" (for tight table columns). */
+function short_make(?string $make): string
+{
+    $m = trim(preg_replace('/,?\s+(Inc\.?|Corporation|Corp\.?|Co\.?|Ltd\.?|LLC)$/i', '', trim((string) $make)));
+    return $m !== '' && strtoupper($m) === $m && strlen($m) > 3 ? ucfirst(strtolower($m)) : $m;
+}
+
+/**
+ * A filter menu for list toolbars (1.42): a small dropdown button showing the current choice.
+ * @param array<string|int,string> $items value => label; callable $href fn(value) => URL ('' = the "all" choice)
+ */
+function toolbar_menu(string $label, array $items, string|int $current, callable $href, string $allLabel): string
+{
+    $current = (string) $current;
+    $active = $current !== '' && isset($items[$current]);
+    $h = '<div class="btn-group"><button class="btn btn-sm ' . ($active ? 'btn-secondary' : 'btn-default') . ' dropdown-toggle" data-toggle="dropdown">' . e($active ? $items[$current] : $label) . '</button>'
+        . '<div class="dropdown-menu dropdown-menu-right"><a class="dropdown-item' . (!$active ? ' active' : '') . '" href="' . e($href('')) . '">' . e($allLabel) . '</a><div class="dropdown-divider"></div>';
+    foreach ($items as $k => $l) {
+        $h .= '<a class="dropdown-item' . ((string) $k === $current ? ' active' : '') . '" href="' . e($href((string) $k)) . '">' . e($l) . '</a>';
+    }
+    return $h . '</div></div>';
+}
