@@ -13,6 +13,7 @@ use Align\DB;
 use Align\Licensing\Licenses;
 use Align\Lifecycle\Lifecycle;
 use Align\Portal\PortalAuth;
+use Align\Portal\Submissions;
 use Align\Roadmap\Plan;
 use Align\Roadmap\Roadmap;
 use Align\Settings;
@@ -213,6 +214,10 @@ final class PortalController
             'nextMeeting' => $pu['can_documents'] ? DB::one("SELECT * FROM meetings WHERE client_id = ? AND type <> 'internal' AND status = 'scheduled' AND starts_at >= NOW() ORDER BY starts_at LIMIT 1", [$cid]) : null,
             'pending' => $pu['can_roadmap'] ? DB::all("SELECT * FROM roadmap_items WHERE client_id = ? AND status = 'proposed' ORDER BY target_quarter IS NULL, target_quarter, title", [$cid]) : [],
             'budget' => null, 'licensing' => null, 'dates' => [], 'summary' => null, 'frameworks' => [], 'sla' => null,
+            'canSubmit' => Submissions::allowed($pu),
+            'canRequest' => $pu['can_documents'] && $pu['can_contacts'] && \Align\Onboarding\Requests::enabled(),
+            'waiting' => $pu['can_budget'] ? (int) DB::value("SELECT COUNT(*) FROM portal_submissions WHERE client_id = ? AND status = 'pending'", [$cid]) : 0,
+            'waitingLicense' => $pu['can_budget'] && DB::value("SELECT 1 FROM portal_submissions WHERE client_id = ? AND status = 'pending' AND kind = 'license' LIMIT 1", [$cid]),
         ];
         if ($pu['can_budget']) {
             $b = Budget::build($cid);
@@ -282,14 +287,53 @@ final class PortalController
         $y = query('year');
         $year = ctype_digit($y) && (int) $y < 3 ? (int) $y : Plan::quarters()[Plan::currentIndex()]['year'];
         self::render('budget', ['title' => 'Technology budget', 'nav' => 'budget', 'b' => Budget::build($cid), 'year' => $year,
-            'dates' => self::portalDates($cid)], $pu);
+            'dates' => self::portalDates($cid), 'subs' => Submissions::forClient($cid, 'budget'), 'canSubmit' => Submissions::allowed($pu)], $pu);
     }
 
     public static function licensing(): void
     {
         $pu = PortalAuth::require('can_budget');
         $ls = Licenses::load((int) $pu['client_id']);
-        self::render('licensing', ['title' => 'Licensing', 'nav' => 'licensing', 'licenses' => $ls, 'totals' => Licenses::totals($ls)], $pu);
+        self::render('licensing', ['title' => 'Licensing', 'nav' => 'licensing', 'licenses' => $ls, 'totals' => Licenses::totals($ls),
+            'subs' => Submissions::forClient((int) $pu['client_id'], 'license'), 'canSubmit' => Submissions::allowed($pu)], $pu);
+    }
+
+    /** A license or budget item the client suggests; staff review it before anything is added (1.39). */
+    public static function suggest(string $kind): void
+    {
+        $pu = PortalAuth::require('can_budget');
+        $back = $kind === 'license' ? '/portal/licensing' : '/portal/budget';
+        if (!isset(Submissions::KINDS[$kind]) || !Submissions::allowed($pu)) {
+            http_response_code(403);
+            self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can\'t suggest items. Contact your IT provider.'], $pu);
+            return;
+        }
+        // A burst of suggestions is almost certainly a mistake (or a script): 20 an hour per user
+        if ((int) DB::value('SELECT COUNT(*) FROM portal_submissions WHERE portal_user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 20) {
+            flash('error', 'That\'s a lot of suggestions in one hour. Please wait a little, or contact your IT provider.');
+            redirect($back);
+        }
+        [$data, $errors] = Submissions::fromPost($kind, $_POST);
+        if ($errors) {
+            flash('error', implode(' ', $errors));
+            redirect($back);
+        }
+        Submissions::create($pu, $kind, $data);
+        flash('success', 'Sent "' . $data['name'] . '" to your IT provider. It shows here as waiting until they review it.');
+        redirect($back . '#suggestions');
+    }
+
+    public static function withdraw(int $id): void
+    {
+        $pu = PortalAuth::require('can_budget');
+        $s = Submissions::withdraw($id, $pu); // only the sender's own, still waiting
+        if ($s) {
+            Audit::log('portal.submission_withdrawn', "{$pu['client_name']}: {$s['title']}");
+            flash('success', 'Withdrew "' . $s['title'] . '".');
+        } else {
+            flash('error', 'That suggestion is no longer waiting, or someone else sent it.');
+        }
+        redirect(($s && $s['kind'] === 'budget') || post('back') === 'budget' ? '/portal/budget#suggestions' : '/portal/licensing#suggestions');
     }
 
     public static function devices(): void
@@ -362,99 +406,12 @@ final class PortalController
         self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc], $pu);
     }
 
+    /** View-only since 1.39: changes go through a request (new user / termination) or the IT team. */
     public static function contacts(): void
     {
         $pu = PortalAuth::require('can_documents');
         self::render('contacts', ['title' => 'Contacts', 'nav' => 'contacts', 'contacts' => Contacts::load((int) $pu['client_id']),
-            'psaEditable' => Contacts::canPush(self::client($pu))], $pu);
-    }
-
-    private static function contactFields(): array
-    {
-        $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
-        return [
-            'name' => mb_substr(post('name'), 0, 190), 'title' => $s('title'), 'department' => $s('department'),
-            'email' => filter_var(post('email'), FILTER_VALIDATE_EMAIL) ?: null, 'phone' => $s('phone', 60), 'extension' => $s('extension', 20),
-            'mobile' => $s('mobile', 60),
-            'decision_maker' => isset($_POST['decision_maker']) ? 1 : 0, 'qbr' => isset($_POST['qbr']) ? 1 : 0,
-        ];
-    }
-
-    private static function requireContactEdit(): array
-    {
-        $pu = PortalAuth::require('can_documents');
-        if (!$pu['can_contacts']) {
-            http_response_code(403);
-            self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can view contacts but not change them.'], $pu);
-            exit;
-        }
-        return $pu;
-    }
-
-    /** New contact: created in the PSA too when two-way sync is on, so it is not duplicated by the next sync. */
-    public static function contactCreate(): void
-    {
-        $pu = self::requireContactEdit();
-        $client = self::client($pu);
-        $f = self::contactFields();
-        if ($f['name'] === '') {
-            flash('error', 'Name is required.');
-            redirect('/portal/contacts');
-        }
-        $row = $f + ['client_id' => (int) $pu['client_id'], 'source' => 'manual', 'created_by_portal_user_id' => (int) $pu['id']];
-        if (Contacts::canPush($client)) {
-            [$itId, $err] = Contacts::pushCreate($f, (string) $client['psa_id']);
-            if ($itId) {
-                $row = ['source' => 'psa', 'psa_id' => $itId] + $row;
-            } else {
-                error_log('Portal contact create in ' . psa_name() . ' failed: ' . $err);
-            }
-        }
-        DB::insert('contacts', $row);
-        Audit::log('portal.contact_added', "{$pu['client_name']}: {$f['name']}");
-        \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'added the contact ' . $f['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
-        flash('success', "Added {$f['name']}.");
-        redirect('/portal/contacts');
-    }
-
-    public static function contactUpdate(int $id): void
-    {
-        $pu = self::requireContactEdit();
-        $client = self::client($pu);
-        // Scoped to the portal user's own client, so IDs from other clients simply are not found
-        $k = DB::one('SELECT * FROM contacts WHERE id = ? AND client_id = ? AND archived_at IS NULL', [$id, $pu['client_id']]);
-        if (!$k) {
-            flash('error', 'That contact was not found.');
-            redirect('/portal/contacts');
-        }
-        $fromPsa = $k['source'] === 'psa';
-        if (post('action') === 'remove') {
-            // Removing hides the contact in Align; PSA contacts are archived by the IT provider in the PSA
-            DB::run("UPDATE contacts SET archived_at = NOW(), archived_reason = 'align' WHERE id = ?", [$id]);
-            Audit::log('portal.contact_removed', "{$pu['client_name']}: {$k['name']}");
-            \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'removed the contact ' . $k['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
-            flash('success', "Removed {$k['name']}." . ($fromPsa ? ' Your IT provider has been notified.' : ''));
-            redirect('/portal/contacts');
-        }
-        $f = self::contactFields();
-        if ($f['name'] === '') {
-            $f['name'] = $k['name'];
-        }
-        if ($fromPsa) {
-            if (!Contacts::canPush($client)) {
-                $f = array_intersect_key($f, ['decision_maker' => 1, 'qbr' => 1]); // details are managed in the PSA
-            } elseif ($err = Contacts::pushUpdate($k, $f, (string) $client['psa_id'])) {
-                error_log("Portal contact update in " . psa_name() . " failed for contact {$k['id']}: $err");
-                flash('error', 'We could not save those details right now. Please try again, or contact your IT provider.');
-                redirect('/portal/contacts');
-            }
-        }
-        $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));
-        DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($f), $id]);
-        Audit::log('portal.contact_updated', "{$pu['client_name']}: {$k['name']}");
-        \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], 'updated the contact ' . $k['name'], '/clients/' . (int) $pu['client_id'] . '/contacts');
-        flash('success', "Saved {$f['name']}.");
-        redirect('/portal/contacts');
+            'canRequest' => $pu['can_contacts'] && \Align\Onboarding\Requests::enabled()], $pu);
     }
 
     /** New user / termination request forms (portal users who can edit contacts). */

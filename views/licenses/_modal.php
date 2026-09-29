@@ -1,10 +1,12 @@
 <?php
 use Align\Licensing\Licenses;
 
-/** @var ?array $l  license (null = new); $cid client id for new; $back return path */
+/** @var ?array $l  license (null = new; without an id = a new one filled in from a client's suggestion); $cid client id for new; $back return path */
 $l = $l ?? null;
-$fromPsa = $l && $l['source'] === 'psa';
-$id = $l ? 'modal-license-' . (int) $l['id'] : 'modal-license';
+$edit = $l && !empty($l['id']);
+$sub = !$edit && !empty($l['submission_id']) ? (int) $l['submission_id'] : 0;
+$fromPsa = $edit && $l['source'] === 'psa';
+$id = $edit ? 'modal-license-' . (int) $l['id'] : ($sub ? 'modal-suggestion-' . $sub : 'modal-license');
 $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
 $ro = $fromPsa ? 'readonly' : '';
 $tag = $fromPsa ? ' <span class="badge badge-light border font-weight-normal" title="Managed in ' . psa_name() . '">' . psa_name() . '</span>' : '';
@@ -12,11 +14,12 @@ $tag = $fromPsa ? ' <span class="badge badge-light border font-weight-normal" ti
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= $l ? '/licenses/' . (int) $l['id'] : '/clients/' . (int) $cid . '/licenses' ?>">
+      <form method="post" action="<?= $edit ? '/licenses/' . (int) $l['id'] : '/clients/' . (int) $cid . '/licenses' ?>">
+        <?php if ($sub): ?><input type="hidden" name="submission_id" value="<?= $sub ?>"><?php endif; ?>
         <?= csrf_field() ?>
         <input type="hidden" name="back" value="<?= e($back) ?>">
         <div class="modal-header bg-dark">
-          <h5 class="modal-title"><i class="fas fa-fw fa-key mr-2"></i><?= $l ? 'Edit ' . e($l['name']) : 'Add license' ?></h5>
+          <h5 class="modal-title"><i class="fas fa-fw fa-key mr-2"></i><?= $edit ? 'Edit ' . e($l['name']) : ($sub ? 'Add the suggested license' : 'Add license') ?></h5>
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
@@ -59,7 +62,7 @@ $tag = $fromPsa ? ' <span class="badge badge-light border font-weight-normal" ti
           <div class="form-group mb-0"><label>Notes <small class="text-muted">(Align)</small></label><textarea name="align_notes" class="form-control" rows="2" placeholder="SKU, term, reseller, who to contact at renewal…"><?= e($l['align_notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
-          <?php if ($l): ?>
+          <?php if ($edit): ?>
             <?php if ($l['retired_at']): ?>
               <button class="btn btn-outline-success mr-auto" name="action" value="restore" formnovalidate><i class="fas fa-rotate-left mr-1"></i>Restore</button>
             <?php else: ?>

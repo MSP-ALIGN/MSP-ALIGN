@@ -48,6 +48,7 @@ foreach ($b['lines'] as $l) {
   </div>
 <?php endif; ?>
 
+<?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'budget', 'cid' => $cid, 'back' => $back]) ?>
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column mr-2"></i>3-year budget by quarter</h3></div>
   <div class="card-body pb-2"><?= \Align\View::fetch('budget/_chart', ['b' => $b, 'year' => $year]) ?></div>

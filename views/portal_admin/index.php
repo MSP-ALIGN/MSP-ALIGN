@@ -13,7 +13,7 @@
           <td><b><?= e($u['name']) ?></b><div class="small text-muted"><?= e($u['email']) ?></div></td>
           <td><a href="/clients/<?= (int) $u['client_id'] ?>/portal"><?= e($u['client_name']) ?></a></td>
           <td class="small"><?= e(implode(', ', array_filter([$u['can_roadmap'] ? 'Roadmap' : null, $u['can_budget'] ? 'Budget' : null, $u['can_devices'] ? 'Devices' : null, $u['can_documents'] ? 'Documents' : null]))) ?>
-            <?= $u['can_approve'] ? '<span class="badge badge-light border">approves</span>' : '' ?><?= $u['can_contacts'] ? '<span class="badge badge-light border">contacts</span>' : '' ?></td>
+            <?= $u['can_approve'] ? '<span class="badge badge-light border">approves</span>' : '' ?><?= $u['can_submit'] ? '<span class="badge badge-light border">suggests</span>' : '' ?><?= $u['can_contacts'] ? '<span class="badge badge-light border">requests</span>' : '' ?></td>
           <td><span class="badge badge-<?= !$u['is_active'] ? 'secondary' : ($u['password_hash'] ? 'success' : 'info') ?>"><?= !$u['is_active'] ? 'Disabled' : ($u['password_hash'] ? 'Active' : 'Invited') ?></span><?= $u['totp_enabled'] ? ' <span class="badge badge-light border">2FA</span>' : '' ?></td>
           <td class="small"><?= $u['last_login_at'] ? e(rel_time($u['last_login_at'])) : '<span class="text-muted">never</span>' ?></td>
         </tr>
@@ -23,3 +23,13 @@
     </table>
   </div>
 </div>
+<?php if (\Align\Auth::can('admin')): ?>
+<form method="post" action="/portal-users/settings" class="card">
+  <?= csrf_field() ?>
+  <div class="card-body py-2 d-flex flex-wrap align-items-center">
+    <div class="custom-control custom-switch mr-auto"><input type="checkbox" class="custom-control-input" id="portal_submissions" name="portal_submissions" value="1" <?= \Align\Settings::get('portal_submissions', '1') === '1' ? 'checked' : '' ?>>
+      <label class="custom-control-label font-weight-normal" for="portal_submissions">Clients can suggest licenses and budget items <span class="small text-muted d-block">For portal users with <i>Suggest licenses and budget items</i>. You review each one before it's added (client's Licensing or Budget page).</span></label></div>
+    <button class="btn btn-sm btn-default mt-2 mt-md-0">Save</button>
+  </div>
+</form>
+<?php endif; ?>

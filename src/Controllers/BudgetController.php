@@ -36,6 +36,7 @@ final class BudgetController
             'billing' => Billing::forClient($id),
             'back' => "/clients/$id/budget?year=$year",
             'dates' => \Align\Budget\Contracts::upcoming($id),
+            'subs' => \Align\Portal\Submissions::pending($id, 'budget'),
         ]);
     }
 
@@ -97,9 +98,21 @@ final class BudgetController
             flash('error', 'Give the budget line a name.');
             redirect(self::back($id));
         }
-        DB::insert('budget_lines', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
-        Audit::log('budget.create', "{$client['name']}: {$f['name']}");
-        flash('success', "Added {$f['name']} to the budget." . ($f['category'] === 'managed' && psa_on() ? ' It replaces the managed-services estimate from ' . psa_name() . '.' : ''));
+        // Accepting a client's suggestion (1.39): the line and the "added" mark are saved together, once
+        $subId = ctype_digit(post('submission_id')) ? (int) post('submission_id') : 0;
+        try {
+            DB::transaction(function () use ($f, $id, $subId) {
+                $newId = (int) DB::insert('budget_lines', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
+                if ($subId && !\Align\Portal\Submissions::accept($subId, $id, 'budget', $newId, Auth::id())) {
+                    throw new \DomainException('already decided');
+                }
+            });
+        } catch (\DomainException) {
+            flash('error', 'That suggestion was already reviewed, so nothing was added.');
+            redirect(self::back($id));
+        }
+        Audit::log($subId ? 'portal.submission_accepted' : 'budget.create', "{$client['name']}: {$f['name']}");
+        flash('success', "Added {$f['name']} to the budget." . ($subId ? ' The client sees it as added.' : '') . ($f['category'] === 'managed' && psa_on() ? ' It replaces the managed-services estimate from ' . psa_name() . '.' : ''));
         redirect(self::back($id));
     }
 

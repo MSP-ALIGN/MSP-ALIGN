@@ -1152,3 +1152,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   document.querySelectorAll('[data-locale]').forEach((s) => s.addEventListener('change', update));
 });
+
+// Portal: /portal/licensing#suggest (from the home page) opens the Suggest form straight away
+document.addEventListener('DOMContentLoaded', () => {
+  if (location.hash === '#suggest' && document.getElementById('modal-suggest') && window.jQuery) window.jQuery('#modal-suggest').modal('show');
+  // On a phone the section bar scrolls sideways: keep the current section in view
+  const cur = document.querySelector('.portal-sections .nav-link.active');
+  if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+});

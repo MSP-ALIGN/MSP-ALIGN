@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.39', 'fa-door-open', 'Client portal update', 'Clients can suggest licenses and budget items from the portal; you add them (edited if needed) or decline with a note, and they see each one as waiting until then. Portal contacts are view-only, and the portal has a clearer layout with every section on one bar.', 'suggestions', 'tech'],
         ['1.38', 'fa-globe', 'Your currency and date style', 'Choose the currency, how numbers and dates are written, a 12- or 24-hour clock, the first day of the week and the timezone under Settings → General. Pages, reports, emails and the client portal all follow it.', 'currency', 'admin'],
         ['1.37', 'fa-server', 'Email through any SMTP server', 'Send notifications, portal invitations and meeting invitations through your own mail server or a relay (SMTP2GO, Mailgun, SendGrid, Amazon SES, or the Microsoft 365 / Google relay), with STARTTLS or TLS and an optional user name and password. Meeting invitations go out as .ics emails with Accept / Decline.', 'email', 'admin'],
         ['1.36', 'fa-circle-nodes', 'No PSA needed', 'Run MSP-ALIGN with just your RMM: add clients from its organizations on Client mapping, or import clients and contacts from a CSV file (Clients → Import). Screens leave out what only a PSA provides.', 'no-psa', 'tech'],
@@ -115,7 +116,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'The email has a <b>Start onboarding</b> button that opens a private page (no sign-in; the link works for 30 days by default and sending again replaces it). There the client fills in <b>their team\'s contacts</b> (or pastes them from a spreadsheet), marks who approves changes, gets invoices and is the main IT contact, reads <b>how to reach you, billing and email security</b> and confirms, gives <b>getting-started details</b> (current IT provider, preferred onsite week, pain points), and can send <b>new user</b> or <b>user termination</b> requests.',
       'Contacts go straight into the client\'s contacts and ' . psa_name() . ' (with two-way sync on). Requests become ' . psa_name() . ' tickets, or an email to your company address without ' . psa_name() . '. You get a notification as they go.',
       'Follow along on the client\'s <b>Onboarding</b> page: what\'s done, their answers, and their requests. The dashboard flags onboardings that stall or whose link expired. You can turn the link off, send it again or mark onboarding complete.',
-      'Admins edit the welcome email and the page\'s guides in <b>Settings → Onboarding</b> (with placeholders like the client\'s name and your phone), attach a PDF to a guide, and import or export the whole set. Request forms can be turned off there; they\'re also in the client portal for users who can edit contacts.',
+      'Admins edit the welcome email and the page\'s guides in <b>Settings → Onboarding</b> (with placeholders like the client\'s name and your phone), attach a PDF to a guide, and import or export the whole set. Request forms can be turned off there; they\'re also in the client portal for users who can send requests.',
   ], ['Settings → Onboarding' => '/settings/onboarding']) ?>
   <?= $guide('add-client', 'fa-user-plus', 'Add a client or take one out of planning', 'tech', [
       'Clients from ' . psa_name() . ' appear on their own after a sync. To add one by hand: <b>Clients → New client</b> (or the <b>+</b> menu at the top).',
@@ -217,9 +218,15 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Reports' => '/reports']) ?>
   <?= $guide('portal', 'fa-door-open', 'Invite someone from a client to the portal', 'tech', [
       'Open the client and choose <b>Client portal → Invite user</b>.',
-      'Tick what they can see (roadmap, budget, devices &amp; compliance, documents) and do (approve projects, update contacts).',
+      'Tick what they can see (roadmap, budget, devices &amp; compliance, documents) and do (approve projects, suggest licenses and budget items, send new user and termination requests).',
       'Align emails the invite if email is connected; otherwise copy the one-time link. They set a password and two-factor sign-in.',
-      'Users who can update contacts also get <b>Requests</b> in the portal to send new user and termination requests. Users with devices &amp; compliance access see the service levels summary and can print the report (never the ticket list).',
+      'Contacts are view-only in the portal; changes come to you as requests or by email. Users with devices &amp; compliance access see the service levels summary and can print the report (never the ticket list).',
+  ], ['Client portal users' => '/portal-users']) ?>
+  <?= $guide('suggestions', 'fa-inbox', 'Review licenses and budget items a client suggests', 'tech', [
+      'Portal users with <b>Suggest licenses and budget items</b> (it needs Budget &amp; licensing) see <b>Suggest a license</b> on the portal\'s Licensing page and <b>Suggest a cost</b> on its Budget page. They fill in what they know: product or cost, vendor, how many, price and how often, renewal date and a note.',
+      'Nothing changes until you review it. Each suggestion shows on the dashboard under <b>Needs attention</b> and at the top of the client\'s <b>Licensing</b> or <b>Budget</b> page under <b>Suggested by the client</b>.',
+      '<b>Review and add</b> opens the usual Add form filled in from the suggestion: correct anything (price, category, contract dates) and save. <b>Decline</b> takes an optional note. The client sees it as added, or declined with your note, and gets an email if <i>Portal suggestions reviewed</i> is on in Settings → Notifications.',
+      'Admins can switch suggestions off for every client on <b>Client portal users</b>. Suggestions already sent stay in the review list.',
   ], ['Client portal users' => '/portal-users']) ?>
   <?= $guide('requests', 'fa-user-plus', 'Handle new user and termination requests', 'tech', [
       'Clients send these from the onboarding page or the portal\'s <b>Requests</b>. A new user request asks for the name, job title, start date, location, supervisor, login name and whose permissions to copy; a suspend or termination request asks when to disable the account, whether it\'s temporary, and what to do with their email, remote access, groups and files.',

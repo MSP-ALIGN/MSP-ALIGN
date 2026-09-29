@@ -96,7 +96,7 @@ final class DashboardController
             // Things clients did in the portal that staff should act on (last 30 days)
             'clientActivity' => DB::all("SELECT a.action, a.detail, a.created_at, p.name AS portal_name, p.client_id, c.name AS client_name FROM audit_log a
                 JOIN portal_users p ON p.id = a.portal_user_id JOIN clients c ON c.id = p.client_id
-                WHERE a.action IN ('portal.project_approved','portal.project_declined','portal.contact_added','portal.contact_updated','portal.contact_removed')
+                WHERE a.action IN ('portal.project_approved','portal.project_declined','portal.submission','portal.contact_added','portal.contact_updated','portal.contact_removed')
                 AND a.created_at >= ? ORDER BY a.id DESC LIMIT 8", [date('Y-m-d', strtotime('-30 days'))]),
             'overdueMeetings' => array_slice($overdue, 0, 8),
             'overdueCount' => count($overdue),

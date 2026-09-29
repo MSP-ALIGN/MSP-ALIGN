@@ -19,6 +19,8 @@ final class AuditController
             'portal.project_approved' => 'approved a project', 'portal.project_declined' => 'declined a project',
             'portal.contact_added' => 'added a contact', 'portal.contact_updated' => 'updated a contact', 'portal.contact_removed' => 'removed a contact',
             'portal.document_view' => 'read a document',
+            'portal.submission' => 'suggested', 'portal.submission_withdrawn' => 'withdrew a suggestion',
+            'portal.submission_accepted' => 'added a client\'s suggestion', 'portal.submission_declined' => 'declined a client\'s suggestion',
             'report.assets' => 'printed the asset report', 'report.roadmap' => 'printed the roadmap', 'report.budget' => 'printed the budget',
         ][$action] ?? $action;
     }

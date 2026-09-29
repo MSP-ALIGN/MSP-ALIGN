@@ -35,27 +35,20 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
 </head>
 <body class="hold-transition layout-top-nav text-sm portal" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
 <div class="wrapper">
-  <nav class="main-header navbar navbar-expand-xl navbar-dark navbar-primary">
+  <nav class="main-header navbar navbar-expand navbar-dark navbar-primary portal-top">
     <div class="container">
-      <a href="/portal" class="navbar-brand d-flex align-items-center">
+      <a href="/portal" class="navbar-brand d-flex align-items-center mr-auto">
         <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="brand-image portal-brand-img">
-        <span class="brand-text font-weight-bold ml-2 text-truncate"><?= e($pu['client_name'] ?? 'Client portal') ?></span>
+        <span class="brand-text font-weight-bold ml-2"><?= e($pu['client_name'] ?? 'Client portal') ?></span>
       </a>
       <?php if ($pu): ?>
-        <button class="navbar-toggler order-1" type="button" data-toggle="collapse" data-target="#portal-nav" aria-controls="portal-nav" aria-expanded="false" aria-label="Menu"><span class="navbar-toggler-icon"></span></button>
-        <div class="collapse navbar-collapse order-3" id="portal-nav">
-          <ul class="navbar-nav">
-            <?php foreach ($items as [$key, $href, $label, $icon]): ?>
-              <li class="nav-item"><a href="<?= $href ?>" class="nav-link<?= $nav === $key ? ' active' : '' ?>"><i class="fas fa-fw <?= $icon ?> mr-1 d-xl-none"></i><?= e($label) ?></a></li>
-            <?php endforeach; ?>
-          </ul>
-        </div>
-        <ul class="order-1 order-xl-3 navbar-nav navbar-no-expand ml-auto">
+        <ul class="navbar-nav ml-2">
           <li class="nav-item dropdown">
-            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown"><span class="user-initials"><?= e(initials($pu['name'])) ?></span><span class="d-none d-md-inline ml-1"><?= e($pu['name']) ?></span></a>
+            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" aria-label="Account"><span class="user-initials"><?= e(initials($pu['name'])) ?></span><span class="d-none d-md-inline ml-1"><?= e($pu['name']) ?></span></a>
             <div class="dropdown-menu dropdown-menu-right">
               <span class="dropdown-item-text small text-muted"><?= e($pu['email']) ?></span>
               <a href="/portal/account" class="dropdown-item<?= $nav === 'account' ? ' active' : '' ?>"><i class="fas fa-fw fa-user-gear mr-2"></i>Account &amp; security</a>
+              <a href="/portal/terms" class="dropdown-item<?= $nav === 'terms' ? ' active' : '' ?>"><i class="fas fa-fw fa-scale-balanced mr-2"></i>Terms of use</a>
               <div class="dropdown-divider"></div>
               <form method="post" action="/portal/logout"><?= csrf_field() ?><button class="dropdown-item"><i class="fas fa-fw fa-right-from-bracket mr-2"></i>Sign out</button></form>
             </div>
@@ -64,6 +57,18 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
       <?php endif; ?>
     </div>
   </nav>
+  <?php if ($pu): ?>
+    <!-- Sections on their own row, so every one fits with its icon; it scrolls sideways on a phone -->
+    <nav class="portal-sections border-bottom bg-white" aria-label="Portal sections">
+      <div class="container">
+        <ul class="nav">
+          <?php foreach ($items as [$key, $href, $label, $icon]): ?>
+            <li class="nav-item"><a href="<?= $href ?>" class="nav-link<?= $nav === $key ? ' active' : '' ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><i class="fas fa-fw <?= $icon ?> mr-1"></i><?= e($label) ?></a></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+    </nav>
+  <?php endif; ?>
 
   <div class="content-wrapper">
     <div class="content pt-3 pb-4">

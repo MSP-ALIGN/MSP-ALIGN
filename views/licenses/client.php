@@ -21,6 +21,7 @@ $t = $totals;
 <?php if ($t['unpriced']): ?>
   <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. <?= psa_on() ? e(psa_name()) . ' doesn\'t store license prices; click' : 'Click' ?> a license to add its price and billing cycle.</div>
 <?php endif; ?>
+<?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'license', 'cid' => $cid, 'back' => $back]) ?>
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>
 <div class="card card-dark">
   <div class="card-body p-0">

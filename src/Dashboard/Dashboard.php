@@ -212,6 +212,16 @@ final class Dashboard
             }
         }
 
+        // Licenses and budget items clients suggested in the portal (1.39), waiting for review
+        // (clients outside planning can still use the portal, so they count here too)
+        foreach (DB::all("SELECT s.client_id, c.name AS client_name, s.kind, COUNT(*) AS n, MIN(s.created_at) AS since FROM portal_submissions s
+                JOIN clients c ON c.id = s.client_id AND c.is_archived = 0 WHERE s.status = 'pending' GROUP BY s.client_id, c.name, s.kind") as $r) {
+            $n = (int) $r['n'];
+            $what = $r['kind'] === 'license' ? ($n === 1 ? 'license' : 'licenses') : ($n === 1 ? 'budget item' : 'budget items');
+            $add('warn', 'decision', "$n suggested $what to review", 'Sent from the client portal. Add ' . ($n === 1 ? 'it' : 'them') . ' (edit first if needed) or decline with a note.',
+                '/clients/' . (int) $r['client_id'] . ($r['kind'] === 'license' ? '/licenses' : '/budget') . '#client-submissions', $r['client_name'], $r['since']);
+        }
+
         // Client decisions: approved in the portal recently (schedule them), proposals waiting a long time
         foreach (DB::all("SELECT r.id, r.title, r.client_id, r.updated_at FROM roadmap_items r JOIN clients c ON c.id = r.client_id AND c.is_archived = 0 AND c.planning_excluded = 0
                 WHERE r.status = 'approved' AND r.target_quarter IS NULL AND r.updated_at >= ? ORDER BY r.updated_at DESC LIMIT 10", [date('Y-m-d', strtotime('-30 days'))]) as $r) {

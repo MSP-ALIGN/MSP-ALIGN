@@ -97,15 +97,15 @@ r=a.get(B+f"/portal/documents/{h1}"); ok(r.status_code==404,"own unshared docume
 r=a.post(B+f"/portal/projects/{p2}/decide",data={"_csrf":csrf(a,"/portal/roadmap"),"decision":"approve"})
 ok(q("select status from roadmap_items where id=%s",p2)[0]["status"]=="proposed","can't approve other client's project")
 k2=q("select id,name from contacts where client_id=2 and archived_at is null limit 1")[0]
-a.post(B+f"/portal/contacts/{k2['id']}",data={"_csrf":csrf(a,"/portal/contacts"),"action":"save","name":"HACKED"})
-ok(q("select name from contacts where id=%s",k2["id"])[0]["name"]==k2["name"],"can't edit other client's contact")
+r=a.post(B+f"/portal/contacts/{k2['id']}",data={"_csrf":csrf(a,"/portal/contacts"),"action":"save","name":"HACKED"})
+ok(r.status_code in (404,405) and q("select name from contacts where id=%s",k2["id"])[0]["name"]==k2["name"],"contacts can't be edited from the portal (1.39)")
 a.post(B+f"/portal/contacts/{k2['id']}",data={"_csrf":csrf(a,"/portal/contacts"),"action":"remove"})
-ok(q("select archived_at from contacts where id=%s",k2["id"])[0]["archived_at"] is None,"can't remove other client's contact")
+ok(q("select archived_at from contacts where id=%s",k2["id"])[0]["archived_at"] is None,"or removed")
 fw_other=q("select id from compliance_frameworks where id not in (select framework_id from client_frameworks where client_id=1) limit 1")
 if fw_other: ok(a.get(B+f"/portal/compliance/{fw_other[0]['id']}").status_code==404,"unassigned framework 404")
 ok(a.get(B+"/portal/logo").status_code in (200,404),"own logo")
 ok(a.get(B+"/clients/2/logo",allow_redirects=False).status_code in (302,303),"other client logo needs staff login")
-r=a.post(B+"/portal/contacts",data={"name":"no csrf"}); ok(r.status_code==419,"CSRF enforced")
+r=a.post(B+"/portal/suggest/license",data={"name":"no csrf"}); ok(r.status_code==419,"CSRF enforced")
 
 # ---- approve
 r=a.post(B+f"/portal/projects/{p1}/decide",data={"_csrf":csrf(a,"/portal/roadmap"),"decision":"approve","comment":"Go ahead in Q1"})
@@ -115,22 +115,17 @@ t=staff.get(B+"/clients/1/roadmap").text; ok("Approved by Jordan Ellis" in t and
 t=staff.get(B+"/").text; ok("Client portal activity" in t and "approved a project" in t and not errs(t),"dashboard activity card")
 t=staff.get(B+"/audit").text; ok("Jordan Ellis" in t and "client · Cedar Ridge" in t,"audit shows portal user")
 
-# ---- contacts: ITFlow push
-open("/tmp/itflow-updates.log","w").close(); TITLE="Practice owner %d"%time.time()
-kp=q("select * from contacts where client_id=1 and source='psa' and archived_at is null order by id limit 1")[0]
-r=a.post(B+f"/portal/contacts/{kp['id']}",data={"_csrf":csrf(a,"/portal/contacts"),"action":"save","name":kp["name"],"title":TITLE,"department":kp["department"] or "","email":kp["email"] or "","phone":kp["phone"] or "","extension":kp["extension"] or "","mobile":"(555) 555-9999","decision_maker":"1"})
-log=open("/tmp/itflow-updates.log").read(); ok('"contact_update"' in log and TITLE in log and "555-9999" in log,"ITFlow contact update pushed: "+log[:160])
-ok('"contact_name"' in log,"full details pushed")
-r=a.post(B+"/portal/contacts",data={"_csrf":csrf(a,"/portal/contacts"),"name":"New Hygienist","email":"hyg@client.example","phone":"(555) 010-0142","qbr":"1"})
-n=q("select * from contacts where name='New Hygienist'")[0]; ok(n["source"]=="psa" and n["psa_id"] and n["created_by_portal_user_id"],"new contact created in ITFlow too")
-subprocess.run(["php",ALIGN,"itflow:poll"],env=ENV,capture_output=True)
-ok(len(q("select id from contacts where name='New Hygienist' and archived_at is null"))==1,"no duplicate after sync")
-k=q("select * from contacts where id=%s",kp["id"])[0]; ok(k["title"]==TITLE and k["mobile"]=="(555) 555-9999" and k["decision_maker"]==1,"contact keeps changes after sync")
+# ---- contacts: view-only (1.39), changes go through requests or the IT team
+t=a.get(B+"/portal/contacts").text
+ok("Add contact" not in t and 'action="/portal/contacts' not in t and "/portal/requests" in t and not errs(t),"contacts page is view-only and points to requests")
+r=a.post(B+"/portal/contacts",data={"_csrf":csrf(a,"/portal/contacts"),"name":"New Hygienist","email":"hyg@client.example"})
+ok(r.status_code in (404,405) and not q("select id from contacts where name='New Hygienist'"),"no contact can be added from the portal")
+t=staff.get(B+"/clients/1/portal").text; ok("Sends requests" in t or "Send new user and termination requests" in t,"staff see the permission as sending requests")
 
 # ---- viewer-type portal user: permissions
 b=requests.Session()
 b.post(link2,data={"_csrf":csrf(b,link2.replace(B,"")),"password":"Maple-Harbor-Lamp-77","confirm":"Maple-Harbor-Lamp-77"}); sec_b=enroll(b)
-t=b.get(B+"/portal").text; ok("Roadmap" not in re.sub(r'<title>.*?</title>','',t).split('id="portal-nav"')[1].split("</ul>")[0] and "Devices" in t,"nav shows only allowed sections")
+t=b.get(B+"/portal").text; ok("Roadmap" not in re.sub(r'<title>.*?</title>','',t).split('class="portal-sections')[1].split("</ul>")[0] and "Devices" in t,"nav shows only allowed sections")
 for p in ["/portal/roadmap","/portal/budget","/portal/licensing","/portal/documents","/portal/contacts","/portal/meetings","/portal/report/budget","/portal/report/roadmap",f"/portal/documents/{d1}"]:
     r=b.get(B+p); ok(r.status_code==403 and "PT Project" not in r.text and "Policy body" not in r.text,f"{p} blocked ({r.status_code})")
 t=b.get(B+"/portal/devices").text; ok("Est. cost" not in t and "$" not in re.sub(r'<script.*?</script>','',t,flags=re.S).split('class="content')[1],"no prices without budget access")
@@ -144,7 +139,7 @@ ok("Backup &amp; recovery" in t and "Servers nightly" in t and "File server" not
 r=b.get(B+"/portal/report/backup"); ok(r.status_code==200 and "Servers nightly" in r.text and "Internal systems" not in r.text and not errs(r.text),"portal backup report")
 t=b.get(B+"/portal/devices").text; ok("/portal/report/backup" in t,"devices page links backup report")
 r=b.post(B+f"/portal/projects/{p1}/decide",data={"_csrf":csrf(b,"/portal"),"decision":"decline"}); ok(r.status_code==403,"approve blocked without permission")
-r=b.post(B+"/portal/contacts",data={"_csrf":csrf(b,"/portal"),"name":"X"}); ok(r.status_code==403 and not q("select id from contacts where name='X'"),"contact add blocked")
+r=b.post(B+"/portal/suggest/license",data={"_csrf":csrf(b,"/portal"),"name":"X"}); ok(r.status_code==403 and not q("select id from portal_submissions where title='X'"),"suggestions blocked without the permission")
 # staff edits permission -> takes effect immediately
 vid=q("select id from portal_users where email='vic@client.example'")[0]["id"]
 staff.post(B+f"/portal-users/{vid}",data={"_csrf":csrf(staff,"/clients/1/portal"),"action":"save","name":"Vic Viewer","can_devices":"1","can_documents":"1"})
