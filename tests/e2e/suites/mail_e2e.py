@@ -1,4 +1,5 @@
 """Email: Microsoft 365 (Graph) connector, notifications, digests, meeting invitations."""
+from urllib.parse import urlparse
 from lib import *
 
 requests.get(M+"/mock/graph-reset"); q("delete from meetings where title in ('ICS Review','Q4 Business Review')"); q("delete from mail_queue"); q("delete from notify_state"); q("delete from login_attempts where email like 'reset:%%'"); q("delete from user_notification_prefs"); q("update users set notify_scope=NULL")
@@ -111,7 +112,7 @@ r=st.post(B+"/meetings",data={"_csrf":tok,"client_id":"1","title":"Q4 Business R
 fm=flash(r.text); mid=q("select id from meetings where title='Q4 Business Review' order by id desc limit 1")[0]["id"]
 m=q("select * from meetings where id=%s",mid)[0]; ev=graph()["events"].get(m["graph_event_id"] or "",{})
 ok("through Outlook" in fm and ev.get("subject","").endswith("Q4 Business Review") and len(ev.get("attendees",[]))==2,"Outlook event created with 2 attendees: "+fm[:100])
-ok(m["video_url"] and "teams.microsoft.com" in m["video_url"] and ev.get("organizerMailbox")=="admin@example.com","Teams link saved; organized from the owner's calendar")
+ok(m["video_url"] and urlparse(m["video_url"]).hostname=="teams.microsoft.com" and ev.get("organizerMailbox")=="admin@example.com","Teams link saved; organized from the owner's calendar")
 F=form(st,f"/meetings/{mid}",f'action="/meetings/{mid}"') if 'action="/meetings/%d"'%mid in st.get(B+f"/meetings/{mid}").text else {}
 r=st.post(B+f"/meetings/{mid}",data={"_csrf":csrf(st,f"/meetings/{mid}"),"action":"save","client_id":"1","title":"Q4 Business Review","type":"qbr","date":time.strftime("%Y-%m-%d",time.localtime(time.time()+4*86400)),"time":"11:00","duration":"90","attendees":"jordan@client.example","agenda":"Moved","send_invites":"1","owner_id":"1","video_url":m["video_url"]})
 ev=graph()["events"][m["graph_event_id"]]; ok(ev["status"]=="updated" and len(ev["attendees"])==1,"update sent through Outlook")

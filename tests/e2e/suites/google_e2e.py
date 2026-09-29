@@ -1,5 +1,6 @@
 import re, requests, subprocess, pymysql, html as H, time, json, email, base64
 from email import policy
+from urllib.parse import urlparse
 from lib import *  # helpers: q, ok, csrf, flash, align, setting, login, form, errs
 def gstate(): return requests.get(M+"/mock/graph").json().get("google",{"mail":[],"events":{},"calls":[],"revoked":0})
 def parse(raw): return email.message_from_string(raw, policy=policy.default)
@@ -44,7 +45,7 @@ day=time.strftime("%Y-%m-%d",time.localtime(time.time()+3*86400))
 r=st.post(B+"/meetings",data={"_csrf":csrf(st,"/meetings"),"client_id":"1","title":"G-Review","type":"qbr","date":day,"time":"10:00","duration":"60","attendees":"Jordan <jordan@client.example>, sam@client.example","agenda":"Backups","send_invites":"1","owner_id":"1"})
 mt=q("select * from meetings where title='G-Review'")[0]; ev=gstate()["events"].get(mt["graph_event_id"] or "",{})
 ok("through Google Calendar with a Google Meet link" in flash(r.text) and ev.get("organizer",{}).get("email")=="admin@example.com" and ev.get("sendUpdates")=="all" and len(ev.get("attendees",[]))==2,"event in owner's calendar, guests notified: "+flash(r.text)[:90])
-ok(mt["video_url"] and "meet.google.com" in mt["video_url"] and mt["graph_mailbox"]=="google:admin@example.com","Meet link saved on the meeting")
+ok(mt["video_url"] and urlparse(mt["video_url"]).hostname=="meet.google.com" and mt["graph_mailbox"]=="google:admin@example.com","Meet link saved on the meeting")
 st.post(B+f"/meetings/{mt['id']}",data={"_csrf":csrf(st,f"/meetings/{mt['id']}"),"action":"save","client_id":"1","title":"G-Review","type":"qbr","date":day,"time":"11:00","duration":"30","attendees":"jordan@client.example","send_invites":"1","owner_id":"1","video_url":mt["video_url"]})
 ev=gstate()["events"][mt["graph_event_id"]]; ok(ev["status"]=="updated" and ev["sendUpdates"]=="all" and len(ev["attendees"])==1,"update sent")
 r=st.post(B+f"/meetings/{mt['id']}",data={"_csrf":csrf(st,f"/meetings/{mt['id']}"),"action":"cancel"})
