@@ -17,7 +17,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <p class="small text-muted">For costs Align doesn't track on its own: internet, phones, cloud hosting, printing contracts, support agreements, training… Licensing, hardware replacements and projects are added automatically. A <b>Managed services</b> line here replaces the estimate from <?= e(psa_name()) ?> invoices.</p>
+          <p class="small text-muted">For costs Align doesn't track on its own: internet, phones, cloud hosting, printing contracts, support agreements, training… Licensing, hardware replacements and projects are added automatically. A <b>Managed services</b> line here<?= psa_on() ? ' replaces the estimate from ' . e(psa_name()) . ' invoices' : ' is your agreement amount' ?>.</p>
           <div class="form-row">
             <div class="form-group col-md-6"><label>Name</label><input name="name" class="form-control" required value="<?= e($m['name'] ?? '') ?>" placeholder="Fiber internet, Hosted VoIP, Azure…"></div>
             <div class="form-group col-md-3"><label>Category</label>

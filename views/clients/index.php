@@ -3,7 +3,7 @@ use Align\Auth;
 
 $q = $_GET['q'] ?? '';
 $canEdit = Auth::can('tech');
-$tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archived' => 'Archived in ' . psa_name(), 'all' => 'All'];
+$tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archived' => psa_on() ? 'Archived in ' . psa_name() : 'Archived', 'all' => 'All'];
 ?>
 <form method="post" action="/clients/bulk" id="bulk-form">
 <?= csrf_field() ?>
@@ -13,7 +13,8 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
     <div class="card-tools d-flex">
       <input type="search" class="form-control form-control-sm mr-2 filter-input" data-filter-table="clients-table" placeholder="Filter…" value="<?= e($q) ?>">
       <?php if ($canEdit): ?>
-        <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-client" data-autoopen="add"><i class="fas fa-plus mr-1"></i>New client</button>
+        <a class="btn btn-sm btn-default mr-1 text-nowrap" href="/clients/import"><i class="fas fa-file-import mr-1"></i>Import</a>
+        <button type="button" class="btn btn-sm btn-primary text-nowrap" data-toggle="modal" data-target="#modal-client" data-autoopen="add"><i class="fas fa-plus mr-1"></i>New client</button>
       <?php endif; ?>
     </div>
   </div>
@@ -61,7 +62,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
             <?php if ($c['source'] === 'manual'): ?><span class="badge badge-light border" title="Added in Align">manual</span><?php endif; ?>
             <?php if ($c['is_archived']): ?><span class="badge badge-dark">archived</span><?php endif; ?>
             <?php if ($c['planning_excluded']): ?><span class="badge badge-secondary" title="<?= e($c['excluded_reason'] ?? '') ?>">removed<?= $c['excluded_reason'] ? ': ' . e($c['excluded_reason']) : '' ?></span><?php endif; ?>
-            <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link mr-1"></i>' . e($c['org_name']) : ($c['source'] === 'psa' && !$c['planning_excluded'] ? '<span class="text-warning">Not linked to ' . e(\Align\Providers\Providers::rmmNames()) . '</span>' : '') ?></div>
+            <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link mr-1"></i>' . e($c['org_name']) : (!$c['planning_excluded'] && \Align\Providers\Providers::anyRmm() ? '<span class="text-warning">Not linked to ' . e(\Align\Providers\Providers::rmmNames()) . '</span>' : '') ?></div>
           </td>
           <td class="small"><?= e($c['industry'] ?? '') ?></td>
           <td class="small"><?= e($c['vcio_name'] ?? '') ?></td>
@@ -82,7 +83,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? 'No clients yet. Add one, or connect ' . psa_name() . ' under Integrations and run a sync.' : 'None.' ?></td></tr><?php endif; ?>
+      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? (psa_on() ? 'No clients yet. Add one, or run a sync to bring them in from ' . psa_name() . '.' : 'No clients yet. Add one, <a href="/clients/import">import a CSV file</a>, or add them from your RMM organizations on <a href="/mapping">Client mapping</a>.') : 'None.' ?></td></tr><?php endif; ?>
       </tbody>
     </table>
     </div>

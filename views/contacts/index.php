@@ -6,6 +6,7 @@ use Align\Contacts\Contacts;
     <h3 class="card-title mt-2"><i class="fas fa-fw fa-address-book mr-2"></i>Contacts <span class="badge badge-light ml-1"><?= count($contacts) ?></span></h3>
     <div class="card-tools d-flex">
       <input type="search" class="form-control form-control-sm mr-2 filter-input" data-filter-table="contacts-table" placeholder="Search name, email, client…">
+      <?php if (\Align\Auth::can('tech')): ?><a class="btn btn-sm btn-default text-nowrap" href="/clients/import?kind=contacts"><i class="fas fa-file-import mr-1"></i>Import</a><?php endif; ?>
     </div>
   </div>
   <div class="card-body py-2 border-bottom">

@@ -15,5 +15,5 @@ $cid = (int) $client['id'];
   </div>
   <div class="card-body p-0"><?= \Align\View::fetch('contacts/_table', ['contacts' => $contacts, 'back' => $back]) ?></div>
 </div>
-<p class="small text-muted">Contacts sync from <?= e(psa_name()) ?> every few minutes; ones archived or deleted in <?= e(psa_name()) ?> are archived here. Mark decision makers and meeting invitees here in Align. Invitees can be added to a meeting in one click.</p>
+<p class="small text-muted"><?php if (psa_on() && $client['source'] === 'psa'): ?>Contacts sync from <?= e(psa_name()) ?> every few minutes; ones archived or deleted in <?= e(psa_name()) ?> are archived here. <?php else: ?>Add contacts here or <a href="/clients/import?kind=contacts">import a CSV file</a>. <?php endif; ?>Mark decision makers and meeting invitees here in Align. Invitees can be added to a meeting in one click.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('contacts/_modal', ['k' => null, 'cid' => $cid, 'back' => $back]); ?>

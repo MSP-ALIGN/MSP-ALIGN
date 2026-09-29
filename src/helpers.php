@@ -101,6 +101,13 @@ function ext_id(mixed $v): string
     return $s === '0' ? '' : $s;
 }
 
+/** Whether a PSA is set up. Without one (1.36) screens leave out what only a PSA provides instead of showing it empty. */
+function psa_on(): bool
+{
+    static $on = null;
+    return $on ??= \Align\Providers\Providers::psaConfigured();
+}
+
 function money(float|int|string|null $v): string
 {
     return '$' . number_format((float) $v, 0);

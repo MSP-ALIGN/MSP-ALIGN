@@ -138,7 +138,7 @@ final class Dashboard
             }
         }
         if (!empty($ctx['unmapped']) || !empty($ctx['unassigned'])) {
-            $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' ' . psa_name() . ' client(s) without an organization in ' . \Align\Providers\Providers::rmmNames() . '. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' ' . \Align\Providers\Providers::rmmNames() . ' device(s) in an unlinked organization.' : '')), '/mapping');
+            $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' client(s) without an organization in ' . \Align\Providers\Providers::rmmNames() . '. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' ' . \Align\Providers\Providers::rmmNames() . ' device(s) in an unlinked organization.' : '')), '/mapping');
         }
 
         // Service levels: open tickets past or close to target
@@ -196,7 +196,7 @@ final class Dashboard
 
         // Onboarding: requests that didn't reach the service desk, and onboardings waiting on the client
         foreach (DB::all("SELECT client_id, title, created_at FROM service_requests WHERE delivery = 'failed' AND created_at >= ? ORDER BY id DESC LIMIT 10", [date('Y-m-d', strtotime('-14 days'))]) as $r) {
-            $add('bad', 'onboarding', 'Client request not delivered: ' . $r['title'], 'It couldn\'t be sent to ' . psa_name() . ' or by email. Open it and follow up.', '/clients/' . (int) $r['client_id'] . '/onboarding', $names[$r['client_id']] ?? null, $r['created_at']);
+            $add('bad', 'onboarding', 'Client request not delivered: ' . $r['title'], 'It couldn\'t be sent to ' . (psa_on() ? psa_name() . ' or ' : '') . 'by email. Open it and follow up.', '/clients/' . (int) $r['client_id'] . '/onboarding', $names[$r['client_id']] ?? null, $r['created_at']);
         }
         foreach (DB::all('SELECT * FROM client_onboardings WHERE sent_at IS NOT NULL AND completed_at IS NULL') as $o) {
             if (!isset($names[$o['client_id']])) {

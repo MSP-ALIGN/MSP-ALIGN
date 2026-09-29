@@ -25,7 +25,7 @@ $cid = (int) $client['id'];
     <div class="mr-auto client-header-info">
       <h4 class="mb-0"><?= e($client['name']) ?>
         <?php if ($client['source'] === 'manual'): ?><span class="badge badge-secondary align-middle ml-1">Added in Align</span><?php endif; ?>
-        <?php if ($client['is_archived']): ?><span class="badge badge-dark align-middle ml-1">Archived in <?= e(psa_name()) ?></span><?php endif; ?>
+        <?php if ($client['is_archived']): ?><span class="badge badge-dark align-middle ml-1">Archived<?= psa_on() || $client['source'] === 'psa' ? ' in ' . e(psa_name()) : '' ?></span><?php endif; ?>
       </h4>
       <div class="text-muted small">
         <?php if ($client['industry']): ?><span class="text-nowrap"><i class="fas fa-industry mr-1"></i><?= e($client['industry']) ?></span><span class="mx-2">·</span><?php endif; ?>

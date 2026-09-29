@@ -70,7 +70,8 @@ final class DashboardController
         $layout = \Align\Dashboard\Dashboard::layout();
         $show = array_flip(\Align\Dashboard\Dashboard::visible($layout));
         $lastSync = DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1');
-        $unmapped = (int) DB::value("SELECT COUNT(*) FROM clients c WHERE NOT " . \Align\Providers\ClientLinks::rmmLinkedSql() . " AND c.is_archived = 0 AND c.planning_excluded = 0 AND c.source = 'psa'");
+        $unmapped = \Align\Providers\Providers::anyRmm()
+            ? (int) DB::value("SELECT COUNT(*) FROM clients c WHERE NOT " . \Align\Providers\ClientLinks::rmmLinkedSql() . " AND c.is_archived = 0 AND c.planning_excluded = 0") : 0;
         $unassigned = (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL');
         $contract90 = isset($show['renewals']) || isset($show['kpis']) ? \Align\Budget\Contracts::upcoming(null, 90, date('Y-m-d')) : [];
         $sla = isset($show['sla']) || isset($show['kpis']) ? self::slaSummary() : null;

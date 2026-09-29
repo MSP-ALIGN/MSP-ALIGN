@@ -127,7 +127,7 @@ $cid = (int) $client['id'];
             </li>
           <?php endforeach; ?>
         </ul>
-      <?php else: ?><div class="card-body py-2 small text-muted">No key contacts yet. Contacts sync from <?= e(psa_name()) ?>; mark decision makers and meeting invitees on the Contacts page.</div><?php endif; ?>
+      <?php else: ?><div class="card-body py-2 small text-muted">No key contacts yet.<?= psa_on() ? ' Contacts sync from ' . e(psa_name()) . ';' : ' Add them on the Contacts page, or import a CSV;' ?> mark decision makers and meeting invitees on the Contacts page.</div><?php endif; ?>
     </div>
 
     <?php $lt = $licensing; ?>
@@ -143,7 +143,7 @@ $cid = (int) $client['id'];
           </div>
           <?php if ($lt['unpriced']): ?><div class="small text-warning"><i class="fas fa-tag mr-1"></i><?= (int) $lt['unpriced'] ?> without a price</div><?php endif; ?>
           <?php foreach (array_slice($lt['renewals'], 0, 3) as $r): ?><div class="small"><i class="fas fa-rotate mr-1 text-<?= $r['renewal'] === 'expired' ? 'danger' : 'warning' ?>"></i><?= e($r['name']) ?> <?= $r['renewal'] === 'expired' ? 'expired' : 'renews' ?> <?= e(fmt_date($r['expire_date'])) ?></div><?php endforeach; ?>
-        <?php else: ?><p class="small text-muted mb-1">No licenses yet. They sync from <?= e(psa_name()) ?>, or add them on the Licensing page.</p><?php endif; ?>
+        <?php else: ?><p class="small text-muted mb-1">No licenses yet.<?= psa_on() ? ' They sync from ' . e(psa_name()) . ', or add them on the Licensing page.' : ' Add them on the Licensing page.' ?></p><?php endif; ?>
       </div>
     </div>
 

@@ -7,7 +7,7 @@
  */
 $bn = \Align\Providers\Providers::backupNames();
 $howLabel = [
-    'device' => ['Device name', 'success', 'A device with the same name belongs to this client (' . \Align\Providers\Providers::rmmNames() . ' or ' . psa_name() . ')'],
+    'device' => ['Device name', 'success', 'A device with the same name belongs to this client (' . \Align\Providers\Providers::rmmNames() . (psa_on() ? ' or ' . psa_name() : '') . ')'],
     'job' => ['Job', 'info', 'Its backup job is assigned'],
     'machine' => ['By hand', 'primary', 'Assigned by hand'],
     'company' => ['Company', 'secondary', 'The ' . $bn . ' company this machine is under is linked to this client'],

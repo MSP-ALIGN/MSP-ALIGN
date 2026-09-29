@@ -75,7 +75,7 @@ if ($client) {
                   . $exForm
                   : '<span class="text-' . $btone . '">No ' . e(\Align\Providers\Providers::backupNames()) . ' backup found for this device</span>' . $exForm);
           endif; ?>
-          <?= $row(psa_name() . ' asset', $d['psa_asset_id'] ? 'Linked (#' . e($d['psa_asset_id']) . ')' : '<span class="text-muted">Not linked</span>') ?>
+          <?= psa_on() || $d['psa_asset_id'] ? $row(psa_name() . ' asset', $d['psa_asset_id'] ? 'Linked (#' . e($d['psa_asset_id']) . ')' : '<span class="text-muted">Not linked</span>') : '' ?>
         </table>
       </div>
     </div>
@@ -130,6 +130,7 @@ $pendingFields = array_map(fn($p) => $labels[$p['field']] ?? $p['field'], $sync[
 $pendingErr = $sync['pending'][0]['last_error'] ?? null;
 $poll = $sync['poll'];
 ?>
+<?php if (psa_on() || $sync['history']): ?>
 <div class="card card-dark">
   <div class="card-header py-2">
     <h3 class="card-title mt-1"><i class="fas fa-fw fa-arrows-rotate mr-2"></i><?= e(psa_name()) ?> sync</h3>
@@ -193,6 +194,7 @@ $poll = $sync['poll'];
   </div>
   <?php endif; ?>
 </div>
+<?php endif; ?>
 
 <?php if ($canEdit): ?>
 <div class="modal fade" id="modal-device-edit" tabindex="-1" aria-hidden="true">
@@ -205,7 +207,7 @@ $poll = $sync['poll'];
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
-          <?php if (!$manual): ?><p class="small text-muted">Hardware details come from <?= e($srcLabel) ?>. Edit them there. Values here override <?= e(psa_name()) ?> and vendor dates; leave blank to use the synced value.<?= $linked && $twoWay && !$alignOnly ? ' Type and dates you set are sent to ' . psa_name() . '.' : '' ?></p>
+          <?php if (!$manual): ?><p class="small text-muted">Hardware details come from <?= e($srcLabel) ?>. Edit them there. Values here override <?= psa_on() ? e(psa_name()) . ' and vendor' : 'vendor' ?> dates; leave blank to use the synced value.<?= $linked && $twoWay && !$alignOnly ? ' Type and dates you set are sent to ' . psa_name() . '.' : '' ?></p>
           <?php elseif ($linked && $twoWay && !$alignOnly): ?><p class="small text-muted"><i class="fas fa-arrows-rotate mr-1"></i>Saving sends your changes to the <?= e(psa_name()) ?> asset. IP address and location come from <?= e(psa_name()) ?>.</p><?php endif; ?>
           <?= \Align\View::fetch('partials/device_fields', ['d' => $d, 'manual' => $manual, 'pullOnly' => $linked && $twoWay && !$alignOnly]) ?>
         </div>
