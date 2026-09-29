@@ -860,7 +860,7 @@ final class PsaAssetSync
     private static function createMissing(PsaProvider $p): string
     {
         $rows = DB::all("SELECT d.id FROM devices d JOIN clients c ON c.id = d.client_id
-            WHERE d.source = 'manual' AND d.psa_asset_id IS NULL AND d.psa_sync = 1 AND d.removed_at IS NULL AND c.psa_id IS NOT NULL");
+            WHERE d.source = 'manual' AND d.psa_asset_id IS NULL AND d.psa_sync = 1 AND d.removed_at IS NULL AND c.psa_id IS NOT NULL AND c.is_demo = 0");
         $made = 0;
         $failed = 0;
         foreach ($rows as $r) {

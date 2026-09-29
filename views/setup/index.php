@@ -180,6 +180,20 @@ case 'company': ?>
           <a class="btn btn-default btn-sm" href="/mapping" target="_blank">Open Client mapping</a>
         </div></div></div>
       <?php endif; ?>
+      <?php if (!\Align\Demo\Demo::blocked()): ?>
+        <div class="col-md-6"><div class="card card-outline card-warning"><div class="card-body">
+          <h3 class="h6"><i class="fas fa-flask text-warning mr-1"></i>Try it with demo data</h3>
+          <p class="small text-muted">Four made-up clients with devices, licenses, budgets, projects, meetings, compliance, documents and backups, so every page has something to show. Remove them with one click under Settings → General.</p>
+          <form method="post" action="/demo/load"><?= csrf_field() ?><?= $ret ?><button class="btn btn-default btn-sm">Load demo data</button></form>
+        </div></div></div>
+      <?php elseif (\Align\Demo\Demo::loaded()): ?>
+        <?php /* loaded: offer to remove */ ?>
+        <div class="col-md-6"><div class="card card-outline card-warning"><div class="card-body">
+          <h3 class="h6"><i class="fas fa-flask text-warning mr-1"></i>Demo data is loaded</h3>
+          <p class="small text-muted">Look around with the demo clients; remove them before adding your own.</p>
+          <form method="post" action="/demo/remove"><?= csrf_field() ?><?= $ret ?><button class="btn btn-outline-danger btn-sm" data-confirm="Remove the demo clients and everything attached to them?">Remove demo data</button></form>
+        </div></div></div>
+      <?php endif; ?>
       <div class="col-md-6"><div class="card"><div class="card-body">
         <h3 class="h6"><i class="fas fa-file-import text-secondary mr-1"></i>Import a CSV file</h3>
         <p class="small text-muted">Clients and contacts from a spreadsheet or another tool. You see what each row will do before anything is saved.</p>

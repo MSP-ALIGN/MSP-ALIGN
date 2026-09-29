@@ -174,7 +174,7 @@ final class SyncRunner
             if (!$existing) {
                 // Adopt a client that was added by hand before it existed in the PSA.
                 $key = self::normalizeName((string) ($r['name'] ?? ''));
-                foreach (DB::all("SELECT id, name FROM clients WHERE psa_id IS NULL AND source = 'manual'") as $m) {
+                foreach (DB::all("SELECT id, name FROM clients WHERE psa_id IS NULL AND source = 'manual' AND is_demo = 0") as $m) {
                     if ($key !== '' && self::normalizeName($m['name']) === $key) {
                         DB::run("UPDATE clients SET psa_id = ?, source = 'psa' WHERE id = ?", [$id, $m['id']]);
                         $this->info("Linked manually added client \"{$m['name']}\" to $n client #$id");
@@ -437,7 +437,7 @@ final class SyncRunner
         $rows = DB::all("SELECT DISTINCT d.serial, d.manufacturer, w.status, w.looked_up_at
             FROM devices d
             LEFT JOIN warranty_lookups w ON w.serial = d.serial
-            WHERE d.removed_at IS NULL AND d.is_virtual = 0 AND d.serial IS NOT NULL
+            WHERE d.removed_at IS NULL AND d.is_virtual = 0 AND d.serial IS NOT NULL AND d.serial NOT LIKE 'DEMO%'
               AND d.device_class IN ('desktop','laptop','server','network','storage')");
         $todo = [];
         foreach ($rows as $r) {

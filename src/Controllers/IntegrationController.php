@@ -66,6 +66,11 @@ final class IntegrationController
     {
         Auth::requireRole('admin');
         $c = self::connector($key);
+        // A PSA, RMM or backup service would sync real clients in next to the made-up ones
+        if (\Align\Demo\Demo::loaded() && ($c instanceof \Align\Integrations\PsaConnector || $c instanceof \Align\Integrations\RmmConnector || $c instanceof \Align\Integrations\BackupConnector)) {
+            flash('error', 'Remove the demo data first (Settings → General → Demo data): ' . $c->name() . ' would bring your real clients in next to the made-up ones.');
+            redirect(setup_return('/integrations/' . $key));
+        }
         try {
             $changed = $c->save($_POST);
         } catch (\InvalidArgumentException $e) {

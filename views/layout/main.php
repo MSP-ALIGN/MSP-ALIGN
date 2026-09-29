@@ -177,6 +177,11 @@ $item = function (array $i, string $active) {
           <div class="alert alert-warning border-warning py-2 mb-3" role="status"><i class="fas fa-flask mr-2"></i><b>Test server.</b> Changes here don't reach
             <?= e(\Align\Providers\Providers::psaName()) ?> or anyone's inbox: email goes <?= \Align\Staging::mailTo() ? 'only to ' . e((string) \Align\Staging::mailTo()) : 'nowhere' ?>, and the client portal and API are off.</div>
         <?php endif; ?>
+        <?php if ($u && \Align\Demo\Demo::loaded()): ?>
+          <div class="alert alert-light border py-2 mb-3 d-flex flex-wrap align-items-center" role="status"><i class="fas fa-flask text-warning mr-2"></i>
+            <span class="mr-auto"><b>Demo data.</b> The demo clients are made up. Remove them before adding real clients or connecting your PSA, RMM or backups.</span>
+            <?php if (\Align\Auth::can('admin')): ?><a class="btn btn-xs btn-default" href="/settings#demo-data">Demo data settings</a><?php endif; ?></div>
+        <?php endif; ?>
         <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
           <div class="alert alert-<?= $t ?> alert-dismissible fade show">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button>
