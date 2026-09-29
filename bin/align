@@ -117,7 +117,7 @@ try {
             break;
 
         case 'mail:run':
-            // Every minute from mountaineer-align-mail.timer: send queued mail, reminders and digests
+            // Every minute from msp-align-mail.timer: send queued mail, reminders and digests
             $lines = Align\Mail\Notify::tick(isset($opts['force']));
             if (!isset($opts['quiet'])) {
                 foreach ($lines as $l) {

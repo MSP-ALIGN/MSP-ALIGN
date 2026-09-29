@@ -2,8 +2,8 @@
 Description=MSP-ALIGN - watch for update, backup and restore requests from the web app
 
 [Path]
-PathExistsGlob=/run/mountaineer-align/requests/*.json
-Unit=mountaineer-align-agent.service
+PathExistsGlob=/run/msp-align/requests/*.json
+Unit=msp-align-agent.service
 
 [Install]
 WantedBy=paths.target

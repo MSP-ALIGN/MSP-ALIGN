@@ -4,9 +4,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 /**
  * MSP-ALIGN system agent. Runs as root, started by systemd:
- *   mountaineer-align-agent.path/.service   when the web app drops a request in /run/mountaineer-align/requests
- *   mountaineer-align-update-check.timer    every 6 hours (check)
- *   mountaineer-align-nightly.timer         nightly clean-up and audit log checks
+ *   msp-align-agent.path/.service   when the web app drops a request in /run/msp-align/requests
+ *   msp-align-update-check.timer    every 6 hours (check)
+ *   msp-align-nightly.timer         nightly clean-up and audit log checks
+ * Before 1.35 the folders and units were named mountaineer-align; a server that hasn't moved yet still works.
  *   sudo msp-align-update           update from the command line
  *   sudo msp-align-restore FILE     restore from the command line
  *
@@ -25,13 +26,15 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $env = static fn(string $k, string $d): string => (($v = getenv($k)) !== false && $v !== '') ? $v : $d;
+// The msp-align path, or the mountaineer-align one on a server that hasn't moved yet (see scripts/move-install.sh)
+$path = static fn(string $new, string $old): string => file_exists($new) || !file_exists($old) ? $new : $old;
 define('APP', $env('ALIGN_APP_DIR', dirname(__DIR__)));
-define('CONFIG', $env('ALIGN_CONFIG', '/etc/mountaineer-align/config.php'));
-define('DATA', rtrim($env('ALIGN_DATA_DIR', '/var/lib/mountaineer-align'), '/'));
-define('RUN', rtrim($env('ALIGN_RUN_DIR', '/run/mountaineer-align'), '/'));
-define('RECIPIENT', $env('ALIGN_RECIPIENT', '/etc/mountaineer-align/backup-recipient.txt'));
-define('LEGACY', $env('ALIGN_LEGACY_BACKUPS', '/var/backups/mountaineer-align'));
-define('PRIVKEY_FILE', '/root/mountaineer-align-backup-key.txt');
+define('CONFIG', $env('ALIGN_CONFIG', $path('/etc/msp-align/config.php', '/etc/mountaineer-align/config.php')));
+define('DATA', rtrim($env('ALIGN_DATA_DIR', $path('/var/lib/msp-align', '/var/lib/mountaineer-align')), '/'));
+define('RUN', rtrim($env('ALIGN_RUN_DIR', $path('/run/msp-align', '/run/mountaineer-align')), '/'));
+define('RECIPIENT', $env('ALIGN_RECIPIENT', $path('/etc/msp-align/backup-recipient.txt', '/etc/mountaineer-align/backup-recipient.txt')));
+define('LEGACY', $env('ALIGN_LEGACY_BACKUPS', '/var/backups/mountaineer-align'));   // old nightly backups keep their folder name
+define('PRIVKEY_FILE', $path('/root/msp-align-backup-key.txt', '/root/mountaineer-align-backup-key.txt'));
 define('RUNAS', $env('ALIGN_RUNAS', 'www-data'));
 define('SYSTEMCTL', $env('ALIGN_SYSTEMCTL', 'systemctl'));   // "none" in tests
 define('INSTALL_CMD', $env('ALIGN_INSTALL_CMD', ''));         // tests only: replaces install.sh --upgrade
@@ -48,7 +51,7 @@ define('CHECK_URL', $env('ALIGN_UPDATE_CHECK_URL', (static function (): string {
     return is_array($c) && is_string($c['update_check_url'] ?? null) ? rtrim($c['update_check_url'], '/') : '';
 })()));
 // Agent state lives in its own root-owned folder (not inside the www-data-owned data folder)
-define('STATE', rtrim($env('ALIGN_AGENT_DIR', '/var/lib/mountaineer-align-agent'), '/'));
+define('STATE', rtrim($env('ALIGN_AGENT_DIR', $path('/var/lib/msp-align-agent', '/var/lib/mountaineer-align-agent')), '/'));
 define('JOBS', STATE . '/jobs');
 define('DOWNLOADS', DATA . '/downloads');
 define('RESTORE', DATA . '/restore');
@@ -56,7 +59,8 @@ define('SAFETY', STATE . '/safety');
 define('WORK', STATE . '/work');
 define('REQ', RUN . '/requests');
 define('KEYS', RUN . '/keys');
-define('TIMERS', ['mountaineer-align-sync', 'mountaineer-align-psa', 'mountaineer-align-mail']);   // -psa was -itflow before 1.34
+define('UNIT', $path('/etc/systemd/system/msp-align-sync.timer', '/etc/systemd/system/mountaineer-align-sync.timer') === '/etc/systemd/system/msp-align-sync.timer' ? 'msp-align' : 'mountaineer-align');
+define('TIMERS', [UNIT . '-sync', UNIT . '-psa', UNIT . '-mail']);   // -psa was -itflow before 1.34
 define('ID_RE', '/^[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$/');
 define('KEY_RE', '/^AGE-SECRET-KEY-1[0-9A-Z]{58}$/');
 define('TOKEN_RE', '/^[a-f0-9]{32}$/');
@@ -715,7 +719,7 @@ function check(?Job $job = null): array
     if ($c === null) {
         // answered by the version file
     } elseif ($c !== 0) {
-        $s['error'] = 'Could not reach GitHub to check for updates. Check the server\'s internet access and the GitHub token in /etc/mountaineer-align/github-token.';
+        $s['error'] = 'Could not reach GitHub to check for updates. Check the server\'s internet access and the GitHub token in /etc/msp-align/github-token.';
     } else {
         [, $latest] = $run("$git show " . q('origin/' . BRANCH . ':VERSION'));
         [, $behind] = $run("$git rev-list --count " . q('HEAD..origin/' . BRANCH));

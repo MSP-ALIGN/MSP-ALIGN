@@ -92,7 +92,7 @@ try {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $router->dispatch($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
 } catch (\Throwable $e) {
-    error_log('[mountaineer-align] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    error_log('[msp-align] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     if (!headers_sent()) {
         http_response_code(500);
     }

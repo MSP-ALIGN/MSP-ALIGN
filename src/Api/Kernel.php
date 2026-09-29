@@ -80,7 +80,7 @@ final class Kernel
             }
             $body = ['error' => array_filter(['code' => $e->errorCode, 'message' => $e->getMessage(), 'fields' => $e->fields ?: null]), 'request_id' => Context::$requestId];
         } catch (\Throwable $e) {
-            error_log('[mountaineer-align] API ' . Context::$requestId . ' ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            error_log('[msp-align] API ' . Context::$requestId . ' ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
             $status = 500;
             $error = 'internal_error';
             $body = ['error' => ['code' => 'internal_error', 'message' => 'Something went wrong. The error was logged with this request id.'], 'request_id' => Context::$requestId];

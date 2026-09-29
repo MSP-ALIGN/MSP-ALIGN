@@ -305,7 +305,7 @@ final class Notify
                 self::backupFailures();
             }
         } catch (\Throwable $e) {
-            error_log('[mountaineer-align] notification error: ' . $e->getMessage());
+            error_log('[msp-align] notification error: ' . $e->getMessage());
         }
     }
 
@@ -365,7 +365,7 @@ final class Notify
                     T::p('If this wasn\'t expected, review the audit log and the staff accounts.', true), T::button('Open audit log', N::url('/audit'))], N::footer()),
                 ['dedupe' => 'sec:' . sha1($event . '|' . $detail) . ':' . intdiv(time(), 600), 'immediate' => true, 'created_by' => null]);
         } catch (\Throwable $e) {
-            error_log('[mountaineer-align] security notification error: ' . $e->getMessage());
+            error_log('[msp-align] security notification error: ' . $e->getMessage());
         }
     }
 

@@ -124,7 +124,7 @@ $info = $upload['info'] ?? null;
           <div class="alert alert-danger py-2 small">This server has no backup key, so backups can't be made. Run <code>sudo msp-align-update</code> on the server to create one.</div>
         <?php endif; ?>
         <?php if (!empty($sys['private_key_on_server'])): ?>
-          <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i>The private backup key is still on the server (<code>/root/mountaineer-align-backup-key.txt</code>). Store it in your password manager, then remove it: <code>sudo shred -u /root/mountaineer-align-backup-key.txt</code></div>
+          <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i>The private backup key is still on the server (<code>/root/msp-align-backup-key.txt</code>). Store it in your password manager, then remove it: <code>sudo shred -u /root/msp-align-backup-key.txt</code></div>
         <?php endif; ?>
         <form method="post" action="/settings/system/keycheck">
           <?= csrf_field() ?>

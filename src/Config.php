@@ -5,7 +5,8 @@ namespace Align;
 
 /**
  * Reads the server config file written by the installer.
- * Default path: /etc/mountaineer-align/config.php (override with ALIGN_CONFIG env var).
+ * Default path: /etc/msp-align/config.php (override with ALIGN_CONFIG env var). Before 1.35 it was
+ * /etc/mountaineer-align/config.php, still used on a server where /etc/msp-align/config.php isn't there yet.
  */
 final class Config
 {
@@ -13,7 +14,8 @@ final class Config
 
     public static function path(): string
     {
-        return getenv('ALIGN_CONFIG') ?: '/etc/mountaineer-align/config.php';
+        return getenv('ALIGN_CONFIG') ?: (is_readable('/etc/msp-align/config.php') || !is_readable('/etc/mountaineer-align/config.php')
+            ? '/etc/msp-align/config.php' : '/etc/mountaineer-align/config.php');
     }
 
     public static function load(): void

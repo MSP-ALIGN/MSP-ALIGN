@@ -121,7 +121,7 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 ## Operator responsibilities (outside the app)
 
 1. **Store the backup private key offline.**
-   - The installer prints it once and leaves a copy at `/root/mountaineer-align-backup-key.txt`.
+   - The installer prints it once and leaves a copy at `/root/msp-align-backup-key.txt`.
    - Put it in your password manager, then `sudo shred -u` that file.
    - Test a restore at least yearly: Settings → Updates & backups → upload a backup → **Test this backup** opens and checks it without changing anything.
 2. **Download backups regularly and store them off the server,** away from the private key (for example on your file server, with the key in your password manager).
@@ -137,7 +137,7 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 6. **Paperwork.**
    - Risk analysis, BAAs with covered-entity clients, workforce training, and an incident response plan.
    - Align's own WISP and IR templates can document these.
-7. **Watch for alerts.** Watch for `ALERT: audit log verification failed` in `journalctl -u mountaineer-align-nightly`, and keep the Updates and Security alerts email notifications on.
+7. **Watch for alerts.** Watch for `ALERT: audit log verification failed` in `journalctl -u msp-align-nightly`, and keep the Updates and Security alerts email notifications on.
 
 ## Reporting a vulnerability
 

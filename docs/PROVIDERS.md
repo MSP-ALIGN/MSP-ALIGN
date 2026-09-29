@@ -34,7 +34,7 @@ To add one:
 The first PSA an admin sets up becomes the install's PSA (the `psa_provider` setting). Records that came
 from it have `source = 'psa'`; the API reports the provider's key (for example `itflow`).
 
-Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`, the `mountaineer-align-psa` timer): clients → client details, contacts and
+Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`, the `msp-align-psa` timer): clients → client details, contacts and
 locations → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,
 reconciled field by field with newest-edit-wins) → tickets and SLAs → invoices (managed-services estimate).
 

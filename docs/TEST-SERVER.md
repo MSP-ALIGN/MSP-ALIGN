@@ -30,7 +30,7 @@ restore from a production backup keeps it.
    curl -fsSL https://raw.githubusercontent.com/MSP-ALIGN/MSP-ALIGN/develop/install.sh | sudo -E ALIGN_BRANCH=develop bash
    ```
 
-3. **Turn on staging mode before restoring anything.** Edit `/etc/mountaineer-align/config.php` and add:
+3. **Turn on staging mode before restoring anything.** Edit `/etc/msp-align/config.php` and add:
 
    ```php
    'staging' => true,

@@ -15,7 +15,7 @@ upload_dir=UPLOADS
 
 # ---- 1.34: the PSA poll timer is named for the PSA, not ITFlow; upgrades remove the old one
 units=os.listdir(ROOT+"/deploy/systemd"); inst=open(ROOT+"/install.sh").read()
-ok("mountaineer-align-psa.timer" in units and not any("itflow" in u for u in units) and "mountaineer-align-psa.timer mountaineer-align-mail.timer" in inst and "rm -f /etc/systemd/system/mountaineer-align-itflow.timer" in inst,"PSA poll timer renamed; the installer removes the old itflow one")
+ok("msp-align-psa.timer" in units and not any("itflow" in u for u in units) and "msp-align-psa.timer msp-align-mail.timer" in inst and "for u in sync psa itflow mail nightly update-check; do" in inst,"PSA poll timer named for the PSA; the installer removes the old itflow and mountaineer-align units")
 
 # ---- setup
 for d in ["agent/jobs","agent/safety","data/downloads","data/restore","run/requests","legacy"]:
