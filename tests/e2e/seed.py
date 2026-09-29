@@ -166,4 +166,7 @@ sh(["git", "clone", "-q", f"{S}/remote.git", f"{S}/work"])
 g = f"cd {S}/work && git -c user.name=Test -c user.email=test@example.com"
 sh(f"{g} checkout -q -B main && echo 1.99.0 > VERSION && {g} commit -qam 'v1.99.0: Shiny new thing' -m 'Adds a thing.' -m 'Co-Authored-By: X <x@y>'"
    f" && echo '# Typo fixed' >> README.md && {g} commit -qam 'Fix a typo' && git push -q -f origin HEAD:main")
+# Clones check out main, like GitHub's default branch. Without this they'd get whatever the tests run from:
+# on a pull request that's GitHub's merge commit (a detached HEAD), not main.
+sh(["git", f"--git-dir={S}/remote.git", "symbolic-ref", "HEAD", "refs/heads/main"])
 print("seed: done")
