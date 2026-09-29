@@ -5,7 +5,7 @@ requests.get(M+"/mock/graph-reset"); q("delete from meetings where title in ('IC
 q("delete from settings where name like 'notif\\_%%' or name like 'm365\\_token\\_cache' or name like 'm365\\_connected%%' or name='m365_refresh_token'")
 setting("mail_provider","microsoft"); setting("m365_login_base",M+"/login"); setting("m365_graph_base",M+"/graph/v1.0"); setting("mail_meeting_mode","calendar"); setting("notif_digest_hour","0")
 q("update roadmap_items set status='proposed', decided_at=NULL, decided_by_name=NULL, decided_by_portal_user_id=NULL, decision_comment=NULL where client_id=1 and title='Upgrade firewall to FortiGate 60F'")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 
 # ---- settings: validation + app-only secret
 t=st.get(B+"/integrations/email").text; ok("Mail connection" in t and "Google Workspace" in t and not errs(t),"settings page renders")
@@ -13,16 +13,16 @@ F=form(st,"/integrations/email")
 r=st.post(B+"/integrations/email",data={**F,"mail_mode":"app","m365_client_id":"not-a-guid"}); ok("GUID" in flash(r.text),"client id validated")
 r=st.post(B+"/integrations/email",data={**F,"mail_mode":"app","m365_tenant":"examplemsp.onmicrosoft.com","m365_client_id":"11111111-2222-3333-4444-555555555555","m365_auth":"secret","m365_client_secret":"wrong-secret","mail_from":"alerts@examplemsp.example","mail_from_name":"Example MSP"})
 ok("saved" in flash(r.text).lower(),"app settings saved")
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"})
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"})
 ok("client secret is wrong" in flash(r.text),"wrong secret -> friendly error: "+flash(r.text)[:120])
 r=st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"m365_client_secret":"m365-secret"})
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"})
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"})
 g=graph(); ok("Test email sent" in flash(r.text) and g["mail"] and g["mail"][-1]["mailbox"]=="alerts@examplemsp.example" and g["mail"][-1]["message"]["from"]["emailAddress"]["name"]=="Example MSP","test email sent as the From mailbox")
 ok("Ready" in st.get(B+"/integrations/email").text,"status shows Ready")
 r=st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"mail_from":"missing@examplemsp.example"})
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"}); ok("Mailbox not found" in flash(r.text),"missing mailbox explained")
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"}); ok("Mailbox not found" in flash(r.text),"missing mailbox explained")
 r=st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"mail_from":"denied@examplemsp.example"})
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"}); ok("Access denied" in flash(r.text) and "RBAC" in flash(r.text),"access denied explained")
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"}); ok("Access denied" in flash(r.text) and "RBAC" in flash(r.text),"access denied explained")
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"mail_from":"alerts@examplemsp.example"})
 ok(q("select count(*) n from mail_queue where kind='security' and subject like '%%Email settings changed%%'")[0]["n"]>=1,"email settings change raised a security alert")
 sec=q("select value from settings where name='m365_client_secret'")[0]["value"]; ok("m365-secret" not in sec,"secret stored encrypted")
@@ -32,7 +32,7 @@ subprocess.run("openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj /CN=Ali
 r=st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"m365_auth":"certificate","m365_cert_pem":"garbage"}); ok("PEM" in flash(r.text),"bad certificate refused")
 r=st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"m365_auth":"certificate","m365_cert_pem":open("/tmp/t.crt").read(),"m365_key_pem":open("/tmp/t.key").read()})
 t=st.get(B+"/integrations/email").text; ok("thumbprint" in t and "AlignTest" in t,"certificate details shown")
-n0=len(graph()["mail"]); r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"})
+n0=len(graph()["mail"]); r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"})
 g=graph(); ok(len(g["mail"])==n0+1 and g["calls"][-1]["auth"]=="cert","certificate (client assertion) sign-in works")
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"m365_auth":"secret"})
 
@@ -55,7 +55,7 @@ align("sync")
 rows=q("select * from mail_queue where kind='backup_failed' order by id")
 ok(len(rows)>=1,"backup failure alert queued")
 rc=set(a["address"] for r in rows for a in json.loads(r["recipients"]))
-ok({"chris@example.com","tech@example.com","tickets@examplemsp.example"}<=rc,"sent to admin, opted-in tech and extra address: "+str(rc))
+ok({"admin@example.com","tech@example.com","tickets@examplemsp.example"}<=rc,"sent to admin, opted-in tech and extra address: "+str(rc))
 n1=len(rows); align("sync"); ok(len(q("select id from mail_queue where kind='backup_failed'"))==n1,"no repeat alert for the same failure")
 out=align("mail:run"); ok(q("select count(*) n from mail_queue where status='queued' and send_after<=now()")[0]["n"]==0,"mail:run sent the queue: "+out.strip()[:80])
 
@@ -90,7 +90,7 @@ pid=q("select id from roadmap_items where client_id=1 and status='proposed' limi
 if pid:
     p.post(B+f"/portal/projects/{pid[0]['id']}/decide",data={"_csrf":csrf(p,"/portal/roadmap"),"decision":"approve","comment":"Yes please"})
     r2=q("select * from mail_queue where kind='portal_activity' order by id desc limit 1")
-    ok(r2 and "approved" in r2[0]["subject"] and "chris@example.com" in r2[0]["recipients"],"portal approval emailed to vCIO")
+    ok(r2 and "approved" in r2[0]["subject"] and "admin@example.com" in r2[0]["recipients"],"portal approval emailed to vCIO")
 else: ok(False,"no proposed project to approve")
 # forgot password
 t=requests.get(B+"/portal/login").text; ok("Forgot your password?" in t,"forgot link on portal login")
@@ -111,7 +111,7 @@ r=st.post(B+"/meetings",data={"_csrf":tok,"client_id":"1","title":"Q4 Business R
 fm=flash(r.text); mid=q("select id from meetings where title='Q4 Business Review' order by id desc limit 1")[0]["id"]
 m=q("select * from meetings where id=%s",mid)[0]; ev=graph()["events"].get(m["graph_event_id"] or "",{})
 ok("through Outlook" in fm and ev.get("subject","").endswith("Q4 Business Review") and len(ev.get("attendees",[]))==2,"Outlook event created with 2 attendees: "+fm[:100])
-ok(m["video_url"] and "teams.microsoft.com" in m["video_url"] and ev.get("organizerMailbox")=="chris@example.com","Teams link saved; organized from the owner's calendar")
+ok(m["video_url"] and "teams.microsoft.com" in m["video_url"] and ev.get("organizerMailbox")=="admin@example.com","Teams link saved; organized from the owner's calendar")
 F=form(st,f"/meetings/{mid}",f'action="/meetings/{mid}"') if 'action="/meetings/%d"'%mid in st.get(B+f"/meetings/{mid}").text else {}
 r=st.post(B+f"/meetings/{mid}",data={"_csrf":csrf(st,f"/meetings/{mid}"),"action":"save","client_id":"1","title":"Q4 Business Review","type":"qbr","date":time.strftime("%Y-%m-%d",time.localtime(time.time()+4*86400)),"time":"11:00","duration":"90","attendees":"jordan@client.example","agenda":"Moved","send_invites":"1","owner_id":"1","video_url":m["video_url"]})
 ev=graph()["events"][m["graph_event_id"]]; ok(ev["status"]=="updated" and len(ev["attendees"])==1,"update sent through Outlook")
@@ -141,16 +141,16 @@ r=st.get(B+"/settings/email/connect",allow_redirects=False); cb=requests.get(r.h
 r=st.get(cb); ok("Connected to Microsoft 365 as alerts@examplemsp.example" in flash(r.text),"callback connects: "+flash(r.text)[:80])
 rt=q("select value from settings where name='m365_refresh_token'")[0]["value"]; ok(rt and "rt-1" not in rt,"refresh token stored encrypted")
 q("delete from settings where name='m365_token_cache'")
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"}); g=graph()
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"}); g=graph()
 ok("Test email sent" in flash(r.text) and g["mail"][-1]["delegated"] and g["rt"]==2,"delegated send refreshes and rotates the token")
 q("delete from settings where name='m365_token_cache'")
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"}); ok("Test email sent" in flash(r.text) and graph()["rt"]==3,"rotated token used next time")
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"}); ok("Test email sent" in flash(r.text) and graph()["rt"]==3,"rotated token used next time")
 r=st.post(B+"/integrations/email/disconnect",data={"_csrf":csrf(st,"/integrations/email")}); ok(not q("select * from settings where name='m365_refresh_token'"),"disconnect removes the token")
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"mail_mode":"app","mail_from":"alerts@examplemsp.example"})
 
 # ---- log page, retry, off mode
 t=st.get(B+"/settings/notifications/log").text; ok("Email log" in t and not errs(t),"log page")
-fid=q("insert into mail_queue (kind,recipients,subject,body_html,status,attempts,send_after) values ('test','[{\"address\":\"chris@example.com\",\"name\":\"\"}]','Retry me','<p>x</p>','failed',6,now())") or q("select max(id) id from mail_queue")[0]["id"]
+fid=q("insert into mail_queue (kind,recipients,subject,body_html,status,attempts,send_after) values ('test','[{\"address\":\"admin@example.com\",\"name\":\"\"}]','Retry me','<p>x</p>','failed',6,now())") or q("select max(id) id from mail_queue")[0]["id"]
 fid=q("select max(id) id from mail_queue")[0]["id"]
 r=st.post(B+f"/settings/notifications/log/{fid}",data={"_csrf":csrf(st,"/settings/notifications/log"),"action":"retry"}); ok(q("select status from mail_queue where id=%s",fid)[0]["status"]=="sent","retry sends a failed message")
 setting("mail_mode","off"); n=q("select count(*) n from mail_queue")[0]["n"]

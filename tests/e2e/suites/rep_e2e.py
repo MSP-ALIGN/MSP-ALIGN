@@ -7,7 +7,7 @@ def ok(c,m):
     if not c: fails.append(m)
 with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":1400,"height":900}, accept_downloads=True); pg=ctx.new_page()
-    pg.goto(B+"/login"); pg.fill("input[name=email]","chris@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"chris@example.com")
+    pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"admin@example.com")
     import pymysql
     db=pymysql.connect(unix_socket=SOCKET,user="root",database=DB_MAIN,autocommit=True)
     with db.cursor() as c: c.execute("insert ignore into client_frameworks (client_id, framework_id) select 1, min(id) from compliance_frameworks")

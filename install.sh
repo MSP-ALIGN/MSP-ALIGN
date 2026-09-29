@@ -96,7 +96,7 @@ if [[ "$MODE" == "upgrade" ]]; then
   ALIGN_TLS=$(php_conf_get tls_mode)
   ALIGN_PROXY_IP=$(php_conf_get trusted_proxies)
 else
-  ask GH_TOKEN "GitHub read-only token for $REPO (blank if the repo is public)" "" secret
+  have_tty && ask GH_TOKEN "GitHub read-only token for $REPO (blank if the repo is public)" "" secret   # optional: unattended installs of a public repo need none
   ask ALIGN_FQDN "Hostname users will browse to" "$(hostname -f 2>/dev/null || hostname)"
   echo "TLS options: selfsigned = certificate generated here (internal use)"
   echo "             letsencrypt = public DNS name reachable on port 80"
@@ -107,7 +107,7 @@ else
   [[ "$ALIGN_TLS" == "proxy" ]] && ask ALIGN_PROXY_IP "IP address of the reverse proxy" ""
   ask ALIGN_ADMIN_EMAIL "Admin user email" ""
   ask ALIGN_ADMIN_NAME "Admin user name" "Administrator"
-  ask ALIGN_TZ "Time zone" "$(timedatectl show -p Timezone --value 2>/dev/null || echo America/Los_Angeles)"
+  ask ALIGN_TZ "Time zone" "$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)"
   [[ "$ALIGN_FQDN" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || die "Hostname '$ALIGN_FQDN' is not valid."
   [[ "$ALIGN_TZ" =~ ^[A-Za-z0-9_+/-]+$ && -e "/usr/share/zoneinfo/$ALIGN_TZ" ]] || die "Time zone '$ALIGN_TZ' is not valid."
   [[ -z "${ALIGN_PROXY_IP:-}" || "$ALIGN_PROXY_IP" =~ ^[0-9A-Fa-f:.]+$ ]] || die "Proxy IP '$ALIGN_PROXY_IP' is not valid."
@@ -186,7 +186,8 @@ fi
 # -------------------------------------------------------------------- code --
 # 1.30.1: the project moved to github.com/MSP-ALIGN/MSP-ALIGN. An install still pulling from the old
 # repository switches to the new one, if the new one answers; otherwise it keeps the old one and warns.
-# Installs set up from any other repository (a fork, ALIGN_REPO) are left alone.
+# Installs whose origin is already some other repository (a fork) are left alone; an old-repo install run
+# with ALIGN_REPO=owner/name moves to that repository.
 move_origin() {
   local cur new
   cur=$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)
@@ -462,8 +463,12 @@ systemctl reload apache2 || systemctl restart apache2
 
 if [[ "$ALIGN_TLS" == "letsencrypt" && ! -d "/etc/letsencrypt/live/$ALIGN_FQDN" ]]; then
   log "Requesting Let's Encrypt certificate"
-  certbot --apache -d "$ALIGN_FQDN" -m "$ALIGN_LE_EMAIL" --agree-tos --non-interactive --redirect \
-    || warn "certbot failed - the site is on plain HTTP until you run: certbot --apache -d $ALIGN_FQDN"
+  if [[ -z "${ALIGN_LE_EMAIL:-}" ]]; then   # an upgrade doesn't ask; only a first install does
+    warn "No certificate yet and no email for Let's Encrypt - the site is on plain HTTP until you run: certbot --apache -d $ALIGN_FQDN"
+  else
+    certbot --apache -d "$ALIGN_FQDN" -m "$ALIGN_LE_EMAIL" --agree-tos --non-interactive --redirect \
+      || warn "certbot failed - the site is on plain HTTP until you run: certbot --apache -d $ALIGN_FQDN"
+  fi
 fi
 
 # ----------------------------------------------------------------- MariaDB --

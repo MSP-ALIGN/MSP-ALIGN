@@ -10,7 +10,7 @@ q("delete from contacts where client_id=1 and (source='manual' or email in ('jan
 q("update contacts set archived_at=NULL, archived_reason=NULL where client_id=1 and archived_reason='align'")
 q("update contacts set title='Office manager', decision_maker=0 where client_id=1 and name like 'Sam%%'"); import os; os.path.exists('/tmp/itflow-updates.log') and os.remove('/tmp/itflow-updates.log')
 setting("company_email","service@examplemsp.example"); setting("client_requests","1"); setting("onboarding_link_days","30")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 
 # ---- settings & templates
 t=st.get(B+"/settings/onboarding").text; ok(not errs(t) and "Welcome email" in t and "Onboarding page" in t,"Settings → Onboarding renders")

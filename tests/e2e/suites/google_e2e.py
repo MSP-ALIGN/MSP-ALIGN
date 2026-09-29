@@ -8,7 +8,7 @@ sa=json.load(open(WORK+"/sa.json"))
 requests.get(M+"/mock/graph-reset"); q("delete from mail_queue"); q("delete from meetings where title like 'G-%%'")
 q("delete from settings where name in ('g_sa_json','g_refresh_token','g_token_cache','g_client_id','g_client_secret','g_connected_as','g_connected_name','g_connected_at','g_calendar_granted')")
 for k,v in {"g_token_url":M+"/google/token","g_auth_url":M+"/google/auth","g_gmail_base":M+"/google/gmail","g_calendar_base":M+"/google/calendar","g_revoke_url":M+"/google/revoke","mail_meeting_mode":"calendar","mail_meeting_organizer":"owner","mail_teams_links":"1","notif_client_meeting_invite":"1","notif_client_portal_invite":"1"}.items(): setting(k,v)
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 
 # ---- service account
 F=form(st,"/integrations/email")
@@ -19,15 +19,15 @@ t=st.get(B+"/integrations/email").text
 ok("saved" in flash(r.text).lower() and "align@align-test.iam.gserviceaccount.com" in t and "109876543210987654321" in t and "Ready" in t,"service account saved; client ID shown for delegation")
 ok("gmail.send,https://www.googleapis.com/auth/calendar.events" in H.unescape(t),"scopes to authorize shown")
 raw=q("select value from settings where name='g_sa_json'")[0]["value"]; ok("PRIVATE KEY" not in raw,"key stored encrypted")
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"})
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"})
 g=gstate(); m=parse(g["mail"][-1]["raw"]) if g["mail"] else None
-ok("Test email sent" in flash(r.text) and m and g["mail"][-1]["user"]=="alerts@examplemsp.example" and m["To"]=="chris@example.com" and "Google Workspace" in m.get_body(("html",)).get_content(),"test sent through Gmail API as the From mailbox")
+ok("Test email sent" in flash(r.text) and m and g["mail"][-1]["user"]=="alerts@examplemsp.example" and m["To"]=="admin@example.com" and "Google Workspace" in m.get_body(("html",)).get_content(),"test sent through Gmail API as the From mailbox")
 bad=dict(sa); bad["client_email"]="other@x.iam.gserviceaccount.com"
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"g_sa_json":json.dumps(bad)})
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"})
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"})
 ok("Domain-wide delegation is not set up" in flash(r.text) and "109876543210987654321" in flash(r.text),"delegation missing explained: "+flash(r.text)[:100])
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"g_sa_json":json.dumps(sa),"mail_from":"someone@otherdomain.example"})
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"}); ok("doesn't recognise" in flash(r.text),"unknown mailbox explained")
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"}); ok("doesn't recognise" in flash(r.text),"unknown mailbox explained")
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"mail_from":"alerts@examplemsp.example"})
 
 # ---- MIME: inline image + attachment
@@ -43,8 +43,8 @@ img=[p for p in m.walk() if p.get_content_type()=="image/png"][0]; ok(img["Conte
 day=time.strftime("%Y-%m-%d",time.localtime(time.time()+3*86400))
 r=st.post(B+"/meetings",data={"_csrf":csrf(st,"/meetings"),"client_id":"1","title":"G-Review","type":"qbr","date":day,"time":"10:00","duration":"60","attendees":"Jordan <jordan@client.example>, sam@client.example","agenda":"Backups","send_invites":"1","owner_id":"1"})
 mt=q("select * from meetings where title='G-Review'")[0]; ev=gstate()["events"].get(mt["graph_event_id"] or "",{})
-ok("through Google Calendar with a Google Meet link" in flash(r.text) and ev.get("organizer",{}).get("email")=="chris@example.com" and ev.get("sendUpdates")=="all" and len(ev.get("attendees",[]))==2,"event in owner's calendar, guests notified: "+flash(r.text)[:90])
-ok(mt["video_url"] and "meet.google.com" in mt["video_url"] and mt["graph_mailbox"]=="google:chris@example.com","Meet link saved on the meeting")
+ok("through Google Calendar with a Google Meet link" in flash(r.text) and ev.get("organizer",{}).get("email")=="admin@example.com" and ev.get("sendUpdates")=="all" and len(ev.get("attendees",[]))==2,"event in owner's calendar, guests notified: "+flash(r.text)[:90])
+ok(mt["video_url"] and "meet.google.com" in mt["video_url"] and mt["graph_mailbox"]=="google:admin@example.com","Meet link saved on the meeting")
 st.post(B+f"/meetings/{mt['id']}",data={"_csrf":csrf(st,f"/meetings/{mt['id']}"),"action":"save","client_id":"1","title":"G-Review","type":"qbr","date":day,"time":"11:00","duration":"30","attendees":"jordan@client.example","send_invites":"1","owner_id":"1","video_url":mt["video_url"]})
 ev=gstate()["events"][mt["graph_event_id"]]; ok(ev["status"]=="updated" and ev["sendUpdates"]=="all" and len(ev["attendees"])==1,"update sent")
 r=st.post(B+f"/meetings/{mt['id']}",data={"_csrf":csrf(st,f"/meetings/{mt['id']}"),"action":"cancel"})
@@ -80,7 +80,7 @@ ok("access_type=offline" in loc and "code_challenge=" in loc and "gmail.send" in
 cb=requests.get(loc,allow_redirects=False).headers["Location"]
 r=st.get(cb); ok("Connected to Google Workspace as alerts@examplemsp.example" in flash(r.text),"callback connects: "+flash(r.text)[:80])
 q("delete from settings where name='g_token_cache'")
-r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"chris@example.com"}); g=gstate()
+r=st.post(B+"/integrations/email/test",data={"_csrf":csrf(st,"/integrations/email"),"to":"admin@example.com"}); g=gstate()
 ok("Test email sent" in flash(r.text) and g["calls"][-1]=="refresh_token" and parse(g["mail"][-1]["raw"])["From"].addresses[0].addr_spec=="alerts@examplemsp.example","delegated send uses the refresh token")
 st.post(B+"/meetings",data={"_csrf":csrf(st,"/meetings"),"client_id":"1","title":"G-Delegated","type":"qbr","date":day,"time":"16:00","duration":"30","attendees":"jordan@client.example","send_invites":"1","owner_id":"1"})
 md=q("select * from meetings where title='G-Delegated'")[0]; ok(md["graph_mailbox"]=="google:" and gstate()["events"][md["graph_event_id"]]["organizer"]["email"]=="alerts@examplemsp.example","delegated: event in the connected account's calendar")

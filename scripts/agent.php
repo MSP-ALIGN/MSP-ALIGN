@@ -781,13 +781,27 @@ function doUpdate(Job $job): array
         $job->step('Downloading the latest version');
         $job->must('git -C ' . q(APP) . ' fetch -q origin ' . q(BRANCH), 'Could not download the update from GitHub.');
         [, $target] = $job->run('git -C ' . q(APP) . ' show ' . q('origin/' . BRANCH . ':VERSION'), true);
-        if (trim($target) !== '' && version_compare(trim($target), $from, '<')) {
+        if (trim($target) === '') {
+            throw new JobFailed('Could not read the version on the ' . BRANCH . ' branch. Not updating.');
+        }
+        if (version_compare(trim($target), $from, '<')) {
             throw new JobFailed('The ' . BRANCH . ' branch has ' . trim($target) . ', older than this server (' . $from . '). Not updating to an older version.');
         }
+        [, $previous] = $job->run('git -C ' . q(APP) . ' rev-parse HEAD', true);
+        [, $migrations] = $job->run('git -C ' . q(APP) . ' diff --name-only HEAD ' . q('origin/' . BRANCH) . ' -- db/migrations', true);
+        $job->s['result']['previous_commit'] = trim($previous);
         $job->must('umask 022; git -C ' . q(APP) . ' reset -q --hard ' . q('origin/' . BRANCH), 'Could not apply the update.');
         $job->step('Installing ' . version() . ' (packages, database, services)');
-        $job->must(INSTALL_CMD !== '' ? INSTALL_CMD : 'umask 022; ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade',
-            'The installer reported an error.' . (is_file($safety) ? ' A safety copy of the data was kept.' : ''));
+        [$rc] = $job->run(INSTALL_CMD !== '' ? INSTALL_CMD : 'umask 022; ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade');
+        if ($rc !== 0) {
+            $kept = is_file($safety) ? ' A safety copy of the data was kept.' : '';
+            if (trim($migrations) === '' && trim($previous) !== '') {
+                // No database changes in this update, so the previous code fits the database as it is: put it back
+                [$back] = $job->run('umask 022; git -C ' . q(APP) . ' reset -q --hard ' . q(trim($previous)));
+                throw new JobFailed('The installer reported an error.' . ($back === 0 ? " The previous version's code ($from) was put back." : ' The code is now ' . version() . '.') . $kept);
+            }
+            throw new JobFailed("The installer reported an error. The code is now " . version() . " and the database may be partly updated; running the update again usually completes it.$kept");
+        }
         $to = version();
         @unlink($safety);
         $job->step('Checking for newer updates');

@@ -82,6 +82,13 @@ final class Mailer
             if (!$rows) {
                 return [0, 0];
             }
+            if (\Align\Staging::on() && \Align\Staging::mailTo() === null) {
+                // A test server with no test mailbox: nothing is sent, and the outbox says so rather than "sent"
+                foreach ($rows as $r) {
+                    DB::run("UPDATE mail_queue SET status = 'cancelled', last_error = 'Test server: no test mailbox (staging_mail_to), so nothing was sent.' WHERE id = ? AND status = 'queued'", [$r['id']]);
+                }
+                return [0, 0];
+            }
             $graph = Mail::client();
             $logo = Template::logo();
             foreach ($rows as $r) {

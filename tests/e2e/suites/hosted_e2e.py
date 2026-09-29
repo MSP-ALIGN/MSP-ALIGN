@@ -4,7 +4,7 @@ fails=[]
 def ok(c,m): print(("PASS " if c else "FAIL ")+m); c or fails.append(m)
 def q(sql,*a):
     with db.cursor() as c: c.execute(sql,a or None); return c.fetchall()
-def login(email="chris@example.com"):
+def login(email="admin@example.com"):
     s=requests.Session(); t=s.get(B+"/login").text; c=re.search(r'name="_csrf" value="([^"]+)"',t).group(1)
     r=s.post(B+"/login",data={"_csrf":c,"email":email,"password":"LongPassword123!"})
     if "code" in r.text.lower():

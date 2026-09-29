@@ -18,10 +18,10 @@ for _ in range(50):
         time.sleep(0.1)
 try:
     # ---- every page says so; the normal server doesn't
-    st = login("chris@example.com", "LongPassword123!", base=S_URL)
+    st = login("admin@example.com", "LongPassword123!", base=S_URL)
     t = st.get(S_URL + "/").text
     ok("Test server." in t and TEST_BOX in t and "navbar-warning" in t and "<title>[TEST]" in t and not errs(t), "banner, title and colour on the test server")
-    ok("Test server." not in login("chris@example.com", "LongPassword123!").get(B + "/").text, "the normal server shows no banner")
+    ok("Test server." not in login("admin@example.com", "LongPassword123!").get(B + "/").text, "the normal server shows no banner")
     t = st.get(S_URL + "/clients/1/report/assets").text
     ok("TEST SERVER — not for clients" in t, "printed reports are marked")
     t = st.get(S_URL + "/settings/system").text
@@ -72,7 +72,8 @@ try:
     nobox = WORK + "/staging-nobox.php"
     open(nobox, "w").write(open(SCFG).read().replace(f'"staging_mail_to" => "{TEST_BOX}"', '"staging_mail_to" => ""'))
     sphp('Align\\Mail\\Mailer::queue("test", [["address" => "client@clientco.example"]], "Not sent", "<p>x</p>", ["immediate" => true]);', {**ENV, "ALIGN_CONFIG": nobox})
-    ok(len(graph()["mail"]) == n and q("select status from mail_queue where subject='Not sent' order by id desc limit 1")[0]["status"] == "sent", "without a test mailbox nothing is sent")
+    r = q("select status, last_error from mail_queue where subject='Not sent' order by id desc limit 1")[0]
+    ok(len(graph()["mail"]) == n and r["status"] == "cancelled" and "no test mailbox" in (r["last_error"] or ""), "without a test mailbox nothing is sent, and the outbox says so")
     q("delete from mail_queue where subject in ('Quarterly review','Not sent')")
 
     # ---- meeting invitations: test events only; real events from the copied data are never touched

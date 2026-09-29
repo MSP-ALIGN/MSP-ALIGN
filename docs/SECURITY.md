@@ -1,4 +1,4 @@
-# MSP-ALIGN security (1.5.0)
+# MSP-ALIGN security
 
 This document describes how MSP-ALIGN protects client information, how its controls map to
 the HIPAA Security Rule technical safeguards (45 CFR 164.312), and what the operator (the MSP running it)

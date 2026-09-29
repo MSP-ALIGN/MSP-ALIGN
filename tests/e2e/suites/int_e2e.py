@@ -1,6 +1,6 @@
 from lib import *
 def f2(s,p,action=None): return form(s,p,'action="%s"'%(action or p))
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 
 # ---- hub
 t=st.get(B+"/integrations").text

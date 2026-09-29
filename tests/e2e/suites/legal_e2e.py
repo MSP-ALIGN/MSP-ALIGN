@@ -9,7 +9,7 @@ ok(anon.get(B+"/license/third-party/..%2F..%2Fconfig").status_code==404 and anon
 r=anon.get(B+"/portal/terms"); ok(r.status_code==200 and "Client portal terms of use" in r.text and "Agreement" in r.text and "/portal/login" in r.text,"portal terms public")
 ok('href="/terms"' in anon.get(B+"/login").text and 'href="/license"' in anon.get(B+"/login").text,"staff sign-in links terms and license")
 ok('href="/portal/terms"' in anon.get(B+"/portal/login").text,"portal sign-in links terms")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 t=st.get(B+"/terms").text; ok('main-sidebar' in t and "Terms of use" in t,"signed-in staff see terms in the app layout")
 d=st.get(B+"/").text; ok('href="/terms"' in d and 'href="/license"' in d and "Source" in d,"footer links")
 t=st.get(B+"/help").text; ok("Terms &amp; license" in t and 'href="/portal/terms"' in t,"help tab")

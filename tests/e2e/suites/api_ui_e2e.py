@@ -10,7 +10,7 @@ q("update settings set value='1' where name='api_enabled'")
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1400,"height":1000})
     errs=[]; pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto(B+"/login"); pg.fill("input[name=email]","chris@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); sitecustomize.after_login(pg,"chris@example.com")
+    pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); sitecustomize.after_login(pg,"admin@example.com")
     pg.goto(B+"/settings/api"); 
     ok(pg.is_visible("text=REST API") and pg.is_visible("a.nav-link.active:has-text('API')"),"Settings has an API tab")
     pg.is_visible("#api-name") or pg.click("button:has-text('New API key')"); pg.wait_for_timeout(400)  # the form opens by itself when there are no keys

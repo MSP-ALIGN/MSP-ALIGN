@@ -9,7 +9,7 @@ S=WORK
 API=B+"/api/v1"
 def php(code): return subprocess.run(["php","-r",'require "'+BOOTSTRAP+'"; '+code],env=ENV,capture_output=True,text=True)
 def align(*a): return subprocess.run(["php",ALIGN,*a],env=ENV,capture_output=True,text=True)
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 
 # ---- schema
 left=q("select table_name t, column_name c from information_schema.columns where table_schema=database() and (column_name like '%%ninja%%' or table_name like 'ninja%%')")

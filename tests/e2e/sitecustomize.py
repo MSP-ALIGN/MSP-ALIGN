@@ -1,7 +1,7 @@
 """Loaded automatically by Python when tests/e2e is on PYTHONPATH (run.sh does that): answers the
 2FA step for the seeded test accounts, for requests sessions and for Playwright pages (after_login)."""
 import time, hmac, hashlib, base64, struct, re
-SECRETS={"chris@example.com":"JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXA","tech@example.com":"KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU","viewer@example.com":"MFRGGZDFMZTWQ2LKMFRGGZDFMZTWQ2LK","new@example.com":"GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"}
+SECRETS={"admin@example.com":"JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXA","tech@example.com":"KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU","viewer@example.com":"MFRGGZDFMZTWQ2LKMFRGGZDFMZTWQ2LK","new@example.com":"GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"}
 _last={}
 def totp_at(secret, step):
     key=base64.b32decode(secret); h=hmac.new(key,struct.pack(">Q",step),hashlib.sha1).digest(); o=h[-1]&15

@@ -29,7 +29,7 @@ def age_session(sess,key,secs):
 q("delete from users where email like 'sec-%%'"); q("delete from login_attempts")
 q("update settings set value='15' where name='session_idle_minutes'")
 
-admin=requests.Session(); admin.post(B+"/login",data={"_csrf":csrf(admin,"/login"),"email":"chris@example.com","password":"LongPassword123!"})
+admin=requests.Session(); admin.post(B+"/login",data={"_csrf":csrf(admin,"/login"),"email":"admin@example.com","password":"LongPassword123!"})
 ok(admin.get(B+"/").url.endswith("/"),"admin signed in with 2FA")
 
 # ---- headers
@@ -119,7 +119,7 @@ v=requests.Session(); v.post(B+"/login",data={"_csrf":csrf(v,"/login"),"email":"
 r=v.post(B+"/calendar/feed",data={"_csrf":csrf(v,"/account")}); ok(r.status_code==403,"viewer can't create a feed")
 r=admin.post(B+"/calendar/feed",data={"_csrf":csrf(admin,"/account")})
 m=re.search(r'value="(http[^"]+/ics/([a-f0-9]+)\.ics)"',r.text); ok(m is not None,"feed link shown once")
-tok=m.group(2); ok(q("select ics_token from users where email='chris@example.com'")[0]["ics_token"]==hashlib.sha256(tok.encode()).hexdigest(),"only token hash stored")
+tok=m.group(2); ok(q("select ics_token from users where email='admin@example.com'")[0]["ics_token"]==hashlib.sha256(tok.encode()).hexdigest(),"only token hash stored")
 ok("/ics/" not in admin.get(B+"/account").text,"link not shown again")
 q("update meetings set agenda='SECRET AGENDA', attendees='bob@secret.example' where client_id=1")
 feed=requests.get(B+f"/ics/{tok}.ics").text; ok("BEGIN:VCALENDAR" in feed and "SECRET AGENDA" not in feed and "bob@secret" not in feed,"feed has no agenda/attendees")

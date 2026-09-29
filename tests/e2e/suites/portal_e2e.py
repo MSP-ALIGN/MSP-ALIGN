@@ -49,7 +49,7 @@ d1=q("select id from documents where title='PT Shared C1'")[0]["id"]; d2=q("sele
 
 # ---- staff invites
 staff=requests.Session()
-staff.post(B+"/login",data={"_csrf":csrf(staff,"/login"),"email":"chris@example.com","password":"LongPassword123!"})
+staff.post(B+"/login",data={"_csrf":csrf(staff,"/login"),"email":"admin@example.com","password":"LongPassword123!"})
 t=staff.get(B+"/clients/1/portal").text; ok("Portal users" in t and "Client portal" in t and not errs(t),"staff portal page "+str(errs(t)[:1]))
 tok=csrf(staff,"/clients/1/portal")
 r=staff.post(B+"/clients/1/portal",data={"_csrf":tok,"name":"Jordan Ellis","email":"Jordan@Client.example","can_roadmap":"1","can_budget":"1","can_devices":"1","can_documents":"1","can_approve":"1","can_contacts":"1"})

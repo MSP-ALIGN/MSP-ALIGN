@@ -108,7 +108,7 @@ The installer asks for:
 
 It installs Apache, PHP, MariaDB and git; creates the database, config and encryption key; sets up the site, an hourly sync timer, the update and backup service and automatic security updates.
 
-Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when needed) and it won't prompt.
+Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when the TLS mode needs one, and `GH_TOKEN` for a private fork) and it won't prompt. Optional: `ALIGN_ADMIN_NAME`, `ALIGN_REPO=owner/name`, `ALIGN_BRANCH`, `ALIGN_FIREWALL=0` (leave ufw alone), `ALIGN_DB_ENCRYPT=0` (no MariaDB encryption at rest), `ALIGN_FORCE=1` (skip the Debian 13 check), `ALIGN_RECONFIGURE=1` (rewrite the Apache site on an existing install).
 
 ## First-time setup
 
@@ -131,7 +131,7 @@ Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus 
 sudo msp-align-update
 ```
 
-Either one makes a safety copy, pulls the latest `main`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
+Either one makes a safety copy, pulls the latest code from the update branch (`main`, or `update_branch` in `config.php` on a test server), installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds; if the installer fails and the update had no database changes, the previous version is put back. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
 
 ## Operations
 
@@ -182,11 +182,11 @@ To point at the mocks, set `ninja_instance`, `itflow_url`, `dell_api_base` and `
 
 **Profiling:** add `'profile' => '/tmp/align-profile.log'` to the config and each request appends its time, query count, database time, slow queries (`'profile_slow_ms'`, default 50) and repeated queries.
 
-Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, jQuery, Font Awesome, FullCalendar; see their LICENSE files) · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.
+Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, jQuery, Font Awesome, FullCalendar; see their LICENSE files) · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL and PHP files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.
 
 ## License
 
-MSP-ALIGN is free software, copyright © 2026 Mountaineer IT Inc. and MSP-ALIGN contributors, licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty.
+MSP-ALIGN is free software, copyright © 2026 Mountaineer IT Inc. and MSP-ALIGN contributors, licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty. The repository's [LICENSE](LICENSE) file covers every file in it, whether or not the file carries its own header.
 
 MSP-ALIGN was started by [Mountaineer IT](https://mountaineerit.com), an MSP in Northern California, and is now developed in the open at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Contributions are welcome under the same license.
 

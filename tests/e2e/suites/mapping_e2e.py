@@ -6,7 +6,7 @@ def ok(c,m): print(("PASS " if c else "FAIL ")+m); c or fails.append(m)
 def q(sql,*a):
     with db.cursor() as c: c.execute(sql,a or None); return c.fetchall()
 def php(code): return subprocess.run(["php","-r",'require "'+BOOTSTRAP+'"; '+code],env=ENV,capture_output=True,text=True)
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 C1="11111111-1111-1111-1111-111111111111"; C2="22222222-2222-2222-2222-222222222222"
 link=lambda cid,p: (q("select external_id, match_method from client_links where client_id=%s and provider=%s",cid,p) or [None])[0]
 before=q("select * from client_links order by client_id, provider")
@@ -102,6 +102,7 @@ q("insert into clients (name, source, is_archived, planning_excluded) values ('Z
 ids={r["name"]:r["id"] for r in q("select id,name from clients where name like 'Zz %%'")}
 q("insert into rmm_orgs (provider, org_id, name, synced_at) values ('ninjaone','9911','ZZ ACME TEST INC',now()),('ninjaone','9912','Zz Kept Out',now()),('ninjaone','9913','Zz Twin',now()),('ninjaone','9914','zz twin llc',now())")
 q("insert into client_links (client_id, provider, external_id, match_method) values (%s,'ninjaone',NULL,'manual')",ids["Zz Kept Out Inc"])
+q("insert into client_links (client_id, provider, external_id, match_method) values (%s,'ninjaone',NULL,'auto')",ids["Zz Acme Test, LLC"])  # a stray row (pruned link): not "kept unlinked"
 q("insert into backup_companies (provider, uid, name, synced_at) values ('veeam','zz-bk-1','Zz Acme Test Incorporated',now())")
 n=json.loads(php('echo json_encode([Align\\Providers\\ClientLinks::autoMatch("ninjaone"), Align\\Providers\\ClientLinks::autoMatch("veeam", true)]);').stdout)
 ok(link(ids["Zz Acme Test, LLC"],"ninjaone")=={"external_id":"9911","match_method":"auto"},"RMM: same name after dropping punctuation, case and LLC/Inc links")

@@ -3,9 +3,9 @@ import re, sitecustomize
 fails=[]
 def ok(c,m): print(("PASS " if c else "FAIL ")+m); c or fails.append(m)
 s=requests.Session(); t=s.get(B+"/login").text; c=re.search(r'name="_csrf" value="([^"]+)"',t).group(1)
-r=s.post(B+"/login",data={"_csrf":c,"email":"chris@example.com","password":"LongPassword123!"})
+r=s.post(B+"/login",data={"_csrf":c,"email":"admin@example.com","password":"LongPassword123!"})
 if "code" in r.text.lower():
-    c=re.search(r'name="_csrf" value="([^"]+)"',r.text).group(1); s.post(r.url,data={"_csrf":c,"code":sitecustomize.next_code("chris@example.com")})
+    c=re.search(r'name="_csrf" value="([^"]+)"',r.text).group(1); s.post(r.url,data={"_csrf":c,"code":sitecustomize.next_code("admin@example.com")})
 def text(path): return H.unescape(re.sub(r"<[^>]+>"," ",s.get(B+path).text))
 def inorder(t, items, label):
     # each item must appear after the previous one
