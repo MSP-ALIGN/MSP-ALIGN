@@ -10,7 +10,7 @@ use Align\Settings;
 /**
  * Google Workspace: sends through the Gmail API and makes meeting invitations with Google Calendar.
  *
- * Two ways to sign in (Integrations → Microsoft 365 / Google Workspace):
+ * Two ways to sign in (Integrations → Email):
  *  - app:       a Google Cloud service account with domain-wide delegation. A Workspace super admin
  *               authorizes its client ID for the gmail.send and calendar.events scopes; Align then signs
  *               a JWT (RS256) to act as the sending mailbox (or the meeting owner for invitations).
@@ -228,45 +228,10 @@ final class Google
             ['raw' => rtrim(strtr(base64_encode($raw), '+/', '-_'), '=')]);
     }
 
-    /** RFC 5322 / MIME message: HTML body with inline images (multipart/related) plus attachments. */
+    /** RFC 5322 / MIME message (see Mime::build). */
     public static function mime(string $from, string $fromName, array $to, array $cc, ?string $replyTo, string $subject, string $html, array $attachments): string
     {
-        // No CR/LF may survive into a header (header injection); non-ASCII becomes folded RFC 2047 words
-        $clean = fn(string $s) => trim(str_replace(["\r\n", "\r", "\n", "\0"], ' ', $s));
-        $word = fn(string $s) => preg_match('/[^\x20-\x7E]/', $s) ? mb_encode_mimeheader($s, 'UTF-8', 'B', "\r\n ") : $s;
-        $addr = function (array $r) use ($clean, $word) {
-            $a = $clean((string) $r['address']);
-            $n = $clean((string) ($r['name'] ?? ''));
-            return $n !== '' ? (preg_match('/[^\x20-\x7E]/', $n) ? $word($n) : '"' . addcslashes($n, '"\\') . '"') . " <$a>" : $a;
-        };
-        $host = parse_url(\Align\Portal\PortalAuth::baseUrl(), PHP_URL_HOST) ?: 'align.local';
-        $h = ['From: ' . $addr(['address' => $from, 'name' => $fromName]), 'To: ' . implode(', ', array_map($addr, $to))];
-        if ($cc) {
-            $h[] = 'Cc: ' . implode(', ', array_map($addr, $cc));
-        }
-        if ($replyTo) {
-            $h[] = 'Reply-To: ' . $clean($replyTo);
-        }
-        array_push($h, 'Subject: ' . $word($clean($subject)), 'Date: ' . date(DATE_RFC2822), 'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $host . '>', 'MIME-Version: 1.0');
-        $b64 = fn(string $s) => rtrim(chunk_split(base64_encode($s), 76, "\r\n"));
-        $inline = array_filter($attachments, fn($a) => !empty($a['inline_id']));
-        $files = array_filter($attachments, fn($a) => empty($a['inline_id']));
-        $bm = 'mix_' . bin2hex(random_bytes(8));
-        $br = 'rel_' . bin2hex(random_bytes(8));
-        $part = fn(array $a, bool $isInline) => 'Content-Type: ' . $clean($a['type']) . '; name="' . addcslashes($clean($a['name']), '"\\') . "\"\r\n"
-            . "Content-Transfer-Encoding: base64\r\n"
-            . ($isInline ? 'Content-ID: <' . $clean($a['inline_id']) . ">\r\nContent-Disposition: inline; filename=\"" : 'Content-Disposition: attachment; filename="')
-            . addcslashes($clean($a['name']), '"\\') . "\"\r\n\r\n" . $b64($a['content']);
-        $body = "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . $b64($html);
-        if ($inline) {
-            $body = "Content-Type: multipart/related; boundary=\"$br\"\r\n\r\n--$br\r\n$body\r\n"
-                . implode('', array_map(fn($a) => "--$br\r\n" . $part($a, true) . "\r\n", $inline)) . "--$br--";
-        }
-        if ($files) {
-            $body = "Content-Type: multipart/mixed; boundary=\"$bm\"\r\n\r\n--$bm\r\n$body\r\n"
-                . implode('', array_map(fn($a) => "--$bm\r\n" . $part($a, false) . "\r\n", $files)) . "--$bm--";
-        }
-        return implode("\r\n", $h) . "\r\n" . $body . "\r\n";
+        return Mime::build($from, $fromName, $to, $cc, $replyTo, $subject, $html, $attachments);
     }
 
     // ---- Meeting invitations (same shape as Graph::calendar*) ----------------------------------

@@ -12,7 +12,8 @@ use Align\Settings;
  * Meeting invitations and reminders.
  *  - calendar mode (default): the meeting is created in Outlook through Graph, so Exchange sends real
  *    invitations, updates and cancellations, attendees can accept, and a Teams link can be added.
- *  - ics mode: an email with an .ics invitation attached (works with any mail system).
+ *  - ics mode: an email with an .ics invitation attached (works with any mail system). Always used with
+ *    SMTP, where the invitation is also sent as a text/calendar part so mail apps show Accept / Decline.
  */
 final class Invites
 {
@@ -63,9 +64,10 @@ final class Invites
             return null;
         }
         try {
-            $ics = Settings::get('mail_meeting_mode', 'calendar') === 'ics'
+            $ics = Settings::get('mail_meeting_mode', 'calendar') === 'ics' || !Mail::hasCalendar()
                 || (Mail::provider() === 'google' && Mail::mode() === 'delegated' && Settings::get('g_calendar_granted') === '0');
-            return $ics ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action);
+            $note = !Mail::hasCalendar() && $m['graph_event_id'] ? ' It was first sent as a calendar invitation, so also ' . ($action === 'cancel' ? 'cancel' : 'update') . ' it in that calendar.' : '';
+            return ($ics ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action)) . $note;
         } catch (\Throwable $e) {
             \Align\Audit::log('meeting.invite_failed', $m['title'] . ': ' . $e->getMessage());
             return 'Invitations were not sent: ' . $e->getMessage();
@@ -100,6 +102,7 @@ final class Invites
     {
         $c = Mail::client();
         [$evProvider, $mailbox] = self::stored($m);
+        // (never reached with SMTP: send() uses .ics emails there)
         // An event made with the other provider (settings changed since) can't be updated from here
         $eventId = $m['graph_event_id'] && $evProvider === Mail::provider() ? $m['graph_event_id'] : null;
         if ($action === 'cancel') {

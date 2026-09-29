@@ -183,7 +183,7 @@ try {
             $say('  user:reset-password --email=E [--clear-2fa]');
             $say('  audit:verify                    Check the audit log hash chain for tampering');
             $say('  mail:run [--force] [--quiet]    Send queued email, reminders and due digests (runs every minute)');
-            $say('  mail:test --to=EMAIL            Send a test email through Microsoft 365 / Google');
+            $say('  mail:test --to=EMAIL            Send a test email through the email connection');
             $say('  audit:prune                     Remove audit entries past the 6-year retention period');
             $say('  check                           Verify config and database');
             $say('Updates, backups and restores: Settings -> Updates & backups, or sudo msp-align-update / msp-align-restore FILE');

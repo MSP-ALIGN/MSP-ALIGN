@@ -7,14 +7,14 @@ use Align\Integrations\Connector;
 use Align\Mail\Mail;
 use Align\Mail\Mailer;
 
-/** Microsoft 365 / Google Workspace. Has its own page (OAuth sign-in, provider choice). */
+/** Email: Microsoft 365, Google Workspace or an SMTP server. Has its own page (OAuth sign-in, provider choice). */
 final class Email extends Connector
 {
     public function key(): string { return 'email'; }
-    public function name(): string { return 'Microsoft 365 / Google Workspace'; }
+    public function name(): string { return 'Email (Microsoft 365, Google or SMTP)'; }
     public function icon(): string { return 'fas fa-envelope'; }
     public function category(): string { return 'Email & calendar'; }
-    public function summary(): string { return 'Sends notifications, digests, portal invitations and calendar invitations (Outlook/Teams or Google Calendar/Meet) over OAuth.'; }
+    public function summary(): string { return 'Sends notifications, digests, portal invitations and meeting invitations: through Microsoft 365 or Google Workspace (Outlook/Teams or Google Calendar/Meet invitations), or any SMTP server (.ics invitations).'; }
     public function direction(): string { return 'Send only'; }
 
     public function configured(): bool

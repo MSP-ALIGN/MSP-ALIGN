@@ -133,7 +133,7 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
       <div class="card-footer d-flex flex-wrap align-items-center">
         <div class="custom-control custom-checkbox mr-auto"><input type="checkbox" class="custom-control-input" id="cc-me" name="cc_me" value="1" checked><label class="custom-control-label small" for="cc-me">Send me a copy</label></div>
         <button class="btn btn-default mr-2 mt-1" name="action" value="link" formnovalidate title="Make the link without sending, to paste into your own email"><i class="fas fa-link mr-1"></i>Create link only</button>
-        <button class="btn btn-primary mt-1" name="action" value="send" <?= $mailReady ? '' : 'disabled title="Connect Microsoft 365 or Google Workspace under Integrations to send from Align"' ?>><i class="fas fa-paper-plane mr-1"></i><?= $sent ? 'Send again' : 'Send welcome email' ?></button>
+        <button class="btn btn-primary mt-1" name="action" value="send" <?= $mailReady ? '' : 'disabled title="Set up Email under Integrations to send from Align"' ?>><i class="fas fa-paper-plane mr-1"></i><?= $sent ? 'Send again' : 'Send welcome email' ?></button>
       </div>
       <?php if (!$mailReady): ?><div class="card-footer small text-muted py-1">Email isn't connected, so use <b>Create link only</b> and send it from your own mailbox.</div><?php endif; ?>
     </form>

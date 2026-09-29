@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.37', 'fa-server', 'Email through any SMTP server', 'Send notifications, portal invitations and meeting invitations through your own mail server or a relay (SMTP2GO, Mailgun, SendGrid, Amazon SES, or the Microsoft 365 / Google relay), with STARTTLS or TLS and an optional user name and password. Meeting invitations go out as .ics emails with Accept / Decline.', 'email', 'admin'],
         ['1.36', 'fa-circle-nodes', 'No PSA needed', 'Run MSP-ALIGN with just your RMM: add clients from its organizations on Client mapping, or import clients and contacts from a CSV file (Clients → Import). Screens leave out what only a PSA provides.', 'no-psa', 'tech'],
         ['1.35', 'fa-folder-tree', 'Server folders renamed', 'On the server, MSP-ALIGN now lives in /opt/msp-align, /etc/msp-align and /var/lib/msp-align, and its services and logs are named msp-align. The update moved everything in place; the old mountaineer-align folder names and commands still work.', 'update', 'admin'],
         ['1.32.1', 'fa-flask', 'Test servers', 'A test server can run the next version on a copy of your data in staging mode: it reads from your tools as usual, but writes nothing back, sends email only to one test mailbox and keeps the client portal off. See docs/TEST-SERVER.md.', 'update', 'admin'],
@@ -204,7 +205,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <?= $guide('meeting', 'fa-handshake', 'Schedule a review and send invitations', 'tech', [
       'Use the <b>+</b> menu → <b>Schedule meeting</b>, or the client\'s <b>Meetings</b>.',
       'Add attendees in one click from the client\'s review invitees, and tick <b>Email invitations to attendees</b>.',
-      'With email connected, invitations are real Outlook or Google Calendar invites (with an optional Teams or Meet link); changes and cancellations follow automatically.',
+      'With Microsoft 365 or Google Workspace connected, invitations are real Outlook or Google Calendar invites (with an optional Teams or Meet link); changes and cancellations follow automatically. With an SMTP server they are emails with an .ics invitation, which mail apps show with Accept / Decline; updates and cancellations are emailed the same way.',
       'Everyone\'s meetings are also on <b>Meetings → Calendar</b>, which you can subscribe to from Outlook or Google.',
   ], ['Meetings' => '/meetings', 'Calendar' => '/calendar']) ?>
   <?= $guide('qbr', 'fa-print', 'Prepare a QBR pack', 'viewer', [
@@ -233,12 +234,14 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Administration</h6>
   <?php endif; ?>
   <?= $guide('integration', 'fa-plug', 'Connect or change an integration', 'admin', [
-      'Open <b>Integrations</b> and click the card (' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', Microsoft 365 / Google Workspace, Dell, Lenovo).',
+      'Open <b>Integrations</b> and click the card (' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', Email, Dell, Lenovo).',
       'Follow <b>How to set it up</b> on the right, enter the details and <b>Save</b>. Keys are encrypted and never shown again; leave a key blank to keep it.',
       'Press <b>Test connection</b>, then run a sync (<b>Integrations → Sync</b>). Each card shows the result of the last sync.',
   ], ['Integrations' => '/integrations']) ?>
   <?= $guide('email', 'fa-envelope', 'Set up email and notifications', 'admin', [
-      'Open <b>Integrations → Microsoft 365 / Google Workspace</b>, choose the provider and connection type, and follow the steps on the page. Send a test.',
+      'Open <b>Integrations → Email</b> and choose Microsoft 365, Google Workspace or an SMTP server. For Microsoft or Google, pick the connection type and follow the steps on the page.',
+      'For SMTP, enter the server, port and security (STARTTLS on 587, or TLS from the start on 465), the user name and password or API key if the server needs one, and the From address. A relay on your own network that trusts this server can use port 25 with no sign-in; a password is never sent without encryption. Switch off the certificate check only for an internal relay with its own certificate.',
+      'Save, then <b>Send test</b>: it goes straight away, so any error from the server shows on the page.',
       'Then open <b>Settings → Notifications</b> to choose which emails are sent, who gets them by default, when digests go out and how meeting invitations are sent.',
       'The <b>Email log</b> (on the same page) shows everything sent, queued or failed, with retry.',
   ], ['Mail connection' => '/integrations/email', 'Notifications' => '/settings/notifications']) ?>
@@ -321,7 +324,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
             <tr><th>Service levels (SLA)</th><td><?= e(psa_name()) ?> tickets and SLA results, hourly; only numbers, subjects, priorities and times are copied</td></tr>
             <tr><th>New user &amp; termination requests</th><td>Sent from onboarding or the portal; become <?= e(psa_name()) ?> tickets (or an email without <?= e(psa_name()) ?>)</td></tr>
             <tr><th>Backups</th><td><?= e($bk(', ')) ?> (read-only), hourly: servers, VMs, agents and Microsoft 365</td></tr>
-            <tr><th>Email &amp; invitations</th><td>Microsoft 365 or Google Workspace over OAuth, sent every minute</td></tr>
+            <tr><th>Email &amp; invitations</th><td>Microsoft 365 or Google Workspace over OAuth, or any SMTP server, sent every minute</td></tr>
             <tr><th>Updates &amp; app backups</th><td>GitHub checked every 6 hours; backups downloaded from Settings → Updates &amp; backups</td></tr>
             <tr><th>Projects, budget lines, compliance, documents, meetings, onboarding progress, dashboard layout</th><td>Align</td></tr>
           </table>

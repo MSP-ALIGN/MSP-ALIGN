@@ -102,7 +102,8 @@ final class Mailer
                     }
                     $graph->sendMail(json_decode($r['recipients'], true) ?: [], $r['subject'], (string) $r['body_html'],
                         json_decode((string) $r['cc'], true) ?: [], $att, $r['reply_to'] ?: null);
-                    DB::run("UPDATE mail_queue SET status = 'sent', sent_at = NOW(), attempts = attempts + 1, last_error = NULL WHERE id = ?", [$r['id']]);
+                    // SMTP: sent, but some recipients were refused (shown in the email log)
+                    DB::run("UPDATE mail_queue SET status = 'sent', sent_at = NOW(), attempts = attempts + 1, last_error = ? WHERE id = ?", [$graph instanceof Smtp ? $graph->lastWarning : null, $r['id']]);
                     if (in_array($r['kind'], self::SENSITIVE, true)) {
                         DB::run('UPDATE mail_queue SET body_html = NULL, attachments = NULL, purged = 1 WHERE id = ?', [$r['id']]);
                     }
@@ -115,8 +116,8 @@ final class Mailer
                         date('Y-m-d H:i:s', time() + 60 * (self::BACKOFF_MIN[min($n - 1, count(self::BACKOFF_MIN) - 1)])), $r['id'],
                     ]);
                     $failed++;
-                    if ($e instanceof GraphException && in_array($e->getCode(), [401, 403], true)) {
-                        break; // credentials problem: no point trying the rest now
+                    if ($e instanceof GraphException && in_array($e->getCode(), [401, 403, 503], true)) {
+                        break; // credentials or settings problem, or the server can't be reached: no point trying the rest now
                     }
                 }
             }

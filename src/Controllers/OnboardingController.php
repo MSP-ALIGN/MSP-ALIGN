@@ -75,7 +75,7 @@ final class OnboardingController
             redirect("/clients/$id/onboarding");
         }
         if (!$linkOnly && !Mail::ready()) {
-            flash('error', 'Email isn\'t set up yet (Integrations → Microsoft 365 / Google Workspace). Use "Create link only" and send it from your own email.');
+            flash('error', 'Email isn\'t set up yet (Integrations → Email). Use "Create link only" and send it from your own email.');
             redirect("/clients/$id/onboarding");
         }
         $subject = mb_substr(post('subject'), 0, 255) ?: 'Welcome';

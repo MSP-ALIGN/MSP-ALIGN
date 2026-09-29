@@ -93,7 +93,7 @@
   <?= csrf_field() ?>
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-bell mr-2"></i>Email notifications</h3></div>
   <?php if (!$mailOn): ?>
-    <div class="card-body small text-muted">Email isn't set up yet<?= \Align\Auth::can('admin') ? ' (<a href="/integrations/email">Integrations → Microsoft 365 / Google Workspace</a>)' : '' ?>. Your choices here apply once it is.</div>
+    <div class="card-body small text-muted">Email isn't set up yet<?= \Align\Auth::can('admin') ? ' (<a href="/integrations/email">Integrations → Email</a>)' : '' ?>. Your choices here apply once it is.</div>
   <?php endif; ?>
   <div class="card-body">
     <div class="form-group">
