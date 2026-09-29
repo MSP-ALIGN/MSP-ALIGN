@@ -159,7 +159,7 @@ final class ClientController
             flash('error', "Client added, but the logo wasn't saved: $err");
             redirect("/clients/$id");
         }
-        flash('success', "Added {$f['name']}. If it's later created in " . psa_name() . " with the same name, the sync links them automatically.");
+        flash('success', "Added {$f['name']}." . (psa_on() ? " If it's later created in " . psa_name() . ' with the same name, the sync links them automatically.' : ''));
         redirect("/clients/$id");
     }
 

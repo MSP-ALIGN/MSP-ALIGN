@@ -108,6 +108,56 @@ final class ClientLinks
         return $matched;
     }
 
+    /**
+     * Makes a client for each of an RMM's organizations that no client is linked to, named after it and linked to
+     * it (source 'manual', so a PSA connected later adopts it by name). Organizations a client was already made
+     * from are skipped, so deleting that client keeps it gone. $orgIds limits it to those organizations.
+     * Returns the names of the clients made.
+     */
+    public static function createClientsFromOrgs(string $provider, ?array $orgIds = null): array
+    {
+        if (!isset(Providers::rmmConnectors()[$provider])) {
+            return [];
+        }
+        self::autoMatch($provider); // an existing client with the same name gets linked instead
+        $made = [];
+        $taken = [];
+        foreach (DB::all('SELECT name FROM clients WHERE is_archived = 0') as $c) {
+            $taken[self::normalizeName((string) $c['name'])] = true;
+        }
+        $rows = DB::all('SELECT o.org_id, o.name FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
+            WHERE o.provider = ? AND l.client_id IS NULL AND o.client_created_at IS NULL ORDER BY o.name', [$provider]);
+        foreach ($rows as $o) {
+            if ($orgIds !== null && !in_array((string) $o['org_id'], array_map('strval', $orgIds), true)) {
+                continue;
+            }
+            $name = mb_substr(trim((string) $o['name']), 0, 255);
+            if ($name === '' || isset($taken[self::normalizeName($name)])) {
+                continue; // same name as a client that is linked elsewhere or kept unlinked: leave it for a person
+            }
+            DB::transaction(function () use ($provider, $o, $name, &$made, &$taken) {
+                // the button and a sync can run at once: take the organization first, then check it's still free
+                $still = DB::one('SELECT o.client_created_at, l.client_id FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
+                    WHERE o.provider = ? AND o.org_id = ? FOR UPDATE', [$provider, $o['org_id']]);
+                if (!$still || $still['client_created_at'] !== null || $still['client_id'] !== null) {
+                    return;
+                }
+                $taken[self::normalizeName($name)] = true;
+                $id = DB::insert('clients', ['name' => $name, 'source' => 'manual']);
+                self::set($id, $provider, (string) $o['org_id'], 'auto');
+                DB::run('UPDATE rmm_orgs SET client_created_at = NOW() WHERE provider = ? AND org_id = ?', [$provider, $o['org_id']]);
+                $made[] = $name;
+            });
+        }
+        return $made;
+    }
+
+    /** Whether new RMM organizations become clients on every sync (installs without a PSA). */
+    public static function autoCreates(): bool
+    {
+        return \Align\Settings::get('rmm_create_clients', '0') === '1' && !Providers::psaConfigured();
+    }
+
     /** Where a provider's linkable records live: [table, id column]. */
     private static function recordTable(string $provider): ?array
     {

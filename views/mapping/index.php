@@ -2,7 +2,7 @@
 /**
  * Client mapping: one column group per connector that links clients (each RMM, each backup product, ...).
  * @var array $clients, $providers (key => name, noun, icon, count_label, configured, backup, connector_name, records, unlinked, links, summary, linked);
- *      int $total, $missing; string $show; bool $anyBackupCompanies
+ *      int $total, $missing; string $show; bool $anyBackupCompanies, $autoCreate
  */
 $how = function (?array $link): string {
     if (!$link) {
@@ -44,6 +44,19 @@ $cols = 1 + 3 * count($providers);
               <?= e(implode(', ', array_map(fn($r) => $r['name'] . ' (' . $r['count'] . ')', $p['unlinked']))) ?><?php if ($p['backup']): ?>. If one is your own backup server, its machines are sorted into clients under <a href="/mapping/backups">Hosted backups</a><?php endif; ?>.</div>
           <?php else: ?>
             <div class="small text-muted mt-1"><i class="fas fa-circle-check text-success mr-1"></i>Every <?= e($p['noun']) ?> is linked to a client.</div>
+          <?php endif; ?>
+          <?php if (!empty($p['creates']) && $p['records']): $creatable = (int) ($p['creatable'] ?? 0); $autoCreate = !empty($autoCreate); ?>
+            <div class="d-flex flex-wrap align-items-center mt-2">
+              <?php if ($creatable): ?>
+              <form method="post" action="/mapping/create-clients" class="mr-3 mb-1"><?= csrf_field() ?><input type="hidden" name="provider" value="<?= e($key) ?>">
+                <button class="btn btn-xs btn-primary" data-confirm="Add a client for each of the <?= $creatable ?> <?= e($plural($p['noun'], $creatable)) ?> not linked yet?"><i class="fas fa-user-plus mr-1"></i>Add <?= $creatable ?> client<?= $creatable === 1 ? '' : 's' ?> from <?= e($plural($p['noun'], $creatable)) ?></button></form>
+              <?php endif; ?>
+              <?php if (\Align\Auth::can('admin')): ?>
+              <form method="post" action="/mapping/create-clients" class="mb-1"><?= csrf_field() ?><input type="hidden" name="provider" value="<?= e($key) ?>"><input type="hidden" name="action" value="auto"><input type="hidden" name="auto" value="<?= $autoCreate ? '0' : '1' ?>">
+                <button class="btn btn-xs btn-default"><i class="fas fa-toggle-<?= $autoCreate ? 'on text-success' : 'off' ?> mr-1"></i><?= $autoCreate ? 'New ' . e($plural($p['noun'], 2)) . ' become clients on each sync' : 'Also add clients for new ' . e($plural($p['noun'], 2)) . ' on each sync' ?></button></form>
+              <?php endif; ?>
+            </div>
+            <div class="small text-muted">No PSA is connected, so clients can come from here. Each <?= e($p['noun']) ?> becomes a client once; one you delete isn't added again.</div>
           <?php endif; ?>
         </div>
       </div>

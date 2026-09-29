@@ -31,6 +31,11 @@ final class MappingController
                 'count_label' => $c->linkCountLabel(),
                 'configured' => $c->configured(),
                 'backup' => $c instanceof \Align\Integrations\BackupConnector,
+                // No PSA: an RMM's organizations can become clients (once each; see ClientLinks::createClientsFromOrgs)
+                'creates' => $c instanceof \Align\Integrations\RmmConnector && !Providers::psaConfigured(),
+                'creatable' => $c instanceof \Align\Integrations\RmmConnector && !Providers::psaConfigured()
+                    ? (int) DB::value('SELECT COUNT(*) FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
+                        WHERE o.provider = ? AND l.client_id IS NULL AND o.client_created_at IS NULL', [$key]) : 0,
                 'connector_name' => $c->name(),
                 'records' => $records,
                 'unlinked' => array_values(array_filter($records, fn($r) => $r['client_id'] === null)),
@@ -51,7 +56,30 @@ final class MappingController
             'show' => $show,
             'providers' => $providers,
             'anyBackupCompanies' => (bool) array_filter($providers, fn($p) => $p['backup'] && $p['records']),
+            'autoCreate' => \Align\Settings::get('rmm_create_clients', '0') === '1',
         ]);
+    }
+
+    /** Without a PSA: make a client for each unlinked organization of an RMM, and optionally keep doing it on sync. */
+    public static function createClients(): void
+    {
+        Auth::requireRole('tech');
+        $key = (string) post('provider');
+        if (Providers::psaConfigured() || !isset(Providers::rmmConnectors()[$key])) {
+            redirect('/mapping');
+        }
+        if (post('action') === 'auto') {
+            Auth::requireRole('admin');
+            $on = post('auto') === '1';
+            \Align\Settings::set('rmm_create_clients', $on ? '1' : '0');
+            \Align\Audit::log('settings.rmm_create_clients', $on ? 'On' : 'Off');
+            flash('success', $on ? 'New organizations will become clients on each sync.' : 'New organizations will no longer become clients automatically.');
+            redirect('/mapping');
+        }
+        $made = ClientLinks::createClientsFromOrgs($key);
+        \Align\Audit::log('client.create_from_rmm', count($made) . ' from ' . Providers::rmmConnectors()[$key]->name() . ($made ? ': ' . implode(', ', array_slice($made, 0, 20)) : ''));
+        flash('success', $made ? 'Added ' . count($made) . ' client' . (count($made) === 1 ? '' : 's') . ', each linked to its organization.' : 'No new clients: every organization already has one (or a client with the same name).');
+        redirect('/mapping');
     }
 
     /**

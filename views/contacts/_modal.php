@@ -38,7 +38,7 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
           </div>
           <div class="form-row">
             <div class="form-group col-md-4"><label>Location<?= $tag ?></label><input name="location" class="form-control" value="<?= e($k['location'] ?? '') ?>" <?= $roFixed ?>></div>
-            <div class="form-group col-md-8"><label><?= e(psa_name()) ?> flags<?= $tag ?></label>
+            <div class="form-group col-md-8"><label><?= psa_on() || $fromPsa ? e(psa_name()) . ' flags' : 'Flags' ?><?= $tag ?></label>
               <div class="d-flex flex-wrap pt-2"><?= $box('is_primary', 'Primary', $fromPsa) ?><?= $box('is_important', 'Important', $fromPsa) ?><?= $box('is_billing', 'Billing', $fromPsa) ?><?= $box('is_technical', 'Technical', $fromPsa) ?></div></div>
           </div>
           <div class="border rounded p-2 mb-3 contract-box">

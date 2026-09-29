@@ -52,7 +52,8 @@ final class SyncRunner
         $this->info('Sync started (' . $this->trigger . ')');
 
         $psaName = Providers::psaName();
-        $psa = $this->client(fn() => Providers::psa(), $psaName);
+        // No PSA set up is a normal way to run (clients by hand, by CSV or from the RMM), not a skipped step
+        $psa = Providers::psaConfigured() ? $this->client(fn() => Providers::psa(), $psaName) : null;
         $rmms = [];
         foreach (Providers::rmmConnectors() as $key => $c) {
             if ($p = $this->client(fn() => Providers::rmm($key), $c->name())) {
@@ -67,8 +68,15 @@ final class SyncRunner
             if (!$this->step("$n organizations", fn() => $this->syncRmmOrgs($rmm))) {
                 continue;
             }
-            if ($psaOk) {
+            // With a PSA, clients come from it, so matching waits for a good PSA read; without one, the RMM leads
+            if ($psaOk || !Providers::psaConfigured()) {
                 $this->step($single ? 'Match clients to organizations' : "Match clients to $n organizations", fn() => $this->autoMatchClients($rmm));
+            }
+            if (ClientLinks::autoCreates()) {
+                $this->step("Clients from new $n organizations", function () use ($rmm) {
+                    $made = ClientLinks::createClientsFromOrgs($rmm->key());
+                    return $made ? count($made) . ' added: ' . implode(', ', array_slice($made, 0, 10)) . (count($made) > 10 ? ', …' : '') : 'none new';
+                });
             }
             $this->step("$n devices", fn() => $this->syncRmmDevices($rmm));
         }

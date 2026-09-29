@@ -4,7 +4,7 @@ use Align\Lifecycle\Lifecycle;
 
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
-$filters = ['' => 'All', 'attention' => 'Needs attention', 'replace' => 'Replace / plan', 'os' => 'OS support', 'warranty' => 'Warranty', 'stale' => 'Stale', 'virtual' => 'Virtual', 'psa' => 'From ' . psa_name(), 'manual' => 'Added manually', 'unassigned' => 'Unassigned', 'noplan' => 'No in-service date'];
+$filters = ['' => 'All', 'attention' => 'Needs attention', 'replace' => 'Replace / plan', 'os' => 'OS support', 'warranty' => 'Warranty', 'stale' => 'Stale', 'virtual' => 'Virtual', ...(psa_on() ? ['psa' => 'From ' . psa_name()] : []), 'manual' => 'Added manually', 'unassigned' => 'Unassigned', 'noplan' => 'No in-service date'];
 $classes = ['' => 'All types'] + Lifecycle::CLASSES;
 $canBulk = Auth::can('tech');
 $link = fn(array $over) => "/clients/$cid/devices?" . http_build_query(array_filter(array_merge(['filter' => $filter, 'class' => $class], $over)));

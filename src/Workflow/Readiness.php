@@ -70,9 +70,9 @@ final class Readiness
         $plural = fn(int $n, string $w) => $n . ' ' . $w . ($n === 1 ? '' : 's');
 
         $steps = [
-            ['key' => 'psa', 'label' => 'Linked to ' . psa_name(), 'ok' => $client['source'] === 'manual' && !$client['psa_id'] ? null : (bool) $client['psa_id'],
+            ...(psa_on() || $client['psa_id'] ? [['key' => 'psa', 'label' => 'Linked to ' . psa_name(), 'ok' => $client['source'] === 'manual' && !$client['psa_id'] ? null : (bool) $client['psa_id'],
                 'detail' => $client['psa_id'] ? 'Contacts, assets and licenses sync' : 'Added in Align; links automatically when the same name appears in ' . psa_name(),
-                'link' => '/mapping', 'action' => 'Client mapping'],
+                'link' => '/mapping', 'action' => 'Client mapping']] : []),
             ['key' => 'rmm', 'label' => 'Linked to ' . \Align\Providers\Providers::rmmNames(), 'ok' => !\Align\Providers\Providers::anyRmm() && !$rmmLinked ? null : $rmmLinked,
                 'detail' => $rmmLinked ? count($devices) . ' devices tracked' : 'Link the ' . \Align\Providers\Providers::rmmNames() . ' organization so computers and servers come in',
                 'link' => '/mapping', 'action' => 'Link organization'],
@@ -86,7 +86,7 @@ final class Readiness
                 'detail' => $noDate ? $plural($noDate, 'device') . ' left out of the plan' : 'All hardware is in the lifecycle plan',
                 'link' => "$base/devices?filter=noplan", 'action' => 'Add dates'],
             ['key' => 'licenses', 'label' => 'Licenses priced', 'ok' => (int) $lic['n'] === 0 ? null : (int) $lic['unpriced'] === 0,
-                'detail' => (int) $lic['n'] === 0 ? 'No licenses yet (sync from ' . psa_name() . ' or add them)' : ((int) $lic['unpriced'] ? $plural((int) $lic['unpriced'], 'license') . ' without a price' : $plural((int) $lic['n'], 'license') . ' priced'),
+                'detail' => (int) $lic['n'] === 0 ? (psa_on() ? 'No licenses yet (sync from ' . psa_name() . ' or add them)' : 'No licenses yet (add them on Licensing)') : ((int) $lic['unpriced'] ? $plural((int) $lic['unpriced'], 'license') . ' without a price' : $plural((int) $lic['n'], 'license') . ' priced'),
                 'link' => "$base/licenses", 'action' => 'Licensing'],
             ['key' => 'managed', 'label' => 'Managed services in budget', 'ok' => $managed > 0,
                 'detail' => $managed ? 'Included in the budget' : 'Add your agreement as a Managed services budget line',
@@ -116,17 +116,19 @@ final class Readiness
         $rmmName = \Align\Providers\Providers::anyRmm() ? \Align\Providers\Providers::rmmNames(' / ') : ($rmmConn?->name() ?? 'your RMM');
         $synced = (bool) DB::value("SELECT COUNT(*) FROM sync_runs WHERE status IN ('success','partial')");
         $clients = (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND planning_excluded = 0');
-        $unmapped = (int) DB::value('SELECT COUNT(*) FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 AND NOT ' . \Align\Providers\ClientLinks::rmmLinkedSql() . ' AND c.psa_id IS NOT NULL');
+        $unmapped = (int) DB::value('SELECT COUNT(*) FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 AND NOT ' . \Align\Providers\ClientLinks::rmmLinkedSql());
         $unassigned = (int) DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
             WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0");
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses l JOIN clients c ON c.id = l.client_id WHERE l.retired_at IS NULL AND l.unit_price IS NULL AND c.planning_excluded = 0 AND c.is_archived = 0');
         $steps = [
-            ['key' => 'psa', 'label' => "Connect $psaName", 'ok' => $psa, 'detail' => 'Clients, contacts, assets, licenses and invoices', 'link' => $psaConn ? $psaConn->url() : '/integrations', 'action' => 'Integrations'],
+            // A PSA is optional once an RMM is connected: clients can come from the RMM, a CSV file or by hand
+            ['key' => 'psa', 'label' => "Connect $psaName", 'ok' => $psa ?: ($rmm ? null : false), 'detail' => $psa || !$rmm ? 'Clients, contacts, assets, licenses and invoices' : "Optional: without one, clients come from $rmmName, a CSV import or by hand", 'link' => $psaConn ? $psaConn->url() : '/integrations', 'action' => 'Integrations'],
             ['key' => 'rmm', 'label' => "Connect $rmmName", 'ok' => $rmm, 'detail' => 'Computers, servers, OS and warranty data', 'link' => $rmmConn ? $rmmConn->url() : '/integrations', 'action' => 'Integrations'],
-            ['key' => 'sync', 'label' => 'Run the first sync', 'ok' => $synced, 'detail' => $synced ? "Runs hourly; $psaName changes every 2 minutes" : 'Pulls everything in', 'link' => '/sync', 'action' => 'Sync'],
-            ['key' => 'clients', 'label' => 'Clients in Align', 'ok' => $clients > 0, 'detail' => $clients ? "$clients clients in planning" : "Sync from $psaName or add clients by hand", 'link' => '/clients', 'action' => 'Clients'],
+            ['key' => 'sync', 'label' => 'Run the first sync', 'ok' => $synced, 'detail' => $synced ? 'Runs hourly' . ($psa ? "; $psaName changes every 2 minutes" : '') : 'Pulls everything in', 'link' => '/sync', 'action' => 'Sync'],
+            ['key' => 'clients', 'label' => 'Clients in Align', 'ok' => $clients > 0, 'detail' => $clients ? "$clients clients in planning" : ($psa ? "Sync from $psaName or add clients by hand" : ($rmm ? "Add them from $rmmName organizations, import a CSV or add them by hand" : 'Import a CSV or add clients by hand')),
+                'link' => !$clients && !$psa && $rmm ? '/mapping' : '/clients', 'action' => !$clients && !$psa && $rmm ? 'Client mapping' : 'Clients'],
             ['key' => 'mapping', 'label' => "Clients linked to $rmmName", 'ok' => !$rmm ? null : $unmapped === 0, 'detail' => $unmapped ? "$unmapped clients not linked yet" : 'All linked', 'link' => '/mapping', 'action' => 'Client mapping'],
-            ['key' => 'unassigned', 'label' => 'Hardware categorized', 'ok' => $unassigned === 0, 'detail' => $unassigned ? "$unassigned $psaName assets need a type" : 'Nothing waiting', 'link' => '/devices/unassigned', 'action' => 'Categorize'],
+            ['key' => 'unassigned', 'label' => 'Hardware categorized', 'ok' => $unassigned === 0, 'detail' => $unassigned ? ($psa ? "$unassigned $psaName assets need a type" : "$unassigned devices need a type") : 'Nothing waiting', 'link' => '/devices/unassigned', 'action' => 'Categorize'],
             ['key' => 'licenses', 'label' => 'Licenses priced', 'ok' => $unpriced === 0, 'detail' => $unpriced ? "$unpriced licenses without a price" : 'All priced', 'link' => '/licenses?filter=unpriced', 'action' => 'Licensing'],
         ];
         $applicable = array_filter($steps, fn($s) => $s['ok'] !== null);

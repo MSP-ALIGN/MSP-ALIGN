@@ -668,7 +668,7 @@ if [[ -n "$ADMIN_PASS" ]]; then
   printf '%s  Save this password now - it is not shown again. The first sign-in asks you to change it\n  and set up two-factor sign-in (required for every account).%s\n' "$c_warn" "$c_0"
 fi
 echo
-echo "  Next:      Integrations -> ITFlow and NinjaOne -> Test connection -> Sync"
+echo "  Next:      Integrations -> your RMM (and PSA, if you use one) -> Test connection -> Sync"
 echo "  Update:    sudo msp-align-update"
 echo "  CLI:       sudo align help"
 echo "  Backups:   Settings -> Updates & backups -> Download backup (encrypted; not kept on this server)"

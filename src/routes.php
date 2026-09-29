@@ -36,6 +36,10 @@ $r->post('/dashboard/layout', [DashboardController::class, 'saveLayout']);
 // Clients
 $r->get('/clients', [ClientController::class, 'index']);
 $r->post('/clients', [ClientController::class, 'create']);
+$r->get('/clients/import', [\Align\Controllers\ImportController::class, 'index']);
+$r->post('/clients/import', [\Align\Controllers\ImportController::class, 'preview']);
+$r->post('/clients/import/run', [\Align\Controllers\ImportController::class, 'run']);
+$r->get('/clients/import/template/{kind:str}', [\Align\Controllers\ImportController::class, 'template']);
 $r->get('/clients/{id}', [ClientController::class, 'show']);
 $r->post('/clients/{id}', [ClientController::class, 'update']);
 $r->post('/clients/bulk', [ClientController::class, 'bulk']);
@@ -173,6 +177,7 @@ $r->post('/frameworks/{id}', [ComplianceController::class, 'frameworkSave']);
 // Integrations
 $r->get('/mapping', [MappingController::class, 'index']);
 $r->post('/mapping', [MappingController::class, 'save']);
+$r->post('/mapping/create-clients', [MappingController::class, 'createClients']);
 $r->get('/mapping/backups', [MappingController::class, 'backups']);
 $r->post('/mapping/backups', [MappingController::class, 'saveBackups']);
 $r->post('/mapping/backups/bulk', [MappingController::class, 'bulkBackups']);
