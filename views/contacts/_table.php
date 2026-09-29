@@ -15,7 +15,7 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
   <?php foreach ($contacts as $k): ?>
     <tr class="<?= $k['archived_at'] ? 'text-muted' : '' ?>">
       <td>
-        <?php if ($canEdit): ?><a href="#" class="font-weight-bold" data-toggle="modal" data-target="#modal-contact-<?= (int) $k['id'] ?>"><?= e($k['name']) ?></a><?php else: ?><b><?= e($k['name']) ?></b><?php endif; ?>
+        <?php if ($canEdit): ?><a href="#" class="font-weight-bold" data-lazy-modal="/contacts/<?= (int) $k['id'] ?>/form?back=<?= e(rawurlencode($back)) ?>" data-target="#modal-contact-<?= (int) $k['id'] ?>"><?= e($k['name']) ?></a><?php else: ?><b><?= e($k['name']) ?></b><?php endif; ?>
         <?php if ($k['source'] === 'psa'): ?><span class="badge badge-light border"><?= e(psa_name()) ?></span><?php endif; ?>
         <?php if ($k['archived_at']): ?><span class="badge badge-secondary">archived<?= $k['archived_reason'] === 'psa' ? ' in ' . psa_name() : '' ?></span><?php endif; ?>
         <?php if ($k['title'] || $k['department'] || $k['location']): ?><div class="small text-muted"><?= e(implode(' · ', array_filter([$k['title'], $k['department'], $k['location']]))) ?></div><?php endif; ?>
@@ -31,4 +31,3 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
   </tbody>
 </table>
 </div>
-<?php if ($canEdit) foreach ($contacts as $k) echo \Align\View::fetch('contacts/_modal', ['k' => $k, 'back' => $back]); ?>

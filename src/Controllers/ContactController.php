@@ -35,14 +35,24 @@ final class ContactController
     {
         Auth::require();
         $role = isset(Contacts::ROLES[query('role')]) ? query('role') : '';
-        $rows = Contacts::load(null);
-        if ($role) {
-            $rows = array_values(array_filter($rows, fn($k) => (int) $k[$role] === 1));
+        $all = Contacts::load(null);
+        $counts = [];
+        foreach (array_keys(Contacts::ROLES) as $col) {
+            $counts[$col] = count(array_filter($all, fn($k) => (int) $k[$col] === 1));
         }
+        $rows = $role ? array_values(array_filter($all, fn($k) => (int) $k[$role] === 1)) : $all;
+        $q = \Align\Paging::q();
+        $rows = \Align\Paging::search($rows, $q, ['name', 'title', 'department', 'email', 'phone', 'mobile', 'client_name', 'location']);
+        $limit = \Align\Paging::limit();
         View::render('contacts/index', [
             'title' => 'Contacts',
             'nav' => 'contacts',
-            'contacts' => $rows,
+            'contacts' => array_slice($rows, 0, $limit),
+            'matched' => count($rows),
+            'total' => count($all),
+            'counts' => $counts,
+            'limit' => $limit,
+            'q' => $q,
             'role' => $role,
             'back' => $_SERVER['REQUEST_URI'] ?? '/contacts',
         ]);

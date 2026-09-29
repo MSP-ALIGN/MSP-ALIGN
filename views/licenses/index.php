@@ -2,33 +2,38 @@
 use Align\Licensing\Licenses;
 
 $t = $totals;
-$qs = fn(array $over) => '/licenses?' . http_build_query(array_filter(array_merge(['filter' => $filter, 'client' => $clientId ?: '', 'category' => $category], $over), fn($v) => $v !== '' && $v !== null));
+$qs = fn(array $over) => '/licenses?' . http_build_query(array_filter(array_merge(['filter' => $filter, 'client' => $clientId ?: '', 'category' => $category, 'q' => $q], $over), fn($v) => $v !== '' && $v !== null));
 $filters = ['' => 'All', 'unpriced' => 'Needs a price', 'renewals' => 'Renewing ≤ 90 days', 'over' => 'Over-assigned'];
 ?>
-<div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-auto"><i class="fas fa-key text-secondary mr-2"></i>Licensing</h1>
-</div>
-<div class="row">
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-calendar-day"></i></span><div class="info-box-content"><span class="info-box-text">Monthly, all clients</span><span class="info-box-number"><?= money_exact($t['monthly']) ?></span></div></div></div>
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-calendar"></i></span><div class="info-box-content"><span class="info-box-text">Annual</span><span class="info-box-number"><?= money($t['annual']) ?></span></div></div></div>
-  <div class="col-lg-3 col-6"><a class="info-box text-dark" href="<?= e($qs(['filter' => 'unpriced'])) ?>"><span class="info-box-icon bg-<?= $t['unpriced'] ? 'warning' : 'success' ?>"><i class="fas fa-tag"></i></span><div class="info-box-content"><span class="info-box-text">Need a price</span><span class="info-box-number"><?= (int) $t['unpriced'] ?> <small class="text-muted font-weight-normal">of <?= (int) $t['count'] ?></small></span></div></a></div>
-  <div class="col-lg-3 col-6"><a class="info-box text-dark" href="<?= e($qs(['filter' => 'renewals'])) ?>"><span class="info-box-icon bg-<?= $t['renewals'] ? 'warning' : 'success' ?>"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Renewing ≤ 90 days</span><span class="info-box-number"><?= count($t['renewals']) ?></span></div></a></div>
-</div>
+<?php
+echo \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-key', 'title' => 'Licensing', 'count' => $matched !== $t['count'] ? num($matched) . ' of ' . num($t['count']) : $t['count'],
+    'desc' => 'Software and subscriptions across every client in planning, with what each costs a month and a year. Open a license to set its price, billing and contract.',
+    'secondary' => ['<a class="btn btn-sm btn-default" href="/renewals"><i class="fas fa-calendar-check mr-1"></i>Renewals</a>'],
+]);
+echo \Align\View::fetch('partials/tiles', ['tiles' => [
+    ['label' => 'Monthly, all clients', 'value' => money_exact($t['monthly']), 'tone' => 'dark'],
+    ['label' => 'Annual', 'value' => money($t['annual']), 'tone' => 'dark'],
+    ['label' => 'Need a price', 'value' => (int) $t['unpriced'], 'tone' => $t['unpriced'] ? 'warning' : 'success', 'href' => $qs(['filter' => 'unpriced']), 'active' => $filter === 'unpriced'],
+    ['label' => 'Renewing ≤ 90 days', 'value' => count($t['renewals']), 'tone' => $t['renewals'] ? 'warning' : 'success', 'href' => $qs(['filter' => 'renewals']), 'active' => $filter === 'renewals'],
+]]);
+$tabs = [];
+foreach ($filters as $k => $label) {
+    $tabs[] = [$label, $qs(['filter' => $k]), $filter === $k];
+}
+$cats = array_map(fn($c) => $c[0], Licenses::CATEGORIES);
+?>
 <div class="row">
   <div class="col-xl-9">
-    <form method="get" action="/licenses" class="card card-body py-2 mb-3">
-      <div class="form-row align-items-center">
-        <div class="col-auto mb-1"><div class="btn-group btn-group-sm flex-wrap">
-          <?php foreach ($filters as $k => $label): ?><a class="btn <?= $filter === $k ? 'btn-primary' : 'btn-default' ?>" href="<?= e($qs(['filter' => $k])) ?>"><?= e($label) ?></a><?php endforeach; ?>
-        </div></div>
-        <input type="hidden" name="filter" value="<?= e($filter) ?>">
-        <div class="col-md-3 mb-1"><select name="client" class="custom-select custom-select-sm" data-autosubmit aria-label="Client"><option value="">All clients</option><?php foreach ($clients as $id => $name): ?><option value="<?= (int) $id ?>" <?= $clientId === (int) $id ? 'selected' : '' ?>><?= e($name) ?></option><?php endforeach; ?></select></div>
-        <div class="col-md-3 mb-1"><select name="category" class="custom-select custom-select-sm" data-autosubmit aria-label="Category"><option value="">All categories</option><?php foreach (Licenses::CATEGORIES as $k => [$label]): ?><option value="<?= e($k) ?>" <?= $category === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+    <div class="card">
+      <?= \Align\View::fetch('partials/toolbar', ['tabs' => $tabs,
+          'search' => ['action' => '/licenses', 'value' => $q, 'hidden' => ['filter' => $filter, 'client' => $clientId ?: '', 'category' => $category], 'table' => 'licenses-table', 'placeholder' => 'Search product, vendor, client'],
+          'menus' => [toolbar_menu('Client', $clients, $clientId ?: '', fn($v) => $qs(['client' => $v]), 'All clients'), toolbar_menu('Category', $cats, $category, fn($v) => $qs(['category' => $v]), 'All categories')]]) ?>
+      <div class="card-body p-0">
+        <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'showClient' => true, 'back' => $back]) ?>
       </div>
-    </form>
-    <div class="card card-dark"><div class="card-body p-0">
-      <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'showClient' => true, 'back' => $back]) ?>
-    </div></div>
+      <?= \Align\View::fetch('partials/list_footer', ['shown' => count($licenses), 'total' => $matched, 'moreUrl' => \Align\Paging::moreUrl($limit)]) ?>
+    </div>
   </div>
   <div class="col-xl-3">
     <div class="card card-dark">

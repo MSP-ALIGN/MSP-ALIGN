@@ -105,6 +105,32 @@ final class DB
         self::run($sql, array_values($row));
     }
 
+    /** upsert() for many rows with the same columns, a few hundred per statement. */
+    public static function upsertMany(string $table, array $rows, array $keyCols, int $chunk = 300): void
+    {
+        if (!$rows) {
+            return;
+        }
+        $cols = array_keys(reset($rows));
+        $updates = array_diff($cols, $keyCols);
+        $one = '(' . implode(',', array_fill(0, count($cols), '?')) . ')';
+        foreach (array_chunk($rows, $chunk) as $part) {
+            $params = [];
+            foreach ($part as $r) {
+                foreach ($cols as $c) {
+                    $params[] = $r[$c] ?? null;
+                }
+            }
+            self::run(sprintf(
+                'INSERT INTO `%s` (%s) VALUES %s ON DUPLICATE KEY UPDATE %s',
+                $table,
+                implode(',', array_map(fn($c) => "`$c`", $cols)),
+                implode(',', array_fill(0, count($part), $one)),
+                implode(',', array_map(fn($c) => "`$c` = VALUES(`$c`)", $updates ?: $keyCols))
+            ), $params);
+        }
+    }
+
     public static function transaction(callable $fn): mixed
     {
         $pdo = self::pdo();

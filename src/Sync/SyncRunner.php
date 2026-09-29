@@ -359,12 +359,13 @@ final class SyncRunner
         $now = date('Y-m-d H:i:s');
         DB::transaction(function () use ($devices, $now, $key) {
             $ids = [];
+            $rows = [];
             foreach ($devices as $d) {
                 if (!isset($d['id']) || $d['id'] === '') {
                     continue;
                 }
                 $type = $d['device_type'] ?? 'Other';
-                DB::upsert('devices', [
+                $rows[] = [
                     'source' => 'rmm',
                     'rmm_provider' => $key,
                     'rmm_device_id' => (string) $d['id'],
@@ -388,9 +389,10 @@ final class SyncRunner
                     'offline' => !empty($d['offline']) ? 1 : 0,
                     'synced_at' => $now,
                     'removed_at' => null,
-                ], ['rmm_provider', 'rmm_device_id']);
+                ];
                 $ids[] = (string) $d['id'];
             }
+            DB::upsertMany('devices', $rows, ['rmm_provider', 'rmm_device_id']);
             // Devices the RMM no longer returns (matched by id, not timestamp)
             if ($ids) {
                 $in = implode(',', array_fill(0, count($ids), '?'));

@@ -16,10 +16,14 @@ if ($client) {
     require __DIR__ . '/../partials/client_header.php';
 }
 ?>
+<nav class="record-crumbs" aria-label="Breadcrumb">
+  <?php if ($client): ?><a href="/clients/<?= (int) $client['id'] ?>"><?= e($client['name']) ?></a> › <a href="/clients/<?= (int) $client['id'] ?>/devices">Devices &amp; assets</a><?php else: ?><a href="/devices">Devices &amp; assets</a><?php endif; ?> › <span class="text-muted"><?= e($d['name']) ?></span>
+</nav>
 <div class="d-flex flex-wrap align-items-center mb-3">
   <h1 class="h4 mb-0 mr-3"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><?= e($d['name']) ?></h1>
   <div class="mr-auto">
-    <?php require __DIR__ . '/../partials/status.php'; ?>
+    <?php // One status here (1.42); the other lifecycle flags are listed on the Lifecycle tab ?>
+    <span class="badge badge-<?= tone_class($d['status_tone']) ?>"><?= e($d['status_label']) ?></span>
     <span class="badge badge-light border"><?= $d['source'] === 'rmm' ? '<i class="' . e(\Align\Providers\Providers::rmmIcon($d['rmm_provider'])) . ' mr-1"></i>' : ($d['source'] === 'psa' ? '<i class="fas fa-screwdriver-wrench mr-1"></i>' : '') ?><?= e($srcLabel) ?></span>
     <?php if ($retired): ?><span class="badge badge-dark"><i class="fas fa-box-archive mr-1"></i>Retired <?= e(fmt_date($syncRow['retired_at'])) ?></span>
     <?php elseif ($d['removed_at']): ?><span class="badge badge-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
@@ -38,11 +42,25 @@ if ($client) {
   </div>
 </div>
 
-<div class="row">
-  <div class="col-lg-6">
-    <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-microchip mr-2"></i>Hardware &amp; software</h3></div>
-      <div class="card-body p-0">
+<?php
+$labels = array_map(fn($f) => $f[0], PsaAssetSync::FIELDS);
+$pendingFields = array_map(fn($p) => $labels[$p['field']] ?? $p['field'], $sync['pending']);
+$pendingErr = $sync['pending'][0]['last_error'] ?? null;
+$poll = $sync['poll'];
+$hasBackup = $backups !== null;
+$hasSync = psa_on() || $sync['history'];
+?>
+<div class="card record-tabs">
+  <div class="card-header p-0 border-bottom-0">
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#details" role="tab"><i class="fas fa-microchip mr-1"></i>Details</a></li>
+      <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#lifecycle" role="tab"><i class="fas fa-recycle mr-1"></i>Lifecycle<?= count(array_diff($d['flags'], [$d['status']])) ? ' <span class="badge badge-' . tone_class($d['status_tone'] === 'ok' ? 'warn' : $d['status_tone']) . '">' . count(array_diff($d['flags'], [$d['status']])) . '</span>' : '' ?></a></li>
+      <?php if ($hasBackup): ?><li class="nav-item"><a class="nav-link" data-toggle="tab" href="#backup" role="tab"><i class="fas fa-database mr-1"></i>Backup</a></li><?php endif; ?>
+      <?php if ($hasSync): ?><li class="nav-item"><a class="nav-link" data-toggle="tab" href="#sync" role="tab"><i class="fas fa-arrows-rotate mr-1"></i><?= e(psa_name()) ?> sync<?= $sync['history'] ? ' <span class="badge badge-light border">' . count($sync['history']) . '</span>' : '' ?><?= $pendingFields && !$alignOnly ? ' <span class="badge badge-warning">waiting</span>' : '' ?></a></li><?php endif; ?>
+    </ul>
+  </div>
+  <div class="tab-content">
+  <div class="tab-pane fade show active" id="details" role="tabpanel">
         <table class="table table-sm mb-0">
           <?= $row('Type', e($d['type']) . ($d['o_type'] ? ' <span class="small text-muted">(overridden)</span>' : '')) ?>
           <?= $row('Manufacturer', e($d['manufacturer'] ?? '—')) ?>
@@ -55,36 +73,13 @@ if ($client) {
           <?php if ($d['os_name']) echo $row('OS support ends', $d['os_rule'] ? e(fmt_date($d['os_rule']['eos_date'])) . ' <span class="small text-muted">(' . e($d['os_rule']['label']) . ')</span>' : '<span class="text-muted">No matching rule — <a href="/settings/os">OS support dates</a></span>'); ?>
           <?php if ($d['source'] === 'rmm') echo $row('Last check-in', e(rel_time($d['last_contact']))); ?>
           <?php if ($d['source'] === 'rmm') echo $row('Last logged-in user', $d['last_user'] ? '<i class="fas fa-user fa-xs text-muted mr-1"></i>' . e($d['last_user']) : '<span class="text-muted">Not reported by ' . e($rmmName) . '</span>'); ?>
-          <?php if ($backups !== null):
-              $bw = $backups[0] ?? null;
-              $bage = $bw && $bw['last_point'] ? (time() - strtotime($bw['last_point'])) / 3600 : null;
-              $btone = !$bw ? ($d['device_class'] === 'server' ? 'danger' : 'muted') : ($bage === null ? 'danger' : ($bage <= \Align\Backup\Backup::staleHours() ? 'success' : 'warning'));
-              $bkx = $backupExempt ?? null;
-              $canBk = \Align\Auth::can('tech');
-              $back = '/devices/' . (int) $d['id'];
-              $exForm = $bkx
-                  ? ($canBk ? '<form method="post" action="/clients/' . (int) $client['id'] . '/backups/exempt" class="d-inline ml-2">' . csrf_field() . '<input type="hidden" name="action" value="remove"><input type="hidden" name="exemption" value="' . (int) $bkx['id'] . '"><input type="hidden" name="back" value="' . e($back) . '"><button class="btn btn-xs btn-outline-primary">Monitor again</button></form>' : '')
-                  : ($canBk ? ' <button type="button" class="btn btn-xs btn-outline-secondary ml-2" data-toggle="modal" data-target="#modal-bk-exempt">Not required…</button>' : '');
-              if ($bkx) {
-                  echo $row('Backup', '<span class="text-muted"><i class="fas fa-ban fa-xs mr-1"></i>Not required</span> <span class="small text-muted">— ' . e($bkx['reason']) . ' (' . e($bkx['created_by_name'] ?? '') . ', ' . e(fmt_date($bkx['created_at'])) . ')</span>' . $exForm);
-              } else
-              echo $row('Last backup', $bw
-                  ? '<span class="text-' . $btone . '"><i class="fas fa-database fa-xs mr-1"></i>' . e($bw['last_point'] ? rel_time($bw['last_point']) : 'No restore point') . '</span>'
-                    . ($bw['last_point'] ? ' <span class="small text-muted">' . e(fmt_datetime($bw['last_point'])) . ' · ' . (int) $bw['restore_points'] . ' restore points · ' . e(fmt_bytes($bw['backup_bytes'])) . '</span>' : '')
-                    . ' <a class="small" href="/clients/' . (int) $client['id'] . '/backups">Backups</a>'
-                  . $exForm
-                  : '<span class="text-' . $btone . '">No ' . e(\Align\Providers\Providers::backupNames()) . ' backup found for this device</span>' . $exForm);
-          endif; ?>
+
           <?= psa_on() || $d['psa_asset_id'] ? $row(psa_name() . ' asset', $d['psa_asset_id'] ? 'Linked (#' . e($d['psa_asset_id']) . ')' : '<span class="text-muted">Not linked</span>') : '' ?>
         </table>
-      </div>
-    </div>
   </div>
-  <div class="col-lg-6">
-    <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-recycle mr-2"></i>Lifecycle</h3></div>
-      <div class="card-body p-0">
+  <div class="tab-pane fade" id="lifecycle" role="tabpanel">
         <table class="table table-sm mb-0">
+          <?= $row('Status', \Align\View::fetch('partials/status', ['d' => $d])) ?>
           <?= $row('In service since', e(fmt_date($d['start_date'])) . ($d['start_source'] ? ' <span class="small text-muted">' . e($d['start_source']) . '</span>' : '')) ?>
           <?= $row('Age', $d['age_years'] !== null ? e($d['age_years']) . ' years' : '—') ?>
           <?= $row('Lifespan policy', $d['lifespan'] ? (int) $d['lifespan'] . ' years' . ($d['o_lifespan'] ? ' <span class="small text-muted">(override)</span>' : '') : '—') ?>
@@ -119,36 +114,51 @@ if ($client) {
           <span class="small text-muted ml-2">The roadmap, 3-year plan and budget move it to that quarter.</span>
         </form>
         <?php endif; ?>
-      </div>
-    </div>
   </div>
-</div>
-
-<?php
-$labels = array_map(fn($f) => $f[0], PsaAssetSync::FIELDS);
-$pendingFields = array_map(fn($p) => $labels[$p['field']] ?? $p['field'], $sync['pending']);
-$pendingErr = $sync['pending'][0]['last_error'] ?? null;
-$poll = $sync['poll'];
-?>
-<?php if (psa_on() || $sync['history']): ?>
-<div class="card card-dark">
-  <div class="card-header py-2">
-    <h3 class="card-title mt-1"><i class="fas fa-fw fa-arrows-rotate mr-2"></i><?= e(psa_name()) ?> sync</h3>
+  <?php if ($hasBackup): ?>
+  <div class="tab-pane fade" id="backup" role="tabpanel">
+        <table class="table table-sm mb-0">
+          <?php if ($backups !== null):
+              $bw = $backups[0] ?? null;
+              $bage = $bw && $bw['last_point'] ? (time() - strtotime($bw['last_point'])) / 3600 : null;
+              $btone = !$bw ? ($d['device_class'] === 'server' ? 'danger' : 'muted') : ($bage === null ? 'danger' : ($bage <= \Align\Backup\Backup::staleHours() ? 'success' : 'warning'));
+              $bkx = $backupExempt ?? null;
+              $canBk = \Align\Auth::can('tech');
+              $back = '/devices/' . (int) $d['id'] . '#backup';
+              $exForm = $bkx
+                  ? ($canBk ? '<form method="post" action="/clients/' . (int) $client['id'] . '/backups/exempt" class="d-inline ml-2">' . csrf_field() . '<input type="hidden" name="action" value="remove"><input type="hidden" name="exemption" value="' . (int) $bkx['id'] . '"><input type="hidden" name="back" value="' . e($back) . '"><button class="btn btn-xs btn-outline-primary">Monitor again</button></form>' : '')
+                  : ($canBk ? ' <button type="button" class="btn btn-xs btn-outline-secondary ml-2" data-toggle="modal" data-target="#modal-bk-exempt">Not required…</button>' : '');
+              if ($bkx) {
+                  echo $row('Backup', '<span class="text-muted"><i class="fas fa-ban fa-xs mr-1"></i>Not required</span> <span class="small text-muted">— ' . e($bkx['reason']) . ' (' . e($bkx['created_by_name'] ?? '') . ', ' . e(fmt_date($bkx['created_at'])) . ')</span>' . $exForm);
+              } else
+              echo $row('Last backup', $bw
+                  ? '<span class="text-' . $btone . '"><i class="fas fa-database fa-xs mr-1"></i>' . e($bw['last_point'] ? rel_time($bw['last_point']) : 'No restore point') . '</span>'
+                    . ($bw['last_point'] ? ' <span class="small text-muted">' . e(fmt_datetime($bw['last_point'])) . ' · ' . (int) $bw['restore_points'] . ' restore points · ' . e(fmt_bytes($bw['backup_bytes'])) . '</span>' : '')
+                    . ' <a class="small" href="/clients/' . (int) $client['id'] . '/backups">Backups</a>'
+                  . $exForm
+                  : '<span class="text-' . $btone . '">No ' . e(\Align\Providers\Providers::backupNames()) . ' backup found for this device</span>' . $exForm);
+          endif; ?>
+        </table>
+  </div>
+  <?php endif; ?>
+<?php if ($hasSync): ?>
+<div class="tab-pane fade" id="sync" role="tabpanel">
+  <div class="d-flex align-items-center px-3 pt-2">
     <?php if ($canEdit): ?>
-    <div class="card-tools">
+    <div class="ml-auto">
       <?php if (!$alignOnly && $twoWay && ($linked || ($d['source'] === 'manual' && $clientInPsa))): ?>
-        <form method="post" action="/devices/<?= (int) $d['id'] ?>/push" class="d-inline"><?= csrf_field() ?><button class="btn btn-tool" title="Send any queued changes and pull the latest from <?= e(psa_name()) ?>"><i class="fas fa-rotate mr-1"></i>Sync now</button></form>
+        <form method="post" action="/devices/<?= (int) $d['id'] ?>/push" class="d-inline"><?= csrf_field() ?><button class="btn btn-sm btn-default" title="Send any queued changes and pull the latest from <?= e(psa_name()) ?>"><i class="fas fa-rotate mr-1"></i>Sync now</button></form>
       <?php endif; ?>
       <?php if ($d['source'] !== 'rmm' || $linked): ?>
       <form method="post" action="/devices/<?= (int) $d['id'] ?>/psa-sync" class="d-inline"><?= csrf_field() ?>
         <input type="hidden" name="on" value="<?= $alignOnly ? '1' : '0' ?>">
-        <button class="btn btn-tool" <?= $alignOnly ? '' : 'data-confirm="Stop syncing this device with ' . psa_name() . '? Changes on either side will no longer be copied."' ?>><?= $alignOnly ? '<i class="fas fa-link mr-1"></i>Sync with ' . psa_name() : '<i class="fas fa-link-slash mr-1"></i>Make Align-only' ?></button>
+        <button class="btn btn-sm btn-default ml-1" <?= $alignOnly ? '' : 'data-confirm="Stop syncing this device with ' . psa_name() . '? Changes on either side will no longer be copied."' ?>><?= $alignOnly ? '<i class="fas fa-link mr-1"></i>Sync with ' . psa_name() : '<i class="fas fa-link-slash mr-1"></i>Make Align-only' ?></button>
       </form>
       <?php endif; ?>
     </div>
     <?php endif; ?>
   </div>
-  <div class="card-body py-2 small">
+  <div class="px-3 py-2 small">
     <?php if ($alignOnly): ?>
       <p class="mb-1"><i class="fas fa-circle-minus text-secondary mr-1"></i>Align-only: this device isn't sent to or updated from <?= e(psa_name()) ?>.</p>
     <?php elseif (!$twoWay): ?>
@@ -168,7 +178,7 @@ $poll = $sync['poll'];
     <?php endif; ?>
   </div>
   <?php if ($sync['history']): ?>
-  <div class="card-body p-0 border-top">
+  <div class="border-top">
     <table class="table table-sm mb-0 small sync-history">
       <thead><tr><th>When</th><th>Direction</th><th>Field</th><th>Change</th></tr></thead>
       <tbody>
@@ -195,6 +205,8 @@ $poll = $sync['poll'];
   <?php endif; ?>
 </div>
 <?php endif; ?>
+  </div>
+</div>
 
 <?php if ($canEdit): ?>
 <div class="modal fade" id="modal-device-edit" tabindex="-1" aria-hidden="true">
@@ -231,7 +243,7 @@ $poll = $sync['poll'];
 <div class="modal fade" id="modal-bk-exempt" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <form method="post" action="/clients/<?= (int) $client['id'] ?>/backups/exempt">
-      <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="kind" value="device"><input type="hidden" name="ref" value="<?= (int) $d['id'] ?>"><input type="hidden" name="back" value="/devices/<?= (int) $d['id'] ?>">
+      <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="kind" value="device"><input type="hidden" name="ref" value="<?= (int) $d['id'] ?>"><input type="hidden" name="back" value="/devices/<?= (int) $d['id'] ?>#backup">
       <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-ban mr-2"></i>Backup not required</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
         <p>Stop flagging <b><?= e($d['name']) ?></b> as missing or overdue a backup. You can undo this any time.</p>

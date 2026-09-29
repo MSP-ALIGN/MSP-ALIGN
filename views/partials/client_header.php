@@ -38,11 +38,10 @@ $cid = (int) $client['id'];
         <?php if ($client['vcio_name']): ?><span class="mx-2">·</span><?= user_avatar(['id' => $client['vcio_user_id'], 'name' => $client['vcio_name'], 'avatar_file' => $client['vcio_avatar_file'] ?? null], 'avatar-xs', 'mr-1') ?>vCIO: <?= e($client['vcio_name']) ?><?php endif; ?>
       </div>
     </div>
-    <div class="btn-group mt-2 mt-md-0">
-      <?php if ($psaClientUrl): ?>
-        <a class="btn btn-default btn-sm" href="<?= e($psaClientUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square mr-1"></i><?= e(psa_name()) ?></a>
-      <?php endif; ?>
-      <div class="btn-group">
+    <div class="client-actions d-flex flex-wrap align-items-center mt-2 mt-md-0">
+      <?php // 1.42: one primary action, then Reports and Edit; the PSA link and the rest are under the "more" menu ?>
+      <?php if (Auth::can('tech')): ?><button class="btn btn-primary btn-sm mr-1" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-handshake mr-1"></i>Meeting</button><?php endif; ?>
+      <div class="btn-group mr-1">
         <button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown"><i class="fas fa-print mr-1"></i>Reports</button>
         <div class="dropdown-menu dropdown-menu-right">
           <a class="dropdown-item font-weight-bold" href="/clients/<?= $cid ?>/report/qbr" target="_blank"><i class="fas fa-fw fa-book-open mr-2"></i>Business review pack (QBR)</a>
@@ -56,21 +55,24 @@ $cid = (int) $client['id'];
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/export"><i class="fas fa-fw fa-file-csv mr-2"></i>Device list (CSV)</a>
           <div class="dropdown-divider"></div>
-          <a class="dropdown-item" href="/reports?client=<?= $cid ?>"><i class="fas fa-fw fa-print mr-2"></i>All reports &amp; options…</a>
+          <a class="dropdown-item" href="/clients/<?= $cid ?>/reports"><i class="fas fa-fw fa-print mr-2"></i>All reports…</a>
         </div>
       </div>
-      <?php if (Auth::can('tech')): ?>
-        <button class="btn btn-default btn-sm" data-toggle="modal" data-target="#modal-client"><i class="fas fa-pen mr-1"></i>Edit</button>
-        <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-handshake mr-1"></i>Meeting</button>
+      <?php if (Auth::can('tech')): ?><button class="btn btn-default btn-sm mr-1" data-toggle="modal" data-target="#modal-client"><i class="fas fa-pen mr-1"></i>Edit</button><?php endif; ?>
+      <?php if ($psaClientUrl || Auth::can('tech')): ?>
         <div class="btn-group">
-          <button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis-vertical"></i></button>
+          <button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis"></i></button>
           <div class="dropdown-menu dropdown-menu-right">
-            <a class="dropdown-item" href="/clients/<?= $cid ?>/onboarding"><i class="fas fa-fw fa-mountain-sun mr-2"></i>Welcome &amp; onboarding…</a>
-            <?php if (!$client['planning_excluded']): ?>
-              <a class="dropdown-item" href="#" data-toggle="modal" data-target="#modal-exclude"><i class="fas fa-fw fa-eye-slash mr-2"></i>Remove from planning…</a>
-            <?php endif; ?>
-            <?php if ($client['source'] === 'manual' && Auth::can('admin')): ?>
-              <a class="dropdown-item text-danger" href="#" data-toggle="modal" data-target="#modal-delete-client"><i class="fas fa-fw fa-trash mr-2"></i>Delete client…</a>
+            <?php if ($psaClientUrl): ?><a class="dropdown-item" href="<?= e($psaClientUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-fw fa-up-right-from-square mr-2"></i>Open in <?= e(psa_name()) ?></a><?php endif; ?>
+            <?php if (Auth::can('tech')): ?>
+              <?php if ($psaClientUrl): ?><div class="dropdown-divider"></div><?php endif; ?>
+              <a class="dropdown-item" href="/clients/<?= $cid ?>/onboarding"><i class="fas fa-fw fa-mountain-sun mr-2"></i>Welcome &amp; onboarding…</a>
+              <?php if (!$client['planning_excluded']): ?>
+                <a class="dropdown-item" href="#" data-toggle="modal" data-target="#modal-exclude"><i class="fas fa-fw fa-eye-slash mr-2"></i>Remove from planning…</a>
+              <?php endif; ?>
+              <?php if ($client['source'] === 'manual' && Auth::can('admin')): ?>
+                <a class="dropdown-item text-danger" href="#" data-toggle="modal" data-target="#modal-delete-client"><i class="fas fa-fw fa-trash mr-2"></i>Delete client…</a>
+              <?php endif; ?>
             <?php endif; ?>
           </div>
         </div>

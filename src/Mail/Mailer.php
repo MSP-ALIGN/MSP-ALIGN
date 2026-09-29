@@ -141,11 +141,17 @@ final class Mailer
 
     public static function stats(): array
     {
-        $r = DB::one("SELECT SUM(status = 'queued') AS queued, SUM(status = 'failed' AND created_at >= NOW() - INTERVAL 7 DAY) AS failed7,
-            SUM(status = 'sent' AND sent_at >= NOW() - INTERVAL 1 DAY) AS sent24, MAX(sent_at) AS last_sent FROM mail_queue") ?? [];
+        // Separate counts so each uses an index (status, send_after / sent_at): this runs on every page
+        $r = DB::one("SELECT (SELECT COUNT(*) FROM mail_queue WHERE status = 'queued') AS queued,
+            (SELECT COUNT(*) FROM mail_queue WHERE status = 'failed' AND created_at >= NOW() - INTERVAL 7 DAY) AS failed7,
+            (SELECT COUNT(*) FROM mail_queue WHERE status = 'sent' AND sent_at >= NOW() - INTERVAL 1 DAY) AS sent24,
+            (SELECT MAX(sent_at) FROM mail_queue WHERE status = 'sent') AS last_sent") ?? [];
+        // Only a problem if nothing has gone out since the last error
+        $err = DB::one("SELECT id, last_error FROM mail_queue WHERE status IN ('queued','failed') AND last_error IS NOT NULL ORDER BY id DESC LIMIT 1");
+        if ($err && DB::value("SELECT 1 FROM mail_queue WHERE id > ? AND status = 'sent' LIMIT 1", [$err['id']])) {
+            $err = null;
+        }
         return ['queued' => (int) ($r['queued'] ?? 0), 'failed7' => (int) ($r['failed7'] ?? 0), 'sent24' => (int) ($r['sent24'] ?? 0), 'last_sent' => $r['last_sent'] ?? null,
-            // Only a problem if nothing has gone out since the last error
-            'last_error' => DB::value("SELECT last_error FROM mail_queue WHERE last_error IS NOT NULL AND status IN ('queued','failed')
-                AND id > COALESCE((SELECT MAX(id) FROM mail_queue WHERE status = 'sent'), 0) ORDER BY id DESC LIMIT 1") ?: null];
+            'last_error' => $err['last_error'] ?? null];
     }
 }

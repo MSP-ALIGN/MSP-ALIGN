@@ -15,10 +15,10 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
         . '<div class="mt-auto"><div class="small text-warning report-unavailable d-none mb-2"></div><button class="btn btn-sm btn-primary"><i class="fas fa-' . ($target === '_self' ? 'download' : 'up-right-from-square') . ' mr-1"></i>' . e($button) . '</button></div></div></form></div>';
 };
 ?>
-<div class="d-flex flex-wrap align-items-center mb-3">
-  <h1 class="h3 mb-0 mr-auto"><i class="fas fa-print text-secondary mr-2"></i>Reports</h1>
-  <span class="small text-muted">Reports open in a print-ready tab: use <b>Print / Save as PDF</b> to hand one to a client. Options can also be changed at the top of each report.</span>
-</div>
+<?= \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-print', 'title' => 'Reports',
+    'desc' => 'Reports open in a print-ready tab: use <b>Print / Save as PDF</b> to hand one to a client. Options can also be changed at the top of each report.',
+]) ?>
 
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-users mr-2"></i>Client reports</h3></div>

@@ -7,15 +7,21 @@ $client = $client ?? null;
 $clientNav = $clientNav ?? '';
 $v = e(APP_VERSION);
 
-$unassignedCount = $u ? (int) \Align\DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
-    WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned' AND COALESCE(o.excluded, 0) = 0") : 0;
-// Global menu, grouped by the vCIO workflow: know the client -> plan -> meet and report -> stay compliant.
+$todoCount = $u ? \Align\Workflow\Todo::count() : 0;
+// Global menu (1.42), grouped by the vCIO workflow: know the clients -> plan -> meet and report -> stay compliant;
+// setup tools live under Admin as pages with tabs (Integrations, People).
 $isAdmin = $u && Auth::can('admin');
+$adminTabs = \Align\Workflow\Todo::adminTabs();
+$firstTab = fn(string $group) => ($t = array_values(array_filter($adminTabs[$group], fn($t) => Auth::can($t['role'])))) ? $t[0]['href'] : null;
 $navSections = [
     '' => [
         ['dashboard', '/', 'Dashboard', 'fa-gauge-high', 'viewer'],
+        ['todo', '/todo', 'To do', 'fa-list-check', 'tech', $todoCount],
+    ],
+    'CLIENTS' => [
         ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
         ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
+        ['devices', '/devices', 'Devices & assets', 'fa-desktop', 'viewer'],
     ],
     'PLANNING' => [
         ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
@@ -31,39 +37,38 @@ $navSections = [
         ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
         ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
     ],
-    'INTEGRATIONS' => [
-        ['integrations', '/integrations', 'Integrations', 'fa-plug', 'admin', $isAdmin ? \Align\Integrations\Registry::problems() : 0],
-        ['mapping', '/mapping', 'Client mapping', 'fa-link', 'tech'],
-        ...($u && Auth::can('tech') && \Align\Backup\Backup::enabled() ? [['hosted-backups', '/mapping/backups', 'Hosted backups', 'fa-building', 'tech', \Align\Backup\Backup::hostedUnmatched()]] : []),
-        ['sync', '/sync', 'Sync', 'fa-rotate', 'viewer'],
-        ['unassigned', '/devices/unassigned', 'Unassigned hardware', 'fa-circle-question', 'viewer', $unassignedCount],
-    ],
     'ADMIN' => [
+        ...(($h = $firstTab('integrations')) ? [['integrations', $h, 'Integrations', 'fa-plug', 'viewer', $isAdmin ? \Align\Integrations\Registry::problems() : 0]] : []),
+        ...(($h = $firstTab('people')) ? [['people', $h, 'People', 'fa-user-shield', 'viewer']] : []),
         ['settings', '/settings', 'Settings', 'fa-gear', 'admin', $isAdmin && \Align\System\Agent::updateAvailable() ? 'new' : 0],
-        ['users', '/users', 'Users', 'fa-user-shield', 'admin'],
-        ['portal-users', '/portal-users', 'Client portal users', 'fa-door-open', 'tech'],
         ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
     ],
-    ' ' => [
-        ['help', '/help', 'Help & how-to', 'fa-circle-info', 'viewer'],
-    ],
 ];
-// Client menu in workflow order: who they are and what they have -> compliance -> plan -> meet.
+// Pages that belong to a menu item with tabs (their own nav key picks the tab)
+$navGroup = ['mapping' => 'integrations', 'hosted-backups' => 'integrations', 'sync' => 'integrations', 'users' => 'people', 'portal-users' => 'people', 'unassigned' => 'devices'];
+$tabKey = $nav;
+$nav = $navGroup[$nav] ?? $nav;
+// Client menu in workflow order (1.42: grouped): what they have -> the plan -> meetings.
+$cidM = $client ? (int) $client['id'] : 0;
 $clientMenu = $client ? [
-    ['overview', '/clients/' . (int) $client['id'], 'Overview', 'fa-tachometer-alt'],
-    ...(($onb = \Align\DB::one('SELECT completed_at FROM client_onboardings WHERE client_id = ?', [(int) $client['id']])) && (!$onb['completed_at'] || strtotime($onb['completed_at']) > strtotime('-30 days')) || $clientNav === 'onboarding'
-        ? [['onboarding', '/clients/' . (int) $client['id'] . '/onboarding', 'Onboarding', 'fa-mountain-sun', 'viewer', $onb && !$onb['completed_at'] ? 'open' : null]] : []),
-    ['contacts', '/clients/' . (int) $client['id'] . '/contacts', 'Contacts', 'fa-address-book'],
-    ['devices', '/clients/' . (int) $client['id'] . '/devices', 'Devices & assets', 'fa-desktop'],
-    ['licenses', '/clients/' . (int) $client['id'] . '/licenses', 'Licensing', 'fa-key'],
-    ...(\Align\Backup\Backup::has($client) || \Align\Providers\Providers::anyBackup() ? [['backups', '/clients/' . (int) $client['id'] . '/backups', 'Backups', 'fa-database']] : []),
-    ...(\Align\Service\Sla::enabled() && !empty($client['psa_id']) ? [['service', '/clients/' . (int) $client['id'] . '/service-levels', 'Service levels', 'fa-stopwatch']] : []),
-    ['compliance', '/clients/' . (int) $client['id'] . '/compliance', 'Compliance', 'fa-clipboard-check'],
-    ['documents', '/clients/' . (int) $client['id'] . '/documents', 'Documents', 'fa-file-lines'],
-    ['roadmap', '/clients/' . (int) $client['id'] . '/roadmap', 'Roadmap & projects', 'fa-road'],
-    ['budget', '/clients/' . (int) $client['id'] . '/budget', 'Budget', 'fa-coins'],
-    ['meetings', '/clients/' . (int) $client['id'] . '/meetings', 'Meetings', 'fa-handshake'],
-    ...(Auth::can('tech') ? [['portal', '/clients/' . (int) $client['id'] . '/portal', 'Client portal', 'fa-door-open']] : []),
+    ['overview', "/clients/$cidM", 'Overview', 'fa-tachometer-alt'],
+    ...(($onb = \Align\DB::one('SELECT completed_at FROM client_onboardings WHERE client_id = ?', [$cidM])) && (!$onb['completed_at'] || strtotime($onb['completed_at']) > strtotime('-30 days')) || $clientNav === 'onboarding'
+        ? [['onboarding', "/clients/$cidM/onboarding", 'Onboarding', 'fa-mountain-sun', 'viewer', $onb && !$onb['completed_at'] ? 'open' : null]] : []),
+    'THEIR IT',
+    ['contacts', "/clients/$cidM/contacts", 'Contacts', 'fa-address-book'],
+    ['devices', "/clients/$cidM/devices", 'Devices & assets', 'fa-desktop'],
+    ['licenses', "/clients/$cidM/licenses", 'Licensing', 'fa-key'],
+    ...(\Align\Backup\Backup::has($client) || \Align\Providers\Providers::anyBackup() ? [['backups', "/clients/$cidM/backups", 'Backups', 'fa-database']] : []),
+    ...(\Align\Service\Sla::enabled() && !empty($client['psa_id']) ? [['service', "/clients/$cidM/service-levels", 'Service levels', 'fa-stopwatch']] : []),
+    'THE PLAN',
+    ['roadmap', "/clients/$cidM/roadmap", 'Roadmap & projects', 'fa-road'],
+    ['budget', "/clients/$cidM/budget", 'Budget', 'fa-coins'],
+    ['compliance', "/clients/$cidM/compliance", 'Compliance', 'fa-clipboard-check'],
+    ['documents', "/clients/$cidM/documents", 'Documents', 'fa-file-lines'],
+    'MEETINGS',
+    ['meetings', "/clients/$cidM/meetings", 'Meetings', 'fa-handshake'],
+    ['reports', "/clients/$cidM/reports", 'Reports', 'fa-print'],
+    ...(Auth::can('tech') ? [['portal', "/clients/$cidM/portal", 'Client portal', 'fa-door-open']] : []),
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
@@ -101,9 +106,9 @@ $item = function (array $i, string $active) {
         <li class="nav-item d-none d-sm-inline-block"><a href="/clients/<?= (int) $client['id'] ?>" class="nav-link font-weight-bold"><?= e($client['name']) ?></a></li>
       <?php endif; ?>
     </ul>
-    <form class="form-inline ml-3 d-none d-md-flex" action="/clients" method="get">
-      <div class="input-group input-group-sm">
-        <input class="form-control form-control-navbar" type="search" name="q" placeholder="Search clients" aria-label="Search clients" value="<?= e($_GET['q'] ?? '') ?>">
+    <form class="form-inline ml-3 d-none d-md-flex" action="/search" method="get">
+      <div class="input-group input-group-sm navbar-search-wide">
+        <input class="form-control form-control-navbar" type="search" name="q" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" value="<?= e(($nav === 'search' || $nav === 'clients') ? ($_GET['q'] ?? '') : '') ?>">
         <div class="input-group-append"><button class="btn btn-navbar" type="submit" aria-label="Search"><i class="fas fa-search"></i></button></div>
       </div>
     </form>
@@ -118,6 +123,7 @@ $item = function (array $i, string $active) {
           </div>
         </li>
       <?php endif; ?>
+      <li class="nav-item"><a class="nav-link" href="/help" title="Help &amp; how-to" aria-label="Help"><i class="fas fa-circle-question"></i></a></li>
       <li class="nav-item dropdown user-menu">
         <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
           <?= user_avatar($u ?? [], 'user-initials') ?>
@@ -150,9 +156,9 @@ $item = function (array $i, string $active) {
                 <span class="sidebar-client-text"><span class="sidebar-client-label">Client</span><span class="sidebar-client-name"><?= e($client['name']) ?></span></span>
               </a>
             </li>
-            <?php foreach ($clientMenu as $i) echo $item($i, $clientNav); ?>
+            <?php foreach ($clientMenu as $i) echo is_string($i) ? '<li class="nav-header">' . e($i) . '</li>' : $item($i, $clientNav); ?>
             <li class="nav-item has-treeview mt-2">
-              <a href="#" class="nav-link"><i class="nav-icon fas fa-grip"></i><p>All tools<i class="right fas fa-angle-left"></i><?= $unassignedCount ? ' <span class="badge badge-warning ml-1" title="Unassigned hardware">' . (int) $unassignedCount . '</span>' : '' ?></p></a>
+              <a href="#" class="nav-link"><i class="nav-icon fas fa-grip"></i><p>All tools<i class="right fas fa-angle-left"></i><?= $todoCount ? ' <span class="badge badge-warning ml-1" title="To do">' . (int) $todoCount . '</span>' : '' ?></p></a>
               <ul class="nav nav-treeview">
                 <?php foreach ($navSections as $sec => $items) foreach ($items as $i) if (Auth::can($i[4]) && $i[0] !== 'clients') echo $item($i, ''); ?>
               </ul>
@@ -161,7 +167,7 @@ $item = function (array $i, string $active) {
             <?php foreach ($navSections as $sec => $items):
                 $visible = array_filter($items, fn($i) => Auth::can($i[4]));
                 if (!$visible) continue;
-                if (trim($sec) !== '') echo '<li class="nav-header">' . e($sec) . '</li>'; elseif ($sec === ' ') echo '<li class="nav-header py-1"></li>';
+                if (trim($sec) !== '') echo '<li class="nav-header">' . e($sec) . '</li>';
                 foreach ($visible as $i) echo $item($i, $nav);
             endforeach; ?>
           <?php endif; ?>
@@ -195,6 +201,12 @@ $item = function (array $i, string $active) {
             <a class="btn btn-sm btn-light ml-auto" href="/settings/system">See what's new and update</a>
           </div>
         <?php endif; ?>
+        <?php if (isset($adminTabs[$nav])):
+            $tabs = array_filter($adminTabs[$nav], fn($t) => Auth::can($t['role'])); if (count($tabs) > 1): ?>
+          <ul class="nav nav-tabs group-tabs mb-3">
+            <?php foreach ($tabs as $k => $t): ?><li class="nav-item"><a class="nav-link<?= $k === $tabKey ? ' active' : '' ?>" href="<?= e($t['href']) ?>"><i class="fas <?= e($t['icon']) ?> mr-1"></i><?= e($t['label']) ?><?= !empty($t['badge']) ? ' <span class="badge badge-warning">' . (int) $t['badge'] . '</span>' : '' ?></a></li><?php endforeach; ?>
+          </ul>
+        <?php endif; endif; ?>
         <?= $content ?>
       </div>
     </section>

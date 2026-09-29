@@ -2,6 +2,11 @@
 $rows = array_filter($clients, fn($c) => !empty($assigned[$c['id']]));
 $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
 ?>
+<?= \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-clipboard-check', 'title' => 'Compliance', 'count' => count($rows),
+    'desc' => 'How each client stands against the frameworks it must meet (HIPAA, CIS, NIST and others), from the checklists on each client\'s Compliance page.',
+    'help' => 'guide-compliance',
+]) ?>
 <?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', true], ['/frameworks', 'Frameworks', 'fa-list-check', false, \Align\Auth::can('admin')]]]) ?>
 <div class="row">
   <?php foreach ($frameworks as $fw):

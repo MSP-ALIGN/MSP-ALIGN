@@ -15,6 +15,29 @@ $items = $pu ? array_filter([
     ['meetings', '/portal/meetings', 'Meetings', 'fa-handshake', $pu['can_documents']],
     ['requests', '/portal/requests', 'Requests', 'fa-user-plus', $pu['can_contacts'] && \Align\Onboarding\Requests::enabled()],
 ], fn($i) => $i[4]) : [];
+// 1.42: the sections grouped into six tabs; a group with more than one page shows them as tabs under it
+$groups = [
+    ['home', 'Home', 'fa-house', ['home']],
+    ['plan', 'Plan', 'fa-road', ['roadmap', 'budget']],
+    ['tech', 'Your technology', 'fa-desktop', ['devices', 'licensing']],
+    ['compliance', 'Compliance', 'fa-clipboard-check', ['compliance', 'documents']],
+    ['meetings', 'Meetings', 'fa-handshake', ['meetings']],
+    ['team', 'Your team', 'fa-user-group', ['contacts', 'requests']],
+];
+$byKey = array_column($items, null, 0);
+$tabs = [];
+$subTabs = [];
+foreach ($groups as [$gk, $glabel, $gicon, $keys]) {
+    $pages = array_values(array_filter(array_map(fn($k) => $byKey[$k] ?? null, $keys)));
+    if (!$pages) {
+        continue;
+    }
+    $active = in_array($nav, $keys, true);
+    $tabs[] = [$gk, $pages[0][1], count($pages) === 1 ? $pages[0][2] : $glabel, count($pages) === 1 ? $pages[0][3] : $gicon, $active];
+    if ($active && count($pages) > 1) {
+        $subTabs = $pages;
+    }
+}
 $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $pu['logo_file']]) : null;
 ?><!doctype html>
 <html lang="en">
@@ -62,8 +85,8 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
     <nav class="portal-sections border-bottom bg-white" aria-label="Portal sections">
       <div class="container">
         <ul class="nav">
-          <?php foreach ($items as [$key, $href, $label, $icon]): ?>
-            <li class="nav-item"><a href="<?= $href ?>" class="nav-link<?= $nav === $key ? ' active' : '' ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><i class="fas fa-fw <?= $icon ?> mr-1"></i><?= e($label) ?></a></li>
+          <?php foreach ($tabs as [$key, $href, $label, $icon, $active]): ?>
+            <li class="nav-item"><a href="<?= $href ?>" class="nav-link<?= $active ? ' active' : '' ?>"<?= $active ? ' aria-current="page"' : '' ?>><i class="fas fa-fw <?= $icon ?> mr-1"></i><?= e($label) ?></a></li>
           <?php endforeach; ?>
         </ul>
       </div>
@@ -73,6 +96,11 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
   <div class="content-wrapper">
     <div class="content pt-3 pb-4">
       <div class="container">
+        <?php if ($subTabs): ?>
+          <ul class="nav nav-pills portal-subtabs mb-3">
+            <?php foreach ($subTabs as [$key, $href, $label, $icon]): ?><li class="nav-item"><a class="nav-link<?= $nav === $key ? ' active' : '' ?>" href="<?= $href ?>"><i class="fas fa-fw <?= $icon ?> mr-1"></i><?= e($label) ?></a></li><?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
         <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
           <div class="alert alert-<?= $t ?> alert-dismissible fade show">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button>

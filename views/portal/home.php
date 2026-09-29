@@ -33,7 +33,7 @@ $vcio = $provider['vcio'] ?? null;
 <div class="row">
   <?php if ($budget): ?>
     <div class="col-lg-3 col-sm-6"><a href="/portal/budget" class="info-box text-dark"><span class="info-box-icon bg-primary"><i class="fas fa-coins"></i></span>
-      <div class="info-box-content"><span class="info-box-text"><?= e($budget['year']['label']) ?> technology budget</span><span class="info-box-number"><?= money($budget['year']['total']) ?></span><span class="small text-muted"><?= money_exact($budget['runRate']) ?>/mo recurring today</span></div></a></div>
+      <div class="info-box-content"><span class="info-box-text"><?= e($budget['year']['label']) ?> technology budget</span><span class="info-box-number"><?= money($budget['year']['total']) ?></span><span class="small text-muted"><?= money_exact($budget['runRate']) ?>/mo recurring</span></div></a></div>
   <?php endif; ?>
   <?php if ($summary): ?>
     <div class="col-lg-3 col-sm-6"><a href="/portal/devices" class="info-box text-dark"><span class="info-box-icon bg-info"><i class="fas fa-desktop"></i></span>

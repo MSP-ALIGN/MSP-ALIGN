@@ -69,6 +69,9 @@ $r->post('/clients/{id}/budget', [\Align\Controllers\BudgetController::class, 'c
 $r->post('/budget-lines/{id}', [\Align\Controllers\BudgetController::class, 'update']);
 $r->get('/clients/{id}/report/budget', [\Align\Controllers\BudgetController::class, 'report']);
 $r->post('/licenses/{id}', [\Align\Controllers\LicenseController::class, 'update']);
+$r->get('/licenses/{id}/form', [\Align\Controllers\FormController::class, 'license']);
+$r->get('/contacts/{id}/form', [\Align\Controllers\FormController::class, 'contact']);
+$r->get('/projects/{id}/form', [\Align\Controllers\FormController::class, 'project']);
 $r->get('/clients/{id}/roadmap', [RoadmapController::class, 'show']);
 $r->post('/clients/{id}/roadmap', [RoadmapController::class, 'create']);
 $r->post('/clients/{id}/roadmap/{item}', [RoadmapController::class, 'update']);
@@ -95,6 +98,11 @@ $r->get('/clients/{id}/compliance/{fw}/export', [ComplianceController::class, 'e
 
 // Devices
 $r->get('/devices/unassigned', [DeviceController::class, 'unassigned']);
+$r->get('/devices', [DeviceController::class, 'index']);
+$r->get('/devices/export', [DeviceController::class, 'export']);
+$r->get('/todo', [\Align\Controllers\TodoController::class, 'index']);
+$r->get('/search', [\Align\Controllers\TodoController::class, 'search']);
+$r->get('/clients/{id}/reports', [\Align\Controllers\TodoController::class, 'clientReports']);
 $r->post('/devices/bulk-type', [DeviceController::class, 'bulkType']);
 $r->get('/devices/{id}', [DeviceController::class, 'show']);
 $r->post('/devices/{id}/push', [DeviceController::class, 'push']);

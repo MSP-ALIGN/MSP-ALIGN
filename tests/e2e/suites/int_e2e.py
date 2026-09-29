@@ -77,7 +77,7 @@ F=f2(st,"/settings/notifications"); F["notif_digest_hour"]="7"; F["mail_meeting_
 d=st.get(B+"/").text
 side=d.split('main-sidebar')[1].split('</aside>')[0]
 order=[m for m in re.findall(r'<li class="nav-header">([^<]+)</li>',side)]
-ok(order==["PLANNING","MEETINGS &amp; REPORTS","COMPLIANCE","INTEGRATIONS","ADMIN"],"sidebar sections: "+str(order))
+ok(order==["CLIENTS","PLANNING","MEETINGS &amp; REPORTS","COMPLIANCE","ADMIN"],"sidebar sections (1.42): "+str(order))
 ok('href="/calendar"' not in side and 'href="/frameworks"' not in side and 'href="/settings/email"' not in side and 'href="/settings/branding"' not in side,"calendar, frameworks, email and branding moved out of the sidebar")
 t=st.get(B+"/meetings").text; ok('href="/calendar"' in t and 'nav-tabs' in t,"meetings has a calendar tab")
 t=st.get(B+"/compliance").text; ok('href="/frameworks"' in t,"compliance has a frameworks tab for admins")

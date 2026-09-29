@@ -10,12 +10,7 @@
   </div>
 </div>
 
-<div class="row">
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-desktop"></i></span><div class="info-box-content"><span class="info-box-text">Devices</span><span class="info-box-number"><?= (int) $summary['total'] ?></span></div></div></div>
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-danger"><i class="fas fa-recycle"></i></span><div class="info-box-content"><span class="info-box-text">Due for replacement</span><span class="info-box-number"><?= (int) $summary['replace'] ?></span></div></div></div>
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-warning"><i class="fas fa-calendar"></i></span><div class="info-box-content"><span class="info-box-text">Replace within a year</span><span class="info-box-number"><?= (int) $summary['plan'] ?></span></div></div></div>
-  <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-shield-halved"></i></span><div class="info-box-content"><span class="info-box-text">Warranty expired</span><span class="info-box-number"><?= (int) $summary['warranty_expired'] ?></span></div></div></div>
-</div>
+<?= \Align\View::fetch('partials/tiles', ['tiles' => [['label' => 'Devices', 'value' => (int) $summary['total']], ['label' => 'Due for replacement', 'value' => (int) $summary['replace'], 'tone' => 'danger'], ['label' => 'Replace within a year', 'value' => (int) $summary['plan'], 'tone' => 'warning'], ['label' => 'Warranty expired', 'value' => (int) $summary['warranty_expired'], 'tone' => 'secondary']]]) ?>
 
 <div class="card">
   <div class="card-header py-2">
@@ -34,9 +29,9 @@
           <td class="text-nowrap"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary mr-1"></i><b><?= e($d['name']) ?></b><?= $d['is_virtual'] ? ' <span class="badge badge-light border">virtual</span>' : '' ?></td>
           <td class="small"><?= e($d['type']) ?></td>
           <td class="small text-nowrap"><?= $d['last_user'] ? '<span title="' . e($d['last_user']) . '">' . e(short_user($d['last_user'])) . '</span>' : '<span class="text-muted">—</span>' ?></td>
-          <td class="small"><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
+          <td class="small"><?= e(trim(short_make($d['manufacturer']) . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
           <td class="small"><?= e($d['serial'] ?? '') ?></td>
-          <td class="small"><?= e($d['os_name'] ?: $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
+          <td class="small" title="<?= e((string) ($d['os_name'] ?: $d['firmware'])) ?>"><?= e($d['os_name'] ? os_label($d['os_name'], $d['os_build'], $d['os_rule']) : (string) $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
           <td class="small text-nowrap"><?= e(fmt_date($d['warranty_end'])) ?: '<span class="text-muted">—</span>' ?></td>
           <td class="small text-nowrap"><?= $d['is_hardware'] ? e(fmt_date($d['eol_date'])) : '<span class="text-muted">—</span>' ?><?= !empty($d['replace_planned']) ? '<div class="text-muted">Replace ' . e($d['replace_label']) . '</div>' : '' ?></td>
           <td><?php require __DIR__ . '/../partials/status.php'; ?></td>

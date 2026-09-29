@@ -497,3 +497,33 @@ body.dash-editing .dash-card > .row .card { margin-bottom: 0; }
 .setup-steps .list-group-item.active .fa-fw { opacity: 1; }
 .setup-steps .list-group-item .fa-fw { opacity: .7; }
 .setup-footer .btn-link { padding-left: 0; }
+
+/* ---- 1.42 page pattern: header, tiles, toolbar, paged lists, optional columns ---- */
+.navbar-search-wide .form-control-navbar { width: 330px; }
+@media (max-width: 1100px) { .navbar-search-wide .form-control-navbar { width: 220px; } }
+.page-head h1 .page-count { font-size: .75rem; vertical-align: middle; }
+.page-head .page-desc { max-width: 900px; }
+.page-actions > .btn, .page-actions > a.btn, .page-actions > form { margin-left: .25rem; }
+.stat-tiles .stat-tile { padding: .5rem .85rem; color: inherit; transition: box-shadow .15s; }
+.stat-tiles a.stat-tile:hover { text-decoration: none; box-shadow: 0 0 0 2px rgba(0,123,255,.35); }
+.stat-tiles .stat-tile.active { box-shadow: 0 0 0 2px #007bff; }
+.stat-tiles .stat-label { display: block; font-size: .8rem; color: #6c757d; }
+.stat-tiles .stat-value { display: block; font-size: 1.45rem; line-height: 1.25; }
+.list-toolbar { padding: .45rem .75rem; }
+.list-toolbar .view-tabs { flex-wrap: wrap; }
+.list-toolbar .view-tabs .nav-link { padding: .3rem .6rem; white-space: nowrap; }
+.list-toolbar .toolbar-right .btn, .list-toolbar .toolbar-right .btn-group { margin: .15rem 0 .15rem .25rem; white-space: nowrap; }
+.list-toolbar .list-search { width: 190px; }
+.list-toolbar .dropdown-menu { max-height: 70vh; overflow-y: auto; }
+.list-footer { background: #fff; }
+.group-tabs .nav-link { padding: .45rem .9rem; }
+.table .col-opt { display: none; }
+.table.show-col-type .col-type, .table.show-col-serial .col-serial, .table.show-col-backup .col-backup,
+.table.show-col-warranty .col-warranty, .table.show-col-cost .col-cost, .table.show-col-ip .col-ip { display: table-cell; }
+.record-crumbs { font-size: .8rem; margin-bottom: .25rem; }
+.record-crumbs a { color: #6c757d; }
+.nav-sidebar .nav-header { padding-top: .6rem; padding-bottom: .3rem; font-size: .72rem; }
+a.is-loading { opacity: .6; cursor: progress; }
+.portal-subtabs .nav-link { padding: .35rem .8rem; }
+.record-tabs .nav-tabs .nav-link { padding: .6rem 1rem; }
+.record-tabs .tab-pane > .table th.w-40 { padding-left: 1rem; }

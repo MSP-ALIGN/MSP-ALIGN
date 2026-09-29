@@ -143,6 +143,7 @@ final class Licenses
         $seen = [];
         $added = 0;
         $retired = 0;
+        DB::transaction(function () use ($rows, $clients, $existing, $t, $now, $n, &$seen, &$added, &$retired) {
         foreach ($rows as $r) {
             $sid = ext_id($r['id'] ?? null);
             $clientId = $clients[ext_id($r['client_id'] ?? null)] ?? null;
@@ -191,6 +192,7 @@ final class Licenses
                 $retired++;
             }
         }
+        });
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses WHERE retired_at IS NULL AND unit_price IS NULL');
         return count($seen) . ' licenses' . ($added ? ", $added new" : '') . ($retired ? ", $retired retired in $n" : '')
             . ($unpriced ? ", $unpriced need a price" : '');

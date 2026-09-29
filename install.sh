@@ -332,7 +332,7 @@ cat >"/etc/php/$PHPV/apache2/conf.d/99-msp-align.ini" <<'INI'
 expose_php = Off
 display_errors = Off
 log_errors = On
-memory_limit = 256M
+memory_limit = 512M
 max_execution_time = 120
 upload_max_filesize = 8M
 post_max_size = 8M
@@ -527,6 +527,18 @@ NEED_RESTART=0
   echo "[mariadbd]"
   echo "bind-address = 127.0.0.1"
   echo "local-infile = 0"
+  # Performance (1.42): keep the whole database in memory - a quarter of RAM, 256 MB to 2 GB
+  # (150 clients / 10,000 devices is about 60 MB). Sorts and reports use in-memory temp tables.
+  MEM_MB=$(awk '/^MemTotal:/ {print int($2 / 1024)}' /proc/meminfo 2>/dev/null || echo 2048)
+  # In a container /proc/meminfo shows the host: use the container's memory limit when it is lower
+  for f in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+    LIM=$(cat "$f" 2>/dev/null || true)
+    if [[ "$LIM" =~ ^[0-9]+$ ]] && (( LIM / 1048576 < MEM_MB )); then MEM_MB=$(( LIM / 1048576 )); fi
+  done
+  POOL_MB=$(( MEM_MB / 4 )); (( POOL_MB < 256 )) && POOL_MB=256; (( POOL_MB > 2048 )) && POOL_MB=2048
+  echo "innodb_buffer_pool_size = ${POOL_MB}M"
+  echo "tmp_table_size = 64M"
+  echo "max_heap_table_size = 64M"
 } >"$MYCNF.new"
 # Encryption at rest (HIPAA 164.312(a)(2)(iv)): InnoDB tables, redo log, temp files and Aria tables
 # are encrypted with a key file readable only by the mysql user. Backups are logical dumps

@@ -280,6 +280,15 @@ final class PsaAssetSync
             ON DUPLICATE KEY UPDATE base_value = VALUES(base_value), align_changed_at = NULL, pending = 0, last_error = NULL', [$deviceId, $f, $base]);
     }
 
+    /** setBase(), skipped when the stored state already says exactly that (most fields on most runs). */
+    private static function rebase(int $deviceId, string $f, string $base, ?array $st): void
+    {
+        if ($st !== null && $st['base_value'] === $base && !(int) $st['pending'] && $st['last_error'] === null && $st['align_changed_at'] === null) {
+            return;
+        }
+        self::setBase($deviceId, $f, $base);
+    }
+
     private static function markPending(int $deviceId, string $f, ?string $error): void
     {
         DB::run('INSERT INTO psa_sync_state (device_id, field, base_value, align_changed_at, pending, last_error) VALUES (?, ?, NULL, NOW(), 1, ?)
@@ -340,12 +349,12 @@ final class PsaAssetSync
      * @param bool $online    whether pushes can be sent (false = queue them)
      * @return array{pulled:int,pushed:int,conflicts:int,error:?string}
      */
-    public static function reconcileDevice(array $d, array $a, PsaProvider $p, bool $online = true, ?int $userId = null): array
+    public static function reconcileDevice(array $d, array $a, PsaProvider $p, bool $online = true, ?int $userId = null, ?array $state = null): array
     {
         $id = (int) $d['id'];
         $n = $p->name();
         $twoWay = self::twoWay();
-        $state = self::state($id);
+        $state ??= self::state($id);
         $res = ['pulled' => 0, 'pushed' => 0, 'conflicts' => 0, 'error' => null];
         $payload = [];
         $pushes = [];
@@ -368,7 +377,7 @@ final class PsaAssetSync
                         $d = self::loadDevice($id) ?? $d;
                     }
                 }
-                self::setBase($id, $f, $psa);
+                self::rebase($id, $f, $psa, $state[$f] ?? null);
                 continue;
             }
 
@@ -376,7 +385,7 @@ final class PsaAssetSync
             if ($st === null || $st['base_value'] === null && !$st['pending']) {
                 // First time this device and asset are compared.
                 if ($al === null || self::same($p, $f, $al, $psa, $a)) {
-                    self::setBase($id, $f, $psa);
+                    self::rebase($id, $f, $psa, $state[$f] ?? null);
                     continue;
                 }
                 $psaTs = (string) ($a['updated_at'] ?? '');
@@ -391,7 +400,7 @@ final class PsaAssetSync
                 }
                 if (!$psaChanged && !$alChanged) {
                     if ($st['pending'] || $base === null) {
-                        self::setBase($id, $f, $psa);
+                        self::rebase($id, $f, $psa, $state[$f] ?? null);
                     }
                     continue;
                 }
@@ -402,7 +411,7 @@ final class PsaAssetSync
                         $res['pulled']++;
                         $d = self::loadDevice($id) ?? $d;
                     }
-                    self::setBase($id, $f, $psa);
+                    self::rebase($id, $f, $psa, $state[$f] ?? null);
                     continue;
                 }
                 if ($alChanged && !$psaChanged) {
@@ -413,7 +422,7 @@ final class PsaAssetSync
                     $note = null;
                 } else {
                     if (self::same($p, $f, (string) $al, $psa, $a)) {
-                        self::setBase($id, $f, $psa);
+                        self::rebase($id, $f, $psa, $state[$f] ?? null);
                         continue;
                     }
                     $alTs = (string) ($st['align_changed_at'] ?? date('Y-m-d H:i:s'));
@@ -437,7 +446,7 @@ final class PsaAssetSync
                     $res['conflicts'] += $conflict ? 1 : 0;
                     $d = self::loadDevice($id) ?? $d;
                 }
-                self::setBase($id, $f, $psa);
+                self::rebase($id, $f, $psa, $state[$f] ?? null);
             }
         }
 
@@ -450,7 +459,7 @@ final class PsaAssetSync
                     throw new \RuntimeException("$n rejected the update (does the API key user have write access to assets?)");
                 }
                 foreach ($pushes as $f => $push) {
-                    self::setBase($id, $f, $push['base']);
+                    self::rebase($id, $f, $push['base'], $state[$f] ?? null);
                     DB::run('UPDATE psa_assets SET `' . self::FIELDS[$f][1] . '` = ? WHERE psa_asset_id = ?', [$push['send'] === '' ? null : $push['send'], $a['psa_asset_id']]);
                     self::log($id, $f, $push['old'], $push['new'], 'to_psa', $push['conflict'], $push['note'], $userId);
                     $res['pushed']++;
@@ -615,12 +624,14 @@ final class PsaAssetSync
             $now = date('Y-m-d H:i:s');
             DB::transaction(function () use ($assets, $now, $locations) {
                 $ids = [];
+                $rows = [];
                 foreach ($assets as $a) {
                     if (ext_id($a['id'] ?? null) !== '') {
-                        DB::upsert('psa_assets', self::cacheRow($a, $now, $locations), ['psa_asset_id']);
+                        $rows[] = self::cacheRow($a, $now, $locations);
                         $ids[] = ext_id($a['id']);
                     }
                 }
+                DB::upsertMany('psa_assets', $rows, ['psa_asset_id']);
                 // Anything the PSA no longer returns is gone (by ID, so two runs in the same second can't miss it)
                 if ($ids) {
                     DB::run('DELETE FROM psa_assets WHERE psa_asset_id NOT IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
@@ -733,6 +744,7 @@ final class PsaAssetSync
         $unassigned = 0;
         $n = $p->name();
         DB::transaction(function () use ($p, $n, $cats, $claimed, $clients, $serials, $existing, $now, &$added, &$hidden, &$unassigned) {
+            $touched = [];
             foreach (DB::all('SELECT * FROM psa_assets') as $a) {
                 $aid = (string) $a['psa_asset_id'];
                 [$type, $cat] = $p->mapAssetType($a);
@@ -753,7 +765,7 @@ final class PsaAssetSync
                         if ((int) $ex['client_id'] !== (int) $clientId) {
                             DB::run('UPDATE devices SET client_id = ? WHERE id = ?', [$clientId, $ex['id']]);
                         }
-                        DB::run('UPDATE devices SET synced_at = ? WHERE id = ?', [$now, $ex['id']]);
+                        $touched[] = (int) $ex['id'];
                     }
                     continue;
                 }
@@ -785,10 +797,12 @@ final class PsaAssetSync
                     $unassigned++;
                 }
             }
+            foreach (array_chunk($touched, 1000) as $ids) {
+                DB::run('UPDATE devices SET synced_at = ? WHERE id IN (' . implode(',', $ids) . ')', [$now]);
+            }
         });
         $count = array_sum($added);
-        $waiting = (int) DB::value("SELECT COUNT(*) FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
-            WHERE d.removed_at IS NULL AND COALESCE(o.device_type, d.device_type) = 'Unassigned'");
+        $waiting = Lifecycle::unassignedCount(true);
         return ($count ? "$count new asset" . ($count === 1 ? '' : 's') . ' imported' : 'no new assets')
             . ($hidden ? ", $hidden hidden (type turned off or client not mapped)" : '')
             . ($waiting ? ", $waiting unassigned waiting to be categorized" : '');
@@ -803,6 +817,16 @@ final class PsaAssetSync
             WHERE d.psa_asset_id IS NOT NULL AND d.psa_sync = 1 AND (d.removed_at IS NULL OR d.retired_at IS NOT NULL)");
         $tot = ['pulled' => 0, 'pushed' => 0, 'conflicts' => 0, 'errors' => 0, 'gone' => 0];
         $lastError = null;
+        // Everything the loop needs, read once (a query or three per device adds up at thousands of devices)
+        $assets = [];
+        foreach (DB::all('SELECT a.* FROM psa_assets a JOIN devices d ON d.psa_asset_id = a.psa_asset_id') as $a) {
+            $assets[(string) $a['psa_asset_id']] = $a;
+        }
+        $states = [];
+        $loadedAt = date('Y-m-d H:i:s');
+        foreach (DB::all('SELECT s.* FROM psa_sync_state s JOIN devices d ON d.id = s.device_id WHERE d.psa_sync = 1') as $st) {
+            $states[(int) $st['device_id']][$st['field']] = $st;
+        }
         foreach ($rows as $r) {
             $id = (int) $r['id'];
             if (!$r['present']) {
@@ -826,8 +850,16 @@ final class PsaAssetSync
                 continue;
             }
             $d = self::loadDevice($id);
-            $a = DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [$r['psa_asset_id']]);
-            $res = self::reconcileDevice($d, $a, $p);
+            $a = $assets[(string) $r['psa_asset_id']] ?? DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [$r['psa_asset_id']]);
+            if (!$d || !$a) {
+                continue;
+            }
+            // Edited in Align while this run was going (a push then waits for the lock): read its state fresh
+            $fresh = max((string) ($d['updated_at'] ?? ''), (string) ($d['o_updated'] ?? '')) >= $loadedAt;
+            $res = self::reconcileDevice($d, $a, $p, true, null, $fresh ? null : ($states[$id] ?? []));
+            if ($res['pushed']) { // another device linked to the same asset must see what was just sent
+                $assets[(string) $r['psa_asset_id']] = DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [$r['psa_asset_id']]) ?? $a;
+            }
             foreach (['pulled', 'pushed', 'conflicts'] as $k) {
                 $tot[$k] += $res[$k];
             }
