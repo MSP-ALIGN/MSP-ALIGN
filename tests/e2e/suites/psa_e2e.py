@@ -86,10 +86,27 @@ st.post(B+"/integrations/itflow",data=F)
 ok(q("select value from settings where name='psa_provider'")[0]["value"]=="itflow","setting up ITFlow makes it the PSA")
 ok(q("select value from settings where name='itflow_url'")[0]["value"]==url,"ITFlow URL restored")
 
+# ---- 1.34: PSA ids are text (another PSA may use GUIDs)
+cols=q("select concat(table_name,'.',column_name) c, data_type t from information_schema.columns where table_schema=database() and concat(table_name,'.',column_name) in ('clients.psa_id','contacts.psa_id','licenses.psa_id','devices.psa_asset_id','psa_assets.psa_asset_id','psa_assets.psa_client_id','psa_assets.location_id','psa_tickets.id','psa_tickets.psa_client_id','service_requests.psa_ticket_id')")
+ok(len(cols)==10 and all(c["t"]=="varchar" for c in cols),"every PSA id column is text: "+",".join(c["c"]+"="+c["t"] for c in cols if c["t"]!="varchar"))
+ok(q("select psa_id from clients where psa_id is not null order by id limit 1")[0]["psa_id"].isdigit(),"numeric ids kept as they were")
+G="7f3c2a90-1b4e-4c1d-9a55-0e2f6b8d1c3a"; GA="asset-"+G; GT="tkt-"+G
+q("insert into clients (name, source, psa_id, is_archived, planning_excluded) values ('Zz Guid Client','psa',%s,0,0)",G); gc=q("select id from clients where psa_id=%s",G)[0]["id"]
+q("insert into psa_assets (psa_asset_id, psa_client_id, name, type, serial, is_archived, location_id) values (%s,%s,'ZZ-GUID-PC','Laptop','ZZG1',0,'loc-1')",GA,G)
+q("insert into devices (source, client_id, display_name, system_name, device_type, psa_asset_id, psa_sync) values ('manual',%s,'ZZ-GUID-PC','ZZ-GUID-PC','laptop',%s,1)",gc,GA); gd=q("select id from devices where psa_asset_id=%s",GA)[0]["id"]
+q("insert into psa_tickets (id, psa_client_id, client_id, number, subject, created_at, synced_at) values (%s,%s,%s,'G-1','Text id ticket',now(),now())",GT,G,gc)
+bad=[p for p in [f"/clients/{gc}",f"/devices/{gd}",f"/clients/{gc}/devices",f"/clients/{gc}/service-levels","/devices/unassigned"] if st.get(B+p).status_code>=500 or errs(st.get(B+p).text)]
+ok(not bad,"pages render for a client, device and ticket with text PSA ids: "+str(bad))
+t=st.get(B+f"/devices/{gd}").text; ok("Linked (#"+GA+")" in t,"device page shows the text asset id")
+r=call(key,"GET",f"/clients/{gc}"); ok(r.status_code==200 and r.json()["data"]["psa_id"]==G and r.json()["data"]["itflow_client_id"] is None,"API returns a text PSA id as text (the old numeric alias is null)")
+r=call(key,"GET","/clients/1"); ok(isinstance(r.json()["data"]["psa_id"],int),"API still returns ITFlow's numeric ids as numbers")
+out=align("sync","--quiet"); ok(q("select count(*) n from psa_tickets where id=%s",GT)[0]["n"]==0 and q("select is_archived from clients where id=%s",gc)[0]["is_archived"]==1,"a sync handles text ids (ticket not in the PSA removed, client not in the PSA archived)")
+q("delete from psa_tickets where id=%s",GT); q("delete from devices where id=%s",gd); q("delete from psa_assets where psa_asset_id=%s",GA); q("delete from clients where id=%s",gc)
+
 # ---- migration: runs again safely, and upgrades a 1.27.1 database
-q("delete from schema_migrations where version in ('033_psa_neutral','034_rmm_neutral')")
+q("delete from schema_migrations where version in ('033_psa_neutral','034_rmm_neutral','037_psa_text_ids')")
 r=subprocess.run(["php",ALIGN,"migrate"],env=ENV,capture_output=True,text=True)
-ok(r.returncode==0 and "033_psa_neutral" in r.stdout and "034_rmm_neutral" in r.stdout,"migrations 033 and 034 can run again on an upgraded database: "+(r.stdout+r.stderr)[-120:])
+ok(r.returncode==0 and "033_psa_neutral" in r.stdout and "034_rmm_neutral" in r.stdout and "037_psa_text_ids" in r.stdout,"migrations 033, 034 and 037 can run again on an upgraded database: "+(r.stdout+r.stderr)[-120:])
 upg=load_snapshot("fresh_1271","align_upg")
 r=subprocess.run(["php",ALIGN,"migrate"],env={**ENV,"ALIGN_CONFIG":upg},capture_output=True,text=True)
 u=pymysql.connect(unix_socket=SOCKET,user="root",database="align_upg",cursorclass=pymysql.cursors.DictCursor)

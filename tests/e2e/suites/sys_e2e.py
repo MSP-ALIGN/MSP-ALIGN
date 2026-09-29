@@ -13,6 +13,10 @@ def jid(r): m=re.search(r'job=([0-9a-f-]+)',r.url); return m.group(1) if m else 
 def post(st,path,data=None,files=None,**kw): return st.post(B+path,data={"_csrf":csrf(st,"/settings/system"),**(data or {})},files=files,**kw)
 upload_dir=UPLOADS
 
+# ---- 1.34: the PSA poll timer is named for the PSA, not ITFlow; upgrades remove the old one
+units=os.listdir(ROOT+"/deploy/systemd"); inst=open(ROOT+"/install.sh").read()
+ok("mountaineer-align-psa.timer" in units and not any("itflow" in u for u in units) and "mountaineer-align-psa.timer mountaineer-align-mail.timer" in inst and "rm -f /etc/systemd/system/mountaineer-align-itflow.timer" in inst,"PSA poll timer renamed; the installer removes the old itflow one")
+
 # ---- setup
 for d in ["agent/jobs","agent/safety","data/downloads","data/restore","run/requests","legacy"]:
     shutil.rmtree(T+"/"+d,ignore_errors=True); os.makedirs(T+"/"+d)

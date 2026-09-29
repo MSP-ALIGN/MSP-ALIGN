@@ -57,7 +57,7 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
   <?= $card('fa-database', 'Backup & recovery',
       'Backup health from ' . \Align\Providers\Providers::backupNames() . ': job results, the 30-day history, protected machines, Microsoft 365, anything needing attention and items marked not required.',
       '/report/backup',
-      $chk('details', 'Job details') . $chk('machines', 'Protected machines'), 'veeam') ?>
+      $chk('details', 'Job details') . $chk('machines', 'Protected machines'), 'backup') ?>
   <?php endif; ?>
   <?= $card('fa-road', '3-year technology roadmap',
       'Where things stand today, then year tiles and the quarterly chart, a quarter-by-quarter timeline and projects with status and decisions.',

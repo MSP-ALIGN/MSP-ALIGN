@@ -136,7 +136,7 @@ final class Licenses
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         $existing = [];
         foreach (DB::all("SELECT id, psa_id, retired_at, retired_reason FROM licenses WHERE psa_id IS NOT NULL") as $r) {
-            $existing[(int) $r['psa_id']] = $r;
+            $existing[(string) $r['psa_id']] = $r;
         }
         $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len) ?: null;
         $now = date('Y-m-d H:i:s');
@@ -144,9 +144,9 @@ final class Licenses
         $added = 0;
         $retired = 0;
         foreach ($rows as $r) {
-            $sid = (int) ($r['id'] ?? 0);
-            $clientId = $clients[(int) ($r['client_id'] ?? 0)] ?? null;
-            if (!$sid || !$clientId) {
+            $sid = ext_id($r['id'] ?? null);
+            $clientId = $clients[ext_id($r['client_id'] ?? null)] ?? null;
+            if ($sid === '' || !$clientId) {
                 continue;
             }
             $seen[$sid] = true;

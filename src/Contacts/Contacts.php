@@ -59,7 +59,7 @@ final class Contacts
     }
 
     /** Pushes the details of a PSA contact. Returns null on success, or an error message. */
-    public static function pushUpdate(array $k, array $f, int $psaClientId): ?string
+    public static function pushUpdate(array $k, array $f, string $psaClientId): ?string
     {
         // Send the full set of details (not just the difference) so the PSA ends up matching what the user saw and saved
         $changed = self::psaPayload($f);
@@ -68,14 +68,14 @@ final class Contacts
         }
         try {
             $p = \Align\Providers\Providers::psa();
-            return $p->updateContact($psaClientId, (int) $k['psa_id'], $changed) ? null : $p->name() . ' did not accept the change';
+            return $p->updateContact($psaClientId, (string) $k['psa_id'], $changed) ? null : $p->name() . ' did not accept the change';
         } catch (\Throwable $e) {
             return $e->getMessage();
         }
     }
 
     /** Creates the contact in the PSA. Returns [psa contact id|null, error|null]. */
-    public static function pushCreate(array $f, int $psaClientId): array
+    public static function pushCreate(array $f, string $psaClientId): array
     {
         try {
             $p = \Align\Providers\Providers::psa();
@@ -109,7 +109,7 @@ final class Contacts
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         $existing = [];
         foreach (DB::all('SELECT id, psa_id, archived_at, archived_reason FROM contacts WHERE psa_id IS NOT NULL') as $r) {
-            $existing[(int) $r['psa_id']] = $r;
+            $existing[(string) $r['psa_id']] = $r;
         }
         $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len) ?: null;
         $flag = fn($v) => !empty($v) ? 1 : 0;
@@ -118,9 +118,9 @@ final class Contacts
         $added = 0;
         $archived = 0;
         foreach ($rows as $r) {
-            $kid = (int) ($r['id'] ?? 0);
-            $clientId = $clients[(int) ($r['client_id'] ?? 0)] ?? null;
-            if (!$kid || !$clientId) {
+            $kid = ext_id($r['id'] ?? null);
+            $clientId = $clients[ext_id($r['client_id'] ?? null)] ?? null;
+            if ($kid === '' || !$clientId) {
                 continue;
             }
             $seen[$kid] = true;
@@ -134,7 +134,7 @@ final class Contacts
                 'phone' => $t($r['phone'] ?? '', 60),
                 'extension' => $t($r['extension'] ?? '', 20),
                 'mobile' => $t($r['mobile'] ?? '', 60),
-                'location' => $t($locationNames[(int) ($r['location_id'] ?? 0)] ?? ''),
+                'location' => $t($locationNames[ext_id($r['location_id'] ?? null)] ?? ''),
                 'is_primary' => $flag($r['primary'] ?? false),
                 'is_important' => $flag($r['important'] ?? false),
                 'is_billing' => $flag($r['billing'] ?? false),

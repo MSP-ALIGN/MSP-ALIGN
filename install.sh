@@ -559,13 +559,18 @@ fi
 # ----------------------------------------------------------------- systemd --
 log "Installing scheduled jobs"
 # 1.14: nightly backups on the server are replaced by backups downloaded through the browser
+# 1.34: the PSA poll timer was named after ITFlow (mountaineer-align-itflow); it is now mountaineer-align-psa
+if [[ -f /etc/systemd/system/mountaineer-align-itflow.timer ]]; then
+  systemctl disable -q --now mountaineer-align-itflow.timer 2>/dev/null || true
+  rm -f /etc/systemd/system/mountaineer-align-itflow.timer /etc/systemd/system/mountaineer-align-itflow.service
+fi
 if [[ -f /etc/systemd/system/mountaineer-align-backup.timer ]]; then
   systemctl disable -q --now mountaineer-align-backup.timer 2>/dev/null || true
   rm -f /etc/systemd/system/mountaineer-align-backup.timer /etc/systemd/system/mountaineer-align-backup.service
 fi
 install -m 644 "$APP_DIR"/deploy/systemd/*.service "$APP_DIR"/deploy/systemd/*.timer "$APP_DIR"/deploy/systemd/*.path /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-itflow.timer mountaineer-align-mail.timer \
+systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-psa.timer mountaineer-align-mail.timer \
   mountaineer-align-nightly.timer mountaineer-align-update-check.timer mountaineer-align-agent.path
 # First update check, in the background (waits for a running update to finish first)
 systemctl start --no-block mountaineer-align-update-check.service 2>/dev/null || true

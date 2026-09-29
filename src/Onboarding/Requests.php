@@ -143,7 +143,7 @@ final class Requests
                 if ($by['email']) {
                     $contactId = DB::value('SELECT psa_id FROM contacts WHERE client_id = ? AND email = ? AND psa_id IS NOT NULL AND archived_at IS NULL LIMIT 1', [$client['id'], $by['email']]);
                 }
-                $ticket = \Align\Providers\Providers::psa(true)->createTicket((int) $client['psa_id'], $title, $html, 'Medium', $contactId ? (int) $contactId : null);
+                $ticket = \Align\Providers\Providers::psa(true)->createTicket((string) $client['psa_id'], $title, $html, 'Medium', $contactId ? (string) $contactId : null);
                 $delivery = 'psa';
             } catch (\Throwable $e) {
                 $error = $e->getMessage();

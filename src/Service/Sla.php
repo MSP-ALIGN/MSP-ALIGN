@@ -53,7 +53,7 @@ final class Sla
         return $pct >= self::target() ? 'success' : ($pct >= self::target() - 10 ? 'warning' : 'danger');
     }
 
-    public static function ticketUrl(int $id): ?string
+    public static function ticketUrl(int|string $id): ?string
     {
         return Providers::psaLink('ticket', $id);
     }
@@ -83,9 +83,9 @@ final class Sla
             // Anything not returned by a full read was deleted in the PSA (or has aged out)
             $removed = self::removeMissing($seen);
         } else {
-            $open = DB::all('SELECT id FROM psa_tickets WHERE closed_at IS NULL ORDER BY id DESC LIMIT ' . self::OPEN_REFRESH_MAX);
+            $open = DB::all('SELECT id FROM psa_tickets WHERE closed_at IS NULL ORDER BY created_at DESC, id DESC LIMIT ' . self::OPEN_REFRESH_MAX);
             foreach ($open as $o) {
-                $id = (int) $o['id'];
+                $id = (string) $o['id'];
                 if (isset($seen[$id])) {
                     continue;
                 }
@@ -127,10 +127,10 @@ final class Sla
         $flag = fn($v) => $v === null ? null : ($v ? 1 : 0);
         $batch = [];
         foreach ($rows as $r) {
-            $id = (int) ($r['id'] ?? 0);
-            $pc = (int) ($r['client_id'] ?? 0);
+            $id = ext_id($r['id'] ?? null);
+            $pc = ext_id($r['client_id'] ?? null);
             $created = $r['created_at'] ?? null;
-            if (!$id || !$pc || !$created || $created < $cutoff) {
+            if ($id === '' || $pc === '' || !$created || $created < $cutoff) {
                 continue;
             }
             $seen[$id] = true;
@@ -157,10 +157,10 @@ final class Sla
 
     private static function removeMissing(array $seen): int
     {
-        $local = array_map('intval', array_column(DB::all('SELECT id FROM psa_tickets'), 'id'));
+        $local = array_map('strval', array_column(DB::all('SELECT id FROM psa_tickets'), 'id'));
         $gone = array_values(array_filter($local, fn($id) => !isset($seen[$id])));
         foreach (array_chunk($gone, 500) as $chunk) {
-            DB::run('DELETE FROM psa_tickets WHERE id IN (' . implode(',', $chunk) . ')');
+            DB::run('DELETE FROM psa_tickets WHERE id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk);
         }
         return count($gone);
     }

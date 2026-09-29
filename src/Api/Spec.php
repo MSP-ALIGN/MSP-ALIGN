@@ -17,7 +17,7 @@ final class Spec
             'client_ids' => ['integer[]', 'Clients the key is limited to; null = all clients.'], 'rate_limit_per_minute' => ['integer', ''], 'expires_at' => ['date-time', 'null = never.'],
             'api_version' => ['integer', ''], 'app_version' => ['string', ''], 'openapi' => ['string', 'Path of the OpenAPI document.']]],
         'Client' => ['A client (details come from the PSA and are read-only).', [
-            'id' => ['integer', ''], 'name' => ['string', ''], 'industry' => ['string', ''], 'source' => ['string', 'The PSA\'s key (e.g. itflow) or manual.'], 'psa_id' => ['integer', 'The client\'s id in the PSA.'], 'itflow_client_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'],
+            'id' => ['integer', ''], 'name' => ['string', ''], 'industry' => ['string', ''], 'source' => ['string', 'The PSA\'s key (e.g. itflow) or manual.'], 'psa_id' => ['id', 'The client\'s id in the PSA: a number for PSAs with numeric ids (ITFlow), otherwise text.'], 'itflow_client_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'],
             'main_phone' => ['string', ''], 'website' => ['string', ''], 'address' => ['string', ''], 'primary_contact' => ['object', 'name, title, email, phone, mobile.'],
             'vcio' => ['object', 'Staff user who is vCIO for the client: id, name.'], 'meeting_cadence' => ['string', 'How often you meet.'], 'in_planning' => ['boolean', 'false = taken out of planning.'],
             'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''], 'url' => ['string', 'Link to the client in the web app.']]],
@@ -27,7 +27,7 @@ final class Spec
             'id' => ['integer', ''], 'client_id' => ['integer', ''], 'name' => ['string', ''], 'title' => ['string', ''], 'department' => ['string', ''], 'email' => ['string', ''],
             'phone' => ['string', ''], 'extension' => ['string', ''], 'mobile' => ['string', ''], 'location' => ['string', ''],
             'roles' => ['string[]', 'primary, billing, technical, important, decision_maker, meeting_invitee.'], 'notes' => ['string', 'Align notes.'], 'source' => ['string', ''],
-            'psa_id' => ['integer', 'The contact\'s id in the PSA.'], 'itflow_contact_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'], 'archived' => ['boolean', ''], 'updated_at' => ['date-time', '']]],
+            'psa_id' => ['id', 'The contact\'s id in the PSA (number or text, as psa_id on clients).'], 'itflow_contact_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'], 'archived' => ['boolean', ''], 'updated_at' => ['date-time', '']]],
         'Device' => ['A device with its computed lifecycle.', [
             'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'name' => ['string', ''], 'type' => ['string', 'e.g. Server, Hypervisor host, Laptop.'],
             'category' => ['string', 'Lifecycle category: desktop, laptop, server, network, printer, storage, power, other.'], 'is_virtual' => ['boolean', ''], 'source' => ['string', 'ninja (NinjaOne), another RMM\'s key, the PSA\'s key (e.g. itflow) or manual.'], 'rmm' => ['object', 'For RMM devices: provider (e.g. ninjaone), device_id, organization_id. null otherwise.'],
@@ -35,7 +35,7 @@ final class Spec
             'last_seen' => ['date-time', ''], 'os' => ['object', 'name, build, support_ends.'],
             'lifecycle' => ['object', 'status, status_label, health (ok/warn/bad/muted), flags, in_service_date, in_service_source, in_service_estimated, age_years, lifespan_years, end_of_life, replace_by, planned_replacement {quarter, label, note, deferred}, replacement_cost, excluded.'],
             'warranty' => ['object', 'end, source.'], 'overrides' => ['object', 'Values set in Align (null = using the synced value or policy default).'],
-            'psa_asset_id' => ['integer', 'The linked PSA asset.'], 'itflow_asset_id' => ['integer', 'Older name for psa_asset_id, kept for existing integrations.'], 'ninja_device_id' => ['integer', 'NinjaOne devices only: same as rmm.device_id. Older field, kept for existing integrations.'], 'synced_at' => ['date-time', ''], 'url' => ['string', ''],
+            'psa_asset_id' => ['id', 'The linked PSA asset (number or text, as psa_id on clients).'], 'itflow_asset_id' => ['integer', 'Older name for psa_asset_id, kept for existing integrations.'], 'ninja_device_id' => ['integer', 'NinjaOne devices only: same as rmm.device_id. Older field, kept for existing integrations.'], 'synced_at' => ['date-time', ''], 'url' => ['string', ''],
             'psa_sync' => ['object', 'After PATCH only: status (ok, off, queued, error) and message.'], 'itflow_sync' => ['object', 'Older name for psa_sync, kept for existing integrations.']]],
         'Project' => ['A roadmap project.', [
             'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'title' => ['string', ''], 'category' => ['string', ''], 'category_label' => ['string', ''],
@@ -55,7 +55,7 @@ final class Spec
             'contract_end' => ['date', ''], 'notice_days' => ['integer', ''], 'renegotiate_date' => ['date', ''], 'auto_renew' => ['boolean', ''], 'notes' => ['string', ''],
             'created_at' => ['date-time', ''], 'updated_at' => ['date-time', '']]],
         'License' => ['A software license or subscription.', [
-            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'source' => ['string', 'The PSA\'s key (e.g. itflow) or manual.'], 'psa_id' => ['integer', 'The license\'s id in the PSA.'], 'itflow_software_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'], 'name' => ['string', ''],
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'source' => ['string', 'The PSA\'s key (e.g. itflow) or manual.'], 'psa_id' => ['id', 'The license\'s id in the PSA (number or text, as psa_id on clients).'], 'itflow_software_id' => ['integer', 'Older name for psa_id, kept for existing integrations.'], 'name' => ['string', ''],
             'version' => ['string', ''], 'software_type' => ['string', ''], 'license_type' => ['string', ''], 'category' => ['string', ''], 'vendor' => ['string', ''],
             'seats' => ['integer', ''], 'seats_used' => ['integer', ''], 'pricing' => ['string', 'per_seat or flat.'], 'unit_price' => ['number', ''], 'billing_cycle' => ['string', ''],
             'priced' => ['boolean', ''], 'cost_per_cycle' => ['number', ''], 'monthly' => ['number', ''], 'annual' => ['number', ''], 'purchase_date' => ['date', ''], 'expire_date' => ['date', ''],
@@ -278,6 +278,7 @@ final class Spec
             'date' => ['type' => ['string', 'null'], 'format' => 'date'],
             'date-time' => ['type' => ['string', 'null'], 'format' => 'date-time'],
             'integer', 'number', 'string', 'boolean', 'object', 'array' => ['type' => [$t, 'null']],
+            'id' => ['type' => ['integer', 'string', 'null']],
             default => ['type' => 'object'],
         };
     }

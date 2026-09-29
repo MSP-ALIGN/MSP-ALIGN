@@ -78,20 +78,21 @@ final class Providers
         return $c && $c->configured() && in_array($capability, $c->capabilities(), true) && !\Align\Staging::blocks($capability);
     }
 
-    /** A link into the PSA's own screens, or null. $kind: client, asset, ticket. */
-    public static function psaLink(string $kind, int ...$ids): ?string
+    /** A link into the PSA's own screens, or null. $kind: client, asset (client id, asset id), ticket. Ids as stored (text). */
+    public static function psaLink(string $kind, int|string|null ...$ids): ?string
     {
         static $p = false;
         try {
             if ($p === false) {
                 $p = self::psaConfigured() ? self::psa(true) : null;
             }
-            if (!$p || !($kind === 'asset' ? ($ids[1] ?? 0) : ($ids[0] ?? 0))) {
+            $ids = array_map(fn($i) => (string) ($i ?? ''), $ids);
+            if (!$p || ($kind === 'asset' ? ($ids[1] ?? '') : ($ids[0] ?? '')) === '') {
                 return null;
             }
             return match ($kind) {
                 'client' => $p->clientUrl($ids[0]),
-                'asset' => $p->assetUrl($ids[0], $ids[1] ?? 0),
+                'asset' => $p->assetUrl($ids[0], $ids[1]),
                 'ticket' => $p->ticketUrl($ids[0]),
                 default => null,
             };

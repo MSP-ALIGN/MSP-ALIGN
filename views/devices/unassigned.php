@@ -44,7 +44,7 @@ $twoWay = \Align\Sync\PsaAssetSync::twoWay();
               <?php if ($canEdit): ?><td><input type="checkbox" name="ids[]" value="<?= (int) $d['id'] ?>" class="row-check" aria-label="Select <?= e($d['name']) ?>"></td><?php endif; ?>
               <td><a href="/devices/<?= (int) $d['id'] ?>" class="font-weight-bold"><?= e($d['name']) ?></a></td>
               <td><?= $d['client_id'] ? '<a href="/clients/' . (int) $d['client_id'] . '/devices">' . e($d['client_name']) . '</a>' : '—' ?></td>
-              <td><span class="badge badge-light border"><?= e($psaTypes[(int) $d['psa_asset_id']] ?? '—') ?></span></td>
+              <td><span class="badge badge-light border"><?= e($psaTypes[(string) $d['psa_asset_id']] ?? '—') ?></span></td>
               <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '—' ?></td>
               <td class="text-monospace small"><?= e($d['serial'] ?? '—') ?></td>
               <td class="small"><?= e($d['location'] ?? '') ?></td>

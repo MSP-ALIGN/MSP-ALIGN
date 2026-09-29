@@ -32,7 +32,7 @@ final class ReportController
         $withTickets = $slaOn ? array_flip(array_map('intval', array_column(DB::all('SELECT DISTINCT client_id FROM psa_tickets WHERE client_id IS NOT NULL'), 'client_id'))) : [];
         $meta = [];
         foreach ($clients as $c) {
-            $meta[(int) $c['id']] = ['veeam' => \Align\Backup\Backup::has($c), 'sla' => isset($withTickets[(int) $c['id']]), 'frameworks' => $fw[(int) $c['id']] ?? [], 'documents' => $docs[(int) $c['id']] ?? []];
+            $meta[(int) $c['id']] = ['backup' => \Align\Backup\Backup::has($c), 'sla' => isset($withTickets[(int) $c['id']]), 'frameworks' => $fw[(int) $c['id']] ?? [], 'documents' => $docs[(int) $c['id']] ?? []];
         }
         View::render('reports/index', [
             'title' => 'Reports',

@@ -8,7 +8,7 @@ $manual = PsaAssetSync::owns($d); // hardware fields editable in Align (hand-add
 $linked = (bool) $d['psa_asset_id'];
 $alignOnly = (int) $syncRow['psa_sync'] === 0;
 $psa = psa_name();
-$psaAssetUrl = $d['psa_asset_id'] ? \Align\Providers\Providers::psaLink('asset', (int) $d['psa_client_id'], (int) $d['psa_asset_id']) : null;
+$psaAssetUrl = $d['psa_asset_id'] ? \Align\Providers\Providers::psaLink('asset', $d['psa_client_id'], $d['psa_asset_id']) : null;
 $retired = (bool) $syncRow['retired_at'];
 $srcLabel = $d['source'] === 'manual' ? 'Added manually' : source_label($d['source'], $d['rmm_provider'] ?? null);
 $row = fn(string $k, string $v) => '<tr><th class="text-muted font-weight-normal w-40">' . e($k) . '</th><td>' . $v . '</td></tr>';
@@ -75,7 +75,7 @@ if ($client) {
                   . $exForm
                   : '<span class="text-' . $btone . '">No ' . e(\Align\Providers\Providers::backupNames()) . ' backup found for this device</span>' . $exForm);
           endif; ?>
-          <?= $row(psa_name() . ' asset', $d['psa_asset_id'] ? 'Linked (#' . (int) $d['psa_asset_id'] . ')' : '<span class="text-muted">Not linked</span>') ?>
+          <?= $row(psa_name() . ' asset', $d['psa_asset_id'] ? 'Linked (#' . e($d['psa_asset_id']) . ')' : '<span class="text-muted">Not linked</span>') ?>
         </table>
       </div>
     </div>

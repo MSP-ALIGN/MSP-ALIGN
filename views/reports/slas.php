@@ -40,7 +40,7 @@ $below = array_filter($rows, fn($r) => $r['overall_pct'] !== null && $r['overall
       <?= Ui::cols(['n' => 11, 'c' => 22, 's' => 37, 'p' => 10, 'st' => 20]) ?>
       <thead><tr><th>Ticket</th><th>Client</th><th>Subject</th><th>Priority</th><th>State</th></tr></thead>
       <tbody>
-      <?php foreach ($late as $t): $url = Sla::ticketUrl((int) $t['id']); ?>
+      <?php foreach ($late as $t): $url = Sla::ticketUrl($t['id']); ?>
         <tr><td class="nowrap"><?= $url ? '<a href="' . e($url) . '" target="_blank" rel="noopener">' . e($t['number'] ?: '#' . $t['id']) . '</a>' : e($t['number'] ?: '#' . $t['id']) ?></td><td><?= e($t['client_name']) ?></td>
           <td><?= e(mb_strimwidth((string) $t['subject'], 0, 80, '…')) ?></td><td><?= e($t['priority'] ?? '') ?></td>
           <td><?= $t['state'] === 'breached' ? Ui::pill($t['clock'] . ' past target', 'bad') : Ui::pill($t['clock'] . ' due ' . Sla::relative($t['due']), 'warn') ?></td></tr>

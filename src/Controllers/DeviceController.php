@@ -271,7 +271,7 @@ final class DeviceController
         $rows = array_values(array_filter((new Lifecycle())->devices(), fn($d) => $d['type'] === Lifecycle::UNASSIGNED));
         $types = [];
         foreach (DB::all('SELECT psa_asset_id, type FROM psa_assets') as $a) {
-            $types[(int) $a['psa_asset_id']] = $a['type'];
+            $types[(string) $a['psa_asset_id']] = $a['type'];
         }
         View::render('devices/unassigned', [
             'title' => 'Unassigned hardware',
