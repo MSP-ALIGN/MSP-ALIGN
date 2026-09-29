@@ -66,11 +66,11 @@ final class SettingsController
         // Checked before anything is saved, so a refused form changes nothing
         if (isset($_POST['timezone']) && post('timezone') !== '' && !\Align\Fmt::validZone(post('timezone'))) {
             flash('error', 'Choose a timezone from the list.');
-            redirect($back);
+            redirect(setup_return($back));
         }
         if (post('source_url') !== '' && (!filter_var(post('source_url'), FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', post('source_url')))) {
             flash('error', 'The source code link must be a web address starting with https://.');
-            redirect($back);
+            redirect(setup_return($back));
         }
         foreach (self::TEXT as $k) {
             if (isset($_POST[$k]) && ($val = post($k)) !== (string) Settings::get($k)) {
@@ -112,8 +112,11 @@ final class SettingsController
         if ($changed) {
             Audit::log('settings.save', implode(', ', $changed));
         }
+        if (setup_return('') !== '' && (isset($_POST['locale_currency']) || isset($_POST['timezone']))) {
+            SetupController::markSeen('locale'); // saved from the wizard, even if the defaults were kept
+        }
         flash('success', $changed ? 'Settings saved.' : 'No changes.');
-        redirect($back);
+        redirect(setup_return(setup_return($back), 'return_ok'));
     }
 
     /** The integration Test buttons moved to Integrations (1.15). */

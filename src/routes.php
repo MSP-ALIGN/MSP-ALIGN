@@ -232,6 +232,12 @@ $r->get('/settings/branding', [BrandingController::class, 'show']);
 $r->post('/settings/branding', [BrandingController::class, 'save']);
 $r->get('/branding/logo', [BrandingController::class, 'logo']);
 $r->post('/settings/os', [SettingsController::class, 'osSave']);
+// First-run setup wizard (1.40)
+$r->get('/setup', [\Align\Controllers\SetupController::class, 'index']);
+$r->post('/setup/company', [\Align\Controllers\SetupController::class, 'saveCompany']);
+$r->post('/setup/finish', [\Align\Controllers\SetupController::class, 'finish']);
+$r->post('/setup/{step:str}/skip', [\Align\Controllers\SetupController::class, 'skip']);
+$r->get('/setup/{step:str}', [\Align\Controllers\SetupController::class, 'show']);
 $r->get('/users', [UserController::class, 'index']);
 $r->post('/users', [UserController::class, 'create']);
 $r->post('/users/{id}', [UserController::class, 'update']);

@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.40', 'fa-wand-magic-sparkles', 'Setup wizard', 'New installs start with a step-by-step setup: company, currency & dates, PSA, RMM, backups & warranty, email, clients and team. Skip any step; open it again any time from Settings → General.', 'setup', 'admin'],
         ['1.39', 'fa-door-open', 'Client portal update', 'Clients can suggest licenses and budget items from the portal; you add them (edited if needed) or decline with a note, and they see each one as waiting until then. Portal contacts are view-only, and the portal has a clearer layout with every section on one bar.', 'suggestions', 'tech'],
         ['1.38', 'fa-globe', 'Your currency and date style', 'Choose the currency, how numbers and dates are written, a 12- or 24-hour clock, the first day of the week and the timezone under Settings → General. Pages, reports, emails and the client portal all follow it.', 'currency', 'admin'],
         ['1.37', 'fa-server', 'Email through any SMTP server', 'Send notifications, portal invitations and meeting invitations through your own mail server or a relay (SMTP2GO, Mailgun, SendGrid, Amazon SES, or the Microsoft 365 / Google relay), with STARTTLS or TLS and an optional user name and password. Meeting invitations go out as .ics emails with Accept / Decline.', 'email', 'admin'],
@@ -246,6 +247,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Follow <b>How to set it up</b> on the right, enter the details and <b>Save</b>. Keys are encrypted and never shown again; leave a key blank to keep it.',
       'Press <b>Test connection</b>, then run a sync (<b>Integrations → Sync</b>). Each card shows the result of the last sync.',
   ], ['Integrations' => '/integrations']) ?>
+  <?= $guide('setup', 'fa-wand-magic-sparkles', 'Use the setup wizard', 'admin', [
+      'On a new install it opens after the first admin signs in (once per sign-in until it\'s finished or skipped). On any install, open it from <b>Settings → General → Open the setup wizard</b>.',
+      'Go through the steps in order or jump to any of them on the left. <b>Skip this step</b> marks it as skipped; a tick means it\'s done, whether you did it here or elsewhere (for example on the Integrations page).',
+      'Each step uses the normal settings, integration, email and user forms and brings you back to the wizard, so <b>Test connection</b>, error messages and the audit log work as usual.',
+      '<b>Finish</b> (or <b>Skip setup for now</b>) stops it opening by itself. The dashboard\'s <b>Getting set up</b> list keeps showing what\'s left.',
+  ], ['Setup wizard' => '/setup']) ?>
   <?= $guide('email', 'fa-envelope', 'Set up email and notifications', 'admin', [
       'Open <b>Integrations → Email</b> and choose Microsoft 365, Google Workspace or an SMTP server. For Microsoft or Google, pick the connection type and follow the steps on the page.',
       'For SMTP, enter the server, port and security (STARTTLS on 587, or TLS from the start on 465), the user name and password or API key if the server needs one, and the From address. A relay on your own network that trusts this server can use port 25 with no sign-in; a password is never sent without encryption. Switch off the certificate check only for an internal relay with its own certificate.',

@@ -492,3 +492,8 @@ body.dash-editing .dash-card > .row .card { margin-bottom: 0; }
 .card-dark .card-header a.btn-light { color: #444; }
 .card-dark .card-header a.btn-default:hover,
 .card-dark .card-header a.btn-light:hover { color: #212529; }
+
+/* Setup wizard (1.40) */
+.setup-steps .list-group-item.active .fa-fw { opacity: 1; }
+.setup-steps .list-group-item .fa-fw { opacity: .7; }
+.setup-footer .btn-link { padding-left: 0; }

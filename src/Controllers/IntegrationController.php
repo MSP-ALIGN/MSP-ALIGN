@@ -70,7 +70,7 @@ final class IntegrationController
             $changed = $c->save($_POST);
         } catch (\InvalidArgumentException $e) {
             flash('error', $e->getMessage() . ' Nothing was saved.');
-            redirect('/integrations/' . $key);
+            redirect(setup_return('/integrations/' . $key));
         }
         // The first PSA set up becomes the install's PSA (the source of truth for clients)
         if ($c instanceof \Align\Integrations\PsaConnector && $c->configured() && (string) \Align\Settings::get('psa_provider', '') === '') {
@@ -85,7 +85,7 @@ final class IntegrationController
             }
         }
         flash('success', $changed ? $c->name() . ' saved.' . ($c->hasTest() ? ' Press Test to check the connection.' : '') : 'No changes.');
-        redirect('/integrations/' . $key);
+        redirect(setup_return('/integrations/' . $key));
     }
 
     public static function test(string $key): void
@@ -99,6 +99,6 @@ final class IntegrationController
             flash('error', $c->name() . ' test failed: ' . $e->getMessage());
             Audit::log('integration.test', $c->name() . ': ' . mb_substr($e->getMessage(), 0, 300));
         }
-        redirect('/integrations/' . $key);
+        redirect(setup_return('/integrations/' . $key));
     }
 }

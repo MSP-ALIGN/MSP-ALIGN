@@ -284,6 +284,10 @@ $zone = function (string $z) use ($layout, $cards) {
   <div class="mt-2 mt-md-0"><a href="/help#guide-dashboard" class="btn btn-sm btn-default mr-1" title="How the dashboard works"><i class="fas fa-circle-question"></i><span class="sr-only">Help</span></a><button type="button" class="btn btn-sm btn-default" id="dash-customize"><i class="fas fa-sliders mr-1"></i>Customize</button></div>
 </div>
 
+<?php if (\Align\Auth::can('admin') && \Align\Controllers\SetupController::pending()): ?>
+  <div class="alert alert-info d-flex flex-wrap align-items-center py-2"><i class="fas fa-wand-magic-sparkles mr-2"></i><span class="mr-auto">The setup wizard walks through your company details, integrations, email, clients and team, one step at a time.</span>
+    <a class="btn btn-sm btn-light mt-1 mt-md-0" href="/setup">Continue setup</a></div>
+<?php endif; ?>
 <?php if ($setup['done'] < $setup['total']) echo \Align\View::fetch('partials/readiness', ['r' => $setup, 'title' => 'Getting set up', 'id' => 'setup-checklist',
     'intro' => 'Finish these once and the portal keeps itself up to date. New here? Open Help & workflow in the sidebar for the full walkthrough.']); ?>
 

@@ -101,6 +101,16 @@ function ext_id(mixed $v): string
     return $s === '0' ? '' : $s;
 }
 
+/**
+ * Where a form should go back to: the setup wizard (1.40) when it posted a `return` pointing into it,
+ * otherwise $default. Only /setup pages are allowed, so this is never an open redirect.
+ */
+function setup_return(string $default, string $field = 'return'): string
+{
+    $r = $_POST[$field] ?? '';
+    return is_string($r) && preg_match('#^/setup(/[a-z]+)?\z#', $r) ? $r : $default;
+}
+
 /** Whether a PSA is set up. Without one (1.36) screens leave out what only a PSA provides instead of showing it empty. */
 function psa_on(): bool
 {

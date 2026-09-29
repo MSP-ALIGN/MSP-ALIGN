@@ -37,11 +37,11 @@ final class UserController
         $role = post('role');
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $name === '' || !isset(self::ROLES[$role])) {
             flash('error', 'Enter a name, a valid email, and a role.');
-            redirect('/users');
+            redirect(setup_return('/users'));
         }
         if (DB::value('SELECT COUNT(*) FROM users WHERE email = ?', [$email])) {
             flash('error', 'A user with that email already exists.');
-            redirect('/users');
+            redirect(setup_return('/users'));
         }
         $password = self::randomPassword();
         DB::insert('users', [
@@ -54,7 +54,7 @@ final class UserController
         Audit::log('user.create', "$email ($role)");
         \Align\Mail\Notify::security('Staff account created', "$email ($role) by " . (Auth::user()['email'] ?? ''));
         $_SESSION['new_password'] = ['email' => $email, 'password' => $password];
-        redirect('/users');
+        redirect(setup_return('/users'));
     }
 
     public static function update(int $id): void
