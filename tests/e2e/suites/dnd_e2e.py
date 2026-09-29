@@ -12,7 +12,7 @@ pid=q("select id from roadmap_items where client_id=1 order by id desc limit 1")
 title=q("select title from roadmap_items where id=%s",pid)[0]["title"]
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1500,"height":1000})
-    pg.goto(B+"/login"); pg.fill("input[name=email]","chris@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"chris@example.com")
+    pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"admin@example.com")
     pg.goto(B+"/clients/1/roadmap"); pg.wait_for_timeout(500)
     ok(pg.locator("text=Drag projects and devices to another quarter.").count()==1,"hint shown")
     src=pg.locator("[data-hw-group]").first; qstart=src.get_attribute("data-hw-group"); src.evaluate("d=>d.open=true")
@@ -53,7 +53,7 @@ with sync_playwright() as p:
 v=login("viewer@example.com","ViewerPassword123!"); t=v.get(B+"/clients/1/roadmap").text
 ok("data-drag-devices" not in t and "data-drop-quarter" not in t and 'id="modal-move"' not in t,"viewers can't drag")
 ok(v.post(B+f"/clients/1/roadmap/{pid}/move",data={"_csrf":csrf(v,"/clients/1"),"target_quarter":"2027-01-01"}).status_code==403,"viewers can't move projects")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 r=st.post(B+f"/clients/2/roadmap/{pid}/move",data={"_csrf":csrf(st,"/clients/1"),"target_quarter":"2027-01-01"},headers={"Accept":"application/json"}); ok(r.status_code==422,"can't move another client's project")
 ok(title in q("select detail from audit_log where action='roadmap.move' order by id desc limit 1")[0]["detail"],"project move audited")
 q("update device_overrides set replace_on=NULL, replace_note=NULL"); q("update roadmap_items set target_quarter=NULL where id=%s",pid)

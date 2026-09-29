@@ -8,7 +8,7 @@ use Align\Controllers\LegalController;
     <h1 class="h3 mb-1">License</h1>
     <p class="text-muted small mb-4"><?= e(\Align\Branding::name()) ?> <?= e(APP_VERSION) ?></p>
 
-    <p><b>MSP-ALIGN</b>. Copyright © 2026 Mountaineer IT Inc.</p>
+    <p><b>MSP-ALIGN</b>. Copyright © 2026 Mountaineer IT Inc. and MSP-ALIGN contributors.</p>
     <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
     <p>This program is distributed in the hope that it will be useful, but <b>without any warranty</b>; without even the implied warranty of merchantability or fitness for a particular purpose. See the GNU Affero General Public License for more details.</p>
     <p>

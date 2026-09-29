@@ -1,7 +1,7 @@
 <?php
 /**
  * PCI DSS v4.0.1 — requirement-level checklist (x.y.z) for Requirements 1–12 plus Appendix A2.
- * Titles and guidance are Mountaineer IT paraphrases for tracking an assessment; they are not the
+ * Titles and guidance are MSP-ALIGN project paraphrases for tracking an assessment; they are not the
  * PCI SSC text. Appendix A1 (multi-tenant service providers) and A3 (DESV) are intentionally omitted.
  */
 declare(strict_types=1);

@@ -32,9 +32,12 @@ final class Staging
         return $m !== '' && filter_var($m, FILTER_VALIDATE_EMAIL) ? $m : null;
     }
 
-    /** PSA capabilities that change data (contacts.write, assets.create, tickets.create, ...) are off on a test server. */
+    /** Every PSA capability that changes data in the PSA. A new writing capability must be added here (StagingPsa refuses the call too). */
+    public const WRITES = ['contacts.write', 'contacts.create', 'assets.write', 'assets.create', 'tickets.create'];
+
+    /** PSA capabilities that change data are off on a test server. */
     public static function blocks(string $capability): bool
     {
-        return self::on() && (str_ends_with($capability, '.write') || str_ends_with($capability, '.create'));
+        return self::on() && (in_array($capability, self::WRITES, true) || str_ends_with($capability, '.write') || str_ends_with($capability, '.create'));
     }
 }

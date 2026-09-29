@@ -23,7 +23,7 @@ shutil.rmtree(T+"/app",ignore_errors=True); subprocess.run(f"git clone -q {T}/re
 q("delete from settings where name in ('backup_last_download','backup_last_download_by','backup_reminder_days')"); q("delete from notify_state where k in ('update_notified','backup_reminder_at')")
 
 NF=sum(len(f) for _,_,f in os.walk(UPLOADS))
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 t=st.get(B+"/settings/system").text
 ok("Updates &amp; backups" in t and not errs(t) and "Not checked yet" in t,"page loads before the first check")
 ok(agent("check",ALIGN_APP_DIR=T+"/app").returncode==0,"agent check ran")
@@ -46,7 +46,7 @@ bk=r.content; open(T+"/dl.tar","wb").write(bk)
 ok(not os.path.exists(f"{T}/data/downloads/{i}.tar") and not glob.glob(T+"/agent/work/*"),"deleted from the server after download")
 r=post(st,"/settings/system/download/"+i); ok("already downloaded or has expired" in flash(r.text),"second download refused")
 names=tarfile.open(T+"/dl.tar").getnames(); ok(names==["manifest.json","db.sql.gz.age","uploads.tar.gz.age","app-key.age"],"standard tar: "+str(names))
-ok(q("select value from settings where name='backup_last_download_by'")[0]["value"]=="Chris","last download recorded (who)")
+ok(q("select value from settings where name='backup_last_download_by'")[0]["value"]=="Alex Admin","last download recorded (who)")
 ok(q("select count(*) n from audit_log where action='backup.downloaded'")[0]["n"]>0,"audited")
 t=st.get(B+"/settings/system").text; ok("Last " in t and "never downloaded" not in t.lower(),"backup card shows last download")
 
@@ -70,7 +70,7 @@ q("insert into settings (name,value) values ('zz_sys_marker','after-backup') on 
 open(upload_dir+"/zz_after.txt","w").write("x")
 r=post(st,"/settings/system/restore",{"key":KEY,"restore_db":"1","restore_uploads":"1","code":"000000","confirm":"restore"}); ok("Type RESTORE" in flash(r.text),"must type RESTORE")
 r=post(st,"/settings/system/restore",{"key":KEY,"restore_db":"1","restore_uploads":"1","code":"000000","confirm":"RESTORE"}); ok("two-factor code is not right" in flash(r.text),"2FA code required")
-r=post(st,"/settings/system/restore",{"key":KEY,"restore_db":"1","restore_uploads":"1","code":sitecustomize.next_code("chris@example.com"),"confirm":"RESTORE"}); i=jid(r)
+r=post(st,"/settings/system/restore",{"key":KEY,"restore_db":"1","restore_uploads":"1","code":sitecustomize.next_code("admin@example.com"),"confirm":"RESTORE"}); i=jid(r)
 ok(i and "Queued" in r.text,"restore queued")
 # maintenance gate while the agent works
 sl=subprocess.Popen(["sleep","30"]); json.dump({"since":time.strftime("%Y-%m-%dT%H:%M:%S%z"),"pid":sl.pid,"job":i,"action":"restore","message":"x","step":"Restoring the database"},open(T+"/agent/maintenance.json","w"))
@@ -83,7 +83,7 @@ ok(j["state"]=="succeeded" and j["result"]["db"] and j["result"]["uploads"],"res
 ok(not q("select * from settings where name='zz_sys_marker'") and not os.path.exists(upload_dir+"/zz_after.txt"),"data and files are back to the backup")
 r=st.get(B+"/settings/system",allow_redirects=False); ok(r.status_code in (302,303) and "/login" in r.headers.get("Location",""),"everyone signed out")
 ok(not glob.glob(T+"/data/restore/*") and not glob.glob(T+"/agent/safety/*"),"upload and safety copy removed after success")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 ok(q("select count(*) n from audit_log where action='backup.restored'")[0]["n"]>0,"restore audited")
 ok("Audit log intact" in align("audit:verify"),"audit chain intact after restore")
 
@@ -131,6 +131,7 @@ subprocess.run(f"cd {T}/work && echo 2.0.0 > VERSION && git -c user.name=t -c us
 i=jid(post(st,"/settings/system/update",{"confirm":"1"})); agent(ALIGN_APP_DIR=T+"/app",ALIGN_INSTALL_CMD="echo boom; exit 3")
 j=job(st,i); sf=glob.glob(T+"/agent/safety/*")
 ok(j["state"]=="failed" and "safety copy" in j["message"] and j["result"].get("safety") and len(sf)==1,"failed update keeps a safety copy: "+str(j["message"]))
+ok("previous version's code (1.99.0) was put back" in j["message"] and open(T+"/app/VERSION").read().strip()=="1.99.0" and len(j["result"].get("previous_commit",""))==40,"no database changes in the update: the previous code is put back")
 t=st.get(B+"/settings/system").text; name=os.path.basename(sf[0])
 ok("Safety copies kept after a failed job" in t and name in t,"safety copy listed")
 r=post(st,f"/settings/system/safety/{name}/download"); ok(r.headers.get("Content-Type")=="application/x-tar" and r.content[:512].startswith(b"manifest.json"),"safety copy downloadable")
@@ -143,8 +144,40 @@ agent("check",ALIGN_APP_DIR=T+"/app"); t=st.get(B+"/settings/system").text
 ok("2 old nightly backup files" in t,"old server backups reported")
 i=jid(post(st,"/settings/system/legacy/delete",{"confirm":"1"})); agent(); ok(not os.listdir(T+"/legacy") and "Deleted 2 old backup files" in job(st,i)["message"],"old server backups deleted")
 
+# ---- optional version file (update_check_url): answers "nothing new" without asking GitHub
+vf=T+"/versions"; shutil.rmtree(vf,ignore_errors=True); os.makedirs(vf)
+cur=open(T+"/app/VERSION").read().strip()  # this clone's version
+json.dump({"version":cur},open(vf+"/main.json","w"))
+vs=subprocess.Popen(["php","-S","127.0.0.1:8097","-t",vf],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); time.sleep(0.5)
+try:
+    agent("check",ALIGN_APP_DIR=T+"/app")  # up to date, nothing pending
+    origin=subprocess.run(["git","-C",T+"/app","remote","get-url","origin"],capture_output=True,text=True).stdout.strip()
+    subprocess.run(["git","-C",T+"/app","remote","set-url","origin",T+"/no-such-remote.git"])
+    VU=dict(ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://127.0.0.1:8097")
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source")=="version file" and not u["error"] and u["latest"]==cur and not u["available"],"version file says nothing new: GitHub not asked")
+    i=jid(post(st,"/settings/system/check")); agent(**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None and "Could not reach GitHub" in (u["error"] or ""),"Check now always asks GitHub")
+    json.dump({**u,"error":None,"fetched_at":"2020-01-01T00:00:00+00:00"},open(T+"/agent/update.json","w"))
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None,"GitHub asked at least once a day even when the version file says nothing new")
+    json.dump({"version":"1.0.0"},open(vf+"/main.json","w"))
+    json.dump({**u,"error":None,"behind":0,"fetched_at":time.strftime("%Y-%m-%dT%H:%M:%S%z")},open(T+"/agent/update.json","w"))
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None,"an older listed version (a lagging file) isn't trusted")
+    json.dump({"version":"9.0.0"},open(vf+"/main.json","w"))
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None and "Could not reach GitHub" in (u["error"] or ""),"newer version listed: asks GitHub for the update itself")
+    agent("check",ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://example.com"); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None,"plain-http version file (not local) ignored")
+    subprocess.run(["git","-C",T+"/app","remote","set-url","origin",origin])
+    agent("check",ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://127.0.0.1:8096"); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None and "Could not reach" not in (u["error"] or "") and u["latest"]=="1.99.0","version file unreachable: GitHub as usual")
+finally:
+    vs.terminate()
+
 # ---- notifications
-agent("check",ALIGN_APP_DIR=T+"/app")  # nothing new (1.99.0 == 1.99.0)
+agent("check",ALIGN_APP_DIR=T+"/app")
 subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; Align\\Settings::set("backup_last_download", null);'],env=ENV)
 q("delete from mail_queue"); q("delete from notify_state where k in ('update_notified','backup_reminder_at')")
 json.dump({**json.load(open(T+"/agent/update.json")),"current":"1.13.0","latest":"1.99.0","available":True,"changes":[{"sha":"x","subject":"Shiny new thing","body":"","date":"2026-09-26"}]},open(T+"/agent/update.json","w"))

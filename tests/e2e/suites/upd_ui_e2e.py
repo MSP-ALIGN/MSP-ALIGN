@@ -25,7 +25,7 @@ q("delete from settings where name in ('backup_last_download','backup_last_downl
 
 import threading
 from playwright.sync_api import sync_playwright
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 ok(agent("check",ALIGN_APP_DIR=T+"/app").returncode==0,"agent check ran")
 # progress estimate: moves within a step over time, jumps with the next step, never passes a stage
 pr=lambda *a: int(subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; echo Align\\System\\Agent::progress(...json_decode($argv[1], true));',json.dumps(list(a))],env=ENV,capture_output=True,text=True).stdout or -1)
@@ -36,7 +36,7 @@ ok(44<=a<b_<=93 and c_==93,f"installing creeps forward but stops at its stage ({
 ok(pr("update","running","Downloading the latest version",ago(0))<a+1 and pr("update","succeeded","Done",None)==100,"later steps are further along; done is 100")
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1300,"height":900}); errs_=[]; pg.on("pageerror", lambda e_: errs_.append(str(e_)))
-    pg.goto(B+"/login"); pg.fill("input[name=email]","chris@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); sitecustomize.after_login(pg,"chris@example.com")
+    pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); sitecustomize.after_login(pg,"admin@example.com")
     pg.goto(B+"/settings/system"); pg.wait_for_timeout(300)
     ok(not pg.locator("#job-overlay").is_visible(),"no overlay before updating")
     pg.click("text=Update to 1.99.0"); pg.wait_for_timeout(300)

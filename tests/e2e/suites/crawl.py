@@ -3,7 +3,7 @@ import re, requests, time, sys, collections
 import lib
 from urllib.parse import urljoin, urlparse
 B=lib.B
-USERS={"admin":("chris@example.com","LongPassword123!"),"tech":("tech@example.com",lib.TECH_PASSWORD),"viewer":("viewer@example.com","ViewerPassword123!")}
+USERS={"admin":("admin@example.com","LongPassword123!"),"tech":("tech@example.com",lib.TECH_PASSWORD),"viewer":("viewer@example.com","ViewerPassword123!")}
 SKIP=re.compile(r'^/(logout|portal$|portal/|ics/|vendor/|assets/|branding/logo|settings/email/connect|integrations/email/connect|clients/\d+/logo|users/\d+/avatar)|\.(csv|png|jpg|svg|js|css)$|/export$')
 def pattern(p): return re.sub(r'\d+','N',p.split('?')[0])
 for role,(email,pw) in USERS.items():

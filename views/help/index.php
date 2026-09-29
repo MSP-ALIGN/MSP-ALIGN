@@ -25,6 +25,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 <h1 class="h3 mb-1">Help &amp; how-to</h1>
 <p class="text-muted">Align keeps each client's technology picture in one place: what they have, what's changing, what it costs and what's coming up. Most of it fills itself in from <?= e(psa_name()) ?> and <?= e(\Align\Providers\Providers::rmmNames()) ?>; you add the planning.</p>
 
+<?php if ($isAdmin): ?><p class="small text-muted"><i class="fas fa-book fa-fw mr-1"></i>Installing, updating, test servers and security: see the <a href="https://mspalign.org" target="_blank" rel="noopener">MSP-ALIGN documentation</a>.</p><?php endif; ?>
 <ul class="nav nav-tabs settings-tabs mb-3" role="tablist">
   <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#tab-workflow" role="tab"><i class="fas fa-route fa-fw mr-1"></i>Workflow</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-new" role="tab"><i class="fas fa-star fa-fw mr-1"></i>What's new</a></li>

@@ -1,7 +1,7 @@
 from lib import *
 def dev(i): return json.loads(subprocess.run(["php","-r",'require "'+BOOTSTRAP+'"; $r=(new Align\\Lifecycle\\Lifecycle())->devices(null,true,(int)$argv[1])[0]; $p=Align\\Lifecycle\\Lifecycle::placement($r); echo json_encode(["status"=>$r["status"],"flags"=>$r["flags"],"replace_by"=>$r["replace_by"],"planned"=>$r["replace_planned"],"label"=>$r["replace_label"],"deferred"=>$r["replace_deferred"],"eol"=>$r["eol_date"],"place"=>$p]);',str(i)],env=ENV,capture_output=True,text=True).stdout)
 q("update device_overrides set replace_on=NULL, replace_note=NULL")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 # a device past end of life for client 1
 cands=[r["id"] for r in q("select d.id from devices d left join client_links l on l.client_id=1 and l.provider=d.rmm_provider where (d.client_id=1 or (d.client_id is null and d.rmm_org_id=l.external_id)) and d.removed_at is null order by d.id limit 400")]
 old=[i for i in cands if dev(i)["status"]=="replace"][:3]

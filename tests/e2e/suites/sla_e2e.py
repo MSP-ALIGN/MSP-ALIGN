@@ -18,7 +18,7 @@ def state(): return json.loads(q("select value from settings where name='psa_tic
 
 requests.post(M+"/mock/reset"); setting("psa_sla_sync","1"); setting("sla_target","90")
 q("delete from psa_tickets"); q("delete from settings where name in ('psa_tickets_state','psa_sla_supported')")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 t=st.get(B+"/clients/1/service-levels").text; ok("No tickets yet" in t and not errs(t),"empty state before the first sync")
 
 # ---- full read

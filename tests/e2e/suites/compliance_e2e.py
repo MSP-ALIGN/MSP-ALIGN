@@ -9,7 +9,7 @@ ok(q("select count(*) n from document_templates where is_builtin=1")[0]["n"]>=27
 use=["cmmc-l2","nist-csf-2","pci-dss-4"]; ids=[fw[s]["id"] for s in use]
 q("delete from client_frameworks where client_id=1 and framework_id in (%s,%s,%s)",*ids)
 q("delete s from client_control_status s join compliance_controls c on c.id=s.control_id where s.client_id=1 and c.framework_id in (%s,%s,%s)",*ids)
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 t=st.get(B+"/frameworks").text; ok(all(fw[s]["name"].split(" (")[0] in H.unescape(t) for s in EXPECT),"frameworks admin lists them")
 for i in ids:
     r=st.post(B+"/clients/1/compliance",data={"_csrf":csrf(st,"/clients/1/compliance"),"framework_id":str(i)})
@@ -34,7 +34,7 @@ ok("Matches" in tv and "Use this answer" not in tv and "xw-fill-all" not in tv,"
 # browser: fill from matching answers on PCI (253 controls, above max_input_vars when posted whole)
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1400,"height":1000})
-    pg.goto(B+"/login"); pg.fill("input[name=email]","chris@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"chris@example.com")
+    pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"admin@example.com")
     pg.goto(B+f"/clients/1/compliance/{ids[2]}"); pg.wait_for_timeout(300)
     n=int(pg.locator("#xw-fill-all").get_attribute("data-count")); pg.click("#xw-fill-all"); pg.wait_for_timeout(700)
     filled=pg.locator("tr.xw-filled").count(); ok(filled==n and n>0,f"filled {filled} of {n} PCI controls")

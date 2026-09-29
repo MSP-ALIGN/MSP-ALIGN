@@ -12,7 +12,7 @@ def call(key, method, path, body=None):
     h={"Authorization":"Bearer "+key}
     if body is not None: h["Content-Type"]="application/json"
     return requests.request(method, API+path, headers=h, data=json.dumps(body) if body is not None else None)
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 
 # ---- schema: nothing ITFlow-named is left in the database
 cols=q("select table_name t, column_name c from information_schema.columns where table_schema=database() and (column_name like '%%itflow%%' or table_name like 'itflow%%')")

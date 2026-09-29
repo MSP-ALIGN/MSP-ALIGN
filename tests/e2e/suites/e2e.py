@@ -25,7 +25,7 @@ def sync():
 def login(email,pw):
     s=requests.Session(); s.post(B+"/login",data={"_csrf":csrf(s,"/login"),"email":email,"password":pw}); return s
 q("delete from backup_exemptions")
-staff=login("chris@example.com","LongPassword123!")
+staff=login("admin@example.com","LongPassword123!")
 C3="33333333-3333-3333-3333-333333333333"; C1="11111111-1111-1111-1111-111111111111"
 
 # settings

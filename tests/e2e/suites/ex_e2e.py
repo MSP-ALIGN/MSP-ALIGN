@@ -13,7 +13,7 @@ def login(e,p):
 def unprot(t):
     m=re.search(r'Servers with no backup \((\d+)\)',t); return int(m.group(1)) if m else 0
 q("delete from backup_exemptions")
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 t=st.get(B+"/clients/1/backups").text; n0=unprot(t)
 ok('data-target="#modal-bk-exempt"' in t and 'id="modal-bk-exempt"' in t,"exclude buttons + dialog shown to tech/admin")
 dev=q("select d.id, d.display_name from devices d where d.rmm_org_id='101' and d.device_type='Server' and d.removed_at is null and d.display_name='PC-0064'")[0]

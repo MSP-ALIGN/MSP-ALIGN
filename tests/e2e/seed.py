@@ -90,7 +90,7 @@ $add = function (string $email, string $name, string $role, string $pw, ?string 
 };
 """
 php(USERS + """
-$add('chris@example.com', 'Chris', 'admin', 'LongPassword123!', 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXA');
+$add('admin@example.com', 'Alex Admin', 'admin', 'LongPassword123!', 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXA');
 $add('tech@example.com', 'Terry Tech', 'tech', 'TechPassword123!', 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU');
 $add('viewer@example.com', 'Vic Viewer', 'viewer', 'ViewerPassword123!', 'MFRGGZDFMZTWQ2LKMFRGGZDFMZTWQ2LK');
 """, CFG)

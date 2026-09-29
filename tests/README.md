@@ -41,7 +41,7 @@ Suites run in a fixed order and share one database, so a suite leaves things as 
 the next suites expect). A new suite: start with `from lib import *`, use `ok(condition, "what it
 checks")`, end with `print("FAILURES:", len(fails))`, and add it to `SUITES` in `run.sh`.
 
-Test accounts (seeded): `chris@example.com` / `LongPassword123!` (admin), `tech@example.com` / `TechPassword123!` (tech),
+Test accounts (seeded): `admin@example.com` / `LongPassword123!` (admin), `tech@example.com` / `TechPassword123!` (tech),
 `viewer@example.com` / `ViewerPassword123!` (viewer), and `new@example.com` / `FreshAdminPass123!`
 on the fresh install. Their 2FA secrets are in `e2e/sitecustomize.py`. They exist only in the test
 databases.

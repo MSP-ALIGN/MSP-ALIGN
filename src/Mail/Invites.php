@@ -180,7 +180,7 @@ final class Invites
         $host = (string) (\Align\Config::get('fqdn') ?: parse_url((string) \Align\Config::get('base_url', ''), PHP_URL_HOST) ?: 'align.local');
         $esc = fn(string $s) => str_replace(["\\", ';', ',', "\r\n", "\n", "\r"], ['\\\\', '\;', '\,', '\n', '\n', '\n'], $s);
         $utc = fn(string $t) => gmdate('Ymd\THis\Z', (int) strtotime($t));
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mountaineer IT//MSP-ALIGN//EN', 'METHOD:' . $method, 'BEGIN:VEVENT',
+        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MSP-ALIGN//MSP-ALIGN//EN', 'METHOD:' . $method, 'BEGIN:VEVENT',
             'UID:' . $m['uid'] . '@' . $host, 'SEQUENCE:' . $seq, 'DTSTAMP:' . gmdate('Ymd\THis\Z'),
             'DTSTART:' . $utc($m['starts_at']), 'DTEND:' . $utc($m['ends_at']), 'SUMMARY:' . $esc(self::subject($m)),
             'STATUS:' . ($method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED')];

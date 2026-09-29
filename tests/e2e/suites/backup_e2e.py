@@ -9,7 +9,7 @@ S=WORK
 API=B+"/api/v1"
 def php(code): return subprocess.run(["php","-r",'require "'+BOOTSTRAP+'"; '+code],env=ENV,capture_output=True,text=True)
 def align(*a): return subprocess.run(["php",ALIGN,*a],env=ENV,capture_output=True,text=True)
-st=login("chris@example.com","LongPassword123!")
+st=login("admin@example.com","LongPassword123!")
 C1="11111111-1111-1111-1111-111111111111"; C2="22222222-2222-2222-2222-222222222222"; C3="33333333-3333-3333-3333-333333333333"; C0="10000000-0000-0000-0000-000000000000"
 
 # ---- schema
