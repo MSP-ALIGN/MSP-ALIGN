@@ -30,7 +30,7 @@ final class SyncController
         Auth::requireRole('tech');
         if (SyncRunner::isRunning()) {
             flash('error', 'A sync is already running.');
-            redirect('/sync');
+            redirect(setup_return('/sync'));
         }
         // Run in the background so the page doesn't hang on large tenants.
         $cmd = sprintf(
@@ -44,6 +44,9 @@ final class SyncController
         Audit::log('sync.manual');
         flash('success', 'Sync started. This page refreshes until it finishes.');
         sleep(1);
+        if (setup_return('') !== '') {
+            redirect(setup_return(''), ['started' => '1']); // the wizard's clients step refreshes until it's done
+        }
         redirect('/sync', ['started' => '1']);
     }
 

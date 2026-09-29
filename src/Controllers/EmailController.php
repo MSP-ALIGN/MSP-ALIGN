@@ -71,37 +71,40 @@ final class EmailController
         // Checked before anything is saved, so a refused form changes nothing
         if (isset($_POST['smtp_port']) && post('smtp_port') !== '' && (!ctype_digit(post('smtp_port')) || (int) post('smtp_port') < 1 || (int) post('smtp_port') > 65535)) {
             flash('error', 'The SMTP port is a number from 1 to 65535.');
-            redirect('/integrations/email');
+            redirect(setup_return('/integrations/email'));
         }
         if (post('mail_provider') === 'smtp' && post('mail_mode') === 'delegated') {
             $_POST['mail_mode'] = 'app'; // SMTP is on or off (the sign-in choice was hidden)
         }
         $changed = [];
         foreach (self::TEXT as $k) {
+            if (!isset($_POST[$k])) {
+                continue; // not on this form (the setup wizard's SMTP form only has its own fields)
+            }
             $val = trim(post($k));
             if (in_array($k, ['mail_from', 'mail_reply_to'], true) && $val !== '' && !filter_var($val, FILTER_VALIDATE_EMAIL)) {
                 flash('error', ($k === 'mail_from' ? 'From mailbox' : 'Reply-to') . ' must be an email address.');
-                redirect('/integrations/email');
+                redirect(setup_return('/integrations/email'));
             }
             if ($k === 'm365_tenant' && $val !== '' && !preg_match('/^[A-Za-z0-9.-]{3,100}$/', $val)) {
                 flash('error', 'Tenant must be the Directory (tenant) ID or a domain such as contoso.onmicrosoft.com.');
-                redirect('/integrations/email');
+                redirect(setup_return('/integrations/email'));
             }
             if ($k === 'g_client_id' && $val !== '' && !preg_match('/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/', $val)) {
                 flash('error', 'The Google OAuth client ID looks like 1234567890-abc123.apps.googleusercontent.com.');
-                redirect('/integrations/email');
+                redirect(setup_return('/integrations/email'));
             }
             if ($k === 'smtp_host' && $val !== '' && !Smtp::validHost($val)) {
                 flash('error', 'The SMTP server is a name such as smtp.example.com or an IP address (no https:// and no port).');
-                redirect('/integrations/email');
+                redirect(setup_return('/integrations/email'));
             }
             if ($k === 'smtp_user' && preg_match('/[\x00-\x1F\x7F]/', $val)) {
                 flash('error', 'The SMTP user name can\'t contain control characters.');
-                redirect('/integrations/email');
+                redirect(setup_return('/integrations/email'));
             }
             if ($k === 'm365_client_id' && $val !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $val)) {
                 flash('error', 'The Application (client) ID is a GUID like 11111111-2222-3333-4444-555555555555.');
-                redirect('/integrations/email');
+                redirect(setup_return('/integrations/email'));
             }
             if ($val !== (string) Settings::get($k)) {
                 Settings::set($k, $val);
@@ -145,15 +148,15 @@ final class EmailController
             } elseif (($val = trim((string) ($_POST[$k] ?? ''))) !== '') {
                 if ($k === 'm365_cert_pem' && !@openssl_x509_read($val)) {
                     flash('error', 'The certificate must be PEM text starting with -----BEGIN CERTIFICATE-----.');
-                    redirect('/integrations/email');
+                    redirect(setup_return('/integrations/email'));
                 }
                 if ($k === 'g_sa_json' && ($err = Google::validateServiceAccount($val))) {
                     flash('error', $err);
-                    redirect('/integrations/email');
+                    redirect(setup_return('/integrations/email'));
                 }
                 if ($k === 'm365_key_pem' && !@openssl_pkey_get_private($val)) {
                     flash('error', 'The private key must be an unencrypted PEM key starting with -----BEGIN PRIVATE KEY-----.');
-                    redirect('/integrations/email');
+                    redirect(setup_return('/integrations/email'));
                 }
                 Settings::setSecret($k, $val);
                 $changed[] = $k;
@@ -168,7 +171,7 @@ final class EmailController
             }
         }
         flash('success', $changed ? 'Email settings saved.' : 'No changes.');
-        redirect('/integrations/email');
+        redirect(setup_return('/integrations/email'));
     }
 
     /** Schedule and meeting-invitation options (Settings → Notifications). */
@@ -267,7 +270,7 @@ final class EmailController
         $to = strtolower(trim(post('to')));
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
             flash('error', 'Enter the address to send the test to.');
-            redirect('/integrations/email');
+            redirect(setup_return('/integrations/email'));
         }
         try {
             $g = Mail::client();
@@ -289,7 +292,7 @@ final class EmailController
             Audit::log('email.test_failed', "$to: " . $e->getMessage());
             flash('error', 'Test failed: ' . $e->getMessage());
         }
-        redirect('/integrations/email');
+        redirect(setup_return('/integrations/email'));
     }
 
     /** Starts "Connect with Microsoft" / "Connect with Google" (authorization code + PKCE). */

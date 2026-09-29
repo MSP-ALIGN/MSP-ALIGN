@@ -15,6 +15,11 @@ final class DashboardController
     public static function index(): void
     {
         Auth::require();
+        // A new install: admins go to the setup wizard once per sign-in until someone finishes or skips it
+        if (Auth::can('admin') && SetupController::pending() && empty($_SESSION['setup_offered'])) {
+            $_SESSION['setup_offered'] = 1;
+            redirect('/setup');
+        }
         $lc = new Lifecycle();
         $devices = array_filter($lc->devices(), fn($d) => $d['client_id'] !== null && !$d['client_inactive']);
         $summary = Lifecycle::summarize($devices);
