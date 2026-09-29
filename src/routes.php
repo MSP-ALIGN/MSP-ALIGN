@@ -232,6 +232,9 @@ $r->get('/settings/branding', [BrandingController::class, 'show']);
 $r->post('/settings/branding', [BrandingController::class, 'save']);
 $r->get('/branding/logo', [BrandingController::class, 'logo']);
 $r->post('/settings/os', [SettingsController::class, 'osSave']);
+// Demo data (1.41)
+$r->post('/demo/load', [\Align\Controllers\DemoController::class, 'load']);
+$r->post('/demo/remove', [\Align\Controllers\DemoController::class, 'remove']);
 // First-run setup wizard (1.40)
 $r->get('/setup', [\Align\Controllers\SetupController::class, 'index']);
 $r->post('/setup/company', [\Align\Controllers\SetupController::class, 'saveCompany']);

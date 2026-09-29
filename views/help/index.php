@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.41', 'fa-flask', 'Demo data', 'Try MSP-ALIGN with four made-up clients before adding your own: load them from the setup wizard or Settings → General, and remove them with one click.', 'demo', 'admin'],
         ['1.40', 'fa-wand-magic-sparkles', 'Setup wizard', 'New installs start with a step-by-step setup: company, currency & dates, PSA, RMM, backups & warranty, email, clients and team. Skip any step; open it again any time from Settings → General.', 'setup', 'admin'],
         ['1.39', 'fa-door-open', 'Client portal update', 'Clients can suggest licenses and budget items from the portal; you add them (edited if needed) or decline with a note, and they see each one as waiting until then. Portal contacts are view-only, and the portal has a clearer layout with every section on one bar.', 'suggestions', 'tech'],
         ['1.38', 'fa-globe', 'Your currency and date style', 'Choose the currency, how numbers and dates are written, a 12- or 24-hour clock, the first day of the week and the timezone under Settings → General. Pages, reports, emails and the client portal all follow it.', 'currency', 'admin'],
@@ -253,6 +254,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Each step uses the normal settings, integration, email and user forms and brings you back to the wizard, so <b>Test connection</b>, error messages and the audit log work as usual.',
       '<b>Finish</b> (or <b>Skip setup for now</b>) stops it opening by itself. The dashboard\'s <b>Getting set up</b> list keeps showing what\'s left.',
   ], ['Setup wizard' => '/setup']) ?>
+  <?= $guide('demo', 'fa-flask', 'Try it with demo data', 'admin', [
+      'On an install with no clients yet, choose <b>Load demo data</b> on the setup wizard\'s Clients step or under <b>Settings → General → Demo data</b>.',
+      'It adds four made-up clients (a dental office, an accounting firm, a veterinary clinic and a law office) with contacts, devices of every age, licenses, budget lines and contracts, roadmap projects waiting for decisions, meetings, a compliance assessment, documents, backup results and a client portal user. Dates follow today, so the plan always looks current. Service levels need a PSA, so they aren\'t included.',
+      'To see the client portal, open a demo client\'s <b>Client portal</b> page and make a new invite link for its user.',
+      'When you\'re ready to start for real, <b>Remove demo data</b> deletes the demo clients and everything attached to them; anything you added for a real client stays. Remove it before connecting your PSA or RMM.',
+  ], ['Settings → General' => '/settings#demo-data']) ?>
   <?= $guide('email', 'fa-envelope', 'Set up email and notifications', 'admin', [
       'Open <b>Integrations → Email</b> and choose Microsoft 365, Google Workspace or an SMTP server. For Microsoft or Google, pick the connection type and follow the steps on the page.',
       'For SMTP, enter the server, port and security (STARTTLS on 587, or TLS from the start on 465), the user name and password or API key if the server needs one, and the From address. A relay on your own network that trusts this server can use port 25 with no sign-in; a password is never sent without encryption. Switch off the certificate check only for an internal relay with its own certificate.',

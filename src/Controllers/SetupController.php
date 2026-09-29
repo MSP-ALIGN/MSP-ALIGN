@@ -73,7 +73,7 @@ final class SetupController
             'rmm' => Providers::anyRmm(),
             'more' => (bool) Providers::backupConfigured() || (bool) array_filter([\Align\Integrations\Registry::get('dell'), \Align\Integrations\Registry::get('lenovo')], fn($c) => $c && $c->configured()),
             'email' => Mail::ready(),
-            'clients' => (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0') > 0,
+            'clients' => (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND is_demo = 0') > 0, // demo clients don't count
             'team' => (int) DB::value('SELECT COUNT(*) FROM users WHERE is_active = 1') > 1,
         ];
         $out = [];
@@ -119,7 +119,7 @@ final class SetupController
             'more' => ['connectors' => self::forms(array_filter(\Align\Integrations\Registry::all(), fn($c) => in_array($c->category(), ['Backup', 'Warranty'], true)))],
             'email' => ['ready' => Mail::ready(), 'provider' => Mail::provider(), 'smtp' => ['host' => Settings::get('smtp_host'), 'port' => Settings::get('smtp_port'), 'security' => \Align\Mail\Smtp::security(),
                 'user' => Settings::get('smtp_user'), 'from' => Settings::get('mail_from'), 'from_name' => Settings::get('mail_from_name'), 'pass' => Settings::hasSecret('smtp_pass')]],
-            'clients' => ['clients' => (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0'), 'psa' => Providers::psaConfigured(), 'rmm' => Providers::anyRmm(),
+            'clients' => ['clients' => (int) DB::value('SELECT COUNT(*) FROM clients WHERE is_archived = 0 AND is_demo = 0'), 'psa' => Providers::psaConfigured(), 'rmm' => Providers::anyRmm(),
                 'running' => ($running = \Align\Sync\SyncRunner::isRunning()) || query('started') === '1', 'refresh' => $running || query('started') === '1', 'lastSync' => DB::one('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1'),
                 'orgs' => Providers::anyRmm() ? (int) DB::value('SELECT COUNT(*) FROM rmm_orgs') : 0],
             'team' => ['users' => DB::all('SELECT name, email, role, is_active FROM users ORDER BY name'), 'newPassword' => $_SESSION['new_password'] ?? null],

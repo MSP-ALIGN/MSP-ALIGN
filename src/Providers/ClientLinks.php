@@ -90,7 +90,7 @@ final class ClientLinks
         $matched = 0;
         foreach (DB::all('SELECT c.id, c.name' . ($alsoRmmNames ? ', ' . self::rmmOrgNamesSql() . ' AS org_name' : '') . ' FROM clients c
                 LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
-                WHERE (l.client_id IS NULL OR (l.external_id IS NULL AND COALESCE(l.match_method, \'\') <> \'manual\')) AND c.is_archived = 0 AND c.planning_excluded = 0', [$provider]) as $c) {
+                WHERE (l.client_id IS NULL OR (l.external_id IS NULL AND COALESCE(l.match_method, \'\') <> \'manual\')) AND c.is_archived = 0 AND c.planning_excluded = 0 AND c.is_demo = 0', [$provider]) as $c) {
             $names = [self::normalizeName((string) $c['name'])];
             if ($alsoRmmNames) {
                 $names[] = self::normalizeName((string) $c['org_name']);
