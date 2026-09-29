@@ -8,7 +8,7 @@ namespace Align\Providers\Psa;
  * contacts, locations, assets, software licenses, invoices and tickets.
  *
  * A provider turns its API's responses into the neutral records below; the sync code and every
- * screen only ever see these. IDs are the PSA's own positive integers.
+ * screen only ever see these. IDs are the PSA's own ids as non-empty strings (ITFlow's numbers become '123'; other PSAs may use GUIDs).
  *
  * Neutral records (arrays; a missing key means "not supplied"):
  *   client   id, name, archived (bool), website, type, email, phone, contact_name,
@@ -66,13 +66,13 @@ interface PsaProvider
     public function assets(): array;
 
     /** One asset fresh from the PSA, or null when it no longer exists. */
-    public function asset(int $assetId): ?array;
+    public function asset(string $assetId): ?array;
 
     /** Creates an asset from asset fields; returns its PSA id. */
-    public function createAsset(int $clientId, array $fields): int;
+    public function createAsset(string $clientId, array $fields): string;
 
     /** Updates only the given asset fields. */
-    public function updateAsset(int $clientId, int $assetId, array $fields): bool;
+    public function updateAsset(string $clientId, string $assetId, array $fields): bool;
 
     /**
      * The Align device type and import category for a PSA asset (see PsaAssetSync::IMPORT_CATEGORIES).
@@ -89,10 +89,10 @@ interface PsaProvider
     /** Whether a PSA asset status means retired. */
     public function statusRetired(?string $status): bool;
 
-    public function updateContact(int $clientId, int $contactId, array $fields): bool;
+    public function updateContact(string $clientId, string $contactId, array $fields): bool;
 
     /** Creates a contact from contact fields; returns its PSA id. */
-    public function createContact(int $clientId, array $fields): int;
+    public function createContact(string $clientId, array $fields): string;
 
     public function licenses(): array;
 
@@ -110,14 +110,14 @@ interface PsaProvider
     public function tickets(string $since, array $state, callable $store): array;
 
     /** One ticket, or null when it no longer exists. */
-    public function ticket(int $ticketId): ?array;
+    public function ticket(string $ticketId): ?array;
 
-    public function createTicket(int $clientId, string $subject, string $detailsHtml, string $priority = 'Medium', ?int $contactId = null): int;
+    public function createTicket(string $clientId, string $subject, string $detailsHtml, string $priority = 'Medium', ?string $contactId = null): string;
 
     /** Links into the PSA's own screens (null = no link). */
-    public function clientUrl(int $clientId): ?string;
+    public function clientUrl(string $clientId): ?string;
 
-    public function assetUrl(int $clientId, int $assetId): ?string;
+    public function assetUrl(string $clientId, string $assetId): ?string;
 
-    public function ticketUrl(int $ticketId): ?string;
+    public function ticketUrl(string $ticketId): ?string;
 }

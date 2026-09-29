@@ -4,6 +4,8 @@ use Align\Auth;
 
 $isAdmin = Auth::can('admin');
 $isTech = Auth::can('tech');
+$rmm = \Align\Providers\Providers::rmmNames(...);
+$bk = \Align\Providers\Providers::backupNames(...);
 $links = fn(array $l) => implode(' ', array_map(fn($k, $v) => '<a class="btn btn-xs btn-default mr-1 mb-1" href="' . e($v) . '">' . e($k) . '</a>', array_keys($l), $l));
 $step = function (int $n, string $icon, string $title, string $body, array $l) use ($links) {
     return '<div class="help-step d-flex mb-3"><div class="help-num mr-3">' . $n . '</div><div class="flex-grow-1"><h5 class="mb-1"><i class="fas ' . $icon . ' text-secondary mr-2"></i>' . e($title) . '</h5>'
@@ -41,8 +43,8 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-route mr-2"></i>The vCIO workflow</h3></div>
     <div class="card-body">
       <h6 class="text-uppercase text-muted small font-weight-bold">Once, when you set up</h6>
-      <?= $step(1, 'fa-plug', 'Connect your tools', 'Open <b>Integrations</b>, set up ' . psa_name() . ' and ' . \Align\Providers\Providers::rmmNames() . ' (and Veeam, email and warranty lookups if you use them), press <b>Test connection</b> on each, then run a sync. Using SLAs in ' . psa_name() . '? Turn on <b>Service levels</b> on the ' . psa_name() . ' card. After that Align syncs hourly and checks ' . psa_name() . ' for asset, contact and license changes every 2 minutes. Then set up your welcome email and onboarding guides under <b>Settings → Onboarding</b> (or import a saved set).', $isAdmin ? ['Integrations' => '/integrations', 'Sync' => '/sync', 'Settings → Onboarding' => '/settings/onboarding'] : ['Sync' => '/sync']) ?>
-      <?= $step(2, 'fa-link', 'Link clients', 'Clients with the same name in each system link automatically. Link the rest (' . \Align\Providers\Providers::rmmNames() . ' organization, Veeam company) on Client mapping. Clients you don\'t plan for (break-fix, vendors) can be removed from planning.', ['Client mapping' => '/mapping', 'Clients' => '/clients']) ?>
+      <?= $step(1, 'fa-plug', 'Connect your tools', 'Open <b>Integrations</b>, set up ' . psa_name() . ' and ' . \Align\Providers\Providers::rmmNames() . ' (and ' . $bk() . ', email and warranty lookups if you use them), press <b>Test connection</b> on each, then run a sync. Using SLAs in ' . psa_name() . '? Turn on <b>Service levels</b> on the ' . psa_name() . ' card. After that Align syncs hourly and checks ' . psa_name() . ' for asset, contact and license changes every 2 minutes. Then set up your welcome email and onboarding guides under <b>Settings → Onboarding</b> (or import a saved set).', $isAdmin ? ['Integrations' => '/integrations', 'Sync' => '/sync', 'Settings → Onboarding' => '/settings/onboarding'] : ['Sync' => '/sync']) ?>
+      <?= $step(2, 'fa-link', 'Link clients', 'Clients with the same name in each system link automatically. Link the rest (' . \Align\Providers\Providers::rmmNames() . ' organization, ' . $bk() . ' company) on Client mapping. Clients you don\'t plan for (break-fix, vendors) can be removed from planning.', ['Client mapping' => '/mapping', 'Clients' => '/clients']) ?>
       <?= $step(3, 'fa-circle-question', 'Sort out unassigned hardware', psa_name() . ' assets with a type Align doesn\'t recognize land in Unassigned hardware. Give them a type and ' . psa_name() . ' is updated to match.', ['Unassigned hardware' => '/devices/unassigned']) ?>
       <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each new client</h6>
       <?= $step(4, 'fa-mountain-sun', 'Welcome and onboard', 'When they sign, choose <b>⋮ → Welcome &amp; onboarding</b> on the client. The welcome email links to a private page (no sign-in) where they enter their team\'s contacts, read how to reach you and how billing works, answer a few getting-started questions and send new user or termination requests. Track their progress on the client\'s <b>Onboarding</b> page.', ['How onboarding works' => '#guide-onboarding']) ?>
@@ -50,7 +52,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       <?= $step(5, 'fa-address-book', 'Contacts', 'Contacts come from ' . psa_name() . ' (and from onboarding). Mark the <b>decision maker</b> and the people you <b>invite to reviews</b>. They can then be added to a meeting in one click.', ['Contacts' => '/contacts']) ?>
       <?= $step(6, 'fa-desktop', 'Devices & lifecycle', 'Check devices without an in-service date (they can\'t be planned) and set replacement costs where the policy default is wrong. Edits go to ' . psa_name() . ' automatically.', ['How to plan replacements' => '#guide-lifecycle']) ?>
       <?= $step(7, 'fa-key', 'Licensing & contracts', 'Licenses sync from ' . psa_name() . ' without prices. Add the price and billing cycle, plus contract term, end and renegotiate-by dates.', ['Licenses needing a price' => '/licenses?filter=unpriced', 'Renewals' => '/renewals']) ?>
-      <?= $step(8, 'fa-database', 'Backups & service levels', 'With Veeam connected, each client\'s <b>Backups</b> page shows job results, protected machines, Microsoft 365 and servers with no backup. With ' . psa_name() . ' SLAs turned on, <b>Service levels</b> shows how many tickets were answered and resolved on time and which missed.', ['Backups (all clients)' => '/reports/backups', 'Service levels (all clients)' => '/reports/sla']) ?>
+      <?= $step(8, 'fa-database', 'Backups & service levels', 'With ' . $bk() . ' connected, each client\'s <b>Backups</b> page shows job results, protected machines, Microsoft 365 and servers with no backup. With ' . psa_name() . ' SLAs turned on, <b>Service levels</b> shows how many tickets were answered and resolved on time and which missed.', ['Backups (all clients)' => '/reports/backups', 'Service levels (all clients)' => '/reports/sla']) ?>
       <?= $step(9, 'fa-clipboard-check', 'Compliance & documents', 'Assign the frameworks the client must meet (CMMC, NIST CSF, CIS, HIPAA, PCI, SOC 2, ISO 27001, WISP and more), work the checklist and let the <b>crosswalk</b> reuse answers across frameworks. Write policies from the templates in Documents and link them as evidence.', ['Compliance' => '/compliance', 'Documents' => '/documents']) ?>
       <?= $step(10, 'fa-road', 'Roadmap & projects', 'Add projects with a target quarter, budget and description. Hardware reaching end of life, OS end of support and warranty dates appear on the roadmap automatically.', ['Projects' => '/projects']) ?>
       <?= $step(11, 'fa-coins', 'Budget', 'The budget builds itself from licensing, hardware, projects and managed services. Add a <b>Managed services</b> line with your agreement amount, plus internet, phones, cloud and other costs.', ['Budgets' => '/budget']) ?>
@@ -145,7 +147,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'The budget year (calendar or fiscal) and whether the plan starts this year or next are under <b>Settings → Planning &amp; lifecycle</b>.',
   ], ['Budgets' => '/budget']) ?>
   <?= $guide('backups', 'fa-database', 'Check a client\'s backups', 'viewer', [
-      'Open the client and choose <b>Backups</b>: health, failed jobs with Veeam\'s messages, overdue machines, Microsoft 365 coverage and servers with no backup.',
+      'Open the client and choose <b>Backups</b>: health, failed jobs with the backup product\'s messages, overdue machines, Microsoft 365 coverage and servers with no backup.',
       'Something that genuinely doesn\'t need a backup (a test VM, a kiosk)? A tech can mark it <b>Backup not required</b> with a reason; it stops counting as missing everywhere.',
       '<b>Reports → Backup &amp; recovery</b> prints it for the client, and <b>Reports → Backups (all clients)</b> shows the whole portfolio.',
   ], ['Backups report (all clients)' => '/reports/backups']) ?>
@@ -155,8 +157,8 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Pick a record to link a client by hand (<i>by hand</i>), or <b>— Not linked —</b> to keep it unlinked (<i>kept unlinked</i>): sync then leaves it alone. Each record can belong to one client only; one already used shows <i>(linked elsewhere)</i>. To move it, set the other client to <b>— Not linked —</b> in the same save.',
       'Open <b>Missing a link</b> to see only clients that still need a link in some tool, then press <b>Save mapping</b>. A client\'s devices come from its RMM organization, and its backups from its backup company, so fixing a link updates both straight away.',
   ], ['Client mapping' => '/mapping']) ?>
-  <?= $guide('hosted-backups', 'fa-building', 'Match hosted clients\' backups on your own Veeam server', 'tech', [
-      'When you host a client\'s servers and back them up on your own backup server (BDR), Veeam files those backups under your company. Align sorts them into clients on every sync: a machine goes to the client that has a device with the <b>same name</b> in ' . \Align\Providers\Providers::rmmNames() . ' or ' . psa_name() . ' (a full name like <i>server.client.local</i> matches too). Jobs mapped to a company in Veeam Service Provider Console already go to the right client.',
+  <?= $guide('hosted-backups', 'fa-building', 'Match hosted clients\' backups on your own backup server', 'tech', [
+      'When you host a client\'s servers and back them up on your own backup server (BDR), ' . $bk() . ' files those backups under your company. Align sorts them into clients on every sync: a machine goes to the client that has a device with the <b>same name</b> in ' . \Align\Providers\Providers::rmmNames() . ' or ' . psa_name() . ' (a full name like <i>server.client.local</i> matches too). Jobs mapped to a company in Veeam Service Provider Console already go to the right client.',
       'Open <b>Hosted backups</b> in the menu (under Integrations; the badge counts machines not matched yet), or follow the dashboard\'s <i>Needs attention</i> item. It opens on <b>Not matched</b>; the other tabs show what\'s sorted into clients and what\'s yours.',
       'Quickest from a client: on the client\'s <b>Backups</b> page, <b>Backed up on your own server?</b> lists unmatched machines and jobs, with the ones that look like that client (its initials, a word from its name, or one of its servers with no backup) first. Press <b>This client\'s</b>.',
       'On Hosted backups, assign a <b>job</b> to a client when it only backs up that client (machines added to the job later follow it), or pick the client for a <b>machine</b>. Tick several machines to set them at once. Choose <b>Ours — not a client</b> for your own servers so they stop showing as unmatched. What you set is kept across syncs.',
@@ -223,7 +225,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Administration</h6>
   <?php endif; ?>
   <?= $guide('integration', 'fa-plug', 'Connect or change an integration', 'admin', [
-      'Open <b>Integrations</b> and click the card (' . psa_name() . ', NinjaOne, Veeam, Microsoft 365 / Google Workspace, Dell, Lenovo).',
+      'Open <b>Integrations</b> and click the card (' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', Microsoft 365 / Google Workspace, Dell, Lenovo).',
       'Follow <b>How to set it up</b> on the right, enter the details and <b>Save</b>. Keys are encrypted and never shown again; leave a key blank to keep it.',
       'Press <b>Test connection</b>, then run a sync (<b>Integrations → Sync</b>). Each card shows the result of the last sync.',
   ], ['Integrations' => '/integrations']) ?>
@@ -280,7 +282,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
         ['fa-diagram-project', 'Planning', [['Projects', 'All projects across clients by quarter.'], ['Budgets', 'Every client\'s technology budget side by side.'], ['Licensing', 'Every license, with prices and contract dates.'], ['Renewals', 'Licenses and contracts ending or up for renegotiation.']]],
         ['fa-handshake', 'Meetings & reports', [['Meetings', 'Upcoming and past meetings, with the calendar as a second tab.'], ['Reports', 'Pick a client and open any report: QBR pack, assets, roadmap, budget, backups, service levels, compliance. All-clients reports: portfolio, backups, service levels, renewals.']]],
         ['fa-clipboard-check', 'Compliance', [['Compliance', 'Scores for every client and framework (admins also see the Frameworks tab and crosswalk tags).'], ['Documents', 'Internal and client documents, policies and templates (security policies, WISP, CMMC, HIPAA and privacy).']]],
-        ['fa-plug', 'Integrations', [['Integrations', 'Admins: connect and check ' . psa_name() . ', NinjaOne, Veeam, email and warranty lookups.'], ['Client mapping', 'Which ' . \Align\Providers\Providers::rmmNames() . ' organization and Veeam company belongs to each client.'], ['Sync', 'Sync history and Run sync now.'], ['Unassigned hardware', psa_name() . ' assets waiting for a type.']]],
+        ['fa-plug', 'Integrations', [['Integrations', 'Admins: connect and check ' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', email and warranty lookups.'], ['Client mapping', 'Which ' . \Align\Providers\Providers::rmmNames() . ' organization and ' . $bk() . ' company belongs to each client.'], ['Sync', 'Sync history and Run sync now.'], ['Unassigned hardware', psa_name() . ' assets waiting for a type.']]],
         ['fa-user-shield', 'Admin', [['Settings', 'General, planning & lifecycle, OS support dates, notifications, onboarding, branding, API, updates & backups.'], ['Users', 'Staff accounts and roles.'], ['Client portal users', 'Everyone with a client portal sign-in. In the portal, clients see their roadmap, budget, devices, service levels and documents, and can send requests.'], ['Audit log', 'Who did what, and who viewed which client records.']]],
     ] as [$icon, $title, $items]): ?>
       <div class="col-md-6 col-xl-4 d-flex">
@@ -310,7 +312,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
             <tr><th>Warranties</th><td>Dell / Lenovo lookups, or the <?= e(psa_name()) ?> warranty date</td></tr>
             <tr><th>Service levels (SLA)</th><td><?= e(psa_name()) ?> tickets and SLA results, hourly; only numbers, subjects, priorities and times are copied</td></tr>
             <tr><th>New user &amp; termination requests</th><td>Sent from onboarding or the portal; become <?= e(psa_name()) ?> tickets (or an email without <?= e(psa_name()) ?>)</td></tr>
-            <tr><th>Backups</th><td>Veeam Service Provider Console (read-only), hourly: servers, VMs, agents and Microsoft 365</td></tr>
+            <tr><th>Backups</th><td><?= e($bk(', ')) ?> (read-only), hourly: servers, VMs, agents and Microsoft 365</td></tr>
             <tr><th>Email &amp; invitations</th><td>Microsoft 365 or Google Workspace over OAuth, sent every minute</td></tr>
             <tr><th>Updates &amp; app backups</th><td>GitHub checked every 6 hours; backups downloaded from Settings → Updates &amp; backups</td></tr>
             <tr><th>Projects, budget lines, compliance, documents, meetings, onboarding progress, dashboard layout</th><td>Align</td></tr>
@@ -328,7 +330,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
             <dt>Technology budget</dt><dd>Everything: the 3-year plan plus licensing, managed services and running costs, by quarter.</dd>
             <dt>Planning checklist</dt><dd>On each client's overview: what's done and what's next before their plan and budget are complete.</dd>
             <dt>Unassigned</dt><dd>An asset from <?= e(psa_name()) ?> whose type needs choosing.</dd>
-            <dt>Overdue backup</dt><dd>A machine or Microsoft 365 item whose newest restore point is older than the limit set on the Veeam integration (48 hours by default).</dd>
+            <dt>Overdue backup</dt><dd>A machine or Microsoft 365 item whose newest restore point is older than the limit set on the backup integration (48 hours by default).</dd>
             <dt>Needs attention</dt><dd>The dashboard's single to-do list across every client, ordered red (act now), amber (soon), then blue (for information).</dd>
             <dt>Service level (SLA)</dt><dd><?= e(psa_name()) ?>'s response and resolution targets per ticket priority. <i>On time</i> means <?= e(psa_name()) ?> recorded the first response or resolution before the target; your goal (90% by default) sets when a client shows amber or red.</dd>
             <dt>Crosswalk</dt><dd>Controls in different frameworks that ask for the same thing (for example MFA in CMMC, CIS and PCI DSS), matched by shared tags so one answer can fill several.</dd>

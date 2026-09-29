@@ -157,8 +157,8 @@ final class SyncRunner
         $now = date('Y-m-d H:i:s');
         $ids = [];
         foreach ($rows as $r) {
-            $id = (int) ($r['id'] ?? 0);
-            if (!$id) {
+            $id = ext_id($r['id'] ?? null);
+            if ($id === '') {
                 continue;
             }
             $ids[] = $id;
@@ -187,8 +187,7 @@ final class SyncRunner
             }
         }
         if ($ids) {
-            $in = implode(',', array_map('intval', $ids));
-            DB::run("UPDATE clients SET is_archived = 1 WHERE source = 'psa' AND psa_id NOT IN ($in)");
+            DB::run("UPDATE clients SET is_archived = 1 WHERE source = 'psa' AND psa_id NOT IN (" . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
         }
         try {
             $details = self::syncClientDetails($psa, $rows);
@@ -217,8 +216,8 @@ final class SyncRunner
         $pick = function (array $rows): array {
             $by = [];
             foreach ($rows as $r) {
-                $cid = (int) ($r['client_id'] ?? 0);
-                if (!$cid || !empty($r['archived'])) {
+                $cid = ext_id($r['client_id'] ?? null);
+                if ($cid === '' || !empty($r['archived'])) {
                     continue;
                 }
                 $rank = !empty($r['primary']) ? 0 : (!empty($r['important']) ? 1 : 2);
@@ -235,8 +234,8 @@ final class SyncRunner
         $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len);
         $updated = 0;
         foreach ($clientRows as $r) {
-            $cid = (int) ($r['id'] ?? 0);
-            $client = $cid ? DB::one('SELECT * FROM clients WHERE psa_id = ?', [$cid]) : null;
+            $cid = ext_id($r['id'] ?? null);
+            $client = $cid !== '' ? DB::one('SELECT * FROM clients WHERE psa_id = ?', [$cid]) : null;
             if (!$client) {
                 continue;
             }
@@ -298,7 +297,7 @@ final class SyncRunner
         }
         $locNames = [];
         foreach ($rawLocations as $l) {
-            $locNames[(int) ($l['id'] ?? 0)] = (string) ($l['name'] ?? '');
+            $locNames[ext_id($l['id'] ?? null)] = (string) ($l['name'] ?? '');
         }
         $people = $psa->supports('contacts') ? '; ' . \Align\Contacts\Contacts::syncFromPsa($rawContacts, $locNames, $psa->name()) : '';
         return ($updated ? "contact details updated for $updated" : 'contact details up to date') . $people;
@@ -511,7 +510,7 @@ final class SyncRunner
                 continue;
             }
             try {
-                if ($psa->updateAsset((int) $r['psa_client_id'], (int) $r['psa_asset_id'], $fields)) {
+                if ($psa->updateAsset((string) $r['psa_client_id'], (string) $r['psa_asset_id'], $fields)) {
                     DB::run(
                         'UPDATE psa_assets SET warranty_expire = COALESCE(?, warranty_expire), purchase_date = COALESCE(?, purchase_date) WHERE psa_asset_id = ?',
                         [$fields['warranty_expire'] ?? null, $fields['purchase_date'] ?? null, $r['psa_asset_id']]

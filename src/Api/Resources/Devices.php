@@ -154,8 +154,8 @@ final class Devices
                 'purchase_date' => $d['o_purchase'], 'warranty_end' => $d['o_warranty'], 'lifespan_years' => Out::int($d['o_lifespan']),
                 'replacement_cost' => Out::num($d['o_cost']), 'device_type' => $d['o_type'], 'notes' => $d['o_notes'],
             ],
-            'psa_asset_id' => Out::int($d['psa_asset_id']),
-            'itflow_asset_id' => Out::int($d['psa_asset_id']), // deprecated alias of psa_asset_id
+            'psa_asset_id' => Out::extId($d['psa_asset_id']),
+            'itflow_asset_id' => Out::numId($d['psa_asset_id']), // deprecated alias of psa_asset_id
             'ninja_device_id' => $d['rmm_provider'] === 'ninjaone' ? Out::int($d['rmm_device_id']) : null, // older field, kept for existing integrations
             'synced_at' => Out::ts($d['synced_at']),
             'url' => Out::url('/devices/' . (int) $d['id']),

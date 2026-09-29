@@ -192,8 +192,8 @@ final class Licenses
             'id' => (int) $l['id'],
             'client_id' => (int) $l['client_id'],
             'source' => Out::source($l['source']),
-            'psa_id' => Out::int($l['psa_id']),
-            'itflow_software_id' => Out::int($l['psa_id']), // deprecated alias of psa_id
+            'psa_id' => Out::extId($l['psa_id']),
+            'itflow_software_id' => Out::numId($l['psa_id']), // deprecated alias of psa_id
             'name' => $l['name'],
             'version' => $l['version'],
             'software_type' => $l['software_type'],

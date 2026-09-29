@@ -45,6 +45,7 @@ with sync_playwright() as p:
     pg.goto(B+"/reports"); pg.select_option("#report-client",str(empty)); pg.wait_for_timeout(200)
     for t in ["Backup & recovery","Compliance checklist","Policies & documents"]:
         f=cards.filter(has_text=t); ok(f.locator("button").is_disabled() and f.locator(".report-unavailable").is_visible(),f"{t}: disabled with note for client without data")
+    ok("not linked to a backup company" in cards.filter(has_text="Backup & recovery").inner_text(),"backup note names no vendor")
     ok(not cards.filter(has_text="Asset & lifecycle").locator("button").is_disabled(),"asset report still available")
     # all-client reports
     for t,path in [("Portfolio summary","/reports/portfolio"),("Backup status","/reports/backups")]:

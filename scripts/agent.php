@@ -56,7 +56,7 @@ define('SAFETY', STATE . '/safety');
 define('WORK', STATE . '/work');
 define('REQ', RUN . '/requests');
 define('KEYS', RUN . '/keys');
-define('TIMERS', ['mountaineer-align-sync', 'mountaineer-align-itflow', 'mountaineer-align-mail']);
+define('TIMERS', ['mountaineer-align-sync', 'mountaineer-align-psa', 'mountaineer-align-mail']);   // -psa was -itflow before 1.34
 define('ID_RE', '/^[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$/');
 define('KEY_RE', '/^AGE-SECRET-KEY-1[0-9A-Z]{58}$/');
 define('TOKEN_RE', '/^[a-f0-9]{32}$/');

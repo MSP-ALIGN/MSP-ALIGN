@@ -103,7 +103,7 @@ final class ContactController
         $row = $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()];
         $note = '';
         if (\Align\Contacts\Contacts::canPush($client)) { // two-way: create it in the PSA so the next sync doesn't duplicate it
-            [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['psa_id']);
+            [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (string) $client['psa_id']);
             $row = $itId ? ['source' => 'psa', 'psa_id' => $itId] + $row : $row;
             $note = $itId ? ' Created in ' . psa_name() . ' too.' : " Saved in Align only; " . psa_name() . " refused it ($err).";
         }
@@ -147,7 +147,7 @@ final class ContactController
         if (array_key_exists('name', $f) && $f['name'] === '') {
             $f['name'] = $k['name'];
         }
-        if ($push && ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['psa_id']))) {
+        if ($push && ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (string) $client['psa_id']))) {
             flash('error', "Not saved: " . psa_name() . " did not accept the change ($err).");
             redirect($back);
         }

@@ -21,7 +21,7 @@ final class Billing
         $to = date('Y-m-t', strtotime('last day of last month'));
         $per = [];
         foreach ($rows as $r) {
-            $cid = $clients[(int) ($r['client_id'] ?? 0)] ?? null;
+            $cid = $clients[ext_id($r['client_id'] ?? null)] ?? null;
             $date = substr((string) ($r['date'] ?? ''), 0, 10);
             $status = strtolower((string) ($r['status'] ?? ''));
             if (!$cid || $date < $from || $date > $to || in_array($status, ['draft', 'cancelled', 'canceled', 'non-billable'], true)) {

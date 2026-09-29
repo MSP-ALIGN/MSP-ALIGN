@@ -1,5 +1,5 @@
 [Unit]
-Description=Check ITFlow for asset changes every 2 minutes
+Description=MSP-ALIGN - check the PSA for asset changes every 2 minutes
 
 [Timer]
 OnBootSec=2min

@@ -62,8 +62,8 @@ final class Clients
             'name' => $c['name'],
             'industry' => $c['industry'],
             'source' => Out::source($c['source']),
-            'psa_id' => Out::int($c['psa_id']),
-            'itflow_client_id' => Out::int($c['psa_id']), // deprecated alias of psa_id
+            'psa_id' => Out::extId($c['psa_id']),
+            'itflow_client_id' => Out::numId($c['psa_id']), // deprecated alias of psa_id
             'main_phone' => $c['main_phone'],
             'website' => $c['website'],
             'address' => $c['address'],
@@ -188,8 +188,8 @@ final class Clients
             'roles' => array_keys(array_filter(self::ROLE_COLS, fn($col) => !empty($k[$col]))),
             'notes' => $k['align_notes'],
             'source' => Out::source($k['source']),
-            'psa_id' => Out::int($k['psa_id']),
-            'itflow_contact_id' => Out::int($k['psa_id']), // deprecated alias of psa_id
+            'psa_id' => Out::extId($k['psa_id']),
+            'itflow_contact_id' => Out::numId($k['psa_id']), // deprecated alias of psa_id
             'archived' => $k['archived_at'] !== null,
             'updated_at' => Out::ts($k['updated_at'] ?? $k['created_at']),
         ];

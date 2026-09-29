@@ -403,7 +403,7 @@ final class PortalController
         }
         $row = $f + ['client_id' => (int) $pu['client_id'], 'source' => 'manual', 'created_by_portal_user_id' => (int) $pu['id']];
         if (Contacts::canPush($client)) {
-            [$itId, $err] = Contacts::pushCreate($f, (int) $client['psa_id']);
+            [$itId, $err] = Contacts::pushCreate($f, (string) $client['psa_id']);
             if ($itId) {
                 $row = ['source' => 'psa', 'psa_id' => $itId] + $row;
             } else {
@@ -443,7 +443,7 @@ final class PortalController
         if ($fromPsa) {
             if (!Contacts::canPush($client)) {
                 $f = array_intersect_key($f, ['decision_maker' => 1, 'qbr' => 1]); // details are managed in the PSA
-            } elseif ($err = Contacts::pushUpdate($k, $f, (int) $client['psa_id'])) {
+            } elseif ($err = Contacts::pushUpdate($k, $f, (string) $client['psa_id'])) {
                 error_log("Portal contact update in " . psa_name() . " failed for contact {$k['id']}: $err");
                 flash('error', 'We could not save those details right now. Please try again, or contact your IT provider.');
                 redirect('/portal/contacts');

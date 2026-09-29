@@ -46,6 +46,23 @@ final class Out
     }
 
     /**
+     * An outside system's id (PSA): a number when it is one (so v1 answers for ITFlow stay exactly as before
+     * 1.34, when PSA ids were stored as numbers), otherwise the id as text (GUIDs and other text ids).
+     */
+    public static function extId(mixed $v): int|string|null
+    {
+        $s = ext_id($v);
+        return $s === '' ? null : (preg_match('/^[1-9][0-9]{0,17}$/', $s) ? (int) $s : $s);
+    }
+
+    /** For the deprecated itflow_* aliases, which were always numbers: the id when it's a number, otherwise null. */
+    public static function numId(mixed $v): ?int
+    {
+        $id = self::extId($v);
+        return is_int($id) ? $id : null;
+    }
+
+    /**
      * A record's source as the API reports it, so v1 answers stay the same as before the data became
      * provider-neutral: the PSA's key ("itflow") for PSA records, "ninja" for NinjaOne devices, the
      * RMM's key for other RMMs, otherwise manual.

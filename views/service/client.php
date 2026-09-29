@@ -18,7 +18,7 @@ $delta = function (?float $now, ?float $before): string {
     return '<small class="font-weight-normal text-' . ($d > 0 ? 'success' : 'danger') . '"><i class="fas fa-caret-' . ($d > 0 ? 'up' : 'down') . '"></i> ' . e(rtrim(rtrim(number_format(abs($d), 1), '0'), '.')) . ' pts</small>';
 };
 $ticketLink = function (array $t): string {
-    $url = Sla::ticketUrl((int) $t['id']);
+    $url = Sla::ticketUrl($t['id']);
     $label = e($t['number'] ?: '#' . $t['id']);
     return $url ? '<a href="' . e($url) . '" target="_blank" rel="noopener">' . $label . ' <i class="fas fa-up-right-from-square fa-xs"></i></a>' : $label;
 };

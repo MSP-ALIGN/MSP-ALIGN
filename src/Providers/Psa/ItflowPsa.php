@@ -60,6 +60,33 @@ final class ItflowPsa implements PsaProvider
         return ($v && !str_starts_with((string) $v, '0000')) ? substr((string) $v, 0, 19) : null;
     }
 
+    /** An ITFlow id as the neutral string id ('' when missing or zero). */
+    private static function id(mixed $v): string
+    {
+        $n = (int) ($v ?? 0);
+        return $n > 0 ? (string) $n : '';
+    }
+
+    /** An optional ITFlow id (a location, a contact): null when missing or zero. */
+    private static function optId(mixed $v): ?string
+    {
+        return self::id($v) ?: null;
+    }
+
+    private static function isNum(string $id): bool
+    {
+        return (bool) preg_match('/^[1-9][0-9]{0,9}$/', $id);
+    }
+
+    /** A neutral id back to ITFlow's number; anything else isn't an ITFlow id. */
+    private static function num(string $id): int
+    {
+        if (!self::isNum($id)) {
+            throw new \InvalidArgumentException("'$id' is not an ITFlow id.");
+        }
+        return (int) $id;
+    }
+
     private static function flag(mixed $v): bool
     {
         return !empty($v) && $v !== '0';
@@ -87,7 +114,7 @@ final class ItflowPsa implements PsaProvider
     public function clients(): array
     {
         return array_map(fn(array $r) => [
-            'id' => (int) ($r['client_id'] ?? 0),
+            'id' => self::id($r['client_id'] ?? null),
             'name' => self::str($r, 'client_name'),
             'archived' => !empty($r['client_archived_at']),
             'website' => self::str($r, 'client_website'),
@@ -105,8 +132,8 @@ final class ItflowPsa implements PsaProvider
     public function contacts(): array
     {
         return array_map(fn(array $r) => [
-            'id' => (int) ($r['contact_id'] ?? 0),
-            'client_id' => (int) ($r['contact_client_id'] ?? 0),
+            'id' => self::id($r['contact_id'] ?? null),
+            'client_id' => self::id($r['contact_client_id'] ?? null),
             'name' => self::str($r, 'contact_name'),
             'title' => self::str($r, 'contact_title'),
             'department' => self::str($r, 'contact_department'),
@@ -114,7 +141,7 @@ final class ItflowPsa implements PsaProvider
             'phone' => self::str($r, 'contact_phone'),
             'extension' => self::str($r, 'contact_extension'),
             'mobile' => self::str($r, 'contact_mobile'),
-            'location_id' => (int) ($r['contact_location_id'] ?? 0) ?: null,
+            'location_id' => self::optId($r['contact_location_id'] ?? null),
             'primary' => self::flag($r['contact_primary'] ?? 0),
             'important' => self::flag($r['contact_important'] ?? 0),
             'billing' => self::flag($r['contact_billing'] ?? 0),
@@ -127,8 +154,8 @@ final class ItflowPsa implements PsaProvider
     public function locations(): array
     {
         return array_map(fn(array $r) => [
-            'id' => (int) ($r['location_id'] ?? 0),
-            'client_id' => (int) ($r['location_client_id'] ?? 0),
+            'id' => self::id($r['location_id'] ?? null),
+            'client_id' => self::id($r['location_client_id'] ?? null),
             'name' => self::str($r, 'location_name'),
             'address' => self::str($r, 'location_address'),
             'city' => self::str($r, 'location_city'),
@@ -142,12 +169,12 @@ final class ItflowPsa implements PsaProvider
         ], $this->api->locations());
     }
 
-    public function updateContact(int $clientId, int $contactId, array $fields): bool
+    public function updateContact(string $clientId, string $contactId, array $fields): bool
     {
-        return $this->api->updateContact($clientId, $contactId, self::keys($fields, self::CONTACT_KEYS));
+        return $this->api->updateContact(self::num($clientId), self::num($contactId), self::keys($fields, self::CONTACT_KEYS));
     }
 
-    public function createContact(int $clientId, array $fields): int
+    public function createContact(string $clientId, array $fields): string
     {
         $body = self::keys($fields, self::CONTACT_KEYS);
         foreach (['contact_important', 'contact_billing', 'contact_technical'] as $k) {
@@ -159,7 +186,7 @@ final class ItflowPsa implements PsaProvider
                 }
             }
         }
-        return $this->api->createContact($clientId, $body);
+        return (string) $this->api->createContact(self::num($clientId), $body);
     }
 
     // ---- Assets ----
@@ -167,8 +194,8 @@ final class ItflowPsa implements PsaProvider
     private function asNeutralAsset(array $a): array
     {
         return [
-            'id' => (int) ($a['asset_id'] ?? 0),
-            'client_id' => (int) ($a['asset_client_id'] ?? 0),
+            'id' => self::id($a['asset_id'] ?? null),
+            'client_id' => self::id($a['asset_client_id'] ?? null),
             'name' => $a['asset_name'] ?? null,
             'type' => $a['asset_type'] ?? null,
             'make' => $a['asset_make'] ?? null,
@@ -183,7 +210,7 @@ final class ItflowPsa implements PsaProvider
             'archived' => !empty($a['asset_archived_at']),
             'ip_address' => mb_substr((string) ($a['interface_ip'] ?? $a['asset_ip'] ?? ''), 0, 64) ?: null,
             'mac' => mb_substr((string) ($a['interface_mac'] ?? $a['asset_mac'] ?? ''), 0, 64) ?: null,
-            'location_id' => (int) ($a['asset_location_id'] ?? 0) ?: null,
+            'location_id' => self::optId($a['asset_location_id'] ?? null),
             'updated_at' => self::ts($a['asset_updated_at'] ?? null) ?? self::ts($a['asset_created_at'] ?? null),
         ];
     }
@@ -193,20 +220,23 @@ final class ItflowPsa implements PsaProvider
         return array_map([$this, 'asNeutralAsset'], array_filter($this->api->assets(), fn($a) => !empty($a['asset_id'])));
     }
 
-    public function asset(int $assetId): ?array
+    public function asset(string $assetId): ?array
     {
-        $a = $this->api->asset($assetId);
+        if (!self::isNum($assetId)) {
+            return null; // not an ITFlow id (e.g. left from another PSA): no such asset here
+        }
+        $a = $this->api->asset(self::num($assetId));
         return $a ? $this->asNeutralAsset($a) : null;
     }
 
-    public function createAsset(int $clientId, array $fields): int
+    public function createAsset(string $clientId, array $fields): string
     {
-        return $this->api->createAsset($clientId, self::keys($fields, self::ASSET_KEYS));
+        return (string) $this->api->createAsset(self::num($clientId), self::keys($fields, self::ASSET_KEYS));
     }
 
-    public function updateAsset(int $clientId, int $assetId, array $fields): bool
+    public function updateAsset(string $clientId, string $assetId, array $fields): bool
     {
-        return $this->api->updateAsset($clientId, $assetId, self::keys($fields, self::ASSET_KEYS));
+        return $this->api->updateAsset(self::num($clientId), self::num($assetId), self::keys($fields, self::ASSET_KEYS));
     }
 
     public function mapAssetType(array $asset): array
@@ -243,8 +273,8 @@ final class ItflowPsa implements PsaProvider
             // vendor names are optional
         }
         return array_map(fn(array $r) => [
-            'id' => (int) ($r['software_id'] ?? 0),
-            'client_id' => (int) ($r['software_client_id'] ?? 0),
+            'id' => self::id($r['software_id'] ?? null),
+            'client_id' => self::id($r['software_client_id'] ?? null),
             'name' => self::str($r, 'software_name'),
             'version' => self::str($r, 'software_version'),
             'software_type' => self::str($r, 'software_type'),
@@ -265,7 +295,7 @@ final class ItflowPsa implements PsaProvider
     public function invoices(): array
     {
         return array_map(fn(array $r) => [
-            'client_id' => (int) ($r['invoice_client_id'] ?? 0),
+            'client_id' => self::id($r['invoice_client_id'] ?? null),
             'date' => substr((string) ($r['invoice_date'] ?? ''), 0, 10),
             'status' => (string) ($r['invoice_status'] ?? ''),
             'amount' => (float) ($r['invoice_amount'] ?? 0),
@@ -279,8 +309,8 @@ final class ItflowPsa implements PsaProvider
     {
         $met = fn($v) => $v === null || $v === '' ? null : (bool) (int) $v;
         return [
-            'id' => (int) ($r['ticket_id'] ?? 0),
-            'client_id' => (int) ($r['ticket_client_id'] ?? 0),
+            'id' => self::id($r['ticket_id'] ?? null),
+            'client_id' => self::id($r['ticket_client_id'] ?? null),
             'number' => trim(($r['ticket_prefix'] ?? '') . ($r['ticket_number'] ?? '')),
             'subject' => trim(html_entity_decode(strip_tags((string) ($r['ticket_subject'] ?? '')), ENT_QUOTES)),
             'category' => self::str($r, 'ticket_category'),
@@ -334,31 +364,34 @@ final class ItflowPsa implements PsaProvider
         ];
     }
 
-    public function ticket(int $ticketId): ?array
+    public function ticket(string $ticketId): ?array
     {
-        $r = $this->api->ticket($ticketId);
+        if (!self::isNum($ticketId)) {
+            return null;
+        }
+        $r = $this->api->ticket(self::num($ticketId));
         return $r ? self::asNeutralTicket($r) : null;
     }
 
-    public function createTicket(int $clientId, string $subject, string $detailsHtml, string $priority = 'Medium', ?int $contactId = null): int
+    public function createTicket(string $clientId, string $subject, string $detailsHtml, string $priority = 'Medium', ?string $contactId = null): string
     {
-        return $this->api->createTicket($clientId, $subject, $detailsHtml, $priority, $contactId);
+        return (string) $this->api->createTicket(self::num($clientId), $subject, $detailsHtml, $priority, $contactId !== null && self::isNum($contactId) ? self::num($contactId) : null);
     }
 
     // ---- Links ----
 
-    public function clientUrl(int $clientId): ?string
+    public function clientUrl(string $clientId): ?string
     {
-        return $this->api->clientUrl($clientId);
+        return $this->api->clientUrl(self::num($clientId));
     }
 
-    public function assetUrl(int $clientId, int $assetId): ?string
+    public function assetUrl(string $clientId, string $assetId): ?string
     {
-        return $this->api->assetUrl($clientId, $assetId);
+        return $this->api->assetUrl(self::num($clientId), self::num($assetId));
     }
 
-    public function ticketUrl(int $ticketId): ?string
+    public function ticketUrl(string $ticketId): ?string
     {
-        return $this->api->baseUrl() . '/agent/ticket.php?ticket_id=' . $ticketId;
+        return $this->api->baseUrl() . '/agent/ticket.php?ticket_id=' . self::num($ticketId);
     }
 }

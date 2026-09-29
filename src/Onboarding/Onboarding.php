@@ -303,7 +303,7 @@ HTML],
                 }
                 if ($k['source'] === 'psa') {
                     if ($push) {
-                        if ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (int) $client['psa_id'])) {
+                        if ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (string) $client['psa_id'])) {
                             $errors[] = $k['name'] . ': saved here, but ' . psa_name() . ' didn\'t accept the change (' . $err . ').';
                         }
                     } else {
@@ -335,7 +335,7 @@ HTML],
             }
             $row = $f + ['client_id' => $cid, 'source' => 'manual', 'align_notes' => "Added during onboarding by $who on " . date('Y-m-d') . '.'];
             if ($push) {
-                [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (int) $client['psa_id']);
+                [$itId, $err] = \Align\Contacts\Contacts::pushCreate($f, (string) $client['psa_id']);
                 if ($itId) {
                     $row = ['source' => 'psa', 'psa_id' => $itId] + $row;
                 } elseif ($err) {

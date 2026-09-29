@@ -91,6 +91,16 @@ function is_https(): bool
         && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
 }
 
+/**
+ * An outside system's id (PSA, RMM) as stored: text, trimmed; '' when missing (null, '', 0).
+ * PSA ids were numbers until 1.34 and may still arrive as ints.
+ */
+function ext_id(mixed $v): string
+{
+    $s = trim((string) ($v ?? ''));
+    return $s === '0' ? '' : $s;
+}
+
 function money(float|int|string|null $v): string
 {
     return '$' . number_format((float) $v, 0);

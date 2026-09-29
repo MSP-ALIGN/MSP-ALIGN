@@ -95,8 +95,8 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
         <?php foreach ($requests as $r): ?>
           <li class="list-group-item py-2"><b><?= e($r['title']) ?></b>
             <div class="text-muted"><?= e(fmt_datetime($r['created_at'])) ?> · <?= e($r['submitted_name']) ?> · via <?= $r['via'] === 'portal' ? 'portal' : 'onboarding page' ?> ·
-              <?php if ($r['delivery'] === 'psa' && $r['psa_ticket_id'] && ($tu = \Align\Providers\Providers::psaLink('ticket', (int) $r['psa_ticket_id']))): ?><a href="<?= e($tu) ?>" target="_blank" rel="noopener"><?= e(psa_name()) ?> ticket</a>
-              <?php elseif ($r['delivery'] === 'psa'): ?><?= e(psa_name()) ?> ticket #<?= (int) $r['psa_ticket_id'] ?>
+              <?php if ($r['delivery'] === 'psa' && $r['psa_ticket_id'] && ($tu = \Align\Providers\Providers::psaLink('ticket', $r['psa_ticket_id']))): ?><a href="<?= e($tu) ?>" target="_blank" rel="noopener"><?= e(psa_name()) ?> ticket</a>
+              <?php elseif ($r['delivery'] === 'psa'): ?><?= e(psa_name()) ?> ticket #<?= e($r['psa_ticket_id']) ?>
               <?php elseif ($r['delivery'] === 'email'): ?>emailed to service
               <?php else: ?><span class="text-danger">not delivered<?= $r['delivery_error'] ? ': ' . e($r['delivery_error']) : '' ?></span><?php endif; ?></div></li>
         <?php endforeach; ?>

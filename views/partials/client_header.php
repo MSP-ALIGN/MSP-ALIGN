@@ -3,7 +3,7 @@ use Align\Auth;
 use Align\Meetings\Meetings;
 
 /** @var array $client */
-$psaClientUrl = !empty($client['psa_id']) ? \Align\Providers\Providers::psaLink('client', (int) $client['psa_id']) : null;
+$psaClientUrl = !empty($client['psa_id']) ? \Align\Providers\Providers::psaLink('client', $client['psa_id']) : null;
 $cid = (int) $client['id'];
 ?>
 <?php if ($client['planning_excluded']): ?>

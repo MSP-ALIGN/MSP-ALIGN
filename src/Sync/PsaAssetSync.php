@@ -13,7 +13,7 @@ use Align\Settings;
  * Two-way asset sync between Align devices and the PSA's assets.
  *
  * PSAs rarely have webhooks, so changes made there are picked up by polling (every 2 minutes via the
- * mountaineer-align-itflow timer, running `align psa:poll`). Changes made in Align are pushed the
+ * mountaineer-align-psa timer, running `align psa:poll`). Changes made in Align are pushed the
  * moment they're saved.
  *
  * For every linked device and field we keep the last value both systems agreed on (the baseline).
@@ -27,7 +27,7 @@ use Align\Settings;
  */
 final class PsaAssetSync
 {
-    public const LOCK = 'mountaineer_align_itflow';
+    public const LOCK = 'mountaineer_align_itflow'; // name kept from before 1.34, so a poll still running during an update can't overlap the new one
 
     /** field => [label, asset field written to the PSA (null = pulled from the PSA only)] */
     public const FIELDS = [
@@ -446,7 +446,7 @@ final class PsaAssetSync
                 if (!$online) {
                     throw new \RuntimeException("$n not reachable");
                 }
-                if (!$p->updateAsset((int) $a['psa_client_id'], (int) $a['psa_asset_id'], $payload)) {
+                if (!$p->updateAsset((string) $a['psa_client_id'], (string) $a['psa_asset_id'], $payload)) {
                     throw new \RuntimeException("$n rejected the update (does the API key user have write access to assets?)");
                 }
                 foreach ($pushes as $f => $push) {
@@ -494,7 +494,7 @@ final class PsaAssetSync
                 $assetId = self::createAsset($d, $p, $userId);
                 return ['status' => 'ok', 'message' => "Created in $n (asset #$assetId)."];
             }
-            $asset = $p->asset((int) $d['psa_asset_id']);
+            $asset = $p->asset((string) $d['psa_asset_id']);
             if (!$asset) {
                 return ['status' => 'error', 'message' => "The linked $n asset no longer exists. The next sync will retire or relink this device."];
             }
@@ -518,7 +518,7 @@ final class PsaAssetSync
         }
     }
 
-    private static function createAsset(array $d, PsaProvider $p, ?int $userId): int
+    private static function createAsset(array $d, PsaProvider $p, ?int $userId): string
     {
         $fields = ['name' => (string) $d['display_name'], 'status' => $p->assetStatus(false)];
         foreach (['type', 'make', 'model', 'serial', 'os', 'purchase', 'warranty'] as $f) {
@@ -528,10 +528,10 @@ final class PsaAssetSync
             }
         }
         $fields['type'] ??= $p->assetTypeFor('Other') ?? 'Other';
-        $assetId = $p->createAsset((int) $d['client_psa_id'], $fields);
+        $assetId = $p->createAsset((string) $d['client_psa_id'], $fields);
         DB::run('UPDATE devices SET psa_asset_id = ? WHERE id = ?', [$assetId, $d['id']]);
         $row = [
-            'psa_asset_id' => $assetId, 'psa_client_id' => (int) $d['client_psa_id'],
+            'psa_asset_id' => $assetId, 'psa_client_id' => (string) $d['client_psa_id'],
             'name' => $fields['name'], 'type' => $fields['type'], 'make' => $fields['make'] ?? null,
             'model' => $fields['model'] ?? null, 'serial' => normalize_serial($fields['serial'] ?? null),
             'os' => $fields['os'] ?? null, 'purchase_date' => $fields['purchase_date'] ?? null,
@@ -550,20 +550,20 @@ final class PsaAssetSync
     /** Stores one freshly read asset in the cache and returns the cache row. */
     private static function cacheOne(array $a): array
     {
-        $prev = DB::one('SELECT location_id, location_name FROM psa_assets WHERE psa_asset_id = ?', [(int) $a['id']]);
+        $prev = DB::one('SELECT location_id, location_name FROM psa_assets WHERE psa_asset_id = ?', [ext_id($a['id'])]);
         $row = self::cacheRow($a, date('Y-m-d H:i:s'));
         $loc = $row['location_id'];
-        $row['location_name'] = $prev && (int) $prev['location_id'] === (int) $loc ? $prev['location_name'] : ($loc ? ($prev['location_name'] ?? null) : null);
+        $row['location_name'] = $prev && ext_id($prev['location_id']) === ext_id($loc) ? $prev['location_name'] : ($loc ? ($prev['location_name'] ?? null) : null);
         DB::upsert('psa_assets', $row, ['psa_asset_id']);
-        return DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [(int) $a['id']]);
+        return DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [ext_id($a['id'])]);
     }
 
     /** A psa_assets row from a neutral asset record. */
     private static function cacheRow(array $a, string $now, array $locations = []): array
     {
         return [
-            'psa_asset_id' => (int) $a['id'],
-            'psa_client_id' => (int) ($a['client_id'] ?? 0),
+            'psa_asset_id' => ext_id($a['id']),
+            'psa_client_id' => ext_id($a['client_id'] ?? null),
             'name' => $a['name'] ?? null,
             'type' => $a['type'] ?? null,
             'make' => $a['make'] ?? null,
@@ -578,8 +578,8 @@ final class PsaAssetSync
             'mac' => $a['mac'] ?? null,
             'os' => $a['os'] ?? null,
             'description' => $a['description'] ?? null,
-            'location_id' => $a['location_id'] ?? null,
-            'location_name' => $locations[(int) ($a['location_id'] ?? 0)] ?? null,
+            'location_id' => ext_id($a['location_id'] ?? null) ?: null,
+            'location_name' => $locations[ext_id($a['location_id'] ?? null)] ?? null,
             'updated_at' => $a['updated_at'] ?? null,
             'synced_at' => $now,
         ];
@@ -606,7 +606,7 @@ final class PsaAssetSync
             if ($p->supports('locations')) {
                 try {
                     foreach ($p->locations() as $l) {
-                        $locations[(int) ($l['id'] ?? 0)] = (string) ($l['name'] ?? '');
+                        $locations[ext_id($l['id'] ?? null)] = (string) ($l['name'] ?? '');
                     }
                 } catch (\Throwable $e) {
                     $say("$n locations not readable (" . $e->getMessage() . '); continuing without them');
@@ -616,14 +616,14 @@ final class PsaAssetSync
             DB::transaction(function () use ($assets, $now, $locations) {
                 $ids = [];
                 foreach ($assets as $a) {
-                    if (!empty($a['id'])) {
+                    if (ext_id($a['id'] ?? null) !== '') {
                         DB::upsert('psa_assets', self::cacheRow($a, $now, $locations), ['psa_asset_id']);
-                        $ids[] = (int) $a['id'];
+                        $ids[] = ext_id($a['id']);
                     }
                 }
                 // Anything the PSA no longer returns is gone (by ID, so two runs in the same second can't miss it)
                 if ($ids) {
-                    DB::run('DELETE FROM psa_assets WHERE psa_asset_id NOT IN (' . implode(',', $ids) . ')');
+                    DB::run('DELETE FROM psa_assets WHERE psa_asset_id NOT IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids);
                 }
             });
             $parts = [count($assets) . ' assets read'];
@@ -660,20 +660,20 @@ final class PsaAssetSync
     /** Links RMM / hand-added devices to PSA assets by serial, then by name. Existing links are kept. */
     private static function linkDevices(): string
     {
-        $claimed = array_flip(array_map('intval', array_column(DB::all(
+        $claimed = array_flip(array_map('strval', array_column(DB::all(
             "SELECT DISTINCT d.psa_asset_id FROM devices d JOIN psa_assets a ON a.psa_asset_id = d.psa_asset_id
              WHERE d.source IN ('rmm','manual') AND (d.removed_at IS NULL OR d.retired_at IS NOT NULL)"), 'psa_asset_id')));
         $bySerial = [];
         $byName = [];
         foreach (DB::all('SELECT psa_asset_id, psa_client_id, name, serial FROM psa_assets WHERE is_archived = 0') as $a) {
-            if (isset($claimed[(int) $a['psa_asset_id']])) {
+            if (isset($claimed[(string) $a['psa_asset_id']])) {
                 continue;
             }
             if ($a['serial']) {
-                $bySerial[$a['psa_client_id']][$a['serial']][] = (int) $a['psa_asset_id'];
+                $bySerial[$a['psa_client_id']][$a['serial']][] = (string) $a['psa_asset_id'];
             }
             if ($a['name']) {
-                $byName[$a['psa_client_id']][strtolower(trim($a['name']))][] = (int) $a['psa_asset_id'];
+                $byName[$a['psa_client_id']][strtolower(trim($a['name']))][] = (string) $a['psa_asset_id'];
             }
         }
         $devices = DB::all('SELECT d.id, d.serial, d.display_name, d.system_name, COALESCE(cm.psa_id, cn.psa_id) AS psa_client_id
@@ -682,8 +682,8 @@ final class PsaAssetSync
             WHERE d.removed_at IS NULL AND d.source IN ('rmm','manual') AND a.psa_asset_id IS NULL");
         $linked = 0;
         foreach ($devices as $dv) {
-            $cid = $dv['psa_client_id'];
-            if (!$cid) {
+            $cid = ext_id($dv['psa_client_id']);
+            if ($cid === '') {
                 continue;
             }
             $assetId = null;
@@ -698,7 +698,7 @@ final class PsaAssetSync
                     }
                 }
             }
-            if ($assetId && !isset($claimed[$assetId])) {
+            if ($assetId !== null && !isset($claimed[$assetId])) {
                 DB::run('UPDATE devices SET psa_asset_id = ? WHERE id = ?', [$assetId, $dv['id']]);
                 DB::run('DELETE FROM psa_sync_state WHERE device_id = ?', [$dv['id']]);
                 $claimed[$assetId] = true;
@@ -713,7 +713,7 @@ final class PsaAssetSync
     private static function importAssets(PsaProvider $p): string
     {
         $cats = array_filter(array_map('trim', explode(',', (string) Settings::get('psa_import_types', 'network,printer,ups,storage,camera,phone,server,workstation,vm,other'))));
-        $claimed = array_flip(array_map('intval', array_column(DB::all(
+        $claimed = array_flip(array_map('strval', array_column(DB::all(
             "SELECT DISTINCT psa_asset_id FROM devices WHERE source IN ('rmm','manual') AND psa_asset_id IS NOT NULL
              AND (removed_at IS NULL OR retired_at IS NOT NULL)"), 'psa_asset_id')));
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
@@ -725,7 +725,7 @@ final class PsaAssetSync
         }
         $existing = [];
         foreach (DB::all("SELECT id, psa_asset_id, client_id, removed_at, retired_at FROM devices WHERE source = 'psa'") as $r) {
-            $existing[(int) $r['psa_asset_id']] = $r;
+            $existing[(string) $r['psa_asset_id']] = $r;
         }
         $now = date('Y-m-d H:i:s');
         $added = [];
@@ -734,7 +734,7 @@ final class PsaAssetSync
         $n = $p->name();
         DB::transaction(function () use ($p, $n, $cats, $claimed, $clients, $serials, $existing, $now, &$added, &$hidden, &$unassigned) {
             foreach (DB::all('SELECT * FROM psa_assets') as $a) {
-                $aid = (int) $a['psa_asset_id'];
+                $aid = (string) $a['psa_asset_id'];
                 [$type, $cat] = $p->mapAssetType($a);
                 $clientId = $clients[$a['psa_client_id']] ?? null;
                 $eligible = in_array($cat, $cats, true) && $clientId && !isset($claimed[$aid])

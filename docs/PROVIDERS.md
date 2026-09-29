@@ -13,7 +13,12 @@ portal and the REST API read only neutral tables, so they don't know or care whi
 
 A PSA provider implements [`Align\Providers\Psa\PsaProvider`](../src/Providers/Psa/PsaProvider.php). It turns
 the PSA's API responses into **neutral records** (client, contact, location, asset, license, invoice, ticket),
-documented at the top of that interface. IDs are the PSA's own positive integers.
+documented at the top of that interface. IDs are the PSA's own ids as non-empty strings of up to 64
+characters (ITFlow's numbers arrive as `'123'`; a PSA with GUIDs passes them as they are). A provider whose API
+needs numbers converts at its own boundary, as `ItflowPsa` does, and treats an id it can't use as "not found"
+when reading. The REST API reports a numeric id as a number and any other id as text. Ids are compared
+without regard to letter case (the database's collation), as RMM ids are; a PSA whose ids differ only by case
+would need the id columns switched to a binary collation first.
 
 A provider declares what it can do with `supports()` (see `PsaProvider::CAPABILITIES`): read contacts,
 update contacts, create assets, read tickets with SLA results, create tickets and so on. Align hides
@@ -29,7 +34,7 @@ To add one:
 The first PSA an admin sets up becomes the install's PSA (the `psa_provider` setting). Records that came
 from it have `source = 'psa'`; the API reports the provider's key (for example `itflow`).
 
-Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`): clients → client details, contacts and
+Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`, the `mountaineer-align-psa` timer): clients → client details, contacts and
 locations → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,
 reconciled field by field with newest-edit-wins) → tickets and SLAs → invoices (managed-services estimate).
 
@@ -80,6 +85,11 @@ adds its record table to `ClientLinks::recordTable()` so sync can auto-match it 
 
 Links live in `client_links` (one per client per provider; each outside record belongs to one client). A
 row with `external_id` NULL and `match_method` 'manual' means "kept unlinked" and is left alone by sync.
-`ClientLinks::autoMatch()` links clients with no row yet to the record with the same normalized name
-(`ClientLinks::normalizeName()`); backup products also match on the client's RMM organization name.
+`ClientLinks::autoMatch()` links clients with no row yet (or only an empty automatic one) to the record with
+the same normalized name (`ClientLinks::normalizeName()`); backup products also match on the client's RMM
+organization name.
+
+Links for a connector that is disconnected are kept, so connecting it again restores them. Links for a
+provider that is no longer registered (a connector removed from `Registry`) stay in the table but are
+ignored everywhere: screens and counts only read the providers `Registry` knows.
 
