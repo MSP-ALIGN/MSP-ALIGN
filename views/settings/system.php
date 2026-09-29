@@ -77,7 +77,7 @@ $info = $upload['info'] ?? null;
           <h6 class="mt-3">What's new</h6>
           <ul class="list-unstyled small update-changes mb-3">
             <?php foreach (array_slice($newer['changes'] ?? [], 0, 30) as $c): ?>
-              <li class="mb-2"><b><?= e($c['subject']) ?></b> <span class="text-muted"><?= e(date('M j', strtotime($c['date'] ?: 'now'))) ?></span>
+              <li class="mb-2"><b><?= e($c['subject']) ?></b> <span class="text-muted"><?= e(\Align\Fmt::date($c['date'] ?: 'now', 'short')) ?></span>
                 <?php if (trim($c['body'] ?? '') !== ''): ?><div class="text-muted text-pre-line"><?= e(mb_strimwidth($c['body'], 0, 600, '…')) ?></div><?php endif; ?></li>
             <?php endforeach; ?>
           </ul>

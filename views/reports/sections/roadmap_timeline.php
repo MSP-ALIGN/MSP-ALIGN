@@ -23,7 +23,7 @@ $item = fn(string $dot, string $text, string $cost = '') => '<div class="tl-item
             <?php foreach ($q['os'] as $g) echo $item('os', e($g['label']) . ' ends · ' . count($g['devices'])); ?>
             <?php if ($q['warranty']) echo $item('warranty', count($q['warranty']) . ' warrant' . (count($q['warranty']) > 1 ? 'ies' : 'y') . ' end'); ?>
             <?php if ($q['compliance']) echo $item('compliance', count($q['compliance']) . ' compliance item' . (count($q['compliance']) > 1 ? 's' : '') . ' due'); ?>
-            <?php foreach ($q['meetings'] as $m) echo $item('meeting', e($m['title']) . ' · ' . e(date('M j', strtotime($m['starts_at'])))); ?>
+            <?php foreach ($q['meetings'] as $m) echo $item('meeting', e($m['title']) . ' · ' . e(\Align\Fmt::date($m['starts_at'], 'short'))); ?>
             <?php if ($empty): ?><div class="tl-empty"><?= $q['past'] ? '' : 'Nothing planned' ?></div><?php endif; ?>
           </div>
         <?php endforeach; ?>

@@ -20,10 +20,10 @@ $hp = $tot['devices'] ? (int) round($tot['healthy'] / $tot['devices'] * 100) : 0
 <section class="rsection">
   <?= Ui::head('Portfolio at a glance', null, count($rows) . ' clients') ?>
   <div class="kpi-row cols-5">
-    <?= Ui::kpi(number_format($tot['devices']), 'Devices', 'across all clients') ?>
-    <?= Ui::kpi($hp . '%', 'Healthy', number_format($tot['healthy']) . ' within policy', $hp >= 80 ? 'ok' : ($hp >= 50 ? 'warn' : 'bad')) ?>
-    <?= Ui::kpi(number_format($tot['replace']), 'Past end of life', 'replacement opportunities', $tot['replace'] ? 'bad' : 'ok') ?>
-    <?= Ui::kpi(number_format($tot['os']), 'Unsupported OS', 'upgrade or replace', $tot['os'] ? 'bad' : 'ok') ?>
+    <?= Ui::kpi(num($tot['devices']), 'Devices', 'across all clients') ?>
+    <?= Ui::kpi($hp . '%', 'Healthy', num($tot['healthy']) . ' within policy', $hp >= 80 ? 'ok' : ($hp >= 50 ? 'warn' : 'bad')) ?>
+    <?= Ui::kpi(num($tot['replace']), 'Past end of life', 'replacement opportunities', $tot['replace'] ? 'bad' : 'ok') ?>
+    <?= Ui::kpi(num($tot['os']), 'Unsupported OS', 'upgrade or replace', $tot['os'] ? 'bad' : 'ok') ?>
     <?= $costs ? Ui::kpi(Ui::k(array_sum($tot['y'])), '3-year hardware', Ui::k($tot['planned']) . ' in open projects', 'muted') : Ui::kpi(count($rows) . '', 'Clients', 'in planning', 'muted') ?>
   </div>
 </section>
@@ -47,14 +47,14 @@ $hp = $tot['devices'] ? (int) round($tot['healthy'] / $tot['devices'] * 100) : 0
         <?php if ($bk !== null): $x = $bk[$r['id']] ?? null; ?>
         <td class="num bk-cell"><?php if (!$x): ?><span class="muted">—</span><?php else: $rt = $x['rate'] === null ? 'ink-3' : ($x['rate'] >= 95 ? 'ok' : ($x['rate'] >= 80 ? 'warn' : 'bad')); ?><span style="color:var(--<?= $rt ?>);font-weight:700"><?= $x['rate'] !== null ? $x['rate'] . '%' : '—' ?></span><?php if ($x['failed']): ?><div class="sub" style="color:var(--bad)"><?= (int) $x['failed'] ?> failed</div><?php endif; ?><?php if ($x['overdue']): ?><div class="sub" style="color:var(--warn)"><?= (int) $x['overdue'] ?> overdue</div><?php endif; ?><?php endif; ?></td>
         <?php endif; ?>
-        <td class="nowrap"><?= $r['last_meeting'] ? e(date('M Y', strtotime($r['last_meeting']))) : '<span class="muted">Never</span>' ?></td>
+        <td class="nowrap"><?= $r['last_meeting'] ? e(\Align\Fmt::date($r['last_meeting'], 'month')) : '<span class="muted">Never</span>' ?></td>
         <?php if ($costs): foreach ($r['years'] as $y): ?><td class="num"><?= $y['cost'] ? e(Ui::k($y['cost'])) : '—' ?></td><?php endforeach; ?>
           <td class="num"><?= $r['planned'] ? e(Ui::k($r['planned'])) : '—' ?></td><?php endif; ?>
       </tr>
     <?php endforeach; ?>
     </tbody>
     <?php if ($costs): ?>
-    <tfoot><tr><td>Total</td><td class="num"><?= number_format($tot['devices']) ?></td><td></td><td class="num"><?= $tot['replace'] ?></td><td class="num"><?= $tot['os'] ?></td><td></td><?= $bk !== null ? '<td></td>' : '' ?><td></td>
+    <tfoot><tr><td>Total</td><td class="num"><?= num($tot['devices']) ?></td><td></td><td class="num"><?= $tot['replace'] ?></td><td class="num"><?= $tot['os'] ?></td><td></td><?= $bk !== null ? '<td></td>' : '' ?><td></td>
       <?php foreach ($tot['y'] as $v): ?><td class="num"><?= e(Ui::k($v)) ?></td><?php endforeach; ?><td class="num"><?= e(Ui::k($tot['planned'])) ?></td></tr></tfoot>
     <?php endif; ?>
   </table>

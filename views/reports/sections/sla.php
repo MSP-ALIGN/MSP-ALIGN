@@ -16,7 +16,7 @@ $delta = function (?float $now, ?float $before): string {
         return '';
     }
     $d = round($now - $before, 1);
-    return abs($d) < 0.5 ? 'same as the period before' : ($d > 0 ? '▲ ' : '▼ ') . rtrim(rtrim(number_format(abs($d), 1), '0'), '.') . ' pts vs. the period before';
+    return abs($d) < 0.5 ? 'same as the period before' : ($d > 0 ? '▲ ' : '▼ ') . \Align\Fmt::trim(abs($d), 1) . ' pts vs. the period before';
 };
 ?>
 <section class="rsection">

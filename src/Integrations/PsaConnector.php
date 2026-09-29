@@ -91,7 +91,7 @@ abstract class PsaConnector extends Connector
         if ($this->can('sla') && Settings::get('psa_sla_sync', '1') === '1') {
             $count = (int) \Align\DB::value('SELECT COUNT(*) FROM psa_tickets');
             $sup = \Align\Service\Sla::supported();
-            $out .= ($out ? '<br>' : '') . 'Tickets for SLA reporting: ' . number_format($count)
+            $out .= ($out ? '<br>' : '') . 'Tickets for SLA reporting: ' . num($count)
                 . (($l = \Align\Service\Sla::lastSync()) ? ' · last read ' . e(rel_time($l)) : ' · not read yet (runs with the hourly sync)')
                 . ($sup === false ? ' · <span class="text-danger">' . e($this->noSlaMessage()) . '</span>' : '');
         }

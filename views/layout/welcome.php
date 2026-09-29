@@ -19,7 +19,7 @@ $v = e(APP_VERSION);
 <script src="/vendor/bootstrap/bootstrap.bundle.min.js?v=<?= $v ?>" defer></script>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 </head>
-<body class="welcome-page">
+<body class="welcome-page" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
 <header class="welcome-top">
   <div class="welcome-wrap d-flex align-items-center">
     <?php if (\Align\Branding::hasLogo()): ?><img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e($company['name']) ?>" class="welcome-logo"><?php else: ?><b class="h5 mb-0"><?= e($company['name']) ?></b><?php endif; ?>

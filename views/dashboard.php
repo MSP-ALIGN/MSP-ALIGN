@@ -153,7 +153,7 @@ $cards['meetings'] = function () use ($upcoming, $cardHead) {
               <div class="date-chip mr-3"><span><?= e(date('M', strtotime($m['starts_at']))) ?></span><b><?= e(date('j', strtotime($m['starts_at']))) ?></b></div>
               <div class="text-dark min-w-0">
                 <div class="font-weight-bold text-truncate"><?= e($m['client_name'] ?: 'Internal') ?></div>
-                <div class="small text-muted"><?= e($m['title']) ?> · <?= e(date('D g:i a', strtotime($m['starts_at']))) ?></div>
+                <div class="small text-muted"><?= e($m['title']) ?> · <?= e(date('D ', strtotime($m['starts_at'])) . fmt_time($m['starts_at'])) ?></div>
               </div>
             </a>
           </li>
@@ -276,7 +276,7 @@ $zone = function (string $z) use ($layout, $cards) {
 <div class="d-flex flex-wrap align-items-center mb-3 dash-header">
   <div class="mr-auto">
     <h1 class="h3 mb-0"><?= e($greet . ($first ? ', ' . $first : '')) ?></h1>
-    <div class="small text-muted"><?= e(date('l, F j')) ?>
+    <div class="small text-muted"><?= e(\Align\Fmt::date(time(), 'weekday')) ?>
       <?php if ($lastSync): ?> · Last sync <a href="/sync/<?= (int) $lastSync['id'] ?>"><?= e(rel_time($lastSync['started_at'])) ?></a>
         <span class="badge badge-<?= ['success' => 'success', 'running' => 'info', 'partial' => 'warning'][$lastSync['status']] ?? 'danger' ?>"><?= e($lastSync['status']) ?></span>
       <?php else: ?> · No sync yet<?php endif; ?></div>

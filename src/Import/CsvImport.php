@@ -97,7 +97,7 @@ final class CsvImport
             }
             $rows[] = array_map(fn($v) => trim((string) $v), $r);
             if (count($rows) > self::MAX_ROWS + 1) {
-                throw new \RuntimeException('The file has more than ' . number_format(self::MAX_ROWS) . ' rows. Split it and import each part.');
+                throw new \RuntimeException('The file has more than ' . num(self::MAX_ROWS) . ' rows. Split it and import each part.');
             }
         }
         fclose($h);

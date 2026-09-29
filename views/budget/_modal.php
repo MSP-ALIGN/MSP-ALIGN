@@ -26,7 +26,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
           </div>
           <div class="form-row">
             <div class="form-group col-md-3"><label>Amount</label>
-              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="0.01" name="amount" class="form-control" required value="<?= e($m['amount'] ?? '') ?>"></div></div>
+              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span></div><input type="number" min="0" step="0.01" name="amount" class="form-control" required value="<?= e($m['amount'] ?? '') ?>"></div></div>
             <div class="form-group col-md-3"><label>How often</label>
               <select name="frequency" class="form-control"><?php foreach (Budget::FREQUENCIES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $m['frequency'] ?? 'monthly') ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
             <div class="form-group col-md-3"><label>Purchase / start date</label><input type="date" name="start_date" class="form-control" value="<?= e($m['start_date'] ?? '') ?>"></div>

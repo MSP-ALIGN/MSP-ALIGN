@@ -159,7 +159,7 @@ final class Invites
         $cancel = $action === 'cancel';
         $organizer = Mail::fromAddress();
         $ics = self::ics($m, $cancel ? 'CANCEL' : 'REQUEST', $organizer, $to, (int) $m['invite_sequence'] + 1);
-        $when = date('l, F j, Y · g:i a', strtotime($m['starts_at'])) . ' – ' . date('g:i a T', strtotime($m['ends_at']));
+        $when = \Align\Fmt::dateTime($m['starts_at'], 'dayfull') . ' – ' . \Align\Fmt::time($m['ends_at']) . ' ' . date('T', strtotime($m['ends_at']));
         $blocks = [T::p($cancel ? 'This meeting has been cancelled.' : ($m['invites_sent_at'] ? 'This meeting has been updated.' : 'You\'re invited to a meeting.')),
             T::facts(['Meeting' => self::subject($m), 'When' => $when, 'Where' => $m['location'], 'Join' => $m['video_url'], 'Organizer' => $m['owner_name']])];
         if ($m['agenda'] && !$cancel) {
@@ -231,7 +231,7 @@ final class Invites
         foreach ($rows as $r) {
             DB::run('UPDATE meetings SET reminder_sent_at = NOW() WHERE id = ?', [$r['id']]);
             $m = self::load((int) $r['id']);
-            $when = date('l, F j · g:i a', strtotime($m['starts_at'])) . ' – ' . date('g:i a T', strtotime($m['ends_at']));
+            $when = \Align\Fmt::dateTime($m['starts_at'], 'weekday') . ' – ' . \Align\Fmt::time($m['ends_at']) . ' ' . date('T', strtotime($m['ends_at']));
             if ($staff && $m['owner_email']) {
                 $owner = DB::one('SELECT id, email, name, role, notify_scope FROM users WHERE id = ? AND is_active = 1', [$m['owner_id']]);
                 if ($owner && (N::prefsFor($owner)['meeting_reminder']['on'] ?? false)) {
@@ -249,7 +249,7 @@ final class Invites
                     if ($m['client_id']) {
                         $blocks[] = T::link('Business review pack for ' . $m['client_name'], N::url('/clients/' . $m['client_id'] . '/report/qbr'));
                     }
-                    $n += Mailer::queue('meeting_reminder', [['address' => $owner['email'], 'name' => $owner['name']]], 'Reminder: ' . self::subject($m) . ' — ' . date('D g:i a', strtotime($m['starts_at'])),
+                    $n += Mailer::queue('meeting_reminder', [['address' => $owner['email'], 'name' => $owner['name']]], 'Reminder: ' . self::subject($m) . ' — ' . date('D ', strtotime($m['starts_at'])) . \Align\Fmt::time($m['starts_at']),
                         T::render('Upcoming meeting', $blocks, N::footer()), ['dedupe' => 'mr:' . $m['id'] . ':' . $m['starts_at'], 'created_by' => null]) ? 1 : 0;
                 }
             }

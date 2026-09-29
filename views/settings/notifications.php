@@ -18,7 +18,7 @@ $mode = $v['mail_mode'] ?: 'off';
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock mr-2"></i>Schedule &amp; meeting invitations</h3></div>
       <div class="card-body">
         <div class="form-row">
-          <div class="form-group col-md-4"><label>Digests are sent at</label><select name="notif_digest_hour" class="custom-select"><?php for ($h = 0; $h < 24; $h++): ?><option value="<?= $h ?>" <?= (int) ($v['notif_digest_hour'] ?? 7) === $h ? 'selected' : '' ?>><?= e(date('g a', mktime($h, 0))) ?></option><?php endfor; ?></select></div>
+          <div class="form-group col-md-4"><label>Digests are sent at</label><select name="notif_digest_hour" class="custom-select"><?php for ($h = 0; $h < 24; $h++): ?><option value="<?= $h ?>" <?= (int) ($v['notif_digest_hour'] ?? 7) === $h ? 'selected' : '' ?>><?= e(\Align\Fmt::hour($h)) ?></option><?php endfor; ?></select></div>
           <div class="form-group col-md-4"><label>Weekly emails on</label><select name="notif_weekly_day" class="custom-select"><?php foreach ($days as $n => $d): ?><option value="<?= $n ?>" <?= (int) ($v['notif_weekly_day'] ?? 1) === $n ? 'selected' : '' ?>><?= $d ?></option><?php endforeach; ?></select></div>
           <div class="form-group col-md-4"><label>Meeting reminders</label><div class="input-group"><input type="number" name="notif_meeting_reminder_hours" class="form-control" min="1" max="168" value="<?= e($v['notif_meeting_reminder_hours'] ?: '24') ?>"><div class="input-group-append"><span class="input-group-text">hours before</span></div></div></div>
         </div>

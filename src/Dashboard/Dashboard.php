@@ -301,9 +301,9 @@ final class Dashboard
         // Lifecycle & security
         $ca = $ctx['complianceAvg'];
         $groups[] = ['Lifecycle & security', 'fa-shield-halved', [
-            [number_format($s['replace']), 'Replace now', number_format($s['total']) . ' devices tracked', $s['replace'] ? 'bad' : 'ok', '/clients'],
-            [number_format($s['os_eos']), 'Unsupported OS', $s['os_soon'] ? $s['os_soon'] . ' losing support soon' : 'no end dates coming up', $s['os_eos'] ? 'bad' : ($s['os_soon'] ? 'warn' : 'ok'), '/clients'],
-            [number_format($s['warranty_soon']), 'Warranty expiring', number_format($s['warranty_expired']) . ' already expired', $s['warranty_soon'] ? 'warn' : 'ok', '/clients'],
+            [num($s['replace']), 'Replace now', num($s['total']) . ' devices tracked', $s['replace'] ? 'bad' : 'ok', '/clients'],
+            [num($s['os_eos']), 'Unsupported OS', $s['os_soon'] ? $s['os_soon'] . ' losing support soon' : 'no end dates coming up', $s['os_eos'] ? 'bad' : ($s['os_soon'] ? 'warn' : 'ok'), '/clients'],
+            [num($s['warranty_soon']), 'Warranty expiring', num($s['warranty_expired']) . ' already expired', $s['warranty_soon'] ? 'warn' : 'ok', '/clients'],
             [$ca === null ? '—' : $ca . '%', 'Avg compliance', $ctx['complianceCount'] . ' framework assignment' . ($ctx['complianceCount'] == 1 ? '' : 's'), $ca === null ? 'muted' : ($ca >= 80 ? 'ok' : ($ca >= 50 ? 'warn' : 'bad')), '/compliance'],
         ]];
 
@@ -328,7 +328,7 @@ final class Dashboard
             [(string) count($ren), 'Renewals in 90 days', $renAnnual > 0 ? money($renAnnual) . '/yr up for renewal' : 'contracts & licenses', count($ren) ? 'warn' : 'ok', '/renewals?days=90'],
             [\Align\Reports\Ui::k($yt['cost']), 'Hardware ' . $yt['label'], $yt['count'] . ' replacement' . ($yt['count'] == 1 ? '' : 's'), 'muted', '/budget'],
             [\Align\Reports\Ui::k($yt['proj_cost']), 'Projects ' . $yt['label'], $yt['proj_count'] . ' planned', 'muted', '/projects'],
-            [\Align\Reports\Ui::k($lic['monthly']), 'Licenses per month', $lic['unpriced'] ? $lic['unpriced'] . ' without a price' : number_format($lic['count']) . ' licenses', $lic['unpriced'] ? 'warn' : 'muted', '/licenses'],
+            [\Align\Reports\Ui::k($lic['monthly']), 'Licenses per month', $lic['unpriced'] ? $lic['unpriced'] . ' without a price' : num($lic['count']) . ' licenses', $lic['unpriced'] ? 'warn' : 'muted', '/licenses'],
         ]];
         return $groups;
     }

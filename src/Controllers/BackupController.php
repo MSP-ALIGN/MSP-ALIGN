@@ -86,7 +86,7 @@ final class BackupController
         View::render('reports/backup', [
             'title' => $client['name'] . ' — Backup & Recovery Report',
             'reportTitle' => 'Backup & Recovery Report',
-            'reportSubtitle' => $b['stats']['protected'] . ' protected machines · status as of ' . date('F j, Y'),
+            'reportSubtitle' => $b['stats']['protected'] . ' protected machines · status as of ' . \Align\Fmt::date(time(), 'long'),
             'client' => $client,
             'opt' => $opt,
             'optLabels' => ['details' => 'Job details', 'machines' => 'Protected machines'],
@@ -190,7 +190,7 @@ final class BackupController
         View::render('reports/backups', [
             'title' => 'Backup Status — All Clients',
             'reportTitle' => 'Backup Status',
-            'reportSubtitle' => count($rows) . ' clients linked to ' . Providers::backupNames() . ' · internal · as of ' . date('F j, Y'),
+            'reportSubtitle' => count($rows) . ' clients linked to ' . Providers::backupNames() . ' · internal · as of ' . \Align\Fmt::date(time(), 'long'),
             'opt' => ['all' => $all],
             'optLabels' => ['all' => 'Clients with no problems'],
             'brand' => ReportController::branding(),

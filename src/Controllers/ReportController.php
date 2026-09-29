@@ -86,7 +86,7 @@ final class ReportController
         View::render('reports/assets', [
             'title' => $client['name'] . ' — IT Asset & Lifecycle Report',
             'reportTitle' => 'IT Asset & Lifecycle Report',
-            'reportSubtitle' => $a['summary']['total'] . ' devices · status as of ' . date('F j, Y'),
+            'reportSubtitle' => $a['summary']['total'] . ' devices · status as of ' . \Align\Fmt::date(time(), 'long'),
             'client' => $client,
             'opt' => $opt,
             'brand' => self::branding($client),
@@ -111,7 +111,7 @@ final class ReportController
         View::render('reports/roadmap', [
             'title' => $client['name'] . ' — 3-Year Technology Roadmap',
             'reportTitle' => '3-Year Technology Roadmap',
-            'reportSubtitle' => date('M Y', strtotime($years[0]['from'])) . ' – ' . date('M Y', strtotime($years[2]['to'])),
+            'reportSubtitle' => \Align\Fmt::date($years[0]['from'], 'month') . ' – ' . \Align\Fmt::date($years[2]['to'], 'month'),
             'client' => $client,
             'opt' => $opt,
             'brand' => self::branding($client),

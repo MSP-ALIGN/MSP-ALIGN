@@ -14,7 +14,7 @@ $cid = (int) $client['id'];
   <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['os_eos'] ? 'danger' : 'success' ?>"><i class="fab fa-windows"></i></span><div class="info-box-content"><span class="info-box-text">Unsupported OS</span><span class="info-box-number"><?= (int) $summary['os_eos'] ?></span></div></div></div>
   <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['plan'] ? 'warning' : 'success' ?>"><i class="fas fa-calendar-plus"></i></span><div class="info-box-content"><span class="info-box-text">Plan (12 mo)</span><span class="info-box-number"><?= (int) $summary['plan'] ?></span></div></div></div>
   <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['warranty_expired'] + $summary['warranty_soon'] ? 'warning' : 'success' ?>"><i class="fas fa-shield-halved"></i></span><div class="info-box-content"><span class="info-box-text">Warranty issues</span><span class="info-box-number"><?= (int) ($summary['warranty_expired'] + $summary['warranty_soon']) ?></span></div></div></div>
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-dollar-sign"></i></span><div class="info-box-content"><span class="info-box-text">Overdue cost</span><span class="info-box-number"><?= money($summary['overdue_cost']) ?></span></div></div></div>
+  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas <?= \Align\Fmt::icon() ?>"></i></span><div class="info-box-content"><span class="info-box-text">Overdue cost</span><span class="info-box-number"><?= money($summary['overdue_cost']) ?></span></div></div></div>
 </div>
 
 <div class="row">
@@ -62,7 +62,7 @@ $cid = (int) $client['id'];
           <?php foreach ($upcoming as $m): ?>
             <li class="list-group-item py-2"><a href="/meetings/<?= (int) $m['id'] ?>" class="d-flex text-dark">
               <div class="date-chip mr-3"><span><?= e(date('M', strtotime($m['starts_at']))) ?></span><b><?= e(date('j', strtotime($m['starts_at']))) ?></b></div>
-              <div><div class="font-weight-bold"><?= e($m['title']) ?></div><div class="small text-muted"><?= e(date('D g:i a', strtotime($m['starts_at']))) ?> · <?= e(Meetings::typeLabel($m['type'])) ?></div></div>
+              <div><div class="font-weight-bold"><?= e($m['title']) ?></div><div class="small text-muted"><?= e(date('D ', strtotime($m['starts_at'])) . fmt_time($m['starts_at'])) ?> · <?= e(Meetings::typeLabel($m['type'])) ?></div></div>
             </a></li>
           <?php endforeach; ?>
           <?php if (!$upcoming): ?><li class="list-group-item text-muted small">Nothing scheduled.</li><?php endif; ?>
@@ -104,7 +104,7 @@ $cid = (int) $client['id'];
           <div class="flex-fill"><div class="h5 mb-0 font-weight-bold"><?= (int) $ss['tickets'] ?></div><div class="small text-muted">tickets, 90d</div></div>
         </div>
         <div class="sla-months mb-2" role="img" aria-label="Share of SLA targets met, last 6 months">
-          <?php foreach ($sla['monthly'] as $ym => $m): ?><span class="bg-<?= \Align\Service\Sla::tone($m['overall_pct']) ?>" title="<?= e(date('M Y', strtotime($ym . '-01')) . ': ' . \Align\Service\Sla::pct($m['overall_pct']) . ' of targets met, ' . $m['tickets'] . ' tickets') ?>"><?= e(date('M', strtotime($ym . '-01'))) ?></span><?php endforeach; ?>
+          <?php foreach ($sla['monthly'] as $ym => $m): ?><span class="bg-<?= \Align\Service\Sla::tone($m['overall_pct']) ?>" title="<?= e(\Align\Fmt::date($ym . '-01', 'month') . ': ' . \Align\Service\Sla::pct($m['overall_pct']) . ' of targets met, ' . $m['tickets'] . ' tickets') ?>"><?= e(date('M', strtotime($ym . '-01'))) ?></span><?php endforeach; ?>
         </div>
         <?php foreach (array_slice($sla['late'], 0, 3) as $t): ?>
           <div class="small text-truncate"><i class="fas fa-<?= $t['state'] === 'breached' ? 'circle-xmark text-danger' : 'clock text-warning' ?> mr-1"></i><?= e($t['number'] ?: '#' . $t['id']) ?> <?= e((string) $t['subject']) ?></div>

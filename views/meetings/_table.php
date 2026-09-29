@@ -9,7 +9,7 @@ $badge = ['scheduled' => 'primary', 'completed' => 'success', 'cancelled' => 'se
   <tbody>
   <?php foreach ($meetings as $m): ?>
     <tr>
-      <td class="text-nowrap"><a href="/meetings/<?= (int) $m['id'] ?>"><?= e(date('D M j, Y', strtotime($m['starts_at']))) ?></a><div class="small text-muted"><?= e(fmt_time($m['starts_at'])) ?>–<?= e(fmt_time($m['ends_at'])) ?></div></td>
+      <td class="text-nowrap"><a href="/meetings/<?= (int) $m['id'] ?>"><?= e(fmt_date($m['starts_at'], 'day')) ?></a><div class="small text-muted"><?= e(fmt_time($m['starts_at'])) ?>–<?= e(fmt_time($m['ends_at'])) ?></div></td>
       <?php if ($showClient): ?><td><?= $m['client_id'] ? '<a href="/clients/' . (int) $m['client_id'] . '/meetings">' . e($m['client_name']) . '</a>' : '<span class="text-muted">Internal</span>' ?></td><?php endif; ?>
       <td><a href="/meetings/<?= (int) $m['id'] ?>" class="font-weight-bold text-dark"><?= e($m['title']) ?></a>
         <?php if ($m['series_id']): ?><i class="fas fa-repeat fa-sm text-muted ml-1" title="Part of a series"></i><?php endif; ?>

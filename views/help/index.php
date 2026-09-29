@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.38', 'fa-globe', 'Your currency and date style', 'Choose the currency, how numbers and dates are written, a 12- or 24-hour clock, the first day of the week and the timezone under Settings → General. Pages, reports, emails and the client portal all follow it.', 'currency', 'admin'],
         ['1.37', 'fa-server', 'Email through any SMTP server', 'Send notifications, portal invitations and meeting invitations through your own mail server or a relay (SMTP2GO, Mailgun, SendGrid, Amazon SES, or the Microsoft 365 / Google relay), with STARTTLS or TLS and an optional user name and password. Meeting invitations go out as .ics emails with Accept / Decline.', 'email', 'admin'],
         ['1.36', 'fa-circle-nodes', 'No PSA needed', 'Run MSP-ALIGN with just your RMM: add clients from its organizations on Client mapping, or import clients and contacts from a CSV file (Clients → Import). Screens leave out what only a PSA provides.', 'no-psa', 'tech'],
         ['1.35', 'fa-folder-tree', 'Server folders renamed', 'On the server, MSP-ALIGN now lives in /opt/msp-align, /etc/msp-align and /var/lib/msp-align, and its services and logs are named msp-align. The update moved everything in place; the old mountaineer-align folder names and commands still work.', 'update', 'admin'],
@@ -245,6 +246,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Then open <b>Settings → Notifications</b> to choose which emails are sent, who gets them by default, when digests go out and how meeting invitations are sent.',
       'The <b>Email log</b> (on the same page) shows everything sent, queued or failed, with retry.',
   ], ['Mail connection' => '/integrations/email', 'Notifications' => '/settings/notifications']) ?>
+  <?= $guide('currency', 'fa-globe', 'Set your currency, date style and timezone', 'admin', [
+      'Open <b>Settings → General</b> and find <b>Currency &amp; dates</b>. Choose the currency (its symbol goes where it usually does, or pick before or after), how numbers are written (1,234.56 · 1.234,56 · 1 234,56 · 1\'234.56), the date style (Sep 29, 2026 · 29 Sep 2026 · 2026-09-29), a 12- or 24-hour clock and the first day of the week. The preview shows the result before you save.',
+      'It\'s one choice for everyone, so reports and client emails look the same whoever sends them. Amounts are never converted: pick the currency you bill in.',
+      'The <b>Timezone</b> is used for meetings, reminders and digest times. Set it before you start scheduling: times already saved aren\'t moved. Left on <i>As set on the server</i>, the one in <code>/etc/msp-align/config.php</code> is used.',
+      'CSV exports and the API keep plain numbers and ISO dates (2026-09-29), so spreadsheets and scripts read them the same everywhere; the API also says which currency the amounts are in.',
+  ], ['Settings → General' => '/settings#currency-dates']) ?>
   <?= $guide('users', 'fa-user-shield', 'Add staff and manage access', 'admin', [
       'Open <b>Users → New user</b>. Choose the role: <b>Viewer</b> reads, <b>Tech</b> edits clients and plans, <b>Admin</b> also manages settings, integrations and users.',
       'Everyone sets up two-factor sign-in at first sign-in. Locked out? An admin can use <b>Reset password</b> or <b>Remove 2FA</b> on the user list.',

@@ -283,7 +283,7 @@ final class DocumentController
             DB::run('UPDATE documents SET title = ?, body_html = ?, version = version + 1, updated_by = ?, updated_at = NOW() WHERE id = ?', [
                 $v['title'], $v['body_html'], Auth::id(), $id,
             ]);
-            Documents::snapshot(Documents::load($id), 'restore', 'Restored version ' . $v['version'] . ' from ' . date('M j, Y g:i a', strtotime($v['saved_at'])));
+            Documents::snapshot(Documents::load($id), 'restore', 'Restored version ' . $v['version'] . ' from ' . \Align\Fmt::dateTime($v['saved_at'], 'date', ' '));
         });
         Audit::log('document.restore', "#$id → v{$v['version']}");
         flash('success', 'Version restored. The previous content was saved in the history first.');

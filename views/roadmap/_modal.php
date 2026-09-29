@@ -60,9 +60,9 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
           </div>
           <div class="form-row">
             <div class="form-group col-md-6"><label>Budget <small class="text-muted">(one-time)</small></label>
-              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="1" name="cost" class="form-control" value="<?= e($it['cost'] ?? '') ?>"></div></div>
+              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span></div><input type="number" min="0" step="1" name="cost" class="form-control" value="<?= e($it['cost'] ?? '') ?>"></div></div>
             <div class="form-group col-md-6"><label>Recurring cost <small class="text-muted">(optional)</small></label>
-              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="1" name="recurring_monthly" class="form-control" value="<?= e($it['recurring_monthly'] ?? '') ?>"><div class="input-group-append"><span class="input-group-text">/ month</span></div></div></div>
+              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span></div><input type="number" min="0" step="1" name="recurring_monthly" class="form-control" value="<?= e($it['recurring_monthly'] ?? '') ?>"><div class="input-group-append"><span class="input-group-text">/ month</span></div></div></div>
           </div>
           <div class="form-group mb-0"><label>Description</label><textarea name="description" class="form-control" rows="4" placeholder="Scope, why it matters to the client, dependencies…"><?= e($it['description'] ?? '') ?></textarea></div>
         </div>

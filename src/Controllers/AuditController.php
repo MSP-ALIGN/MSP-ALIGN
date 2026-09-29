@@ -88,7 +88,7 @@ final class AuditController
         Auth::requireRole('admin');
         $r = \Align\AuditChain::verify();
         \Align\Audit::log('audit.verified', $r['ok'] ? "All {$r['checked']} entries intact" : "Failed at #{$r['broken_at']}: {$r['reason']}");
-        flash($r['ok'] ? 'success' : 'error', $r['ok'] ? 'Checked all ' . number_format($r['checked']) . ' entries: intact.' : 'The audit log has been altered (entry #' . $r['broken_at'] . ').');
+        flash($r['ok'] ? 'success' : 'error', $r['ok'] ? 'Checked all ' . num($r['checked']) . ' entries: intact.' : 'The audit log has been altered (entry #' . $r['broken_at'] . ').');
         redirect('/audit');
     }
 }

@@ -202,7 +202,7 @@ final class Notify
         $blocks = [];
         if ($week) {
             $blocks[] = T::h2('This week');
-            $blocks[] = T::table(['When', 'Client', 'Meeting'], array_map(fn($m) => [date('D M j, g:i a', strtotime($m['starts_at'])), $m['client_name'] ?: 'Internal', $m['title']], $week));
+            $blocks[] = T::table(['When', 'Client', 'Meeting'], array_map(fn($m) => [\Align\Fmt::dateTime($m['starts_at'], 'dayshort', ', '), $m['client_name'] ?: 'Internal', $m['title']], $week));
         }
         if ($due) {
             $blocks[] = T::h2('Due for a review, nothing scheduled');
@@ -262,7 +262,7 @@ final class Notify
         $blocks = [T::p('Your week across ' . count($names) . ' client' . (count($names) === 1 ? '' : 's') . '.')];
         if ($meetings) {
             $blocks[] = T::h2('Meetings this week');
-            $blocks[] = T::table(['When', 'Client', 'Meeting'], array_map(fn($m) => [date('D M j, g:i a', strtotime($m['starts_at'])), $m['client_name'], $m['title']], $meetings));
+            $blocks[] = T::table(['When', 'Client', 'Meeting'], array_map(fn($m) => [\Align\Fmt::dateTime($m['starts_at'], 'dayshort', ', '), $m['client_name'], $m['title']], $meetings));
         }
         if ($pending) {
             $blocks[] = T::h2('Waiting for a client decision');
@@ -361,7 +361,7 @@ final class Notify
             }
             $ip = PHP_SAPI === 'cli' ? 'command line' : client_ip();
             Mailer::queue('security', N::recipientsFor('security', null), 'Security: ' . $event,
-                T::render('Security alert', [T::facts(['Event' => $event, 'Details' => $detail, 'When' => date('D M j, Y g:i:s a T'), 'From' => $ip]),
+                T::render('Security alert', [T::facts(['Event' => $event, 'Details' => $detail, 'When' => \Align\Fmt::dateTime(time(), 'day', ' ', true) . ' ' . date('T'), 'From' => $ip]),
                     T::p('If this wasn\'t expected, review the audit log and the staff accounts.', true), T::button('Open audit log', N::url('/audit'))], N::footer()),
                 ['dedupe' => 'sec:' . sha1($event . '|' . $detail) . ':' . intdiv(time(), 600), 'immediate' => true, 'created_by' => null]);
         } catch (\Throwable $e) {
@@ -438,7 +438,7 @@ final class Notify
         N::setState('backup_reminder_at', date('Y-m-d H:i:s', $t));
         $n = Mailer::queue('backup_reminder', N::recipientsFor('backup_reminder', null), 'Download an MSP-ALIGN backup',
             T::render('Time for a backup', [
-                T::p($last ? 'Nobody has downloaded a backup of MSP-ALIGN since ' . date('M j, Y', strtotime($last)) . ' (' . (Settings::get('backup_last_download_by') ?: 'unknown') . ').' : 'No backup of MSP-ALIGN has been downloaded yet.'),
+                T::p($last ? 'Nobody has downloaded a backup of MSP-ALIGN since ' . fmt_date($last) . ' (' . (Settings::get('backup_last_download_by') ?: 'unknown') . ').' : 'No backup of MSP-ALIGN has been downloaded yet.'),
                 T::p('Backups aren\'t stored on the Align server. Download one and keep it somewhere safe, such as your documentation system or file server.'),
                 T::button('Download a backup', N::url('/settings/system')),
             ], N::footer()), ['dedupe' => 'backup_reminder:' . date('Y-m-d', $t), 'created_by' => null]);

@@ -276,7 +276,7 @@ final class EmailController
                 T::facts(['Provider' => Mail::providerName() . (Mail::provider() === 'smtp' ? ' ' . Smtp::host() . ':' . Smtp::port() : ''),
                     'Sign-in' => match (true) { Mail::provider() === 'smtp' => Settings::get('smtp_user') ? 'User name and password' : 'None (relay)', Mail::mode() === 'app' => Mail::provider() === 'google' ? 'Service account' : 'App-only', default => 'Connected account' },
                     'Sent from' => Mail::fromAddress(),
-                    'Sent by' => Auth::user()['name'] ?? '', 'Time' => date('D M j, Y g:i:s a T')]),
+                    'Sent by' => Auth::user()['name'] ?? '', 'Time' => \Align\Fmt::dateTime(time(), 'day', ' ', true) . ' ' . date('T')]),
                 T::button('Open Align', N::url('/')),
             ], 'Test message.');
             $logo = T::logo();

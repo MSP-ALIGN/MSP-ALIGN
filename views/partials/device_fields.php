@@ -44,7 +44,7 @@ $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
   <div class="form-group col-md-3"><label>Purchase / in service</label><input type="date" name="purchase_date" class="form-control" value="<?= e($d['o_purchase'] ?? '') ?>"></div>
   <div class="form-group col-md-3"><label>Warranty / support ends</label><input type="date" name="warranty_end" class="form-control" value="<?= e($d['o_warranty'] ?? '') ?>"></div>
   <div class="form-group col-md-3"><label>Replacement cost</label>
-    <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="1" name="replacement_cost" class="form-control" value="<?= e($d['o_cost'] ?? '') ?>" placeholder="policy"></div></div>
+    <div class="input-group"><div class="input-group-prepend"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span></div><input type="number" min="0" step="1" name="replacement_cost" class="form-control" value="<?= e($d['o_cost'] ?? '') ?>" placeholder="policy"></div></div>
   <div class="form-group col-md-3"><label>Lifespan (years)</label><input type="number" min="1" max="29" name="lifespan_years" class="form-control" value="<?= e($d['o_lifespan'] ?? '') ?>" placeholder="policy"></div>
 </div>
 <?php $choices = \Align\Roadmap\Plan::choices(6); $curRep = $d['o_replace'] ?? null; if ($curRep && !isset($choices[$curRep])) { $choices = [$curRep => (\Align\Roadmap\Plan::quarterFor($curRep)['label'] ?? $curRep) . ' (passed)'] + $choices; } ?>

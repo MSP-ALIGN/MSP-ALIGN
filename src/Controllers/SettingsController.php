@@ -21,13 +21,25 @@ final class SettingsController
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
         'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24],
     ];
+    private const LOCALE_DEFAULTS = ['locale_currency' => 'USD', 'locale_currency_position' => '', 'locale_number' => 'comma', 'locale_date' => 'mdy', 'locale_time' => '12', 'locale_week_start' => '0'];
+
+    /** Currency & dates (1.38): setting => allowed values. */
+    public static function localeChoices(): array
+    {
+        return [
+            'locale_currency' => array_keys(\Align\Fmt::CURRENCIES), 'locale_currency_position' => ['', 'before', 'after'],
+            'locale_number' => array_keys(\Align\Fmt::NUMBERS), 'locale_date' => array_keys(\Align\Fmt::DATES),
+            'locale_time' => array_map('strval', array_keys(\Align\Fmt::TIMES)), 'locale_week_start' => array_map('strval', array_keys(\Align\Fmt::WEEK)),
+        ];
+    }
+
     /** Old settings-page addresses that moved in 1.15. */
     public const MOVED = ['ninja' => 'ninjaone', 'itflow' => 'itflow', 'veeam' => 'veeam', 'dell' => 'dell', 'lenovo' => 'lenovo'];
 
     private static function values(): array
     {
         $values = [];
-        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['plan_start']) as $k) {
+        foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['plan_start', 'timezone'], array_keys(self::localeChoices())) as $k) {
             $values[$k] = Settings::get($k);
         }
         return $values;
@@ -51,6 +63,11 @@ final class SettingsController
         Auth::requireRole('admin');
         $back = post('_tab') === 'planning' ? '/settings/planning' : '/settings';
         $changed = [];
+        // Checked before anything is saved, so a refused form changes nothing
+        if (isset($_POST['timezone']) && post('timezone') !== '' && !\Align\Fmt::validZone(post('timezone'))) {
+            flash('error', 'Choose a timezone from the list.');
+            redirect($back);
+        }
         if (post('source_url') !== '' && (!filter_var(post('source_url'), FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', post('source_url')))) {
             flash('error', 'The source code link must be a web address starting with https://.');
             redirect($back);
@@ -59,6 +76,20 @@ final class SettingsController
             if (isset($_POST[$k]) && ($val = post($k)) !== (string) Settings::get($k)) {
                 Settings::set($k, $val);
                 $changed[] = $k;
+            }
+        }
+        foreach (self::localeChoices() as $k => $allowed) {
+            // compared with what's in use (a first save of the defaults isn't a change)
+            if (isset($_POST[$k]) && in_array(post($k), $allowed, true) && post($k) !== (string) Settings::get($k, self::LOCALE_DEFAULTS[$k])) {
+                Settings::set($k, post($k));
+                $changed[] = $k;
+            }
+        }
+        if (isset($_POST['timezone'])) {
+            $tz = post('timezone');
+            if ($tz !== (string) Settings::get('timezone', '')) {
+                Settings::set('timezone', $tz);
+                $changed[] = 'timezone';
             }
         }
         $ps = post('plan_start');

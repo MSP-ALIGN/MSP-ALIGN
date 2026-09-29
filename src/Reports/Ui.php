@@ -55,13 +55,7 @@ final class Ui
     /** Compact currency for chart labels: $12.4k, $1.2M. */
     public static function k(float $v): string
     {
-        if ($v >= 1000000) {
-            return '$' . rtrim(rtrim(number_format($v / 1000000, 1), '0'), '.') . 'M';
-        }
-        if ($v >= 1000) {
-            return '$' . rtrim(rtrim(number_format($v / 1000, 1), '0'), '.') . 'k';
-        }
-        return money($v);
+        return \Align\Fmt::moneyShort($v);
     }
 
     /**
@@ -152,7 +146,7 @@ final class Ui
             $cx = $x + $bw / 2;
             $p = $m['overall_pct'];
             $label = date('M', strtotime($ym . '-01'));
-            $tip = date('F Y', strtotime($ym . '-01')) . ': ' . ($p === null ? 'no SLA results' : self::pctText($p) . ' of targets met (' . ($m['resp_met'] + $m['res_met']) . ' of ' . ($m['resp_met'] + $m['resp_missed'] + $m['res_met'] + $m['res_missed']) . ')') . ' · ' . $m['tickets'] . ' ticket' . ($m['tickets'] == 1 ? '' : 's');
+            $tip = \Align\Fmt::date($ym . '-01', 'monthlong') . ': ' . ($p === null ? 'no SLA results' : self::pctText($p) . ' of targets met (' . ($m['resp_met'] + $m['res_met']) . ' of ' . ($m['resp_met'] + $m['resp_missed'] + $m['res_met'] + $m['res_missed']) . ')') . ' · ' . $m['tickets'] . ' ticket' . ($m['tickets'] == 1 ? '' : 's');
             $svg .= '<g><title>' . e($tip) . '</title><rect x="' . round($x - 3, 1) . '" y="0" width="' . round($bw + 6, 1) . '" height="' . ($h + $top + $bottom) . '" style="fill:transparent"/>';
             if ($p !== null) {
                 $bh = max(2, $p / 100 * $h);
@@ -174,6 +168,6 @@ final class Ui
 
     private static function pctText(float $p): string
     {
-        return rtrim(rtrim(number_format($p, 1), '0'), '.') . '%';
+        return \Align\Fmt::trim($p, 1) . '%';
     }
 }

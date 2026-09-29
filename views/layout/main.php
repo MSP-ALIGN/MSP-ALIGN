@@ -91,7 +91,7 @@ $item = function (array $i, string $active) {
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
-<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm">
+<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
 <div class="wrapper">
 
   <nav class="main-header navbar navbar-expand <?= \Align\Staging::on() ? 'navbar-light navbar-warning' : 'navbar-dark navbar-primary' ?>">

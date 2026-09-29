@@ -30,6 +30,7 @@ def record(kind, entry):
 
 
 ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # the app only offers TLS 1.2 / 1.3 too
 ctx.load_cert_chain(CERT, KEY)
 
 

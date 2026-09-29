@@ -1,4 +1,26 @@
 // MSP-ALIGN - page behaviour on top of AdminLTE / Bootstrap 4.
+
+// Currency and date style from Settings → General (1.38), put on <body data-fmt> by the layout
+const alignFmt = (() => {
+  let c = {};
+  try { c = JSON.parse((document.body && document.body.dataset.fmt) || '{}'); } catch (e) { c = {}; }
+  const f = { symbol: '$', after: false, thousands: ',', decimal: '.', date: 'mdy', hour24: false, weekStart: 0, ...c };
+  const group = (s) => s.replace(/\B(?=(\d{3})+(?!\d))/g, f.thousands);
+  const number = (n, dec) => { const [i, d] = Math.abs(n).toFixed(dec).split('.'); return (n < 0 ? '-' : '') + group(i) + (d ? f.decimal + d : ''); };
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return {
+    ...f,
+    money: (n) => {
+      const r = f.decimals === 0 ? Math.round(n) : Math.round(n * 100) / 100;
+      const t = number(r, r % 1 ? 2 : 0);
+      return f.after ? t + '\u00A0' + f.symbol : f.symbol + (/\p{L}$/u.test(f.symbol) ? '\u00A0' : '') + t;
+    },
+    date: (d) => f.date === 'iso' ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+      : f.date === 'dmy' ? d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() : months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(),
+    time: (d) => f.hour24 ? String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+      : ((d.getHours() % 12) || 12) + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + (d.getHours() < 12 ? 'am' : 'pm'),
+  };
+})();
 document.addEventListener('DOMContentLoaded', () => {
   // Live table filter: <input data-filter-table="table-id">
   document.querySelectorAll('[data-filter-table]').forEach((input) => {
@@ -142,7 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
       height: 'auto',
       nowIndicator: true,
       dayMaxEvents: 4,
-      eventTimeFormat: { hour: 'numeric', minute: '2-digit', meridiem: 'short' },
+      eventTimeFormat: alignFmt.hour24 ? { hour: '2-digit', minute: '2-digit', hour12: false } : { hour: 'numeric', minute: '2-digit', meridiem: 'short' },
+      ...(alignFmt.hour24 ? { slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false } } : {}),
+      firstDay: alignFmt.weekStart,
+      // Week view headers day-first when dates are (the built-in English locale writes Tue 9/29)
+      ...(alignFmt.date !== 'mdy' ? { views: { timeGridWeek: { dayHeaderContent: (a) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][a.date.getDay()] + ' ' + a.date.getDate() + '/' + (a.date.getMonth() + 1) } } } : {}),
       events: (info, success, failure) => {
         const q = new URLSearchParams({ start: info.startStr, end: info.endStr });
         if (clientSel && clientSel.value) q.set('client', clientSel.value);
@@ -319,7 +345,7 @@ document.addEventListener('change', (e) => {
 
 // License form: live cost preview (per period, per month, per year)
 document.addEventListener('DOMContentLoaded', () => {
-  const fmt = (n) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const fmt = (n) => alignFmt.money(n);
   const months = { monthly: 1, quarterly: 3, annual: 12, one_time: 0 };
   const calc = (form) => {
     const q = (k) => form.querySelector('[data-lic="' + k + '"]');
@@ -347,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = box.closest('form');
     const q = (k) => box.querySelector('[data-c="' + k + '"]');
     const startIn = () => q('start') && q('start').value ? q('start') : form.querySelector('[name="' + box.dataset.startField + '"]');
-    const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const fmt = (d) => alignFmt.date(d);
     const update = () => {
       const t = q('term').value;
       q('custom').classList.toggle('d-none', t !== 'custom');
@@ -609,7 +635,7 @@ const jobOverlay = (() => {
       const b = r.backup;
       const rows = [];
       if (b) {
-        if (b.created) rows.push(['Made', new Date(b.created).toLocaleString()]);
+        if (b.created) rows.push(['Made', alignFmt.date(new Date(b.created)) + ' ' + alignFmt.time(new Date(b.created))]);
         if (b.version) rows.push(['Version', b.version + (b.host ? ' on ' + b.host : '')]);
         rows.push(['Database', b.tables + ' tables']);
         if (b.has_uploads) rows.push(['Uploaded files', String(b.uploads_files)]);
@@ -1107,3 +1133,22 @@ const jobOverlay = (() => {
     }
   });
 })();
+
+// Settings → General → Currency & dates: live preview of the choices before saving
+document.addEventListener('DOMContentLoaded', () => {
+  const out = document.querySelector('[data-locale-preview]');
+  if (!out) return;
+  const cur = JSON.parse(out.dataset.currencies || '{}');
+  const val = (id) => (document.getElementById(id) || {}).value || '';
+  const seps = { comma: [',', '.'], dot: ['.', ','], space: [' ', ','], apostrophe: ["'", '.'] };
+  const update = () => {
+    const [symbol, usual, decimals] = cur[val('locale_currency')] || ['$', 'before', 2];
+    const after = (val('locale_currency_position') || usual) === 'after';
+    const [th, dec] = seps[val('locale_number')] || seps.comma;
+    const num = (n, d) => { const [i, f] = Math.abs(n).toFixed(d).split('.'); return i.replace(/\B(?=(\d{3})+(?!\d))/g, th) + (f ? dec + f : ''); };
+    const money = (n, d) => { const t = num(n, decimals ? d : 0); const gap = after || /\p{L}$/u.test(symbol) ? ' ' : ''; return (n < 0 ? '-' : '') + (after ? t + ' ' + symbol : symbol + gap + t); };
+    const date = { mdy: 'Tue Sep 29, 2026', dmy: 'Tue 29 Sep 2026', iso: 'Tue 2026-09-29' }[val('locale_date')] || 'Tue Sep 29, 2026';
+    out.textContent = money(1234.5, 2) + ' · ' + money(-980, 0) + ' · ' + date + ' · ' + (val('locale_time') === '24' ? '14:30' : '2:30 pm');
+  };
+  document.querySelectorAll('[data-locale]').forEach((s) => s.addEventListener('change', update));
+});

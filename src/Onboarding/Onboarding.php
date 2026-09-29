@@ -141,7 +141,7 @@ HTML],
             'sender_name' => $extra['sender_name'] ?? (Auth::user()['name'] ?? ($vcio ?: '')),
             'onsite_week' => trim((string) ($extra['onsite_week'] ?? '')) ?: '[week to be confirmed]',
             'onboarding_link' => $extra['onboarding_link'] ?? '{{onboarding_link}}',
-            'today' => date('F j, Y'),
+            'today' => \Align\Fmt::date(time(), 'long'),
         ];
     }
 

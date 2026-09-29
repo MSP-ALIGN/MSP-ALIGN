@@ -60,7 +60,7 @@ final class Documents
             'company_phone' => Settings::get('company_phone') ?: '[our phone]',
             'company_email' => Settings::get('company_email') ?: '[our email]',
             'company_website' => Settings::get('company_website') ?: '[our website]',
-            'today' => date('F j, Y'),
+            'today' => \Align\Fmt::date(time(), 'long'),
             'year' => date('Y'),
         ];
     }
