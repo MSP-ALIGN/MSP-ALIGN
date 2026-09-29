@@ -1,0 +1,44 @@
+name: Docs
+
+# Publishes the documentation site (mspalign.org) from README.md and docs/ on each push to main.
+# One-time setup on GitHub: Settings -> Pages -> Source: GitHub Actions, Custom domain: mspalign.org, Enforce HTTPS.
+on:
+  push:
+    branches: [main]
+    paths: [README.md, VERSION, 'docs/**', 'tools/docs/**', public/assets/icon.svg, .github/workflows/docs.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the docs site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-markdown >/dev/null
+          python3 tools/docs/build.py _site
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

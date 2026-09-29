@@ -1,7 +1,7 @@
 # MSP-ALIGN security (1.5.0)
 
 This document describes how MSP-ALIGN protects client information, how its controls map to
-the HIPAA Security Rule technical safeguards (45 CFR 164.312), and what the operator (Mountaineer IT)
+the HIPAA Security Rule technical safeguards (45 CFR 164.312), and what the operator (the MSP running it)
 is responsible for outside the application.
 
 > **HIPAA status.** Software can't be "HIPAA certified". Compliance belongs to the covered entity
@@ -141,4 +141,8 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 
 ## Reporting a vulnerability
 
-Report security issues privately to Mountaineer IT. Please don't open a public issue.
+Please report security issues **privately** through GitHub: on
+[github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN) open the **Security** tab and choose
+**Report a vulnerability**. Don't open a public issue. Include the version (Settings → Updates & backups), what
+you found and how to reproduce it. You'll get a reply within a few days; fixes ship as a normal release, and the
+advisory is published once installs have had time to update. Only the latest release is supported.

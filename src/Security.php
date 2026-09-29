@@ -73,7 +73,7 @@ final class Security
         }
         $squash = preg_replace('/[^a-z0-9]/', '', $low) ?? '';
         foreach (['password', 'passw0rd', 'qwerty', 'letmein', 'welcome', 'changeme', 'admin', '12345678', 'abcdefgh', 'iloveyou', 'monkey', 'dragon',
-                     'football', 'baseball', 'sunshine', 'princess', 'trustno1', 'mountaineer', 'align', 'summer20', 'winter20', 'spring20', 'fall20'] as $bad) {
+                     'football', 'baseball', 'sunshine', 'princess', 'trustno1', 'mspalign', 'align', 'summer20', 'winter20', 'spring20', 'fall20'] as $bad) {
             // A common word plus a few digits or symbols ("Password123!") is still a common password
             if (str_contains($squash, $bad) && strlen(preg_replace('/[^a-z]/', '', str_replace($bad, '', $squash)) ?? '') < 4) {
                 return 'That password is too common or easy to guess.';

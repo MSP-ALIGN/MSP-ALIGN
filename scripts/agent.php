@@ -1,6 +1,6 @@
 #!/usr/bin/env php
 <?php
-// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc.
+// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 /**
  * MSP-ALIGN system agent. Runs as root, started by systemd:
@@ -41,6 +41,12 @@ $branch = $env('ALIGN_BRANCH', (static function (): string {
     return is_array($c) && is_string($c['update_branch'] ?? null) && $c['update_branch'] !== '' ? $c['update_branch'] : 'main';
 })());
 define('BRANCH', preg_match('/^[A-Za-z0-9][A-Za-z0-9._\/-]{0,59}$/', $branch) && !str_contains($branch, '..') ? $branch : 'main');
+// Optional: a small file listing the latest version, asked before GitHub (config 'update_check_url', e.g.
+// https://mspalign.org/updates, which serves main.json). Unset: servers ask GitHub directly, as always.
+define('CHECK_URL', $env('ALIGN_UPDATE_CHECK_URL', (static function (): string {
+    $c = is_readable(CONFIG) ? @include CONFIG : null;
+    return is_array($c) && is_string($c['update_check_url'] ?? null) ? rtrim($c['update_check_url'], '/') : '';
+})()));
 // Agent state lives in its own root-owned folder (not inside the www-data-owned data folder)
 define('STATE', rtrim($env('ALIGN_AGENT_DIR', '/var/lib/mountaineer-align-agent'), '/'));
 define('JOBS', STATE . '/jobs');
@@ -688,8 +694,27 @@ function check(?Job $job = null): array
         exec($cmd . ' 2>&1', $o, $c);
         return [$c, implode("\n", $o)];
     };
-    [$c] = $run("timeout 90 $git fetch -q origin " . q(BRANCH));
-    if ($c !== 0) {
+    // Scheduled checks only ("Check now" always asks GitHub): if the version file lists exactly this version, nothing was
+    // pending last time and GitHub was asked within a day, skip GitHub. The day's limit means a stale or wrong version
+    // file (or a fix pushed without a version change) can delay an update by a day at most.
+    $fetched = strtotime((string) ($prev['fetched_at'] ?? '')) ?: 0;
+    $s['fetched_at'] = $prev['fetched_at'] ?? null;
+    $listed = $job === null && time() - $fetched < 86400 && (int) ($prev['behind'] ?? 0) === 0 && ($prev['current'] ?? null) === $s['current'] ? listedVersion() : null;
+    if ($listed !== null && version_compare($listed, $s['current'], '==')) {
+        $s['latest'] = $listed;
+        $s['behind'] = 0;
+        $s['changes'] = [];
+        $s['source'] = 'version file';
+        $c = null;
+    } else {
+        [$c] = $run("timeout 90 $git fetch -q origin " . q(BRANCH));
+        if ($c === 0) {
+            $s['fetched_at'] = now();
+        }
+    }
+    if ($c === null) {
+        // answered by the version file
+    } elseif ($c !== 0) {
         $s['error'] = 'Could not reach GitHub to check for updates. Check the server\'s internet access and the GitHub token in /etc/mountaineer-align/github-token.';
     } else {
         [, $latest] = $run("$git show " . q('origin/' . BRANCH . ':VERSION'));
@@ -712,6 +737,19 @@ function check(?Job $job = null): array
     writeJson(STATE . '/update.json', $s);
     systemInfo();
     return $s;
+}
+
+/** The latest version according to update_check_url ({url}/{branch}.json: {"version": "1.33.0"}), or null (unset, unreachable or unreadable). */
+function listedVersion(): ?string
+{
+    if (CHECK_URL === '' || !preg_match('#^(https://|http://127\.0\.0\.1[:/])[^?\#]*$#', CHECK_URL)) {
+        return null;
+    }
+    $ctx = stream_context_create(['http' => ['timeout' => 10, 'follow_location' => 0, 'user_agent' => 'MSP-ALIGN update check', 'ignore_errors' => false]]);
+    $body = @file_get_contents(CHECK_URL . '/' . rawurlencode(str_replace('/', '-', BRANCH)) . '.json', false, $ctx, 0, 4096);
+    $j = $body !== false ? json_decode($body, true) : null;
+    $v = is_array($j) ? ($j['version'] ?? null) : null;
+    return is_string($v) && preg_match('/^\d+\.\d+\.\d+$/', $v) ? $v : null;
 }
 
 function systemInfo(): void

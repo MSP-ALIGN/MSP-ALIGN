@@ -143,8 +143,40 @@ agent("check",ALIGN_APP_DIR=T+"/app"); t=st.get(B+"/settings/system").text
 ok("2 old nightly backup files" in t,"old server backups reported")
 i=jid(post(st,"/settings/system/legacy/delete",{"confirm":"1"})); agent(); ok(not os.listdir(T+"/legacy") and "Deleted 2 old backup files" in job(st,i)["message"],"old server backups deleted")
 
+# ---- optional version file (update_check_url): answers "nothing new" without asking GitHub
+vf=T+"/versions"; shutil.rmtree(vf,ignore_errors=True); os.makedirs(vf)
+cur=open(T+"/app/VERSION").read().strip()  # this clone's version (the failed update above left its code in place)
+json.dump({"version":cur},open(vf+"/main.json","w"))
+vs=subprocess.Popen(["php","-S","127.0.0.1:8097","-t",vf],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); time.sleep(0.5)
+try:
+    agent("check",ALIGN_APP_DIR=T+"/app")  # up to date, nothing pending
+    origin=subprocess.run(["git","-C",T+"/app","remote","get-url","origin"],capture_output=True,text=True).stdout.strip()
+    subprocess.run(["git","-C",T+"/app","remote","set-url","origin",T+"/no-such-remote.git"])
+    VU=dict(ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://127.0.0.1:8097")
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source")=="version file" and not u["error"] and u["latest"]==cur and not u["available"],"version file says nothing new: GitHub not asked")
+    i=jid(post(st,"/settings/system/check")); agent(**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None and "Could not reach GitHub" in (u["error"] or ""),"Check now always asks GitHub")
+    json.dump({**u,"error":None,"fetched_at":"2020-01-01T00:00:00+00:00"},open(T+"/agent/update.json","w"))
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None,"GitHub asked at least once a day even when the version file says nothing new")
+    json.dump({"version":"1.0.0"},open(vf+"/main.json","w"))
+    json.dump({**u,"error":None,"behind":0,"fetched_at":time.strftime("%Y-%m-%dT%H:%M:%S%z")},open(T+"/agent/update.json","w"))
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None,"an older listed version (a lagging file) isn't trusted")
+    json.dump({"version":"9.0.0"},open(vf+"/main.json","w"))
+    agent("check",**VU); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None and "Could not reach GitHub" in (u["error"] or ""),"newer version listed: asks GitHub for the update itself")
+    agent("check",ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://example.com"); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None,"plain-http version file (not local) ignored")
+    subprocess.run(["git","-C",T+"/app","remote","set-url","origin",origin])
+    agent("check",ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://127.0.0.1:8096"); u=json.load(open(T+"/agent/update.json"))
+    ok(u.get("source") is None and "Could not reach" not in (u["error"] or "") and u["latest"]=="1.99.0","version file unreachable: GitHub as usual")
+finally:
+    vs.terminate()
+
 # ---- notifications
-agent("check",ALIGN_APP_DIR=T+"/app")  # nothing new (1.99.0 == 1.99.0)
+agent("check",ALIGN_APP_DIR=T+"/app")
 subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; Align\\Settings::set("backup_last_download", null);'],env=ENV)
 q("delete from mail_queue"); q("delete from notify_state where k in ('update_notified','backup_reminder_at')")
 json.dump({**json.load(open(T+"/agent/update.json")),"current":"1.13.0","latest":"1.99.0","available":True,"changes":[{"sha":"x","subject":"Shiny new thing","body":"","date":"2026-09-26"}]},open(T+"/agent/update.json","w"))

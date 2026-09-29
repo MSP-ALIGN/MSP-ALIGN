@@ -1,11 +1,12 @@
 # MSP-ALIGN
 
-Self-hosted vCIO toolkit for managed service providers, built by Mountaineer IT. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
+Self-hosted vCIO toolkit for managed service providers. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
 
 > **Formerly Mountaineer Align (renamed in 1.24).** Everything you see is now MSP-ALIGN and the commands are `sudo msp-align-update` and `sudo msp-align-restore` (the old `mountaineer-align-…` commands still work). On the server, folders, services, logs and the database keep their `mountaineer-align` names so existing installs update without any changes.
 
-**What's in it (1.7.0):**
+## What's new
 
+- **Project home (1.33):** documentation now has its own site at [mspalign.org](https://mspalign.org), built from this README and `docs/` on every release. The copyright notice reads *Mountaineer IT Inc. and MSP-ALIGN contributors*; security issues are reported privately through GitHub (see [docs/SECURITY.md](docs/SECURITY.md)); calendar invitations identify as MSP-ALIGN. Optional `update_check_url` lets a server check a small version file before GitHub.
 - **Tests pass in any timezone (1.32.2):** the test suites now run in the app's timezone whatever the machine is set to, so they pass on GitHub's UTC runners as well as locally (no change to the app). Tests also run on pushes to `develop`.
 - **Test servers (1.32.1):** a test server can follow the `develop` branch (`update_branch` in config.php; Settings → Updates & backups shows the channel) and run on a restored copy of production in **staging mode**: reads from connected tools still work, nothing is written back to the PSA, every email and invitation goes only to one test mailbox marked [TEST], real calendar events are never touched, the client portal and API are off, and every page says "Test server". See [docs/TEST-SERVER.md](docs/TEST-SERVER.md).
 - **Tests in the repository (1.32):** the 28 end-to-end suites (about 1,100 checks: every screen, the client portal, the REST API and its attack tests, email through Microsoft 365 and Google, sync with ITFlow / NinjaOne / Veeam, updates and backups, upgrades from 1.27, 1.28 and 1.29, and a crawl of every page for each role) now live in `tests/e2e/`, with one command to run them and GitHub Actions running them on every push. They start from a seed built from scratch with fictional data, so nothing from a real install is needed or stored.
@@ -130,7 +131,7 @@ Unattended install: set `GH_TOKEN ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL` (plus 
 sudo msp-align-update
 ```
 
-Either one makes a safety copy, pulls the latest `main`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds. Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
+Either one makes a safety copy, pulls the latest `main`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
 
 ## Operations
 
@@ -185,7 +186,9 @@ Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, jQue
 
 ## License
 
-MSP-ALIGN is free software, copyright © 2026 Mountaineer IT Inc., licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty.
+MSP-ALIGN is free software, copyright © 2026 Mountaineer IT Inc. and MSP-ALIGN contributors, licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty.
+
+MSP-ALIGN was started by [Mountaineer IT](https://mountaineerit.com), an MSP in Northern California, and is now developed in the open at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Contributions are welcome under the same license.
 
 Bundled third-party components keep their own licenses (all compatible): AdminLTE, Bootstrap, jQuery and FullCalendar (MIT), Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1, code MIT) and Quill (BSD-3-Clause). Their license files are in `public/vendor/`, and the in-app **License** page lists them.
 

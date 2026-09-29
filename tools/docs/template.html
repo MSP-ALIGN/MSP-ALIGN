@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{base}}<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<link rel="icon" href="icon.svg">
+<style>
+:root {
+  --bg: #ffffff; --panel: #f5f7fa; --text: #1f2933; --muted: #5f6b7a; --line: #e1e6ec;
+  --accent: #1f6feb; --accent-soft: #e8f0fe; --code-bg: #f1f3f6; --pre-bg: #0f1720; --pre-text: #e6edf3;
+  --warn-bg: #fff8e1; --warn-line: #e0a800;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117; --panel: #151b23; --text: #e6edf3; --muted: #9aa5b1; --line: #2a323c;
+    --accent: #5b9dff; --accent-soft: #16233a; --code-bg: #1c232c; --pre-bg: #0a0e13; --pre-text: #e6edf3;
+    --warn-bg: #2a2412; --warn-line: #b38600;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 2; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; letter-spacing: .02em; }
+.brand img { width: 28px; height: 28px; }
+.brand:hover { text-decoration: none; }
+.top .spacer { flex: 1; }
+.top .gh { color: var(--muted); font-size: 14px; }
+.menu { display: none; background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 14px; }
+.wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
+nav.side { padding: 24px 16px; border-right: 1px solid var(--line); position: sticky; top: 53px; align-self: start; max-height: calc(100vh - 53px); overflow: auto; }
+nav.side a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--muted); font-size: 15px; }
+nav.side a:hover { background: var(--panel); color: var(--text); text-decoration: none; }
+nav.side a[aria-current] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+main { padding: 32px 40px 64px; min-width: 0; }
+main h1 { font-size: 2rem; line-height: 1.25; margin: 0 0 .6em; }
+main h2 { font-size: 1.4rem; margin: 2em 0 .6em; padding-top: .4em; border-top: 1px solid var(--line); }
+main h1 + h2, main .hero + h2 { border-top: 0; margin-top: 1em; }
+main h3 { font-size: 1.1rem; margin: 1.6em 0 .4em; }
+code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; font: .9em/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+pre { background: var(--pre-bg); color: var(--pre-text); padding: 14px 16px; border-radius: 8px; border: 1px solid var(--line); overflow-x: auto; }
+pre code { background: none; padding: 0; color: inherit; overflow-wrap: normal; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 15px; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+th { background: var(--panel); }
+blockquote { margin: 1em 0; padding: 10px 16px; background: var(--warn-bg); border-left: 4px solid var(--warn-line); border-radius: 0 6px 6px 0; }
+blockquote p { margin: .3em 0; }
+li { margin: .25em 0; }
+.hero { padding: 8px 0 8px; }
+.hero h1 { font-size: 2.4rem; margin-bottom: .3em; }
+.lead { font-size: 1.15rem; color: var(--text); max-width: 60em; }
+.free { color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); }
+.card:hover { border-color: var(--accent); text-decoration: none; }
+.card span { color: var(--muted); font-size: 14px; }
+footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); margin-top: 48px; padding-top: 16px; }
+@media (max-width: 800px) {
+  .top { padding: 10px 16px; }
+  .menu { display: inline-block; }
+  .top .gh { display: none; }
+  .wrap { grid-template-columns: 1fr; }
+  nav.side { display: none; position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px 16px 12px; }
+  body.open nav.side { display: block; }
+  main { padding: 20px 16px 48px; }
+  main h1, .hero h1 { font-size: 1.7rem; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"{{home_current}}><img src="icon.svg" alt="">MSP-ALIGN</a>
+  <span class="spacer"></span>
+  <a class="gh" href="{{repo}}">GitHub</a>
+  <button class="menu" type="button" onclick="document.body.classList.toggle('open')" aria-label="Menu">Menu</button>
+</header>
+<div class="wrap">
+  <nav class="side" aria-label="Documentation">{{nav}}</nav>
+  <main>
+{{body}}
+    <footer>MSP-ALIGN {{version}} · <a href="{{edit}}">Edit this page on GitHub</a> · <a href="license.html">AGPL-3.0-or-later</a></footer>
+  </main>
+</div>
+</body>
+</html>

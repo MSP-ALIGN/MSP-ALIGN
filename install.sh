@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
+# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 # =============================================================================
 #  MSP-ALIGN - installer / upgrader for Debian 13 (trixie)
 #

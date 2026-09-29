@@ -20,6 +20,8 @@ return [
     'allow_insecure_integrations' => false,
     // Where updates come from: 'main' (releases) or, on a test server, 'develop'
     'update_branch' => 'main',
+    // Optional: check a small version file before asking GitHub (GitHub is still used to download updates)
+    // 'update_check_url' => 'https://mspalign.org/updates',
     // Test server on a copy of production data (docs/TEST-SERVER.md): reads from connected tools still
     // work, nothing is written back, all email goes to one test mailbox, the portal and API are off.
     // 'staging' => true,
