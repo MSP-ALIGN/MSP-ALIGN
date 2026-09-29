@@ -27,6 +27,16 @@ final class DB
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
+            // The timezone chosen in Settings → General (1.38) wins over config.php's; the database session
+            // follows it, so NOW() and PHP's date() agree
+            try {
+                $tz = self::$pdo->query("SELECT value FROM settings WHERE name = 'timezone' AND is_secret = 0")->fetchColumn();
+                if (is_string($tz) && $tz !== '' && $tz !== date_default_timezone_get() && Fmt::validZone($tz)) {
+                    date_default_timezone_set($tz);
+                }
+            } catch (\PDOException) {
+                // before the first install step there's no settings table yet
+            }
             self::$pdo->exec("SET time_zone = '" . date('P') . "'");
         }
         return self::$pdo;

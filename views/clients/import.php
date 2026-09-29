@@ -27,7 +27,7 @@ $cols = $kind === 'clients' ? CsvImport::CLIENT_COLUMNS : CsvImport::CONTACT_COL
           <div class="form-group">
             <label for="import-file">CSV file</label>
             <input type="file" class="form-control-file" id="import-file" name="file" accept=".csv,text/csv" required>
-            <small class="form-text text-muted">Up to 5 MB and <?= number_format(CsvImport::MAX_ROWS) ?> rows. The first row names the columns. Nothing is saved until you check the result and press Import.</small>
+            <small class="form-text text-muted">Up to 5 MB and <?= num(CsvImport::MAX_ROWS) ?> rows. The first row names the columns. Nothing is saved until you check the result and press Import.</small>
           </div>
           <button class="btn btn-primary"><i class="fas fa-magnifying-glass mr-1"></i>Check file</button>
           <a class="btn btn-default ml-1" href="/clients/import/template/<?= e($kind) ?>"><i class="fas fa-download mr-1"></i>Template</a>

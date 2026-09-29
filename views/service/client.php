@@ -15,7 +15,7 @@ $delta = function (?float $now, ?float $before): string {
     if (abs($d) < 0.5) {
         return '<small class="text-muted font-weight-normal">no change</small>';
     }
-    return '<small class="font-weight-normal text-' . ($d > 0 ? 'success' : 'danger') . '"><i class="fas fa-caret-' . ($d > 0 ? 'up' : 'down') . '"></i> ' . e(rtrim(rtrim(number_format(abs($d), 1), '0'), '.')) . ' pts</small>';
+    return '<small class="font-weight-normal text-' . ($d > 0 ? 'success' : 'danger') . '"><i class="fas fa-caret-' . ($d > 0 ? 'up' : 'down') . '"></i> ' . e(\Align\Fmt::trim(abs($d), 1)) . ' pts</small>';
 };
 $ticketLink = function (array $t): string {
     $url = Sla::ticketUrl($t['id']);

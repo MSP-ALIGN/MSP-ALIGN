@@ -12,7 +12,8 @@ use Align\Settings;
  * Meeting invitations and reminders.
  *  - calendar mode (default): the meeting is created in Outlook through Graph, so Exchange sends real
  *    invitations, updates and cancellations, attendees can accept, and a Teams link can be added.
- *  - ics mode: an email with an .ics invitation attached (works with any mail system).
+ *  - ics mode: an email with an .ics invitation attached (works with any mail system). Always used with
+ *    SMTP, where the invitation is also sent as a text/calendar part so mail apps show Accept / Decline.
  */
 final class Invites
 {
@@ -63,9 +64,10 @@ final class Invites
             return null;
         }
         try {
-            $ics = Settings::get('mail_meeting_mode', 'calendar') === 'ics'
+            $ics = Settings::get('mail_meeting_mode', 'calendar') === 'ics' || !Mail::hasCalendar()
                 || (Mail::provider() === 'google' && Mail::mode() === 'delegated' && Settings::get('g_calendar_granted') === '0');
-            return $ics ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action);
+            $note = !Mail::hasCalendar() && $m['graph_event_id'] ? ' It was first sent as a calendar invitation, so also ' . ($action === 'cancel' ? 'cancel' : 'update') . ' it in that calendar.' : '';
+            return ($ics ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action)) . $note;
         } catch (\Throwable $e) {
             \Align\Audit::log('meeting.invite_failed', $m['title'] . ': ' . $e->getMessage());
             return 'Invitations were not sent: ' . $e->getMessage();
@@ -100,6 +102,7 @@ final class Invites
     {
         $c = Mail::client();
         [$evProvider, $mailbox] = self::stored($m);
+        // (never reached with SMTP: send() uses .ics emails there)
         // An event made with the other provider (settings changed since) can't be updated from here
         $eventId = $m['graph_event_id'] && $evProvider === Mail::provider() ? $m['graph_event_id'] : null;
         if ($action === 'cancel') {
@@ -156,7 +159,7 @@ final class Invites
         $cancel = $action === 'cancel';
         $organizer = Mail::fromAddress();
         $ics = self::ics($m, $cancel ? 'CANCEL' : 'REQUEST', $organizer, $to, (int) $m['invite_sequence'] + 1);
-        $when = date('l, F j, Y · g:i a', strtotime($m['starts_at'])) . ' – ' . date('g:i a T', strtotime($m['ends_at']));
+        $when = \Align\Fmt::dateTime($m['starts_at'], 'dayfull') . ' – ' . \Align\Fmt::time($m['ends_at']) . ' ' . date('T', strtotime($m['ends_at']));
         $blocks = [T::p($cancel ? 'This meeting has been cancelled.' : ($m['invites_sent_at'] ? 'This meeting has been updated.' : 'You\'re invited to a meeting.')),
             T::facts(['Meeting' => self::subject($m), 'When' => $when, 'Where' => $m['location'], 'Join' => $m['video_url'], 'Organizer' => $m['owner_name']])];
         if ($m['agenda'] && !$cancel) {
@@ -228,7 +231,7 @@ final class Invites
         foreach ($rows as $r) {
             DB::run('UPDATE meetings SET reminder_sent_at = NOW() WHERE id = ?', [$r['id']]);
             $m = self::load((int) $r['id']);
-            $when = date('l, F j · g:i a', strtotime($m['starts_at'])) . ' – ' . date('g:i a T', strtotime($m['ends_at']));
+            $when = \Align\Fmt::dateTime($m['starts_at'], 'weekday') . ' – ' . \Align\Fmt::time($m['ends_at']) . ' ' . date('T', strtotime($m['ends_at']));
             if ($staff && $m['owner_email']) {
                 $owner = DB::one('SELECT id, email, name, role, notify_scope FROM users WHERE id = ? AND is_active = 1', [$m['owner_id']]);
                 if ($owner && (N::prefsFor($owner)['meeting_reminder']['on'] ?? false)) {
@@ -246,7 +249,7 @@ final class Invites
                     if ($m['client_id']) {
                         $blocks[] = T::link('Business review pack for ' . $m['client_name'], N::url('/clients/' . $m['client_id'] . '/report/qbr'));
                     }
-                    $n += Mailer::queue('meeting_reminder', [['address' => $owner['email'], 'name' => $owner['name']]], 'Reminder: ' . self::subject($m) . ' — ' . date('D g:i a', strtotime($m['starts_at'])),
+                    $n += Mailer::queue('meeting_reminder', [['address' => $owner['email'], 'name' => $owner['name']]], 'Reminder: ' . self::subject($m) . ' — ' . date('D ', strtotime($m['starts_at'])) . \Align\Fmt::time($m['starts_at']),
                         T::render('Upcoming meeting', $blocks, N::footer()), ['dedupe' => 'mr:' . $m['id'] . ':' . $m['starts_at'], 'created_by' => null]) ? 1 : 0;
                 }
             }

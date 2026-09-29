@@ -5,7 +5,7 @@ use Align\Meetings\Meetings;
 $row = function (array $m): string {
     ob_start(); ?>
     <li class="list-group-item py-2 d-flex">
-      <div class="text-nowrap mr-3 portal-date"><b><?= e(date('M j', strtotime($m['starts_at']))) ?></b><div class="small text-muted"><?= e(date('D', strtotime($m['starts_at']))) ?> <?= e(fmt_time($m['starts_at'])) ?></div></div>
+      <div class="text-nowrap mr-3 portal-date"><b><?= e(\Align\Fmt::date($m['starts_at'], 'short')) ?></b><div class="small text-muted"><?= e(date('D', strtotime($m['starts_at']))) ?> <?= e(fmt_time($m['starts_at'])) ?></div></div>
       <div class="mr-auto"><b><?= e($m['title']) ?></b> <span class="badge badge-light border"><?= e(Meetings::TYPES[$m['type']][0] ?? ucfirst($m['type'])) ?></span>
         <div class="small text-muted"><?= e(implode(' · ', array_filter([$m['location'], $m['owner_name'] ? 'with ' . $m['owner_name'] : null]))) ?></div>
         <?php if ($m['video_url'] && $m['status'] === 'scheduled' && strtotime($m['ends_at']) >= time()): ?><a href="<?= e($m['video_url']) ?>" target="_blank" rel="noopener" class="small"><i class="fas fa-video mr-1"></i>Join online</a><?php endif; ?>

@@ -1,5 +1,5 @@
 <?php if ($chain['ok']): ?>
-  <div class="alert alert-light border small py-2 d-flex align-items-center flex-wrap"><span class="mr-auto"><i class="fas fa-link text-success mr-1"></i><b>Tamper check passed.</b> All <?= number_format($chain['checked']) ?> entries are intact (each is sealed with a hash of the one before it, so edits or deletions would show here).
+  <div class="alert alert-light border small py-2 d-flex align-items-center flex-wrap"><span class="mr-auto"><i class="fas fa-link text-success mr-1"></i><b>Tamper check passed.</b> All <?= num($chain['checked']) ?> entries are intact (each is sealed with a hash of the one before it, so edits or deletions would show here).
     <?= empty($chain['full']) && !empty($chain['at']) ? 'Whole log last checked ' . e(rel_time($chain['at'])) . '; entries since then checked just now.' : '' ?> Entries are kept <?= \Align\AuditChain::RETENTION_YEARS ?> years.</span>
     <form method="post" action="/audit/verify" class="ml-2"><?= csrf_field() ?><button class="btn btn-xs btn-default">Check the whole log</button></form></div>
 <?php else: ?>
@@ -20,7 +20,7 @@
       <tbody>
       <?php foreach ($rows as $r): ?>
         <tr>
-          <td class="text-nowrap small"><?= e(date('M j, Y g:i a', strtotime($r['created_at']))) ?></td>
+          <td class="text-nowrap small"><?= e(\Align\Fmt::dateTime($r['created_at'], 'date', ' ')) ?></td>
           <td class="small"><?php if ($r['portal_user_id']): ?><?= e($r['portal_name'] ?? 'Deleted portal user') ?> <span class="badge badge-light border" title="Client portal user<?= $r['portal_client'] ? ' at ' . e($r['portal_client']) : '' ?>">client<?= $r['portal_client'] ? ' · ' . e($r['portal_client']) : '' ?></span><?php else: ?><?= e($r['user_name'] ?? '—') ?><?php endif; ?></td>
           <td><code><?= e($r['action']) ?></code></td>
           <td class="small text-break"><?= e($r['detail']) ?></td>

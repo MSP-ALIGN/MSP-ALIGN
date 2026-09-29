@@ -62,7 +62,7 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', "\n", '<'], ['\\\\', '\
     </div>
     <?php if ($clientLogo): ?><img src="<?= e($clientLogo) ?>" alt="<?= e($client['name']) ?>" class="client-logo"><?php endif; ?>
     <div class="meta">
-      <div><b>Prepared</b> <?= e(date('F j, Y')) ?></div>
+      <div><b>Prepared</b> <?= e(\Align\Fmt::date(time(), 'long')) ?></div>
       <?php if (!empty($brand['preparedBy'])): ?><div><b>By</b> <?= e($brand['preparedBy']) ?></div><?php endif; ?>
       <?php if (!empty($brand['phone'])): ?><div><?= e($brand['phone']) ?></div><?php endif; ?>
       <?php if (!empty($brand['email'])): ?><div><?= e($brand['email']) ?></div><?php endif; ?>

@@ -415,6 +415,6 @@ final class Sla
 
     public static function pct(?float $p): string
     {
-        return $p === null ? '—' : rtrim(rtrim(number_format($p, 1), '0'), '.') . '%';
+        return $p === null ? '—' : \Align\Fmt::trim($p, 1) . '%';
     }
 }

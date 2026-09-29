@@ -31,7 +31,7 @@ final class Budget
         $dates = array_values(array_filter($bd['dates'], fn($d) => $canLic || !str_ends_with((string) $d['link'], '/licenses')));
         return Out::one([
             'client_id' => $id,
-            'currency' => 'USD',
+            'currency' => \Align\Fmt::cfg()['currency'], // Settings → General (1.38); amounts are never converted
             'recurring_monthly' => Out::num($b['runRate']),
             'selected_year' => ['index' => $year, 'label' => $bd['yr']['label'], 'from' => $bd['yr']['from'], 'to' => $bd['yr']['to'],
                 'total' => Out::num($bd['yr']['total']), 'one_time' => Out::num($bd['yr']['one_time']),

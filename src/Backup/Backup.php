@@ -234,7 +234,7 @@ final class Backup
             $d = date('Y-m-d', strtotime("-$i days"));
             $c = $byDay[$d] ?? [];
             $days[] = ['date' => $d, 'tone' => !empty($c['failed']) ? 'bad' : (!empty($c['warning']) ? 'warn' : (!empty($c['success']) ? 'ok' : 'none')),
-                'text' => date('M j', strtotime($d)) . ': ' . ($c ? implode(', ', array_map(fn($s, $n) => "$n " . strtolower(self::STATUS[$s][0]), array_keys($c), $c)) : 'no runs recorded')];
+                'text' => \Align\Fmt::date($d, 'short') . ': ' . ($c ? implode(', ', array_map(fn($s, $n) => "$n " . strtolower(self::STATUS[$s][0]), array_keys($c), $c)) : 'no runs recorded')];
         }
         $runCount = array_sum($tot);
 

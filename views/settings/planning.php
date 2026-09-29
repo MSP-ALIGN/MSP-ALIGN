@@ -57,7 +57,7 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
             <tr>
               <td class="align-middle font-weight-bold"><?= e($label) ?></td>
               <td class="w-25"><div class="input-group input-group-sm"><input type="number" name="lifespan_<?= $class ?>" class="form-control" value="<?= e($v["lifespan_$class"] ?? '') ?>"><div class="input-group-append"><span class="input-group-text">yrs</span></div></div></td>
-              <td class="w-25"><div class="input-group input-group-sm"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" name="cost_<?= $class ?>" class="form-control" value="<?= e($v["cost_$class"] ?? '') ?>"></div></td>
+              <td class="w-25"><div class="input-group input-group-sm"><div class="input-group-prepend"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span></div><input type="number" name="cost_<?= $class ?>" class="form-control" value="<?= e($v["cost_$class"] ?? '') ?>"></div></td>
               <td class="small text-muted align-middle"><?= e(implode(', ', $types)) ?></td>
             </tr>
           <?php endforeach; ?>

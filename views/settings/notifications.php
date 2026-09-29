@@ -9,7 +9,7 @@ $mode = $v['mail_mode'] ?: 'off';
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'notifications']) ?>
 <?php if (!$ready): ?>
-  <div class="alert alert-warning py-2"><i class="fas fa-triangle-exclamation mr-1"></i>Email isn't connected yet, so nothing is sent. Set up <a href="/integrations/email">Microsoft 365 or Google Workspace</a> first; you can choose notifications now.</div>
+  <div class="alert alert-warning py-2"><i class="fas fa-triangle-exclamation mr-1"></i>Email isn't connected yet, so nothing is sent. Set up <a href="/integrations/email">Email</a> (Microsoft 365, Google Workspace or an SMTP server) first; you can choose notifications now.</div>
 <?php else: ?>
   <p class="small text-muted">Sending through <?= e(Mail::providerName()) ?> as <?= e((string) Mail::fromAddress()) ?> · <a href="/integrations/email">Mail connection</a> · <a href="/settings/notifications/log">Email log</a><?= $stats['queued'] ? ' <span class="badge badge-warning">' . (int) $stats['queued'] . ' queued</span>' : '' ?></p>
 <?php endif; ?>
@@ -18,19 +18,19 @@ $mode = $v['mail_mode'] ?: 'off';
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock mr-2"></i>Schedule &amp; meeting invitations</h3></div>
       <div class="card-body">
         <div class="form-row">
-          <div class="form-group col-md-4"><label>Digests are sent at</label><select name="notif_digest_hour" class="custom-select"><?php for ($h = 0; $h < 24; $h++): ?><option value="<?= $h ?>" <?= (int) ($v['notif_digest_hour'] ?? 7) === $h ? 'selected' : '' ?>><?= e(date('g a', mktime($h, 0))) ?></option><?php endfor; ?></select></div>
+          <div class="form-group col-md-4"><label>Digests are sent at</label><select name="notif_digest_hour" class="custom-select"><?php for ($h = 0; $h < 24; $h++): ?><option value="<?= $h ?>" <?= (int) ($v['notif_digest_hour'] ?? 7) === $h ? 'selected' : '' ?>><?= e(\Align\Fmt::hour($h)) ?></option><?php endfor; ?></select></div>
           <div class="form-group col-md-4"><label>Weekly emails on</label><select name="notif_weekly_day" class="custom-select"><?php foreach ($days as $n => $d): ?><option value="<?= $n ?>" <?= (int) ($v['notif_weekly_day'] ?? 1) === $n ? 'selected' : '' ?>><?= $d ?></option><?php endforeach; ?></select></div>
           <div class="form-group col-md-4"><label>Meeting reminders</label><div class="input-group"><input type="number" name="notif_meeting_reminder_hours" class="form-control" min="1" max="168" value="<?= e($v['notif_meeting_reminder_hours'] ?: '24') ?>"><div class="input-group-append"><span class="input-group-text">hours before</span></div></div></div>
         </div>
         <div class="form-row">
-          <div class="form-group col-md-6"><label>Meeting invitations</label><select name="mail_meeting_mode" class="custom-select"><?php foreach (Invites::MODES as $k => $l): ?><option value="<?= $k ?>" <?= ($v['mail_meeting_mode'] ?: 'calendar') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
+          <div class="form-group col-md-6"><label>Meeting invitations</label><?php if (!Mail::hasCalendar()): ?><p class="small text-muted mb-1">With an SMTP server, invitations are always emails with an .ics invitation attached (mail apps show Accept / Decline).</p><?php endif; ?><select name="mail_meeting_mode" class="custom-select"<?= Mail::hasCalendar() ? '' : ' disabled' ?>><?php foreach (Invites::MODES as $k => $l): ?><option value="<?= $k ?>" <?= ($v['mail_meeting_mode'] ?: 'calendar') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
             <small class="text-muted">Calendar invitations are real meetings in Outlook or Google Calendar: attendees can accept, and changes and cancellations follow automatically.</small></div>
-          <div class="form-group col-md-6<?= $mode === 'app' ? '' : ' d-none' ?>"><label>Organizer</label><select name="mail_meeting_organizer" class="custom-select">
+          <div class="form-group col-md-6<?= $mode === 'app' && Mail::hasCalendar() ? '' : ' d-none' ?>"><label>Organizer</label><select name="mail_meeting_organizer" class="custom-select">
               <option value="owner" <?= ($v['mail_meeting_organizer'] ?: 'owner') === 'owner' ? 'selected' : '' ?>>Meeting owner's own calendar (falls back to the From mailbox)</option>
               <option value="mailbox" <?= $v['mail_meeting_organizer'] === 'mailbox' ? 'selected' : '' ?>>Always the From mailbox</option></select></div>
         </div>
         <input type="hidden" name="mail_teams_links_present" value="1">
-        <div class="custom-control custom-switch"><input type="checkbox" class="custom-control-input" id="mail_teams_links" name="mail_teams_links" value="1" <?= ($v['mail_teams_links'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_teams_links">Add a <?= $provider === 'google' ? 'Google Meet' : 'Microsoft Teams' ?> link to invitations when the meeting has no video link</label></div>
+        <div class="custom-control custom-switch<?= Mail::hasCalendar() ? '' : ' d-none' ?>"><input type="checkbox" class="custom-control-input" id="mail_teams_links" name="mail_teams_links" value="1" <?= ($v['mail_teams_links'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mail_teams_links">Add a <?= $provider === 'google' ? 'Google Meet' : 'Microsoft Teams' ?> link to invitations when the meeting has no video link</label></div>
       </div>
 </div>
 <div class="card card-dark">

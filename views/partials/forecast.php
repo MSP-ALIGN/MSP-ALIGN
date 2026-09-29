@@ -57,7 +57,7 @@ $addProject = $addProject ?? false; // client overview: show an "Add project" bu
             <rect x="<?= round($x, 1) ?>" y="<?= round($h + $top - $th, 1) ?>" width="<?= round($barW, 1) ?>" height="<?= round(max(2, $ph), 1) ?>" rx="3" class="<?= $b['past'] ? 'bar-past' : 'bar-proj' ?>"/>
           <?php endif; ?>
           <?php if ($th > 0): ?>
-            <text x="<?= round($x + $barW / 2, 1) ?>" y="<?= round($h + $top - $th - 5, 1) ?>" class="bar-val"><?= $sum >= 1000 ? '$' . round($sum / 1000, 1) . 'k' : money($sum) ?></text>
+            <text x="<?= round($x + $barW / 2, 1) ?>" y="<?= round($h + $top - $th - 5, 1) ?>" class="bar-val"><?= e(\Align\Fmt::moneyShort($sum, false, false)) ?></text>
           <?php endif; ?>
           <text x="<?= round($x + $barW / 2, 1) ?>" y="<?= $h + $top + 16 ?>" class="bar-lbl<?= $b['current'] ? ' now' : '' ?>"><?= e($b['short']) ?></text>
           <text x="<?= round($x + $barW / 2, 1) ?>" y="<?= $h + $top + 31 ?>" class="bar-sub"><?= (int) $b['count'] ?> dev</text>

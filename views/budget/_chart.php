@@ -9,7 +9,7 @@ $slot = ($w - 10) / $n;
 $barW = $slot * 0.6;
 $max = max(1, ...$b['quarterTotals']);
 $usedCats = array_keys(array_filter(Budget::CATEGORIES, fn($c, $k) => array_sum($b['byCat'][$k]) > 0, ARRAY_FILTER_USE_BOTH));
-$k = fn(float $v) => $v >= 1000 ? '$' . rtrim(rtrim(number_format($v / 1000, 1), '0'), '.') . 'k' : money($v);
+$k = fn(float $v) => \Align\Fmt::moneyShort($v, false);
 ?>
 <svg class="budget-chart" viewBox="0 0 <?= $w ?> <?= $h + $top + 36 ?>" role="img" aria-label="Technology budget by quarter and category over three years">
   <?php for ($y = 1; $y < 3; $y++): $x = 5 + $y * 4 * $slot; ?><line x1="<?= round($x, 1) ?>" x2="<?= round($x, 1) ?>" y1="4" y2="<?= $h + $top + 32 ?>" class="year-sep"/><?php endfor; ?>

@@ -53,7 +53,7 @@ $costs ??= true;
       </dl>
       <h3 style="margin-top:.8rem">Next meeting</h3>
       <?php if ($m): ?>
-        <p style="margin:0"><b><?= e(date('l, F j, Y', strtotime($m['starts_at']))) ?></b> at <?= e(fmt_time($m['starts_at'])) ?></p>
+        <p style="margin:0"><b><?= e(\Align\Fmt::date($m['starts_at'], 'dayfull')) ?></b> at <?= e(fmt_time($m['starts_at'])) ?></p>
         <p class="muted" style="margin:0"><?= e($m['title']) ?> · <?= e(Meetings::typeLabel($m['type'])) ?><?= $m['location'] ? ' · ' . e($m['location']) : '' ?></p>
       <?php else: ?><p class="muted" style="margin:0">Not scheduled yet.</p><?php endif; ?>
     </div>

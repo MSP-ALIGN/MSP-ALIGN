@@ -10,7 +10,7 @@ $t = $l['totals'];
   <div class="kpi-row">
     <?= Ui::kpi(money($t['monthly']), 'Per month', 'recurring licensing') ?>
     <?= Ui::kpi(money($t['annual']), 'Per year', 'recurring licensing', 'muted') ?>
-    <?= Ui::kpi(number_format((int) $t['seats']), 'Licenses / seats', 'across all products', 'muted') ?>
+    <?= Ui::kpi(num((int) $t['seats']), 'Licenses / seats', 'across all products', 'muted') ?>
     <?= Ui::kpi((string) count($t['renewals']), 'Renewing soon', 'next 90 days', count($t['renewals']) ? 'warn' : 'ok') ?>
   </div>
   <?php if (!$l['licenses']): ?><p class="muted">No licenses recorded yet.</p><?php else: ?>

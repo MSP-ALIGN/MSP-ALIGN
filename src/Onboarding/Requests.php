@@ -106,9 +106,9 @@ final class Requests
             } elseif ($type === 'access') {
                 $out[$label] = $v ? implode("\n", array_map(fn($r) => $r['who'] . ' — ' . $r['type'], $v)) : '';
             } elseif ($type === 'datetime' && $v) {
-                $out[$label] = date('D M j, Y g:i a', strtotime(str_replace('T', ' ', $v)));
+                $out[$label] = \Align\Fmt::dateTime(str_replace('T', ' ', $v), 'day', ' ');
             } elseif ($type === 'date' && $v) {
-                $out[$label] = date('D M j, Y', strtotime($v));
+                $out[$label] = \Align\Fmt::date($v, 'day');
             } else {
                 $out[$label] = (string) $v;
             }

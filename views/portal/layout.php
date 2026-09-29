@@ -33,7 +33,7 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
-<body class="hold-transition layout-top-nav text-sm portal">
+<body class="hold-transition layout-top-nav text-sm portal" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
 <div class="wrapper">
   <nav class="main-header navbar navbar-expand-xl navbar-dark navbar-primary">
     <div class="container">

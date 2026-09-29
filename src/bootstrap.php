@@ -23,3 +23,12 @@ define('APP_VERSION', $version !== false ? trim($version) : 'dev');
 
 Align\Config::load();
 date_default_timezone_set(Align\Config::get('timezone', 'America/Los_Angeles'));
+// The timezone chosen in Settings → General (1.38) must apply before any date is worked out, so connect now:
+// DB::pdo() reads it and sets the database session to match. With no database yet (first install) it waits.
+if (Align\Config::get('db.name')) {
+    try {
+        Align\DB::pdo();
+    } catch (\Throwable) {
+        // the first real query reports the problem as before
+    }
+}

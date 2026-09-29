@@ -4,7 +4,7 @@ st=login("admin@example.com","LongPassword123!")
 
 # ---- hub
 t=st.get(B+"/integrations").text
-ok(not errs(t) and all(n in t for n in ["ITFlow","NinjaOne","Veeam Service Provider Console","Microsoft 365 / Google Workspace","Dell TechDirect","Lenovo"]),"hub lists every integration")
+ok(not errs(t) and all(n in t for n in ["ITFlow","NinjaOne","Veeam Service Provider Console","Email (Microsoft 365, Google or SMTP)","Dell TechDirect","Lenovo"]),"hub lists every integration")
 ok(all(c in t for c in ["PSA &amp; documentation","RMM","Backup","Email &amp; calendar","Warranty"]),"grouped by category")
 ok('href="/integrations/email"' in t and 'href="/mapping"' in t and 'href="/sync"' in t,"links to email page, mapping and sync")
 for who,pw in [("tech@example.com","TechPassword123!"),("viewer@example.com","ViewerPassword123!")]:

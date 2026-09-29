@@ -39,7 +39,7 @@ $tag = $fromPsa ? ' <span class="badge badge-light border font-weight-normal" ti
           </div>
           <div class="form-row">
             <div class="form-group col-md-3"><label>Price</label>
-              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text">$</span></div><input type="number" min="0" step="0.01" name="unit_price" class="form-control" value="<?= e($l['unit_price'] ?? '') ?>" data-lic="price"></div></div>
+              <div class="input-group"><div class="input-group-prepend"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span></div><input type="number" min="0" step="0.01" name="unit_price" class="form-control" value="<?= e($l['unit_price'] ?? '') ?>" data-lic="price"></div></div>
             <div class="form-group col-md-3"><label>Priced</label>
               <select name="pricing" class="form-control" data-lic="pricing"><option value="per_seat" <?= $sel('per_seat', $l['pricing'] ?? 'per_seat') ?>>Per seat</option><option value="flat" <?= $sel('flat', $l['pricing'] ?? '') ?>>Flat (whole license)</option></select></div>
             <div class="form-group col-md-3"><label>Billed</label>

@@ -40,7 +40,7 @@ foreach ($sections as $k => $_) {
 <div class="cover">
   <div class="cover-top">
     <?php if (\Align\Branding::hasLogo()): ?><img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e($brand['company']) ?>"><?php else: ?><b><?= e($brand['company']) ?></b><?php endif; ?>
-    <span class="muted"><?= e(date('F j, Y')) ?></span>
+    <span class="muted"><?= e(\Align\Fmt::date(time(), 'long')) ?></span>
   </div>
   <div class="cover-body">
     <?php if ($clientLogo): ?><img src="<?= e($clientLogo) ?>" alt="" class="cover-client-logo"><?php endif; ?>

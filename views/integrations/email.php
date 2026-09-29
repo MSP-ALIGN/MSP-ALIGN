@@ -5,6 +5,10 @@ use Align\Mail\Notifications as N;
 
 /** @var array $v, $secrets, $stats; bool $ready, $baseUrlSet; string $redirectUri, $provider; ?array $certInfo, $sa */
 $mode = $v['mail_mode'] ?: 'off';
+if ($provider === 'smtp' && $mode === 'delegated') {
+    $mode = 'app'; // SMTP is just on or off
+}
+$smtpSec = \Align\Mail\Smtp::security();
 $secret = function (string $name, string $label, bool $textarea = false, string $placeholder = '') use ($secrets) {
     $has = $secrets[$name] ?? false;
     $ph = $has ? '•••••••• saved — leave blank to keep' : ($placeholder ?: 'Not set');
@@ -21,15 +25,17 @@ $days = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 
 $pname = Mail::PROVIDERS[$provider];
 $status = match (true) {
     $mode === 'off' => ['secondary', 'Off', 'Email is switched off. Nothing is sent or queued.'],
+    !$ready && $provider === 'smtp' => ['warning', 'Not finished', trim((string) $v['smtp_user']) !== '' && !($secrets['smtp_pass'] ?? false) ? 'Enter the password (or API key) for ' . $v['smtp_user'] . ', then save.' : 'Fill in the SMTP server and the From address, then save.'],
     !$ready => ['warning', 'Not finished', $mode === 'delegated' ? 'Save the app details, then click Connect with ' . ($provider === 'google' ? 'Google' : 'Microsoft') . '.'
         : ($provider === 'google' ? 'Paste the service account key and the From mailbox, then save.' : 'Fill in the tenant, client ID, credential and From mailbox, then save.')],
     $stats['failed7'] && $stats['last_error'] => ['danger', 'Problem', 'Recent sends failed: ' . $stats['last_error']],
+    $provider === 'smtp' => ['success', 'Ready', "$pname " . \Align\Mail\Smtp::host() . ':' . \Align\Mail\Smtp::port() . ' · sending as ' . $v['mail_from'] . '.'],
     default => ['success', 'Ready', "$pname · " . ($mode === 'delegated' ? 'connected as ' . Mail::connectedAs() : 'sending as ' . $v['mail_from']) . '.'],
 };
 ?>
 <div class="small mb-1"><a href="/integrations">Integrations</a> /</div>
 <div class="d-flex flex-wrap align-items-center mb-3">
-  <h1 class="h3 mb-0 mr-auto"><i class="fas fa-envelope text-secondary mr-2"></i>Microsoft 365 / Google Workspace</h1>
+  <h1 class="h3 mb-0 mr-auto"><i class="fas fa-envelope text-secondary mr-2"></i>Email</h1>
   <a class="btn btn-sm btn-default mr-2" href="/settings/notifications"><i class="fas fa-bell mr-1"></i>Notifications</a>
   <a class="btn btn-sm btn-default" href="/settings/notifications/log"><i class="fas fa-list mr-1"></i>Email log<?= $stats['queued'] ? ' <span class="badge badge-warning">' . (int) $stats['queued'] . ' queued</span>' : '' ?></a>
 </div>
@@ -50,14 +56,16 @@ $status = match (true) {
           <div class="btn-group btn-group-toggle w-100" data-toggle="buttons" role="radiogroup">
             <label class="btn btn-outline-primary <?= $provider === 'microsoft' ? 'active' : '' ?>"><input type="radio" name="mail_provider" value="microsoft" <?= $provider === 'microsoft' ? 'checked' : '' ?>><i class="fab fa-microsoft mr-1"></i>Microsoft 365</label>
             <label class="btn btn-outline-primary <?= $provider === 'google' ? 'active' : '' ?>"><input type="radio" name="mail_provider" value="google" <?= $provider === 'google' ? 'checked' : '' ?>><i class="fab fa-google mr-1"></i>Google Workspace</label>
+            <label class="btn btn-outline-primary <?= $provider === 'smtp' ? 'active' : '' ?>"><input type="radio" name="mail_provider" value="smtp" <?= $provider === 'smtp' ? 'checked' : '' ?>><i class="fas fa-server mr-1"></i>SMTP server</label>
           </div>
+          <small class="text-muted" data-show-when="mail_provider=smtp">Your own mail server or a relay (SMTP2GO, Mailgun, SendGrid, Amazon SES, or the Microsoft 365 / Google relay). Meeting invitations go out as emails with an .ics invitation, since there's no calendar to put them in.</small>
         </div>
         <div class="form-group">
-          <label class="d-block">How Align signs in</label>
+          <label class="d-block"><span data-show-when="mail_provider=microsoft,google">How Align signs in</span><span data-show-when="mail_provider=smtp">Sending</span></label>
           <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-off" name="mail_mode" value="off" <?= $mode === 'off' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="mode-off">Off</label></div>
           <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-app" name="mail_mode" value="app" <?= $mode === 'app' ? 'checked' : '' ?>>
-            <label class="custom-control-label font-weight-normal" for="mode-app"><span data-show-when="mail_provider=microsoft">App-only (recommended for servers)</span><span data-show-when="mail_provider=google">Service account with domain-wide delegation (recommended for servers)</span></label></div>
-          <div class="custom-control custom-radio"><input type="radio" class="custom-control-input" id="mode-delegated" name="mail_mode" value="delegated" <?= $mode === 'delegated' ? 'checked' : '' ?>>
+            <label class="custom-control-label font-weight-normal" for="mode-app"><span data-show-when="mail_provider=microsoft">App-only (recommended for servers)</span><span data-show-when="mail_provider=google">Service account with domain-wide delegation (recommended for servers)</span><span data-show-when="mail_provider=smtp">On: send through the SMTP server below</span></label></div>
+          <div class="custom-control custom-radio" data-show-when="mail_provider=microsoft,google"><input type="radio" class="custom-control-input" id="mode-delegated" name="mail_mode" value="delegated" <?= $mode === 'delegated' ? 'checked' : '' ?>>
             <label class="custom-control-label font-weight-normal" for="mode-delegated"><span data-show-when="mail_provider=microsoft">Sign in as a mailbox (Connect with Microsoft)</span><span data-show-when="mail_provider=google">Sign in as a mailbox (Connect with Google)</span></label></div>
         </div>
 
@@ -94,6 +102,21 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <li data-show-when="mail_mode=delegated"><b>Credentials → Create credentials → OAuth client ID → Web application</b>, authorized redirect URI <code><?= e($redirectUri) ?></code>. Paste the client ID and secret below, save, then click <b>Connect with Google</b> and sign in as the sending mailbox.</li>
             </ol>
           </details>
+          <div data-show-when="mail_provider=smtp">
+            <div class="form-row">
+              <div class="form-group col-md-8"><label>SMTP server</label><input name="smtp_host" class="form-control" value="<?= e($v['smtp_host']) ?>" placeholder="smtp.example.com" autocomplete="off" spellcheck="false"></div>
+              <div class="form-group col-md-4"><label>Port</label><input type="number" name="smtp_port" class="form-control" min="1" max="65535" value="<?= e($v['smtp_port']) ?>" placeholder="<?= (int) \Align\Mail\Smtp::port() ?>"></div>
+            </div>
+            <div class="form-group"><label>Security</label><select name="smtp_security" class="custom-select">
+              <?php foreach (\Align\Mail\Smtp::SECURITY as $k => $l): ?><option value="<?= e($k) ?>" <?= $smtpSec === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
+              <small class="text-muted">A user name and password are only sent over an encrypted connection (or to this server itself).</small></div>
+            <div class="form-row">
+              <div class="form-group col-md-6"><label>User name <small class="text-muted">(empty for a relay that trusts this server)</small></label><input name="smtp_user" class="form-control" value="<?= e($v['smtp_user']) ?>" autocomplete="off" spellcheck="false"></div>
+              <div class="col-md-6"><?= $secret('smtp_pass', 'Password or API key') ?></div>
+            </div>
+            <input type="hidden" name="smtp_verify_present" value="1">
+            <div class="custom-control custom-switch mb-3"><input type="checkbox" class="custom-control-input" id="smtp_verify" name="smtp_verify" value="1" <?= ($v['smtp_verify'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="custom-control-label font-weight-normal" for="smtp_verify">Check the server's certificate <small class="text-muted">(switch off only for an internal relay with its own certificate: without the check, someone who can intercept the connection could read the password)</small></label></div>
+          </div>
           <div data-show-when="mail_provider=google;mail_mode=app">
             <?php if ($sa): ?><p class="small text-muted mb-2"><i class="fas fa-key mr-1"></i>Service account <b><?= e($sa['client_email']) ?></b> · client ID <code><?= e($sa['client_id'] ?? '') ?></code> · project <?= e($sa['project_id'] ?? '') ?></p><?php endif; ?>
             <?= $secret('g_sa_json', 'Service account key (JSON)', true, '{ "type": "service_account", "project_id": … }') ?>
@@ -151,7 +174,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
           </div>
 
           <div class="form-row">
-            <div class="form-group col-md-6"><label><span data-show-when="mail_mode=app">From mailbox</span><span data-show-when="mail_provider=microsoft;mail_mode=delegated">Send as <small class="text-muted">(optional shared mailbox)</small></span><span data-show-when="mail_provider=google;mail_mode=delegated">Send as <small class="text-muted">(optional Gmail "Send mail as" alias)</small></span></label>
+            <div class="form-group col-md-6"><label><span data-show-when="mail_provider=microsoft,google;mail_mode=app">From mailbox</span><span data-show-when="mail_provider=smtp">From address</span><span data-show-when="mail_provider=microsoft;mail_mode=delegated">Send as <small class="text-muted">(optional shared mailbox)</small></span><span data-show-when="mail_provider=google;mail_mode=delegated">Send as <small class="text-muted">(optional Gmail "Send mail as" alias)</small></span></label>
               <input type="email" name="mail_from" class="form-control" value="<?= e($v['mail_from']) ?>" placeholder="alerts@yourdomain.com"></div>
             <div class="form-group col-md-6"><label>Display name <small class="text-muted">(optional)</small></label><input name="mail_from_name" class="form-control" value="<?= e($v['mail_from_name']) ?>" placeholder="<?= e(\Align\Settings::get('company_name') ?: 'Your company') ?>"></div>
           </div>
@@ -178,7 +201,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
         <?= csrf_field() ?>
         <div class="input-group"><input type="email" name="to" class="form-control" value="<?= e(\Align\Auth::user()['email'] ?? '') ?>" required <?= $ready ? '' : 'disabled' ?>>
           <div class="input-group-append"><button class="btn btn-primary" <?= $ready ? '' : 'disabled' ?>>Send test</button></div></div>
-        <small class="text-muted">Sent straight away (not queued) so you see the provider's answer here.</small>
+        <small class="text-muted">Sent straight away (not queued) so you see the <?= $provider === 'smtp' ? 'server' : 'provider' ?>'s answer here.</small>
       </form>
     </div>
     <div class="card card-dark">
@@ -189,7 +212,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
           <div class="flex-fill"><div class="h5 mb-0 font-weight-bold <?= $stats['queued'] ? 'text-warning' : '' ?>"><?= (int) $stats['queued'] ?></div><div class="small text-muted">queued</div></div>
           <div class="flex-fill"><div class="h5 mb-0 font-weight-bold <?= $stats['failed7'] ? 'text-danger' : '' ?>"><?= (int) $stats['failed7'] ?></div><div class="small text-muted">failed (7 days)</div></div>
         </div>
-        <p class="small text-muted mb-0 mt-2">Email is sent every minute by the <code>msp-align-mail</code> timer and retried automatically if the provider is unavailable.<?= $stats['last_sent'] ? ' Last sent ' . e(rel_time($stats['last_sent'])) . '.' : '' ?></p>
+        <p class="small text-muted mb-0 mt-2">Email is sent every minute by the <code>msp-align-mail</code> timer and retried automatically if the <?= $provider === 'smtp' ? 'server' : 'provider' ?> is unavailable.<?= $stats['last_sent'] ? ' Last sent ' . e(rel_time($stats['last_sent'])) . '.' : '' ?></p>
       </div>
     </div>
   </div>

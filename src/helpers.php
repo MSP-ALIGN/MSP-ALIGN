@@ -108,25 +108,27 @@ function psa_on(): bool
     return $on ??= \Align\Providers\Providers::psaConfigured();
 }
 
+/** Whole amounts in the chosen currency ($1,234), see Align\Fmt. */
 function money(float|int|string|null $v): string
 {
-    return '$' . number_format((float) $v, 0);
+    return \Align\Fmt::money($v);
 }
 
 /** Money with cents when there are any ($4.50, $22, $1,234.56); for unit prices and license costs. */
 function money_exact(float|int|string|null $v): string
 {
-    $f = round((float) $v, 2);
-    return '$' . number_format($f, fmod($f, 1.0) == 0.0 ? 0 : 2);
+    return \Align\Fmt::money($v, true);
 }
 
-function fmt_date(?string $d): string
+/** A number with the chosen thousands separator (1,234 · 1.234 · 1 234). */
+function num(float|int|string|null $v, int $decimals = 0): string
 {
-    if (!$d) {
-        return '—';
-    }
-    $ts = strtotime($d);
-    return $ts ? date('M j, Y', $ts) : '—';
+    return \Align\Fmt::number($v, $decimals);
+}
+
+function fmt_date(?string $d, string $style = 'date'): string
+{
+    return \Align\Fmt::date($d, $style) ?: '—';
 }
 
 function rel_time(?string $d): string
@@ -172,12 +174,12 @@ function tone_class(string $tone): string
 
 function fmt_datetime(?string $d): string
 {
-    return $d ? date('D M j, Y · g:i a', (int) strtotime($d)) : '—';
+    return \Align\Fmt::dateTime($d) ?: '—';
 }
 
 function fmt_time(?string $d): string
 {
-    return $d ? date('g:i a', (int) strtotime($d)) : '';
+    return \Align\Fmt::time($d);
 }
 
 /** Initials for avatar circles. */
@@ -261,7 +263,7 @@ function fmt_bytes(int|float|string|null $b): string
         $b /= 1024;
         $i++;
     }
-    $n = $i === 0 || $b >= 10 ? number_format($b, 0) : preg_replace('/\.0$/', '', number_format($b, 1));
+    $n = $i === 0 || $b >= 10 ? num($b, 0) : \Align\Fmt::trim($b, 1);
     return $n . ' ' . $units[$i];
 }
 

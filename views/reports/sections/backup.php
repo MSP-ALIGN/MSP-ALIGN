@@ -70,7 +70,7 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
   <div class="bk-strip" role="img" aria-label="Backup results per day">
     <?php foreach ($b['days'] as $d): ?><i class="<?= e($d['tone']) ?>" title="<?= e($d['text']) ?>"></i><?php endforeach; ?>
   </div>
-  <div class="bk-strip-axis"><span><?= e(date('M j', strtotime($b['days'][0]['date']))) ?></span><span>Today</span></div>
+  <div class="bk-strip-axis"><span><?= e(\Align\Fmt::date($b['days'][0]['date'], 'short')) ?></span><span>Today</span></div>
   <div class="legend"><span><i style="background:#3fb67a"></i>All succeeded</span><span><i style="background:#f0b429"></i>Warning</span><span><i style="background:#e5534b"></i>A job failed</span><span><i style="background:#e3e7ec"></i>No runs recorded</span></div>
 
   <?php if ($issues): ?>
@@ -111,7 +111,7 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
       <?php foreach ($b['jobs'] as $j): ?>
         <tr><td><span class="name"><?= e($j['name']) ?></span><?= $j['target'] ? '<div class="sub">to ' . e($j['target']) . '</div>' : '' ?></td>
           <td><?= e($j['kind']) ?></td>
-          <td><?= $j['last_run'] ? e(fmt_date($j['last_run'])) . '<div class="sub">' . e(date('g:i a', strtotime($j['last_run']))) . '</div>' : '<span class="muted">never</span>' ?></td>
+          <td><?= $j['last_run'] ? e(fmt_date($j['last_run'])) . '<div class="sub">' . e(fmt_time($j['last_run'])) . '</div>' : '<span class="muted">never</span>' ?></td>
           <td class="num"><?= $j['duration_sec'] ? e(gmdate($j['duration_sec'] >= 3600 ? 'G\h i\m' : 'i\m', (int) $j['duration_sec'])) : '—' ?></td>
           <td class="status"><?= Ui::pill($j['label'], $j['tone']) ?></td></tr>
       <?php endforeach; ?>
