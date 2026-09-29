@@ -4,5 +4,5 @@ After=mariadb.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/php /opt/mountaineer-align/scripts/agent.php nightly
+ExecStart=/usr/bin/php /opt/msp-align/scripts/agent.php nightly
 Nice=10

@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/php /opt/mountaineer-align/scripts/agent.php run
+ExecStart=/usr/bin/php /opt/msp-align/scripts/agent.php run
 # An update re-runs the installer, which can take several minutes
 TimeoutStartSec=45min
 # Don't let an update's apache/mariadb restarts take this job down with them

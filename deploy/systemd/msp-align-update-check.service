@@ -5,6 +5,6 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/php /opt/mountaineer-align/scripts/agent.php check
+ExecStart=/usr/bin/php /opt/msp-align/scripts/agent.php check
 TimeoutStartSec=5min
 Nice=10

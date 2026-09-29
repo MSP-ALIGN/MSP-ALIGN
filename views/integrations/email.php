@@ -34,7 +34,7 @@ $status = match (true) {
   <a class="btn btn-sm btn-default" href="/settings/notifications/log"><i class="fas fa-list mr-1"></i>Email log<?= $stats['queued'] ? ' <span class="badge badge-warning">' . (int) $stats['queued'] . ' queued</span>' : '' ?></a>
 </div>
 <?php if (!$baseUrlSet): ?>
-  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><code>base_url</code> is not set in <code>/etc/mountaineer-align/config.php</code>. Links in emails and the sign-in redirect are built from it, so set it to the address people use (for example https://align.example.com).</div>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><code>base_url</code> is not set in <code>/etc/msp-align/config.php</code>. Links in emails and the sign-in redirect are built from it, so set it to the address people use (for example https://align.example.com).</div>
 <?php endif; ?>
 
 <div class="row">
@@ -189,7 +189,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
           <div class="flex-fill"><div class="h5 mb-0 font-weight-bold <?= $stats['queued'] ? 'text-warning' : '' ?>"><?= (int) $stats['queued'] ?></div><div class="small text-muted">queued</div></div>
           <div class="flex-fill"><div class="h5 mb-0 font-weight-bold <?= $stats['failed7'] ? 'text-danger' : '' ?>"><?= (int) $stats['failed7'] ?></div><div class="small text-muted">failed (7 days)</div></div>
         </div>
-        <p class="small text-muted mb-0 mt-2">Email is sent every minute by the <code>mountaineer-align-mail</code> timer and retried automatically if the provider is unavailable.<?= $stats['last_sent'] ? ' Last sent ' . e(rel_time($stats['last_sent'])) . '.' : '' ?></p>
+        <p class="small text-muted mb-0 mt-2">Email is sent every minute by the <code>msp-align-mail</code> timer and retried automatically if the provider is unavailable.<?= $stats['last_sent'] ? ' Last sent ' . e(rel_time($stats['last_sent'])) . '.' : '' ?></p>
       </div>
     </div>
   </div>

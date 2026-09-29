@@ -7,8 +7,8 @@ use Align\Config;
 
 /**
  * The web app's side of the system agent (scripts/agent.php, run as root by systemd).
- * The web server can't run programs, so it drops a small JSON request in /run/mountaineer-align/requests
- * and reads the job's progress from /var/lib/mountaineer-align/agent/jobs.
+ * The web server can't run programs, so it drops a small JSON request in /run/msp-align/requests
+ * and reads the job's progress from /var/lib/msp-align-agent/jobs.
  */
 final class Agent
 {
@@ -19,19 +19,25 @@ final class Agent
         'restore' => 'Restore', 'keycheck' => 'Check backup key', 'purge_legacy' => 'Delete old server backups', 'delete_safety' => 'Delete safety copy',
     ];
 
+    /** The msp-align folder, or the mountaineer-align one on a server that hasn't moved yet (before 1.35). */
+    private static function installPath(string $new, string $old): string
+    {
+        return is_dir($new) || !is_dir($old) ? $new : $old;
+    }
+
     public static function dataDir(): string
     {
-        return rtrim((string) Config::get('data_dir', '/var/lib/mountaineer-align'), '/');
+        return rtrim((string) Config::get('data_dir', self::installPath('/var/lib/msp-align', '/var/lib/mountaineer-align')), '/');
     }
 
     public static function runDir(): string
     {
-        return rtrim((string) Config::get('run_dir', '/run/mountaineer-align'), '/');
+        return rtrim((string) Config::get('run_dir', self::installPath('/run/msp-align', '/run/mountaineer-align')), '/');
     }
 
     public static function agentDir(): string
     {
-        return rtrim((string) Config::get('agent_dir', '/var/lib/mountaineer-align-agent'), '/');
+        return rtrim((string) Config::get('agent_dir', self::installPath('/var/lib/msp-align-agent', '/var/lib/mountaineer-align-agent')), '/');
     }
 
     private static function state(string $f = ''): string

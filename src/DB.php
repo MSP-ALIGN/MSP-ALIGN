@@ -18,7 +18,7 @@ final class DB
     {
         if (self::$pdo === null) {
             $host = Config::get('db.host', 'localhost');
-            $name = Config::get('db.name', 'mountaineer_align');
+            $name = Config::get('db.name', 'msp_align');
             $dsn = str_starts_with($host, '/')
                 ? "mysql:unix_socket=$host;dbname=$name;charset=utf8mb4"
                 : "mysql:host=$host;dbname=$name;charset=utf8mb4";

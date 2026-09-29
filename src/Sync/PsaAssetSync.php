@@ -13,7 +13,7 @@ use Align\Settings;
  * Two-way asset sync between Align devices and the PSA's assets.
  *
  * PSAs rarely have webhooks, so changes made there are picked up by polling (every 2 minutes via the
- * mountaineer-align-psa timer, running `align psa:poll`). Changes made in Align are pushed the
+ * msp-align-psa timer, running `align psa:poll`). Changes made in Align are pushed the
  * moment they're saved.
  *
  * For every linked device and field we keep the last value both systems agreed on (the baseline).

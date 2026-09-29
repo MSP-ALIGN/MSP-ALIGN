@@ -28,7 +28,7 @@ final class Branding
         $dir = Config::get('upload_path');
         if (!$dir) {
             $sessions = (string) Config::get('session_path', '');
-            $dir = $sessions ? dirname($sessions) . '/uploads' : '/var/lib/mountaineer-align/uploads';
+            $dir = $sessions ? dirname($sessions) . '/uploads' : (is_dir('/var/lib/msp-align') || !is_dir('/var/lib/mountaineer-align') ? '/var/lib/msp-align/uploads' : '/var/lib/mountaineer-align/uploads');
         }
         return rtrim((string) $dir, '/');
     }

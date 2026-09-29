@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
+# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 # =============================================================================
 #  MSP-ALIGN - installer / upgrader for Debian 13 (trixie)
 #
@@ -22,20 +22,25 @@ umask 022
 
 REPO="${ALIGN_REPO:-MSP-ALIGN/MSP-ALIGN}"
 OLD_REPO=MountaineerIT/mountaineer-align   # where the project lived before 1.30.1
-APP_DIR=/opt/mountaineer-align
-CONF_DIR=/etc/mountaineer-align
+APP_DIR=/opt/msp-align
+CONF_DIR=/etc/msp-align
 CONF_FILE="$CONF_DIR/config.php"
+# Before 1.35 everything on the server was named mountaineer-align (see scripts/move-install.sh)
+OLD_APP_DIR=/opt/mountaineer-align
+OLD_CONF_FILE=/etc/mountaineer-align/config.php
+[[ -r "$CONF_FILE" || ! -r "$OLD_CONF_FILE" ]] || CONF_FILE_NOW=$OLD_CONF_FILE
 # Updates come from ALIGN_BRANCH, else the install's own setting ('update_branch' in config.php), else main
-CONF_BRANCH=$( [[ -r "$CONF_FILE" ]] && command -v php >/dev/null && php -r '$c = @include $argv[1]; echo is_array($c) ? (string) ($c["update_branch"] ?? "") : "";' "$CONF_FILE" 2>/dev/null || true)
+CONF_BRANCH=$( [[ -r "${CONF_FILE_NOW:-$CONF_FILE}" ]] && command -v php >/dev/null && php -r '$c = @include $argv[1]; echo is_array($c) ? (string) ($c["update_branch"] ?? "") : "";' "${CONF_FILE_NOW:-$CONF_FILE}" 2>/dev/null || true)
 BRANCH="${ALIGN_BRANCH:-${CONF_BRANCH:-main}}"
 [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,59}$ && "$BRANCH" != *..* ]] || BRANCH=main
 TOKEN_FILE="$CONF_DIR/github-token"
-DATA_DIR=/var/lib/mountaineer-align
-BACKUP_DIR=/var/backups/mountaineer-align   # old nightly backups (before 1.14); no longer written
-AGENT_DIR=/var/lib/mountaineer-align-agent
-DB_NAME=mountaineer_align
+DATA_DIR=/var/lib/msp-align
+BACKUP_DIR=/var/backups/mountaineer-align   # old nightly backups (before 1.14); no longer written, name kept
+AGENT_DIR=/var/lib/msp-align-agent
+DB_NAME=msp_align   # new installs; an existing install keeps its database name (read from config.php below)
 DB_USER=align
-SITE=mountaineer-align
+SITE=msp-align
+PRIVKEY_FILE=/root/msp-align-backup-key.txt
 
 MODE=install
 [[ "${1:-}" == "--upgrade" ]] && MODE=upgrade
@@ -80,9 +85,47 @@ if [[ "${VERSION_ID:-}" != "13" && "${ALIGN_FORCE:-}" != "1" ]]; then
   die "This installer targets Debian 13 (found: ${PRETTY_NAME:-unknown}). Set ALIGN_FORCE=1 to try anyway."
 fi
 
-if [[ -f "$CONF_FILE" && "$MODE" == "install" ]]; then
+if [[ -f "$CONF_FILE" || -f "$OLD_CONF_FILE" ]] && [[ "$MODE" == "install" ]]; then
   log "Existing install found - running as an upgrade."
   MODE=upgrade
+fi
+
+# 1.35: an install still (or partly) in the mountaineer-align folders moves to msp-align first; the old names
+# keep working as links. The mover is safe to run again, so it runs until nothing is left to move. It comes
+# with the code; run through curl | bash on an old server, it's taken from the branch being installed.
+MOVER=""
+for m in "$APP_DIR/scripts/move-install.sh" "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-/dev/null}")")/scripts/move-install.sh"; do
+  [[ -f "$m" ]] && { MOVER=$m; break; }
+done
+OLD_LEFT=0
+for d in "$OLD_APP_DIR" /etc/mountaineer-align /var/lib/mountaineer-align /var/lib/mountaineer-align-agent /run/mountaineer-align; do
+  [[ -d "$d" && ! -L "$d" ]] && OLD_LEFT=1
+done
+[[ -e /etc/apache2/sites-available/mountaineer-align.conf ]] && OLD_LEFT=1
+if [[ -z "$MOVER" && $OLD_LEFT == 1 ]]; then
+  GIT_AT=$APP_DIR; [[ -d "$GIT_AT/.git" ]] || GIT_AT=$OLD_APP_DIR
+  MOVER=$(mktemp); MOVER_TMP=$MOVER
+  git -C "$GIT_AT" fetch -q origin "$BRANCH" && git -C "$GIT_AT" show "origin/$BRANCH:scripts/move-install.sh" >"$MOVER" \
+    || die "Could not get scripts/move-install.sh from $(git -C "$GIT_AT" remote get-url origin 2>/dev/null) ($BRANCH)."
+fi
+if [[ -n "$MOVER" ]] && bash "$MOVER" --pending; then
+  log "Moving to the msp-align folders"
+  bash "$MOVER" || die "Moving to the msp-align folders stopped (see above). Nothing was lost: fix what it says and run the update again."
+  # The web app now drops its requests in /run/msp-align: watch there from now on (the running agent is left alone)
+  if [[ -f /etc/systemd/system/mountaineer-align-agent.path && -f "$APP_DIR/deploy/systemd/msp-align-agent.path" ]]; then
+    install -m 644 "$APP_DIR/deploy/systemd/msp-align-agent.path" "$APP_DIR/deploy/systemd/msp-align-agent.service" /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl disable -q --now mountaineer-align-agent.path 2>/dev/null || true
+    rm -f /etc/systemd/system/mountaineer-align-agent.path
+    systemctl enable -q --now msp-align-agent.path || warn "Could not start msp-align-agent.path (the installer tries again below)."
+  fi
+fi
+[[ -n "${MOVER_TMP:-}" ]] && rm -f "$MOVER_TMP"
+
+unset CONF_FILE_NOW
+if [[ -r "$CONF_FILE" ]] && command -v php >/dev/null; then
+  DB_NAME=$(php -r '$c = require $argv[1]; echo $c["db"]["name"] ?? "";' "$CONF_FILE" 2>/dev/null || true)
+  DB_NAME=${DB_NAME:-mountaineer_align}
 fi
 
 echo
@@ -149,13 +192,16 @@ install -d -m 750 -o www-data -g www-data "$DATA_DIR/uploads"
 install -d -m 750 -o www-data -g www-data "$DATA_DIR/downloads" "$DATA_DIR/restore"
 install -d -m 750 -o root -g www-data "$AGENT_DIR" "$AGENT_DIR/jobs" "$AGENT_DIR/safety"
 install -d -m 700 -o root -g root "$AGENT_DIR/work"
-cat >/etc/tmpfiles.d/mountaineer-align.conf <<'EOF'
-# Managed by the MSP-ALIGN installer
-d /run/mountaineer-align 0755 root root -
-d /run/mountaineer-align/requests 0770 root www-data -
-d /run/mountaineer-align/keys 0700 root root -
-EOF
-systemd-tmpfiles --create /etc/tmpfiles.d/mountaineer-align.conf
+{
+  echo "# Managed by the MSP-ALIGN installer"
+  echo "d /run/msp-align 0755 root root -"
+  echo "d /run/msp-align/requests 0770 root www-data -"
+  echo "d /run/msp-align/keys 0700 root root -"
+  # an install moved from the old names keeps /run/mountaineer-align working after a reboot too
+  if [[ -L "$OLD_APP_DIR" ]]; then echo "L /run/mountaineer-align - - - - /run/msp-align"; fi
+} >/etc/tmpfiles.d/msp-align.conf
+rm -f /etc/tmpfiles.d/mountaineer-align.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/msp-align.conf
 
 # ----------------------------------------------------- backup encryption key --
 # Downloaded backups are encrypted to an age public key. The private key is shown once and must be
@@ -168,7 +214,7 @@ if [[ ! -s "$CONF_DIR/backup-recipient.txt" ]]; then
   age-keygen -o "$KEYTMP" 2>/dev/null
   age-keygen -y "$KEYTMP" >"$CONF_DIR/backup-recipient.txt"
   chmod 640 "$CONF_DIR/backup-recipient.txt"
-  install -m 600 "$KEYTMP" /root/mountaineer-align-backup-key.txt
+  install -m 600 "$KEYTMP" "$PRIVKEY_FILE"
   rm -f "$KEYTMP"
   BACKUP_PRIV_SHOWN=1
   # Encrypt backups made before encryption was turned on
@@ -282,7 +328,7 @@ if [[ "$(mariadb -N "$DB_NAME" -e 'SELECT COUNT(*) FROM users')" == "0" ]]; then
 fi
 
 # --------------------------------------------------------------------- PHP --
-cat >"/etc/php/$PHPV/apache2/conf.d/99-mountaineer-align.ini" <<'INI'
+cat >"/etc/php/$PHPV/apache2/conf.d/99-msp-align.ini" <<'INI'
 expose_php = Off
 display_errors = Off
 log_errors = On
@@ -303,7 +349,7 @@ allow_url_fopen = Off
 allow_url_include = Off
 disable_functions = passthru,shell_exec,system,proc_open,popen,pcntl_exec,dl
 INI
-cat >"/etc/php/$PHPV/apache2/conf.d/99-mountaineer-align-performance.ini" <<'INI'
+cat >"/etc/php/$PHPV/apache2/conf.d/99-msp-align-performance.ini" <<'INI'
 ; Managed by the MSP-ALIGN installer
 opcache.enable = 1
 opcache.memory_consumption = 128
@@ -321,7 +367,7 @@ a2enmod -q headers ssl rewrite deflate >/dev/null
 a2dissite -q 000-default >/dev/null 2>&1 || true
 
 a2enmod -q reqtimeout >/dev/null 2>&1 || true
-cat >/etc/apache2/conf-available/mountaineer-align-hardening.conf <<'EOF'
+cat >/etc/apache2/conf-available/msp-align-hardening.conf <<'EOF'
 # Managed by the MSP-ALIGN installer (rewritten on every update)
 ServerTokens Prod
 ServerSignature Off
@@ -351,15 +397,15 @@ Header always unset X-Powered-By
         php_value post_max_size 2000M
         php_value max_input_time 1800
         php_value max_execution_time 1800
-        php_admin_value upload_tmp_dir /var/lib/mountaineer-align/restore
+        php_admin_value upload_tmp_dir /var/lib/msp-align/restore
     </IfModule>
 </Location>
 
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
-<Directory /opt/mountaineer-align/public/assets>
+<Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"
 </Directory>
-<Directory /opt/mountaineer-align/public/vendor>
+<Directory /opt/msp-align/public/vendor>
     Header set Cache-Control "public, max-age=2592000"
 </Directory>
 
@@ -373,7 +419,7 @@ SetEnvIf Request_URI "^/portal/invite/" align_secret_url
 # REST API: make sure "Authorization: Bearer <key>" reaches PHP (PHP-FPM setups drop it otherwise)
 SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 EOF
-a2enconf -q mountaineer-align-hardening >/dev/null
+a2enconf -q msp-align-hardening >/dev/null
 
 APP_BLOCK=$(cat <<EOF
     DocumentRoot $APP_DIR/public
@@ -389,8 +435,8 @@ APP_BLOCK=$(cat <<EOF
     <FilesMatch "^\.">
         Require all denied
     </FilesMatch>
-    ErrorLog \${APACHE_LOG_DIR}/mountaineer-align-error.log
-    CustomLog \${APACHE_LOG_DIR}/mountaineer-align-access.log combined env=!align_secret_url
+    ErrorLog \${APACHE_LOG_DIR}/msp-align-error.log
+    CustomLog \${APACHE_LOG_DIR}/msp-align-access.log combined env=!align_secret_url
 EOF
 )
 VHOST=/etc/apache2/sites-available/$SITE.conf
@@ -442,19 +488,19 @@ EOF
     ;;
 esac
 # Older vhosts: stop logging secret URLs (the vhost itself is only written on first install)
-[[ -f "$VHOST" ]] && sed -i -E 's#(CustomLog .*mountaineer-align-access\.log combined)$#\1 env=!align_secret_url#' "$VHOST"
+[[ -f "$VHOST" ]] && sed -i -E 's#(CustomLog .*(mountaineer|msp)-align-access\.log combined)$#\1 env=!align_secret_url#' "$VHOST"
 
 # Proxy mode: only the reverse proxy (and this machine) may talk to Apache, so nobody can bypass
 # the proxy's TLS and WAF by connecting to port 80 directly.
 if [[ "$ALIGN_TLS" == "proxy" && -n "${ALIGN_PROXY_IP:-}" ]]; then
   PROXY_LIST=$(echo "$ALIGN_PROXY_IP" | tr ',' ' ')
-  cat >/etc/apache2/conf-available/mountaineer-align-proxy-only.conf <<EOF
+  cat >/etc/apache2/conf-available/msp-align-proxy-only.conf <<EOF
 # Managed by the MSP-ALIGN installer
 <Location "/">
     Require ip $PROXY_LIST 127.0.0.1 ::1
 </Location>
 EOF
-  a2enconf -q mountaineer-align-proxy-only >/dev/null
+  a2enconf -q msp-align-proxy-only >/dev/null
 fi
 a2ensite -q "$SITE" >/dev/null
 apache2ctl configtest 2>&1 | grep -v "Syntax OK" || true
@@ -473,7 +519,7 @@ fi
 
 # ----------------------------------------------------------------- MariaDB --
 log "Hardening MariaDB"
-MYCNF=/etc/mysql/mariadb.conf.d/60-mountaineer-align.cnf
+MYCNF=/etc/mysql/mariadb.conf.d/60-msp-align.cnf
 KEYDIR=/etc/mysql/encryption
 NEED_RESTART=0
 {
@@ -516,19 +562,21 @@ if [[ "${ALIGN_DB_ENCRYPT:-1}" == "1" && -f "$MYCNF" ]]; then
 fi
 
 # --------------------------------------------------------- fail2ban & firewall --
-cat >/etc/fail2ban/filter.d/mountaineer-align.conf <<'EOF'
+rm -f /etc/fail2ban/filter.d/mountaineer-align.conf /etc/fail2ban/jail.d/mountaineer-align.conf   # names before 1.35
+cat >/etc/fail2ban/filter.d/msp-align.conf <<'EOF'
 # Failed MSP-ALIGN sign-ins (staff and client portal), logged by the app with the real client IP
+# ([mountaineer-align] is how versions before 1.35 tagged them)
 [Definition]
-failregex = \[mountaineer-align\] auth failure kind=\S+ ip=<HOST>
+failregex = \[(?:msp|mountaineer)-align\] auth failure kind=\S+ ip=<HOST>
 ignoreregex =
 EOF
 if [[ "$ALIGN_TLS" != "proxy" ]]; then
-  cat >/etc/fail2ban/jail.d/mountaineer-align.conf <<'EOF'
-[mountaineer-align]
+  cat >/etc/fail2ban/jail.d/msp-align.conf <<'EOF'
+[msp-align]
 enabled  = true
 port     = http,https
-filter   = mountaineer-align
-logpath  = /var/log/apache2/mountaineer-align-error.log
+filter   = msp-align
+logpath  = /var/log/apache2/msp-align-error.log
 backend  = auto
 maxretry = 10
 findtime = 10m
@@ -536,7 +584,7 @@ bantime  = 1h
 EOF
 else
   # Behind a proxy every request comes from the proxy's IP, so ban at the proxy/WAF instead.
-  rm -f /etc/fail2ban/jail.d/mountaineer-align.conf
+  rm -f /etc/fail2ban/jail.d/msp-align.conf
 fi
 systemctl enable -q fail2ban 2>/dev/null || true
 systemctl restart fail2ban 2>/dev/null || warn "fail2ban did not start - check: journalctl -u fail2ban"
@@ -559,21 +607,35 @@ fi
 # ----------------------------------------------------------------- systemd --
 log "Installing scheduled jobs"
 # 1.14: nightly backups on the server are replaced by backups downloaded through the browser
-# 1.34: the PSA poll timer was named after ITFlow (mountaineer-align-itflow); it is now mountaineer-align-psa
-if [[ -f /etc/systemd/system/mountaineer-align-itflow.timer ]]; then
-  systemctl disable -q --now mountaineer-align-itflow.timer 2>/dev/null || true
-  rm -f /etc/systemd/system/mountaineer-align-itflow.timer /etc/systemd/system/mountaineer-align-itflow.service
+# 1.35: the units were named mountaineer-align-* (and the PSA poll timer -itflow before 1.34); they are now
+# msp-align-*. Timers and the request watcher stop and go; a service that is running right now (this update
+# runs inside mountaineer-align-agent.service) is never stopped, only disabled, and finishes normally.
+for u in sync psa itflow mail nightly update-check; do
+  if [[ -f /etc/systemd/system/mountaineer-align-$u.timer ]]; then
+    systemctl disable -q --now "mountaineer-align-$u.timer" 2>/dev/null || true
+    rm -f "/etc/systemd/system/mountaineer-align-$u.timer"
+  fi
+done
+if [[ -f /etc/systemd/system/mountaineer-align-agent.path ]]; then
+  systemctl disable -q --now mountaineer-align-agent.path 2>/dev/null || true
+  rm -f /etc/systemd/system/mountaineer-align-agent.path
 fi
+for u in sync psa itflow mail nightly update-check agent; do
+  if [[ -f /etc/systemd/system/mountaineer-align-$u.service ]]; then
+    systemctl disable -q "mountaineer-align-$u.service" 2>/dev/null || true
+    rm -f "/etc/systemd/system/mountaineer-align-$u.service"
+  fi
+done
 if [[ -f /etc/systemd/system/mountaineer-align-backup.timer ]]; then
   systemctl disable -q --now mountaineer-align-backup.timer 2>/dev/null || true
   rm -f /etc/systemd/system/mountaineer-align-backup.timer /etc/systemd/system/mountaineer-align-backup.service
 fi
 install -m 644 "$APP_DIR"/deploy/systemd/*.service "$APP_DIR"/deploy/systemd/*.timer "$APP_DIR"/deploy/systemd/*.path /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable -q --now mountaineer-align-sync.timer mountaineer-align-psa.timer mountaineer-align-mail.timer \
-  mountaineer-align-nightly.timer mountaineer-align-update-check.timer mountaineer-align-agent.path
+systemctl enable -q --now msp-align-sync.timer msp-align-psa.timer msp-align-mail.timer \
+  msp-align-nightly.timer msp-align-update-check.timer msp-align-agent.path
 # First update check, in the background (waits for a running update to finish first)
-systemctl start --no-block mountaineer-align-update-check.service 2>/dev/null || true
+systemctl start --no-block msp-align-update-check.service 2>/dev/null || true
 
 # Commands: msp-align-update / msp-align-restore. The names from before the rename
 # (mountaineer-align-update / -restore) are kept as aliases so scripts and habits keep working.
@@ -613,11 +675,11 @@ echo "  Backups:   Settings -> Updates & backups -> Download backup (encrypted; 
 if [[ -n "$BACKUP_PRIV_SHOWN" ]]; then
   echo
   printf '%s  BACKUP DECRYPTION KEY - store it offline now (password manager or safe).%s\n' "$c_warn$c_b" "$c_0"
-  echo "  Without it the backups cannot be restored. It is also saved in /root/mountaineer-align-backup-key.txt;"
-  echo "  delete that file once you have a copy:  sudo shred -u /root/mountaineer-align-backup-key.txt"
+  echo "  Without it the backups cannot be restored. It is also saved in $PRIVKEY_FILE;"
+  echo "  delete that file once you have a copy:  sudo shred -u $PRIVKEY_FILE"
   echo
-  grep '^AGE-SECRET-KEY' /root/mountaineer-align-backup-key.txt | sed 's/^/    /'
-elif [[ -f /root/mountaineer-align-backup-key.txt ]]; then
-  warn "The backup private key is still on this server (/root/mountaineer-align-backup-key.txt). Store it offline, then shred it."
+  grep '^AGE-SECRET-KEY' "$PRIVKEY_FILE" | sed 's/^/    /'
+elif [[ -f "$PRIVKEY_FILE" ]]; then
+  warn "The backup private key is still on this server ($PRIVKEY_FILE). Store it offline, then shred it."
 fi
 echo

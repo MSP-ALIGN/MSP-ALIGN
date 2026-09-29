@@ -93,7 +93,7 @@ final class Security
     public static function logAuthFailure(string $kind): void
     {
         if (PHP_SAPI !== 'cli') {
-            error_log('[mountaineer-align] auth failure kind=' . $kind . ' ip=' . client_ip());
+            error_log('[msp-align] auth failure kind=' . $kind . ' ip=' . client_ip());
         }
     }
 

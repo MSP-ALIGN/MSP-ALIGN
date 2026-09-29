@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - send email and notifications
+Description=MSP-ALIGN - sync ITFlow and NinjaOne
 After=network-online.target mariadb.service
 Wants=network-online.target
 
@@ -7,8 +7,8 @@ Wants=network-online.target
 Type=oneshot
 User=www-data
 Group=www-data
-ExecStart=/usr/bin/php /opt/mountaineer-align/bin/align mail:run --quiet
-TimeoutStartSec=10min
+ExecStart=/usr/bin/php /opt/msp-align/bin/align sync --trigger=schedule --quiet
+TimeoutStartSec=45min
 Nice=5
 NoNewPrivileges=yes
 PrivateTmp=yes
