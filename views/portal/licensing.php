@@ -1,15 +1,18 @@
 <?php
 use Align\Licensing\Licenses;
 
-/** @var array $licenses, $totals */
+/** @var array $licenses, $totals, $subs; bool $canSubmit */
 $groups = [];
 foreach ($licenses as $l) {
     $groups[$l['category']][] = $l;
 }
 uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES)) <=> array_search($b, array_keys(Licenses::CATEGORIES)));
 ?>
-<div class="mb-3"><h1 class="h4 mb-0"><i class="fas fa-key mr-2 text-secondary"></i>Licensing</h1>
-  <div class="small text-muted">Software subscriptions and licenses your IT provider manages for you.</div></div>
+<div class="d-flex flex-wrap align-items-center portal-page-head">
+  <div class="mr-auto"><h1 class="h4 mb-0"><i class="fas fa-key mr-2 text-secondary"></i>Licensing</h1>
+    <div class="small text-muted">Software subscriptions and licenses your IT provider manages for you.</div></div>
+  <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0" data-toggle="modal" data-target="#modal-suggest"><i class="fas fa-plus mr-1"></i>Suggest a license</button><?php endif; ?>
+</div>
 
 <div class="row">
   <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Monthly</span><span class="info-box-number"><?= money_exact($totals['monthly']) ?></span></div></div></div>
@@ -18,6 +21,7 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
   <div class="col-md-3 col-6"><div class="info-box"><span class="info-box-icon bg-warning"><i class="fas fa-calendar-check"></i></span><div class="info-box-content"><span class="info-box-text">Renewing soon</span><span class="info-box-number"><?= count($totals['renewals']) ?></span></div></div></div>
 </div>
 
+<?= \Align\View::fetch('portal/_suggestions', ['kind' => 'license', 'subs' => $subs, 'canSubmit' => $canSubmit, 'pu' => $pu]) ?>
 <div class="card">
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 license-table">

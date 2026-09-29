@@ -30,6 +30,7 @@ final class LicenseController
             'showRetired' => $showRetired,
             'back' => "/clients/$id/licenses" . ($showRetired ? '?retired=1' : ''),
             'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($id), fn($d) => str_ends_with($d['link'], '/licenses'))),
+            'subs' => \Align\Portal\Submissions::pending($id, 'license'),
         ]);
     }
 
@@ -134,9 +135,21 @@ final class LicenseController
             flash('error', 'Give the license a name.');
             redirect($back);
         }
-        DB::insert('licenses', $f + ['client_id' => $clientId, 'source' => 'manual', 'created_by' => Auth::id()]);
-        Audit::log('license.create', "{$client['name']}: {$f['name']}");
-        flash('success', "Added {$f['name']}.");
+        // Accepting a client's suggestion (1.39): the item and the "added" mark are saved together, once
+        $subId = ctype_digit(post('submission_id')) ? (int) post('submission_id') : 0;
+        try {
+            DB::transaction(function () use ($f, $clientId, $subId) {
+                $newId = (int) DB::insert('licenses', $f + ['client_id' => $clientId, 'source' => 'manual', 'created_by' => Auth::id()]);
+                if ($subId && !\Align\Portal\Submissions::accept($subId, $clientId, 'license', $newId, Auth::id())) {
+                    throw new \DomainException('already decided');
+                }
+            });
+        } catch (\DomainException) {
+            flash('error', 'That suggestion was already reviewed, so nothing was added.');
+            redirect($back);
+        }
+        Audit::log($subId ? 'portal.submission_accepted' : 'license.create', "{$client['name']}: {$f['name']}");
+        flash('success', "Added {$f['name']}." . ($subId ? ' The client sees it as added.' : ''));
         redirect($back);
     }
 

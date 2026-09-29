@@ -1,7 +1,7 @@
 <?php
 use Align\Budget\Budget;
 
-/** @var array $b, $dates; int $year */
+/** @var array $b, $dates, $subs; int $year; bool $canSubmit */
 $yr = $b['years'][$year];
 $qIdx = array_keys(array_filter($b['quarters'], fn($q) => $q['year'] === $year));
 $byCat = [];
@@ -11,11 +11,12 @@ foreach ($b['lines'] as $l) {
     }
 }
 ?>
-<div class="d-flex flex-wrap align-items-center mb-3">
+<div class="d-flex flex-wrap align-items-center portal-page-head">
   <h1 class="h4 mb-0 mr-3"><i class="fas fa-coins text-secondary mr-2"></i>Technology budget</h1>
   <div class="btn-group btn-group-sm mr-auto mt-2 mt-md-0">
     <?php foreach ($b['years'] as $y => $yy): ?><a class="btn <?= $y === $year ? 'btn-primary' : 'btn-default' ?>" href="?year=<?= $y ?>"><?= e($yy['label']) ?></a><?php endforeach; ?>
   </div>
+  <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0 mr-2" data-toggle="modal" data-target="#modal-suggest"><i class="fas fa-plus mr-1"></i>Suggest a cost</button><?php endif; ?>
   <a class="btn btn-sm btn-default mt-2 mt-md-0" href="/portal/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print mr-1"></i>Print budget</a>
 </div>
 
@@ -26,6 +27,7 @@ foreach ($b['lines'] as $l) {
   <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-teal"><i class="fas fa-calendar-day"></i></span><div class="info-box-content"><span class="info-box-text">Average per month</span><span class="info-box-number"><?= money($yr['total'] / 12) ?></span><span class="small text-muted">across <?= e($yr['label']) ?></span></div></div></div>
 </div>
 
+<?= \Align\View::fetch('portal/_suggestions', ['kind' => 'budget', 'subs' => $subs, 'canSubmit' => $canSubmit, 'pu' => $pu]) ?>
 <div class="card">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column mr-2 text-secondary"></i>3-year budget by quarter</h3></div>
   <div class="card-body pb-2"><?= \Align\View::fetch('budget/_chart', ['b' => $b, 'year' => $year]) ?></div>

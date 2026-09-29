@@ -235,7 +235,7 @@ $cards['planning'] = function () use ($planning, $cardHead) {
 };
 
 $cards['portal'] = function () use ($clientActivity, $cardHead) {
-    $icon = ['portal.project_approved' => 'fa-circle-check text-success', 'portal.project_declined' => 'fa-circle-xmark text-secondary'];
+    $icon = ['portal.project_approved' => 'fa-circle-check text-success', 'portal.project_declined' => 'fa-circle-xmark text-secondary', 'portal.submission' => 'fa-paper-plane text-warning'];
     ob_start(); ?>
     <div class="card card-outline card-info">
       <?= $cardHead('portal') ?>
@@ -244,7 +244,7 @@ $cards['portal'] = function () use ($clientActivity, $cardHead) {
         <?php foreach ($clientActivity as $a): $isProj = str_starts_with($a['action'], 'portal.project_'); ?>
           <li class="list-group-item py-2"><i class="fas fa-fw <?= $icon[$a['action']] ?? 'fa-address-book text-muted' ?> mr-1"></i>
             <b><?= e($a['portal_name']) ?></b> <?= e(\Align\Controllers\AuditController::portalLabel($a['action'])) ?>:
-            <a href="/clients/<?= (int) $a['client_id'] ?>/<?= $isProj ? 'roadmap' : 'contacts' ?>"><?= e(preg_replace('/^' . preg_quote($a['client_name'], '/') . ':\s*/', '', (string) $a['detail'])) ?></a>
+            <a href="/clients/<?= (int) $a['client_id'] ?>/<?= $isProj ? 'roadmap' : ($a['action'] === 'portal.submission' ? (str_contains((string) $a['detail'], ': Budget item') ? 'budget' : 'licenses') . '#client-submissions' : 'contacts') ?>"><?= e(preg_replace('/^' . preg_quote($a['client_name'], '/') . ':\s*/', '', (string) $a['detail'])) ?></a>
             <div class="text-muted"><?= e($a['client_name']) ?> · <?= e(rel_time($a['created_at'])) ?></div></li>
         <?php endforeach; ?>
       </ul>

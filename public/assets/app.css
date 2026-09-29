@@ -261,10 +261,22 @@ a.rm-item:hover { text-decoration: none; background: #f8f9fa; color: #343a40; }
 .portal .content-wrapper { min-height: calc(100vh - 110px); }
 .portal-date { min-width: 70px; }
 .portal-doc { max-width: 900px; }
-.portal .navbar-brand .brand-text { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (min-width: 1200px) { .portal .navbar-nav .nav-link { padding-left: .55rem; padding-right: .55rem; } }
-.portal .navbar .nav-link.active { background: rgba(255,255,255,.15); border-radius: .25rem; }
-@media (max-width: 575.98px) { .portal .navbar-brand .brand-text { max-width: 150px; } .portal .navbar-brand .portal-brand-img { max-height: 26px; } }
+.portal .navbar-brand .brand-text { max-width: min(60vw, 640px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 575.98px) { .portal .navbar-brand .portal-brand-img { max-height: 26px; } }
+/* 1.39: the sections sit on their own row under the header */
+.portal-sections { position: sticky; top: 0; z-index: 1030; }
+.portal-sections .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.portal-sections .nav-link { color: #495057; white-space: nowrap; padding: .6rem .75rem; border-bottom: 3px solid transparent; }
+.portal-sections .nav-link:hover { color: var(--primary, #007bff); }
+.portal-sections .nav-link.active { color: var(--primary, #007bff); border-bottom-color: var(--primary, #007bff); font-weight: 600; }
+.portal-sections .nav-link .fa-fw { opacity: .75; }
+.portal .main-header.portal-top { border-bottom: 0; }
+.portal-page-head { margin-bottom: 1rem; }
+.portal-page-head h1 { font-size: 1.5rem; margin-bottom: .15rem; }
+.portal-status { font-size: .75rem; }
+.portal-it-team .user-initials-lg { width: 44px; height: 44px; }
+.portal .info-box { min-height: 86px; }
+.portal [id] { scroll-margin-top: 3.5rem; } /* anchors land below the sticky section bar */
 .idle-warning { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 2000; max-width: 92vw; }
 
 /* ---- Typography: match ITFlow's reading size ----

@@ -3,7 +3,7 @@ use Align\Portal\PortalAuth;
 
 /** @var ?array $u existing portal user (null = defaults for a new one); $pid unique id prefix */
 $u = $u ?? null;
-$def = ['can_roadmap' => 1, 'can_budget' => 0, 'can_devices' => 1, 'can_documents' => 1, 'can_approve' => 0, 'can_contacts' => 0];
+$def = ['can_roadmap' => 1, 'can_budget' => 0, 'can_devices' => 1, 'can_documents' => 1, 'can_approve' => 0, 'can_submit' => 1, 'can_contacts' => 0];
 $val = fn(string $k) => $u ? (int) $u[$k] : $def[$k];
 $hints = [
     'can_roadmap' => 'Roadmap, projects and replacement timeline',
@@ -11,7 +11,8 @@ $hints = [
     'can_devices' => 'Device list, health and compliance scores',
     'can_documents' => 'Shared documents, contacts and meetings',
     'can_approve' => 'Needs Roadmap & projects',
-    'can_contacts' => 'Needs Documents, contacts & meetings',
+    'can_submit' => 'Needs Budget & licensing. You review each one before it\'s added',
+    'can_contacts' => 'Needs Documents, contacts & meetings. Contacts themselves are view-only',
 ];
 ?>
 <div class="row">

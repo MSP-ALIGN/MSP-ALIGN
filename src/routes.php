@@ -247,9 +247,11 @@ $r->post('/account/notifications', [AccountController::class, 'notifications']);
 
 // Client portal access (staff side)
 $r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);
+$r->post('/clients/{id}/suggestions/{sid}/decline', [PortalAdminController::class, 'declineSuggestion']);
 $r->post('/clients/{id}/portal', [PortalAdminController::class, 'create']);
 $r->post('/portal-users/{id}', [PortalAdminController::class, 'update']);
 $r->get('/portal-users', [PortalAdminController::class, 'index']);
+$r->post('/portal-users/settings', [PortalAdminController::class, 'settings']);
 
 // Client portal (separate session; every page is scoped to the signed-in client user's own client)
 $r->get('/portal/terms', [PortalController::class, 'terms']);
@@ -285,8 +287,8 @@ $r->get('/portal/documents/{id}', [PortalController::class, 'document']);
 $r->get('/portal/contacts', [PortalController::class, 'contacts']);
 $r->get('/portal/requests', [PortalController::class, 'requests']);
 $r->post('/portal/requests/{kind:str}', [PortalController::class, 'requestSubmit']);
-$r->post('/portal/contacts', [PortalController::class, 'contactCreate']);
-$r->post('/portal/contacts/{id}', [PortalController::class, 'contactUpdate']);
+$r->post('/portal/suggest/{kind:str}', [PortalController::class, 'suggest']);
+$r->post('/portal/suggestions/{id}/withdraw', [PortalController::class, 'withdraw']);
 $r->get('/portal/meetings', [PortalController::class, 'meetings']);
 $r->get('/portal/report/{kind:str}', [PortalController::class, 'report']);
 $r->get('/portal/logo', [PortalController::class, 'logo']);

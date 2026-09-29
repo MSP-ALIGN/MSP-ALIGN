@@ -42,7 +42,7 @@ $pages = array_values(array_filter($templates, fn($t) => $t['kind'] === 'page'))
         <div class="form-group"><label for="obd">Onboarding links work for</label>
           <div class="input-group" style="max-width:200px"><input type="number" min="1" max="180" class="form-control" id="obd" name="onboarding_link_days" value="<?= (int) $days ?>"><div class="input-group-append"><span class="input-group-text">days</span></div></div></div>
         <div class="custom-control custom-switch"><input type="checkbox" class="custom-control-input" id="req" name="client_requests" value="1" <?= $requestsOn ? 'checked' : '' ?>><label class="custom-control-label" for="req">Online request forms (new user, user termination)</label></div>
-        <small class="form-text text-muted">On the onboarding page and in the client portal (for portal users who can edit contacts). Each request <?= psa_on() ? 'becomes a ticket in ' . e(psa_name()) . ', or an email to your company address when the client isn\'t in ' . e(psa_name()) : 'is emailed to your company address' ?>.</small>
+        <small class="form-text text-muted">On the onboarding page and in the client portal (for portal users who can send requests). Each request <?= psa_on() ? 'becomes a ticket in ' . e(psa_name()) . ', or an email to your company address when the client isn\'t in ' . e(psa_name()) : 'is emailed to your company address' ?>.</small>
       </div>
       <div class="card-footer text-right"><button class="btn btn-primary btn-sm">Save</button></div>
     </form>

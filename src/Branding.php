@@ -147,7 +147,8 @@ final class Branding
             . ".form-control:focus{border-color:$c}"
             . ".navbar-primary .form-control-navbar,.navbar-primary .btn-navbar{background-color:rgba(255,255,255,.18)!important;border-color:transparent!important;color:$text!important}"
             . ".navbar-primary .form-control-navbar::placeholder{color:$text;opacity:.75}"
-            . ".legend-dot.bg-primary{background:$c!important}";
+            . ".legend-dot.bg-primary{background:$c!important}"
+            . ".portal-sections .nav-link:hover,.portal-sections .nav-link.active{color:$dark!important}.portal-sections .nav-link.active{border-bottom-color:$c!important}";
     }
 
     private static function rgb(string $hex): array

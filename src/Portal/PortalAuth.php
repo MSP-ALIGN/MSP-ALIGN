@@ -26,7 +26,9 @@ final class PortalAuth
     ];
     public const ACTIONS = [
         'can_approve' => 'Approve or decline proposed projects',
-        'can_contacts' => 'Add and update contacts',
+        'can_submit' => 'Suggest licenses and budget items',
+        // Contacts are view-only in the portal since 1.39; this permission now only sends requests
+        'can_contacts' => 'Send new user and termination requests',
     ];
 
     private static ?array $user = null;

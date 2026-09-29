@@ -3,17 +3,20 @@ use Align\Budget\Budget;
 
 /** @var ?array $m budget_lines row (null = new); $cid; $back */
 $m = $m ?? null;
-$id = $m ? 'modal-budget-' . (int) $m['id'] : 'modal-budget';
+$edit = $m && !empty($m['id']); // without an id: a new line filled in from a client's suggestion
+$sub = !$edit && !empty($m['submission_id']) ? (int) $m['submission_id'] : 0;
+$id = $edit ? 'modal-budget-' . (int) $m['id'] : ($sub ? 'modal-suggestion-' . $sub : 'modal-budget');
 $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
 ?>
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= $m ? '/budget-lines/' . (int) $m['id'] : '/clients/' . (int) $cid . '/budget' ?>">
+      <form method="post" action="<?= $edit ? '/budget-lines/' . (int) $m['id'] : '/clients/' . (int) $cid . '/budget' ?>">
+        <?php if ($sub): ?><input type="hidden" name="submission_id" value="<?= $sub ?>"><?php endif; ?>
         <?= csrf_field() ?>
         <input type="hidden" name="back" value="<?= e($back) ?>">
         <div class="modal-header bg-dark">
-          <h5 class="modal-title"><i class="fas fa-fw fa-coins mr-2"></i><?= $m ? 'Edit budget line' : 'Add budget line' ?></h5>
+          <h5 class="modal-title"><i class="fas fa-fw fa-coins mr-2"></i><?= $edit ? 'Edit budget line' : ($sub ? 'Add the suggested budget item' : 'Add budget line') ?></h5>
           <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
@@ -41,7 +44,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
           <div class="form-group mb-0"><label>Notes</label><textarea name="notes" class="form-control" rows="2"><?= e($m['notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
-          <?php if ($m): ?><button class="btn btn-outline-danger mr-auto" name="action" value="delete" formnovalidate data-confirm="Remove this budget line?"><i class="fas fa-trash mr-1"></i>Remove</button><?php endif; ?>
+          <?php if ($edit): ?><button class="btn btn-outline-danger mr-auto" name="action" value="delete" formnovalidate data-confirm="Remove this budget line?"><i class="fas fa-trash mr-1"></i>Remove</button><?php endif; ?>
           <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check mr-1"></i>Save</button>
         </div>

@@ -10,7 +10,7 @@ $status = function (array $u): array {
     return ['Active', 'success'];
 };
 $sectionShort = ['can_roadmap' => 'Roadmap', 'can_budget' => 'Budget', 'can_devices' => 'Devices', 'can_documents' => 'Documents'];
-$actionShort = ['can_approve' => 'Approves projects', 'can_contacts' => 'Edits contacts'];
+$actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests items', 'can_contacts' => 'Sends requests'];
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <div class="mr-auto"><h1 class="h4 mb-0"><i class="fas fa-door-open mr-2 text-secondary"></i>Client portal</h1>

@@ -12,7 +12,7 @@ use Align\View;
 /** Staff side of the client portal: invite client users, set what they can see and do, reset access. */
 final class PortalAdminController
 {
-    private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_contacts'];
+    private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts'];
 
     /** Every portal user across clients. */
     public static function index(): void
@@ -24,6 +24,19 @@ final class PortalAdminController
             'users' => DB::all('SELECT p.*, c.name AS client_name FROM portal_users p JOIN clients c ON c.id = p.client_id ORDER BY c.name, p.name'),
             'portalUrl' => PortalAuth::baseUrl() . '/portal',
         ]);
+    }
+
+    /** Portal-wide options (admins): whether clients can suggest licenses and budget items. */
+    public static function settings(): void
+    {
+        Auth::requireRole('admin');
+        $on = isset($_POST['portal_submissions']) ? '1' : '0';
+        if ($on !== \Align\Settings::get('portal_submissions', '1')) {
+            \Align\Settings::set('portal_submissions', $on);
+            Audit::log('settings.portal', 'portal_submissions ' . ($on === '1' ? 'on' : 'off'));
+        }
+        flash('success', $on === '1' ? 'Clients with the permission can suggest licenses and budget items.' : 'Suggestions are switched off for every client. Ones already sent stay in the review list.');
+        redirect('/portal-users');
     }
 
     public static function show(int $id): void
@@ -47,6 +60,22 @@ final class PortalAdminController
         ]);
     }
 
+    /** Staff decline a client's suggested license or budget item, with an optional note the client sees. */
+    public static function declineSuggestion(int $id, int $sid): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $s = \Align\Portal\Submissions::decline($sid, $id, trim(post('note')), Auth::id());
+        $back = \Align\Security::safePath(post('back'), "/clients/$id/licenses");
+        if (!$s) {
+            flash('error', 'That suggestion was already reviewed.');
+            redirect($back);
+        }
+        Audit::log('portal.submission_declined', "{$client['name']}: {$s['title']}" . (post('note') !== '' ? ' — ' . mb_strimwidth(post('note'), 0, 200, '…') : ''));
+        flash('success', "Declined \"{$s['title']}\". The client sees it as declined" . (post('note') !== '' ? ' with your note.' : '.'));
+        redirect($back);
+    }
+
     private static function perms(): array
     {
         $p = [];
@@ -59,6 +88,9 @@ final class PortalAdminController
         }
         if (!$p['can_documents']) {
             $p['can_contacts'] = 0;
+        }
+        if (!$p['can_budget']) {
+            $p['can_submit'] = 0;
         }
         return $p;
     }
