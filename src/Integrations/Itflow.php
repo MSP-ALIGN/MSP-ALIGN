@@ -234,6 +234,29 @@ final class Itflow
         return ($r['json']['success'] ?? 'False') === 'True';
     }
 
+    /**
+     * Archives or restores a contact (ITFlow's contacts/archive.php and unarchive.php). ITFlow also clears the contact's
+     * Important/Billing/Technical flags and archives their client-portal login when it archives them.
+     * Throws when this ITFlow has no such endpoint (older versions) so the user is told to do it in ITFlow.
+     */
+    public function archiveContact(int $clientId, int $contactId, bool $archived = true): bool
+    {
+        try {
+            $r = $this->http->request('POST', "{$this->baseUrl}/api/v1/contacts/" . ($archived ? 'archive' : 'unarchive') . '.php', [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ], json_encode(['api_key' => $this->apiKey, 'client_id' => $clientId, 'contact_id' => $contactId]));
+        } catch (\Align\Http\HttpException $e) {
+            if ($e->getCode() === 404) {
+                throw new \RuntimeException('this version of ITFlow can\'t ' . ($archived ? 'archive' : 'restore') . ' contacts from other apps; update ITFlow, or do it there');
+            }
+            // ITFlow explains a refusal (no write access for the key's user, an archived user...) in its JSON body
+            $msg = json_decode($e->body, true)['message'] ?? null;
+            throw is_string($msg) && $msg !== '' ? new \RuntimeException('ITFlow: ' . mb_substr($msg, 0, 200)) : $e;
+        }
+        return ($r['json']['success'] ?? 'False') === 'True';
+    }
+
     /** Creates a contact and returns its ITFlow ID. */
     public function createContact(int $clientId, array $fields): int
     {

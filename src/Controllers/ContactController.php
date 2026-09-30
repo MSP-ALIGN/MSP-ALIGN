@@ -132,14 +132,38 @@ final class ContactController
         }
         $back = self::back((int) $k['client_id']);
         $fromPsa = $k['source'] === 'psa';
+        $client = DB::one('SELECT * FROM clients WHERE id = ?', [$k['client_id']]);
+        // 1.44.1: with two-way sync, archiving or restoring a PSA contact here does the same in the PSA
+        $pushArchive = $fromPsa && $k['psa_id'] !== null && \Align\Contacts\Contacts::canPushArchive($client);
         switch (post('action')) {
             case 'archive':
-                DB::run("UPDATE contacts SET archived_at = NOW(), archived_reason = 'align' WHERE id = ?", [$id]);
-                flash('success', "Archived {$k['name']}." . ($fromPsa ? ' It stays archived in Align even though it is still active in ' . psa_name() . '.' : ''));
+                $err = $pushArchive ? \Align\Contacts\Contacts::pushArchive($k, (string) $client['psa_id'], true) : null;
+                // Archived in the PSA too: a restore there brings it back here on the next sync. Otherwise it stays archived in Align only.
+                DB::run('UPDATE contacts SET archived_at = NOW(), archived_reason = ? WHERE id = ?', [$pushArchive && $err === null ? 'psa' : 'align', $id]);
+                Audit::log('contact.archive', "{$k['client_name']}: {$k['name']}" . ($pushArchive && $err === null ? ' (also in ' . psa_name() . ')' : ''));
+                if ($pushArchive && $err === null) {
+                    flash('success', "Archived {$k['name']} in Align and " . psa_name() . '.');
+                } elseif ($pushArchive) {
+                    flash('warning', "Archived {$k['name']} in Align only; " . psa_name() . " refused it ($err). It stays archived here; archive it in " . psa_name() . ' too if they have left.');
+                } else {
+                    flash('success', "Archived {$k['name']}." . ($fromPsa ? ' It stays archived in Align even though it is still active in ' . psa_name() . '.' : ''));
+                }
                 redirect($back);
             case 'restore':
+                // Archived in the PSA (there or from here): restore it there first, or the next sync would archive it again
+                // (only when a sync would run for this client: with no PSA connected or the client unlinked, it's restored here as before)
+                $restoredThere = false;
+                if ($fromPsa && $k['archived_reason'] === 'psa' && $k['psa_id'] !== null && psa_on() && !empty($client['psa_id'])) {
+                    $err = $pushArchive ? \Align\Contacts\Contacts::pushArchive($k, (string) $client['psa_id'], false) : 'two-way sync is off';
+                    if ($err !== null) {
+                        flash('warning', "{$k['name']} is archived in " . psa_name() . " and couldn't be restored there ($err), so it stays archived here (the next sync would archive it again). Restore it in " . psa_name() . ' and it comes back within a few minutes.');
+                        redirect($back);
+                    }
+                    $restoredThere = true;
+                }
                 DB::run('UPDATE contacts SET archived_at = NULL, archived_reason = NULL WHERE id = ?', [$id]);
-                flash('success', "Restored {$k['name']}.");
+                Audit::log('contact.restore', "{$k['client_name']}: {$k['name']}");
+                flash('success', "Restored {$k['name']}." . ($restoredThere ? ' It is active in ' . psa_name() . ' again too.' : ''));
                 redirect($back);
             case 'delete':
                 if ($fromPsa) {
@@ -151,7 +175,6 @@ final class ContactController
                 flash('success', "Deleted {$k['name']}.");
                 redirect($back);
         }
-        $client = DB::one('SELECT * FROM clients WHERE id = ?', [$k['client_id']]);
         $push = $fromPsa && \Align\Contacts\Contacts::canPush($client);
         $f = self::fields($fromPsa, $push);
         if (array_key_exists('name', $f) && $f['name'] === '') {

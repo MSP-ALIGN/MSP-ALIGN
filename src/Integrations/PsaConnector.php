@@ -51,8 +51,11 @@ abstract class PsaConnector extends Connector
         $n = $this->name();
         $f = $this->connectionFields();
         if ($this->can('assets.write')) {
-            $f[] = ['name' => 'psa_two_way', 'label' => 'Two-way asset sync', 'type' => 'switch', 'default' => '1',
-                'help' => "Edits in Align go to $n straight away; $n edits come in every 2 minutes. If both sides change the same field, the newest edit wins and the other is kept in the device's sync history. Nothing is ever deleted by sync."];
+            $contacts = $this->can('contacts.write');
+            $f[] = ['name' => 'psa_two_way', 'label' => $contacts ? 'Two-way sync (devices and contacts)' : 'Two-way device sync', 'type' => 'switch', 'default' => '1',
+                'help' => "Edits in Align go to $n straight away; $n edits come in every 2 minutes. If both sides change the same field, the newest edit wins and the other is kept in the device's sync history. "
+                    . ($contacts ? "Contacts added, edited" . ($this->can('contacts.archive') ? ', archived or restored' : '') . " in Align are made in $n too (the Primary flag and location stay managed in $n). " : '')
+                    . 'Off: Align only reads from ' . $n . '. Nothing is ever deleted by sync.'];
         }
         if ($this->can('assets.create')) {
             $f[] = ['name' => 'psa_create_assets', 'label' => "Create devices added in Align as $n assets (for clients linked to $n)", 'type' => 'switch', 'default' => '1'];
