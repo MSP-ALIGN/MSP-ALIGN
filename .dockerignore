@@ -1,0 +1,15 @@
+# Kept out of the MSP-ALIGN image
+.git
+.github
+.gitignore
+.dockerignore
+.env
+.env.*
+tests
+tools
+docs
+deploy
+compose*.yaml
+Dockerfile
+**/__pycache__
+*.log

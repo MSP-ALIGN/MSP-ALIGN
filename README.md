@@ -6,6 +6,7 @@ Self-hosted vCIO toolkit for managed service providers. It pulls clients and ass
 
 ## What's new
 
+- **Install with Docker (1.44):** MSP-ALIGN also ships as a container image (`ghcr.io/msp-align/msp-align`, amd64 and arm64) with a `compose.yaml` for the app and MariaDB and an optional `compose.caddy.yaml` for automatic HTTPS. One container runs the web app, the scheduled jobs and the backup agent; data lives in named volumes. Backups and restore work from Settings as before, and a backup moves between Docker and a dedicated server. Updates in Docker are `docker compose pull && docker compose up -d`. In Docker, trusted proxies can be narrow address ranges, and the database is encrypted at rest as on a dedicated server. Dedicated installs are unchanged, and CI now proves it: every change runs a fresh `install.sh` and an update from the previous release in a Debian 13 VM. See [Install with Docker](docs/DOCKER.md).
 - **A cleaner look, and dark mode (1.43):** the interface moves to AdminLTE 4 and Bootstrap 5.3 with a cleaner design: white cards on a light gray page, softer borders and badges, one accent color (your brand color from Settings → Branding) and a compact dark sidebar. Each person picks **Light**, **Dark** or **Match my computer** under **Account → Light or dark**; printed reports and PDFs always stay light. The client portal gets a friendlier look: the client's logo and name at the top, larger text, more white space and simpler section tabs. jQuery is no longer used.
 - **Faster at scale, and one layout (1.42):** tested at 150 clients and 10,000 devices, where every page now loads in under a second. The hourly sync takes half as long, the 2-minute PSA check and the digest emails a quarter to a half, and the Licensing, Contacts, Projects and Client mapping pages send a tenth of the HTML (edit forms load when opened). The main menu is shorter: a new **To do** list (hardware to categorize, licenses to price, clients to link, hosted backups to match, client suggestions), a **Devices & assets** list across every client, and Admin pages with tabs (Integrations: connections, client mapping, hosted backups, sync history; People: staff and portal users). The top search also finds devices by name, serial or user, contacts and licenses. Client menus are grouped (Their IT · The plan · Meetings, with a Reports page), every list has the same header, tiles and one-row filter bar with 100 rows at a time and search over every row, the device table shows 7 columns with a Columns menu, device pages have tabs, and the client portal has six tabs instead of ten. The installer now sets PHP's memory limit to 512 MB and sizes the MariaDB buffer pool to a quarter of RAM; `tests/perf/` builds a large test install and times every page.
 - **Demo data (1.41):** try MSP-ALIGN before adding your own clients: on an install with no clients, **Load demo data** (setup wizard → Clients, or Settings → General → Demo data) adds four made-up clients with contacts, devices of every age (some past end of life or on an unsupported OS), licenses, budget lines and contracts, roadmap projects, meetings, a compliance assessment, documents, 30 days of backup results, a client portal user and a license suggestion waiting for review. Dates are relative to the day it's loaded. A banner shows while it's there, and **Remove demo data** deletes exactly the demo clients and everything attached to them. Names, email addresses (.example) and serial numbers are invented; service levels are left out because they come from a PSA.
@@ -96,6 +97,8 @@ Self-hosted vCIO toolkit for managed service providers. It pulls clients and ass
 
 ## Install (fresh Debian 13 VM)
 
+Prefer containers? See [Install with Docker](docs/DOCKER.md) instead.
+
 Recommended VM: 2 vCPU, 4 GB RAM, 20 GB disk, static IP, Debian 13 minimal with SSH.
 
 1. On the VM:
@@ -135,6 +138,8 @@ Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus 
 10. Optional: **client portal.** Make sure `base_url` in `/etc/msp-align/config.php` is the address clients will use (the installer sets it); invite links are built from it. Then open a client → **Client portal** → **Invite user**.
 
 ## Updating
+
+(Docker: download a backup, then `docker compose pull && docker compose up -d`; see [Install with Docker](docs/DOCKER.md#updates).)
 
 **Settings → Updates & backups → Update now**, or on the server:
 

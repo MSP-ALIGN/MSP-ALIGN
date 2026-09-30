@@ -1,0 +1,5 @@
+# CI and local testing: use the image just built instead of pulling the release
+services:
+  app:
+    image: msp-align:ci
+    pull_policy: never

@@ -25,6 +25,8 @@ REPO = "https://github.com/MSP-ALIGN/MSP-ALIGN"
 PAGES = [
     ("install", "Install & set up", ("readme", ["Install (fresh Debian 13 VM)", "First-time setup", "Updating", "Operations"]),
      "Install on a Debian 13 VM, connect your tools, and keep it updated and backed up."),
+    ("docker", "Install with Docker", ("file", "docs/DOCKER.md"),
+     "Run it as a container with Docker Compose: settings, HTTPS, backups and updates."),
     ("lifecycle", "How lifecycle works", ("readme", ["How lifecycle is calculated"]),
      "Where in-service dates, end of life, warranty and the replacement forecast come from."),
     ("providers", "Connecting tools", ("file", "docs/PROVIDERS.md"),

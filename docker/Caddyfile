@@ -1,0 +1,17 @@
+# MSP-ALIGN behind Caddy (compose.caddy.yaml): HTTPS certificates from Let's Encrypt, renewed automatically.
+{$ALIGN_URL} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	request_body {
+		max_size 2GB
+	}
+	reverse_proxy app:80 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}
