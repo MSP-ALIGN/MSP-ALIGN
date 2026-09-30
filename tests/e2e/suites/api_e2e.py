@@ -240,6 +240,18 @@ except ImportError:
 except Exception as ex:
     ok(False,"OpenAPI validation: "+str(ex)[:300])
 
+# ---- the docs site's API page (mspalign.org/api.html and openapi.json) is the same API, from the same code
+import tempfile, shutil, subprocess as sp
+site=tempfile.mkdtemp()
+b=sp.run(["python3",ROOT+"/tools/docs/build.py",site],capture_output=True,text=True)
+ok(b.returncode==0,"the docs site builds: "+(b.stdout+b.stderr)[-300:])
+if b.returncode==0:
+    d=json.load(open(site+"/openapi.json")); page=open(site+"/api.html").read()
+    ok(d["paths"]==s["paths"] and d["components"]==s["components"],"the docs' OpenAPI description matches what the server serves")
+    ok(all(f'id="{i}"' in page for i in ids) and 'href="releases.html"' in page,"the docs' API page has every endpoint")
+    ok(d["components"]["schemas"]["Client"]["properties"]["psa_id"]["type"]==["string","null"] and "Ids from your PSA are text" in page,"and says PSA ids are text")
+shutil.rmtree(site,ignore_errors=True)
+
 # ---- request log & key usage
 ok(q("select count(*) n from api_requests where key_id is not null")[0]["n"]>50 and q("select last_used_at from api_keys where name='e2e full'")[0]["last_used_at"],"requests logged, last used recorded")
 print("FAILURES:",len(fails))

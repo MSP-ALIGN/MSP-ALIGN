@@ -5,7 +5,7 @@ name: Docs
 on:
   push:
     branches: [main]
-    paths: [README.md, VERSION, 'docs/**', 'tools/docs/**', public/assets/icon.svg, .github/workflows/docs.yml]
+    paths: [README.md, VERSION, 'docs/**', 'tools/docs/**', 'src/Api/**', src/helpers.php, public/assets/icon.svg, .github/workflows/docs.yml]
   workflow_dispatch:
 
 permissions:
@@ -19,12 +19,13 @@ jobs:
   build:
     name: Build the docs site
     runs-on: ubuntu-latest
+    container: debian:trixie   # the same PHP as a server: the REST API page is read from the API's own code
     steps:
+      - name: Tools
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends python3-markdown php-cli ca-certificates tar zstd >/dev/null
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Build
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq python3-markdown >/dev/null
-          python3 tools/docs/build.py _site
+        run: python3 tools/docs/build.py _site
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: _site
