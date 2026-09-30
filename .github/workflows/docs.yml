@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Tools
         run: apt-get update -qq && apt-get install -y -qq --no-install-recommends python3-markdown php-cli ca-certificates tar zstd >/dev/null
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build
         run: python3 tools/docs/build.py _site
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
