@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.45.1', 'fa-laptop', 'Remember this browser, and yearly invoices', 'After the two-factor code, tick Remember this browser to skip the code on that browser for 14 days (the password is still asked for). See or forget remembered browsers on your Account page; admins set the days under Settings → General. The managed-services estimate from ' . psa_name() . ' now counts a yearly recurring invoice as a twelfth a month instead of the whole amount every month.', 'users', 'viewer'],
         ['1.45', 'fa-shield-halved', 'Security audit', 'Every part of MSP-ALIGN was reviewed and tested before 2.0. The biggest fix is in the backup service on the server. The audit log now also catches entries cut off either end. Removing someone\'s 2FA gives them a one-time password, and moving 2FA to a new phone needs a code from the old one. Changing an integration\'s address or the SMTP server asks for its key or password again. Only admins can delete a document. Portal reports show key contacts only to users who may see contacts. More actions and page views are in the audit log.', 'users', 'admin'],
         ['1.44.1', 'fa-address-book', 'Contacts sync both ways, archiving too', 'Archiving or restoring a contact in Align now does the same in ' . psa_name() . ', on top of new contacts and edits. Each client\'s Contacts page says whether its contacts sync both ways, come in only, or stay in Align, and the Integrations switch is now called Two-way sync (devices and contacts).', 'contacts', 'viewer'],
         ['1.44', 'fa-box', 'Install with Docker', 'MSP-ALIGN now also comes as a container image with a ready-made Docker Compose file (the app and MariaDB, plus an optional add-on for automatic HTTPS). It\'s the same app with the same backups, so a backup moves between a Docker install and a dedicated server. Dedicated installs are unchanged. See Install with Docker on mspalign.org.', 'update', 'admin'],
@@ -301,7 +302,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Settings → General' => '/settings#currency-dates']) ?>
   <?= $guide('users', 'fa-user-shield', 'Add staff and manage access', 'admin', [
       'Open <b>Users → New user</b>. Choose the role: <b>Viewer</b> reads, <b>Tech</b> edits clients and plans, <b>Admin</b> also manages settings, integrations and users.',
-      'Everyone sets up two-factor sign-in at first sign-in. New phone? Use <b>Account → Replace authenticator</b>: it asks for a code from the new app and one from the old. Lost the phone? An admin uses <b>Remove 2FA</b> on the user list. That also gives a one-time password (pass it on): they choose their own and set up two-factor at the next sign-in. For your own account, use your Account page.',
+      'Everyone sets up two-factor sign-in at first sign-in. New phone? Use <b>Account → Replace authenticator</b>: it asks for a code from the new app and one from the old. To skip the code on your own computer for a while, tick <b>Remember this browser</b> after entering it (your password is still asked for); your Account page lists and forgets remembered browsers. Lost the phone? An admin uses <b>Remove 2FA</b> on the user list. That also gives a one-time password (pass it on): they choose their own and set up two-factor at the next sign-in. For your own account, use your Account page.',
       'Disable accounts as soon as someone leaves; the audit log keeps their history.',
   ], ['Users' => '/users']) ?>
   <?= $guide('update', 'fa-circle-arrow-up', 'Update Align', 'admin', [
@@ -374,7 +375,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
             <tr><th>Computers &amp; servers</th><td><?= e(\Align\Providers\Providers::rmmNames()) ?></td></tr>
             <tr><th>Network gear, printers, UPS…</th><td><?= e(psa_name()) ?> assets, <b>two-way</b>: edits in either place sync</td></tr>
             <tr><th>Licenses</th><td><?= e(psa_name()) ?> (read-only); prices and contracts in Align</td></tr>
-            <tr><th>Managed services estimate</th><td><?= e(psa_name()) ?> invoices, last 3 months</td></tr>
+            <tr><th>Managed services estimate</th><td><?= e(psa_name()) ?> recurring invoices, each by its own frequency (monthly, yearly); without them, all invoices of the last 3 months</td></tr>
             <tr><th>Warranties</th><td>Dell / Lenovo lookups, or the <?= e(psa_name()) ?> warranty date</td></tr>
             <tr><th>Service levels (SLA)</th><td><?= e(psa_name()) ?> tickets and SLA results, hourly; only numbers, subjects, priorities and times are copied</td></tr>
             <tr><th>New user &amp; termination requests</th><td>Sent from onboarding or the portal; become <?= e(psa_name()) ?> tickets (or an email without <?= e(psa_name()) ?>)</td></tr>

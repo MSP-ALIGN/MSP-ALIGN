@@ -295,7 +295,8 @@ final class ItflowPsa implements PsaProvider
 
     /**
      * ITFlow's API has no recurring-invoice module; invoices generated from a recurring invoice carry
-     * invoice_recurring_invoice_id, which marks them as recurring.
+     * invoice_recurring_invoice_id, which marks them as recurring and says which schedule made them (its
+     * frequency is worked out from those invoices' dates, see Budget\Billing).
      */
     public function invoices(): array
     {
@@ -305,6 +306,7 @@ final class ItflowPsa implements PsaProvider
             'status' => (string) ($r['invoice_status'] ?? ''),
             'amount' => (float) ($r['invoice_amount'] ?? 0),
             'recurring' => (int) ($r['invoice_recurring_invoice_id'] ?? 0) > 0,
+            'schedule' => (int) ($r['invoice_recurring_invoice_id'] ?? 0) > 0 ? (string) (int) $r['invoice_recurring_invoice_id'] : null,
         ], $this->api->invoices());
     }
 

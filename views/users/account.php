@@ -58,9 +58,10 @@
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved me-2"></i>Two-factor sign-in</h3></div>
       <div class="card-body">
         <?php if ($u['totp_enabled']): ?>
-          <p><span class="badge text-bg-success">On</span> You'll be asked for a code at each sign-in. It's required for all staff accounts.</p>
+          <p><span class="badge text-bg-success">On</span> You'll be asked for a code at each sign-in<?= \Align\Remember::days() ? ', except on a browser you asked it to remember' : '' ?>. It's required for all staff accounts.</p>
           <form method="post" action="/account/2fa" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-sm btn-default">Replace authenticator (new phone)</button></form>
-          <form method="post" action="/account/2fa" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="signout_all"><button class="btn btn-sm btn-default" data-confirm="Sign out of every other browser and device?">Sign out everywhere else</button></form>
+          <form method="post" action="/account/2fa" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="signout_all"><button class="btn btn-sm btn-default" data-confirm="Sign out of every other browser and device? Remembered browsers are forgotten too.">Sign out everywhere else</button></form>
+          <?= \Align\View::fetch('partials/remembered', ['kind' => 'staff', 'uid' => (int) $u['id'], 'action' => '/account/remembered']) ?>
         <?php endif; ?>
         <?php if ($setupSecret): ?>
           <ol class="small ps-3">

@@ -53,6 +53,17 @@ final class AccountController
         redirect('/account#notifications');
     }
 
+    /** Forget one remembered browser, or all of them (1.45.1). */
+    public static function remembered(): void
+    {
+        $u = Auth::require();
+        $all = post('id') === 'all';
+        $n = \Align\Remember::forget('staff', (int) $u['id'], $all ? null : (int) post('id'));
+        Audit::log('account.remembered_forgotten', $all ? "all ($n)" : "#" . (int) post('id'));
+        flash('success', $n ? ($all ? 'All remembered browsers forgotten. They ask for the code next time.' : 'Browser forgotten. It asks for the code next time.') : 'Nothing to forget.');
+        redirect('/account');
+    }
+
     /** Light, dark or match the computer (1.43). Printed reports always stay light. */
     public static function appearance(): void
     {

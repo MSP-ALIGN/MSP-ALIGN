@@ -47,8 +47,9 @@
             <button class="btn btn-sm btn-primary mb-2 me-2"><?= $pu['totp_enabled'] ? 'Use this authenticator' : 'Turn on' ?></button></form>
           <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-sm btn-link px-0">Cancel</button></form>
         <?php elseif ($pu['totp_enabled']): ?>
-          <p class="small">Each sign-in asks for a code from your authenticator app. Two-factor sign-in is required, so it can't be turned off.</p>
+          <p class="small">Each sign-in asks for a code from your authenticator app<?= \Align\Remember::days() ? ', except on a browser you asked it to remember' : '' ?>. Two-factor sign-in is required, so it can't be turned off.</p>
           <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-sm btn-default">Replace authenticator (new phone)</button></form>
+          <?= \Align\View::fetch('partials/remembered', ['kind' => 'portal', 'uid' => (int) $pu['id'], 'action' => '/portal/account/remembered']) ?>
         <?php else: ?>
           <p class="small"><b>Two-factor sign-in is required.</b> It protects your organization's information even if your password is stolen. Set it up to continue.</p>
           <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-sm btn-primary">Set up two-factor sign-in</button></form>

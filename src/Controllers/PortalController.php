@@ -139,7 +139,7 @@ final class PortalController
 
     public static function twoFactor(): void
     {
-        $r = PortalAuth::verifySecondFactor(post('code'));
+        $r = PortalAuth::verifySecondFactor(post('code'), post('remember') === '1');
         if ($r === 'ok') {
             redirect('/portal');
         }
@@ -558,6 +558,17 @@ final class PortalController
         PortalAuth::revokeSessions((int) $pu['id'], true);
         Audit::log('portal.password_changed');
         flash('success', 'Password changed. Any other signed-in sessions were signed out.');
+        redirect('/portal/account');
+    }
+
+    /** Forget one remembered browser, or all of them (1.45.1). */
+    public static function remembered(): void
+    {
+        $pu = PortalAuth::require();
+        $all = post('id') === 'all';
+        $n = \Align\Remember::forget('portal', (int) $pu['id'], $all ? null : (int) post('id'));
+        Audit::log('portal.remembered_forgotten', $all ? "all ($n)" : '#' . (int) post('id'));
+        flash('success', $n ? 'Forgotten. The code is asked for next time.' : 'Nothing to forget.');
         redirect('/portal/account');
     }
 

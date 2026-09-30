@@ -120,6 +120,12 @@ final class Auth
         if (Security::needsRehash($u['password_hash'])) {
             DB::run('UPDATE users SET password_hash = ? WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
         }
+        if ($u['totp_enabled'] && ($rid = Remember::valid('staff', (int) $u['id']))) {
+            // A browser remembered after an earlier code (1.45.1): the password was just checked, the code is skipped
+            DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
+            self::completeLogin((int) $u['id'], "remembered browser #$rid, no code asked");
+            return 'ok';
+        }
         if ($u['totp_enabled']) {
             DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]); // the code step counts on its own
             session_regenerate_id(true);
@@ -132,7 +138,7 @@ final class Auth
     }
 
     /** Step 2: TOTP code. */
-    public static function verifySecondFactor(string $code): string
+    public static function verifySecondFactor(string $code, bool $remember = false): string
     {
         $p = $_SESSION['pending_2fa'] ?? null;
         if (!$p || time() - $p['at'] > 300) {
@@ -152,7 +158,10 @@ final class Auth
         }
         unset($_SESSION['pending_2fa']);
         DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
-        self::completeLogin((int) $u['id']);
+        if ($remember && Remember::days() > 0) {
+            Remember::issue('staff', (int) $u['id']);
+        }
+        self::completeLogin((int) $u['id'], $remember && Remember::days() > 0 ? 'browser remembered for ' . Remember::days() . ' days' : '');
         return 'ok';
     }
 
@@ -194,7 +203,7 @@ final class Auth
         return true;
     }
 
-    private static function completeLogin(int $uid): void
+    private static function completeLogin(int $uid, string $note = ''): void
     {
         session_regenerate_id(true);
         unset($_SESSION['_csrf'], $_SESSION['timed_out']); // fresh CSRF token for the signed-in session
@@ -203,7 +212,7 @@ final class Auth
         $_SESSION['last_seen'] = time();
         $_SESSION['login_at'] = time();
         DB::run('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$uid]);
-        Audit::log('login.success', '', $uid);
+        Audit::log('login.success', $note, $uid);
     }
 
     public static function logout(): void

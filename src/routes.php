@@ -262,6 +262,7 @@ $r->get('/users/{id}/avatar', [UserController::class, 'avatar']);
 $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
 $r->post('/account/notifications', [AccountController::class, 'notifications']);
 $r->post('/account/appearance', [AccountController::class, 'appearance']);
+$r->post('/account/remembered', [AccountController::class, 'remembered']);
 
 // Client portal access (staff side)
 $r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);
@@ -314,5 +315,6 @@ $r->get('/portal/vcio-photo', [PortalController::class, 'vcioPhoto']);
 $r->get('/portal/account', [PortalController::class, 'account']);
 $r->post('/portal/account/password', [PortalController::class, 'password']);
 $r->post('/portal/account/2fa', [PortalController::class, 'twoFactorSetup']);
+$r->post('/portal/account/remembered', [PortalController::class, 'remembered']);
 
 return $r;

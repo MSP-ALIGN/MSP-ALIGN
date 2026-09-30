@@ -36,7 +36,7 @@ from it have `source = 'psa'`; the API reports the provider's key (for example `
 
 Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`, the `msp-align-psa` timer): clients → client details, contacts and
 locations → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,
-reconciled field by field with newest-edit-wins) → tickets and SLAs → invoices (managed-services estimate).
+reconciled field by field with newest-edit-wins) → tickets and SLAs → invoices (managed-services estimate: an invoice's `schedule` says which recurring invoice made it, and each schedule's frequency, monthly or yearly, is worked out from its own invoices' dates).
 
 ## RMM providers
 
