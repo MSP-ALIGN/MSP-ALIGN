@@ -289,7 +289,7 @@ $zone = function (string $z) use ($layout, $cards) {
     <a class="btn btn-sm btn-light mt-1 mt-md-0" href="/setup">Continue setup</a></div>
 <?php endif; ?>
 <?php if ($setup['done'] < $setup['total']) echo \Align\View::fetch('partials/readiness', ['r' => $setup, 'title' => 'Getting set up', 'id' => 'setup-checklist',
-    'intro' => 'Finish these once and the portal keeps itself up to date. New here? Open Help & workflow in the sidebar for the full walkthrough.']); ?>
+    'intro' => 'Finish these once and the portal keeps itself up to date. New here? Help & how-to (the ? at the top) has the full walkthrough.']); ?>
 
 <div class="dash-editbar card card-body py-2 mb-3" id="dash-editbar" hidden data-csrf="<?= e(csrf_token()) ?>">
   <div class="d-flex flex-wrap align-items-center">

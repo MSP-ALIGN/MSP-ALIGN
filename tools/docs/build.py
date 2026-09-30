@@ -25,6 +25,8 @@ REPO = "https://github.com/MSP-ALIGN/MSP-ALIGN"
 PAGES = [
     ("install", "Install & set up", ("readme", ["Install (fresh Debian 13 VM)", "First-time setup", "Updating", "Operations"]),
      "Install on a Debian 13 VM, connect your tools, and keep it updated and backed up."),
+    ("screenshots", "Screenshots", ("file", "docs/SCREENSHOTS.md"),
+     "A tour of the app and the client portal, in pictures."),
     ("docker", "Install with Docker", ("file", "docs/DOCKER.md"),
      "Run it as a container with Docker Compose: settings, HTTPS, backups and updates."),
     ("lifecycle", "How lifecycle works", ("readme", ["How lifecycle is calculated"]),
@@ -60,8 +62,22 @@ def readme_sections():
     return out
 
 
+SHOTS = "docs/screenshots"   # copied to the site as screenshots/
+
+
 def rewrite_links(md, src_dir):
-    """Relative links: other docs become site pages, anything else in the repo opens on GitHub."""
+    """Relative links: other docs become site pages, anything else in the repo opens on GitHub.
+    Images from docs/screenshots point at the site's copy."""
+    def img(m):
+        alt, target = m.group(1), m.group(2)
+        if re.match(r"^[a-z]+:|^/", target):
+            return m.group(0)
+        rel = os.path.normpath(os.path.join(src_dir, target)).replace(os.sep, "/")
+        if rel.startswith(SHOTS + "/"):
+            return f"![{alt}]({rel[len('docs/'):]})"
+        return f"![{alt}]({REPO}/raw/main/{rel})"
+    md = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)\)", img, md)
+
     def fix(m):
         text, target = m.group(1), m.group(2)
         if re.match(r"^[a-z]+:|^#|^/", target):
@@ -76,7 +92,7 @@ def rewrite_links(md, src_dir):
             kind = "tree" if os.path.isdir(os.path.join(ROOT, rel)) else "blob"
             url = f"{REPO}/{kind}/main/{rel}"
         return f"[{text}]({url}{'#' + frag if frag else ''})"
-    return re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", fix, md)
+    return re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", fix, md)
 
 
 def render(md):
@@ -148,6 +164,8 @@ def main():
         f'<a class="card" href="{s}.html"><b>{html.escape(t)}</b><span>{html.escape(d)}</span></a>' for s, t, _, d in PAGES)
     body = (f'<div class="hero"><h1>MSP-ALIGN</h1><p class="lead">{render(rewrite_links(intro, "."))[3:-4]}</p>'
             f'<p class="free">Free and open source (AGPL-3.0). Self-hosted: your client data stays on your server.</p></div>'
+            f'<p><a href="screenshots.html"><img class="shot" src="screenshots/dashboard.png" alt="The MSP-ALIGN dashboard" width="1400" height="900"></a></p>'
+            f'<p><a href="screenshots.html">More screenshots →</a></p>'
             f'<h2>Install</h2><p>On a fresh Debian 13 VM:</p><pre><code>{html.escape(install)}</code></pre>'
             f'<p><a href="install.html">Full install and setup guide →</a></p>'
             f'<h2>Documentation</h2><div class="cards">{cards}</div>')
@@ -155,6 +173,8 @@ def main():
         f.write(page("index", "MSP-ALIGN", body, "Self-hosted, open-source vCIO toolkit for managed service providers."))
 
     shutil.copy(os.path.join(ROOT, "public/assets/icon.svg"), os.path.join(OUT, "icon.svg"))
+    if os.path.isdir(os.path.join(ROOT, SHOTS)):
+        shutil.copytree(os.path.join(ROOT, SHOTS), os.path.join(OUT, "screenshots"))
     with open(os.path.join(OUT, "404.html"), "w", encoding="utf-8") as f:
         f.write(page("404", "Not found", '<h1>Page not found</h1><p><a href="index.html">Back to the documentation</a></p>',
                      "Page not found"))

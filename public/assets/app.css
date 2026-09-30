@@ -449,10 +449,9 @@ a.rm-item:hover { text-decoration: none; background: var(--bs-tertiary-bg); colo
 .portal-it-team .user-initials-lg { width: 44px; height: 44px; }
 .idle-warning { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 2000; max-width: 92vw; }
 
-/* ---- Typography: match ITFlow's reading size ----
-   ITFlow and Align share the AdminLTE .text-sm base (14px). Align used a lot of Bootstrap's
-   80% "small" text (11px) and 75% badges (8-9px) for secondary details, which read too small.
-   Secondary text is now 12.8px and badges 12px everywhere on screen (printed reports unchanged). */
+/* ---- Typography: readable secondary text ----
+   The base size is 14px. Bootstrap's 80% "small" text and 75% badges read too small for secondary
+   details, so secondary text is 12.8px and badges 12px everywhere on screen (printed reports unchanged). */
 body:not(.report) .small, body:not(.report) small { font-size: .8rem; }
 body:not(.report) .small .small, body:not(.report) small small, body:not(.report) .small small { font-size: 1em; }
 body:not(.report) .table-sm th, body:not(.report) .table-sm td { padding: .4rem .5rem; }
