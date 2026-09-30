@@ -42,7 +42,7 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <div class="row g-2">
             <div class="col-md-6"><?= $num('session_idle_minutes', 'Sign out after inactivity (5–60)', '', 'min') ?></div>
             <div class="col-md-6"><?= $num('session_max_hours', 'Sign out after, however active (1–24)', '', 'hours') ?></div>
-            <div class="col-md-6"><?= $num('remember_2fa_days', 'Remember a browser for two-factor (0–' . \Align\Remember::MAX_DAYS . ', 0 = off)', '', 'days') ?></div>
+            <div class="col-md-6"><?= $num('remember_2fa_days', 'Remember a browser (0–' . \Align\Remember::MAX_DAYS . ', 0 = off)', '', 'days') ?></div>
           </div>
           <p class="small text-muted">After the code, people can tick <b>Remember this browser</b>: on it only the password is asked for, until the days run out, they change their password or authenticator, or sign out everywhere.</p>
           <p class="small text-muted mb-0">Defaults: <?= \Align\Security::IDLE_DEFAULT_MIN ?> minutes and <?= \Align\Security::MAX_DEFAULT_HOURS ?> hours. Applies to staff and client portal users. Two-factor sign-in is always required for both, sign-ins lock for 15 minutes after 5 failures, and the <a href="/audit">audit log</a> is hash-chained and kept <?= \Align\AuditChain::RETENTION_YEARS ?> years.</p>
