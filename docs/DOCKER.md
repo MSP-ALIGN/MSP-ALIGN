@@ -115,6 +115,21 @@ restart. Settings → Updates & backups shows when a new version is
 out and what changed; the **Update** button is replaced by this command, since the app can't replace its own image.
 To stay on a version, set `ALIGN_VERSION` in `.env`.
 
+**Checking an image (2.0):** each published image is signed by the release workflow with GitHub's keyless signing,
+and is only built for a release tag signed with the release key ([Signed releases](RELEASING.md)). To check one:
+
+```bash
+cosign verify ghcr.io/msp-align/msp-align:2.0.0 \
+  --certificate-identity-regexp '^https://github.com/MSP-ALIGN/MSP-ALIGN/\.github/workflows/docker\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+This proves the image was built by the project's own workflow from a release tag. It relies on GitHub: unlike a
+dedicated install, which checks the release key itself on every update, a Docker host takes what that workflow built.
+To also check the release key yourself, keep a copy of `deploy/release-signers` whose fingerprints you have compared
+with the ones published on mspalign.org, and check the tag against it in a copy of the repository before you update:
+`git -c gpg.ssh.allowedSignersFile=/path/to/that/copy verify-tag v2.0.0` (see [Signed releases](RELEASING.md)).
+
 ## Command line
 
 ```bash

@@ -35,19 +35,20 @@ ok(int(out[-1])>100 and "response_met" in out[0] and "ticket_" not in out[0],f"t
 php('$k=Align\\Api\\Keys::create("psa e2e", Align\\Api\\Keys::allScopes(), null, null, 600, null, 1); file_put_contents("/tmp/psa_key", $k[1]);'); key=open("/tmp/psa_key").read().strip()
 q("update settings set value='1' where name='api_enabled'")
 c=call(key,"GET","/clients/1").json()["data"]
-ok(c["source"]=="itflow" and c["psa_id"] and c["itflow_client_id"]==c["psa_id"],"client: source still 'itflow', psa_id + itflow_client_id alias")
+ok(c["source"]=="itflow" and isinstance(c["psa_id"],str) and c["psa_id"] and c["itflow_client_id"]==int(c["psa_id"]),"client: source still 'itflow'; psa_id is text (2.0), the itflow_client_id alias still a number")
 dv=q("select id from devices where psa_asset_id is not null and removed_at is null and client_id=1 limit 1")[0]["id"]
 d=call(key,"GET",f"/devices/{dv}").json()["data"]
-ok(d["psa_asset_id"] and d["itflow_asset_id"]==d["psa_asset_id"],"device: psa_asset_id + itflow_asset_id alias")
+ok(isinstance(d["psa_asset_id"],str) and d["itflow_asset_id"]==int(d["psa_asset_id"]),"device: psa_asset_id text + numeric itflow_asset_id alias")
 ok(d["source"] in ("ninja","itflow","manual"),"device source keeps its v1 values: "+d["source"])
 lic=q("select id from licenses where source='psa' limit 1")[0]["id"]
 l=call(key,"GET",f"/licenses/{lic}").json()["data"]
-ok(l["source"]=="itflow" and l["psa_id"]==l["itflow_software_id"] and "psa_notes" in l and "itflow_notes" in l,"license: psa_id/psa_notes + aliases")
+ok(l["source"]=="itflow" and isinstance(l["psa_id"],str) and int(l["psa_id"])==l["itflow_software_id"] and "psa_notes" in l and "itflow_notes" in l,"license: psa_id (text)/psa_notes + aliases")
 r=call(key,"DELETE",f"/licenses/{lic}"); ok(r.status_code==409 and r.json()["error"]["code"]=="managed_in_itflow" and "ITFlow" in r.json()["error"]["message"],"PSA license can't be deleted: "+r.text[:100])
 r=call(key,"PATCH",f"/devices/{dv}",{"replacement_cost":1234}); dd=r.json()["data"]
 ok(r.status_code==200 and dd["psa_sync"]==dd["itflow_sync"] and "status" in dd["psa_sync"],"PATCH device answers psa_sync (+ itflow_sync alias)")
 spec=requests.get(API+"/openapi.json").json()
 ok("psa_id" in spec["components"]["schemas"]["Client"]["properties"] and "itflow_client_id" in spec["components"]["schemas"]["Client"]["properties"],"OpenAPI documents psa_id and the alias")
+ok(spec["components"]["schemas"]["Client"]["properties"]["psa_id"]["type"]==["string","null"] and spec["components"]["schemas"]["Device"]["properties"]["psa_asset_id"]["type"]==["string","null"],"OpenAPI: PSA ids are strings (2.0)")
 b=call(key,"GET","/clients/1/budget").json()["data"]
 ok(any(x["key"]=="managed-itflow" and x["source"]=="itflow" for x in b["lines"]) or not any(x["category"]=="managed" and x["source"]!="manual" for x in b["lines"]),"budget: managed-services estimate keeps its v1 key/source")
 
@@ -99,7 +100,7 @@ bad=[p for p in [f"/clients/{gc}",f"/devices/{gd}",f"/clients/{gc}/devices",f"/c
 ok(not bad,"pages render for a client, device and ticket with text PSA ids: "+str(bad))
 t=st.get(B+f"/devices/{gd}").text; ok("Linked (#"+GA+")" in t,"device page shows the text asset id")
 r=call(key,"GET",f"/clients/{gc}"); ok(r.status_code==200 and r.json()["data"]["psa_id"]==G and r.json()["data"]["itflow_client_id"] is None,"API returns a text PSA id as text (the old numeric alias is null)")
-r=call(key,"GET","/clients/1"); ok(isinstance(r.json()["data"]["psa_id"],int),"API still returns ITFlow's numeric ids as numbers")
+r=call(key,"GET","/clients/1"); ok(r.json()["data"]["psa_id"]==str(r.json()["data"]["itflow_client_id"]),"API returns ITFlow's numeric ids as text too (2.0), with the numeric alias alongside")
 out=align("sync","--quiet"); ok(q("select count(*) n from psa_tickets where id=%s",GT)[0]["n"]==0 and q("select is_archived from clients where id=%s",gc)[0]["is_archived"]==1,"a sync handles text ids (ticket not in the PSA removed, client not in the PSA archived)")
 q("delete from psa_tickets where id=%s",GT); q("delete from devices where id=%s",gd); q("delete from psa_assets where psa_asset_id=%s",GA); q("delete from clients where id=%s",gc)
 

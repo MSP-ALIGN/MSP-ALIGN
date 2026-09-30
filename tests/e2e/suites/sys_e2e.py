@@ -3,7 +3,7 @@ from lib import *
 import sitecustomize
 SP=WORK; T=SP+"/sys"; APP=ROOT
 AENV=dict(ENV, ALIGN_APP_DIR=APP, ALIGN_DATA_DIR=T+"/data", ALIGN_AGENT_DIR=T+"/agent", ALIGN_RUN_DIR=T+"/run", ALIGN_RECIPIENT=T+"/recipient.txt",
-          ALIGN_RUNAS="root", ALIGN_SYSTEMCTL="none", ALIGN_LEGACY_BACKUPS=T+"/legacy")
+          ALIGN_RUNAS="root", ALIGN_SYSTEMCTL="none", ALIGN_LEGACY_BACKUPS=T+"/legacy", ALIGN_RELEASE_SIGNERS="none", ALIGN_AGENT_TEST="1")  # branch updates (signed releases: sign_e2e)
 KEY=[l for l in open(T+"/key.txt") if l.startswith("AGE-SECRET")][0].strip()
 REC=open(T+"/recipient.txt").read().strip()
 def agent(*a, **env):

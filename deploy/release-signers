@@ -1,0 +1,7 @@
+# MSP-ALIGN release signing keys (2.0), in git's "allowed signers" format:
+#   releases@mspalign.org namespaces="git" ssh-ed25519 AAAA... comment
+#
+# Servers install only release tags (vX.Y.Z) signed with one of these keys, checked against the copy of this file
+# they already have. A new key is added by a release signed with a key listed here now, so a stolen GitHub account
+# alone can't ship an update. With no key here (a fork, or a development copy), updates follow the branch unsigned.
+# See docs/RELEASING.md.

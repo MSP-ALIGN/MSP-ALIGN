@@ -60,6 +60,78 @@ define('REPO', preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $r = $env('ALIG
 $gh = static fn(string $k, string $d): string => preg_match('#^(https://|http://127\.0\.0\.1[:/])[^?\#\s]*$#', $v = rtrim($env($k, $d), '/')) ? $v : $d;
 define('GITHUB_API', $gh('ALIGN_GITHUB_API', 'https://api.github.com'));
 define('GITHUB_RAW', $gh('ALIGN_GITHUB_RAW', 'https://raw.githubusercontent.com'));
+/**
+ * Signed releases (2.0): with a key in deploy/release-signers (the copy installed here) and the main branch, updates
+ * come only from release tags signed with that key (scripts/release.sh checks them). A test server following another
+ * branch (update_branch), a fork or a development copy without a key follows its branch, unsigned, as before.
+ * ALIGN_RELEASE_SIGNERS (tests only, with ALIGN_AGENT_TEST=1): another signers file, or "none".
+ */
+function releaseSigners(): ?string
+{
+    $f = getenv('ALIGN_AGENT_TEST') === '1' ? getenv('ALIGN_RELEASE_SIGNERS') : false;
+    if ($f === 'none') {
+        return null;
+    }
+    $f = is_string($f) && $f !== '' ? $f : APP . '/deploy/release-signers';
+    foreach (is_file($f) ? (file($f) ?: []) : [] as $l) {
+        if (trim($l) !== '' && !str_starts_with(ltrim($l), '#')) {
+            return $f;
+        }
+    }
+    return null;
+}
+
+function signedMode(): bool
+{
+    return BRANCH === 'main' && releaseSigners() !== null;
+}
+
+/** The release keys' fingerprints, for the page ("SHA256:..."). */
+function signerPrints(): array
+{
+    $f = releaseSigners();
+    $out = [];
+    foreach ($f ? (file($f) ?: []) : [] as $l) {
+        // OpenSSH's fingerprint: SHA256 of the key blob, base64 without padding
+        if (!str_starts_with(ltrim($l), '#') && preg_match('/\b((?:ssh|ecdsa|sk)-[a-z0-9@.-]+)\s+([A-Za-z0-9+\/]+={0,2})/', $l, $m) && ($blob = base64_decode($m[2], true))) {
+            $out[] = 'SHA256:' . rtrim(base64_encode(hash('sha256', $blob, true)), '=');
+        }
+    }
+    return $out;
+}
+
+/**
+ * The newest signed release newer than $current ('0': any), as [tag, commit, unsigned newer tags, error].
+ * The tag is checked by scripts/release.sh from the installed code, against the installed signers file.
+ * @return array{0: ?string, 1: ?string, 2: string[], 3: ?string}
+ */
+function latestSigned(callable $run, string $current): array
+{
+    [$c, $out] = $run('bash ' . q(APP . '/scripts/release.sh') . ' ' . q(APP) . ' ' . q((string) releaseSigners()) . ' ' . q($current) . ' 2>&1');
+    $unsigned = [];
+    $tag = $commit = null;
+    foreach (preg_split('/\R/', (string) $out) ?: [] as $l) {
+        if (preg_match('/^UNSIGNED (v\d+\.\d+\.\d+)$/', trim($l), $m)) {
+            $unsigned[] = $m[1];
+        } elseif ($c === 0 && preg_match('/^(v\d+\.\d+\.\d+) ([0-9a-f]{40,64})$/', trim($l), $m)) {
+            [, $tag, $commit] = $m;
+        }
+    }
+    $error = match ($c) {
+        0, 3 => null,
+        4 => 'ssh-keygen is missing, so release signatures can\'t be checked. Run: sudo apt install openssh-client',
+        default => 'The release signatures could not be checked (' . mb_substr(trim((string) $out), 0, 200) . ').',
+    };
+    return [$tag, $commit, $error ? [] : $unsigned, $error];
+}
+
+/** Is the code here a signed release (HEAD is a checked release tag's commit, with a matching VERSION)? */
+function headSigned(): bool
+{
+    exec('bash ' . q(APP . '/scripts/release.sh') . ' ' . q(APP) . ' ' . q((string) releaseSigners()) . ' --head 2>/dev/null', $o, $c);
+    return $c === 0;
+}
+
 const DOCKER_UPDATE = 'This server runs in Docker, so it updates by pulling the new image. On the Docker host, in the MSP-ALIGN folder: docker compose pull && docker compose up -d';
 // Agent state lives in its own root-owned folder (not inside the www-data-owned data folder)
 define('STATE', rtrim($env('ALIGN_AGENT_DIR', $path('/var/lib/msp-align-agent', '/var/lib/mountaineer-align-agent')), '/'));
@@ -765,7 +837,10 @@ function check(?Job $job = null): array
     }
     $prev = readJson(STATE . '/update.json') ?? [];
     $git = 'git -C ' . q(APP);
-    $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [], 'error' => null, 'branch' => BRANCH];
+    $signed = signedMode();
+    $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [], 'error' => null, 'branch' => BRANCH,
+        'mode' => $signed ? 'signed' : 'branch', 'signers' => $signed ? signerPrints() : [], 'release_tag' => $prev['release_tag'] ?? null, 'unsigned' => [],
+        'head_signed' => $signed ? headSigned() : null];
     $run = function (string $cmd) use ($job): array {
         if ($job) {
             return $job->run($cmd, true, null, 120);
@@ -786,7 +861,7 @@ function check(?Job $job = null): array
         $s['source'] = 'version file';
         $c = null;
     } else {
-        [$c] = $run("timeout 90 $git fetch -q origin " . q(BRANCH));
+        [$c] = $run($signed ? "timeout 90 $git fetch -q --force --tags origin" : "timeout 90 $git fetch -q origin " . q(BRANCH));
         if ($c === 0) {
             $s['fetched_at'] = now();
         }
@@ -796,9 +871,24 @@ function check(?Job $job = null): array
     } elseif ($c !== 0) {
         $s['error'] = 'Could not reach GitHub to check for updates. Check the server\'s internet access and the GitHub token in /etc/msp-align/github-token.';
     } else {
-        [, $latest] = $run("$git show " . q('origin/' . BRANCH . ':VERSION'));
-        [, $behind] = $run("$git rev-list --count " . q('HEAD..origin/' . BRANCH));
-        [, $log] = $run("$git log --no-merges -n 60 --format=%h%x1f%s%x1f%b%x1f%cI%x1e " . q('HEAD..origin/' . BRANCH));
+        if ($signed) {
+            // Only a release tag signed with a release key counts; newer tags without one are named, never offered.
+            // Code that isn't a signed release yet (the first update from 1.x) is offered the signed one of its version.
+            [$tag, $commit, $s['unsigned'], $err] = latestSigned($run, $s['head_signed'] ? $s['current'] : preg_replace('/^(\d+)\.(\d+)\.(\d+).*$/', '$1.$2.$3-0', $s['current']));
+            $s['release_tag'] = $tag;
+            $s['error'] = $err;
+            $target = $commit ?: 'HEAD';
+            if ($s['unsigned']) {
+                $s['warning'] = 'Newer release tag' . (count($s['unsigned']) === 1 ? ' ' : 's ') . implode(', ', $s['unsigned'])
+                    . ' on GitHub ' . (count($s['unsigned']) === 1 ? 'isn\'t' : 'aren\'t') . ' signed with the MSP-ALIGN release key, so ' . (count($s['unsigned']) === 1 ? 'it isn\'t' : 'they aren\'t')
+                    . ' offered. If a release was expected, check mspalign.org before doing anything else.';
+            }
+        } else {
+            $target = 'origin/' . BRANCH;
+        }
+        [, $latest] = $run("$git show " . q($target . ':VERSION'));
+        [, $behind] = $run("$git rev-list --count " . q('HEAD..' . $target));
+        [, $log] = $run("$git log --no-merges -n 60 --format=%h%x1f%s%x1f%b%x1f%cI%x1e " . q('HEAD..' . $target));
         $s['latest'] = trim($latest) ?: null;
         $s['behind'] = (int) trim($behind);
         $s['changes'] = [];
@@ -809,9 +899,17 @@ function check(?Job $job = null): array
         }
     }
     // Never offer an older version (e.g. a test server switched from develop back to main): its code could meet newer tables
-    $s['available'] = $s['latest'] !== null && (version_compare($s['latest'], $s['current'], '>') || ($s['behind'] > 0 && version_compare($s['latest'], $s['current'], '>=')));
+    $s['available'] = $s['latest'] !== null && (version_compare($s['latest'], $s['current'], '>')
+        || ($s['behind'] > 0 && version_compare($s['latest'], $s['current'], '>=') && !$signed)
+        // code that isn't a signed release (the first update from 1.x): the signed release of its version replaces it
+        || ($signed && !$s['head_signed'] && !empty($s['release_tag']) && version_compare($s['latest'], $s['current'], '>=')));
     if ($s['latest'] !== null && version_compare($s['latest'], $s['current'], '<')) {
         $s['error'] = 'The ' . BRANCH . ' branch has ' . $s['latest'] . ', older than this server (' . $s['current'] . '). Not updating to an older version.';
+    }
+    // A newer release tag without a valid signature: in the audit log and a security alert, once per tag
+    if ($s['unsigned'] && $s['unsigned'] !== ($prev['unsigned'] ?? [])) {
+        exec(asUser('php ' . q(APP . '/bin/align') . ' system:audit --event=system.update_unsigned --detail='
+            . q('Release tag(s) on GitHub without a valid release signature, not offered: ' . implode(', ', $s['unsigned']))) . ' 2>/dev/null');
     }
     writeJson(STATE . '/update.json', $s);
     systemInfo();
@@ -834,7 +932,19 @@ function checkDocker(?Job $job = null): array
         return $body === false ? null : $body;
     };
     $branchPath = str_replace('%2F', '/', rawurlencode(BRANCH));
-    $latest = listedVersion() ?? (($v = $get(GITHUB_RAW . '/' . REPO . '/' . $branchPath . '/VERSION', 64)) !== null ? trim($v) : null);
+    // With signed releases, images are published only from release tags, so the newest tag is the newest image
+    // (for the notice only: the image itself is checked with cosign, see docs/DOCKER.md). Otherwise the branch.
+    $latest = null;
+    if (signedMode()) {
+        foreach (json_decode((string) $get(GITHUB_API . '/repos/' . REPO . '/tags?per_page=100', 1 << 20), true) ?: [] as $t) {
+            if (preg_match('/^v(\d+\.\d+\.\d+)$/', (string) ($t['name'] ?? ''), $m) && ($latest === null || version_compare($m[1], $latest, '>'))) {
+                $latest = $m[1];
+            }
+        }
+        $s['mode'] = 'signed';
+    } else {
+        $latest = listedVersion() ?? (($v = $get(GITHUB_RAW . '/' . REPO . '/' . $branchPath . '/VERSION', 64)) !== null ? trim($v) : null);
+    }
     if ($latest === null || !preg_match('/^\d+\.\d+\.\d+$/', $latest)) {
         $s['error'] = 'Could not reach GitHub to check for updates. Check that the container can reach github.com.';
     } else {
@@ -913,8 +1023,28 @@ function doUpdate(Job $job): array
             $job->line('No backup key on this server yet, so no safety copy (the installer creates the key).');
         }
         $job->step('Downloading the latest version');
-        $job->must('git -C ' . q(APP) . ' fetch -q origin ' . q(BRANCH), 'Could not download the update from GitHub.');
-        [, $target] = $job->run('git -C ' . q(APP) . ' show ' . q('origin/' . BRANCH . ':VERSION'), true);
+        if (signedMode()) {
+            // Signed releases: the newest release tag signed with a key this server already trusts (see release.sh)
+            $job->must('git -C ' . q(APP) . ' fetch -q --force --tags origin', 'Could not download the update from GitHub.');
+            // not a signed release yet (the first update from 1.x): the signed release of this same version counts too
+            [$tag, $commit, $unsigned, $err] = latestSigned(fn(string $c) => $job->run($c, true), headSigned() ? $from : preg_replace('/^(\d+)\.(\d+)\.(\d+).*$/', '$1.$2.$3-0', $from));
+            if ($err) {
+                throw new JobFailed($err . ' Nothing was changed.');
+            }
+            if ($unsigned) {
+                $job->line('Not signed with the release key, so not installed: ' . implode(', ', $unsigned));
+                audit($job, 'system.update_unsigned', 'Release tag(s) without a valid release signature were refused: ' . implode(', ', $unsigned));
+            }
+            if ($tag === null) {
+                throw new JobFailed('There is no newer release signed with the MSP-ALIGN release key. Nothing was changed.');
+            }
+            $ref = $commit; // the commit that was checked, not the tag's name (which a later fetch could move)
+            $job->line("Signed release $tag ($commit) checked against the release key.");
+        } else {
+            $job->must('git -C ' . q(APP) . ' fetch -q origin ' . q(BRANCH), 'Could not download the update from GitHub.');
+            $ref = 'origin/' . BRANCH;
+        }
+        [, $target] = $job->run('git -C ' . q(APP) . ' show ' . q($ref . ':VERSION'), true);
         if (trim($target) === '') {
             throw new JobFailed('Could not read the version on the ' . BRANCH . ' branch. Not updating.');
         }
@@ -922,11 +1052,12 @@ function doUpdate(Job $job): array
             throw new JobFailed('The ' . BRANCH . ' branch has ' . trim($target) . ', older than this server (' . $from . '). Not updating to an older version.');
         }
         [, $previous] = $job->run('git -C ' . q(APP) . ' rev-parse HEAD', true);
-        [, $migrations] = $job->run('git -C ' . q(APP) . ' diff --name-only HEAD ' . q('origin/' . BRANCH) . ' -- db/migrations', true);
+        [, $migrations] = $job->run('git -C ' . q(APP) . ' diff --name-only HEAD ' . q($ref) . ' -- db/migrations', true);
         $job->s['result']['previous_commit'] = trim($previous);
-        $job->must('umask 022; git -C ' . q(APP) . ' reset -q --hard ' . q('origin/' . BRANCH), 'Could not apply the update.');
+        $job->must('umask 022; git -C ' . q(APP) . ' reset -q --hard ' . q(str_starts_with($ref, 'origin/') ? $ref : $ref . '^{commit}'), 'Could not apply the update.');
         $job->step('Installing ' . version() . ' (packages, database, services)');
-        [$rc] = $job->run(INSTALL_CMD !== '' ? INSTALL_CMD : 'umask 022; ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade');
+        // ALIGN_CODE_READY: the code is in place (and checked), so the installer doesn't fetch it again
+        [$rc] = $job->run(INSTALL_CMD !== '' ? INSTALL_CMD : 'umask 022; ALIGN_CODE_READY=1 ALIGN_BRANCH=' . q(BRANCH) . ' bash ' . q(APP . '/install.sh') . ' --upgrade');
         if ($rc !== 0) {
             $kept = is_file($safety) ? ' A safety copy of the data was kept.' : '';
             if (trim($migrations) === '' && trim($previous) !== '') {

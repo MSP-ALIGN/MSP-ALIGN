@@ -149,7 +149,7 @@ The installer asks for:
 
 It installs Apache, PHP, MariaDB and git; creates the database, config and encryption key; sets up the site, an hourly sync timer, the update and backup service and automatic security updates.
 
-Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when the TLS mode needs one, and `GH_TOKEN` for a private fork) and it won't prompt. Optional: `ALIGN_ADMIN_NAME`, `ALIGN_REPO=owner/name`, `ALIGN_BRANCH`, `ALIGN_FIREWALL=0` (leave ufw alone), `ALIGN_DB_ENCRYPT=0` (no MariaDB encryption at rest), `ALIGN_FORCE=1` (skip the Debian 13 check), `ALIGN_RECONFIGURE=1` (rewrite the Apache site on an existing install).
+Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when the TLS mode needs one, and `GH_TOKEN` for a private fork) and it won't prompt. Optional: `ALIGN_ADMIN_NAME`, `ALIGN_REPO=owner/name`, `ALIGN_BRANCH`, `ALIGN_FIREWALL=0` (leave ufw alone), `ALIGN_DB_ENCRYPT=0` (no MariaDB encryption at rest), `ALIGN_FORCE=1` (skip the Debian 13 check), `ALIGN_RECONFIGURE=1` (rewrite the Apache site on an existing install: run the installer already on the server, `sudo ALIGN_RECONFIGURE=1 bash /opt/msp-align/install.sh --upgrade`, rather than a new download, so it stays on signed releases).
 
 ## First-time setup
 
@@ -175,7 +175,7 @@ Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus 
 sudo msp-align-update
 ```
 
-Either one makes a safety copy, pulls the latest code from the update branch (`main`, or `update_branch` in `config.php` on a test server), installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds; if the installer fails and the update had no database changes, the previous version is put back. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
+Either one makes a safety copy, installs the newest release signed with the MSP-ALIGN release key (2.0; see [Signed releases](docs/RELEASING.md)), or on a test server the latest code of its `update_branch` in `config.php`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds; if the installer fails and the update had no database changes, the previous version is put back. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
 
 ## Operations
 

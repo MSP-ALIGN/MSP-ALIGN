@@ -107,7 +107,7 @@ try:
     shutil.rmtree(T + "/stg-app", ignore_errors=True)
     subprocess.run(["git", "clone", "-q", T + "/remote.git", T + "/stg-app"])
     aenv = {**SENV, "ALIGN_APP_DIR": T + "/stg-app", "ALIGN_DATA_DIR": T + "/data", "ALIGN_AGENT_DIR": T + "/stg-agent", "ALIGN_RUN_DIR": T + "/run",
-            "ALIGN_RECIPIENT": T + "/recipient.txt", "ALIGN_RUNAS": "root", "ALIGN_SYSTEMCTL": "none", "ALIGN_LEGACY_BACKUPS": T + "/legacy"}
+            "ALIGN_RECIPIENT": T + "/recipient.txt", "ALIGN_RUNAS": "root", "ALIGN_SYSTEMCTL": "none", "ALIGN_LEGACY_BACKUPS": T + "/legacy", "ALIGN_RELEASE_SIGNERS": "none", "ALIGN_AGENT_TEST": "1"}
     os.makedirs(T + "/stg-agent", exist_ok=True)
     r = subprocess.run(["php", ROOT + "/scripts/agent.php", "check"], env=aenv, capture_output=True, text=True)
     u = json.load(open(T + "/stg-agent/update.json"))

@@ -180,6 +180,8 @@ try {
             Audit::log($event, $detail, $uid);
             if ($event === 'backup.restored') {
                 Align\Mail\Notify::security('Data restored from a backup', $detail);
+            } elseif ($event === 'system.update_unsigned') {
+                Align\Mail\Notify::security('Unsigned update refused', $detail);
             } elseif (in_array($event, ['system.updated', 'system.update_failed'], true)) {
                 Align\Mail\Notify::updateResult($event === 'system.updated', $detail);
             }
