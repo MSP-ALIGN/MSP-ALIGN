@@ -47,7 +47,7 @@ ok(not os.path.exists(T + "/agent/maintenance.json") and not os.listdir(T + "/ag
 c = subprocess.run(["php", ROOT + "/scripts/agent.php", "check"], env=AENV, capture_output=True, text=True, timeout=120)
 u = json.load(open(T + "/agent/update.json")) if os.path.exists(T + "/agent/update.json") else {}
 ok(u.get("docker") is True and u.get("source") == "github" and u.get("current") == open(ROOT + "/VERSION").read().strip(), "in Docker, the update check asks GitHub over HTTPS (no git): " + json.dumps(u)[:200])
-ok(u.get("error") is None or "github.com" in u["error"], "an offline check says what to fix")
+ok(u.get("error") is None or u["error"].startswith("Could not reach GitHub to check for updates."), "an offline check says what to fix")
 # ... and with GitHub answering (a local stand-in): the newer version and what changed since this one's release commit
 CUR = open(ROOT + "/VERSION").read().strip()
 fake = tmp + "/gh"
