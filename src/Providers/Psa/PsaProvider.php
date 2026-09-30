@@ -37,6 +37,7 @@ interface PsaProvider
         'contacts' => 'Read contacts',
         'contacts.write' => 'Update contacts',
         'contacts.create' => 'Create contacts',
+        'contacts.archive' => 'Archive and restore contacts',
         'locations' => 'Read locations',
         'assets' => 'Read assets',
         'assets.write' => 'Update assets',
@@ -93,6 +94,9 @@ interface PsaProvider
 
     /** Creates a contact from contact fields; returns its PSA id. */
     public function createContact(string $clientId, array $fields): string;
+
+    /** Archives (or, with false, restores) a contact. True when the PSA made the change. */
+    public function archiveContact(string $clientId, string $contactId, bool $archived = true): bool;
 
     public function licenses(): array;
 

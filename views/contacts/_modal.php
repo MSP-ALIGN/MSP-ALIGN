@@ -50,8 +50,11 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
         </div>
         <div class="modal-footer">
           <?php if ($k): ?>
-            <?php if ($k['archived_at']): ?><button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate><i class="fas fa-rotate-left me-1"></i>Restore</button>
-            <?php else: ?><button class="btn btn-outline-secondary me-auto" name="action" value="archive" formnovalidate data-confirm="Archive <?= e($k['name']) ?>?"><i class="fas fa-box-archive me-1"></i>Archive</button><?php endif; ?>
+            <?php if ($k['archived_at']): ?><button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate<?= $push && ($k['archived_reason'] ?? '') === 'psa' && \Align\Providers\Providers::psaSupports('contacts.archive')
+                ? ' data-confirm="' . e('Restore ' . $k['name'] . ' in Align and ' . psa_name() . '? This also re-enables their client portal login in ' . psa_name() . ' if they have one. Their Important, Billing and Technical flags are not restored (set them again in ' . psa_name() . ').') . '"' : '' ?>><i class="fas fa-rotate-left me-1"></i>Restore</button>
+            <?php else: ?><button class="btn btn-outline-secondary me-auto" name="action" value="archive" formnovalidate data-confirm="<?= e($push && \Align\Providers\Providers::psaSupports('contacts.archive')
+                ? 'Archive ' . $k['name'] . ' in Align and ' . psa_name() . '? ' . psa_name() . ' also clears their Important, Billing and Technical flags and archives their client portal login there.'
+                : 'Archive ' . $k['name'] . '?') ?>"><i class="fas fa-box-archive me-1"></i>Archive</button><?php endif; ?>
             <?php if (!$fromPsa): ?><button class="btn btn-outline-danger me-2" name="action" value="delete" formnovalidate data-confirm="Delete <?= e($k['name']) ?> permanently?"><i class="fas fa-trash"></i></button><?php endif; ?>
           <?php endif; ?>
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>

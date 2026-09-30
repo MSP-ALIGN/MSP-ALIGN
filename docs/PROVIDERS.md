@@ -22,7 +22,7 @@ would need the id columns switched to a binary collation first.
 
 A provider declares what it can do with `supports()` (see `PsaProvider::CAPABILITIES`): read contacts,
 update contacts, create assets, read tickets with SLA results, create tickets and so on. Align hides
-features the PSA can't support. For example, two-way asset sync only appears when the provider can update assets.
+features the PSA can't support. For example, two-way sync only appears when the provider can update assets, and contacts are only created, updated or archived in the PSA when it can do that (`contacts.create`, `contacts.write`, `contacts.archive`).
 
 To add one:
 

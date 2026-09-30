@@ -33,7 +33,7 @@ final class Staging
     }
 
     /** Every PSA capability that changes data in the PSA. A new writing capability must be added here (StagingPsa refuses the call too). */
-    public const WRITES = ['contacts.write', 'contacts.create', 'assets.write', 'assets.create', 'tickets.create'];
+    public const WRITES = ['contacts.write', 'contacts.create', 'contacts.archive', 'assets.write', 'assets.create', 'tickets.create'];
 
     /** PSA capabilities that change data are off on a test server. */
     public static function blocks(string $capability): bool

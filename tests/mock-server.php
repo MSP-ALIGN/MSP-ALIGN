@@ -608,9 +608,40 @@ switch (true) {
             $saveState($st);
             $json(['success' => 'True', 'count' => 1, 'data' => [['insert_id' => $id]]]);
             break;
+        } elseif (($path === '/api/v1/contacts/archive.php' || $path === '/api/v1/contacts/unarchive.php') && $method === 'POST') {
+            // Like ITFlow: only a contact of that client, and only if it isn't already archived (or already active)
+            file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode([basename($path, '.php') => $body]) . "\n", FILE_APPEND);
+            $st = $loadState();
+            if (!empty($st['contact_archive_403'])) {
+                http_response_code(403);
+                header('Content-Type: application/json');
+                echo json_encode(['success' => 'False', 'message' => 'API key does not have write access to module_client']);
+                break;
+            }
+            if (!empty($st['contact_archive_missing'])) {
+                http_response_code(404);
+                echo 'Not found';
+                break;
+            }
+            $kid = (string) (int) ($body['contact_id'] ?? 0);
+            $archive = str_ends_with($path, '/archive.php');
+            $isArchived = array_key_exists($kid, $st['contact_archived'] ?? []) ? $st['contact_archived'][$kid] !== null
+                : in_array($kid, ['4'], true) || in_array($kid, array_map(fn($r) => (string) $r['contact_id'], array_filter($st['contacts_created'] ?? [], fn($r) => !empty($r['contact_archived_at']))), true);
+            if (!empty($st['contact_archive_fail']) || $isArchived === $archive) {
+                $json(['success' => 'False', 'message' => 'Auth success but update query failed/returned no results.']);
+                break;
+            }
+            $st['contact_archived'][$kid] = $archive ? date('Y-m-d H:i:s') : null;
+            if ($archive) {
+                $st['contact_updates'][$kid] = ['contact_important' => 0, 'contact_billing' => 0, 'contact_technical' => 0] + ($st['contact_updates'][$kid] ?? []);
+            }
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1]);
+            break;
         } elseif ($path === '/api/v1/contacts/read.php') {
             $st = $loadState();
-            $rows = array_slice(array_merge(array_map(fn($r) => ($st['contact_updates'][(string) $r['contact_id']] ?? []) + $r, [
+            $arch = fn(array $r) => array_key_exists((string) $r['contact_id'], $st['contact_archived'] ?? []) ? ['contact_archived_at' => $st['contact_archived'][(string) $r['contact_id']]] + $r : $r;
+            $rows = array_slice(array_map($arch, array_merge(array_map(fn($r) => ($st['contact_updates'][(string) $r['contact_id']] ?? []) + $r, [
                 ['contact_id' => 1, 'contact_client_id' => 1, 'contact_name' => 'Front desk', 'contact_email' => 'frontdesk@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_primary' => 0, 'contact_billing' => 1, 'contact_department' => 'Reception', 'contact_location_id' => 12, 'contact_archived_at' => null],
                 ['contact_id' => 6, 'contact_client_id' => 1, 'contact_name' => 'Sam Rivera', 'contact_title' => 'Office manager', 'contact_email' => 'sam@cedarridgedental.example', 'contact_phone' => '(555) 010-1100', 'contact_extension' => '15', 'contact_technical' => 1, 'contact_important' => 1, 'contact_department' => 'Operations', 'contact_location_id' => 12, 'contact_notes' => 'Point person for IT tickets', 'contact_archived_at' => null],
                 ['contact_id' => 2, 'contact_client_id' => 1, 'contact_name' => 'Dr. Jordan Ellis', 'contact_title' => 'Owner / DDS', 'contact_email' => 'jordan@cedarridgedental.example',
@@ -618,7 +649,7 @@ switch (true) {
                 ['contact_id' => 3, 'contact_client_id' => 2, 'contact_name' => 'Pat Quinn', 'contact_title' => 'Store manager', 'contact_email' => 'pat@northfieldhardware.example', 'contact_phone' => '(555) 010-2200', 'contact_important' => 1, 'contact_archived_at' => null],
                 ['contact_id' => 4, 'contact_client_id' => 3, 'contact_name' => 'Old Partner', 'contact_email' => 'gone@hplg.example', 'contact_primary' => 1, 'contact_archived_at' => '2025-01-01 00:00:00'],
                 ['contact_id' => 5, 'contact_client_id' => 3, 'contact_name' => 'Robin Hale', 'contact_title' => 'Office administrator', 'contact_email' => 'robin@hplg.example', 'contact_phone' => '555-010-3300', 'contact_archived_at' => null],
-            ]), $st['contacts_created'] ?? []), $offset, $limit);
+            ]), array_map(fn($r) => ($st['contact_updates'][(string) $r['contact_id']] ?? []) + $r, $st['contacts_created'] ?? []))), $offset, $limit);
         } elseif ($path === '/api/v1/assets/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode($body) . "\n", FILE_APPEND);
             $st = $loadState();

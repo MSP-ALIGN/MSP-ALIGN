@@ -36,6 +36,7 @@ final class StagingPsa implements PsaProvider
     public function statusRetired(?string $status): bool { return $this->inner->statusRetired($status); }
     public function updateContact(string $clientId, string $contactId, array $fields): bool { $this->refuse(); }
     public function createContact(string $clientId, array $fields): string { $this->refuse(); }
+    public function archiveContact(string $clientId, string $contactId, bool $archived = true): bool { $this->refuse(); }
     public function licenses(): array { return $this->inner->licenses(); }
     public function invoices(): array { return $this->inner->invoices(); }
     public function tickets(string $since, array $state, callable $store): array { return $this->inner->tickets($since, $state, $store); }

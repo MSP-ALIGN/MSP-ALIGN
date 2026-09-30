@@ -189,6 +189,11 @@ final class ItflowPsa implements PsaProvider
         return (string) $this->api->createContact(self::num($clientId), $body);
     }
 
+    public function archiveContact(string $clientId, string $contactId, bool $archived = true): bool
+    {
+        return $this->api->archiveContact(self::num($clientId), self::num($contactId), $archived);
+    }
+
     // ---- Assets ----
 
     private function asNeutralAsset(array $a): array

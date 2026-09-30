@@ -10,7 +10,7 @@ real person.
 | On the test server | |
 |---|---|
 | Reads from the PSA, RMMs and backup products | Work as normal (sync keeps the copy fresh) |
-| Writes to the PSA (two-way asset sync, new assets, warranty write-back, contact changes, tickets) | Off; screens show them as off, and any write that gets through is refused |
+| Writes to the PSA (two-way sync, new assets, warranty write-back, contact changes and archiving, tickets) | Off; screens show them as off, and any write that gets through is refused |
 | Email (notifications, digests, invitations, welcome emails, reports) | Sent only to the test mailbox, marked **[TEST]**, with who it was meant for. No test mailbox: nothing is sent |
 | Meeting invitations | Created only in the sending mailbox, with the test mailbox as the only guest. Real meetings from the copied data are never changed or cancelled |
 | Client portal and onboarding links | Off |

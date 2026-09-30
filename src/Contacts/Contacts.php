@@ -47,6 +47,24 @@ final class Contacts
         return !empty($client['psa_id']) && \Align\Sync\PsaAssetSync::twoWay() && \Align\Providers\Providers::psaSupports('contacts.write');
     }
 
+    /** True when archiving or restoring a PSA contact in Align does the same in the PSA (1.44.1). */
+    public static function canPushArchive(array $client): bool
+    {
+        return self::canPush($client) && \Align\Providers\Providers::psaSupports('contacts.archive');
+    }
+
+    /** Archives (or restores) the contact in the PSA. Returns null on success, or an error message. */
+    public static function pushArchive(array $k, string $psaClientId, bool $archived): ?string
+    {
+        try {
+            $p = \Align\Providers\Providers::psa();
+            return $p->archiveContact($psaClientId, (string) $k['psa_id'], $archived) ? null
+                : $p->name() . ' didn\'t change it: it may already be ' . ($archived ? 'archived' : 'active') . ' or removed there, or the API key can\'t edit contacts';
+        } catch (\Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+
     private static function psaPayload(array $f): array
     {
         $out = [];

@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.44.1', 'fa-address-book', 'Contacts sync both ways, archiving too', 'Archiving or restoring a contact in Align now does the same in ' . psa_name() . ', on top of new contacts and edits. Each client\'s Contacts page says whether its contacts sync both ways, come in only, or stay in Align, and the Integrations switch is now called <b>Two-way sync (devices and contacts)</b>.', 'contacts', 'viewer'],
         ['1.44', 'fa-box', 'Install with Docker', 'MSP-ALIGN now also comes as a container image with a ready-made Docker Compose file (the app and MariaDB, plus an optional add-on for automatic HTTPS). It\'s the same app with the same backups, so a backup moves between a Docker install and a dedicated server. Dedicated installs are unchanged. See <a href="https://mspalign.org/docker.html" target="_blank" rel="noopener">Install with Docker</a>.', 'update', 'admin'],
         ['1.43', 'fa-circle-half-stroke', 'A cleaner look, and dark mode', 'A fresh, cleaner design: white cards on a light gray page, softer colors and a compact dark menu. Each person can pick <b>Light</b>, <b>Dark</b> or <b>Match my computer</b> under <b>Account → Light or dark</b>; printed reports always stay light. The client portal is friendlier too: the client\'s logo at the top, larger text and more room.', 'appearance', 'viewer'],
         ['1.42', 'fa-gauge-high', 'Faster, and easier to find your way', 'Pages stay under a second at 150 clients and 10,000 devices, and long lists load a fraction of what they did. The menu is shorter, with a new <b>To do</b> list and a <b>Devices &amp; assets</b> list across every client; the top search also finds devices by serial, contacts and licenses. Client menus are grouped, every page has the same header and filter row, device pages have tabs, and the client portal has six tabs instead of ten.', 'todo', 'viewer'],
@@ -133,6 +134,13 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'The choice is yours alone and follows you to every computer you sign in from. Everyone else keeps their own.',
       'Printed reports, PDFs and the client portal always use the light colors, so what clients see doesn\'t change. Your brand color (Settings → Branding) is used in both modes.',
   ], ['Account' => '/account#appearance']) ?>
+  <?= $guide('contacts', 'fa-address-book', 'Keep contacts in sync with ' . psa_name(), 'viewer', [
+      'Each client\'s <b>Contacts</b> page says how its contacts sync: <b>both ways</b>, <b>in from ' . psa_name() . ' only</b> (two-way sync is off) or <b>in Align only</b> (the client isn\'t linked; link it on Client mapping).',
+      'Both ways: a contact you add in Align is created in ' . psa_name() . ', and edits to name, title, department, email and phones go there as you save. Archiving or restoring a contact in Align does the same in ' . psa_name() . ' (1.44.1). ' . psa_name() . ' changes come in every few minutes.',
+      psa_name() . '\'s own archive also clears the contact\'s Important, Billing and Technical flags and archives their client portal login there. The Primary flag and location are always managed in ' . psa_name() . '.',
+      'Restoring does the same in ' . psa_name() . ' and re-enables the contact\'s client portal login there. Contacts a client removes on their onboarding page are archived in Align only.',
+      'If ' . psa_name() . ' refuses a change, Align says why and keeps it in Align only. Two-way sync is the <b>Two-way sync (devices and contacts)</b> switch under Integrations → ' . psa_name() . '.',
+  ], ['Contacts' => '/contacts']) ?>
   <?= $guide('todo', 'fa-list-check', 'Work the To do list', 'viewer', [
       '<b>To do</b> (top of the menu) lists everything waiting on your team from every client: hardware without a type, licenses without a price, clients not linked to a connected tool, hosted backups to match and suggestions sent from the client portal.',
       'Each line has a button that goes straight to the fix. A line leaves the list by itself once the work is done; the badge in the menu shows how many are left.',
@@ -361,7 +369,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
         <div class="card-body small">
           <table class="table table-sm mb-0">
             <tr><th>Clients &amp; address</th><td><?= e(psa_name()) ?> (read-only in Align)</td></tr>
-            <tr><th>Contacts</th><td><?= e(psa_name()) ?>, <b>two-way</b>: detail edits (in Align, the client portal or the onboarding page) go back to <?= e(psa_name()) ?>, and new contacts from onboarding are created there</td></tr>
+            <tr><th>Contacts</th><td><?= e(psa_name()) ?>, <b>two-way</b>: contacts added in Align or on the onboarding page are created there, detail edits go back, and archiving or restoring in Align does the same there (1.44.1). Each client's Contacts page says which way it syncs</td></tr>
             <tr><th>Computers &amp; servers</th><td><?= e(\Align\Providers\Providers::rmmNames()) ?></td></tr>
             <tr><th>Network gear, printers, UPS…</th><td><?= e(psa_name()) ?> assets, <b>two-way</b>: edits in either place sync</td></tr>
             <tr><th>Licenses</th><td><?= e(psa_name()) ?> (read-only); prices and contracts in Align</td></tr>
