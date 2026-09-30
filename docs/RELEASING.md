@@ -15,6 +15,15 @@ What this covers, and what it doesn't:
   (Sigstore), so `cosign verify` shows it came from this repository's workflow. Someone who controls the repository
   could change that workflow, so for Docker the guarantee rests on GitHub (see [Docker](DOCKER.md)).
 
+## Release keys
+
+These are the keys servers trust today (from [`deploy/release-signers`](../deploy/release-signers)). Compare them with
+the fingerprint on Settings → Updates & backups, or with `ssh-keygen -lf` on a key file you were given:
+
+| Key | Fingerprint | Added |
+|---|---|---|
+| Chris Thompson (Bitwarden), ed25519 | `SHA256:1vsfmkmWqJLKcIQkEmrXZa54YJ+mSwKduweXbhpGWq0` | 2.0.0 |
+
 ## One-time setup (maintainer)
 
 You need Git on your own computer and a copy of the repository:
