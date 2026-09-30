@@ -40,6 +40,13 @@ cd MSP-ALIGN
    ssh-keygen -t ed25519 -C "releases@mspalign.org" -f ~/.ssh/msp-align-release
    ```
 
+   Or keep it in **Bitwarden** (desktop app, Settings → **Enable SSH agent**; then New item → **SSH key**, which makes
+   an ed25519 key). The private key stays in your vault, backed up with it, and Bitwarden asks you to approve each
+   signature. It is as safe as your Bitwarden account, so use a strong master password and two-factor sign-in. On
+   Windows, stop and disable the **OpenSSH Authentication Agent** service (Bitwarden takes its place). There is no key
+   file: in step 3 use `git config user.signingkey "key::ssh-ed25519 AAAA..."` with the item's public key. The mobile
+   app can show the public key but can't sign.
+
    - **macOS:** Apple's built-in `ssh-keygen` can't use security keys. Run `brew install openssh` and use
      `/opt/homebrew/bin/ssh-keygen` (Intel Macs: `/usr/local/bin/ssh-keygen`).
    - **Windows:** use Windows' own OpenSSH, which talks to security keys through Windows Hello:
@@ -57,7 +64,7 @@ cd MSP-ALIGN
    git config gpg.ssh.allowedSignersFile ~/.ssh/msp-align-signers
    ```
 
-   On macOS or Windows with a security key, also point Git at the `ssh-keygen` from step 1, for example
+   On macOS or Windows with a security key or Bitwarden, also point Git at the `ssh-keygen` from step 1, for example
    `git config gpg.ssh.program /opt/homebrew/bin/ssh-keygen` or
    `git config gpg.ssh.program "C:/Windows/System32/OpenSSH/ssh-keygen.exe"`.
 
