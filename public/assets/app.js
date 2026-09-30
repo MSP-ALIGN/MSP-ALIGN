@@ -360,34 +360,58 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ---- 0.5.0: branding page live preview ----
+// ---- Branding page live preview (0.5.0; 1.45.2: the 1.43 look, app / sign-in / portal, light or dark) ----
 document.addEventListener('DOMContentLoaded', () => {
   const preview = document.getElementById('brand-preview');
   if (!preview) return;
   const color = document.getElementById('brand_primary');
   const picker = document.querySelector('[data-color-for="brand_primary"]');
+  const hexOk = (hex) => /^#[0-9a-fA-F]{6}$/.test(hex);
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.substr(i, 2), 16));
   const textFor = (hex) => {
-    const c = hex.replace('#', '');
     const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-    const [r, g, b] = [0, 2, 4].map((i) => lin(parseInt(c.substr(i, 2), 16)));
+    const [r, g, b] = rgb(hex).map(lin);
     return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#1f2d3d' : '#ffffff';
   };
+  const toHex = (a) => '#' + a.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  // the same link colors Branding::cssVars makes: darker in light mode, lighter in dark mode
+  const linkFor = (hex, dark) => dark ? toHex(rgb(hex).map((v) => v + (255 - v) * 0.35)) : toHex(rgb(hex).map((v) => v * 0.8));
+  const textLabel = document.getElementById('brand-text-label');
+  let current = color.value;
   const applyColor = (hex) => {
-    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+    if (!hexOk(hex)) return;
+    current = hex;
     preview.style.setProperty('--bp-color', hex);
     preview.style.setProperty('--bp-text', textFor(hex));
+    preview.style.setProperty('--bp-link', linkFor(hex, preview.dataset.bsTheme === 'dark'));
+    if (textLabel) textLabel.textContent = textFor(hex) === '#ffffff' ? 'white' : 'dark';
+    document.querySelectorAll('[data-swatch]').forEach((b) => b.classList.toggle('is-active', b.dataset.swatch.toLowerCase() === hex.toLowerCase()));
   };
   applyColor(color.value);
-  color.addEventListener('input', () => { applyColor(color.value); if (/^#[0-9a-fA-F]{6}$/.test(color.value)) picker.value = color.value; });
+  color.addEventListener('input', () => { applyColor(color.value); if (hexOk(color.value)) picker.value = color.value; });
   picker.addEventListener('input', () => { color.value = picker.value; applyColor(picker.value); });
   document.querySelectorAll('[data-swatch]').forEach((b) => b.addEventListener('click', () => {
     color.value = b.dataset.swatch; picker.value = b.dataset.swatch; applyColor(b.dataset.swatch);
   }));
+  const setText = (sel, value) => preview.querySelectorAll(sel).forEach((el) => { el.textContent = value; });
   const nameIn = document.querySelector('[data-preview="name"]');
-  const nameOut = document.getElementById('bp-name');
-  nameIn.addEventListener('input', () => { nameOut.textContent = nameIn.value || preview.dataset.defaultName; });
-  document.querySelector('[data-preview="logo-only"]').addEventListener('change', (e) => nameOut.classList.toggle('d-none', e.target.checked));
-  document.querySelector('[data-preview="sidebar"]').addEventListener('change', (e) => document.getElementById('bp-side').classList.toggle('is-light', e.target.value === 'light'));
+  nameIn.addEventListener('input', () => setText('.bp-name', nameIn.value || preview.dataset.defaultName));
+  const companyIn = document.querySelector('[data-preview="company"]');
+  companyIn.addEventListener('input', () => setText('.bp-company', companyIn.value || preview.dataset.defaultCompany));
+  const msgIn = document.querySelector('[data-preview="message"]');
+  msgIn.addEventListener('input', () => setText('#bp-message', msgIn.value || msgIn.placeholder));
+  document.querySelector('[data-preview="logo-only"]').addEventListener('change', (e) => preview.querySelectorAll('.bp-name').forEach((el) => el.classList.toggle('d-none', e.target.checked)));
+  document.querySelectorAll('[data-preview="sidebar"]').forEach((r) => r.addEventListener('change', () => {
+    document.getElementById('bp-side').classList.toggle('is-light', r.value === 'light' && r.checked);
+    document.querySelectorAll('.brand-sidebar-option').forEach((o) => o.classList.toggle('is-active', o.querySelector('input').checked));
+  }));
+  document.querySelectorAll('[data-preview-theme]').forEach((b) => b.addEventListener('click', () => {
+    preview.dataset.bsTheme = b.dataset.previewTheme;
+    document.querySelectorAll('[data-preview-theme]').forEach((x) => { x.classList.toggle('active', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    applyColor(current);
+  }));
+  // Start the preview in the theme the page is shown in
+  if (document.documentElement.dataset.bsTheme === 'dark') document.querySelector('[data-preview-theme="dark"]').click();
   // The logo preview listens on the document, like the image pickers below
   document.addEventListener('change', (e) => {
     const input = e.target;
@@ -395,11 +419,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const f = input.files[0];
     if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) return;
     const url = URL.createObjectURL(f);   // a blob: address for the chosen file, only ever used as an image
-    ['bp-logo', 'logo-img'].forEach((elId) => {
-      const old = document.getElementById(elId);
+    [document.getElementById('logo-img'), ...preview.querySelectorAll('.bp-logo')].forEach((old) => {
       if (!old) return;
       const img = document.createElement('img');
-      img.id = old.id;
+      if (old.id) img.id = old.id;
       img.alt = old.alt;
       img.className = old.className;
       img.src = url;
