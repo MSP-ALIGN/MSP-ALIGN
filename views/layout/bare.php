@@ -1,8 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light" data-theme-pref="<?= defined('IS_PORTAL') && IS_PORTAL ? 'light' : 'auto' ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="/assets/theme.js?v=<?= e(APP_VERSION) ?>"></script>
 <title><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
 <link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= e(APP_VERSION) ?>">
@@ -10,7 +11,7 @@
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
-<body class="hold-transition login-page">
+<body class="login-page app-bare">
 <?php if (\Align\Staging::on()): ?><div style="position:fixed;top:0;left:0;right:0;background:#ffc107;color:#000;text-align:center;font:bold 13px sans-serif;padding:6px;z-index:9999">Test server: a copy of <?= e(APP_NAME) ?>. Changes here don&#039;t reach real clients or tools.</div><?php endif; ?>
 <div class="login-box">
   <div class="login-logo">

@@ -12,8 +12,8 @@ use Align\Controllers\LegalController;
     <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
     <p>This program is distributed in the hope that it will be useful, but <b>without any warranty</b>; without even the implied warranty of merchantability or fitness for a particular purpose. See the GNU Affero General Public License for more details.</p>
     <p>
-      <a class="btn btn-sm btn-default mr-1 mb-1" href="/license/full" target="_blank" rel="noopener"><i class="fas fa-file-lines mr-1"></i>Full license text (AGPL-3.0)</a>
-      <a class="btn btn-sm btn-default mr-1 mb-1" href="<?= e($source) ?>" target="_blank" rel="noopener"><i class="fab fa-github mr-1"></i>Source code</a>
+      <a class="btn btn-sm btn-default me-1 mb-1" href="/license/full" target="_blank" rel="noopener"><i class="fas fa-file-lines me-1"></i>Full license text (AGPL-3.0)</a>
+      <a class="btn btn-sm btn-default me-1 mb-1" href="<?= e($source) ?>" target="_blank" rel="noopener"><i class="fab fa-github me-1"></i>Source code</a>
     </p>
 
     <h2 class="h5 mt-4">What this means in plain words</h2>
@@ -32,7 +32,7 @@ use Align\Controllers\LegalController;
         <tbody>
           <?php foreach (LegalController::THIRD_PARTY as [$name, $ver, $lic, $url]): ?>
             <tr><td><a href="<?= e($url) ?>" target="_blank" rel="noopener"><?= e($name) ?></a></td><td><?= e($ver) ?></td><td><?= e($lic) ?></td>
-              <td class="text-right"><a class="small" href="/license/third-party/<?= e(strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name))) ?>" target="_blank" rel="noopener">License text</a></td></tr>
+              <td class="text-end"><a class="small" href="/license/third-party/<?= e(strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name))) ?>" target="_blank" rel="noopener">License text</a></td></tr>
           <?php endforeach; ?>
         </tbody>
       </table>

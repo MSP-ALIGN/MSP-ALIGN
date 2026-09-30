@@ -21,6 +21,12 @@ const alignFmt = (() => {
       : ((d.getHours() % 12) || 12) + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + (d.getHours() < 12 ? 'am' : 'pm'),
   };
 })();
+// Bootstrap 5 components, without jQuery (1.43): bsModal('#id').show(), bsTab(link).show(), bsCollapse(el).show()
+const bsEl = (x) => (typeof x === 'string' ? document.querySelector(x) : x);
+const bsModal = (x) => (bsEl(x) && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(bsEl(x)) : { show() {}, hide() {} });
+const bsTab = (x) => (bsEl(x) && window.bootstrap ? window.bootstrap.Tab.getOrCreateInstance(bsEl(x)) : { show() {} });
+const bsCollapse = (x) => (bsEl(x) && window.bootstrap ? window.bootstrap.Collapse.getOrCreateInstance(bsEl(x), { toggle: false }) : { show() {} });
+
 // Set-up that also has to run on parts of the page loaded later (edit forms opened from long lists):
 // alignInit.add((root) => ...) runs now on the page and again on each loaded part.
 const alignInit = {
@@ -42,13 +48,13 @@ document.addEventListener('click', (ev) => {
   }
 }, true);
 
-// Edit forms on long lists load when opened: <a data-lazy-modal="/licenses/5/form?back=…" data-target="#modal-license-5">
+// Edit forms on long lists load when opened: <a data-lazy-modal="/licenses/5/form?back=…" data-bs-target="#modal-license-5">
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest && ev.target.closest('[data-lazy-modal]');
-  if (!el || !window.jQuery) return;
+  if (!el) return;
   ev.preventDefault();
-  const sel = el.dataset.target;
-  const show = () => window.jQuery(sel).modal('show');
+  const sel = el.dataset.bsTarget;
+  const show = () => bsModal(sel).show();
   if (document.querySelector(sel)) { show(); return; }
   if (el.dataset.loading) return;
   el.dataset.loading = '1';
@@ -126,6 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Checklist: "Use suggestion" buttons pick the matching status radio
+  // Radio buttons drawn as a button group (1.43: Bootstrap 5 dropped the BS4 "buttons" plugin): the checked one is active
+  document.addEventListener('change', (e) => {
+    const input = e.target;
+    if (!input.matches || !input.matches('[data-radio-buttons] input[type=radio]')) return;
+    input.closest('[data-radio-buttons]').querySelectorAll('input[type=radio]').forEach((r) => r.closest('label') && r.closest('label').classList.toggle('active', r.checked));
+  });
+
   document.querySelectorAll('[data-set-status]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const group = document.getElementById(btn.dataset.setStatus);
@@ -217,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Open a modal from the URL: ?add=1 opens the element marked data-autoopen="add"
   const params = new URLSearchParams(window.location.search);
-  if (params.get('add') === '1' && window.jQuery) {
+  if (params.get('add') === '1') {
     const opener = document.querySelector('[data-autoopen="add"]');
-    if (opener) window.jQuery(opener.dataset.target).modal('show');
+    if (opener) bsModal(opener.dataset.bsTarget).show();
   }
 
   // Calendar (FullCalendar, loaded only on /calendar)
@@ -245,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
           .then((r) => r.json()).then(success).catch(failure);
       },
       dateClick: (info) => {
-        if (calEl.dataset.canCreate !== '1' || !window.jQuery) return;
+        if (calEl.dataset.canCreate !== '1') return;
         const modal = document.getElementById('modal-meeting');
         if (!modal) return;
         const date = modal.querySelector('input[name="date"]');
@@ -256,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const c = modal.querySelector('select[name="client_id"]');
           if (c) c.value = clientSel.value;
         }
-        window.jQuery(modal).modal('show');
+        bsModal(modal).show();
       },
     });
     cal.render();
@@ -286,8 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-autosubmit-check]').forEach((c) => c.addEventListener('change', () => c.form.submit()));
 
   // Roadmap: "+" on a quarter pre-selects that quarter in the add-item modal
-  if (window.jQuery) {
-    window.jQuery('#modal-roadmap').on('show.bs.modal', (ev) => {
+  const rmModal = document.getElementById('modal-roadmap');
+  if (rmModal) {
+    rmModal.addEventListener('show.bs.modal', (ev) => {
       const q = ev.relatedTarget ? ev.relatedTarget.getAttribute('data-quarter') : null;
       const sel = ev.target.querySelector('select[name="target_quarter"]');
       if (sel && q !== null) sel.value = q;
@@ -368,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
   file.addEventListener('change', () => {
     const f = file.files[0];
     if (!f) return;
-    file.nextElementSibling.textContent = f.name;
     const url = URL.createObjectURL(f);
     document.getElementById('bp-logo').src = url;
     document.getElementById('logo-img').src = url;
@@ -384,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const boxes = () => Array.from(form.querySelectorAll('.row-check'));
   const sync = () => {
     const n = boxes().filter((b) => b.checked).length;
-    if (apply) { apply.disabled = n === 0; apply.innerHTML = '<i class="fas fa-check mr-1"></i>Apply' + (n ? ' to ' + n : ''); }
+    if (apply) { apply.disabled = n === 0; apply.innerHTML = '<i class="fas fa-check me-1"></i>Apply' + (n ? ' to ' + n : ''); }
     if (all) all.checked = n > 0 && n === boxes().length;
   };
   if (all) all.addEventListener('change', () => { boxes().forEach((b) => { b.checked = all.checked; }); sync(); });
@@ -396,8 +409,6 @@ document.addEventListener('change', (e) => {
   const input = e.target;
   if (!input.matches || !input.matches('[data-logo-input]') || !input.files || !input.files[0]) return;
   const f = input.files[0];
-  const label = input.nextElementSibling;
-  if (label && label.classList.contains('custom-file-label')) label.textContent = f.name;
   const scope = input.closest('.modal-body, .card-body, form');
   const box = scope && (scope.querySelector('[data-logo-preview]') || (scope.parentElement && scope.parentElement.querySelector('[data-logo-preview]')));
   if (!box) return;
@@ -489,18 +500,18 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!list.length) return;
           const key = list.filter((c) => c.key);
           const lbl = document.createElement('span');
-          lbl.className = 'text-muted mr-1';
+          lbl.className = 'text-muted me-1';
           lbl.textContent = 'Add:';
           box.appendChild(lbl);
           if (key.length > 1) {
             const all = document.createElement('a');
-            all.href = '#'; all.className = 'mr-2 font-weight-bold'; all.textContent = 'meeting invitees (' + key.length + ')';
+            all.href = '#'; all.className = 'me-2 fw-bold'; all.textContent = 'meeting invitees (' + key.length + ')';
             all.addEventListener('click', (e) => { e.preventDefault(); key.forEach(add); });
             box.appendChild(all);
           }
           list.slice(0, 12).forEach((c) => {
             const a = document.createElement('a');
-            a.href = '#'; a.className = 'badge badge-light border mr-1 mb-1' + (c.key ? ' font-weight-bold' : ' font-weight-normal');
+            a.href = '#'; a.className = 'badge text-bg-light border me-1 mb-1' + (c.key ? ' fw-bold' : ' fw-normal');
             a.textContent = '+ ' + c.name; a.title = [c.title, c.email].filter(Boolean).join(' · ');
             a.addEventListener('click', (e) => { e.preventDefault(); add(c); });
             box.appendChild(a);
@@ -573,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = document.createElement('span');
       msg.textContent = 'You will be signed out in a minute because of inactivity. ';
       const btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'btn btn-sm btn-dark ml-2'; btn.textContent = 'Stay signed in';
+      btn.type = 'button'; btn.className = 'btn btn-sm btn-dark ms-2'; btn.textContent = 'Stay signed in';
       btn.addEventListener('click', mark);
       banner.append(msg, btn);
       document.body.appendChild(banner);
@@ -582,12 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 5000);
 });
 
-// Fill a modal from the button that opens it: <button data-toggle="modal" data-target="#m" data-fill data-f-kind="device">
+// Fill a modal from the button that opens it: <button data-bs-toggle="modal" data-bs-target="#m" data-fill data-f-kind="device">
 // sets [name="kind"] inputs and [data-fill-text="kind"] text inside #m.
 document.addEventListener('click', (ev) => {
   const btn = ev.target.closest('[data-fill]');
   if (!btn) return;
-  const modal = document.querySelector(btn.dataset.target || '');
+  const modal = document.querySelector(btn.dataset.bsTarget || '');
   if (!modal) return;
   Object.keys(btn.dataset).forEach((k) => {
     if (!/^f[A-Z]/.test(k)) return;
@@ -694,7 +705,7 @@ const jobOverlay = (() => {
     const setState = (s) => {
       const [c, t] = badges[s] || ['secondary', s];
       const b = $('[data-job-state]');
-      b.className = 'badge px-2 py-1 badge-' + c;
+      b.className = 'badge px-2 py-1 text-bg-' + c;
       b.textContent = t;
       box.className = box.className.replace(/card-(success|danger|primary|secondary)/, 'card-' + c);
       $('[data-job-spinner]').classList.toggle('d-none', s === 'succeeded' || s === 'failed');
@@ -718,7 +729,7 @@ const jobOverlay = (() => {
       const dlist = document.createElement('dl');
       dlist.className = 'row mb-0';
       rows.forEach(([k, v]) => {
-        const dt = document.createElement('dt'); dt.className = 'col-sm-3 font-weight-normal text-muted'; dt.textContent = k;
+        const dt = document.createElement('dt'); dt.className = 'col-sm-3 fw-normal text-muted'; dt.textContent = k;
         const dd = document.createElement('dd'); dd.className = 'col-sm-9 mb-1'; dd.textContent = v;
         dlist.append(dt, dd);
       });
@@ -800,10 +811,6 @@ const jobOverlay = (() => {
 
   document.querySelectorAll('form[data-upload]').forEach((f) => {
     const input = f.querySelector('input[type=file]');
-    input.addEventListener('change', () => {
-      const label = input.nextElementSibling;
-      if (label && input.files[0]) label.textContent = input.files[0].name;
-    });
     f.addEventListener('submit', (e) => {
       const err = f.querySelector('[data-upload-error]');
       err.textContent = '';
@@ -852,7 +859,7 @@ const jobOverlay = (() => {
       shown += hit ? 1 : 0;
     });
     // Open the guides that match when the search narrows things down
-    if (words.length && shown <= 3) guides.filter((g) => !g.classList.contains('d-none')).forEach((g) => window.jQuery && window.jQuery(g.querySelector('.collapse')).collapse('show'));
+    if (words.length && shown <= 3) guides.filter((g) => !g.classList.contains('d-none')).forEach((g) => bsCollapse(g.querySelector('.collapse')).show());
     if (empty) empty.classList.toggle('d-none', shown > 0);
     const h = document.querySelectorAll('#tab-howto h6');
     h.forEach((el) => { el.classList.toggle('d-none', words.length > 0); });
@@ -861,10 +868,10 @@ const jobOverlay = (() => {
     const id = decodeURIComponent(location.hash.slice(1));
     if (!id) return;
     const target = document.getElementById(id);
-    if (!target || !window.jQuery) return;
+    if (!target) return;
     const pane = target.closest('.tab-pane');
-    if (pane) window.jQuery('a[href="#' + pane.id + '"]').tab('show');
-    if (target.classList.contains('help-guide')) window.jQuery(target.querySelector('.collapse')).collapse('show');
+    if (pane) bsTab('a[href="#' + pane.id + '"]').show();
+    if (target.classList.contains('help-guide')) bsCollapse(target.querySelector('.collapse')).show();
     setTimeout(() => target.scrollIntoView({ block: 'start' }), 200);
   };
   window.addEventListener('load', open);
@@ -967,7 +974,7 @@ const jobOverlay = (() => {
       modalEl.querySelector('#move-note').value = '';
       const move = { ...drag };
       modalEl._move = move;
-      if (window.jQuery) window.jQuery(modalEl).modal('show');
+      bsModal(modalEl).show();
     });
   });
   const send = (quarter) => {
@@ -1224,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Portal: /portal/licensing#suggest (from the home page) opens the Suggest form straight away
 document.addEventListener('DOMContentLoaded', () => {
-  if (location.hash === '#suggest' && document.getElementById('modal-suggest') && window.jQuery) window.jQuery('#modal-suggest').modal('show');
+  if (location.hash === '#suggest' && document.getElementById('modal-suggest')) bsModal('#modal-suggest').show();
   // On a phone the section bar scrolls sideways: keep the current section in view
   const cur = document.querySelector('.portal-sections .nav-link.active');
   if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -1253,10 +1260,9 @@ alignInit.add((root) => {
 
 // Record-page tabs (1.42): open the tab named in the address (#lifecycle) and keep the address in step
 document.addEventListener('DOMContentLoaded', () => {
-  if (!window.jQuery) return;
-  const tabs = document.querySelectorAll('.record-tabs [data-toggle="tab"]');
+  const tabs = document.querySelectorAll('.record-tabs [data-bs-toggle="tab"]');
   if (!tabs.length) return;
-  const pick = window.location.hash && document.querySelector('.record-tabs [data-toggle="tab"][href="' + CSS.escape(window.location.hash) + '"]');
-  if (pick) window.jQuery(pick).tab('show');
-  window.jQuery(tabs).on('shown.bs.tab', (ev) => { try { window.history.replaceState(null, '', ev.target.getAttribute('href')); } catch (e) { /* ignore */ } });
+  const pick = window.location.hash && document.querySelector('.record-tabs [data-bs-toggle="tab"][href="' + CSS.escape(window.location.hash) + '"]');
+  if (pick) bsTab(pick).show();
+  tabs.forEach((t) => t.addEventListener('shown.bs.tab', (ev) => { try { window.history.replaceState(null, '', ev.target.getAttribute('href')); } catch (e) { /* ignore */ } }));
 });

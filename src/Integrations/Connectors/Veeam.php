@@ -22,7 +22,7 @@ final class Veeam extends BackupConnector
 
     public function setup(): string
     {
-        return '<ol class="pl-3 mb-0"><li>In VSPC open <b>Configuration → Security → REST API Keys</b> and create a key for a <b>read-only</b> portal administrator.</li>'
+        return '<ol class="ps-3 mb-0"><li>In VSPC open <b>Configuration → Security → REST API Keys</b> and create a key for a <b>read-only</b> portal administrator.</li>'
             . '<li>Enter the portal address (the REST API is <code>/api/v3</code> on the same host). Its certificate must be trusted by this server.</li>'
             . '<li>Save, press <b>Test</b>, run a sync, then check the Veeam column on <a href="/mapping">Client mapping</a>.</li>'
             . '<li>Host clients\' servers and back them up on your own Veeam server? Those are matched to clients by device name; review and fix them under <a href="/mapping/backups">Hosted backups</a>.</li></ol>';

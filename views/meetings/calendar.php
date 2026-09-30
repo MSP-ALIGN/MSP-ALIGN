@@ -6,20 +6,20 @@ use Align\Meetings\Meetings;
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-handshake', 'title' => 'Meetings',
     'desc' => 'Business reviews and other client meetings. Invitations and reminders go out from here; the calendar feed keeps your own calendar in step.',
-    'primary' => Auth::can('tech') ? '<button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-plus mr-1"></i>Schedule</button>' : '',
+    'primary' => Auth::can('tech') ? '<button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-meeting"><i class="fas fa-plus me-1"></i>Schedule</button>' : '',
 ]) ?>
 <?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/meetings', 'Meetings', 'fa-handshake', false], ['/calendar', 'Calendar', 'fa-calendar-days', true]]]) ?>
 <div class="row">
   <div class="col-lg-9">
     <div class="card card-dark">
       <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-calendar-days mr-2"></i>Calendar</h3>
+        <h3 class="card-title mt-2"><i class="fas fa-fw fa-calendar-days me-2"></i>Calendar</h3>
         <div class="card-tools d-flex">
-          <select class="custom-select custom-select-sm mr-2 w-auto" id="calendar-client" aria-label="Filter by client">
+          <select class="form-select form-select-sm me-2 w-auto" id="calendar-client" aria-label="Filter by client">
             <option value="">All clients</option>
             <?php foreach ($clients as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) ($_GET['client'] ?? 0) === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
           </select>
-          <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-plus mr-1"></i>Schedule</button><?php endif; ?>
+          <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-meeting"><i class="fas fa-plus me-1"></i>Schedule</button><?php endif; ?>
         </div>
       </div>
       <div class="card-body">
@@ -29,19 +29,19 @@ use Align\Meetings\Meetings;
   </div>
   <div class="col-lg-3">
     <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-tags mr-2"></i>Meeting types</h3></div>
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-tags me-2"></i>Meeting types</h3></div>
       <div class="card-body small">
         <?php foreach (Meetings::TYPES as $k => [$label, $color]): ?>
-          <div class="mb-1"><span class="badge badge-<?= $color ?> mr-2">&nbsp;</span><?= e($label) ?></div>
+          <div class="mb-1"><span class="badge text-bg-<?= $color ?> me-2">&nbsp;</span><?= e($label) ?></div>
         <?php endforeach; ?>
         <div class="text-muted text-uppercase mt-3 mb-1" style="font-size:.7rem">Contract dates <a href="/renewals" class="text-lowercase">(all)</a></div>
-        <div class="mb-1"><span class="badge mr-2" style="background:#eb6834">&nbsp;</span>Renegotiate / give notice by</div>
-        <div class="mb-1"><span class="badge mr-2" style="background:#e34948">&nbsp;</span>Contract ends</div>
-        <div class="mb-1"><span class="badge mr-2" style="background:#6c757d">&nbsp;</span>License expires / renews</div>
+        <div class="mb-1"><span class="badge me-2" style="background:#eb6834">&nbsp;</span>Renegotiate / give notice by</div>
+        <div class="mb-1"><span class="badge me-2" style="background:#e34948">&nbsp;</span>Contract ends</div>
+        <div class="mb-1"><span class="badge me-2" style="background:#6c757d">&nbsp;</span>License expires / renews</div>
       </div>
     </div>
     <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-rss mr-2"></i>Subscribe in Outlook</h3></div>
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-rss me-2"></i>Subscribe in Outlook</h3></div>
       <div class="card-body small">
         <?php if ($feedUrl): ?>
           <p>Add this link in Outlook under <b>Add calendar → Subscribe from web</b> (or Google/Apple "From URL"). It shows every Align meeting and refreshes on its own.</p>
@@ -50,7 +50,7 @@ use Align\Meetings\Meetings;
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
         <?php elseif (!empty($feedOn)): ?>
-          <p><span class="badge badge-success">On</span> Your feed link is active. It isn't shown again; make a new one if you need it.</p>
+          <p><span class="badge text-bg-success">On</span> Your feed link is active. It isn't shown again; make a new one if you need it.</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
         <?php else: ?>

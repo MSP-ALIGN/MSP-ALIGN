@@ -9,9 +9,9 @@ foreach ($licenses as $l) {
 uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES)) <=> array_search($b, array_keys(Licenses::CATEGORIES)));
 ?>
 <div class="d-flex flex-wrap align-items-center portal-page-head">
-  <div class="mr-auto"><h1 class="h4 mb-0"><i class="fas fa-key mr-2 text-secondary"></i>Licensing</h1>
+  <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-key me-2 text-secondary"></i>Licensing</h1>
     <div class="small text-muted">Software subscriptions and licenses your IT provider manages for you.</div></div>
-  <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0" data-toggle="modal" data-target="#modal-suggest"><i class="fas fa-plus mr-1"></i>Suggest a license</button><?php endif; ?>
+  <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0" data-bs-toggle="modal" data-bs-target="#modal-suggest"><i class="fas fa-plus me-1"></i>Suggest a license</button><?php endif; ?>
 </div>
 
 <?= \Align\View::fetch('partials/tiles', ['tiles' => [['label' => 'Monthly', 'value' => money_exact($totals['monthly'])], ['label' => 'Annual', 'value' => money($totals['annual'])], ['label' => 'Products', 'value' => (int) $totals['count']], ['label' => 'Renewing soon', 'value' => count($totals['renewals']), 'tone' => count($totals['renewals']) ? 'warning' : 'dark']]]) ?>
@@ -20,22 +20,22 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
 <div class="card">
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 license-table">
-      <thead><tr><th>Product</th><th>Type</th><th class="text-right">Licenses</th><th>Billed</th><th class="text-right">Monthly</th><th class="text-right">Annual</th><th>Renews</th></tr></thead>
+      <thead><tr><th>Product</th><th>Type</th><th class="text-end">Licenses</th><th>Billed</th><th class="text-end">Monthly</th><th class="text-end">Annual</th><th>Renews</th></tr></thead>
       <tbody>
       <?php if (!$licenses): ?><tr><td colspan="7" class="text-center text-muted py-4">No licenses have been added yet.</td></tr><?php endif; ?>
       <?php foreach ($groups as $cat => $rows): [$label, $icon, $tone] = Licenses::CATEGORIES[$cat] ?? Licenses::CATEGORIES['other']; ?>
-        <tr class="proj-quarter"><th colspan="4"><i class="fas <?= e($icon) ?> text-<?= e($tone) ?> mr-1"></i><?= e($label) ?></th>
-          <th class="text-right"><?= money(array_sum(array_column($rows, 'monthly'))) ?></th><th class="text-right"><?= money(array_sum(array_column($rows, 'annual'))) ?></th><th></th></tr>
+        <tr class="proj-quarter"><th colspan="4"><i class="fas <?= e($icon) ?> text-<?= e($tone) ?> me-1"></i><?= e($label) ?></th>
+          <th class="text-end"><?= money(array_sum(array_column($rows, 'monthly'))) ?></th><th class="text-end"><?= money(array_sum(array_column($rows, 'annual'))) ?></th><th></th></tr>
         <?php foreach ($rows as $l): ?>
           <tr>
             <td><b><?= e($l['name']) ?></b><?php if ($l['vendor']): ?><div class="small text-muted"><?= e($l['vendor']) ?></div><?php endif; ?>
-              <?php if ($cs = \Align\Budget\Contracts::summary($l)): ?><div class="small text-muted"><i class="fas fa-file-signature mr-1"></i><?= e($cs) ?></div><?php endif; ?></td>
+              <?php if ($cs = \Align\Budget\Contracts::summary($l)): ?><div class="small text-muted"><i class="fas fa-file-signature me-1"></i><?= e($cs) ?></div><?php endif; ?></td>
             <td class="small"><?= e(Licenses::TYPES[$l['license_type']]) ?></td>
-            <td class="text-right text-nowrap"><?= $l['seats'] !== null ? (int) $l['seats'] : '—' ?><?php if ($l['seats_used'] !== null): ?><div class="small text-muted"><?= (int) $l['seats_used'] ?> in use</div><?php endif; ?></td>
+            <td class="text-end text-nowrap"><?= $l['seats'] !== null ? (int) $l['seats'] : '—' ?><?php if ($l['seats_used'] !== null): ?><div class="small text-muted"><?= (int) $l['seats_used'] ?> in use</div><?php endif; ?></td>
             <td class="small"><?= e(Licenses::CYCLES[$l['billing_cycle']][0]) ?></td>
-            <td class="text-right text-nowrap"><?= $l['billing_cycle'] === 'one_time' ? '<span class="small text-muted">' . money($l['cycle_cost']) . ' once</span>' : ($l['priced'] ? money_exact($l['monthly']) : '—') ?></td>
-            <td class="text-right text-nowrap"><?= $l['priced'] && $l['billing_cycle'] !== 'one_time' ? money_exact($l['annual']) : '—' ?></td>
-            <td class="small text-nowrap"><?php if ($l['expire_date']): ?><span class="<?= $l['renewal'] === 'soon' ? 'text-warning font-weight-bold' : '' ?>"><?= e(fmt_date($l['expire_date'])) ?></span>
+            <td class="text-end text-nowrap"><?= $l['billing_cycle'] === 'one_time' ? '<span class="small text-muted">' . money($l['cycle_cost']) . ' once</span>' : ($l['priced'] ? money_exact($l['monthly']) : '—') ?></td>
+            <td class="text-end text-nowrap"><?= $l['priced'] && $l['billing_cycle'] !== 'one_time' ? money_exact($l['annual']) : '—' ?></td>
+            <td class="small text-nowrap"><?php if ($l['expire_date']): ?><span class="<?= $l['renewal'] === 'soon' ? 'text-warning fw-bold' : '' ?>"><?= e(fmt_date($l['expire_date'])) ?></span>
               <div class="text-muted"><?= $l['auto_renew'] ? 'auto-renews' : 'manual renewal' ?></div><?php else: ?><span class="text-muted">—</span><?php endif; ?></td>
           </tr>
         <?php endforeach; ?>

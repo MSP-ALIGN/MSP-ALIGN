@@ -17,43 +17,43 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
         <?= csrf_field() ?>
         <?php if (!$m): ?><input type="hidden" name="return" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>"><?php endif; ?>
         <div class="modal-header bg-dark">
-          <h5 class="modal-title"><i class="fas fa-fw fa-handshake mr-2"></i><?= $m ? 'Edit meeting' : 'Schedule meeting' ?></h5>
-          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">&times;</button>
+          <h5 class="modal-title"><i class="fas fa-fw fa-handshake me-2"></i><?= $m ? 'Edit meeting' : 'Schedule meeting' ?></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group col-md-6">
+          <div class="row g-2">
+            <div class="mb-3 col-md-6">
               <label>Client</label>
-              <select name="client_id" class="form-control">
+              <select name="client_id" class="form-select">
                 <option value="">— Internal / no client —</option>
                 <?php foreach ($modalClients as $c): ?><option value="<?= (int) $c['id'] ?>" <?= $sel($c['id'], $clientSel) ?>><?= e($c['name']) ?></option><?php endforeach; ?>
               </select>
             </div>
-            <div class="form-group col-md-6">
+            <div class="mb-3 col-md-6">
               <label>Type</label>
-              <select name="type" class="form-control">
+              <select name="type" class="form-select">
                 <?php foreach (Meetings::TYPES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $m['type'] ?? 'abr') ?>><?= e($label) ?></option><?php endforeach; ?>
               </select>
             </div>
           </div>
-          <div class="form-group">
+          <div class="mb-3">
             <label>Title <small class="text-muted">(defaults to the type)</small></label>
             <input name="title" class="form-control" value="<?= e($m['title'] ?? '') ?>" placeholder="e.g. 2027 annual technology review">
           </div>
-          <div class="form-row">
-            <div class="form-group col-md-4"><label>Date</label><input type="date" name="date" class="form-control" required value="<?= e($date) ?>"></div>
-            <div class="form-group col-md-4"><label>Start time</label><input type="time" name="time" class="form-control" required value="<?= e($time) ?>" step="900"></div>
-            <div class="form-group col-md-4"><label>Length</label>
-              <select name="duration" class="form-control">
+          <div class="row g-2">
+            <div class="mb-3 col-md-4"><label>Date</label><input type="date" name="date" class="form-control" required value="<?= e($date) ?>"></div>
+            <div class="mb-3 col-md-4"><label>Start time</label><input type="time" name="time" class="form-control" required value="<?= e($time) ?>" step="900"></div>
+            <div class="mb-3 col-md-4"><label>Length</label>
+              <select name="duration" class="form-select">
                 <?php foreach ([15, 30, 45, 60, 90, 120, 180, 240] as $n): ?><option value="<?= $n ?>" <?= $sel($n, $dur) ?>><?= $n < 60 ? "$n min" : ($n / 60) . ' hr' . ($n > 60 ? 's' : '') ?></option><?php endforeach; ?>
               </select>
             </div>
           </div>
           <?php if (!$m): ?>
-          <div class="form-row">
-            <div class="form-group col-md-6">
+          <div class="row g-2">
+            <div class="mb-3 col-md-6">
               <label>Repeat</label>
-              <select name="repeat" class="form-control" data-toggle-target="#repeat-count">
+              <select name="repeat" class="form-select" data-toggle-target="#repeat-count">
                 <option value="none">Does not repeat</option>
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
@@ -61,27 +61,27 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
                 <option value="annual">Yearly</option>
               </select>
             </div>
-            <div class="form-group col-md-6 d-none" id="repeat-count">
+            <div class="mb-3 col-md-6 d-none" id="repeat-count">
               <label>Number of meetings</label>
               <input type="number" name="repeat_count" class="form-control" min="2" max="24" value="4">
             </div>
           </div>
           <?php endif; ?>
-          <div class="form-row">
-            <div class="form-group col-md-6"><label>Location</label><input name="location" class="form-control" value="<?= e($m['location'] ?? '') ?>" placeholder="Client office, phone…"></div>
-            <div class="form-group col-md-6"><label>Video link</label><input type="url" name="video_url" class="form-control" value="<?= e($m['video_url'] ?? '') ?>" placeholder="https://teams.microsoft.com/…"></div>
+          <div class="row g-2">
+            <div class="mb-3 col-md-6"><label>Location</label><input name="location" class="form-control" value="<?= e($m['location'] ?? '') ?>" placeholder="Client office, phone…"></div>
+            <div class="mb-3 col-md-6"><label>Video link</label><input type="url" name="video_url" class="form-control" value="<?= e($m['video_url'] ?? '') ?>" placeholder="https://teams.microsoft.com/…"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group col-md-6">
+          <div class="row g-2">
+            <div class="mb-3 col-md-6">
               <label>Owner</label>
-              <select name="owner_id" class="form-control">
+              <select name="owner_id" class="form-select">
                 <?php foreach ($modalUsers as $usr): ?><option value="<?= (int) $usr['id'] ?>" <?= $sel($usr['id'], $m['owner_id'] ?? \Align\Auth::id()) ?>><?= e($usr['name']) ?></option><?php endforeach; ?>
               </select>
             </div>
-            <div class="form-group col-md-6"><label>Attendees</label><input name="attendees" class="form-control" value="<?= e($m['attendees'] ?? '') ?>" placeholder="Names or emails, comma separated" data-attendees>
+            <div class="mb-3 col-md-6"><label>Attendees</label><input name="attendees" class="form-control" value="<?= e($m['attendees'] ?? '') ?>" placeholder="Names or emails, comma separated" data-attendees>
               <div class="small mt-1 attendee-picks" data-attendee-picks></div></div>
           </div>
-          <div class="form-group mb-0">
+          <div class="mb-3 mb-0">
             <label>Agenda</label>
             <textarea name="agenda" class="form-control" rows="5" placeholder="1. Lifecycle review&#10;2. Compliance gaps&#10;3. Roadmap and budget"><?= e($m['agenda'] ?? '') ?></textarea>
           </div>
@@ -89,11 +89,11 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
         <div class="modal-footer">
           <?php if (\Align\Mail\Invites::enabled()): $sentBefore = !empty($m['invites_sent_at']); ?>
             <input type="hidden" name="send_invites" value="0">
-            <div class="custom-control custom-checkbox mr-auto"><input type="checkbox" class="custom-control-input" id="send-invites-<?= (int) ($m['id'] ?? 0) ?>" name="send_invites" value="1" <?= !$m || $sentBefore ? 'checked' : '' ?>>
-              <label class="custom-control-label font-weight-normal small" for="send-invites-<?= (int) ($m['id'] ?? 0) ?>"><?= $sentBefore ? 'Send the update to attendees' : 'Email invitations to attendees' ?><?= \Align\Settings::get('mail_meeting_mode', 'calendar') === 'calendar' && \Align\Mail\Mail::hasCalendar() ? (\Align\Mail\Mail::provider() === 'google' ? ' (Google Calendar)' : ' (Outlook)') : '' ?></label></div>
+            <div class="form-check me-auto"><input type="checkbox" class="form-check-input" id="send-invites-<?= (int) ($m['id'] ?? 0) ?>" name="send_invites" value="1" <?= !$m || $sentBefore ? 'checked' : '' ?>>
+              <label class="form-check-label fw-normal small" for="send-invites-<?= (int) ($m['id'] ?? 0) ?>"><?= $sentBefore ? 'Send the update to attendees' : 'Email invitations to attendees' ?><?= \Align\Settings::get('mail_meeting_mode', 'calendar') === 'calendar' && \Align\Mail\Mail::hasCalendar() ? (\Align\Mail\Mail::provider() === 'google' ? ' (Google Calendar)' : ' (Outlook)') : '' ?></label></div>
           <?php endif; ?>
-          <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary"><i class="fas fa-check mr-1"></i><?= $m ? 'Save' : 'Schedule' ?></button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary"><i class="fas fa-check me-1"></i><?= $m ? 'Save' : 'Schedule' ?></button>
         </div>
       </form>
     </div>

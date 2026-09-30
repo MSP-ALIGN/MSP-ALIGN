@@ -17,17 +17,17 @@ $hints = [
 ?>
 <div class="row">
   <div class="col-md-7">
-    <div class="small font-weight-bold text-muted text-uppercase mb-1">Can see</div>
+    <div class="small fw-bold text-muted text-uppercase mb-1">Can see</div>
     <?php foreach (PortalAuth::SECTIONS as $k => $label): ?>
-      <div class="custom-control custom-checkbox mb-1"><input type="checkbox" class="custom-control-input" id="<?= $pid ?>-<?= $k ?>" name="<?= $k ?>" value="1" <?= $val($k) ? 'checked' : '' ?>>
-        <label class="custom-control-label font-weight-normal" for="<?= $pid ?>-<?= $k ?>"><?= e($label) ?> <span class="small text-muted d-block"><?= e($hints[$k]) ?></span></label></div>
+      <div class="form-check mb-1"><input type="checkbox" class="form-check-input" id="<?= $pid ?>-<?= $k ?>" name="<?= $k ?>" value="1" <?= $val($k) ? 'checked' : '' ?>>
+        <label class="form-check-label fw-normal" for="<?= $pid ?>-<?= $k ?>"><?= e($label) ?> <span class="small text-muted d-block"><?= e($hints[$k]) ?></span></label></div>
     <?php endforeach; ?>
   </div>
   <div class="col-md-5">
-    <div class="small font-weight-bold text-muted text-uppercase mb-1">Can do</div>
+    <div class="small fw-bold text-muted text-uppercase mb-1">Can do</div>
     <?php foreach (PortalAuth::ACTIONS as $k => $label): ?>
-      <div class="custom-control custom-checkbox mb-1"><input type="checkbox" class="custom-control-input" id="<?= $pid ?>-<?= $k ?>" name="<?= $k ?>" value="1" <?= $val($k) ? 'checked' : '' ?>>
-        <label class="custom-control-label font-weight-normal" for="<?= $pid ?>-<?= $k ?>"><?= e($label) ?> <span class="small text-muted d-block"><?= e($hints[$k]) ?></span></label></div>
+      <div class="form-check mb-1"><input type="checkbox" class="form-check-input" id="<?= $pid ?>-<?= $k ?>" name="<?= $k ?>" value="1" <?= $val($k) ? 'checked' : '' ?>>
+        <label class="form-check-label fw-normal" for="<?= $pid ?>-<?= $k ?>"><?= e($label) ?> <span class="small text-muted d-block"><?= e($hints[$k]) ?></span></label></div>
     <?php endforeach; ?>
   </div>
 </div>

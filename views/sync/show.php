@@ -8,7 +8,7 @@
       <div class="card-body p-0">
         <table class="table table-sm mb-0">
           <?php foreach ($sum as $step => $result): ?>
-            <tr><th class="font-weight-normal text-muted"><?= e($step) ?></th><td class="<?= str_starts_with((string) $result, 'ERROR') ? 'text-danger' : '' ?>"><?= e($result) ?></td></tr>
+            <tr><th class="fw-normal text-muted"><?= e($step) ?></th><td class="<?= str_starts_with((string) $result, 'ERROR') ? 'text-danger' : '' ?>"><?= e($result) ?></td></tr>
           <?php endforeach; ?>
         </table>
       </div>

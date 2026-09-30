@@ -6,7 +6,7 @@ $canEdit = Auth::can('tech');
 $twoWay = \Align\Sync\PsaAssetSync::twoWay();
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-auto"><i class="fas fa-circle-question text-warning mr-2"></i>Unassigned hardware <span class="badge badge-warning align-middle"><?= count($rows) ?></span></h1>
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-circle-question text-warning me-2"></i>Unassigned hardware <span class="badge text-bg-warning align-middle"><?= count($rows) ?></span></h1>
 </div>
 <p class="text-muted small"><?= e(psa_name()) ?> assets whose type doesn't match an Align category (<?= e(psa_name()) ?>'s "Other", Display, Tablet, custom types…) land here.
   Pick the right type and they move into the correct category for lifecycle, budgets and reports<?= $twoWay ? ', and the ' . psa_name() . ' asset type is updated to match' : '' ?>.</p>
@@ -21,14 +21,14 @@ $twoWay = \Align\Sync\PsaAssetSync::twoWay();
     <div class="card-header py-2">
       <h3 class="card-title mt-1">Needs a category</h3>
       <?php if ($canEdit): ?>
-      <div class="card-tools form-inline">
-        <select name="device_type" class="custom-select custom-select-sm mr-2" required aria-label="Type to apply">
+      <div class="card-tools d-flex flex-wrap align-items-center">
+        <select name="device_type" class="form-select form-select-sm me-2" required aria-label="Type to apply">
           <option value="">Set selected to…</option>
           <?php foreach (Lifecycle::TYPES as $t => [$class, , $virt]): if ($t === Lifecycle::UNASSIGNED) continue; ?>
             <option value="<?= e($t) ?>"><?= e($t) ?> — <?= e(Lifecycle::CLASSES[$class]) ?></option>
           <?php endforeach; ?>
         </select>
-        <button class="btn btn-sm btn-warning" id="bulk-apply" disabled><i class="fas fa-check mr-1"></i>Apply</button>
+        <button class="btn btn-sm btn-warning" id="bulk-apply" disabled><i class="fas fa-check me-1"></i>Apply</button>
       </div>
       <?php endif; ?>
     </div>
@@ -42,11 +42,11 @@ $twoWay = \Align\Sync\PsaAssetSync::twoWay();
           <?php foreach ($rows as $d): ?>
             <tr>
               <?php if ($canEdit): ?><td><input type="checkbox" name="ids[]" value="<?= (int) $d['id'] ?>" class="row-check" aria-label="Select <?= e($d['name']) ?>"></td><?php endif; ?>
-              <td><a href="/devices/<?= (int) $d['id'] ?>" class="font-weight-bold"><?= e($d['name']) ?></a></td>
+              <td><a href="/devices/<?= (int) $d['id'] ?>" class="fw-bold"><?= e($d['name']) ?></a></td>
               <td><?= $d['client_id'] ? '<a href="/clients/' . (int) $d['client_id'] . '/devices">' . e($d['client_name']) . '</a>' : '—' ?></td>
-              <td><span class="badge badge-light border"><?= e($psaTypes[(string) $d['psa_asset_id']] ?? '—') ?></span></td>
+              <td><span class="badge text-bg-light border"><?= e($psaTypes[(string) $d['psa_asset_id']] ?? '—') ?></span></td>
               <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '—' ?></td>
-              <td class="text-monospace small"><?= e($d['serial'] ?? '—') ?></td>
+              <td class="font-monospace small"><?= e($d['serial'] ?? '—') ?></td>
               <td class="small"><?= e($d['location'] ?? '') ?></td>
             </tr>
           <?php endforeach; ?>

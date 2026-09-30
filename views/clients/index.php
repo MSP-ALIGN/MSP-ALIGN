@@ -8,29 +8,29 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-users', 'title' => 'Clients', 'count' => (int) ($counts[$view] ?? 0),
     'desc' => 'Every client' . (psa_on() ? ' from ' . e(psa_name()) : '') . ' and any added by hand. Clients removed from planning stay here but leave the dashboard, meetings and reports.',
-    'primary' => $canEdit ? '<button type="button" class="btn btn-sm btn-primary text-nowrap" data-toggle="modal" data-target="#modal-client" data-autoopen="add"><i class="fas fa-plus mr-1"></i>New client</button>' : '',
-    'secondary' => $canEdit ? ['<a class="btn btn-sm btn-default text-nowrap" href="/clients/import"><i class="fas fa-file-import mr-1"></i>Import</a>'] : [],
+    'primary' => $canEdit ? '<button type="button" class="btn btn-sm btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-client" data-autoopen="add"><i class="fas fa-plus me-1"></i>New client</button>' : '',
+    'secondary' => $canEdit ? ['<a class="btn btn-sm btn-default text-nowrap" href="/clients/import"><i class="fas fa-file-import me-1"></i>Import</a>'] : [],
 ]) ?>
 <form method="post" action="/clients/bulk" id="bulk-form">
 <?= csrf_field() ?>
 <div class="card">
   <div class="card-header list-toolbar d-flex flex-wrap align-items-center">
-    <ul class="nav nav-pills view-tabs mr-auto">
+    <ul class="nav nav-pills view-tabs me-auto">
       <?php foreach ($tabs as $k => $label): ?>
-        <li class="nav-item"><a class="nav-link <?= $view === $k ? 'active' : '' ?>" href="/clients?view=<?= $k ?>"><?= e($label) ?> <span class="badge <?= $view === $k ? 'badge-light' : 'badge-secondary' ?>"><?= (int) ($counts[$k] ?? 0) ?></span></a></li>
+        <li class="nav-item"><a class="nav-link <?= $view === $k ? 'active' : '' ?>" href="/clients?view=<?= $k ?>"><?= e($label) ?> <span class="badge <?= $view === $k ? 'text-bg-light' : 'text-bg-secondary' ?>"><?= (int) ($counts[$k] ?? 0) ?></span></a></li>
       <?php endforeach; ?>
     </ul>
-    <input type="search" class="form-control form-control-sm list-search my-1 mr-1" data-filter-table="clients-table" placeholder="Filter clients…" aria-label="Filter clients" value="<?= e($q) ?>">
+    <input type="search" class="form-control form-control-sm list-search my-1 me-1" data-filter-table="clients-table" placeholder="Filter clients…" aria-label="Filter clients" value="<?= e($q) ?>">
     <?php if ($canEdit): ?>
-      <div class="bulk-bar d-none form-inline" id="bulk-bar">
-        <span class="small mr-2"><b id="bulk-count">0</b> selected</span>
+      <div class="bulk-bar d-none d-flex flex-wrap align-items-center" id="bulk-bar">
+        <span class="small me-2"><b id="bulk-count">0</b> selected</span>
         <?php if ($view !== 'removed'): ?>
-          <input name="reason" class="form-control form-control-sm mr-2" placeholder="Reason (optional)" list="bulk-reasons">
+          <input name="reason" class="form-control form-control-sm me-2" placeholder="Reason (optional)" list="bulk-reasons">
           <datalist id="bulk-reasons"><option value="Break-fix only"><option value="Not a managed client"><option value="Former client"><option value="Vendor / partner record"><option value="Internal / test"></datalist>
-          <button class="btn btn-sm btn-outline-secondary" name="action" value="exclude" data-confirm="Remove the selected clients from planning?"><i class="fas fa-eye-slash mr-1"></i>Remove from planning</button>
+          <button class="btn btn-sm btn-outline-secondary" name="action" value="exclude" data-confirm="Remove the selected clients from planning?"><i class="fas fa-eye-slash me-1"></i>Remove from planning</button>
         <?php endif; ?>
         <?php if ($view === 'removed' || $view === 'all'): ?>
-          <button class="btn btn-sm btn-outline-primary ml-1" name="action" value="restore"><i class="fas fa-rotate-left mr-1"></i>Restore to planning</button>
+          <button class="btn btn-sm btn-outline-primary ms-1" name="action" value="restore"><i class="fas fa-rotate-left me-1"></i>Restore to planning</button>
         <?php endif; ?>
       </div>
     <?php endif; ?>
@@ -41,8 +41,8 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
       <thead class="text-dark">
         <tr>
           <?php if ($canEdit): ?><th class="w-check"><input type="checkbox" id="check-all" aria-label="Select all"></th><?php endif; ?>
-          <th>Client</th><th>Industry</th><th>vCIO</th><th class="text-right">Devices</th><th class="text-right">Critical</th>
-          <th class="text-right">Warnings</th><th class="text-right">Next 12 mo</th><th>Compliance</th><th>Next meeting</th>
+          <th>Client</th><th>Industry</th><th>vCIO</th><th class="text-end">Devices</th><th class="text-end">Critical</th>
+          <th class="text-end">Warnings</th><th class="text-end">Next 12 mo</th><th>Compliance</th><th>Next meeting</th>
         </tr>
       </thead>
       <tbody>
@@ -55,18 +55,18 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
         <tr class="<?= $c['planning_excluded'] ? 'text-muted' : '' ?>">
           <?php if ($canEdit): ?><td><input type="checkbox" name="ids[]" value="<?= (int) $c['id'] ?>" class="row-check" aria-label="Select <?= e($c['name']) ?>"></td><?php endif; ?>
           <td>
-            <?php if ($lg = client_logo_url($c)): ?><img src="<?= e($lg) ?>" alt="" class="client-logo-sm mr-1"><?php endif; ?><a href="/clients/<?= (int) $c['id'] ?>" class="font-weight-bold"><?= e($c['name']) ?></a>
-            <?php if ($c['source'] === 'manual'): ?><span class="badge badge-light border" title="Added in Align">manual</span><?php endif; ?>
-            <?php if ($c['is_archived']): ?><span class="badge badge-dark">archived</span><?php endif; ?>
-            <?php if ($c['planning_excluded']): ?><span class="badge badge-secondary" title="<?= e($c['excluded_reason'] ?? '') ?>">removed<?= $c['excluded_reason'] ? ': ' . e($c['excluded_reason']) : '' ?></span><?php endif; ?>
-            <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link mr-1"></i>' . e($c['org_name']) : (!$c['planning_excluded'] && \Align\Providers\Providers::anyRmm() ? '<span class="text-warning">Not linked to ' . e(\Align\Providers\Providers::rmmNames()) . '</span>' : '') ?></div>
+            <?php if ($lg = client_logo_url($c)): ?><img src="<?= e($lg) ?>" alt="" class="client-logo-sm me-1"><?php endif; ?><a href="/clients/<?= (int) $c['id'] ?>" class="fw-bold"><?= e($c['name']) ?></a>
+            <?php if ($c['source'] === 'manual'): ?><span class="badge text-bg-light border" title="Added in Align">manual</span><?php endif; ?>
+            <?php if ($c['is_archived']): ?><span class="badge text-bg-dark">archived</span><?php endif; ?>
+            <?php if ($c['planning_excluded']): ?><span class="badge text-bg-secondary" title="<?= e($c['excluded_reason'] ?? '') ?>">removed<?= $c['excluded_reason'] ? ': ' . e($c['excluded_reason']) : '' ?></span><?php endif; ?>
+            <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link me-1"></i>' . e($c['org_name']) : (!$c['planning_excluded'] && \Align\Providers\Providers::anyRmm() ? '<span class="text-warning">Not linked to ' . e(\Align\Providers\Providers::rmmNames()) . '</span>' : '') ?></div>
           </td>
           <td class="small"><?= e($c['industry'] ?? '') ?></td>
           <td class="small"><?= e($c['vcio_name'] ?? '') ?></td>
-          <td class="text-right"><?= (int) $s['total'] ?></td>
-          <td class="text-right"><?= $s['bad'] ? '<span class="badge badge-danger">' . (int) $s['bad'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
-          <td class="text-right"><?= $s['warn'] ? '<span class="badge badge-warning">' . (int) $s['warn'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
-          <td class="text-right"><?= $s['cost12'] ? money($s['cost12']) : '<span class="text-muted">—</span>' ?></td>
+          <td class="text-end"><?= (int) $s['total'] ?></td>
+          <td class="text-end"><?= $s['bad'] ? '<span class="badge text-bg-danger">' . (int) $s['bad'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
+          <td class="text-end"><?= $s['warn'] ? '<span class="badge text-bg-warning">' . (int) $s['warn'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
+          <td class="text-end"><?= $s['cost12'] ? money($s['cost12']) : '<span class="text-muted">—</span>' ?></td>
           <td class="compliance-cell">
             <?php if ($avg !== null): ?>
               <div class="progress progress-xs mb-1"><div class="progress-bar bg-<?= $avg >= 80 ? 'success' : ($avg >= 50 ? 'warning' : 'danger') ?>" style="width: <?= $avg ?>%"></div></div>
@@ -75,7 +75,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           </td>
           <td class="small">
             <?php if ($cad && $cad['next']): ?><?= e(fmt_date($cad['next'])) ?>
-            <?php elseif ($cad && $cad['overdue']): ?><span class="badge badge-warning">Due</span>
+            <?php elseif ($cad && $cad['overdue']): ?><span class="badge text-bg-warning">Due</span>
             <?php else: ?><span class="text-muted">—</span><?php endif; ?>
           </td>
         </tr>

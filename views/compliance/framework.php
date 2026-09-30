@@ -1,7 +1,7 @@
 <?php
 use Align\Compliance\Compliance;
 
-$auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="custom-select custom-select-sm"><option value="">—</option>'
+$auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="form-select form-select-sm"><option value="">—</option>'
     . implode('', array_map(fn($k, $l) => '<option value="' . $k . '"' . ($cur === $k ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(Compliance::AUTO_CHECKS), Compliance::AUTO_CHECKS))
     . '</select>';
 ?>
@@ -9,16 +9,16 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="c
 <form method="post" action="/frameworks/<?= (int) $fw['id'] ?>" data-post-changed>
   <?= csrf_field() ?>
   <div class="card card-dark">
-    <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check mr-2"></i><?= e($fw['name']) ?></h3>
+    <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i><?= e($fw['name']) ?></h3>
       <div class="card-tools small text-light">Used by <?= (int) $inUse ?> client<?= $inUse == 1 ? '' : 's' ?></div></div>
     <div class="card-body">
-      <div class="form-row">
-        <div class="form-group col-md-6"><label>Name</label><input name="name" class="form-control" value="<?= e($fw['name']) ?>" required></div>
-        <div class="form-group col-md-6 d-flex align-items-end">
-          <div class="custom-control custom-switch mb-2"><input type="checkbox" class="custom-control-input" id="is_active" name="is_active" value="1" <?= $fw['is_active'] ? 'checked' : '' ?>><label class="custom-control-label" for="is_active">Active (can be assigned to clients)</label></div>
+      <div class="row g-2">
+        <div class="mb-3 col-md-6"><label>Name</label><input name="name" class="form-control" value="<?= e($fw['name']) ?>" required></div>
+        <div class="mb-3 col-md-6 d-flex align-items-end">
+          <div class="form-check form-switch mb-2"><input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1" <?= $fw['is_active'] ? 'checked' : '' ?>><label class="form-check-label" for="is_active">Active (can be assigned to clients)</label></div>
         </div>
       </div>
-      <div class="form-group mb-0"><label>Description</label><textarea name="description" class="form-control" rows="2"><?= e($fw['description']) ?></textarea></div>
+      <div class="mb-3 mb-0"><label>Description</label><textarea name="description" class="form-control" rows="2"><?= e($fw['description']) ?></textarea></div>
     </div>
   </div>
 
@@ -54,8 +54,8 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="c
       </table>
     </div>
     <div class="card-footer d-flex">
-      <?php if (!$inUse): ?><button class="btn btn-outline-danger btn-sm mr-auto" name="action" value="delete" data-confirm="Delete this framework and all its controls?">Delete framework</button><?php else: ?><span class="mr-auto"></span><?php endif; ?>
-      <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check mr-1"></i>Save</button>
+      <?php if (!$inUse): ?><button class="btn btn-outline-danger btn-sm me-auto" name="action" value="delete" data-confirm="Delete this framework and all its controls?">Delete framework</button><?php else: ?><span class="me-auto"></span><?php endif; ?>
+      <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save</button>
     </div>
   </div>
   <datalist id="xw-tags"><?php foreach ($allTags as $t): ?><option value="<?= e($t) ?>"><?php endforeach; ?></datalist>

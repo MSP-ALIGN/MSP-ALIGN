@@ -2,8 +2,8 @@
 <form method="post" action="/settings/os">
   <?= csrf_field() ?>
   <div class="card card-dark">
-    <div class="card-header py-2"><h3 class="card-title mt-2"><i class="fab fa-fw fa-windows mr-2"></i>OS support dates</h3>
-      <div class="card-tools"><button class="btn btn-sm btn-primary"><i class="fas fa-check mr-1"></i>Save</button></div></div>
+    <div class="card-header py-2"><h3 class="card-title mt-2"><i class="fab fa-fw fa-windows me-2"></i>OS support dates</h3>
+      <div class="card-tools"><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div></div>
     <div class="card-body py-2 small text-muted border-bottom">A device matches a row when its OS name contains the text and its build number is equal. The longest matching text wins, so edition rows ("Windows 11 Enterprise") beat general ones. Add a row when Microsoft ships a new release.</div>
     <div class="card-body p-0 table-responsive">
       <table class="table table-sm table-borderless mb-0">

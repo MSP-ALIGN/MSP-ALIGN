@@ -6,20 +6,20 @@ $cid = (int) $client['id'];
 $t = $totals;
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-auto"><i class="fas fa-key text-secondary mr-2"></i>Licensing</h1>
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-key text-secondary me-2"></i>Licensing</h1>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
     <?php if ($retiredCount): ?><a class="btn btn-default" href="?retired=<?= $showRetired ? '0' : '1' ?>"><?= $showRetired ? 'Hide' : 'Show' ?> retired (<?= (int) $retiredCount ?>)</a><?php endif; ?>
-    <?php if (Auth::can('tech')): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-license"><i class="fas fa-plus mr-1"></i>Add license</button><?php endif; ?>
+    <?php if (Auth::can('tech')): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-license"><i class="fas fa-plus me-1"></i>Add license</button><?php endif; ?>
   </div>
 </div>
 <div class="row">
   <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-calendar-day"></i></span><div class="info-box-content"><span class="info-box-text">Monthly</span><span class="info-box-number"><?= money_exact($t['monthly']) ?></span></div></div></div>
   <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-calendar"></i></span><div class="info-box-content"><span class="info-box-text">Annual</span><span class="info-box-number"><?= money($t['annual']) ?></span></div></div></div>
-  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-key"></i></span><div class="info-box-content"><span class="info-box-text">Licenses</span><span class="info-box-number"><?= (int) $t['count'] ?> <small class="text-muted font-weight-normal"><?= (int) $t['seats'] ?> seats</small></span></div></div></div>
+  <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-key"></i></span><div class="info-box-content"><span class="info-box-text">Licenses</span><span class="info-box-number"><?= (int) $t['count'] ?> <small class="text-muted fw-normal"><?= (int) $t['seats'] ?> seats</small></span></div></div></div>
   <div class="col-lg-3 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $t['renewals'] ? 'warning' : 'success' ?>"><i class="fas fa-rotate"></i></span><div class="info-box-content"><span class="info-box-text">Renewing ≤ 90 days</span><span class="info-box-number"><?= count($t['renewals']) ?></span></div></div></div>
 </div>
 <?php if ($t['unpriced']): ?>
-  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation mr-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. <?= psa_on() ? e(psa_name()) . ' doesn\'t store license prices; click' : 'Click' ?> a license to add its price and billing cycle.</div>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. <?= psa_on() ? e(psa_name()) . ' doesn\'t store license prices; click' : 'Click' ?> a license to add its price and billing cycle.</div>
 <?php endif; ?>
 <?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'license', 'cid' => $cid, 'back' => $back]) ?>
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>

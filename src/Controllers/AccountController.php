@@ -53,6 +53,16 @@ final class AccountController
         redirect('/account#notifications');
     }
 
+    /** Light, dark or match the computer (1.43). Printed reports always stay light. */
+    public static function appearance(): void
+    {
+        $u = Auth::require();
+        $theme = in_array(post('theme'), ['auto', 'light', 'dark'], true) ? post('theme') : 'auto';
+        DB::run('UPDATE users SET theme = ? WHERE id = ?', [$theme, $u['id']]);
+        flash('success', ['auto' => 'The app now matches your computer\'s light or dark setting.', 'light' => 'Light mode is on.', 'dark' => 'Dark mode is on.'][$theme]);
+        redirect('/account#appearance');
+    }
+
     /** Upload or remove your profile picture. */
     public static function avatar(): void
     {

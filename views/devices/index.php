@@ -5,7 +5,7 @@ $keep = array_filter(['client' => $clientId ?: '', 'q' => $q, 'class' => $class]
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-desktop', 'title' => 'Devices & assets', 'count' => $matched !== $total ? num($matched) . ' of ' . num($total) : $total,
     'desc' => 'Every client\'s computers, servers and network gear. Search by name, serial, last user or model; open a device to change its type, dates or replacement plan.',
-    'secondary' => ['<a class="btn btn-sm btn-default" href="/devices/unassigned"><i class="fas fa-circle-question mr-1"></i>Unassigned hardware' . ($counts['unassigned'] ? ' <span class="badge badge-warning">' . num($counts['unassigned']) . '</span>' : '') . '</a>'],
+    'secondary' => ['<a class="btn btn-sm btn-default" href="/devices/unassigned"><i class="fas fa-circle-question me-1"></i>Unassigned hardware' . ($counts['unassigned'] ? ' <span class="badge text-bg-warning">' . num($counts['unassigned']) . '</span>' : '') . '</a>'],
     'help' => \Align\Auth::can('tech') ? 'guide-lifecycle' : null,
 ]);
 $tileLink = fn(string $f) => $base . '?' . http_build_query(array_filter(['client' => $clientId ?: '', 'filter' => $f]));
@@ -16,8 +16,8 @@ echo \Align\View::fetch('partials/tiles', ['tiles' => [
     ['label' => 'Warranty ending, ended or unknown', 'value' => $tiles['warranty'], 'tone' => 'secondary', 'href' => $tileLink('warranty'), 'active' => $filter === 'warranty'],
     ['label' => 'Stale (no check-in)', 'value' => $tiles['stale'], 'tone' => 'secondary', 'href' => $tileLink('stale'), 'active' => $filter === 'stale'],
 ]]);
-$clientMenu = '<div class="btn-group"><button class="btn btn-sm ' . ($clientId ? 'btn-secondary' : 'btn-default') . ' dropdown-toggle" data-toggle="dropdown">'
-    . e($clientId ? (array_column($clients, 'name', 'id')[$clientId] ?? 'Client') : 'Client') . '</button><div class="dropdown-menu dropdown-menu-right">'
+$clientMenu = '<div class="btn-group"><button class="btn btn-sm ' . ($clientId ? 'btn-secondary' : 'btn-default') . ' dropdown-toggle" data-bs-toggle="dropdown">'
+    . e($clientId ? (array_column($clients, 'name', 'id')[$clientId] ?? 'Client') : 'Client') . '</button><div class="dropdown-menu dropdown-menu-end">'
     . '<a class="dropdown-item' . (!$clientId ? ' active' : '') . '" href="' . e($base . '?' . http_build_query(array_diff_key($keep, ['client' => 1]) + ['filter' => $filter])) . '">All clients</a><div class="dropdown-divider"></div>';
 foreach ($clients as $c) {
     $clientMenu .= '<a class="dropdown-item' . ((int) $c['id'] === $clientId ? ' active' : '') . '" href="' . e($base . '?' . http_build_query(['client' => $c['id']] + $keep + ['filter' => $filter])) . '">' . e($c['name']) . '</a>';

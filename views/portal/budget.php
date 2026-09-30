@@ -12,24 +12,24 @@ foreach ($b['lines'] as $l) {
 }
 ?>
 <div class="d-flex flex-wrap align-items-center portal-page-head">
-  <h1 class="h4 mb-0 mr-3"><i class="fas fa-coins text-secondary mr-2"></i>Technology budget</h1>
-  <div class="btn-group btn-group-sm mr-auto mt-2 mt-md-0">
+  <h1 class="h4 mb-0 me-3"><i class="fas fa-coins text-secondary me-2"></i>Technology budget</h1>
+  <div class="btn-group btn-group-sm me-auto mt-2 mt-md-0">
     <?php foreach ($b['years'] as $y => $yy): ?><a class="btn <?= $y === $year ? 'btn-primary' : 'btn-default' ?>" href="?year=<?= $y ?>"><?= e($yy['label']) ?></a><?php endforeach; ?>
   </div>
-  <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0 mr-2" data-toggle="modal" data-target="#modal-suggest"><i class="fas fa-plus mr-1"></i>Suggest a cost</button><?php endif; ?>
-  <a class="btn btn-sm btn-default mt-2 mt-md-0" href="/portal/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print mr-1"></i>Print budget</a>
+  <?php if ($canSubmit): ?><button class="btn btn-sm btn-primary mt-2 mt-md-0 me-2" data-bs-toggle="modal" data-bs-target="#modal-suggest"><i class="fas fa-plus me-1"></i>Suggest a cost</button><?php endif; ?>
+  <a class="btn btn-sm btn-default mt-2 mt-md-0" href="/portal/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print me-1"></i>Print budget</a>
 </div>
 
 <?= \Align\View::fetch('partials/tiles', ['tiles' => [['label' => $yr['label'] . ' budget', 'value' => money($yr['total']), 'title' => $yr['range']], ['label' => 'Monthly recurring', 'value' => money_exact($b['runRate'])], ['label' => 'One-time purchases', 'value' => money($yr['one_time']), 'title' => 'Hardware and projects'], ['label' => 'Average per month', 'value' => money($yr['total'] / 12)]]]) ?>
 
 <?= \Align\View::fetch('portal/_suggestions', ['kind' => 'budget', 'subs' => $subs, 'canSubmit' => $canSubmit, 'pu' => $pu]) ?>
 <div class="card">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column mr-2 text-secondary"></i>3-year budget by quarter</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column me-2 text-secondary"></i>3-year budget by quarter</h3></div>
   <div class="card-body pb-2"><?= \Align\View::fetch('budget/_chart', ['b' => $b, 'year' => $year]) ?></div>
 </div>
 
 <div class="card">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-table mr-2 text-secondary"></i><?= e($yr['label']) ?> detail</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-table me-2 text-secondary"></i><?= e($yr['label']) ?> detail</h3></div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 budget-table">
       <thead><tr><th>Item</th><?php foreach ($qIdx as $i): ?><th class="num"><?= e($b['quarters'][$i]['short']) ?> <small class="text-muted"><?= e($b['quarters'][$i]['months']) ?></small></th><?php endforeach; ?><th class="num"><?= e($yr['label']) ?></th></tr></thead>
@@ -40,10 +40,10 @@ foreach ($b['lines'] as $l) {
           <th class="num"><?= money($yr['by_cat'][$cat]) ?></th></tr>
         <?php foreach ($byCat[$cat] as $l): ?>
           <tr class="<?= $l['tentative'] ? 'tentative' : '' ?>">
-            <td class="line-name"><?= e($l['name']) ?><?php if ($l['tentative']): ?> <span class="badge badge-warning font-weight-normal"><?= $l['source'] === 'psa' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
+            <td class="line-name"><?= e($l['name']) ?><?php if ($l['tentative']): ?> <span class="badge text-bg-warning fw-normal"><?= $l['source'] === 'psa' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
               <div class="small text-muted"><?= e($l['detail']) ?></div></td>
             <?php foreach ($qIdx as $i): ?><td class="num"><?= $l['q'][$i] ? money($l['q'][$i]) : '<span class="text-muted">—</span>' ?></td><?php endforeach; ?>
-            <td class="num font-weight-bold"><?= money(Budget::lineYear($l, $year)) ?></td>
+            <td class="num fw-bold"><?= money(Budget::lineYear($l, $year)) ?></td>
           </tr>
         <?php endforeach; ?>
       <?php endforeach; ?>
@@ -57,7 +57,7 @@ foreach ($b['lines'] as $l) {
 <div class="row">
   <div class="col-xl-7">
     <div class="card">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group mr-2 text-secondary"></i>3-year summary</h3></div>
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group me-2 text-secondary"></i>3-year summary</h3></div>
       <div class="card-body p-0 table-responsive">
         <table class="table table-sm mb-0 budget-table">
           <thead><tr><th>Category</th><?php foreach ($b['years'] as $yy): ?><th class="num"><?= e($yy['label']) ?></th><?php endforeach; ?></tr></thead>

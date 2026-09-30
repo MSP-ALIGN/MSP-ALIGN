@@ -16,9 +16,8 @@ final class LegalController
 
     /** Bundled third-party software: [name, version, license, url]. */
     public const THIRD_PARTY = [
-        ['AdminLTE', '3.2.0', 'MIT', 'https://adminlte.io', 'public/vendor/adminlte/LICENSE'],
-        ['Bootstrap', '4.6.2', 'MIT', 'https://getbootstrap.com', 'public/vendor/bootstrap/LICENSE'],
-        ['jQuery', '3.7.1', 'MIT', 'https://jquery.com', 'public/vendor/jquery/LICENSE.txt'],
+        ['AdminLTE', '4.9.1', 'MIT', 'https://adminlte.io', 'public/vendor/adminlte/LICENSE'],
+        ['Bootstrap', '5.3.8', 'MIT', 'https://getbootstrap.com', 'public/vendor/bootstrap/LICENSE'],
         ['Font Awesome Free', '6.7.2', 'Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT', 'https://fontawesome.com', 'public/vendor/fontawesome/LICENSE.txt'],
         ['FullCalendar', '6.1.19', 'MIT', 'https://fullcalendar.io', 'public/vendor/fullcalendar/LICENSE.md'],
         ['Quill', '2.0.3', 'BSD-3-Clause', 'https://quilljs.com', ['public/vendor/quill/LICENSE', 'public/vendor/quill/quill.js.LICENSE.txt']],

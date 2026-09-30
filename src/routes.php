@@ -261,6 +261,7 @@ $r->post('/account/avatar', [AccountController::class, 'avatar']);
 $r->get('/users/{id}/avatar', [UserController::class, 'avatar']);
 $r->post('/account/2fa', [AccountController::class, 'twoFactor']);
 $r->post('/account/notifications', [AccountController::class, 'notifications']);
+$r->post('/account/appearance', [AccountController::class, 'appearance']);
 
 // Client portal access (staff side)
 $r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);

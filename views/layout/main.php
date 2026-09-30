@@ -72,15 +72,18 @@ $clientMenu = $client ? [
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
-    $badge = !empty($i[5]) ? ' <span class="badge badge-' . (is_string($i[5]) ? 'info' : 'warning') . ' right">' . (is_string($i[5]) ? e($i[5]) : (int) $i[5]) . '</span>' : '';
-    return '<li class="nav-item"><a href="' . e($href) . '" class="nav-link' . ($active === $key ? ' active' : '') . '">'
-        . '<i class="nav-icon fas ' . e($icon) . '"></i><p>' . e($label) . $badge . '</p></a></li>';
+    $badge = !empty($i[5]) ? ' <span class="nav-badge badge text-bg-' . (is_string($i[5]) ? 'info' : 'warning') . ' me-2">' . (is_string($i[5]) ? e($i[5]) : (int) $i[5]) . '</span>' : '';
+    return '<li class="nav-item"><a href="' . e($href) . '" class="nav-link' . ($active === $key ? ' active' : '') . '"' . ($active === $key ? ' aria-current="page"' : '') . '>'
+        . '<i class="nav-icon fas fa-fw ' . e($icon) . '"></i><p>' . e($label) . $badge . '</p></a></li>';
 };
+// Light / dark (1.43): each user picks under Account; "auto" follows the computer (set before the page draws)
+$theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] : 'auto';
 ?><!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="<?= $theme === 'dark' ? 'dark' : 'light' ?>" data-theme-pref="<?= e($theme) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="/assets/theme.js?v=<?= $v ?>"></script>
 <?php if (!empty($refresh)): ?><meta http-equiv="refresh" content="5"><?php endif; ?>
 <?php if ($u): ?><meta name="align-idle" content="<?= \Align\Security::idleSeconds() ?>" data-ping="/session/ping" data-logout="/logout" data-login="/login" data-csrf="<?= e(csrf_token()) ?>"><?php endif; ?>
 <title><?= \Align\Staging::on() ? '[TEST] ' : '' ?><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
@@ -88,7 +91,6 @@ $item = function (array $i, string $active) {
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">
-<script src="/vendor/jquery/jquery.min.js?v=<?= $v ?>" defer></script>
 <script src="/vendor/bootstrap/bootstrap.bundle.min.js?v=<?= $v ?>" defer></script>
 <script src="/vendor/adminlte/adminlte.min.js?v=<?= $v ?>" defer></script>
 <?php if (!empty($calendar)): ?><script src="/vendor/fullcalendar/index.global.min.js?v=<?= $v ?>" defer></script><?php endif; ?>
@@ -96,60 +98,65 @@ $item = function (array $i, string $active) {
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
-<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
-<div class="wrapper">
+<body class="layout-fixed sidebar-expand-lg sidebar-mini app-staff<?= \Align\Staging::on() ? ' is-staging' : '' ?>" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
+<div class="app-wrapper">
 
-  <nav class="main-header navbar navbar-expand <?= \Align\Staging::on() ? 'navbar-light navbar-warning' : 'navbar-dark navbar-primary' ?>">
-    <ul class="navbar-nav">
-      <li class="nav-item"><a class="nav-link" data-widget="pushmenu" href="#" role="button" aria-label="Toggle menu"><i class="fas fa-bars"></i></a></li>
-      <?php if ($client): ?>
-        <li class="nav-item d-none d-sm-inline-block"><a href="/clients/<?= (int) $client['id'] ?>" class="nav-link font-weight-bold"><?= e($client['name']) ?></a></li>
-      <?php endif; ?>
-    </ul>
-    <form class="form-inline ml-3 d-none d-md-flex" action="/search" method="get">
-      <div class="input-group input-group-sm navbar-search-wide">
-        <input class="form-control form-control-navbar" type="search" name="q" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" value="<?= e(($nav === 'search' || $nav === 'clients') ? ($_GET['q'] ?? '') : '') ?>">
-        <div class="input-group-append"><button class="btn btn-navbar" type="submit" aria-label="Search"><i class="fas fa-search"></i></button></div>
-      </div>
-    </form>
-    <ul class="navbar-nav ml-auto">
-      <?php if (Auth::can('tech')): ?>
-        <li class="nav-item dropdown">
-          <a class="nav-link" data-toggle="dropdown" href="#" title="Create"><i class="fas fa-plus"></i></a>
-          <div class="dropdown-menu dropdown-menu-right">
-            <a href="#" class="dropdown-item" data-toggle="modal" data-target="#modal-meeting"><i class="fas fa-fw fa-handshake mr-2"></i>Schedule meeting</a>
-            <a href="/clients?add=1" class="dropdown-item"><i class="fas fa-fw fa-user-plus mr-2"></i>New client</a>
-            <?php if ($client): ?><a href="/clients/<?= (int) $client['id'] ?>/devices?add=1" class="dropdown-item"><i class="fas fa-fw fa-desktop mr-2"></i>Add device to <?= e($client['name']) ?></a><?php endif; ?>
+  <nav class="app-header navbar navbar-expand">
+    <div class="container-fluid">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="Toggle menu"><i class="fas fa-bars"></i></a></li>
+        <?php if ($client): ?>
+          <li class="nav-item d-none d-sm-inline-block"><a href="/clients/<?= (int) $client['id'] ?>" class="nav-link fw-semibold"><?= e($client['name']) ?></a></li>
+        <?php endif; ?>
+      </ul>
+      <form class="d-none d-md-flex ms-2 app-search" action="/search" method="get" role="search">
+        <div class="input-group input-group-sm navbar-search-wide">
+          <span class="input-group-text"><i class="fas fa-search"></i></span>
+          <input class="form-control" type="search" name="q" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" value="<?= e(($nav === 'search' || $nav === 'clients') ? ($_GET['q'] ?? '') : '') ?>">
+        </div>
+      </form>
+      <ul class="navbar-nav ms-auto align-items-center">
+        <?php if (Auth::can('tech')): ?>
+          <li class="nav-item dropdown">
+            <a class="nav-link" data-bs-toggle="dropdown" href="#" title="Create" aria-label="Create"><i class="fas fa-plus"></i></a>
+            <div class="dropdown-menu dropdown-menu-end">
+              <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modal-meeting"><i class="fas fa-fw fa-handshake me-2"></i>Schedule meeting</a>
+              <a href="/clients?add=1" class="dropdown-item"><i class="fas fa-fw fa-user-plus me-2"></i>New client</a>
+              <?php if ($client): ?><a href="/clients/<?= (int) $client['id'] ?>/devices?add=1" class="dropdown-item"><i class="fas fa-fw fa-desktop me-2"></i>Add device to <?= e($client['name']) ?></a><?php endif; ?>
+            </div>
+          </li>
+        <?php endif; ?>
+        <li class="nav-item"><a class="nav-link" href="/help" title="Help &amp; how-to" aria-label="Help"><i class="fas fa-circle-question"></i></a></li>
+        <li class="nav-item dropdown user-menu">
+          <a href="#" class="nav-link dropdown-toggle d-flex align-items-center" data-bs-toggle="dropdown">
+            <?= user_avatar($u ?? [], 'user-initials') ?>
+            <span class="d-none d-md-inline ms-2"><?= e($u['name'] ?? '') ?></span>
+          </a>
+          <div class="dropdown-menu dropdown-menu-end">
+            <span class="dropdown-item-text small text-muted"><?= e($u['email'] ?? '') ?> · <?= e($u['role'] ?? '') ?></span>
+            <a href="/help" class="dropdown-item"><i class="fas fa-fw fa-circle-info me-2"></i>Help &amp; how-to</a>
+            <div class="dropdown-divider"></div>
+            <a href="/account" class="dropdown-item"><i class="fas fa-fw fa-user-gear me-2"></i>Account &amp; 2FA</a>
+            <a href="/account#appearance" class="dropdown-item"><i class="fas fa-fw fa-circle-half-stroke me-2"></i>Light or dark</a>
+            <form method="post" action="/logout"><?= csrf_field() ?><button class="dropdown-item"><i class="fas fa-fw fa-right-from-bracket me-2"></i>Sign out</button></form>
           </div>
         </li>
-      <?php endif; ?>
-      <li class="nav-item"><a class="nav-link" href="/help" title="Help &amp; how-to" aria-label="Help"><i class="fas fa-circle-question"></i></a></li>
-      <li class="nav-item dropdown user-menu">
-        <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-          <?= user_avatar($u ?? [], 'user-initials') ?>
-          <span class="d-none d-md-inline ml-1"><?= e($u['name'] ?? '') ?></span>
-        </a>
-        <div class="dropdown-menu dropdown-menu-right">
-          <span class="dropdown-item-text small text-muted"><?= e($u['email'] ?? '') ?> · <?= e($u['role'] ?? '') ?></span>
-          <a href="/help" class="dropdown-item"><i class="fas fa-fw fa-circle-info mr-2"></i>Help &amp; how-to</a>
-          <div class="dropdown-divider"></div>
-          <a href="/account" class="dropdown-item"><i class="fas fa-fw fa-user-gear mr-2"></i>Account &amp; 2FA</a>
-          <form method="post" action="/logout"><?= csrf_field() ?><button class="dropdown-item"><i class="fas fa-fw fa-right-from-bracket mr-2"></i>Sign out</button></form>
-        </div>
-      </li>
-    </ul>
+      </ul>
+    </div>
   </nav>
 
-  <aside class="main-sidebar sidebar-<?= \Align\Branding::sidebar() ?>-primary elevation-4">
-    <a href="/" class="brand-link<?= \Align\Branding::logoOnly() ? ' brand-logo-only' : '' ?>" title="<?= e(\Align\Branding::name()) ?>">
-      <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="brand-image">
-      <?php if (!\Align\Branding::logoOnly()): ?><span class="brand-text font-weight-bold"><?= e(\Align\Branding::name()) ?></span><?php endif; ?>
-    </a>
-    <div class="sidebar">
-      <nav class="mt-2">
-        <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
+  <aside class="app-sidebar shadow<?= \Align\Branding::sidebar() === 'light' ? ' sidebar-light' : '' ?>" data-bs-theme="<?= \Align\Branding::sidebar() === 'light' ? 'light' : 'dark' ?>">
+    <div class="sidebar-brand">
+      <a href="/" class="brand-link<?= \Align\Branding::logoOnly() ? ' brand-logo-only' : '' ?>" title="<?= e(\Align\Branding::name()) ?>">
+        <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="brand-image">
+        <?php if (!\Align\Branding::logoOnly()): ?><span class="brand-text fw-semibold"><?= e(\Align\Branding::name()) ?></span><?php endif; ?>
+      </a>
+    </div>
+    <div class="sidebar-wrapper">
+      <nav class="mt-2" aria-label="Main menu">
+        <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" data-accordion="false">
           <?php if ($client): ?>
-            <li class="nav-item"><a href="/clients" class="nav-link"><i class="nav-icon fas fa-arrow-left"></i><p>All clients</p></a></li>
+            <li class="nav-item"><a href="/clients" class="nav-link"><i class="nav-icon fas fa-fw fa-arrow-left"></i><p>All clients</p></a></li>
             <li class="nav-item sidebar-client">
               <a href="/clients/<?= (int) $client['id'] ?>" class="sidebar-client-card" title="<?= e($client['name']) ?>">
                 <span class="sidebar-client-badge"><?php if ($clientLogo = client_logo_url($client)): ?><img src="<?= e($clientLogo) ?>" alt=""><?php else: ?><?= e(initials($client['name'])) ?><?php endif; ?></span>
@@ -157,8 +164,8 @@ $item = function (array $i, string $active) {
               </a>
             </li>
             <?php foreach ($clientMenu as $i) echo is_string($i) ? '<li class="nav-header">' . e($i) . '</li>' : $item($i, $clientNav); ?>
-            <li class="nav-item has-treeview mt-2">
-              <a href="#" class="nav-link"><i class="nav-icon fas fa-grip"></i><p>All tools<i class="right fas fa-angle-left"></i><?= $todoCount ? ' <span class="badge badge-warning ml-1" title="To do">' . (int) $todoCount . '</span>' : '' ?></p></a>
+            <li class="nav-item mt-2">
+              <a href="#" class="nav-link"><i class="nav-icon fas fa-fw fa-grip"></i><p>All tools<?= $todoCount ? ' <span class="nav-badge badge text-bg-warning me-4" title="To do">' . (int) $todoCount . '</span>' : '' ?><i class="nav-arrow fas fa-angle-right"></i></p></a>
               <ul class="nav nav-treeview">
                 <?php foreach ($navSections as $sec => $items) foreach ($items as $i) if (Auth::can($i[4]) && $i[0] !== 'clients') echo $item($i, ''); ?>
               </ul>
@@ -176,45 +183,45 @@ $item = function (array $i, string $active) {
     </div>
   </aside>
 
-  <div class="content-wrapper">
-    <section class="content">
+  <main class="app-main">
+    <div class="app-content">
       <div class="container-fluid pt-3 pb-4">
         <?php if (\Align\Staging::on()): ?>
-          <div class="alert alert-warning border-warning py-2 mb-3" role="status"><i class="fas fa-flask mr-2"></i><b>Test server.</b> Changes here don't reach
+          <div class="alert alert-warning py-2 mb-3" role="status"><i class="fas fa-flask me-2"></i><b>Test server.</b> Changes here don't reach
             <?= e(\Align\Providers\Providers::psaName()) ?> or anyone's inbox: email goes <?= \Align\Staging::mailTo() ? 'only to ' . e((string) \Align\Staging::mailTo()) : 'nowhere' ?>, and the client portal and API are off.</div>
         <?php endif; ?>
         <?php if ($u && \Align\Demo\Demo::loaded()): ?>
-          <div class="alert alert-light border py-2 mb-3 d-flex flex-wrap align-items-center" role="status"><i class="fas fa-flask text-warning mr-2"></i>
-            <span class="mr-auto"><b>Demo data.</b> The demo clients are made up. Remove them before adding real clients or connecting your PSA, RMM or backups.</span>
+          <div class="alert alert-light border py-2 mb-3 d-flex flex-wrap align-items-center" role="status"><i class="fas fa-flask text-warning me-2"></i>
+            <span class="me-auto"><b>Demo data.</b> The demo clients are made up. Remove them before adding real clients or connecting your PSA, RMM or backups.</span>
             <?php if (\Align\Auth::can('admin')): ?><a class="btn btn-xs btn-default" href="/settings#demo-data">Demo data settings</a><?php endif; ?></div>
         <?php endif; ?>
         <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
           <div class="alert alert-<?= $t ?> alert-dismissible fade show">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button>
-            <i class="fas fa-<?= $t === 'success' ? 'check' : ($t === 'danger' || $t === 'warning' ? 'exclamation-triangle' : 'info-circle') ?> mr-2"></i><?= e($f['message']) ?>
+            <i class="fas fa-<?= $t === 'success' ? 'check' : ($t === 'danger' || $t === 'warning' ? 'exclamation-triangle' : 'info-circle') ?> me-2"></i><?= e($f['message']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         <?php endforeach; ?>
         <?php if (!str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings') && Auth::can('admin') && ($upd = \Align\System\Agent::updateAvailable())): ?>
           <div class="alert alert-info py-2 d-flex align-items-center flex-wrap" role="status">
-            <i class="fas fa-circle-arrow-up mr-2"></i>
-            <span class="mr-3">MSP-ALIGN <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
-            <a class="btn btn-sm btn-light ml-auto" href="/settings/system">See what's new and update</a>
+            <i class="fas fa-circle-arrow-up me-2"></i>
+            <span class="me-3">MSP-ALIGN <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
+            <a class="btn btn-sm btn-light ms-auto" href="/settings/system">See what's new and update</a>
           </div>
         <?php endif; ?>
         <?php if (isset($adminTabs[$nav])):
             $tabs = array_filter($adminTabs[$nav], fn($t) => Auth::can($t['role'])); if (count($tabs) > 1): ?>
           <ul class="nav nav-tabs group-tabs mb-3">
-            <?php foreach ($tabs as $k => $t): ?><li class="nav-item"><a class="nav-link<?= $k === $tabKey ? ' active' : '' ?>" href="<?= e($t['href']) ?>"><i class="fas <?= e($t['icon']) ?> mr-1"></i><?= e($t['label']) ?><?= !empty($t['badge']) ? ' <span class="badge badge-warning">' . (int) $t['badge'] . '</span>' : '' ?></a></li><?php endforeach; ?>
+            <?php foreach ($tabs as $k => $t): ?><li class="nav-item"><a class="nav-link<?= $k === $tabKey ? ' active' : '' ?>" href="<?= e($t['href']) ?>"><i class="fas <?= e($t['icon']) ?> me-1"></i><?= e($t['label']) ?><?= !empty($t['badge']) ? ' <span class="badge text-bg-warning">' . (int) $t['badge'] . '</span>' : '' ?></a></li><?php endforeach; ?>
           </ul>
         <?php endif; endif; ?>
         <?= $content ?>
       </div>
-    </section>
-  </div>
+    </div>
+  </main>
 
-  <footer class="main-footer text-sm">
+  <footer class="app-footer small">
     <span class="text-muted"><?= e(\Align\Branding::name()) ?> v<?= $v ?><?= \Align\Settings::get('company_name') ? ' · ' . e(\Align\Settings::get('company_name')) : '' ?></span>
-    <span class="float-right small"><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
+    <span class="float-end"><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
   </footer>
 </div>
 <?php if (Auth::can('tech') && empty($noMeetingModal)): ?>

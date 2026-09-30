@@ -1,11 +1,11 @@
 <?php use Align\Auth; ?>
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-rotate mr-2"></i>Sync history</h3>
+    <h3 class="card-title mt-2"><i class="fas fa-fw fa-rotate me-2"></i>Sync history</h3>
     <div class="card-tools">
       <?php if (Auth::can('tech')): ?>
         <form method="post" action="/sync" class="d-inline"><?= csrf_field() ?>
-          <button class="btn btn-sm btn-primary" <?= $running ? 'disabled' : '' ?>><i class="fas fa-rotate <?= $running ? 'fa-spin' : '' ?> mr-1"></i><?= $running ? 'Sync running…' : 'Run sync now' ?></button>
+          <button class="btn btn-sm btn-primary" <?= $running ? 'disabled' : '' ?>><i class="fas fa-rotate <?= $running ? 'fa-spin' : '' ?> me-1"></i><?= $running ? 'Sync running…' : 'Run sync now' ?></button>
         </form>
       <?php endif; ?>
     </div>
@@ -26,7 +26,7 @@
           <td><?= e(rel_time($r['started_at'])) ?></td>
           <td><?= $dur !== null ? ($dur >= 60 ? intdiv($dur, 60) . 'm ' : '') . ($dur % 60) . 's' : '—' ?></td>
           <td><?= e($r['triggered_by']) ?><?= $r['user_name'] ? ' · ' . e($r['user_name']) : '' ?></td>
-          <td><span class="badge badge-<?= $tone ?>"><?= e($status) ?></span></td>
+          <td><span class="badge text-bg-<?= $tone ?>"><?= e($status) ?></span></td>
           <td class="small"><?= e(implode(' · ', array_filter([...array_map(fn($c) => $sum[$c->name() . ' devices'] ?? null, array_values(\Align\Providers\Providers::rmmConnectors())), $sum[psa_name() . ' clients'] ?? null, $sum['Warranty lookups'] ?? null]))) ?></td>
         </tr>
       <?php endforeach; ?>

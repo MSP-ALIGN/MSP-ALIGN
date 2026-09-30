@@ -23,7 +23,7 @@ $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
         <span class="info-box-icon bg-<?= $avg === null ? 'secondary' : ($avg >= 80 ? 'success' : ($avg >= 50 ? 'warning' : 'danger')) ?>"><i class="fas fa-clipboard-check"></i></span>
         <div class="info-box-content">
           <span class="info-box-text"><?= e($fw['name']) ?></span>
-          <span class="info-box-number"><?= $avg === null ? '—' : $avg . '%' ?> <small class="text-muted font-weight-normal">avg across <?= (int) $fw['clients'] ?> client<?= $fw['clients'] == 1 ? '' : 's' ?></small></span>
+          <span class="info-box-number"><?= $avg === null ? '—' : $avg . '%' ?> <small class="text-muted fw-normal">avg across <?= (int) $fw['clients'] ?> client<?= $fw['clients'] == 1 ? '' : 's' ?></small></span>
         </div>
       </div>
     </div>
@@ -32,7 +32,7 @@ $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
 
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-table-cells mr-2"></i>Client compliance</h3>
+    <h3 class="card-title mt-2"><i class="fas fa-fw fa-table-cells me-2"></i>Client compliance</h3>
     <div class="card-tools d-flex"><input type="search" class="form-control form-control-sm filter-input" data-filter-table="compliance-table" placeholder="Filter…"></div>
   </div>
   <div class="card-body p-0 table-responsive">
@@ -43,7 +43,7 @@ $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
       <tbody>
       <?php foreach ($rows as $c): ?>
         <tr>
-          <td><a href="/clients/<?= (int) $c['id'] ?>/compliance" class="font-weight-bold"><?= e($c['name']) ?></a></td>
+          <td><a href="/clients/<?= (int) $c['id'] ?>/compliance" class="fw-bold"><?= e($c['name']) ?></a></td>
           <td class="small"><?= e($c['industry'] ?? '') ?></td>
           <?php foreach ($frameworks as $fw): $s = $scores[$c['id']][$fw['id']] ?? null; $a = $assigned[$c['id']][$fw['id']] ?? null; ?>
             <td class="text-center compliance-cell">
@@ -51,7 +51,7 @@ $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
                 <a href="/clients/<?= (int) $c['id'] ?>/compliance/<?= (int) $fw['id'] ?>" class="d-block text-dark">
                   <div class="progress progress-xs mb-1"><div class="progress-bar bg-<?= $s['tone'] ?>" style="width: <?= $s['score'] ?>%"></div></div>
                   <span class="small"><b><?= $s['score'] ?>%</b> · <?= $s['assessed'] ?>% assessed</span>
-                  <?php if ($a['next_review'] && $a['next_review'] < date('Y-m-d')): ?><span class="badge badge-warning ml-1">review due</span><?php endif; ?>
+                  <?php if ($a['next_review'] && $a['next_review'] < date('Y-m-d')): ?><span class="badge text-bg-warning ms-1">review due</span><?php endif; ?>
                 </a>
               <?php else: ?><span class="text-muted">—</span><?php endif; ?>
             </td>

@@ -21,29 +21,29 @@ $detail = function (array $d) use ($kind): string {
 };
 ?>
 <div class="card card-outline card-warning" id="client-submissions">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-inbox mr-2 text-warning"></i>Suggested by the client <span class="badge badge-warning ml-1"><?= count($subs) ?></span></h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-inbox me-2 text-warning"></i>Suggested by the client <span class="badge text-bg-warning ms-1"><?= count($subs) ?></span></h3></div>
   <div class="card-body p-0">
     <div class="px-3 pt-2 small text-muted">Sent from the client portal and waiting for you. Nothing is added until you review it; the client sees it as waiting.</div>
     <ul class="list-group list-group-flush">
       <?php foreach ($subs as $s): $d = $s['data']; ?>
         <li class="list-group-item">
           <div class="d-flex flex-wrap align-items-start">
-            <div class="mr-auto pr-2">
+            <div class="me-auto pe-2">
               <b><?= e($s['title']) ?></b>
               <div class="small text-muted"><?= e($detail($d)) ?></div>
               <?php if (!empty($d['notes'])): ?><div class="small mt-1">“<?= e($d['notes']) ?>”</div><?php endif; ?>
               <div class="small text-muted mt-1"><?= e($s['submitted_by_name']) ?> · <?= e(rel_time($s['created_at'])) ?></div>
             </div>
             <div class="text-nowrap mt-1">
-              <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modal-suggestion-<?= (int) $s['id'] ?>"><i class="fas fa-check mr-1"></i>Review and add</button>
-              <button class="btn btn-sm btn-default" data-toggle="collapse" data-target="#decline-<?= (int) $s['id'] ?>" aria-expanded="false">Decline</button>
+              <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-suggestion-<?= (int) $s['id'] ?>"><i class="fas fa-check me-1"></i>Review and add</button>
+              <button class="btn btn-sm btn-default" data-bs-toggle="collapse" data-bs-target="#decline-<?= (int) $s['id'] ?>" aria-expanded="false">Decline</button>
             </div>
           </div>
           <form method="post" action="/clients/<?= $cid ?>/suggestions/<?= (int) $s['id'] ?>/decline" class="collapse mt-2" id="decline-<?= (int) $s['id'] ?>">
             <?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>">
             <div class="input-group input-group-sm">
               <input name="note" class="form-control" maxlength="2000" placeholder="Note for the client (optional): why, or what you'll do instead" aria-label="Note for the client">
-              <div class="input-group-append"><button class="btn btn-outline-danger">Decline</button></div>
+              <button class="btn btn-outline-danger">Decline</button>
             </div>
           </form>
         </li>

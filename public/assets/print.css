@@ -31,11 +31,11 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .report-toolbar { background: #1f2630; color: #fff; padding: .5rem 1rem; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
 .report-toolbar .tb-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: .75rem; }
 .report-toolbar .tb-opts { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: .15rem 1rem; font-size: .8rem; min-width: 0; }
-.report-toolbar .tb-opts .custom-control { margin: 0 !important; }
+.report-toolbar .tb-opts .form-check { margin: 0 !important; }
 .report-toolbar .tb-inner > .btn { flex: 0 0 auto; white-space: nowrap; }
-.report-toolbar .custom-control-label { line-height: 1.5rem; color: #e9edf2; }
-.report-toolbar .custom-control-label::before, .report-toolbar .custom-control-label::after { top: .25rem; }
-.report-toolbar .custom-control { display: flex; align-items: center; min-height: 1.5rem; }
+.report-toolbar .form-check-label { line-height: 1.5rem; color: #e9edf2; }
+.report-toolbar .form-check { display: flex; align-items: center; gap: .35rem; min-height: 1.5rem; margin: 0; padding-left: 0; }
+.report-toolbar .form-check-input { float: none; margin: 0; }
 
 /* ---- Masthead (first page of each report) ---- */
 .masthead { display: flex; align-items: center; gap: 1rem; padding-bottom: .7rem; border-bottom: 1px solid var(--line); margin-bottom: 1.1rem; }
@@ -182,7 +182,9 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 
 /* ---- Callouts / highlights ---- */
 .callouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-bottom: .8rem; }
-.callout { border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 7px; padding: .5rem .65rem; break-inside: avoid; }
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 7px; padding: .5rem .65rem; break-inside: avoid;
+  background: #fff; color: inherit; margin: 0 0 1rem; }
+.callouts .callout + .callout { margin-top: 0; } /* AdminLTE also styles .callout; keep the report look the same across versions */
 .callout b { display: block; font-size: .85rem; margin-bottom: .1rem; }
 .callout span { font-size: .78rem; color: var(--ink-2); }
 .callout.t-bad { border-left-color: var(--bad); } .callout.t-warn { border-left-color: #e0a100; } .callout.t-ok { border-left-color: var(--ok); }

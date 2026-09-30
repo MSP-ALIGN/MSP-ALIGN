@@ -125,30 +125,30 @@ final class Branding
     }
 
     /** Inline CSS that recolors AdminLTE's primary color. */
+    /**
+     * Brand color as CSS variables (1.43). app.css builds buttons, links, the active menu item, focus rings,
+     * charts and the portal from these, in light and dark mode. The defaults in app.css match DEFAULT_COLOR,
+     * so nothing is printed for it.
+     */
     public static function css(): string
     {
         $c = self::color();
-        if ($c === self::DEFAULT_COLOR) {
-            return '';
-        }
+        return $c === self::DEFAULT_COLOR ? '' : self::cssVars($c);
+    }
+
+    public static function cssVars(string $c): string
+    {
+        $rgb = implode(',', self::rgb($c));
         $dark = self::shade($c, -0.15);
-        $light = self::mix($c, '#ffffff', 0.88);
-        $text = self::contrastText($c);
-        return ":root{--brand:$c;--brand-dark:$dark}"
-            . ".navbar-primary,.bg-primary,.btn-primary,.badge-primary,.page-item.active .page-link,.custom-control-input:checked~.custom-control-label::before{background-color:$c!important;border-color:$c!important;color:$text!important}"
-            . ".btn-primary:hover,.btn-primary:focus{background-color:$dark!important;border-color:$dark!important}"
-            . ".navbar-primary .nav-link,.navbar-primary .navbar-nav>.nav-item>.nav-link{color:$text!important}"
-            . "[class*=sidebar-] .nav-sidebar>.nav-item>.nav-link.active,.nav-pills .nav-link.active{background-color:$c!important;color:$text!important}"
-            . "a:not(.btn):not(.nav-link):not(.dropdown-item):not(.small-box):not(.rm-item),.text-primary,.btn-link{color:$dark}"
-            . ".btn-outline-primary{color:$c;border-color:$c}.btn-outline-primary:hover{background:$c;color:$text}"
-            . ".card-primary.card-outline{border-top-color:$c}.report-header{border-bottom-color:$c!important}.report-kicker{color:$c!important}"
-            . ".forecast-chart .bar{fill:$c}.year-heading{border-left-color:$c}.roadmap-q.is-current{border-top-color:$c}"
-            . ".fc .fc-button-primary:not(:disabled).fc-button-active{background:$c;border-color:$c}.fc .fc-daygrid-day.fc-day-today{background:$light}"
-            . ".form-control:focus{border-color:$c}"
-            . ".navbar-primary .form-control-navbar,.navbar-primary .btn-navbar{background-color:rgba(255,255,255,.18)!important;border-color:transparent!important;color:$text!important}"
-            . ".navbar-primary .form-control-navbar::placeholder{color:$text;opacity:.75}"
-            . ".legend-dot.bg-primary{background:$c!important}"
-            . ".portal-sections .nav-link:hover,.portal-sections .nav-link.active{color:$dark!important}.portal-sections .nav-link.active{border-bottom-color:$c!important}";
+        $link = self::shade($c, -0.2);
+        $linkDark = self::mix($c, '#ffffff', 0.35);
+        return ':root,[data-bs-theme=light]{--align-brand:' . $c . ';--align-brand-rgb:' . $rgb . ';--align-brand-dark:' . $dark
+            . ';--align-brand-text:' . self::contrastText($c) . ';--align-link:' . $link . ';--align-link-rgb:' . implode(',', self::rgb($link))
+            . ';--align-brand-subtle:' . self::mix($c, '#ffffff', 0.88) . ';--align-brand-border:' . self::mix($c, '#ffffff', 0.6)
+            . ';--align-brand-emphasis:' . self::shade($c, -0.55) . '}'
+            . '[data-bs-theme=dark]{--align-link:' . $linkDark . ';--align-link-rgb:' . implode(',', self::rgb($linkDark))
+            . ';--align-brand-subtle:' . self::mix($c, '#000000', 0.75) . ';--align-brand-border:' . self::mix($c, '#000000', 0.45)
+            . ';--align-brand-emphasis:' . self::mix($c, '#ffffff', 0.45) . '}';
     }
 
     private static function rgb(string $hex): array

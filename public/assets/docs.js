@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const setState = (text, cls) => {
     state.textContent = text;
-    state.className = 'doc-save-state small mr-3 ' + (cls || '');
+    state.className = 'doc-save-state small me-3 ' + (cls || '');
   };
   const timeNow = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cp) cp.addEventListener('click', () => {
     clearTimeout(timer);
     save({ checkpoint: true, note: $('checkpoint-note').value });
-    if (window.jQuery) window.jQuery('#modal-checkpoint').modal('hide');
+    if (window.bootstrap && document.getElementById('modal-checkpoint')) window.bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-checkpoint')).hide();
   });
 
   const loadLatest = async () => {
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if ((json.others || []).length) {
         const t = document.createElement('span');
-        t.className = 'small text-muted ml-1';
+        t.className = 'small text-muted ms-1';
         const names = json.others.map((o) => o.name.split(' ')[0]);
         t.textContent = names.join(', ') + (json.others.some((o) => o.editing) ? ' editing' : ' here');
         presence.appendChild(t);

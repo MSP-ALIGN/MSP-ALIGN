@@ -3,15 +3,15 @@ use Align\Onboarding\Requests;
 
 /** Portal: new user / termination requests. @var array $requests */
 ?>
-<h1 class="h4 mb-1"><i class="fas fa-user-plus text-secondary mr-2"></i>Requests</h1>
+<h1 class="h4 mb-1"><i class="fas fa-user-plus text-secondary me-2"></i>Requests</h1>
 <p class="text-muted">Starting someone new, or someone leaving? Send it here and it goes straight to your IT team's service desk. Please send requests at least 48 hours ahead; call for anything urgent.</p>
 <div class="row" id="requests">
   <?php foreach (Requests::FORMS as $kind => [$title, $icon]): ?>
-    <div class="col-md-6 mb-2"><button type="button" class="btn btn-outline-primary btn-block text-left collapsed" data-toggle="collapse" data-target="#rq-<?= $kind ?>" aria-expanded="false"><i class="fas <?= e($icon) ?> fa-fw mr-2"></i><?= e($title) ?></button></div>
+    <div class="col-md-6 mb-2"><button type="button" class="btn btn-outline-primary w-100 text-start collapsed" data-bs-toggle="collapse" data-bs-target="#rq-<?= $kind ?>" aria-expanded="false"><i class="fas <?= e($icon) ?> fa-fw me-2"></i><?= e($title) ?></button></div>
   <?php endforeach; ?>
   <div class="col-12">
     <?php foreach (Requests::FORMS as $kind => $_f): ?>
-      <div class="collapse" id="rq-<?= $kind ?>" data-parent="#requests"><?= \Align\View::fetch('partials/request_form', ['kind' => $kind, 'action' => '/portal/requests/' . $kind, 'askName' => false]) ?></div>
+      <div class="collapse" id="rq-<?= $kind ?>" data-bs-parent="#requests"><?= \Align\View::fetch('partials/request_form', ['kind' => $kind, 'action' => '/portal/requests/' . $kind, 'askName' => false]) ?></div>
     <?php endforeach; ?>
   </div>
 </div>

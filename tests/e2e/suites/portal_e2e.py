@@ -128,7 +128,7 @@ b.post(link2,data={"_csrf":csrf(b,link2.replace(B,"")),"password":"Maple-Harbor-
 t=b.get(B+"/portal").text; ok("Roadmap" not in re.sub(r'<title>.*?</title>','',t).split('class="portal-sections')[1].split("</ul>")[0] and "Devices" in t,"nav shows only allowed sections")
 for p in ["/portal/roadmap","/portal/budget","/portal/licensing","/portal/documents","/portal/contacts","/portal/meetings","/portal/report/budget","/portal/report/roadmap",f"/portal/documents/{d1}"]:
     r=b.get(B+p); ok(r.status_code==403 and "PT Project" not in r.text and "Policy body" not in r.text,f"{p} blocked ({r.status_code})")
-t=b.get(B+"/portal/devices").text; ok("Est. cost" not in t and "$" not in re.sub(r'<script.*?</script>','',t,flags=re.S).split('class="content')[1],"no prices without budget access")
+t=b.get(B+"/portal/devices").text; ok("Est. cost" not in t and "$" not in re.sub(r'<script.*?</script>','',t,flags=re.S).split('class="portal-main')[1],"no prices without budget access")
 t=b.get(B+"/portal/report/assets").text; ok('id="opt-costs"' not in t and 'id="opt-notes"' not in t,"report cost/notes toggles hidden")
 t=b.get(B+"/portal/report/assets?costs=1&notes=1").text; ok(not re.search(r"<th[^>]*>\s*(Est\. cost|Replacement cost|Cost)",t) and not re.search(r"\$\s?[0-9]",t.split('class="content')[-1]) and "INTERNAL DEVICE NOTE" not in t,"costs=1 ignored without budget access")
 r=b.get(B+"/portal/report/qbr?costs=1&s_budget=1&s_roadmap=1"); t=r.text

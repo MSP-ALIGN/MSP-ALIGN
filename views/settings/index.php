@@ -1,10 +1,10 @@
 <?php
 use Align\Lifecycle\Lifecycle;
 
-$num = fn(string $name, string $label, string $prefix = '', string $suffix = '') => '<div class="form-group"><label class="small">' . e($label) . '</label><div class="input-group input-group-sm">'
-    . ($prefix ? '<div class="input-group-prepend"><span class="input-group-text">' . e($prefix) . '</span></div>' : '')
+$num = fn(string $name, string $label, string $prefix = '', string $suffix = '') => '<div class="mb-3"><label class="small">' . e($label) . '</label><div class="input-group input-group-sm">'
+    . ($prefix ? '<span class="input-group-text">' . e($prefix) . '</span>' : '')
     . '<input type="number" step="any" name="' . e($name) . '" class="form-control" value="' . e($v[$name] ?? '') . '">'
-    . ($suffix ? '<div class="input-group-append"><span class="input-group-text">' . e($suffix) . '</span></div>' : '') . '</div></div>';
+    . ($suffix ? '<span class="input-group-text">' . e($suffix) . '</span>' : '') . '</div></div>';
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'general']) ?>
 <form method="post" action="/settings">
@@ -13,33 +13,33 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
   <div class="row">
     <div class="col-lg-6">
       <div class="card card-dark">
-        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-building mr-2"></i>Company details on reports</h3></div>
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-building me-2"></i>Company details on reports</h3></div>
         <div class="card-body">
-          <div class="form-row">
-            <div class="form-group col-md-6"><label>Company name</label><input name="company_name" class="form-control" value="<?= e($v['company_name']) ?>"></div>
-            <div class="form-group col-md-6"><label>Phone</label><input name="company_phone" class="form-control" value="<?= e($v['company_phone']) ?>"></div>
-            <div class="form-group col-md-6"><label>Email</label><input name="company_email" class="form-control" value="<?= e($v['company_email']) ?>"></div>
-            <div class="form-group col-md-6"><label>Website</label><input name="company_website" class="form-control" value="<?= e($v['company_website']) ?>"></div>
+          <div class="row g-2">
+            <div class="mb-3 col-md-6"><label>Company name</label><input name="company_name" class="form-control" value="<?= e($v['company_name']) ?>"></div>
+            <div class="mb-3 col-md-6"><label>Phone</label><input name="company_phone" class="form-control" value="<?= e($v['company_phone']) ?>"></div>
+            <div class="mb-3 col-md-6"><label>Email</label><input name="company_email" class="form-control" value="<?= e($v['company_email']) ?>"></div>
+            <div class="mb-3 col-md-6"><label>Website</label><input name="company_website" class="form-control" value="<?= e($v['company_website']) ?>"></div>
           </div>
-          <div class="form-group mb-0"><label>Report footer</label><textarea name="report_footer" class="form-control" rows="2" placeholder="Shown at the bottom of printed reports"><?= e($v['report_footer']) ?></textarea></div>
+          <div class="mb-3 mb-0"><label>Report footer</label><textarea name="report_footer" class="form-control" rows="2" placeholder="Shown at the bottom of printed reports"><?= e($v['report_footer']) ?></textarea></div>
         </div>
       </div>
       <div class="card card-dark">
-        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-scale-balanced mr-2"></i>Terms &amp; license</h3></div>
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-scale-balanced me-2"></i>Terms &amp; license</h3></div>
         <div class="card-body">
-          <div class="form-group"><label>Source code link</label><input type="url" name="source_url" class="form-control" value="<?= e($v['source_url'] ?? '') ?>" placeholder="<?= e(\Align\Controllers\LegalController::DEFAULT_SOURCE) ?>">
+          <div class="mb-3"><label>Source code link</label><input type="url" name="source_url" class="form-control" value="<?= e($v['source_url'] ?? '') ?>" placeholder="<?= e(\Align\Controllers\LegalController::DEFAULT_SOURCE) ?>">
             <small class="text-muted">Shown as "Source" in the footer and on the License page. The software is licensed under the AGPL-3.0: if you run a changed version for other people, this must lead to your version's source code.</small></div>
           <p class="small mb-0"><a href="/terms">Terms of use</a> (staff) · <a href="/portal/terms">Client portal terms</a> · <a href="/license">License</a>. The terms use the company name, email and phone above.</p>
         </div>
       </div>
-      <p class="small text-muted">Logo, colours and the app name are under <a href="/settings/branding">Branding</a>. <a href="/setup"><i class="fas fa-wand-magic-sparkles mr-1"></i>Open the setup wizard</a> to go through the main settings step by step.</p>
+      <p class="small text-muted">Logo, colours and the app name are under <a href="/settings/branding">Branding</a>. <a href="/setup"><i class="fas fa-wand-magic-sparkles me-1"></i>Open the setup wizard</a> to go through the main settings step by step.</p>
     </div>
     <div class="col-lg-6">
       <?= \Align\View::fetch('settings/_locale', ['v' => $v]) ?>
       <div class="card card-dark">
-        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-lock mr-2"></i>Security</h3></div>
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-lock me-2"></i>Security</h3></div>
         <div class="card-body">
-          <div class="form-row">
+          <div class="row g-2">
             <div class="col-md-6"><?= $num('session_idle_minutes', 'Sign out after inactivity (5–60)', '', 'min') ?></div>
             <div class="col-md-6"><?= $num('session_max_hours', 'Sign out after, however active (1–24)', '', 'hours') ?></div>
           </div>
@@ -48,14 +48,14 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
       </div>
     </div>
   </div>
-  <button class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save</button>
+  <button class="btn btn-primary"><i class="fas fa-check me-1"></i>Save</button>
 </form>
 
 <?php $demo = \Align\Demo\Demo::loaded(); $demoBlocked = \Align\Demo\Demo::blocked(); ?>
 <div class="card card-outline card-<?= $demo ? 'warning' : 'secondary' ?> mt-3" id="demo-data">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-flask mr-2"></i>Demo data</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-flask me-2"></i>Demo data</h3></div>
   <div class="card-body d-flex flex-wrap align-items-center">
-    <div class="mr-auto small pr-3">
+    <div class="me-auto small pe-3">
       <?php if ($demo): ?>
         <b>Demo data is loaded</b>: <?= count(\Align\Demo\Demo::clientIds()) ?> made-up clients. Remove it before you add real clients or connect your PSA or RMM; everything attached to the demo clients goes with them.
       <?php elseif ($demoBlocked): ?>
@@ -65,9 +65,9 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
       <?php endif; ?>
     </div>
     <?php if ($demo): ?>
-      <form method="post" action="/demo/remove" class="mt-2 mt-md-0"><?= csrf_field() ?><button class="btn btn-sm btn-outline-danger" data-confirm="Remove the demo clients and everything attached to them? This can't be undone."><i class="fas fa-trash mr-1"></i>Remove demo data</button></form>
+      <form method="post" action="/demo/remove" class="mt-2 mt-md-0"><?= csrf_field() ?><button class="btn btn-sm btn-outline-danger" data-confirm="Remove the demo clients and everything attached to them? This can't be undone."><i class="fas fa-trash me-1"></i>Remove demo data</button></form>
     <?php elseif (!$demoBlocked): ?>
-      <form method="post" action="/demo/load" class="mt-2 mt-md-0"><?= csrf_field() ?><button class="btn btn-sm btn-default"><i class="fas fa-flask mr-1"></i>Load demo data</button></form>
+      <form method="post" action="/demo/load" class="mt-2 mt-md-0"><?= csrf_field() ?><button class="btn btn-sm btn-default"><i class="fas fa-flask me-1"></i>Load demo data</button></form>
     <?php endif; ?>
   </div>
 </div>

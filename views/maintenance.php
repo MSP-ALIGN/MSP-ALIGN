@@ -27,8 +27,8 @@ $took = $elapsed >= 60 ? intdiv($elapsed, 60) . ' min ' . ($elapsed % 60) . ' s'
       <div class="progress progress-update mb-1" role="progressbar" aria-label="Progress" aria-valuenow="<?= $percent ?>" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: <?= $percent ?>%"></div>
       </div>
-      <div class="d-flex small text-muted mb-3"><span class="mr-auto"><?= $step !== '' ? e($step) : 'Starting' ?>…</span><span><?= $percent ?>% · <?= e($took) ?></span></div>
-      <p class="small mb-0 text-center"><i class="fas fa-rotate mr-1 text-muted"></i>This page refreshes on its own and opens <?= e(APP_NAME) ?> as soon as it's ready. You don't need to do anything.</p>
+      <div class="d-flex small text-muted mb-3"><span class="me-auto"><?= $step !== '' ? e($step) : 'Starting' ?>…</span><span><?= $percent ?>% · <?= e($took) ?></span></div>
+      <p class="small mb-0 text-center"><i class="fas fa-rotate me-1 text-muted"></i>This page refreshes on its own and opens <?= e(APP_NAME) ?> as soon as it's ready. You don't need to do anything.</p>
     </div>
   </div>
 </div>

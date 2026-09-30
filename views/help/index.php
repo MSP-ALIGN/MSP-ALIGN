@@ -6,9 +6,9 @@ $isAdmin = Auth::can('admin');
 $isTech = Auth::can('tech');
 $rmm = \Align\Providers\Providers::rmmNames(...);
 $bk = \Align\Providers\Providers::backupNames(...);
-$links = fn(array $l) => implode(' ', array_map(fn($k, $v) => '<a class="btn btn-xs btn-default mr-1 mb-1" href="' . e($v) . '">' . e($k) . '</a>', array_keys($l), $l));
+$links = fn(array $l) => implode(' ', array_map(fn($k, $v) => '<a class="btn btn-xs btn-default me-1 mb-1" href="' . e($v) . '">' . e($k) . '</a>', array_keys($l), $l));
 $step = function (int $n, string $icon, string $title, string $body, array $l) use ($links) {
-    return '<div class="help-step d-flex mb-3"><div class="help-num mr-3">' . $n . '</div><div class="flex-grow-1"><h5 class="mb-1"><i class="fas ' . $icon . ' text-secondary mr-2"></i>' . e($title) . '</h5>'
+    return '<div class="help-step d-flex mb-3"><div class="help-num me-3">' . $n . '</div><div class="flex-grow-1"><h5 class="mb-1"><i class="fas ' . $icon . ' text-secondary me-2"></i>' . e($title) . '</h5>'
         . '<p class="mb-1 text-muted">' . $body . '</p><div>' . $links($l) . '</div></div></div>';
 };
 /** A how-to guide: collapsible card with numbered steps. $who: viewer|tech|admin */
@@ -16,39 +16,39 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     if (!Auth::can($who)) {
         return '';
     }
-    $badge = ['admin' => '<span class="badge badge-dark ml-2">Admin</span>', 'tech' => '<span class="badge badge-secondary ml-2">Tech</span>'][$who] ?? '';
-    $ol = '<ol class="pl-3 mb-2">' . implode('', array_map(fn($s) => '<li class="mb-1">' . $s . '</li>', $steps)) . '</ol>';
+    $badge = ['admin' => '<span class="badge text-bg-dark ms-2">Admin</span>', 'tech' => '<span class="badge text-bg-secondary ms-2">Tech</span>'][$who] ?? '';
+    $ol = '<ol class="ps-3 mb-2">' . implode('', array_map(fn($s) => '<li class="mb-1">' . $s . '</li>', $steps)) . '</ol>';
     return '<div class="card mb-2 help-guide" id="guide-' . e($id) . '" data-search="' . e(strtolower($title . ' ' . strip_tags(implode(' ', $steps)))) . '">'
-        . '<a class="card-header py-2 d-flex align-items-center text-reset text-decoration-none collapsed" data-toggle="collapse" href="#g-' . e($id) . '" role="button" aria-expanded="false">'
-        . '<i class="fas ' . $icon . ' fa-fw text-secondary mr-2"></i><span class="font-weight-bold">' . e($title) . '</span>' . $badge . '<i class="fas fa-angle-down fa-sm ml-auto text-muted"></i></a>'
+        . '<a class="card-header py-2 d-flex align-items-center text-reset text-decoration-none collapsed" data-bs-toggle="collapse" href="#g-' . e($id) . '" role="button" aria-expanded="false">'
+        . '<i class="fas ' . $icon . ' fa-fw text-secondary me-2"></i><span class="fw-bold">' . e($title) . '</span>' . $badge . '<i class="fas fa-angle-down fa-sm ms-auto text-muted"></i></a>'
         . '<div class="collapse" id="g-' . e($id) . '"><div class="card-body small">' . $ol . ($l ? '<div>' . $links($l) . '</div>' : '') . '</div></div></div>';
 };
 ?>
 <h1 class="h3 mb-1">Help &amp; how-to</h1>
 <p class="text-muted">Align keeps each client's technology picture in one place: what they have, what's changing, what it costs and what's coming up. Most of it fills itself in from <?= e(psa_name()) ?> and <?= e(\Align\Providers\Providers::rmmNames()) ?>; you add the planning.</p>
 
-<?php if ($isAdmin): ?><p class="small text-muted"><i class="fas fa-book fa-fw mr-1"></i>Installing, updating, test servers and security: see the <a href="https://mspalign.org" target="_blank" rel="noopener">MSP-ALIGN documentation</a>.</p><?php endif; ?>
+<?php if ($isAdmin): ?><p class="small text-muted"><i class="fas fa-book fa-fw me-1"></i>Installing, updating, test servers and security: see the <a href="https://mspalign.org" target="_blank" rel="noopener">MSP-ALIGN documentation</a>.</p><?php endif; ?>
 <ul class="nav nav-tabs settings-tabs mb-3" role="tablist">
-  <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#tab-workflow" role="tab"><i class="fas fa-route fa-fw mr-1"></i>Workflow</a></li>
-  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-new" role="tab"><i class="fas fa-star fa-fw mr-1"></i>What's new</a></li>
-  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-howto" role="tab"><i class="fas fa-list-check fa-fw mr-1"></i>How-to guides</a></li>
-  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-menus" role="tab"><i class="fas fa-bars fa-fw mr-1"></i>Where things are</a></li>
-  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-data" role="tab"><i class="fas fa-arrows-rotate fa-fw mr-1"></i>Data &amp; terms</a></li>
-  <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-legal" role="tab"><i class="fas fa-scale-balanced fa-fw mr-1"></i>Terms &amp; license</a></li>
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-workflow" role="tab"><i class="fas fa-route fa-fw me-1"></i>Workflow</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-new" role="tab"><i class="fas fa-star fa-fw me-1"></i>What's new</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-howto" role="tab"><i class="fas fa-list-check fa-fw me-1"></i>How-to guides</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-menus" role="tab"><i class="fas fa-bars fa-fw me-1"></i>Where things are</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-data" role="tab"><i class="fas fa-arrows-rotate fa-fw me-1"></i>Data &amp; terms</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-legal" role="tab"><i class="fas fa-scale-balanced fa-fw me-1"></i>Terms &amp; license</a></li>
 </ul>
 
 <div class="tab-content">
 <div class="tab-pane fade show active" id="tab-workflow" role="tabpanel">
   <div class="card card-dark">
-    <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-route mr-2"></i>The vCIO workflow</h3></div>
+    <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-route me-2"></i>The vCIO workflow</h3></div>
     <div class="card-body">
-      <h6 class="text-uppercase text-muted small font-weight-bold">Once, when you set up</h6>
+      <h6 class="text-uppercase text-muted small fw-bold">Once, when you set up</h6>
       <?= $step(1, 'fa-plug', 'Connect your tools', 'Open <b>Integrations</b>, set up ' . (psa_on() ? psa_name() . ' and ' : '') . \Align\Providers\Providers::rmmNames() . (psa_on() ? '' : ' (a PSA is optional: see <i>Run MSP-ALIGN without a PSA</i>)') . ' (and ' . $bk() . ', email and warranty lookups if you use them), press <b>Test connection</b> on each, then run a sync. Using SLAs in ' . psa_name() . '? Turn on <b>Service levels</b> on the ' . psa_name() . ' card. After that Align syncs hourly and checks ' . psa_name() . ' for asset, contact and license changes every 2 minutes. Then set up your welcome email and onboarding guides under <b>Settings → Onboarding</b> (or import a saved set).', $isAdmin ? ['Integrations' => '/integrations', 'Sync' => '/sync', 'Settings → Onboarding' => '/settings/onboarding'] : ['Sync' => '/sync']) ?>
       <?= $step(2, 'fa-link', 'Link clients', 'Clients with the same name in each system link automatically. Link the rest (' . \Align\Providers\Providers::rmmNames() . ' organization, ' . $bk() . ' company) on Client mapping. Clients you don\'t plan for (break-fix, vendors) can be removed from planning.', ['Client mapping' => '/mapping', 'Clients' => '/clients']) ?>
       <?= $step(3, 'fa-list-check', 'Clear the To do list', psa_name() . ' assets with a type Align doesn\'t recognize, licenses without a price and clients not linked to a tool all show on <b>To do</b>. Give hardware a type and ' . psa_name() . ' is updated to match.', ['To do' => '/todo', 'Unassigned hardware' => '/devices/unassigned']) ?>
-      <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each new client</h6>
+      <h6 class="text-uppercase text-muted small fw-bold mt-4">For each new client</h6>
       <?= $step(4, 'fa-mountain-sun', 'Welcome and onboard', 'When they sign, choose <b>⋮ → Welcome &amp; onboarding</b> on the client. The welcome email links to a private page (no sign-in) where they enter their team\'s contacts, read how to reach you and how billing works, answer a few getting-started questions and send new user or termination requests. Track their progress on the client\'s <b>Onboarding</b> page.', ['How onboarding works' => '#guide-onboarding']) ?>
-      <h6 class="text-uppercase text-muted small font-weight-bold mt-4">For each client (the overview's Planning checklist tracks this)</h6>
+      <h6 class="text-uppercase text-muted small fw-bold mt-4">For each client (the overview's Planning checklist tracks this)</h6>
       <?= $step(5, 'fa-address-book', 'Contacts', 'Contacts come from ' . psa_name() . ' (and from onboarding). Mark the <b>decision maker</b> and the people you <b>invite to reviews</b>. They can then be added to a meeting in one click.', ['Contacts' => '/contacts']) ?>
       <?= $step(6, 'fa-desktop', 'Devices & lifecycle', 'Check devices without an in-service date (they can\'t be planned) and set replacement costs where the policy default is wrong. Edits go to ' . psa_name() . ' automatically.', ['How to plan replacements' => '#guide-lifecycle']) ?>
       <?= $step(7, 'fa-key', 'Licensing & contracts', 'Licenses sync from ' . psa_name() . ' without prices. Add the price and billing cycle, plus contract term, end and renegotiate-by dates.', ['Licenses needing a price' => '/licenses?filter=unpriced', 'Renewals' => '/renewals']) ?>
@@ -58,7 +58,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       <?= $step(11, 'fa-coins', 'Budget', 'The budget builds itself from licensing, hardware, projects and managed services. Add a <b>Managed services</b> line with your agreement amount, plus internet, phones, cloud and other costs.', ['Budgets' => '/budget']) ?>
       <?= $step(12, 'fa-door-open', 'Client portal (optional)', 'Invite the owner or office manager from the client\'s <b>Client portal</b> page. Choose what they can see and do. They sign in at <b>/portal</b> and only ever see their own company; their approvals and requests show up for you, and their approvals appear on the roadmap and the dashboard.', ['Client portal users' => '/portal-users']) ?>
       <?= $step(13, 'fa-handshake', 'Meet and report', 'Schedule the review (invitations go out as calendar invites if email is connected). The meeting page lists talking points; <b>Reports</b> builds the QBR pack (now with a Service levels section) and every other report for printing or PDF.', ['Meetings' => '/meetings', 'Reports' => '/reports']) ?>
-      <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Every day</h6>
+      <h6 class="text-uppercase text-muted small fw-bold mt-4">Every day</h6>
       <?= $step(14, 'fa-gauge-high', 'Work from the dashboard', 'Start with <b>Needs attention</b> on the dashboard: failed backups, missed service levels, stalled onboardings, decisions waiting on a client, renewals, compliance gaps and hardware due for replacement, across every client and most urgent first. Press <b>Customize</b> to arrange the rest of the dashboard your way.', ['Dashboard' => '/', 'How to customize it' => '#guide-dashboard']) ?>
     </div>
   </div>
@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['1.43', 'fa-circle-half-stroke', 'A cleaner look, and dark mode', 'A fresh, cleaner design: white cards on a light gray page, softer colors and a compact dark menu. Each person can pick <b>Light</b>, <b>Dark</b> or <b>Match my computer</b> under <b>Account → Light or dark</b>; printed reports always stay light. The client portal is friendlier too: the client\'s logo at the top, larger text and more room.', 'appearance', 'viewer'],
         ['1.42', 'fa-gauge-high', 'Faster, and easier to find your way', 'Pages stay under a second at 150 clients and 10,000 devices, and long lists load a fraction of what they did. The menu is shorter, with a new <b>To do</b> list and a <b>Devices &amp; assets</b> list across every client; the top search also finds devices by serial, contacts and licenses. Client menus are grouped, every page has the same header and filter row, device pages have tabs, and the client portal has six tabs instead of ten.', 'todo', 'viewer'],
         ['1.41', 'fa-flask', 'Demo data', 'Try MSP-ALIGN with four made-up clients before adding your own: load them from the setup wizard or Settings → General, and remove them with one click.', 'demo', 'admin'],
         ['1.40', 'fa-wand-magic-sparkles', 'Setup wizard', 'New installs start with a step-by-step setup: company, currency & dates, PSA, RMM, backups & warranty, email, clients and team. Skip any step; open it again any time from Settings → General.', 'setup', 'admin'],
@@ -95,9 +96,9 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
         ['1.19', 'fa-file-lines', 'More document templates', 'Security policies, incident response, BCDR, the CMMC package (SSP, POA&M, CUI handling) and HIPAA and privacy templates.', 'document', 'tech'],
     ] as [$ver, $icon, $title, $text, $g, $who]): $canOpen = Auth::can($who); ?>
       <<?= $canOpen ? 'a' : 'div' ?> class="list-group-item<?= $canOpen ? ' list-group-item-action' : '' ?> d-flex"<?= $canOpen ? ' href="#guide-' . e($g) . '"' : '' ?>>
-        <i class="fas <?= $icon ?> fa-fw text-secondary mr-3 mt-1"></i>
-        <div class="flex-grow-1"><div class="d-flex flex-wrap align-items-center"><b class="mr-2"><?= e($title) ?></b><span class="badge badge-light border">v<?= e($ver) ?></span></div><div class="small text-muted"><?= e($text) ?></div></div>
-        <?php if ($canOpen): ?><i class="fas fa-angle-right text-muted ml-2 mt-1"></i><?php endif; ?>
+        <i class="fas <?= $icon ?> fa-fw text-secondary me-3 mt-1"></i>
+        <div class="flex-grow-1"><div class="d-flex flex-wrap align-items-center"><b class="me-2"><?= e($title) ?></b><span class="badge text-bg-light border">v<?= e($ver) ?></span></div><div class="small text-muted"><?= e($text) ?></div></div>
+        <?php if ($canOpen): ?><i class="fas fa-angle-right text-muted ms-2 mt-1"></i><?php endif; ?>
       </<?= $canOpen ? 'a' : 'div' ?>>
     <?php endforeach; ?>
   </div>
@@ -105,10 +106,10 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 
 <div class="tab-pane fade" id="tab-howto" role="tabpanel">
   <div class="d-flex align-items-center mb-2">
-    <input type="search" class="form-control form-control-sm mr-2" style="max-width:320px" placeholder="Find a guide…" data-filter-guides aria-label="Find a guide">
+    <input type="search" class="form-control form-control-sm me-2" style="max-width:320px" placeholder="Find a guide…" data-filter-guides aria-label="Find a guide">
     <span class="small text-muted">Click a guide to open it.<?= $isAdmin ? '' : ' Some tasks need a tech or admin account.' ?></span>
   </div>
-  <h6 class="text-uppercase text-muted small font-weight-bold mt-3">Clients &amp; planning</h6>
+  <h6 class="text-uppercase text-muted small fw-bold mt-3">Clients &amp; planning</h6>
   <?= $guide('dashboard', 'fa-gauge-high', 'Use and customize the dashboard', 'viewer', [
       '<b>Needs attention</b> at the top lists what to act on across every client, most urgent first (red, then amber, then blue). Use the buttons to show one area, such as Backups or Renewals. Each line opens the page that fixes it.',
       '<b>Portfolio health</b> has four groups of tiles: service &amp; backups, lifecycle &amp; security, client engagement and money. Each tile opens the matching list or report.',
@@ -126,6 +127,11 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'A hand-added client links to ' . psa_name() . ' automatically when a client with the same name shows up there.',
       'For break-fix clients or vendors: tick them on <b>Clients</b> and choose <b>Remove from planning</b>. They drop out of budgets, reports and reminders but nothing is deleted.',
   ], ['Clients' => '/clients']) ?>
+  <?= $guide('appearance', 'fa-circle-half-stroke', 'Switch between light and dark', 'viewer', [
+      'Open your name at the top right and choose <b>Light or dark</b> (or go to <b>Account</b>). Pick <b>Light</b>, <b>Dark</b> or <b>Match my computer</b>, which follows your computer\'s own setting and changes when it does.',
+      'The choice is yours alone and follows you to every computer you sign in from. Everyone else keeps their own.',
+      'Printed reports, PDFs and the client portal always use the light colors, so what clients see doesn\'t change. Your brand color (Settings → Branding) is used in both modes.',
+  ], ['Account' => '/account#appearance']) ?>
   <?= $guide('todo', 'fa-list-check', 'Work the To do list', 'viewer', [
       '<b>To do</b> (top of the menu) lists everything waiting on your team from every client: hardware without a type, licenses without a price, clients not linked to a connected tool, hosted backups to match and suggestions sent from the client portal.',
       'Each line has a button that goes straight to the fix. A line leaves the list by itself once the work is done; the badge in the menu shows how many are left.',
@@ -196,7 +202,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Targets are measured by ' . psa_name() . ' in business hours and the resolution clock pauses while a ticket is on hold; results are shown as ' . psa_name() . ' calculated them. Average times are clock time. The app\'s timezone (config) should match ' . psa_name() . '\'s. Only ticket numbers, subjects, priorities and SLA times are copied, never ticket details.',
   ], ['Service levels report (all clients)' => '/reports/sla']) ?>
 
-  <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Compliance &amp; documents</h6>
+  <h6 class="text-uppercase text-muted small fw-bold mt-4">Compliance &amp; documents</h6>
   <?= $guide('compliance', 'fa-clipboard-check', 'Run a compliance assessment', 'tech', [
       'Open the client\'s <b>Compliance</b> and assign the frameworks they must meet: CMMC Level 1 or 2, NIST CSF 2.0, CIS Controls v8.1 (IG1 or IG2), PCI DSS 4.0.1, SOC 2, ISO/IEC 27001:2022, HIPAA, CCPA/CPRA, FTC Safeguards (WISP), the Microsoft 365 baseline, cyber insurance or the MSP baseline.',
       'Work through the checklist: set each control\'s status, add notes, and link evidence (a document or a file). Each control\'s guidance says what "met" looks like and the evidence to collect.',
@@ -215,7 +221,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Active policies are shared to the client portal by default. Print → Save as PDF for a signed copy.',
   ], ['Documents' => '/documents']) ?>
 
-  <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Meetings &amp; reports</h6>
+  <h6 class="text-uppercase text-muted small fw-bold mt-4">Meetings &amp; reports</h6>
   <?= $guide('meeting', 'fa-handshake', 'Schedule a review and send invitations', 'tech', [
       'Use the <b>+</b> menu → <b>Schedule meeting</b>, or the client\'s <b>Meetings</b>.',
       'Add attendees in one click from the client\'s review invitees, and tick <b>Email invitations to attendees</b>.',
@@ -251,7 +257,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Account' => '/account']) ?>
 
   <?php if ($isAdmin): ?>
-  <h6 class="text-uppercase text-muted small font-weight-bold mt-4">Administration</h6>
+  <h6 class="text-uppercase text-muted small fw-bold mt-4">Administration</h6>
   <?php endif; ?>
   <?= $guide('integration', 'fa-plug', 'Connect or change an integration', 'admin', [
       'Open <b>Integrations</b> and click the card (' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', Email, Dell, Lenovo).',
@@ -336,7 +342,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     ] as [$icon, $title, $items]): ?>
       <div class="col-md-6 col-xl-4 d-flex">
         <div class="card flex-fill">
-          <div class="card-header py-2"><h3 class="card-title"><i class="fas <?= $icon ?> fa-fw text-secondary mr-2"></i><?= e($title) ?></h3></div>
+          <div class="card-header py-2"><h3 class="card-title"><i class="fas <?= $icon ?> fa-fw text-secondary me-2"></i><?= e($title) ?></h3></div>
           <div class="card-body small"><dl class="mb-0"><?php foreach ($items as [$k, $v]): ?><dt><?= e($k) ?></dt><dd class="text-muted"><?= e($v) ?></dd><?php endforeach; ?></dl></div>
         </div>
       </div>
@@ -349,7 +355,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <div class="row">
     <div class="col-xl-7">
       <div class="card card-dark">
-        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-arrows-rotate mr-2"></i>Where data comes from</h3></div>
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-arrows-rotate me-2"></i>Where data comes from</h3></div>
         <div class="card-body small">
           <table class="table table-sm mb-0">
             <tr><th>Clients &amp; address</th><td><?= e(psa_name()) ?> (read-only in Align)</td></tr>
@@ -366,13 +372,13 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
             <tr><th>Updates &amp; app backups</th><td>GitHub checked every 6 hours; backups downloaded from Settings → Updates &amp; backups</td></tr>
             <tr><th>Projects, budget lines, compliance, documents, meetings, onboarding progress, dashboard layout</th><td>Align</td></tr>
           </table>
-          <p class="mt-2 mb-0 text-muted">Fields marked <span class="badge badge-light border"><?= e(psa_name()) ?></span> are managed in <?= e(psa_name()) ?>; change them there and they update here within minutes.</p>
+          <p class="mt-2 mb-0 text-muted">Fields marked <span class="badge text-bg-light border"><?= e(psa_name()) ?></span> are managed in <?= e(psa_name()) ?>; change them there and they update here within minutes.</p>
         </div>
       </div>
     </div>
     <div class="col-xl-5">
       <div class="card card-dark">
-        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-book mr-2"></i>Terms</h3></div>
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-book me-2"></i>Terms</h3></div>
         <div class="card-body small">
           <dl class="mb-0">
             <dt>3-year plan (hardware &amp; projects)</dt><dd>One-time spending: replacements in the quarter each device reaches end of life, plus project budgets.</dd>
@@ -399,7 +405,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     <div class="col-md-4 d-flex">
       <div class="card flex-fill">
         <div class="card-body">
-          <h3 class="h6"><i class="fas fa-user-check fa-fw text-secondary mr-1"></i>Terms of use</h3>
+          <h3 class="h6"><i class="fas fa-user-check fa-fw text-secondary me-1"></i>Terms of use</h3>
           <p class="small text-muted">The rules for staff accounts: keeping sign-ins private, client confidentiality, keeping sensitive personal data out, monitoring, and that planning figures are estimates.</p>
           <a class="btn btn-sm btn-default" href="/terms">Read the terms</a>
         </div>
@@ -408,7 +414,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     <div class="col-md-4 d-flex">
       <div class="card flex-fill">
         <div class="card-body">
-          <h3 class="h6"><i class="fas fa-door-open fa-fw text-secondary mr-1"></i>Client portal terms</h3>
+          <h3 class="h6"><i class="fas fa-door-open fa-fw text-secondary me-1"></i>Client portal terms</h3>
           <p class="small text-muted">What clients agree to when they sign in to the portal: their own account, confidentiality, what an approval means, and that prices are estimates. Linked from the portal sign-in page and footer.</p>
           <a class="btn btn-sm btn-default" href="/portal/terms">Read the portal terms</a>
         </div>
@@ -417,9 +423,9 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     <div class="col-md-4 d-flex">
       <div class="card flex-fill">
         <div class="card-body">
-          <h3 class="h6"><i class="fas fa-scale-balanced fa-fw text-secondary mr-1"></i>License</h3>
+          <h3 class="h6"><i class="fas fa-scale-balanced fa-fw text-secondary me-1"></i>License</h3>
           <p class="small text-muted">MSP-ALIGN is free software under the GNU Affero General Public License v3. Anyone who runs a changed version for others must share its source. Includes the third-party components and their licenses.</p>
-          <a class="btn btn-sm btn-default mr-1" href="/license">License &amp; credits</a><a class="btn btn-sm btn-default" href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" target="_blank" rel="noopener">Source code</a>
+          <a class="btn btn-sm btn-default me-1" href="/license">License &amp; credits</a><a class="btn btn-sm btn-default" href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" target="_blank" rel="noopener">Source code</a>
         </div>
       </div>
     </div>

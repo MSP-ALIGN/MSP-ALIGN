@@ -3,26 +3,26 @@
 ?>
       <?php
       $F = \Align\Fmt::class;
-      $sel = fn(string $name, array $opts, string $cur) => '<select name="' . e($name) . '" id="' . e($name) . '" class="custom-select" data-locale>'
+      $sel = fn(string $name, array $opts, string $cur) => '<select name="' . e($name) . '" id="' . e($name) . '" class="form-select" data-locale>'
           . implode('', array_map(fn($k, $l) => '<option value="' . e((string) $k) . '"' . ((string) $k === $cur ? ' selected' : '') . '>' . e($l) . '</option>', array_keys($opts), $opts)) . '</select>';
       $c = $F::cfg();
       $tzNow = (string) ($v['timezone'] ?: \Align\Config::get('timezone', 'America/Los_Angeles'));
       ?>
       <div class="card card-dark" id="currency-dates">
-        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-globe mr-2"></i>Currency &amp; dates</h3></div>
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-globe me-2"></i>Currency &amp; dates</h3></div>
         <div class="card-body">
-          <div class="form-row">
-            <div class="form-group col-md-7"><label for="locale_currency">Currency</label>
+          <div class="row g-2">
+            <div class="mb-3 col-md-7"><label for="locale_currency">Currency</label>
               <?= $sel('locale_currency', array_combine(array_keys($F::CURRENCIES), array_map(fn($x, $k) => "$k · {$x[1]} · {$x[0]}", $F::CURRENCIES, array_keys($F::CURRENCIES))), $c['currency']) ?></div>
-            <div class="form-group col-md-5"><label for="locale_currency_position">Symbol</label>
+            <div class="mb-3 col-md-5"><label for="locale_currency_position">Symbol</label>
               <?= $sel('locale_currency_position', ['' => 'Usual', 'before' => 'Before', 'after' => 'After'], (string) ($v['locale_currency_position'] ?? '')) ?></div>
-            <div class="form-group col-md-6"><label for="locale_number">Numbers</label><?= $sel('locale_number', array_map(fn($x) => $x[0], $F::NUMBERS), $c['number']) ?></div>
-            <div class="form-group col-md-6"><label for="locale_date">Dates</label><?= $sel('locale_date', $F::DATES, $c['date']) ?></div>
-            <div class="form-group col-md-6"><label for="locale_time">Time</label><?= $sel('locale_time', ['12' => '12-hour (2:30 pm)', '24' => '24-hour (14:30)'], $c['time']) ?></div>
-            <div class="form-group col-md-6"><label for="locale_week_start">Weeks start on</label><?= $sel('locale_week_start', $F::WEEK, $c['week']) ?></div>
+            <div class="mb-3 col-md-6"><label for="locale_number">Numbers</label><?= $sel('locale_number', array_map(fn($x) => $x[0], $F::NUMBERS), $c['number']) ?></div>
+            <div class="mb-3 col-md-6"><label for="locale_date">Dates</label><?= $sel('locale_date', $F::DATES, $c['date']) ?></div>
+            <div class="mb-3 col-md-6"><label for="locale_time">Time</label><?= $sel('locale_time', ['12' => '12-hour (2:30 pm)', '24' => '24-hour (14:30)'], $c['time']) ?></div>
+            <div class="mb-3 col-md-6"><label for="locale_week_start">Weeks start on</label><?= $sel('locale_week_start', $F::WEEK, $c['week']) ?></div>
           </div>
-          <div class="form-group"><label for="timezone">Timezone</label>
-            <select name="timezone" id="timezone" class="custom-select">
+          <div class="mb-3"><label for="timezone">Timezone</label>
+            <select name="timezone" id="timezone" class="form-select">
               <option value=""<?= $v['timezone'] ? '' : ' selected' ?>>As set on the server (<?= e((string) \Align\Config::get('timezone', 'America/Los_Angeles')) ?>)</option>
               <?php foreach ($F::zones() as $region => $zones): ?><optgroup label="<?= e($region) ?>"><?php foreach ($zones as $z): ?><option value="<?= e($z) ?>"<?= $v['timezone'] === $z ? ' selected' : '' ?>><?= e(str_replace('_', ' ', $z)) ?></option><?php endforeach; ?></optgroup><?php endforeach; ?>
             </select>

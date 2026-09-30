@@ -16,7 +16,7 @@ prj = q("select r.id, r.title from roadmap_items r join clients c on c.id = r.cl
 # ---- the lists carry links, not a form per row
 for path, kind, row in [("/licenses", "license", lic), ("/contacts", "contact", con), ("/projects", "roadmap", prj)]:
     t = tech.get(B + path).text
-    ok(not errs(t) and f'data-target="#modal-{kind}-{row["id"]}"' in t and f'id="modal-{kind}-{row["id"]}"' not in t and "data-lazy-modal=" in t,
+    ok(not errs(t) and f'data-bs-target="#modal-{kind}-{row["id"]}"' in t and f'id="modal-{kind}-{row["id"]}"' not in t and "data-lazy-modal=" in t,
        f"{path}: rows link to a form loaded on open, none in the page")
 t = viewer.get(B + "/licenses").text
 ok("data-lazy-modal=" not in t and not errs(t), "viewers get no edit links")
@@ -48,7 +48,7 @@ with sync_playwright() as p:
     __import__('sitecustomize').after_login(pg, "admin@example.com"); pg.wait_for_load_state()
     pg.goto(B + "/licenses")
     sel = f"#modal-license-{lic['id']}"
-    pg.locator(f'[data-target="{sel}"]').first.click(); pg.wait_for_selector(sel + ".show", timeout=5000)
+    pg.locator(f'[data-bs-target="{sel}"]').first.click(); pg.wait_for_selector(sel + ".show", timeout=5000)
     pg.fill(sel + ' input[name="unit_price"]', "7.25"); pg.select_option(sel + ' select[name="pricing"]', "flat")
     ok("7.25" in pg.locator(sel + ' [data-lic="out"]').inner_text(), "loaded form: the cost preview works")
     ok(pg.locator(sel + " [data-contract]").count() == 1 and pg.locator(sel + ' [data-c="hint"]').count() == 1, "loaded form: contract fields set up")
@@ -57,14 +57,14 @@ with sync_playwright() as p:
     q("update licenses set unit_price=%s, pricing='per_seat' where id=%s", price0, lic["id"])
     # a second open reuses the form already on the page
     pg.goto(B + "/contacts"); csel = f"#modal-contact-{con['id']}"
-    pg.locator(f'[data-target="{csel}"]').first.click(); pg.wait_for_selector(csel + ".show")
+    pg.locator(f'[data-bs-target="{csel}"]').first.click(); pg.wait_for_selector(csel + ".show")
     msgs = []; pg.once("dialog", lambda d: (msgs.append(d.message), d.dismiss()))
     btn = pg.locator(csel + " [data-confirm]").first
     if btn.count():
         btn.click(); pg.wait_for_timeout(400)
         ok(msgs and q("select archived_at from contacts where id=%s", con["id"])[0]["archived_at"] is None, "confirm asked on a loaded form; cancel keeps the contact")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(400)
-    pg.locator(f'[data-target="{csel}"]').first.click(); pg.wait_for_selector(csel + ".show")
+    pg.locator(f'[data-bs-target="{csel}"]').first.click(); pg.wait_for_selector(csel + ".show")
     ok(pg.locator(csel).count() == 1, "opening it again reuses the form")
     # client mapping: the picker fills on use and keeps its value
     pg.goto(B + "/mapping")
@@ -90,7 +90,7 @@ st = json.loads(php('echo json_encode(Align\\Mail\\Mailer::stats());').stdout)
 ref = q("select sum(status='queued') qd, sum(status='sent' and sent_at >= now() - interval 1 day) s24, max(case when status='sent' then sent_at end) ls from mail_queue")[0]
 ok(st["queued"] == int(ref["qd"] or 0) and st["sent24"] == int(ref["s24"] or 0), "mail status counts match")
 # ---- 1.42 layout: the menu for each role
-side = lambda t: t.split('main-sidebar')[1].split('</aside>')[0]
+side = lambda t: t.split('app-sidebar')[1].split('</aside>')[0]
 a = side(admin.get(B + "/").text); tt = side(tech.get(B + "/").text); v = side(viewer.get(B + "/").text)
 for label, href in [("To do", "/todo"), ("Devices &amp; assets", "/devices"), ("Integrations", "/integrations"), ("People", "/users"), ("Settings", "/settings"), ("Audit log", "/audit")]:
     ok(f'href="{href}"' in a and label in a, f"admin menu: {H.unescape(label)}")
@@ -99,7 +99,7 @@ ok('href="/mapping"' in tt and "Integrations" in tt and 'href="/portal-users"' i
 ok('href="/sync"' in v and "People" not in v and 'href="/todo"' not in v, "viewer menu: Integrations opens Sync history, no People or To do")
 ok(viewer.get(B + "/todo", allow_redirects=False).status_code == 403, "viewers can't open To do")
 top = admin.get(B + "/").text
-ok('action="/search"' in top and 'href="/help"' in top.split('main-header')[1].split('</nav>')[0], "top bar: search everything, help button")
+ok('action="/search"' in top and 'href="/help"' in top.split('app-header')[1].split('</nav>')[0], "top bar: search everything, help button")
 t = admin.get(B + "/mapping").text
 ok('group-tabs' in t and all(h in t for h in ['href="/integrations"', 'href="/mapping/backups"', 'href="/sync"']), "Integrations pages share one tab bar")
 t = admin.get(B + "/portal-users").text
@@ -112,7 +112,7 @@ t = H.unescape(admin.get(B + "/todo").text)
 n_un = int(php('echo Align\\Lifecycle\\Lifecycle::unassignedCount();').stdout.strip() or 0)
 n_lic = q("select count(*) n from licenses l join clients c on c.id=l.client_id where l.retired_at is null and l.unit_price is null and c.planning_excluded=0 and c.is_archived=0")[0]["n"]
 ok(not errs(t) and (n_un == 0 or f"{n_un} device" in t) and (n_lic == 0 or f"{n_lic} license" in t), f"To do lists hardware ({n_un}) and licenses ({n_lic}) to fix")
-badge = re.search(r'href="/todo"[^>]*>.*?<span class="badge[^"]*">(\d+)</span>', side(admin.get(B + "/").text), re.S)
+badge = re.search(r'href="/todo"[^>]*>.*?<span class="[^"]*badge[^"]*">(\d+)</span>', side(admin.get(B + "/").text), re.S)
 ok(badge and int(badge.group(1)) == t.count('data-todo="'), "menu badge = the number of To do items")
 ok("devices need a type" not in H.unescape(admin.get(B + "/todo?show=licensing").text) or n_un == 0, "To do tabs filter by kind")
 
@@ -146,6 +146,31 @@ dv = q("select id from devices where removed_at is null and client_id is not nul
 t = admin.get(B + f"/devices/{dv}").text
 ok(not errs(t) and "record-crumbs" in t and 'href="#details"' in t and 'href="#lifecycle"' in t and 'id="lifecycle"' in t, "device page: breadcrumb and tabs")
 
+# ---- 1.43: light / dark per person, no inline scripts (the CSP blocks them), portal and reports stay light
+q("update users set theme='auto' where email='viewer@example.com'")
+vw = login("viewer@example.com", "ViewerPassword123!")
+t = vw.get(B + "/account").text
+ok('id="appearance"' in t and 'name="theme" value="dark"' in t and 'data-theme-pref="auto"' in t and '/assets/theme.js' in t and "<script>" not in t, "account: light or dark picker; auto mode uses the external theme script")
+r = vw.post(B + "/account/appearance", data={"_csrf": csrf(vw, "/account"), "theme": "dark"})
+ok(r.url.endswith("/account#appearance") and q("select theme from users where email='viewer@example.com'")[0]["theme"] == "dark" and 'data-bs-theme="dark"' in vw.get(B + "/").text, "choosing Dark saves and draws the app dark")
+vw.post(B + "/account/appearance", data={"_csrf": csrf(vw, "/account"), "theme": "sideways"})
+ok(q("select theme from users where email='viewer@example.com'")[0]["theme"] == "auto", "an unknown choice falls back to Match my computer")
+ok('data-bs-theme="light"' in admin.get(B + "/clients/1/report/assets").text, "reports always draw light")
+ok('data-theme-pref="light"' in requests.get(B + "/portal/login").text and 'data-theme-pref="auto"' in requests.get(B + "/login").text, "portal sign-in stays light; staff sign-in follows the computer")
+with sync_playwright() as p:
+    br = p.chromium.launch(); ctx = br.new_context(color_scheme="dark")
+    ctx.add_cookies([{"name": c.name, "value": c.value, "url": B} for c in vw.cookies]); pg = ctx.new_page(); pg.goto(B + "/")
+    ok(pg.get_attribute("html", "data-bs-theme") == "dark", "Match my computer: a dark computer gets dark mode")
+    ctx2 = br.new_context(); ctx2.add_cookies([{"name": c.name, "value": c.value, "url": B} for c in admin.cookies]); pa = ctx2.new_page()
+    fw = q("select framework_id from client_frameworks where client_id=1 limit 1")
+    if fw:
+        pa.goto(B + f"/clients/1/compliance/{fw[0]['framework_id']}")
+        grp = pa.locator("[data-radio-buttons]").first
+        lab = grp.locator("label.btn").last; lab.click()
+        ok(lab.get_attribute("class").count("active") == 1 and grp.locator("label.btn.active").count() == 1 and lab.locator("input").is_checked() and grp.locator("input[type=radio]").first.evaluate("e => getComputedStyle(e).opacity") == "0",
+           "checklist status buttons: the clicked one is active and checked, radios hidden")
+    br.close()
+
 # ---- client portal: six tabs, sub-tabs in a group
 SEC = "JBSWY3DPEHPK3PXP"
 q("delete from portal_users where email='tabs@lists.example'")
@@ -156,6 +181,7 @@ ps.post(B + "/portal/login/2fa", data={"_csrf": csrf(ps, "/portal/login/2fa"), "
 t = ps.get(B + "/portal/devices").text
 bar = t.split('portal-sections')[1].split('</nav>')[0]
 ok(len(re.findall(r'class="nav-link', bar)) <= 6 and "Your technology" in bar and "portal-subtabs" in t and 'href="/portal/licensing"' in t.split("portal-subtabs")[1][:600], "portal: six tabs, Devices and Licensing as sub-tabs")
+ok('data-bs-theme="light"' in t and "/vendor/jquery" not in t, "portal: always light, no jQuery")
 ok(not errs(ps.get(B + "/portal/budget").text) and "stat-tiles" in ps.get(B + "/portal/budget").text, "portal budget: tiles on the shared component")
 q("delete from portal_users where email='tabs@lists.example'")
 done()

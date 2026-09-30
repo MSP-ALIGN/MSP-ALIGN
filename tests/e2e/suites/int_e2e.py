@@ -46,7 +46,7 @@ rid=q("select id from sync_runs where finished_at is not null order by id desc l
 old=q("select summary from sync_runs where id=%s",rid)[0]["summary"]
 s2=json.loads(old); s2["Veeam backups"]="ERROR: 401 Unauthorized"; q("update sync_runs set summary=%s where id=%s",json.dumps(s2),rid)
 t=st.get(B+"/integrations").text; ok("401 Unauthorized" in t and ">Error<" in t,"card shows last sync error")
-ok(re.search(r'href="/integrations" class="nav-link[^"]*"><i[^>]*></i><p>Integrations <span class="badge badge-warning right">[1-9]<',st.get(B+"/").text),"menu badge counts integrations with errors")
+ok(re.search(r'href="/integrations" class="nav-link[^"]*"><i[^>]*></i><p>Integrations <span class="nav-badge badge text-bg-warning me-2">[1-9]<',st.get(B+"/").text),"menu badge counts integrations with errors")
 q("update sync_runs set summary=%s where id=%s",old,rid)
 
 # ---- email page moved, callback kept
@@ -75,7 +75,7 @@ F=f2(st,"/settings/notifications"); F["notif_digest_hour"]="7"; F["mail_meeting_
 
 # ---- menus and sections
 d=st.get(B+"/").text
-side=d.split('main-sidebar')[1].split('</aside>')[0]
+side=d.split('app-sidebar')[1].split('</aside>')[0]
 order=[m for m in re.findall(r'<li class="nav-header">([^<]+)</li>',side)]
 ok(order==["CLIENTS","PLANNING","MEETINGS &amp; REPORTS","COMPLIANCE","ADMIN"],"sidebar sections (1.42): "+str(order))
 ok('href="/calendar"' not in side and 'href="/frameworks"' not in side and 'href="/settings/email"' not in side and 'href="/settings/branding"' not in side,"calendar, frameworks, email and branding moved out of the sidebar")
