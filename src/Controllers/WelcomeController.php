@@ -166,7 +166,8 @@ final class WelcomeController
         $o = self::load($token);
         $client = self::client($o);
         $name = mb_substr(post('your_name'), 0, 190) ?: ($o['reviewed_by'] ?: 'The client');
-        DB::run('UPDATE client_onboardings SET completed_at = COALESCE(completed_at, NOW()), completed_by = ? WHERE id = ?', [$name, $o['id']]);
+        // The link (which opens the client's contact list without a sign-in) works for 7 more days, then stops (1.45)
+        DB::run('UPDATE client_onboardings SET completed_at = COALESCE(completed_at, NOW()), completed_by = ?, token_expires_at = LEAST(token_expires_at, NOW() + INTERVAL ' . Onboarding::AFTER_DONE_DAYS . ' DAY) WHERE id = ?', [$name, $o['id']]);
         Audit::log('onboarding.completed', "{$client['name']}: $name");
         \Align\Mail\Notify::portalActivity((int) $client['id'], $client['name'], $name, 'finished onboarding', '/clients/' . (int) $client['id'] . '/onboarding');
         flash('success', 'All done. Welcome aboard!');

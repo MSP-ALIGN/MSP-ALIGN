@@ -58,6 +58,7 @@ final class ComplianceController
     {
         Auth::require();
         $client = ClientController::load($id);
+        Audit::access('compliance', "#$id {$client['name']}");
         $assigned = DB::all('SELECT f.*, cf.next_review, cf.last_reviewed FROM client_frameworks cf
             JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? ORDER BY f.name', [$id]);
         foreach ($assigned as &$fw) {
@@ -99,7 +100,6 @@ final class ComplianceController
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         $f = self::framework($fw);
-        \Align\Audit::access('compliance', "{$client['name']} / {$f['name']}");
         DB::run('DELETE FROM client_frameworks WHERE client_id = ? AND framework_id = ?', [$id, $fw]);
         // Answers are kept, so re-adding the framework restores them.
         Audit::log('compliance.unassign', "{$f['name']} ← {$client['name']}");
@@ -112,6 +112,7 @@ final class ComplianceController
         Auth::require();
         $client = ClientController::load($id);
         $f = self::framework($fw);
+        Audit::access('compliance', "{$client['name']} / {$f['name']}");
         $link = DB::one('SELECT * FROM client_frameworks WHERE client_id = ? AND framework_id = ?', [$id, $fw]);
         if (!$link) {
             redirect("/clients/$id/compliance");

@@ -103,9 +103,11 @@ final class Branding
         if (!is_dir($dir) && !@mkdir($dir, 0750, true)) {
             return "Can't create the upload folder ($dir). Run sudo msp-align-update to fix permissions.";
         }
-        $name = 'logo-' . bin2hex(random_bytes(8)) . '.' . self::TYPES[$mime];
-        if (!@move_uploaded_file($file['tmp_name'], "$dir/$name") && !@rename($file['tmp_name'], "$dir/$name")) {
-            return "Couldn't save the file in $dir. Check that the folder is writable by the web server.";
+        // Re-encoded, not stored as uploaded: the logo is public (sign-in page, emails), so nothing but its pixels goes out (1.45)
+        $name = 'logo-' . bin2hex(random_bytes(8)) . ($mime === 'image/jpeg' ? '.jpg' : '.png');
+        if (!\Align\Images::reencode($file['tmp_name'], $mime, "$dir/$name")) {
+            @unlink("$dir/$name");
+            return 'That image couldn\'t be read or saved. Try saving it again as PNG, and check that the upload folder is writable.';
         }
         @chmod("$dir/$name", 0640);
         $old = self::logoFile();

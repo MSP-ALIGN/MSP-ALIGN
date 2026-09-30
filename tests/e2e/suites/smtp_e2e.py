@@ -55,7 +55,9 @@ ok(q("select count(*) n from mail_queue where kind='security' and subject like '
 
 # ---- certificate check, STARTTLS, sign-in
 f = test(); ok("encrypted connection" in f and "certificate" in f, "untrusted certificate explained: " + f[:120])
-save(smtp_verify=None)  # unticked
+f = save(smtp_verify=None)  # unticked, without the password
+ok("Enter the SMTP password again" in f and not q("select 1 from settings where name='smtp_verify' and value='0'"), "switching off the certificate check needs the password typed again (1.45)")
+save(smtp_verify=None, smtp_pass="SmtpPass123!")
 ok(q("select value from settings where name='smtp_verify'")[0]["value"] == "0", "certificate check switched off")
 n0 = len(state()["mail"]); f = test()
 m = last(); msg = parse(m["raw"]) if m else None
@@ -68,9 +70,11 @@ save(smtp_pass="SmtpPass123!")
 
 # ---- TLS from the start, plain relay, password never in the clear
 save(smtp_security="tls", smtp_port="2465"); ok("Test email sent" in test() and last()["port"] == 2465 and last()["tls"] and last()["user"] == "align" and "AUTH LOGIN ***" in state()["sessions"][-1]["cmds"], "TLS from the start (465 style), AUTH LOGIN")
-save(smtp_security="none", smtp_port="2525", smtp_host="127.0.0.2")
+f = save(smtp_security="none", smtp_port="2525", smtp_host="127.0.0.2")
+ok("Enter the SMTP password again" in f and q("select value from settings where name='smtp_host'")[0]["value"] == "localhost", "another server or no encryption with the saved password: refused until it's typed again (1.45)")
+save(smtp_security="none", smtp_port="2525", smtp_host="127.0.0.2", smtp_pass="SmtpPass123!")
 f = test(); ok("without encryption" in f and not any(s.get("auth_plaintext") for s in state()["sessions"]), "password not sent over a plain connection: " + f[:90])
-save(smtp_user="", smtp_host="localhost")
+save(smtp_user="", smtp_host="localhost", clear_smtp_pass="1")
 f = test(); ok("Test email sent" in f and last()["port"] == 2525 and last()["user"] is None, "plain relay without a sign-in")
 save(smtp_security="starttls")  # plain port has no STARTTLS
 f = test(); ok("doesn't offer STARTTLS" in f, "missing STARTTLS explained: " + f[:90])

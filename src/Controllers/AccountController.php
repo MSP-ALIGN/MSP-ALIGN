@@ -59,6 +59,7 @@ final class AccountController
         $u = Auth::require();
         $theme = in_array(post('theme'), ['auto', 'light', 'dark'], true) ? post('theme') : 'auto';
         DB::run('UPDATE users SET theme = ? WHERE id = ?', [$theme, $u['id']]);
+        Audit::log('account.theme', $theme);
         flash('success', ['auto' => 'The app now matches your computer\'s light or dark setting.', 'light' => 'Light mode is on.', 'dark' => 'Dark mode is on.'][$theme]);
         redirect('/account#appearance');
     }
@@ -70,6 +71,7 @@ final class AccountController
         if (post('action') === 'remove') {
             \Align\Images::delete('avatars', $u['avatar_file'] ?? null);
             DB::run('UPDATE users SET avatar_file = NULL WHERE id = ?', [$u['id']]);
+            Audit::log('account.avatar_removed', $u['email']);
             flash('success', 'Profile picture removed.');
             redirect('/account');
         }
@@ -88,8 +90,9 @@ final class AccountController
     public static function password(): void
     {
         $u = Auth::require();
-        if (!password_verify((string) ($_POST['current'] ?? ''), $u['password_hash'])) {
-            flash('error', 'Current password is incorrect.');
+        $check = Auth::checkPassword($u, (string) ($_POST['current'] ?? ''));
+        if ($check !== 'ok') {
+            flash('error', $check === 'locked' ? 'Too many wrong passwords. Try again in 15 minutes.' : 'Current password is incorrect.');
             redirect('/account');
         }
         $new = (string) ($_POST['new'] ?? '');
@@ -127,6 +130,11 @@ final class AccountController
                     break;
                 }
                 $replacing = (bool) $u['totp_enabled'];
+                // Moving 2FA to a new phone needs a code from the current one, so a borrowed session can't take it over (1.45)
+                if ($replacing && !Auth::confirmCode(post('current_code'))) {
+                    flash('error', 'The code from your current authenticator did not match. Enter a fresh code from the old phone, and one from the new.');
+                    break;
+                }
                 DB::run('UPDATE users SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ? WHERE id = ?', [Crypto::encrypt($secret), $step, $u['id']]);
                 unset($_SESSION['totp_setup']);
                 Auth::revokeSessions((int) $u['id'], true);

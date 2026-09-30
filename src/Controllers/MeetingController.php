@@ -106,6 +106,10 @@ final class MeetingController
             $title = Meetings::typeLabel($type);
         }
         $owner = (int) post('owner_id') ?: Auth::id();
+        // The organizer is an active staff member who can run meetings (invitations may go out from their mailbox) (1.45)
+        if ($owner !== Auth::id() && !DB::value("SELECT 1 FROM users WHERE id = ? AND is_active = 1 AND role IN ('tech','admin')", [$owner])) {
+            $owner = Auth::id();
+        }
         $url = post('video_url');
         return [[
             'client_id' => $clientId,
@@ -187,6 +191,7 @@ final class MeetingController
         }
         if ($action === 'notes') {
             DB::run('UPDATE meetings SET notes = ? WHERE id = ?', [mb_substr(post('notes'), 0, 50000) ?: null, $id]);
+            Audit::log('meeting.notes', $m['title']);
             flash('success', 'Notes saved.');
             redirect("/meetings/$id");
         }
@@ -228,6 +233,7 @@ final class MeetingController
     {
         Auth::require();
         $m = self::load($id);
+        Audit::log('meeting.export_ics', $m['title']);
         $name = preg_replace('/[^A-Za-z0-9]+/', '-', ($m['client_name'] ? $m['client_name'] . '-' : '') . $m['title']);
         header('Content-Type: text/calendar; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . trim($name, '-') . '.ics"');

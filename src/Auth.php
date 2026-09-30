@@ -58,7 +58,8 @@ final class Auth
         return isset($_SESSION['uid']) ? (int) $_SESSION['uid'] : null;
     }
 
-    public static function isLockedOut(string $email): bool
+    /** $pending: attempts already recorded for the request being checked (see attempt()). */
+    public static function isLockedOut(string $email, int $pending = 0): bool
     {
         $since = date('Y-m-d H:i:s', time() - self::FAILURE_WINDOW_MIN * 60);
         $byIp = (int) DB::value(
@@ -69,13 +70,30 @@ final class Auth
             'SELECT COUNT(*) FROM login_attempts WHERE email = ? AND success = 0 AND created_at > ?',
             [$email, $since]
         );
-        return $byIp >= self::MAX_FAILURES * 2 || $byEmail >= self::MAX_FAILURES;
+        return $byIp >= self::MAX_FAILURES * 2 + $pending || $byEmail >= self::MAX_FAILURES + $pending;
     }
 
-    private static function recordAttempt(string $email, bool $ok): void
+    private static function recordAttempt(string $email, bool $ok): int
     {
-        DB::insert('login_attempts', ['ip' => client_ip(), 'email' => $email, 'success' => $ok ? 1 : 0]);
+        $id = DB::insert('login_attempts', ['ip' => client_ip(), 'email' => $email, 'success' => $ok ? 1 : 0]);
         DB::run('DELETE FROM login_attempts WHERE created_at < ?', [date('Y-m-d H:i:s', time() - 86400 * 30)]);
+        return $id;
+    }
+
+    /**
+     * Every attempt is counted as a failure BEFORE the slow check, then cleared if it succeeds: parallel
+     * requests can't each see a count under the limit and all get a guess in (1.45). Null when over the limit.
+     */
+    private static function beginAttempt(string $email): ?int
+    {
+        $id = self::recordAttempt($email, false);
+        return self::isLockedOut($email, 1) ? null : $id;
+    }
+
+    /** One use per code, even for parallel requests: only the request that moves totp_last_step forward wins. */
+    private static function useStep(int $uid, int $step): bool
+    {
+        return DB::run('UPDATE users SET totp_last_step = ? WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)', [$step, $uid, $step])->rowCount() === 1;
     }
 
     /**
@@ -84,15 +102,14 @@ final class Auth
     public static function attempt(string $email, string $password): string
     {
         $email = strtolower(trim($email));
-        if (self::isLockedOut($email)) {
+        if (self::isLockedOut($email) || ($attemptId = self::beginAttempt($email)) === null) {
             return 'locked';
         }
         $u = DB::one('SELECT * FROM users WHERE email = ? AND is_active = 1', [$email]);
         // Always run a hash check to keep response timing consistent.
         $hash = ($u['password_hash'] ?? null) ?: \Align\Security::dummyHash();
         if (!password_verify($password, $hash) || !$u) {
-            self::recordAttempt($email, false);
-            // Only log the email when it is one (never whatever was typed, which could be a password)
+            // (already counted by beginAttempt) Only log the email when it is one (never whatever was typed, which could be a password)
             Audit::log('login.failed', filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '(not an email address)', $u['id'] ?? null);
             Security::logAuthFailure('staff');
             if ($u && self::isLockedOut($email)) {
@@ -104,11 +121,12 @@ final class Auth
             DB::run('UPDATE users SET password_hash = ? WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
         }
         if ($u['totp_enabled']) {
+            DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]); // the code step counts on its own
             session_regenerate_id(true);
             $_SESSION['pending_2fa'] = ['uid' => (int) $u['id'], 'at' => time()];
             return '2fa';
         }
-        self::recordAttempt($email, true);
+        DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
         self::completeLogin((int) $u['id']);
         return 'ok';
     }
@@ -122,21 +140,36 @@ final class Auth
             return 'expired';
         }
         $u = DB::one('SELECT * FROM users WHERE id = ? AND is_active = 1', [$p['uid']]);
-        if (!$u || self::isLockedOut($u['email'])) {
+        if (!$u || self::isLockedOut($u['email']) || ($attemptId = self::beginAttempt($u['email'])) === null) {
             return 'locked';
         }
         $secret = Crypto::decrypt($u['totp_secret_enc']);
         $step = $secret ? Totp::verifyStep($secret, $code, $u['totp_last_step'] !== null ? (int) $u['totp_last_step'] : null) : null;
-        if ($step === null) {
-            self::recordAttempt($u['email'], false);
+        if ($step === null || !self::useStep((int) $u['id'], $step)) {
             Audit::log('login.2fa_failed', $u['email'], (int) $u['id']);
             Security::logAuthFailure('staff-2fa');
             return 'invalid';
         }
-        DB::run('UPDATE users SET totp_last_step = ? WHERE id = ?', [$step, $u['id']]);
         unset($_SESSION['pending_2fa']);
-        self::recordAttempt($u['email'], true);
+        DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
         self::completeLogin((int) $u['id']);
+        return 'ok';
+    }
+
+    /**
+     * Re-checks the signed-in user's password (changing it): counted and locked out like a sign-in, so a session
+     * someone else got hold of can't be used to guess the password (1.45). 'ok', 'invalid' or 'locked'.
+     */
+    public static function checkPassword(array $u, string $password): string
+    {
+        if (self::isLockedOut($u['email']) || ($attemptId = self::beginAttempt($u['email'])) === null) {
+            return 'locked';
+        }
+        if (!password_verify($password, (string) $u['password_hash'])) {
+            Audit::log('reauth.failed', 'Password confirmation failed');
+            return 'invalid';
+        }
+        DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
         return 'ok';
     }
 
@@ -148,17 +181,16 @@ final class Auth
             return false;
         }
         $row = DB::one('SELECT email, totp_secret_enc, totp_last_step FROM users WHERE id = ?', [$u['id']]);
-        if (!$row || self::isLockedOut($row['email'])) {
+        if (!$row || self::isLockedOut($row['email']) || ($attemptId = self::beginAttempt($row['email'])) === null) {
             return false;
         }
         $secret = $row['totp_secret_enc'] ? Crypto::decrypt($row['totp_secret_enc']) : null;
         $step = $secret ? Totp::verifyStep($secret, preg_replace('/\s+/', '', $code) ?? '', $row['totp_last_step'] !== null ? (int) $row['totp_last_step'] : null) : null;
-        if ($step === null) {
-            self::recordAttempt($row['email'], false);
+        if ($step === null || !self::useStep((int) $u['id'], $step)) {
             Audit::log('reauth.failed', 'Two-factor confirmation failed');
             return false;
         }
-        DB::run('UPDATE users SET totp_last_step = ? WHERE id = ?', [$step, $u['id']]);
+        DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
         return true;
     }
 

@@ -32,7 +32,7 @@
           <td class="text-end text-nowrap">
             <?php foreach (['reset' => 'Reset password', 'toggle' => $u['is_active'] ? 'Disable' : 'Enable'] + ($u['totp_enabled'] ? ['reset_2fa' => 'Remove 2FA'] : []) as $a => $label): ?>
               <form method="post" action="/users/<?= (int) $u['id'] ?>" class="d-inline"><?= csrf_field() ?>
-                <input type="hidden" name="action" value="<?= $a ?>"><button class="btn btn-xs btn-default" data-confirm="<?= e($label) ?> for <?= e($u['email']) ?>?"><?= e($label) ?></button>
+                <input type="hidden" name="action" value="<?= $a ?>"><button class="btn btn-xs btn-default" data-confirm="<?= e($label) ?> for <?= e($u['email']) ?>?<?= $a === 'reset_2fa' ? ' This also gives them a one-time password, which you pass on.' : '' ?>"><?= e($label) ?></button>
               </form>
             <?php endforeach; ?>
           </td>

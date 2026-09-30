@@ -25,7 +25,11 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
             <?php if (\Align\Auth::can('admin')): ?>
               <form method="post" action="/documents/templates"><?= csrf_field() ?><input type="hidden" name="from_document" value="<?= $id ?>"><button class="dropdown-item"><i class="fas fa-fw fa-shapes me-2"></i>Save as a new template</button></form>
             <?php endif; ?>
-            <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#modal-delete-doc"><i class="fas fa-fw fa-trash me-2"></i>Delete…</a>
+            <?php if (\Align\Auth::can('admin')): ?>
+              <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#modal-delete-doc"><i class="fas fa-fw fa-trash me-2"></i>Delete…</a>
+            <?php else: ?>
+              <span class="dropdown-item-text small text-muted">To remove it, set the status to Archived.<br>Only an admin can delete it.</span>
+            <?php endif; ?>
           </div>
         </div>
       <?php endif; ?>

@@ -129,7 +129,11 @@ final class Requests
             'portal_user_id' => $by['portal_user_id'] ?? null, 'via' => $by['via'] ?? 'onboarding',
         ]);
         $rows = self::rows($kind, $data);
-        $html = '<p><b>Submitted by:</b> ' . e($by['name']) . ($by['email'] ? ' (' . e($by['email']) . ')' : '') . ' via ' . e(($by['via'] ?? 'onboarding') === 'portal' ? 'the client portal' : 'the onboarding page') . '</p><table>';
+        // From the onboarding page (a shared link, no sign-in) the name and email are whatever the visitor typed: say so,
+        // and don't file the ticket under that contact, so it can't pass as coming from them (1.45)
+        $portal = ($by['via'] ?? 'onboarding') === 'portal';
+        $html = '<p><b>Submitted by:</b> ' . e($by['name']) . ($by['email'] ? ' (' . e($by['email']) . ')' : '') . ' via '
+            . ($portal ? 'the client portal (signed in)' : 'the onboarding page (name and email as typed, not verified)') . '</p><table>';
         foreach ($rows as $k => $v) {
             $html .= '<tr><td><b>' . e($k) . '</b></td><td>' . nl2br(e($v)) . '</td></tr>';
         }
@@ -140,7 +144,7 @@ final class Requests
         if (!empty($client['psa_id']) && \Align\Providers\Providers::psaSupports('tickets.create')) {
             try {
                 $contactId = null;
-                if ($by['email']) {
+                if ($by['email'] && $portal) {
                     $contactId = DB::value('SELECT psa_id FROM contacts WHERE client_id = ? AND email = ? AND psa_id IS NOT NULL AND archived_at IS NULL LIMIT 1', [$client['id'], $by['email']]);
                 }
                 $ticket = \Align\Providers\Providers::psa(true)->createTicket((string) $client['psa_id'], $title, $html, 'Medium', $contactId ? (string) $contactId : null);

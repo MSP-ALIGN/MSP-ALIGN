@@ -154,7 +154,7 @@ ok(cli("audit:verify").returncode==0,"restored -> intact again")
 # retention prune keeps the chain valid
 q("update audit_log set created_at=created_at - interval 7 year where id <= (select * from (select min(id)+2 from audit_log) t)")
 # the change above edits hashed fields, so rebuild those three entries' hashes via PHP backfill helper
-subprocess.run(["php","-r",'require "'+BOOTSTRAP+'"; $prev=(string)Align\\DB::value("SELECT anchor_hash FROM audit_chain"); foreach (Align\\DB::all("SELECT * FROM audit_log ORDER BY id") as $r) { $h=Align\\AuditChain::hash($r,$prev); Align\\DB::run("UPDATE audit_log SET prev_hash=?, row_hash=? WHERE id=?",[$prev,$h,$r["id"]]); $prev=$h; $last=$r["id"]; } Align\\DB::run("UPDATE audit_chain SET last_id=?, last_hash=?",[$last,$prev]);'],env=ENV)
+subprocess.run(["php","-r",'require "'+BOOTSTRAP+'"; $prev=(string)Align\\DB::value("SELECT anchor_hash FROM audit_chain"); foreach (Align\\DB::all("SELECT * FROM audit_log ORDER BY id") as $r) { $h=Align\\AuditChain::hash($r,$prev); Align\\DB::run("UPDATE audit_log SET prev_hash=?, row_hash=? WHERE id=?",[$prev,$h,$r["id"]]); $prev=$h; $last=$r["id"]; } Align\\DB::run("UPDATE audit_chain SET last_id=?, last_hash=?",[$last,$prev]); Align\\AuditChain::reseal();'],env=ENV)
 before=q("select count(*) n from audit_log")[0]["n"]
 out=cli("audit:prune"); after=q("select count(*) n from audit_log")[0]["n"]
 ok("Pruned 3" in out.stdout and after==before-3+1,"prune removed 3 old entries: "+out.stdout.strip())

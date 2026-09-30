@@ -60,6 +60,12 @@ final class UserController
     public static function update(int $id): void
     {
         $me = Auth::requireRole('admin');
+        // One user change at a time (held until the request ends): two admins demoting or disabling each other at
+        // once can't both pass the last-admin check (1.45)
+        if ((int) DB::value("SELECT GET_LOCK('msp_align_users', 10)") !== 1) {
+            flash('error', 'Another change to the team is in progress. Try again.');
+            redirect('/users');
+        }
         $u = DB::one('SELECT * FROM users WHERE id = ?', [$id]);
         if (!$u) {
             redirect('/users');
@@ -69,6 +75,11 @@ final class UserController
         $activeAdmins = (int) DB::value("SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = 1");
         $lastAdmin = $u['role'] === 'admin' && $u['is_active'] && $activeAdmins <= 1;
 
+        if ($isSelf && in_array($action, ['reset', 'reset_2fa'], true)) {
+            // It would end your own session before the one-time password is shown (1.45): use your Account page
+            flash('error', 'Change your own password or authenticator on your Account page.');
+            redirect('/users');
+        }
         switch ($action) {
             case 'role':
                 $role = post('role');
@@ -101,11 +112,16 @@ final class UserController
                 $_SESSION['new_password'] = ['email' => $u['email'], 'password' => $password];
                 break;
             case 'reset_2fa':
-                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$id]);
+                // A one-time password too, as with `align user:reset-password --clear-2fa`: whoever knew the old password
+                // must not be the one who sets up the new authenticator (1.45)
+                $password = self::randomPassword();
+                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL, password_hash = ?, must_change_password = 1 WHERE id = ?',
+                    [\Align\Security::hashPassword($password), $id]);
                 Auth::revokeSessions($id);
-                Audit::log('user.reset_2fa', $u['email']);
+                Audit::log('user.reset_2fa', $u['email'] . ' (with a one-time password)');
                 \Align\Mail\Notify::security('Staff two-factor reset', "{$u['email']} by " . (Auth::user()['email'] ?? ''));
-                flash('success', 'Two-factor removed and their sessions ended. They must set it up again at their next sign-in.');
+                $_SESSION['new_password'] = ['email' => $u['email'], 'password' => $password];
+                flash('success', 'Two-factor removed, a one-time password issued and their sessions ended. Give them the password below: they choose their own and set up two-factor at the next sign-in.');
                 break;
         }
         redirect('/users');

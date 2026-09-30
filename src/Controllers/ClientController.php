@@ -317,6 +317,7 @@ final class ClientController
     {
         Auth::require();
         $client = self::load($id);
+        Audit::access('devices', "#$id {$client['name']}");
         $all = (new Lifecycle())->devices($id);
         $filter = query('filter') === 'itflow' ? 'psa' : query('filter'); // itflow: links saved before 1.28
         $class = query('class');

@@ -192,9 +192,13 @@ final class DocumentController
                 $fields['review_due'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', post('review_due')) ? post('review_due') : null;
             }
             $changed = false;
+            $meta = [];
             foreach ($fields as $k => $v) {
                 if ((string) $doc[$k] !== (string) $v) {
                     $changed = true;
+                    if ($k !== 'body_html') {
+                        $meta[] = $k === 'title' ? 'title "' . mb_substr((string) $doc[$k], 0, 80) . '" → "' . mb_substr((string) $v, 0, 80) . '"' : "$k {$doc[$k]} → $v";
+                    }
                 }
             }
             if (!$changed && !$checkpoint) {
@@ -209,11 +213,23 @@ final class DocumentController
             if ($checkpoint || Documents::snapshotDue($id)) {
                 Documents::snapshot($fresh, $checkpoint ? 'manual' : 'auto', $checkpoint ? (post('note') ?: 'Saved version') : null);
             }
-            return ['status' => 200, 'body' => ['ok' => true, 'version' => $newVersion, 'saved_at' => $now, 'checkpoint' => $checkpoint,
+            return ['status' => 200, 'meta' => $meta, 'edited' => $changed, 'title' => $fresh['title'], 'body' => ['ok' => true, 'version' => $newVersion, 'saved_at' => $now, 'checkpoint' => $checkpoint,
                 'body' => $force ? $fresh['body_html'] : null]];
         });
         if ($result['status'] === 200 && !empty($result['body']['checkpoint'])) {
             Audit::log('document.version', "#$id v{$result['body']['version']}");
+        }
+        // Autosaves in the audit log (1.45): a status, title or category change every time (status decides what the
+        // client portal shows); text edits once per document per 15 minutes per session, so the log stays readable
+        if ($result['status'] === 200 && !empty($result['meta'])) {
+            Audit::log('document.update', "#$id " . implode('; ', $result['meta']));
+        } elseif ($result['status'] === 200 && !empty($result['edited'])) {
+            $seen = array_filter($_SESSION['_doc_edit_logged'] ?? [], fn($t) => time() - $t < 900);
+            if (!isset($seen[$id])) {
+                Audit::log('document.edit', "#$id {$result['title']}");
+                $seen[$id] = time();
+            }
+            $_SESSION['_doc_edit_logged'] = array_slice($seen, -100, null, true);
         }
         self::json($result['body'], $result['status']);
     }
@@ -259,6 +275,7 @@ final class DocumentController
             redirect("/documents/$id");
         }
         $client = $doc['client_id'] ? ClientController::load((int) $doc['client_id']) : null;
+        Audit::access('document', "#$id {$doc['title']} version {$v['version']}" . ($client ? " ({$client['name']})" : ''));
         View::render('documents/version', [
             'title' => $doc['title'] . ' · version ' . $v['version'],
             'nav' => $client ? 'clients' : 'documents',
@@ -292,7 +309,8 @@ final class DocumentController
 
     public static function delete(int $id): void
     {
-        Auth::requireRole('tech');
+        // Deleting removes the whole version history (policies are kept 6 years for HIPAA): admins only (1.45)
+        Auth::requireRole('admin');
         $doc = self::find($id);
         if (post('confirm') !== 'DELETE') {
             flash('error', 'Type DELETE to confirm. Or set the status to Archived to keep it but hide it.');

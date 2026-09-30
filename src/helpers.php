@@ -388,3 +388,17 @@ function toolbar_menu(string $label, array $items, string|int $current, callable
     }
     return $h . '</div></div>';
 }
+
+/**
+ * An error's message when it's one the app wrote for people (a connector, the mail provider, a validation), or a
+ * plain "internal error" when it's a database or PHP error, whose text can hold SQL or file paths: that goes to the
+ * server log only (1.45). For flash messages and the audit log.
+ */
+function safe_error(\Throwable $e): string
+{
+    if ($e instanceof \PDOException || $e instanceof \Error || $e instanceof \ErrorException) {
+        error_log('[msp-align] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+        return 'an internal error (the details are in the server log)';
+    }
+    return $e->getMessage();
+}

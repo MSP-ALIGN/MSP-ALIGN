@@ -102,6 +102,35 @@ final class Images
         return [null, $name];
     }
 
+    /**
+     * Re-encodes an uploaded image as PNG (or JPEG for a JPEG) at most $max pixels a side, so only pixels are kept:
+     * no metadata, comments or bytes hidden after the image (1.45, the brand logo). False when it can't be read.
+     */
+    public static function reencode(string $tmp, string $mime, string $out, int $max = 2000): bool
+    {
+        if (!function_exists('imagecreatefromstring') || !($src = @imagecreatefromstring((string) file_get_contents($tmp)))) {
+            return false;
+        }
+        $src = self::orient($src, $tmp, $mime);
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $scale = min(1, $max / $w, $max / $h);
+        $nw = max(1, (int) round($w * $scale));
+        $nh = max(1, (int) round($h * $scale));
+        $dst = imagecreatetruecolor($nw, $nh);
+        $alpha = $mime !== 'image/jpeg';
+        if ($alpha) {
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            imagefill($dst, 0, 0, imagecolorallocatealpha($dst, 0, 0, 0, 127));
+        }
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($src);
+        $ok = $alpha ? imagepng($dst, $out, 6) : imagejpeg($dst, $out, 90);
+        imagedestroy($dst);
+        return $ok;
+    }
+
     /** Applies the EXIF rotation phones write into JPEG photos. */
     private static function orient(\GdImage $img, string $file, string $mime): \GdImage
     {

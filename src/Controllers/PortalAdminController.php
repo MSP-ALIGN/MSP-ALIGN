@@ -161,12 +161,18 @@ final class PortalAdminController
                 flash('success', "Enabled {$u['name']}." . ($u['password_hash'] ? '' : ' Send them a new invite link.'));
                 redirect($back);
             case 'reset2fa':
-                DB::run('UPDATE portal_users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$id]);
+                // The password goes too, and a new link replaces any still out: whoever knew the old password (or had an
+                // old link) must not be the one who sets up the new authenticator (1.45)
+                DB::run('UPDATE portal_users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL, password_hash = NULL WHERE id = ?', [$id]);
                 PortalAuth::revokeSessions($id);
+                $url = PortalAuth::issueLink($id);
+                self::showLink($u, $url, 'invite');
                 Audit::log('portal_user.reset_2fa', $label);
                 \Align\Mail\Notify::security('Client portal two-factor reset', "$label by " . (Auth::user()['email'] ?? ''));
-                flash('success', "Two-factor sign-in reset for {$u['name']} and their sessions ended. They'll set it up again at their next sign-in.");
-                redirect($back);
+                $emailed = post('send_email', '1') === '1' && \Align\Mail\Notify::portalLink($u, $url, 'invite');
+                flash('success', "Two-factor sign-in reset for {$u['name']} and their sessions ended. They set a new password with the link below"
+                    . ($emailed ? " (emailed to {$u['email']})" : '') . ', then set up two-factor again.');
+                redirect("/clients/{$u['client_id']}/portal");
             case 'delete':
                 DB::run('DELETE FROM portal_users WHERE id = ?', [$id]);
                 Audit::log('portal_user.delete', $label);

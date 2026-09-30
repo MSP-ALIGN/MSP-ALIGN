@@ -176,6 +176,7 @@ final class LicenseController
                 redirect($back);
             case 'restore':
                 DB::run('UPDATE licenses SET retired_at = NULL, retired_reason = NULL WHERE id = ?', [$id]);
+                Audit::log('license.restore', "{$l['client_name']}: {$l['name']}");
                 flash('success', "Restored {$l['name']}.");
                 redirect($back);
             case 'delete':

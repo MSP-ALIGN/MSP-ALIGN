@@ -101,8 +101,8 @@ final class IntegrationController
             flash('success', $c->name() . ': ' . $c->test());
             Audit::log('integration.test', $c->name() . ': OK');
         } catch (\Throwable $e) {
-            flash('error', $c->name() . ' test failed: ' . $e->getMessage());
-            Audit::log('integration.test', $c->name() . ': ' . mb_substr($e->getMessage(), 0, 300));
+            flash('error', $c->name() . ' test failed: ' . safe_error($e));
+            Audit::log('integration.test', $c->name() . ': ' . mb_substr(safe_error($e), 0, 300));
         }
         redirect(setup_return('/integrations/' . $key));
     }

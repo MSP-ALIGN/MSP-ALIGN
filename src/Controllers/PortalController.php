@@ -188,17 +188,21 @@ final class PortalController
             flash('error', 'The passwords do not match.');
             redirect('/portal/invite/' . $token);
         }
+        // A reset link alone must not change the password of an account with two-factor: the code is checked
+        // first, on the same form, so a leaked link can't lock the owner out (1.45)
+        if ($u['totp_enabled'] && !PortalAuth::confirmCode($u, post('code'))) {
+            flash('error', 'That code from your authenticator app is not valid. Enter a fresh one.');
+            redirect('/portal/invite/' . $token);
+        }
         DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW(), invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?',
             [\Align\Security::hashPassword($pw), $u['id']]);
         PortalAuth::revokeSessions((int) $u['id']);
         Audit::log('portal.password_set', $u['email'], null, (int) $u['id']);
-        if ($u['totp_enabled']) {
-            // A reset link alone must not get past two-factor
-            PortalAuth::beginSecondFactor((int) $u['id']);
-            flash('success', 'Your password is set. Enter the code from your authenticator app to sign in.');
-            redirect('/portal/login/2fa');
-        }
         PortalAuth::completeLogin((int) $u['id']);
+        if ($u['totp_enabled']) {
+            flash('success', 'Your password is set and you are signed in.');
+            redirect('/portal');
+        }
         flash('success', 'Welcome! Your password is set. Next, set up two-factor sign-in.');
         redirect('/portal/account');
     }
@@ -427,6 +431,12 @@ final class PortalController
         if (!isset(\Align\Onboarding\Requests::FORMS[$kind])) {
             redirect('/portal/requests');
         }
+        // Each request opens a ticket and emails the team: a burst is almost certainly a script (1.45)
+        if ((int) DB::value('SELECT COUNT(*) FROM service_requests WHERE portal_user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 10
+            || (int) DB::value('SELECT COUNT(*) FROM service_requests WHERE client_id = ? AND created_at > NOW() - INTERVAL 1 DAY', [$pu['client_id']]) >= 25) {
+            flash('error', 'That\'s a lot of requests in a short time. Please wait a little, or call your IT team.');
+            redirect('/portal/requests');
+        }
         [$data, $errors] = \Align\Onboarding\Requests::validate($kind, $_POST);
         if ($errors) {
             flash('error', implode(' ', $errors));
@@ -480,7 +490,7 @@ final class PortalController
                 's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
             $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',
                 'virtual' => false, 'notes' => query('notes', '1') === '1', 'missed' => false, '_hide' => $pu['can_budget'] ? ['missed'] : ['costs', 'missed']] + ReportController::qbrSections(true);
-            ReportController::renderQbr($client, $opt, $allowed);
+            ReportController::renderQbr($client, $opt, $allowed, (bool) $pu['can_documents']);
             return;
         }
         if ($kind === 'sla') {
@@ -529,8 +539,9 @@ final class PortalController
     public static function password(): void
     {
         $pu = PortalAuth::require();
-        if (!password_verify((string) ($_POST['current'] ?? ''), (string) $pu['password_hash'])) {
-            flash('error', 'Current password is incorrect.');
+        $check = PortalAuth::checkPassword($pu, (string) ($_POST['current'] ?? ''));
+        if ($check !== 'ok') {
+            flash('error', $check === 'locked' ? 'Too many wrong passwords. Try again in 15 minutes.' : 'Current password is incorrect.');
             redirect('/portal/account');
         }
         $new = (string) ($_POST['new'] ?? '');
@@ -542,7 +553,8 @@ final class PortalController
             flash('error', 'The new passwords do not match.');
             redirect('/portal/account');
         }
-        DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?', [\Align\Security::hashPassword($new), $pu['id']]);
+        // Any invite or reset link still outstanding stops working too (1.45)
+        DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW(), invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?', [\Align\Security::hashPassword($new), $pu['id']]);
         PortalAuth::revokeSessions((int) $pu['id'], true);
         Audit::log('portal.password_changed');
         flash('success', 'Password changed. Any other signed-in sessions were signed out.');
@@ -564,6 +576,10 @@ final class PortalController
                     break;
                 }
                 $replacing = (bool) $pu['totp_enabled'];
+                if ($replacing && !PortalAuth::confirmCode($pu, post('current_code'))) {
+                    flash('error', 'The code from your current authenticator did not match. Enter a fresh code from the old phone, and one from the new.');
+                    break;
+                }
                 DB::run('UPDATE portal_users SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ? WHERE id = ?', [Crypto::encrypt($secret), $step, $pu['id']]);
                 unset($_SESSION['portal_totp_setup']);
                 PortalAuth::revokeSessions((int) $pu['id'], true);

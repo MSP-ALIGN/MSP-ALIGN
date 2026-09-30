@@ -47,7 +47,8 @@ final class Backups
                 'current' => $s['ok'], 'overdue' => $s['overdue'], 'servers_without_backup' => $s['unprotected'], 'runs_30d' => $s['runs'],
                 'success_rate_30d' => $s['rate'], 'backup_bytes' => $s['backup_bytes'], 'cloud_used_bytes' => $s['cloud_used'], 'cloud_quota_bytes' => $s['cloud_quota']],
             'history_30d' => array_map(fn($d) => ['date' => $d['date'], 'result' => ['ok' => 'success', 'warn' => 'warning', 'bad' => 'failed', 'none' => 'none'][$d['tone']] ?? $d['tone']], $b['days']),
-            // A job shared by several clients can name other clients' machines: a key limited to certain clients doesn't get its details
+            // A job shared by several clients can name other clients' machines: a key limited to certain clients doesn't
+            // see it at all (its result still counts in stats) (1.45)
             'jobs' => array_map(function (array $j) {
                 $hide = $j['shared'] && Context::clients() !== null;
                 return [
@@ -56,7 +57,7 @@ final class Backups
                 'message' => $hide ? null : ($j['failure_message'] ?: ($j['note'] ?: null)), 'target' => $hide ? null : $j['target'], 'size_bytes' => $hide ? null : Out::int($j['chain_bytes']),
                 'hosted' => (bool) $j['hosted'], 'shared_with_other_clients' => (bool) $j['shared'],
                 ];
-            }, $b['jobs']),
+            }, array_values(array_filter($b['jobs'], fn($j) => !($j['shared'] && Context::clients() !== null)))),
             'machines' => array_map(fn($w) => [
                 'uid' => $w['uid'], 'name' => $w['name'], 'kind' => $w['kind'], 'status' => $w['label'], 'health' => $w['tone'],
                 'newest_restore_point' => Out::ts($w['last_point']), 'restore_points' => Out::int($w['restore_points']), 'backup_bytes' => Out::int($w['backup_bytes']),

@@ -172,6 +172,25 @@ abstract class Connector
                     $writes[$n] = [$val, ''];
             }
         }
+        // A saved key is only ever sent to the server it was entered for: pointing the address at another server
+        // needs the key typed again, so a borrowed admin session can't redirect it somewhere and read it (1.45)
+        $origin = fn(string $u) => strtolower((string) parse_url($u, PHP_URL_SCHEME) . '://' . parse_url($u, PHP_URL_HOST) . ':' . (parse_url($u, PHP_URL_PORT) ?? ''));
+        $moved = [];
+        foreach ($this->fields() as $f) {
+            $old = (string) Settings::get($f['name'], '');
+            if ($f['type'] === 'url' && isset($writes[$f['name']]) && $old !== '' && $origin($writes[$f['name']][0]) !== $origin($old)) {
+                $moved[] = $f;
+            }
+        }
+        if ($moved) {
+            foreach ($this->secretNames() as $sn) {
+                if (Settings::hasSecret($sn) && !array_key_exists($sn, $secrets)) {
+                    $label = array_column($this->fields(), 'label', 'name')[$sn] ?? 'API key';
+                    throw new \InvalidArgumentException('You changed the ' . $moved[0]['label'] . ' to a different server. Enter the ' . $label
+                        . ' again too: a saved key is only sent to the server it was entered for.');
+                }
+            }
+        }
         $changed = [];
         foreach ($writes as $n => [$val, $default]) {
             if ($val !== (string) Settings::get($n, $default)) {
@@ -187,6 +206,10 @@ abstract class Connector
                 Settings::setSecret($n, $val);
                 $changed[] = $n;
             }
+        }
+        if ($moved) {
+            \Align\Mail\Notify::security('Integration address changed', $this->name() . ': ' . $moved[0]['label'] . ' now ' . $writes[$moved[0]['name']][0]
+                . ' (by ' . (\Align\Auth::user()['email'] ?? 'unknown') . ')');
         }
         return $changed;
     }

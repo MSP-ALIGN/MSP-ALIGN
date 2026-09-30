@@ -77,9 +77,23 @@ final class DB
         return $v === false ? null : $v;
     }
 
+    /**
+     * Table and column names are put into the SQL as identifiers, never as values: refuse anything that
+     * isn't a plain name, so a key taken from outside data can never become SQL (1.45; callers use literal keys).
+     */
+    private static function names(string $table, array $cols): void
+    {
+        foreach ([$table, ...$cols] as $n) {
+            if (!is_string($n) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/', $n)) {
+                throw new \InvalidArgumentException('Not a table or column name: ' . mb_substr(preg_replace('/[^\x20-\x7e]/', '?', (string) $n) ?? '', 0, 40));
+            }
+        }
+    }
+
     public static function insert(string $table, array $row): int
     {
         $cols = array_keys($row);
+        self::names($table, $cols);
         $sql = sprintf(
             'INSERT INTO `%s` (%s) VALUES (%s)',
             $table,
@@ -94,6 +108,7 @@ final class DB
     public static function upsert(string $table, array $row, array $keyCols): void
     {
         $cols = array_keys($row);
+        self::names($table, [...$cols, ...$keyCols]);
         $updates = array_diff($cols, $keyCols);
         $sql = sprintf(
             'INSERT INTO `%s` (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s',
@@ -112,6 +127,7 @@ final class DB
             return;
         }
         $cols = array_keys(reset($rows));
+        self::names($table, [...$cols, ...$keyCols]);
         $updates = array_diff($cols, $keyCols);
         $one = '(' . implode(',', array_fill(0, count($cols), '?')) . ')';
         foreach (array_chunk($rows, $chunk) as $part) {

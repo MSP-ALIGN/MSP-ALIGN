@@ -69,8 +69,8 @@ final class Invites
             $note = !Mail::hasCalendar() && $m['graph_event_id'] ? ' It was first sent as a calendar invitation, so also ' . ($action === 'cancel' ? 'cancel' : 'update') . ' it in that calendar.' : '';
             return ($ics ? self::viaIcs($m, $to, $action) : self::viaCalendar($m, $to, $action)) . $note;
         } catch (\Throwable $e) {
-            \Align\Audit::log('meeting.invite_failed', $m['title'] . ': ' . $e->getMessage());
-            return 'Invitations were not sent: ' . $e->getMessage();
+            \Align\Audit::log('meeting.invite_failed', $m['title'] . ': ' . safe_error($e));
+            return 'Invitations were not sent: ' . safe_error($e);
         }
     }
 

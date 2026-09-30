@@ -107,7 +107,12 @@ final class Devices
         \Align\Audit::log('device.update', $d['name'] . ': ' . implode(', ', array_keys($in)));
         $push = \Align\Sync\PsaAssetSync::pushDevice($id, null);
         $out = self::shape(self::load($id));
-        $msg = $push['status'] === 'error' ? psa_name() . ' wasn\'t updated; the next sync tries again. Details are on the device page.' : ($push['message'] ?: null);
+        // Only the fixed wording goes back to the key: an error's own text can name internal hosts or database details (1.45)
+        $msg = match ($push['status']) {
+            'error' => psa_name() . ' wasn\'t updated; the next sync tries again. Details are on the device page.',
+            'queued' => psa_name() . ' will be updated by the next sync.',
+            default => $push['message'] ?: null,
+        };
         $sync = ['status' => $push['status'], 'message' => $msg];
         return Out::one($out + ['psa_sync' => $sync, 'itflow_sync' => $sync]); // itflow_sync: deprecated alias
     }
