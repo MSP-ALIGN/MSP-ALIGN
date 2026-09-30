@@ -34,7 +34,7 @@ define('DATA', rtrim($env('ALIGN_DATA_DIR', $path('/var/lib/msp-align', '/var/li
 define('RUN', rtrim($env('ALIGN_RUN_DIR', $path('/run/msp-align', '/run/mountaineer-align')), '/'));
 define('RECIPIENT', $env('ALIGN_RECIPIENT', $path('/etc/msp-align/backup-recipient.txt', '/etc/mountaineer-align/backup-recipient.txt')));
 define('LEGACY', $env('ALIGN_LEGACY_BACKUPS', '/var/backups/mountaineer-align'));   // old nightly backups keep their folder name
-define('PRIVKEY_FILE', $path('/root/msp-align-backup-key.txt', '/root/mountaineer-align-backup-key.txt'));
+define('PRIVKEY_FILE', $env('ALIGN_PRIVKEY_FILE', $path('/root/msp-align-backup-key.txt', '/root/mountaineer-align-backup-key.txt')));
 define('RUNAS', $env('ALIGN_RUNAS', 'www-data'));
 define('SYSTEMCTL', $env('ALIGN_SYSTEMCTL', 'systemctl'));   // "none" in tests
 define('INSTALL_CMD', $env('ALIGN_INSTALL_CMD', ''));         // tests only: replaces install.sh --upgrade
@@ -50,6 +50,17 @@ define('CHECK_URL', $env('ALIGN_UPDATE_CHECK_URL', (static function (): string {
     $c = is_readable(CONFIG) ? @include CONFIG : null;
     return is_array($c) && is_string($c['update_check_url'] ?? null) ? rtrim($c['update_check_url'], '/') : '';
 })()));
+// Docker image (1.44): the code comes with the image, so updates mean pulling a new image; the check asks GitHub over HTTPS
+define('DOCKER', $env('ALIGN_DOCKER', '') === '1' || (static function (): bool {
+    $c = is_readable(CONFIG) ? @include CONFIG : null;
+    return is_array($c) && ($c['install_type'] ?? '') === 'docker';
+})());
+define('REPO', preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $r = $env('ALIGN_REPO', 'MSP-ALIGN/MSP-ALIGN')) ? $r : 'MSP-ALIGN/MSP-ALIGN');
+// Where the Docker check asks (tests point these at a local stand-in; only https or this machine are accepted)
+$gh = static fn(string $k, string $d): string => preg_match('#^(https://|http://127\.0\.0\.1[:/])[^?\#\s]*$#', $v = rtrim($env($k, $d), '/')) ? $v : $d;
+define('GITHUB_API', $gh('ALIGN_GITHUB_API', 'https://api.github.com'));
+define('GITHUB_RAW', $gh('ALIGN_GITHUB_RAW', 'https://raw.githubusercontent.com'));
+const DOCKER_UPDATE = 'This server runs in Docker, so it updates by pulling the new image. On the Docker host, in the MSP-ALIGN folder: docker compose pull && docker compose up -d';
 // Agent state lives in its own root-owned folder (not inside the www-data-owned data folder)
 define('STATE', rtrim($env('ALIGN_AGENT_DIR', $path('/var/lib/msp-align-agent', '/var/lib/mountaineer-align-agent')), '/'));
 define('JOBS', STATE . '/jobs');
@@ -313,6 +324,20 @@ function clearStaleMaintenance(): void
 
 function timers(Job $job, bool $start): void
 {
+    if (DOCKER && !$start) {
+        // Docker: no timers to stop. Maintenance mode (already on) stops new runs; wait for email, sync or the PSA
+        // check to finish if one is mid-run (up to 5 minutes), as systemd's services are waited for below.
+        for ($i = 0; $i < 150; $i++) {
+            $busy = array_intersect(readJson(RUN . '/scheduler-running.json') ?? [], ['mail', 'psa', 'sync']);
+            if (!$busy) {
+                break;
+            }
+            if ($i === 0) {
+                $job->line('Waiting for ' . implode(', ', $busy) . ' to finish');
+            }
+            sleep(2);
+        }
+    }
     if (SYSTEMCTL === 'none') {
         return;
     }
@@ -371,7 +396,7 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
 {
     $rec = recipients();
     if (!$rec) {
-        throw new JobFailed('This server has no backup key (' . RECIPIENT . '). Run: sudo msp-align-update');
+        throw new JobFailed('This server has no backup key (' . RECIPIENT . '). ' . (DOCKER ? 'Restart the container to create one.' : 'Run: sudo msp-align-update'));
     }
     $R = implode(' ', array_map(fn($k) => '-r ' . q($k), array_merge($rec, $extra)));
     $tmp = WORK . '/tmp-' . bin2hex(random_bytes(6));
@@ -559,6 +584,24 @@ function setAppKey(string $key): void
         throw new JobFailed('Could not update app_key in ' . CONFIG . '.');
     }
     writeConfig($new);
+    if (DOCKER && getenv('ALIGN_APP_KEY_FROM_ENV') !== '1') {
+        // The container rewrites config.php on every start: keep the restored key where it reads it from
+        saveDockerKey($key);
+    }
+}
+
+/** Docker: the key file in the config volume that docker/entrypoint.sh builds config.php from. */
+function saveDockerKey(string $key): void
+{
+    $f = dirname(CONFIG) . '/app-key';
+    $tmp = $f . '.tmp' . getmypid();
+    $old = umask(077);
+    file_put_contents($tmp, $key . "\n");
+    umask($old);
+    if (!rename($tmp, $f)) {
+        @unlink($tmp);
+        throw new JobFailed('Could not save the encryption key in ' . $f . '.');
+    }
 }
 
 function writeConfig(string $txt): void
@@ -588,6 +631,11 @@ function doRestore(Job $job, string $file, string $keyFile, bool $withDb, bool $
         throw new JobFailed('Nothing to restore: choose the database, uploaded files or both.');
     }
     $job->s['result']['backup'] = summary($info);
+    if (DOCKER && $withDb && getenv('ALIGN_APP_KEY_FROM_ENV') === '1' && $info['app_key'] !== null && $info['app_key'] !== (string) conf()['app_key']) {
+        // The container would put its own key back on the next start, leaving the restored secrets unreadable
+        throw new JobFailed('This backup was made with a different encryption key, and this container takes its key from ALIGN_APP_KEY (or ALIGN_APP_KEY_FILE). '
+            . 'Nothing was changed. Remove that setting and restart the container, then restore again: the key comes from the backup.');
+    }
     $up = uploadDir();
     $oldUp = $up . '.old-' . $job->s['id'];
     $stage = dirname($up) . '/.restore-' . $job->s['id'];
@@ -650,6 +698,9 @@ function doRestore(Job $job, string $file, string $keyFile, bool $withDb, bool $
                     $job->run(asUser('mv -T ' . q($oldUp) . ' ' . q($up)));
                 }
                 writeConfig($oldConfig);
+                if (DOCKER && getenv('ALIGN_APP_KEY_FROM_ENV') !== '1' && preg_match("/'app_key'\s*=>\s*'([^']+)'/", $oldConfig, $km)) {
+                    saveDockerKey($km[1]);
+                }
                 $job->run(asUser('php ' . q(APP . '/bin/align') . ' migrate'));
                 $job->line('The previous data was put back.');
                 $job->s['result']['rolled_back'] = true;
@@ -688,6 +739,9 @@ function clearSessions(): void
 
 function check(?Job $job = null): array
 {
+    if (DOCKER) {
+        return checkDocker($job);
+    }
     $prev = readJson(STATE . '/update.json') ?? [];
     $git = 'git -C ' . q(APP);
     $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [], 'error' => null, 'branch' => BRANCH];
@@ -743,6 +797,58 @@ function check(?Job $job = null): array
     return $s;
 }
 
+/**
+ * Docker: no git checkout in the image, so ask GitHub over HTTPS for the VERSION file on the update branch and,
+ * when it's newer, the commits since this version's tag (the "What's new" list). Same update.json as check().
+ */
+function checkDocker(?Job $job = null): array
+{
+    $prev = readJson(STATE . '/update.json') ?? [];
+    $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [],
+        'error' => null, 'branch' => BRANCH, 'fetched_at' => $prev['fetched_at'] ?? null, 'source' => 'github', 'docker' => true];
+    $get = function (string $url, int $max = 4096): ?string {
+        $ctx = stream_context_create(['http' => ['timeout' => 20, 'follow_location' => 1, 'max_redirects' => 3, 'user_agent' => 'MSP-ALIGN update check',
+            'header' => "Accept: application/vnd.github+json\r\n", 'ignore_errors' => false]]);
+        $body = @file_get_contents($url, false, $ctx, 0, $max);
+        return $body === false ? null : $body;
+    };
+    $branchPath = str_replace('%2F', '/', rawurlencode(BRANCH));
+    $latest = listedVersion() ?? (($v = $get(GITHUB_RAW . '/' . REPO . '/' . $branchPath . '/VERSION', 64)) !== null ? trim($v) : null);
+    if ($latest === null || !preg_match('/^\d+\.\d+\.\d+$/', $latest)) {
+        $s['error'] = 'Could not reach GitHub to check for updates. Check that the container can reach github.com.';
+    } else {
+        $s['fetched_at'] = now();
+        $s['latest'] = $latest;
+        $s['changes'] = [];
+        $s['behind'] = 0;
+        if (version_compare($latest, $s['current'], '>')) {
+            // "What's new": the branch's commits, newest first, back to this version's release commit ("v1.2.3: ...")
+            $list = json_decode((string) $get(GITHUB_API . '/repos/' . REPO . '/commits?per_page=100&sha=' . rawurlencode(BRANCH), 2 << 20), true);
+            foreach (is_array($list) ? $list : [] as $c) {
+                $msg = (string) ($c['commit']['message'] ?? '');
+                [$subject, $body] = array_pad(explode("\n", $msg, 2), 2, '');
+                if (preg_match('/^v' . preg_quote($s['current'], '/') . '\b/', $subject)) {
+                    break;
+                }
+                if (count($c['parents'] ?? []) > 1 || $msg === '') {
+                    continue;   // merge commits
+                }
+                $body = trim(preg_replace('/^(Co-Authored-By|Claude-Session|Signed-off-by):.*$/mi', '', $body) ?? '');
+                $s['changes'][] = ['sha' => substr((string) ($c['sha'] ?? ''), 0, 7), 'subject' => $subject, 'body' => mb_substr($body, 0, 2000), 'date' => (string) ($c['commit']['committer']['date'] ?? '')];
+                if (count($s['changes']) >= 60) {
+                    break;
+                }
+            }
+            $s['behind'] = max(1, count($s['changes']));
+        }
+    }
+    $s['available'] = $s['latest'] !== null && version_compare($s['latest'], $s['current'], '>');
+    $job?->line($s['error'] ?? ('Latest: ' . $s['latest']));
+    writeJson(STATE . '/update.json', $s);
+    systemInfo();
+    return $s;
+}
+
 /** The latest version according to update_check_url ({url}/{branch}.json: {"version": "1.33.0"}), or null (unset, unreachable or unreadable). */
 function listedVersion(): ?string
 {
@@ -771,6 +877,9 @@ function systemInfo(): void
 
 function doUpdate(Job $job): array
 {
+    if (DOCKER) {
+        throw new JobFailed(DOCKER_UPDATE);
+    }
     $from = version();
     $safety = SAFETY . '/pre-update-' . $job->s['id'] . '.tar';
     maintenanceOn($job, 'Updating MSP-ALIGN');

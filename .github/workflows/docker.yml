@@ -1,0 +1,100 @@
+name: Docker
+
+# 1.44: the Docker image, and proof that the dedicated install (install.sh) still works.
+#   image    build the image, start it with MariaDB (compose.yaml), run tests/docker/smoke.py
+#   install  install.sh in a Debian 13 VM (fresh, and the previous release updated to this code)
+#   publish  on a release tag (v1.2.3): push ghcr.io/msp-align/msp-align:1.2.3, :1.2 and :latest (amd64 + arm64)
+on:
+  push:
+    branches: [main, develop, docker]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    name: Image + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        run: docker build -t msp-align:ci .
+      - name: Start (compose.yaml)
+        run: |
+          cat >.env <<ENV
+          ALIGN_URL=https://align.ci.example
+          ALIGN_TZ=America/Los_Angeles
+          ALIGN_ADMIN_EMAIL=admin@example.com
+          ALIGN_ADMIN_PASSWORD=CiAdminPassword-$(openssl rand -hex 6)
+          ALIGN_DB_PASSWORD=$(openssl rand -hex 24)
+          ALIGN_PORT=8080
+          ENV
+          docker compose -f compose.yaml -f tests/docker/compose.ci.yaml up -d
+          # a second, separate install to restore the first one's backup into (moving between servers)
+          ALIGN_PORT=8081 ALIGN_SUBNET=172.30.58.0/24 docker compose -p msp-align2 -f compose.yaml -f tests/docker/compose.ci.yaml up -d
+      - name: Smoke test
+        run: |
+          pip install -q requests
+          set -a; . ./.env; set +a
+          ALIGN_TEST_URL=http://127.0.0.1:8080 DC="docker compose -f compose.yaml -f tests/docker/compose.ci.yaml" \
+          ALIGN_TEST_URL2=http://127.0.0.1:8081 DC2="docker compose -p msp-align2 -f compose.yaml -f tests/docker/compose.ci.yaml" \
+            python3 tests/docker/smoke.py
+      - name: HTTPS add-on config is valid
+        run: docker compose -f compose.yaml -f compose.caddy.yaml config -q
+      - name: Logs
+        if: always()
+        run: docker compose -f compose.yaml -f tests/docker/compose.ci.yaml logs --no-color app | tail -200
+
+  install:
+    name: Dedicated install (Debian 13 VM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Fresh install, and the previous release updated to this code
+        run: tests/docker/install_test.sh
+
+  publish:
+    name: Publish to ghcr.io
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [image, install]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/msp-align/msp-align
+          # latest only for full releases (v2.0.0, not v2.0.0-beta.1)
+          flavor: latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

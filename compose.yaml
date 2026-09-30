@@ -1,0 +1,99 @@
+# MSP-ALIGN with Docker Compose (1.44). Quick start (see docs/DOCKER.md):
+#   1. cp .env.example .env   and fill it in
+#   2. docker compose up -d        (or, with automatic HTTPS:  docker compose -f compose.yaml -f compose.caddy.yaml up -d)
+#   3. docker compose logs app     shows the first admin's temporary password
+# Update: download a backup in Settings -> Updates & backups, then  docker compose pull && docker compose up -d
+name: msp-align
+
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${ALIGN_DB_NAME:-msp_align}
+      MARIADB_USER: ${ALIGN_DB_USER:-msp_align}
+      MARIADB_PASSWORD: ${ALIGN_DB_PASSWORD:?Set ALIGN_DB_PASSWORD in .env}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+      MARIADB_AUTO_UPGRADE: "1"
+    # Encryption at rest, as on a dedicated server: the key is made on the first start and kept in its own volume
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+        k=/etc/mysql/encryption/keyfile
+        if [ ! -s "$$k" ]; then (umask 077; echo "1;$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')" >"$$k"); fi
+        chown -R mysql:mysql /etc/mysql/encryption; chmod 400 "$$k"
+        exec docker-entrypoint.sh "$$@"
+      - db-entrypoint
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=${ALIGN_DB_BUFFER_POOL:-512M}
+      - --tmp-table-size=64M
+      - --max-heap-table-size=64M
+      - --plugin-load-add=file_key_management
+      - --file-key-management-filename=/etc/mysql/encryption/keyfile
+      - --file-key-management-encryption-algorithm=AES_CTR
+      - --innodb-encrypt-tables=ON
+      - --innodb-encrypt-log=ON
+      - --innodb-encrypt-temporary-tables=ON
+      - --innodb-encryption-threads=2
+      - --encrypt-tmp-files=ON
+      - --encrypt-tmp-disk-tables=ON
+      - --aria-encrypt-tables=ON
+    volumes:
+      - db:/var/lib/mysql
+      - db-key:/etc/mysql/encryption
+    networks: [align]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  app:
+    image: ghcr.io/msp-align/msp-align:${ALIGN_VERSION:-latest}
+    build: .
+    restart: unless-stopped
+    stop_grace_period: 2m   # lets a backup or restore that's running finish
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ALIGN_URL: ${ALIGN_URL:?Set ALIGN_URL in .env, e.g. https://align.example.com}
+      ALIGN_TZ: ${ALIGN_TZ:-UTC}
+      ALIGN_ADMIN_EMAIL: ${ALIGN_ADMIN_EMAIL:-}
+      ALIGN_ADMIN_NAME: ${ALIGN_ADMIN_NAME:-Administrator}
+      ALIGN_ADMIN_PASSWORD: ${ALIGN_ADMIN_PASSWORD:-}   # optional: blank makes a temporary one, shown in the log
+      ALIGN_DB_HOST: db
+      ALIGN_DB_NAME: ${ALIGN_DB_NAME:-msp_align}
+      ALIGN_DB_USER: ${ALIGN_DB_USER:-msp_align}
+      ALIGN_DB_PASSWORD: ${ALIGN_DB_PASSWORD}
+      ALIGN_TRUSTED_PROXIES: ${ALIGN_TRUSTED_PROXIES:-}
+      ALIGN_APP_KEY: ${ALIGN_APP_KEY:-}   # optional: normally made on the first start and kept in the config volume
+      ALIGN_UPDATE_BRANCH: ${ALIGN_UPDATE_BRANCH:-main}
+    ports:
+      # Plain HTTP for a reverse proxy in front. Only on this machine by default; use 0.0.0.0 when the proxy is elsewhere.
+      - "${ALIGN_BIND:-127.0.0.1}:${ALIGN_PORT:-8080}:80"
+    volumes:
+      - config:/etc/msp-align          # config, the encryption key and the backup key: keep a copy of this volume safe
+      - data:/var/lib/msp-align        # uploads, sessions
+      - agent:/var/lib/msp-align-agent # backup and update job history
+    tmpfs:
+      - /run/msp-align                 # job requests and one-time keys never touch the disk
+    networks: [align]
+
+networks:
+  align:
+    ipam:
+      config:
+        - subnet: ${ALIGN_SUBNET:-172.30.57.0/24}
+
+volumes:
+  db:
+  db-key:
+  config:
+  data:
+  agent:

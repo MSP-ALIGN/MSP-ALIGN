@@ -71,7 +71,7 @@ An install can run several backup products. Every stored record carries its `pro
 sync never prunes another's. Each client links to at most one company per product through `client_links`;
 companies whose name matches a client's link automatically on sync. Machines under a company linked to
 no client, or under one flagged in `<key>_hosting_companies`, are treated as backups on your own server
-and sorted into clients by device name, by job, or by hand (**Client mapping → Hosted backups**).
+and sorted into clients by device name, by job, or by hand (**Integrations → Hosted backups**).
 
 ## Client links
 

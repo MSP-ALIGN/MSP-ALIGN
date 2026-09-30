@@ -73,7 +73,7 @@ ok(link and "Set" in requests.get(H.unescape(link.group(1))).text,"portal invite
 
 # ---- Connect with Google (delegated)
 F=form(st,"/integrations/email")
-r=st.post(B+"/integrations/email",data={**F,"mail_mode":"delegated","g_client_id":"nope"}); ok("googleusercontent.com" in flash(r.text),"client ID validated")
+r=st.post(B+"/integrations/email",data={**F,"mail_mode":"delegated","g_client_id":"nope"}); ok("The Google OAuth client ID looks like" in flash(r.text),"client ID validated")
 st.post(B+"/integrations/email",data={**form(st,"/integrations/email"),"mail_mode":"delegated","g_client_id":"123456789012-abcdef.apps.googleusercontent.com","g_client_secret":"g-secret","mail_from":""})
 r=st.get(B+"/settings/email/connect",allow_redirects=False); loc=r.headers.get("Location","")
 u=requests.utils.unquote(loc)

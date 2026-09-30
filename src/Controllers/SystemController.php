@@ -80,6 +80,10 @@ final class SystemController
     public static function update(): void
     {
         Auth::requireRole('admin');
+        if (Agent::docker()) {
+            flash('info', 'This server runs in Docker: update it by pulling the new image (docker compose pull && docker compose up -d).');
+            redirect('/settings/system');
+        }
         if (post('confirm') !== '1') {
             flash('error', 'Tick the box to confirm the update.');
             redirect('/settings/system');

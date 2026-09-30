@@ -1,0 +1,31 @@
+# Optional: automatic HTTPS with Caddy and Let's Encrypt. Needs ports 80 and 443 reachable from the internet and a
+# DNS name pointing at this machine (the host in ALIGN_URL).
+#   docker compose -f compose.yaml -f compose.caddy.yaml up -d
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ALIGN_URL: ${ALIGN_URL}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      align:
+        ipv4_address: ${ALIGN_CADDY_IP:-172.30.57.10}
+
+  app:
+    # Only Caddy talks to the app: no port on the host, and only Caddy's address is trusted as the proxy
+    ports: !reset []
+    environment:
+      ALIGN_TRUSTED_PROXIES: ${ALIGN_CADDY_IP:-172.30.57.10}
+
+volumes:
+  caddy_data:
+  caddy_config:

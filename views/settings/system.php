@@ -8,10 +8,13 @@ $watchId = $watch ?? ($active['id'] ?? null);
 $watchJob = $watchId ? Agent::job($watchId) : null;
 $overdue = !$lastDownload || strtotime($lastDownload) < time() - max(1, $reminderDays ?: 7) * 86400;
 $info = $upload['info'] ?? null;
+$docker = Agent::docker();
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'system']) ?>
 
-<?php if (!$available): ?>
+<?php if (!$available && $docker): ?>
+  <div class="alert alert-warning"><i class="fas fa-triangle-exclamation me-1"></i>The backup service isn't running in this container. Restart it (<code>docker compose restart app</code>), then refresh.</div>
+<?php elseif (!$available): ?>
   <div class="alert alert-warning"><i class="fas fa-triangle-exclamation me-1"></i>The update and backup service isn't installed on this server yet. Run this once on the server, then refresh:
     <code class="d-block mt-1">sudo msp-align-update</code></div>
 <?php endif; ?>
@@ -81,17 +84,25 @@ $info = $upload['info'] ?? null;
                 <?php if (trim($c['body'] ?? '') !== ''): ?><div class="text-muted text-pre-line"><?= e(mb_strimwidth($c['body'], 0, 600, '…')) ?></div><?php endif; ?></li>
             <?php endforeach; ?>
           </ul>
+          <?php if ($docker): ?>
+          <div class="border-top pt-3 small">
+            <p class="mb-1">This server runs in <b>Docker</b>, so it updates by pulling the new image. On the Docker host, in the MSP-ALIGN folder:</p>
+            <code class="d-block select-all mb-1">docker compose pull &amp;&amp; docker compose up -d</code>
+            <p class="text-muted mb-0">Download a backup first. The database is updated automatically when the new version starts.</p>
+          </div>
+          <?php else: ?>
           <form method="post" action="/settings/system/update" class="border-top pt-3">
             <?= csrf_field() ?>
             <div class="form-check mb-2"><input type="checkbox" class="form-check-input" id="upd-confirm" name="confirm" value="1">
               <label class="form-check-label fw-normal" for="upd-confirm">Align will be unavailable for a minute or two while it updates. A safety copy of the data is made first and deleted once the update succeeds.</label></div>
             <button class="btn btn-primary" <?= $available ? '' : 'disabled' ?>><i class="fas fa-circle-arrow-up me-1"></i>Update to <?= e($newer['latest']) ?></button>
           </form>
+          <?php endif; ?>
         <?php endif; ?>
         <form method="post" action="/settings/system/check" class="mt-3 d-flex align-items-center flex-wrap">
           <?= csrf_field() ?>
           <button class="btn btn-sm btn-default me-2" <?= $available ? '' : 'disabled' ?>><i class="fas fa-rotate me-1"></i>Check now</button>
-          <span class="small text-muted">Checks GitHub every 6 hours. From the server: <code>sudo msp-align-update</code></span>
+          <span class="small text-muted">Checks GitHub every 6 hours.<?= $docker ? ' Runs in Docker: update with <code>docker compose pull &amp;&amp; docker compose up -d</code>' : ' From the server: <code>sudo msp-align-update</code>' ?></span>
         </form>
       </div>
     </div>
@@ -121,10 +132,10 @@ $info = $upload['info'] ?? null;
           <p class="small mb-1">Backups are encrypted to this public key. Restoring needs the matching <b>private key</b> (starts with <code>AGE-SECRET-KEY-1</code>), shown once when the server was installed. Without it a backup can't be opened, by anyone.</p>
           <input class="form-control form-control-sm font-monospace mb-2 select-all" readonly value="<?= e(implode(' ', $sys['public_keys'])) ?>">
         <?php elseif ($sys): ?>
-          <div class="alert alert-danger py-2 small">This server has no backup key, so backups can't be made. Run <code>sudo msp-align-update</code> on the server to create one.</div>
+          <div class="alert alert-danger py-2 small">This server has no backup key, so backups can't be made. <?= $docker ? 'Restart the container to create one.' : 'Run <code>sudo msp-align-update</code> on the server to create one.' ?></div>
         <?php endif; ?>
         <?php if (!empty($sys['private_key_on_server'])): ?>
-          <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i>The private backup key is still on the server (<code>/root/msp-align-backup-key.txt</code>). Store it in your password manager, then remove it: <code>sudo shred -u /root/msp-align-backup-key.txt</code></div>
+          <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i>The private backup key is still on the server<?php if ($docker): ?>. Show it with <code>docker compose exec app cat /etc/msp-align/backup-key.txt</code>, store it in your password manager, then remove it: <code>docker compose exec app rm /etc/msp-align/backup-key.txt</code><?php else: ?> (<code>/root/msp-align-backup-key.txt</code>). Store it in your password manager, then remove it: <code>sudo shred -u /root/msp-align-backup-key.txt</code><?php endif; ?></div>
         <?php endif; ?>
         <form method="post" action="/settings/system/keycheck">
           <?= csrf_field() ?>

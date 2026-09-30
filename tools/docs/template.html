@@ -58,6 +58,8 @@ li { margin: .25em 0; }
 .card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); }
 .card:hover { border-color: var(--accent); text-decoration: none; }
 .card span { color: var(--muted); font-size: 14px; }
+main img, .shot { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+main img[alt*="phone"] { max-width: min(390px, 100%); }
 footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); margin-top: 48px; padding-top: 16px; }
 @media (max-width: 800px) {
   .top { padding: 10px 16px; }

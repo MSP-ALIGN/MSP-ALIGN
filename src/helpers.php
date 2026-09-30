@@ -69,8 +69,7 @@ function query(string $key, string $default = ''): string
 function client_ip(): string
 {
     $remote = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    $trusted = (array) Config::get('trusted_proxies', []);
-    if ($trusted && in_array($remote, $trusted, true) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    if (trusted_proxy($remote) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
         $parts = array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
         $candidate = end($parts);
         if (filter_var($candidate, FILTER_VALIDATE_IP)) {
@@ -85,10 +84,46 @@ function is_https(): bool
     if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
         return true;
     }
-    $trusted = (array) Config::get('trusted_proxies', []);
-    return $trusted
-        && in_array($_SERVER['REMOTE_ADDR'] ?? '', $trusted, true)
+    return trusted_proxy((string) ($_SERVER['REMOTE_ADDR'] ?? ''))
         && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+}
+
+/**
+ * The address is one of config.php's trusted_proxies: an exact address (as always), or, in the Docker image only
+ * (1.44), a range such as 172.30.57.10/32 or 10.0.0.0/8, since a proxy's address on a Docker network can vary.
+ */
+function trusted_proxy(string $ip): bool
+{
+    $trusted = (array) Config::get('trusted_proxies', []);
+    if (in_array($ip, $trusted, true)) {
+        return true;
+    }
+    if (Config::get('install_type') !== 'docker' || ($bin = @inet_pton($ip)) === false) {
+        return false;
+    }
+    foreach ($trusted as $t) {
+        if (!is_string($t) || !str_contains($t, '/')) {
+            continue;
+        }
+        [$net, $bits] = explode('/', $t, 2);
+        $nb = @inet_pton($net);
+        if ($nb === false || strlen($nb) !== strlen($bin) || !ctype_digit($bits) || (int) $bits > strlen($nb) * 8) {
+            continue;
+        }
+        $bits = (int) $bits;
+        $bytes = intdiv($bits, 8);
+        if (substr($bin, 0, $bytes) !== substr($nb, 0, $bytes)) {
+            continue;
+        }
+        if ($bits % 8 === 0) {
+            return true;
+        }
+        $mask = (0xFF << (8 - $bits % 8)) & 0xFF;
+        if ((ord($bin[$bytes]) & $mask) === (ord($nb[$bytes]) & $mask)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**

@@ -25,6 +25,12 @@ final class Agent
         return is_dir($new) || !is_dir($old) ? $new : $old;
     }
 
+    /** Runs from the Docker image (1.44): updates come by pulling a new image instead of from the agent. */
+    public static function docker(): bool
+    {
+        return Config::get('install_type') === 'docker';
+    }
+
     public static function dataDir(): string
     {
         return rtrim((string) Config::get('data_dir', self::installPath('/var/lib/msp-align', '/var/lib/mountaineer-align')), '/');
