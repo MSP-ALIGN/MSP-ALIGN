@@ -175,6 +175,7 @@ final class PortalAdminController
                 redirect("/clients/{$u['client_id']}/portal");
             case 'delete':
                 DB::run('DELETE FROM portal_users WHERE id = ?', [$id]);
+                \Align\Remember::forgetEveryone('portal', $id);
                 Audit::log('portal_user.delete', $label);
                 flash('success', "Deleted {$u['name']}'s portal account. Their past decisions stay in the history.");
                 redirect($back);

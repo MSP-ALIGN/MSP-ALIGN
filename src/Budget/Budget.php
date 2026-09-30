@@ -116,7 +116,9 @@ final class Budget
             $l = self::newLine('managed-psa', 'managed', 'Managed services', 'psa', ['tentative' => true]);
             self::spread($l, 'monthly', (float) $b['monthly'], null, null);
             $l['monthly'] = (float) $b['monthly'];
-            $l['detail'] = money_exact($b['monthly']) . '/mo estimated from ' . $b['invoices'] . ' ' . psa_name() . ' ' . $b['method'] . ' over ' . $b['months'] . ' month' . ($b['months'] == 1 ? '' : 's');
+            $l['detail'] = $b['method'] === 'recurring invoices'
+                ? money_exact($b['monthly']) . '/mo estimated from ' . psa_name() . ' recurring invoices' . (!empty($b['detail']) ? ' (' . $b['detail'] . ')' : '')
+                : money_exact($b['monthly']) . '/mo estimated from ' . $b['invoices'] . ' ' . psa_name() . ' ' . $b['method'] . ' over ' . $b['months'] . ' month' . ($b['months'] == 1 ? '' : 's');
             $lines[] = $l;
         }
 

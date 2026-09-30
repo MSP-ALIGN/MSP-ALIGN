@@ -557,6 +557,15 @@ switch (true) {
             }
             $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 1, 'invoice_date' => date('Y-m-15', strtotime('first day of -2 months')), 'invoice_amount' => 4200.00, 'invoice_status' => 'Paid', 'invoice_recurring_invoice_id' => 0];
             $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 2, 'invoice_date' => date('Y-m-20', strtotime('first day of -1 months')), 'invoice_amount' => 300.00, 'invoice_status' => 'Draft', 'invoice_recurring_invoice_id' => 0];
+            // 1.45.1: client 3 has a yearly recurring invoice (billed 8 and 20 months ago) and a monthly one that stopped
+            // 6 months ago; client 4 a recurring invoice billed once, 10 days ago
+            foreach ([8, 20] as $m) {
+                $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 3, 'invoice_date' => date('Y-m-d', strtotime("-$m months")), 'invoice_amount' => 6000.00, 'invoice_status' => 'Paid', 'invoice_recurring_invoice_id' => 31];
+            }
+            foreach ([6, 7, 8] as $m) {
+                $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 3, 'invoice_date' => date('Y-m-d', strtotime("-$m months")), 'invoice_amount' => 300.00, 'invoice_status' => 'Paid', 'invoice_recurring_invoice_id' => 32];
+            }
+            $inv[] = ['invoice_id' => $n++, 'invoice_client_id' => 4, 'invoice_date' => date('Y-m-d', strtotime('-10 days')), 'invoice_amount' => 2400.00, 'invoice_status' => 'Sent', 'invoice_recurring_invoice_id' => 41];
             $rows = array_slice($inv, $offset, $limit);
         } elseif ($path === '/api/v1/tickets/read.php') {
             $st = $loadState();

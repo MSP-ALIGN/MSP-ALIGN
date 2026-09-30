@@ -10,6 +10,9 @@ More in [Screenshots](docs/SCREENSHOTS.md): clients, the roadmap, the budget, co
 
 ## What's new
 
+- **Remember this browser, and yearly invoices (1.45.1):**
+  - **Remember this browser:** after the two-factor code, staff and client-portal users can tick *Remember this browser* to skip the code on that browser for 14 days. Their password is still asked for at every sign-in. Admins set the number of days, or turn it off, under Settings → General → Security. Each person sees and can forget their remembered browsers on their Account page, and a password or authenticator change, *Sign out everywhere*, a 2FA reset or disabling the account forgets them all.
+  - **Yearly recurring invoices:** the managed-services estimate from ITFlow now follows each recurring invoice's own frequency. A yearly one counts as a twelfth a month instead of the whole amount every month. ITFlow's API doesn't say how often a recurring invoice repeats, so each one's frequency is worked out from the dates of the invoices it made. One billed only once counts as yearly until a second invoice shows it's monthly, and one that stopped billing drops out. The budget line says how it was worked out, e.g. "1 monthly, 1 yearly".
 - **Security audit (1.45):** before 2.0, every file of the app, installer, backup agent and Docker setup was reviewed line by line and tested against a live install; [Security](docs/SECURITY.md#security-audit-145) has the summary.
   - **Serious fix:** with code already running as the web user, the root backup agent (and the installer and Docker start-up) could be tricked by a symlink into handing a root-owned folder to the web user. The agent now does everything in the web user's folders as that user.
   - **The audit log:** its start and end are sealed too, and the nightly check keeps an outside checkpoint, so entries cut off either end, or an old copy written back, are caught.

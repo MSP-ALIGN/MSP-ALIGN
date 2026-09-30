@@ -52,7 +52,7 @@ final class AuthController
 
     public static function twoFactor(): void
     {
-        $result = Auth::verifySecondFactor(post('code'));
+        $result = Auth::verifySecondFactor(post('code'), post('remember') === '1');
         if ($result === 'ok') {
             $next = self::safeNext($_SESSION['login_next'] ?? '/');
             unset($_SESSION['login_next']);

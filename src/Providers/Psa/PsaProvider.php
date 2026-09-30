@@ -21,7 +21,7 @@ namespace Align\Providers\Psa;
  *            ip_address, mac, location_id, updated_at (Y-m-d H:i:s)
  *   license  id, client_id, name, version, software_type, license_type (free text), seats, vendor,
  *            purchase_date, expire_date, notes, archived (bool)
- *   invoice  client_id, date (Y-m-d), status, amount (float), recurring (bool)
+ *   invoice  client_id, date (Y-m-d), status, amount (float), recurring (bool), schedule (?string: which recurring schedule made it)
  *   ticket   id, client_id, number, subject, category, source, priority, status_id, sla_id, created_at,
  *            first_response_at, response_due_at, resolution_due_at, resolved_at, closed_at, archived_at,
  *            response_met, resolution_met (bool|null), response_stage, resolution_stage (int)

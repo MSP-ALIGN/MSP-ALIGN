@@ -144,6 +144,11 @@ final class PortalAuth
         if (\Align\Security::needsRehash($u['password_hash'])) {
             DB::run('UPDATE portal_users SET password_hash = ? WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
         }
+        if ($u['totp_enabled'] && ($rid = \Align\Remember::valid('portal', (int) $u['id']))) {
+            DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]); // remembered browser: no code (1.45.1)
+            self::completeLogin((int) $u['id'], "remembered browser #$rid, no code asked");
+            return 'ok';
+        }
         if ($u['totp_enabled']) {
             session_regenerate_id(true);
             DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
@@ -155,7 +160,7 @@ final class PortalAuth
         return 'ok';
     }
 
-    public static function verifySecondFactor(string $code): string
+    public static function verifySecondFactor(string $code, bool $remember = false): string
     {
         $p = $_SESSION['portal_pending_2fa'] ?? null;
         if (!$p || time() - $p['at'] > 300) {
@@ -177,7 +182,11 @@ final class PortalAuth
         }
         unset($_SESSION['portal_pending_2fa']);
         DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
-        self::completeLogin((int) $u['id']);
+        $remember = $remember && \Align\Remember::days() > 0;
+        if ($remember) {
+            \Align\Remember::issue('portal', (int) $u['id']);
+        }
+        self::completeLogin((int) $u['id'], $remember ? 'browser remembered for ' . \Align\Remember::days() . ' days' : '');
         return 'ok';
     }
 
@@ -212,7 +221,7 @@ final class PortalAuth
         return true;
     }
 
-    public static function completeLogin(int $id): void
+    public static function completeLogin(int $id, string $note = ''): void
     {
         session_regenerate_id(true);
         unset($_SESSION['_csrf'], $_SESSION['timed_out']);
@@ -222,7 +231,7 @@ final class PortalAuth
         $_SESSION['login_at'] = time();
         DB::run('UPDATE portal_users SET last_login_at = NOW() WHERE id = ?', [$id]);
         self::$user = null;
-        Audit::log('portal.login', '', null, $id);
+        Audit::log('portal.login', $note, null, $id);
     }
 
     /** Ends every session of a portal user (password change, 2FA reset, disabled). */

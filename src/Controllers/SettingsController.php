@@ -19,7 +19,7 @@ final class SettingsController
         'cost_printer' => [0, 1000000], 'cost_storage' => [0, 1000000], 'cost_power' => [0, 1000000], 'cost_other' => [0, 1000000],
         'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
-        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24],
+        'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24], 'remember_2fa_days' => [0, \Align\Remember::MAX_DAYS],
     ];
     private const LOCALE_DEFAULTS = ['locale_currency' => 'USD', 'locale_currency_position' => '', 'locale_number' => 'comma', 'locale_date' => 'mdy', 'locale_time' => '12', 'locale_week_start' => '0'];
 
@@ -105,6 +105,13 @@ final class SettingsController
             $v = (string) max($min, min($max, (float) $v));
             $v = rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
             if ($v !== Settings::get($k)) {
+                if ($k === 'remember_2fa_days') {
+                    // It changes what a sign-in needs (1.45.1): old and new value in the log, a security alert, and
+                    // turning it off forgets every remembered browser (a kill switch, not a pause)
+                    $was = (string) Settings::get($k, (string) \Align\Remember::DEFAULT_DAYS);
+                    Audit::log('settings.remember_2fa', "$was → $v days" . ($v === '0' ? ' (off; ' . \Align\Remember::forgetEveryone() . ' remembered browsers forgotten)' : ''));
+                    \Align\Mail\Notify::security('Two-factor "remember this browser" changed', "$was → $v days by " . (\Align\Auth::user()['email'] ?? ''));
+                }
                 Settings::set($k, $v);
                 $changed[] = $k;
             }
