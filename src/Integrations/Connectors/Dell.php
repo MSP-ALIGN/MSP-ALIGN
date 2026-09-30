@@ -23,7 +23,7 @@ final class Dell extends Connector
 
     public function setup(): string
     {
-        return '<ol class="pl-3 mb-0"><li>In Dell TechDirect request access to the <b>Warranty API</b>.</li><li>Copy the client ID and secret here, save and press <b>Test</b>.</li>'
+        return '<ol class="ps-3 mb-0"><li>In Dell TechDirect request access to the <b>Warranty API</b>.</li><li>Copy the client ID and secret here, save and press <b>Test</b>.</li>'
             . '<li>Warranties are looked up during the sync and re-checked on the schedule set under <a href="/settings/planning">Settings → Planning &amp; lifecycle</a>.</li></ol>';
     }
 

@@ -30,7 +30,7 @@ ok("PC-0040" not in h.split("hb-machines")[1].split("</table>")[0] and "HPLG-DC0
 ok("PC-0040" in st.get(B+"/mapping/backups?show=sorted").text and "INT-VM-001" in st.get(B+"/mapping/backups?show=all").text,"tabs: sorted and all")
 side=st.get(B+"/").text
 mp=st.get(B+"/mapping").text; td=H.unescape(st.get(B+"/todo").text)
-ok('href="/mapping/backups"' in mp and re.search(r'Hosted backups <span class="badge badge-warning">622</span>',mp) and "622 hosted backup machines to match" in td,"Integrations tabs: Hosted backups with the unmatched count; To do lists them")
+ok('href="/mapping/backups"' in mp and re.search(r'Hosted backups <span class="badge text-bg-warning">622</span>',mp) and "622 hosted backup machines to match" in td,"Integrations tabs: Hosted backups with the unmatched count; To do lists them")
 ok("622 machines on your backup server not matched to a client" in H.unescape(side),"dashboard Needs attention flags unmatched hosted machines")
 # client page claim card: law firm (client 3) gets HPLG suggested first
 law0=st.get(B+"/clients/3/backups").text

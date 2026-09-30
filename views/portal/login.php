@@ -3,13 +3,13 @@
   <?= csrf_field() ?>
   <div class="input-group mb-3">
     <input type="email" name="email" class="form-control" placeholder="Email" autocomplete="username" required autofocus>
-    <div class="input-group-append"><div class="input-group-text"><span class="fas fa-envelope"></span></div></div>
+    <span class="input-group-text"><span class="fas fa-envelope"></span></span>
   </div>
   <div class="input-group mb-3">
     <input type="password" name="password" class="form-control" placeholder="Password" autocomplete="current-password" required>
-    <div class="input-group-append"><div class="input-group-text"><span class="fas fa-lock"></span></div></div>
+    <span class="input-group-text"><span class="fas fa-lock"></span></span>
   </div>
-  <button class="btn btn-primary btn-block">Sign in</button>
+  <button class="btn btn-primary w-100">Sign in</button>
   <?php if (\Align\Mail\Notifications::enabled('client_portal_reset') && \Align\Mail\Mail::ready()): ?>
     <p class="mt-3 mb-0 small text-center"><a href="/portal/forgot">Forgot your password?</a></p>
   <?php else: ?>

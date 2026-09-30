@@ -9,7 +9,7 @@ $filters = ['' => 'All', 'unpriced' => 'Needs a price', 'renewals' => 'Renewing 
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-key', 'title' => 'Licensing', 'count' => $matched !== $t['count'] ? num($matched) . ' of ' . num($t['count']) : $t['count'],
     'desc' => 'Software and subscriptions across every client in planning, with what each costs a month and a year. Open a license to set its price, billing and contract.',
-    'secondary' => ['<a class="btn btn-sm btn-default" href="/renewals"><i class="fas fa-calendar-check mr-1"></i>Renewals</a>'],
+    'secondary' => ['<a class="btn btn-sm btn-default" href="/renewals"><i class="fas fa-calendar-check me-1"></i>Renewals</a>'],
 ]);
 echo \Align\View::fetch('partials/tiles', ['tiles' => [
     ['label' => 'Monthly, all clients', 'value' => money_exact($t['monthly']), 'tone' => 'dark'],
@@ -37,11 +37,11 @@ $cats = array_map(fn($c) => $c[0], Licenses::CATEGORIES);
   </div>
   <div class="col-xl-3">
     <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-users mr-2"></i>By client (monthly)</h3></div>
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-users me-2"></i>By client (monthly)</h3></div>
       <ul class="list-group list-group-flush small">
         <?php foreach ($byClient as $c): ?>
-          <li class="list-group-item d-flex py-2"><a class="mr-auto" href="/clients/<?= (int) $c['id'] ?>/licenses"><?= e($c['name']) ?></a>
-            <span class="text-nowrap"><?= money_exact($c['monthly']) ?><?= $c['unpriced'] ? ' <span class="badge badge-warning" title="Licenses without a price">' . (int) $c['unpriced'] . '</span>' : '' ?></span></li>
+          <li class="list-group-item d-flex py-2"><a class="me-auto" href="/clients/<?= (int) $c['id'] ?>/licenses"><?= e($c['name']) ?></a>
+            <span class="text-nowrap"><?= money_exact($c['monthly']) ?><?= $c['unpriced'] ? ' <span class="badge text-bg-warning" title="Licenses without a price">' . (int) $c['unpriced'] . '</span>' : '' ?></span></li>
         <?php endforeach; ?>
         <?php if (!$byClient): ?><li class="list-group-item text-muted">No licenses yet.</li><?php endif; ?>
       </ul>

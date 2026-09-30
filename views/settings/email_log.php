@@ -6,12 +6,12 @@ $tone = ['sent' => 'success', 'queued' => 'warning', 'sending' => 'info', 'faile
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'notifications']) ?>
 <div class="d-flex flex-wrap align-items-center mb-3">
-  <h2 class="h5 mb-0 mr-auto"><a href="/settings/notifications">Notifications</a> / Email log</h2>
-  <div class="btn-group btn-group-sm mr-2">
+  <h2 class="h5 mb-0 me-auto"><a href="/settings/notifications">Notifications</a> / Email log</h2>
+  <div class="btn-group btn-group-sm me-2">
     <?php foreach (['' => 'All', 'queued' => 'Queued', 'sent' => 'Sent', 'failed' => 'Failed'] as $k => $l): ?><a class="btn btn-<?= $status === $k ? 'secondary' : 'default' ?>" href="/settings/notifications/log<?= $k ? '?status=' . $k : '' ?>"><?= $l ?></a><?php endforeach; ?>
   </div>
-  <form method="post" action="/settings/notifications/run" class="mr-2"><?= csrf_field() ?><button class="btn btn-sm btn-primary" <?= $stats['queued'] ? '' : 'disabled' ?>><i class="fas fa-paper-plane mr-1"></i>Send queued now</button></form>
-  <a class="btn btn-sm btn-default" href="/integrations/email"><i class="fas fa-plug mr-1"></i>Mail connection</a>
+  <form method="post" action="/settings/notifications/run" class="me-2"><?= csrf_field() ?><button class="btn btn-sm btn-primary" <?= $stats['queued'] ? '' : 'disabled' ?>><i class="fas fa-paper-plane me-1"></i>Send queued now</button></form>
+  <a class="btn btn-sm btn-default" href="/integrations/email"><i class="fas fa-plug me-1"></i>Mail connection</a>
 </div>
 <div class="card card-dark">
   <div class="card-body p-0"><div class="table-responsive">
@@ -20,7 +20,7 @@ $tone = ['sent' => 'success', 'queued' => 'warning', 'sending' => 'info', 'faile
       <tbody>
       <?php foreach ($rows as $r): $to = json_decode($r['recipients'], true) ?: []; ?>
         <tr>
-          <td><span class="badge badge-<?= $tone[$r['status']] ?? 'secondary' ?>"><?= e(ucfirst($r['status'])) ?></span><?= $r['attempts'] > 1 ? '<div class="small text-muted">' . (int) $r['attempts'] . ' tries</div>' : '' ?></td>
+          <td><span class="badge text-bg-<?= $tone[$r['status']] ?? 'secondary' ?>"><?= e(ucfirst($r['status'])) ?></span><?= $r['attempts'] > 1 ? '<div class="small text-muted">' . (int) $r['attempts'] . ' tries</div>' : '' ?></td>
           <td class="small"><?= e(N::CATALOG[$r['kind']][0] ?? ucfirst(str_replace('_', ' ', $r['kind']))) ?><?= $r['client_name'] ? '<div class="text-muted">' . e($r['client_name']) . '</div>' : '' ?></td>
           <td class="small"><?= e(implode(', ', array_slice(array_column($to, 'address'), 0, 3))) ?><?= count($to) > 3 ? ' +' . (count($to) - 3) : '' ?></td>
           <td class="small"><?= e($r['subject']) ?><?php if ($r['last_error'] && $r['status'] !== 'sent'): ?><div class="text-danger"><?= e($r['last_error']) ?></div><?php endif; ?></td>

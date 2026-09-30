@@ -32,7 +32,7 @@ final class Itflow extends PsaConnector
 
     public function setup(): string
     {
-        return '<ol class="pl-3 mb-0"><li>In ITFlow open <b>Admin → API Keys → Create</b>. The key runs as the user you choose.</li>'
+        return '<ol class="ps-3 mb-0"><li>In ITFlow open <b>Admin → API Keys → Create</b>. The key runs as the user you choose.</li>'
             . '<li>That user needs read access to Clients, Contacts, Locations, Software, Vendors, Invoices and Support (assets and tickets, for SLA reporting), and write access to Support and Contacts for two-way sync and warranty write-back.</li>'
             . '<li>Enter the ITFlow address and key, save, then press <b>Test</b> and run a sync.</li></ol>';
     }

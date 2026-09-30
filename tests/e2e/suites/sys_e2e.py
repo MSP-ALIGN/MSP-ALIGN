@@ -34,7 +34,7 @@ ok(agent("check",ALIGN_APP_DIR=T+"/app").returncode==0,"agent check ran")
 t=st.get(B+"/settings/system").text
 ok("Update to 1.99.0" in t and "Shiny new thing" in t and "Adds a thing." in t and "Co-Authored" not in t and "2 changes" in t,"update available with release notes")
 d=st.get(B+"/").text
-ok("MSP-ALIGN <b>1.99.0</b> is available" in d and 'badge badge-info right">new<' in d,"banner and nav badge for admins")
+ok("MSP-ALIGN <b>1.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
 tech=login("viewer@example.com","ViewerPassword123!"); ok(tech.get(B+"/settings/system").status_code==403 and "is available" not in tech.get(B+"/").text,"non-admins can't see it")
 
 # ---- backup for download

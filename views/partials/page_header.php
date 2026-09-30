@@ -10,18 +10,18 @@ $secondary = $secondary ?? [];
 $more = $more ?? [];
 ?>
 <div class="page-head d-flex flex-wrap align-items-start mb-3">
-  <div class="mr-auto pr-3">
-    <h1 class="h4 mb-0"><i class="fas fa-fw <?= e($icon) ?> text-secondary mr-1"></i><?= e($title) ?><?php if ($count !== null && $count !== ''): ?> <span class="badge badge-secondary align-middle page-count"><?= e(is_int($count) ? num($count) : (string) $count) ?></span><?php endif; ?></h1>
+  <div class="me-auto pe-3">
+    <h1 class="h4 mb-0"><i class="fas fa-fw <?= e($icon) ?> text-secondary me-1"></i><?= e($title) ?><?php if ($count !== null && $count !== ''): ?> <span class="badge text-bg-secondary align-middle page-count"><?= e(is_int($count) ? num($count) : (string) $count) ?></span><?php endif; ?></h1>
     <?php if (!empty($desc)): ?><div class="text-muted small mt-1 page-desc"><?= $desc ?></div><?php endif; ?>
   </div>
   <div class="page-actions d-flex flex-wrap align-items-center mt-1">
     <?php foreach ($secondary as $b) echo $b; ?>
     <?= $primary ?? '' ?>
-    <?php if (!empty($help)): ?><a class="btn btn-sm btn-default ml-1" href="/help#<?= e($help) ?>" title="How it works" aria-label="How it works"><i class="fas fa-circle-question"></i></a><?php endif; ?>
+    <?php if (!empty($help)): ?><a class="btn btn-sm btn-default ms-1" href="/help#<?= e($help) ?>" title="How it works" aria-label="How it works"><i class="fas fa-circle-question"></i></a><?php endif; ?>
     <?php if ($more): ?>
-      <div class="btn-group ml-1">
-        <button class="btn btn-sm btn-default dropdown-toggle" data-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis"></i></button>
-        <div class="dropdown-menu dropdown-menu-right"><?php foreach ($more as $m) echo $m; ?></div>
+      <div class="btn-group ms-1">
+        <button class="btn btn-sm btn-default dropdown-toggle" data-bs-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis"></i></button>
+        <div class="dropdown-menu dropdown-menu-end"><?php foreach ($more as $m) echo $m; ?></div>
       </div>
     <?php endif; ?>
   </div>

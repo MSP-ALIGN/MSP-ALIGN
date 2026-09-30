@@ -5,7 +5,7 @@ use Align\Contacts\Contacts;
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-address-book', 'title' => 'Contacts', 'count' => $matched !== $total ? num($matched) . ' of ' . num($total) : $total,
     'desc' => 'Everyone at every client in planning. Open a contact to change their roles or notes' . (psa_on() ? '; details from ' . e(psa_name()) . ' update with each sync.' : '.'),
-    'secondary' => \Align\Auth::can('tech') ? ['<a class="btn btn-sm btn-default" href="/clients/import?kind=contacts"><i class="fas fa-file-import mr-1"></i>Import</a>'] : [],
+    'secondary' => \Align\Auth::can('tech') ? ['<a class="btn btn-sm btn-default" href="/clients/import?kind=contacts"><i class="fas fa-file-import me-1"></i>Import</a>'] : [],
 ]);
 $link = fn(string $r) => '/contacts' . (($qs = http_build_query(array_filter(['role' => $r, 'q' => $q]))) ? "?$qs" : '');
 $tabs = [['All', $link(''), $role === '']];

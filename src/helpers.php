@@ -346,8 +346,8 @@ function toolbar_menu(string $label, array $items, string|int $current, callable
 {
     $current = (string) $current;
     $active = $current !== '' && isset($items[$current]);
-    $h = '<div class="btn-group"><button class="btn btn-sm ' . ($active ? 'btn-secondary' : 'btn-default') . ' dropdown-toggle" data-toggle="dropdown">' . e($active ? $items[$current] : $label) . '</button>'
-        . '<div class="dropdown-menu dropdown-menu-right"><a class="dropdown-item' . (!$active ? ' active' : '') . '" href="' . e($href('')) . '">' . e($allLabel) . '</a><div class="dropdown-divider"></div>';
+    $h = '<div class="btn-group"><button class="btn btn-sm ' . ($active ? 'btn-secondary' : 'btn-default') . ' dropdown-toggle" data-bs-toggle="dropdown">' . e($active ? $items[$current] : $label) . '</button>'
+        . '<div class="dropdown-menu dropdown-menu-end"><a class="dropdown-item' . (!$active ? ' active' : '') . '" href="' . e($href('')) . '">' . e($allLabel) . '</a><div class="dropdown-divider"></div>';
     foreach ($items as $k => $l) {
         $h .= '<a class="dropdown-item' . ((string) $k === $current ? ' active' : '') . '" href="' . e($href((string) $k)) . '">' . e($l) . '</a>';
     }

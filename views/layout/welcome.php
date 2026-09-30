@@ -3,7 +3,7 @@
 $company = $company ?? \Align\Controllers\WelcomeController::company();
 $v = e(APP_VERSION);
 ?><!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,7 +15,6 @@ $v = e(APP_VERSION);
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
-<script src="/vendor/jquery/jquery.min.js?v=<?= $v ?>" defer></script>
 <script src="/vendor/bootstrap/bootstrap.bundle.min.js?v=<?= $v ?>" defer></script>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 </head>
@@ -23,20 +22,20 @@ $v = e(APP_VERSION);
 <header class="welcome-top">
   <div class="welcome-wrap d-flex align-items-center">
     <?php if (\Align\Branding::hasLogo()): ?><img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e($company['name']) ?>" class="welcome-logo"><?php else: ?><b class="h5 mb-0"><?= e($company['name']) ?></b><?php endif; ?>
-    <div class="ml-auto small text-right welcome-top-contact">
-      <?php if ($company['phone']): ?><div><i class="fas fa-phone fa-fw mr-1"></i><?= e($company['phone']) ?></div><?php endif; ?>
-      <?php if ($company['email']): ?><div><i class="fas fa-envelope fa-fw mr-1"></i><?= e($company['email']) ?></div><?php endif; ?>
+    <div class="ms-auto small text-end welcome-top-contact">
+      <?php if ($company['phone']): ?><div><i class="fas fa-phone fa-fw me-1"></i><?= e($company['phone']) ?></div><?php endif; ?>
+      <?php if ($company['email']): ?><div><i class="fas fa-envelope fa-fw me-1"></i><?= e($company['email']) ?></div><?php endif; ?>
     </div>
   </div>
 </header>
 <main class="welcome-wrap py-4">
   <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
-    <div class="alert alert-<?= $t ?> alert-dismissible fade show" role="alert"><button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button><?= e($f['message']) ?></div>
+    <div class="alert alert-<?= $t ?> alert-dismissible fade show" role="alert"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button><?= e($f['message']) ?></div>
   <?php endforeach; ?>
   <?= $content ?>
 </main>
 <footer class="welcome-wrap pb-4 small text-muted d-flex flex-wrap">
-  <span class="mr-auto"><?= e($company['name']) ?><?= $company['website'] ? ' · ' . e(preg_replace('#^https?://#', '', $company['website'])) : '' ?></span>
+  <span class="me-auto"><?= e($company['name']) ?><?= $company['website'] ? ' · ' . e(preg_replace('#^https?://#', '', $company['website'])) : '' ?></span>
   <a href="/portal/terms" class="text-muted">Terms of use</a>
 </footer>
 </body>

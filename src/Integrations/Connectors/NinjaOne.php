@@ -22,7 +22,7 @@ final class NinjaOne extends RmmConnector
 
     public function setup(): string
     {
-        return '<ol class="pl-3 mb-0"><li>In NinjaOne open <b>Administration → Apps → API → Client app IDs → Add</b>.</li>'
+        return '<ol class="ps-3 mb-0"><li>In NinjaOne open <b>Administration → Apps → API → Client app IDs → Add</b>.</li>'
             . '<li>Application platform <b>API Services (machine-to-machine)</b>, scope <b>Monitoring</b>, grant type <b>Client credentials</b>.</li>'
             . '<li>Copy the client ID and secret here, save, then press <b>Test</b>.</li>'
             . '<li>Run a sync, then link organizations to clients on <a href="/mapping">Client mapping</a> (matching names link automatically).</li></ol>';

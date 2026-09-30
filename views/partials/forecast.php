@@ -15,8 +15,8 @@ $addProject = $addProject ?? false; // client overview: show an "Add project" bu
 ?>
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column mr-2"></i>3-year plan: <?= $hasProj ? 'hardware &amp; projects' : 'hardware' ?></h3>
-    <div class="card-tools"><span class="badge badge-light"><?= money($total) ?> total</span><?php if ($addProject): ?> <button type="button" class="btn btn-tool" data-toggle="modal" data-target="#modal-roadmap"><i class="fas fa-plus mr-1"></i>Add project</button><?php endif; ?><?php if ($link): ?> <a href="<?= e($link) ?>" class="btn btn-tool">Roadmap</a><?php endif; ?><?php if (!empty($budgetLink)): ?> <a href="<?= e($budgetLink) ?>" class="btn btn-tool">Full budget</a><?php endif; ?></div>
+    <h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column me-2"></i>3-year plan: <?= $hasProj ? 'hardware &amp; projects' : 'hardware' ?></h3>
+    <div class="card-tools"><span class="badge text-bg-light"><?= money($total) ?> total</span><?php if ($addProject): ?> <button type="button" class="btn btn-tool" data-bs-toggle="modal" data-bs-target="#modal-roadmap"><i class="fas fa-plus me-1"></i>Add project</button><?php endif; ?><?php if ($link): ?> <a href="<?= e($link) ?>" class="btn btn-tool">Roadmap</a><?php endif; ?><?php if (!empty($budgetLink)): ?> <a href="<?= e($budgetLink) ?>" class="btn btn-tool">Full budget</a><?php endif; ?></div>
   </div>
   <div class="card-body pb-2">
     <div class="row text-center mb-2">
@@ -24,7 +24,7 @@ $addProject = $addProject ?? false; // client overview: show an "Add project" bu
         <div class="col-4">
           <div class="year-total">
             <div class="small text-muted text-uppercase"><?= e($y['label']) ?></div>
-            <div class="h4 mb-0 font-weight-bold"><?= money($y['total']) ?></div>
+            <div class="h4 mb-0 fw-bold"><?= money($y['total']) ?></div>
             <div class="small text-muted"><?php if ($hasProj): ?><?= money($y['cost']) ?> hardware (<?= (int) $y['count'] ?>) · <?= money($y['proj_cost']) ?> projects (<?= (int) $y['proj_count'] ?>)<br><?php else: ?><?= (int) $y['count'] ?> device<?= $y['count'] == 1 ? '' : 's' ?> · <?php endif; ?><?= e($y['range']) ?></div>
           </div>
         </div>
@@ -66,10 +66,10 @@ $addProject = $addProject ?? false; // client overview: show an "Add project" bu
       <?php endforeach; ?>
     </svg>
     <p class="text-muted small mb-0"><span class="legend-dot bg-danger"></span> includes overdue devices (rolled into the current quarter) <span class="legend-dot bg-primary"></span> hardware reaching end of life<?php if ($hasProj): ?> <span class="legend-dot legend-proj"></span> planned projects<?php endif; ?> <span class="legend-dot legend-now"></span> current quarter</p>
-    <?php if (!empty($budgetLink)): ?><p class="small text-muted mb-0 mt-1"><i class="fas fa-circle-info mr-1"></i>One-time spending only. Licensing, managed services and other running costs are added in the <a href="<?= e($budgetLink) ?>">full technology budget</a>.</p><?php endif; ?>
+    <?php if (!empty($budgetLink)): ?><p class="small text-muted mb-0 mt-1"><i class="fas fa-circle-info me-1"></i>One-time spending only. Licensing, managed services and other running costs are added in the <a href="<?= e($budgetLink) ?>">full technology budget</a>.</p><?php endif; ?>
     <?php $unplanned = $unplanned ?? []; if ($unplanned): $uc = count($unplanned); $one = $uc === 1; ?>
       <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
-        <i class="fas fa-triangle-exclamation mr-1"></i><b><?= $uc ?> hardware device<?= $one ? '' : 's' ?></b> (<?= money(array_sum(array_column($unplanned, 'replacement_cost'))) ?> est.) <?= $one ? 'isn\'t' : 'aren\'t' ?> in this plan because <?= $one ? 'it has' : 'they have' ?> no in-service date, so there's no end-of-life quarter to put <?= $one ? 'it' : 'them' ?> in.
+        <i class="fas fa-triangle-exclamation me-1"></i><b><?= $uc ?> hardware device<?= $one ? '' : 's' ?></b> (<?= money(array_sum(array_column($unplanned, 'replacement_cost'))) ?> est.) <?= $one ? 'isn\'t' : 'aren\'t' ?> in this plan because <?= $one ? 'it has' : 'they have' ?> no in-service date, so there's no end-of-life quarter to put <?= $one ? 'it' : 'them' ?> in.
         <?php if (!empty($link) && preg_match('#^/clients/(\d+)#', $link, $m)): ?><a href="/clients/<?= (int) $m[1] ?>/devices?filter=noplan">Add purchase dates</a><?php else: ?>Use the <b>No in-service date</b> filter on a client's devices to fix them.<?php endif; ?>
       </div>
     <?php endif; ?>

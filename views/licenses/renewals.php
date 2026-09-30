@@ -12,7 +12,7 @@ $dayBtns .= '</div>';
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-calendar-check', 'title' => 'Renewals & contracts', 'count' => count($dates),
     'desc' => 'Contract ends, renegotiate-by dates and license renewals across every client, soonest first.',
-    'secondary' => [$dayBtns, '<a class="btn btn-sm btn-default" href="/licenses"><i class="fas fa-key mr-1"></i>Licensing</a>'],
+    'secondary' => [$dayBtns, '<a class="btn btn-sm btn-default" href="/licenses"><i class="fas fa-key me-1"></i>Licensing</a>'],
 ]);
 echo \Align\View::fetch('partials/tiles', ['tiles' => [
     ['label' => 'Passed in the last 30 days', 'value' => count($past), 'tone' => count($past) ? 'danger' : 'success'],

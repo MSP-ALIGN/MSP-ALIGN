@@ -30,7 +30,7 @@ ok(">Devices<" in t and ">Machines<" in t and ">Organization<" in t and ">Compan
 miss=[c for c in planned if any(not q("select 1 from client_links where client_id=%s and provider=%s",c,p) for p in ["ninjaone","veeam"])]
 t=st.get(B+"/mapping?show=missing").text
 rows=len(re.findall(r'name="link\[ninjaone\]\[(\d+)\]"',t))
-ok(rows==len(miss) and f'Missing a link <span class="badge badge-light">{len(miss)}</span>' in t,f"Missing a link shows {len(miss)} clients")
+ok(rows==len(miss) and f'Missing a link <span class="badge text-bg-light">{len(miss)}</span>' in t,f"Missing a link shows {len(miss)} clients")
 kept=q("select client_id from client_links where provider='veeam' and external_id is null and match_method='manual'")
 if kept:
     k=kept[0]["client_id"]

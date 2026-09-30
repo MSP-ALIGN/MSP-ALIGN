@@ -15,7 +15,7 @@ def unprot(t):
 q("delete from backup_exemptions")
 st=login("admin@example.com","LongPassword123!")
 t=st.get(B+"/clients/1/backups").text; n0=unprot(t)
-ok('data-target="#modal-bk-exempt"' in t and 'id="modal-bk-exempt"' in t,"exclude buttons + dialog shown to tech/admin")
+ok('data-bs-target="#modal-bk-exempt"' in t and 'id="modal-bk-exempt"' in t,"exclude buttons + dialog shown to tech/admin")
 dev=q("select d.id, d.display_name from devices d where d.rmm_org_id='101' and d.device_type='Server' and d.removed_at is null and d.display_name='PC-0064'")[0]
 tok=csrf(st,"/clients/1/backups")
 r=st.post(B+"/clients/1/backups/exempt",data={"_csrf":tok,"action":"add","kind":"device","ref":dev["id"],"reason":""})

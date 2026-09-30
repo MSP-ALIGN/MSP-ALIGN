@@ -108,7 +108,7 @@ q("delete from mail_queue where subject='S-busy'")
 
 # ---- meeting invitations: always .ics with a text/calendar part
 t = st.get(B + "/settings/notifications").text
-ok("always emails with an .ics invitation" in t and 'name="mail_meeting_mode" class="custom-select" disabled' in t and not errs(t), "notifications page explains SMTP invitations")
+ok("always emails with an .ics invitation" in t and 'name="mail_meeting_mode" class="form-select" disabled' in t and not errs(t), "notifications page explains SMTP invitations")
 day = time.strftime("%Y-%m-%d", time.localtime(time.time() + 3 * 86400))
 r = st.post(B + "/meetings", data={"_csrf": csrf(st, "/meetings"), "client_id": "1", "title": "S-Review", "type": "qbr", "date": day, "time": "10:00", "duration": "60", "attendees": "Jordan <jordan@client.example>", "agenda": "Backups", "send_invites": "1", "owner_id": "1"})
 m = last(); msg = parse(m["raw"])

@@ -8,17 +8,17 @@ $cid = (int) $client['id'];
 $canEx = Auth::can('tech');
 // "Not required" button that opens the exclusion dialog for one item
 $exBtn = fn(string $kind, string $ref, string $name) => $canEx
-    ? '<button type="button" class="btn btn-xs btn-outline-secondary ml-2 text-nowrap" data-toggle="modal" data-target="#modal-bk-exempt" data-fill data-f-kind="' . e($kind) . '" data-f-ref="' . e($ref) . '" data-f-item="' . e($name) . '" title="This doesn\'t need a backup">Not required</button>' : '';
+    ? '<button type="button" class="btn btn-xs btn-outline-secondary ms-2 text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-bk-exempt" data-fill data-f-kind="' . e($kind) . '" data-f-ref="' . e($ref) . '" data-f-item="' . e($name) . '" title="This doesn\'t need a backup">Not required</button>' : '';
 $howText = ['device' => 'matched by device name', 'job' => 'its backup job is assigned to this client', 'machine' => 'assigned by hand'];
-$hostedBadge = fn(string $title) => ' <span class="badge badge-light border font-weight-normal" title="' . e($title) . '"><i class="fas fa-building mr-1 text-muted"></i>Hosted</span>';
-$pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_class($tone === 'info' ? 'info' : $tone) . '">' . e($label) . '</span>';
+$hostedBadge = fn(string $title) => ' <span class="badge text-bg-light border fw-normal" title="' . e($title) . '"><i class="fas fa-building me-1 text-muted"></i>Hosted</span>';
+$pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_class($tone === 'info' ? 'info' : $tone) . '">' . e($label) . '</span>';
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-auto"><i class="fas fa-database text-secondary mr-2"></i>Backups</h1>
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-database text-secondary me-2"></i>Backups</h1>
   <?php if ($b): ?>
-    <span class="small text-muted mr-2">From <?= e($b['source_full']) ?><?= $b['company'] ? ' · ' . e($b['company']['name']) : '' ?><?= $b['hosted'] ? ' · ' . (int) $b['hosted'] . ' machine' . ($b['hosted'] == 1 ? '' : 's') . ' on your own backup server' : '' ?><?= $b['synced'] ? ' · updated ' . e(rel_time($b['synced'])) : '' ?></span>
-    <?php if (Auth::can('tech')): ?><a class="btn btn-sm btn-default mr-1" href="/mapping/backups" title="Sort machines backed up on your own server into clients"><i class="fas fa-building mr-1"></i>Hosted backups</a><?php endif; ?>
-    <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-print mr-1"></i>Report</a>
+    <span class="small text-muted me-2">From <?= e($b['source_full']) ?><?= $b['company'] ? ' · ' . e($b['company']['name']) : '' ?><?= $b['hosted'] ? ' · ' . (int) $b['hosted'] . ' machine' . ($b['hosted'] == 1 ? '' : 's') . ' on your own backup server' : '' ?><?= $b['synced'] ? ' · updated ' . e(rel_time($b['synced'])) : '' ?></span>
+    <?php if (Auth::can('tech')): ?><a class="btn btn-sm btn-default me-1" href="/mapping/backups" title="Sort machines backed up on your own server into clients"><i class="fas fa-building me-1"></i>Hosted backups</a><?php endif; ?>
+    <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-print me-1"></i>Report</a>
   <?php endif; ?>
 </div>
 
@@ -36,31 +36,31 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php else: $s = $b['stats']; ?>
 <div class="row">
   <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= tone_class($s['tone']) ?>"><i class="fas fa-<?= $s['tone'] === 'ok' ? 'circle-check' : 'triangle-exclamation' ?>"></i></span><div class="info-box-content"><span class="info-box-text">Backup health</span><span class="info-box-number"><?= ['ok' => 'Healthy', 'warn' => 'Needs attention', 'bad' => 'Action needed'][$s['tone']] ?></span></div></div></div>
-  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['overdue'] ? 'warning' : 'success' ?>"><i class="fas fa-server"></i></span><div class="info-box-content"><span class="info-box-text">Protected machines</span><span class="info-box-number"><?= (int) $s['ok'] ?> <small class="text-muted font-weight-normal">of <?= (int) $s['protected'] ?> current</small></span></div></div></div>
-  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['failed'] ? 'danger' : ($s['warning'] ? 'warning' : 'success') ?>"><i class="fas fa-list-check"></i></span><div class="info-box-content"><span class="info-box-text">Jobs</span><span class="info-box-number"><?= (int) $s['jobs'] ?> <small class="text-muted font-weight-normal"><?= (int) $s['failed'] ?> failed · <?= (int) $s['warning'] ?> warning</small></span></div></div></div>
-  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['rate'] === null ? 'secondary' : ($s['rate'] >= 95 ? 'success' : ($s['rate'] >= 80 ? 'warning' : 'danger')) ?>"><i class="fas fa-percent"></i></span><div class="info-box-content"><span class="info-box-text">Success rate (30 days)</span><span class="info-box-number"><?= $s['rate'] === null ? '—' : $s['rate'] . '%' ?> <small class="text-muted font-weight-normal"><?= (int) $s['runs'] ?> runs</small></span></div></div></div>
+  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['overdue'] ? 'warning' : 'success' ?>"><i class="fas fa-server"></i></span><div class="info-box-content"><span class="info-box-text">Protected machines</span><span class="info-box-number"><?= (int) $s['ok'] ?> <small class="text-muted fw-normal">of <?= (int) $s['protected'] ?> current</small></span></div></div></div>
+  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['failed'] ? 'danger' : ($s['warning'] ? 'warning' : 'success') ?>"><i class="fas fa-list-check"></i></span><div class="info-box-content"><span class="info-box-text">Jobs</span><span class="info-box-number"><?= (int) $s['jobs'] ?> <small class="text-muted fw-normal"><?= (int) $s['failed'] ?> failed · <?= (int) $s['warning'] ?> warning</small></span></div></div></div>
+  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['rate'] === null ? 'secondary' : ($s['rate'] >= 95 ? 'success' : ($s['rate'] >= 80 ? 'warning' : 'danger')) ?>"><i class="fas fa-percent"></i></span><div class="info-box-content"><span class="info-box-text">Success rate (30 days)</span><span class="info-box-number"><?= $s['rate'] === null ? '—' : $s['rate'] . '%' ?> <small class="text-muted fw-normal"><?= (int) $s['runs'] ?> runs</small></span></div></div></div>
   <?php if ($s['cloud_quota']): ?>
-  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['cloud_pct'] >= 90 ? 'danger' : ($s['cloud_pct'] >= 75 ? 'warning' : 'info') ?>"><i class="fas fa-cloud"></i></span><div class="info-box-content"><span class="info-box-text">Cloud storage</span><span class="info-box-number"><?= e(fmt_bytes($s['cloud_used'])) ?> <small class="text-muted font-weight-normal">of <?= e(fmt_bytes($s['cloud_quota'])) ?> (<?= (int) $s['cloud_pct'] ?>%)</small></span></div></div></div>
+  <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $s['cloud_pct'] >= 90 ? 'danger' : ($s['cloud_pct'] >= 75 ? 'warning' : 'info') ?>"><i class="fas fa-cloud"></i></span><div class="info-box-content"><span class="info-box-text">Cloud storage</span><span class="info-box-number"><?= e(fmt_bytes($s['cloud_used'])) ?> <small class="text-muted fw-normal">of <?= e(fmt_bytes($s['cloud_quota'])) ?> (<?= (int) $s['cloud_pct'] ?>%)</small></span></div></div></div>
   <?php endif; ?>
 </div>
 
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-days mr-2"></i>Last 30 days</h3>
-    <div class="card-tools small pt-1"><span class="bk-key ok"></span>Success <span class="bk-key warn ml-2"></span>Warning <span class="bk-key bad ml-2"></span>Failed <span class="bk-key none ml-2"></span>No runs recorded</div></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-days me-2"></i>Last 30 days</h3>
+    <div class="card-tools small pt-1"><span class="bk-key ok"></span>Success <span class="bk-key warn ms-2"></span>Warning <span class="bk-key bad ms-2"></span>Failed <span class="bk-key none ms-2"></span>No runs recorded</div></div>
   <div class="card-body py-3">
     <div class="bk-days" role="img" aria-label="Backup results per day for the last 30 days">
       <?php foreach ($b['days'] as $d): ?><span class="<?= e($d['tone']) ?>" title="<?= e($d['text']) ?>"></span><?php endforeach; ?>
     </div>
-    <div class="d-flex small text-muted mt-1"><span class="mr-auto"><?= e(fmt_date($b['days'][0]['date'])) ?></span><span>Today</span></div>
+    <div class="d-flex small text-muted mt-1"><span class="me-auto"><?= e(fmt_date($b['days'][0]['date'])) ?></span><span>Today</span></div>
     <?php if (!$s['runs']): ?><p class="small text-muted mb-0 mt-2">History builds up from each hourly sync, so this fills in over the coming days.</p><?php endif; ?>
   </div>
 </div>
 
 <?php if ($b['unprotected']): ?>
 <div class="card card-outline card-danger">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved text-danger mr-2"></i>Servers with no backup (<?= count($b['unprotected']) ?>)</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved text-danger me-2"></i>Servers with no backup (<?= count($b['unprotected']) ?>)</h3></div>
   <div class="card-body py-2 small text-muted border-bottom">Servers from <?= e(\Align\Providers\Providers::rmmNames()) ?><?= psa_on() ? ' or ' . e(psa_name()) : '' ?> that no <?= e($b['source']) ?> job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
-  <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex align-items-center"><a href="/devices/' . (int) $d['id'] . '" class="mr-auto font-weight-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted mr-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
+  <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex align-items-center"><a href="/devices/' . (int) $d['id'] . '" class="me-auto fw-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted me-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
   <ul class="list-group list-group-flush">
     <?php foreach (array_slice($b['unprotected'], 0, 8) as $d) echo $li($d); ?>
   </ul>
@@ -74,23 +74,23 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php if (!empty($claim)) echo \Align\View::fetch('backups/_claim', ['client' => $client, 'claim' => $claim]); ?>
 
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check mr-2"></i>Backup jobs</h3>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i>Backup jobs</h3>
     <div class="card-tools"><input type="search" class="form-control form-control-sm filter-input" data-filter-table="bk-jobs" placeholder="Filter…"></div></div>
   <div class="card-body p-0"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless table-hover mb-0" id="bk-jobs">
-      <thead class="text-dark"><tr><th>Status</th><th>Job</th><th>Type</th><th>Last run</th><th>Duration</th><th>Target</th><th class="text-right">Size</th></tr></thead>
+      <thead class="text-dark"><tr><th>Status</th><th>Job</th><th>Type</th><th>Last run</th><th>Duration</th><th>Target</th><th class="text-end">Size</th></tr></thead>
       <tbody>
       <?php foreach ($b['jobs'] as $j): ?>
         <tr>
           <td class="align-middle"><?= $pill($j['label'], $j['tone']) ?></td>
-          <td><b><?= e($j['name']) ?></b><?= $j['hosted'] ? $hostedBadge('Runs on your own backup server') : '' ?><?= $j['shared'] ? ' <span class="badge badge-light border font-weight-normal" title="This job also backs up other clients\' machines. Its results count for each of them; the client report leaves out its error details.">Shared · ' . (int) $j['client_count'] . ' clients</span>' : '' ?>
+          <td><b><?= e($j['name']) ?></b><?= $j['hosted'] ? $hostedBadge('Runs on your own backup server') : '' ?><?= $j['shared'] ? ' <span class="badge text-bg-light border fw-normal" title="This job also backs up other clients\' machines. Its results count for each of them; the client report leaves out its error details.">Shared · ' . (int) $j['client_count'] . ' clients</span>' : '' ?>
             <?php if ($j['failure_message'] && in_array($j['status'], ['failed', 'warning'], true)): ?><div class="small text-<?= $j['status'] === 'failed' ? 'danger' : 'warning' ?>"><?= e(mb_strimwidth($j['failure_message'], 0, 220, '…')) ?></div><?php endif; ?>
             <?php if ($j['note']): ?><div class="small text-warning"><?= e($j['note']) ?></div><?php endif; ?></td>
           <td class="small"><?= e($j['kind']) ?></td>
           <td class="small text-nowrap"><?= $j['last_run'] ? e(rel_time($j['last_run'])) . '<div class="text-muted">' . e(fmt_datetime($j['last_run'])) . '</div>' : '<span class="text-muted">never</span>' ?></td>
           <td class="small text-nowrap"><?= $j['duration_sec'] ? e(gmdate($j['duration_sec'] >= 3600 ? 'G\h i\m' : 'i\m s\s', (int) $j['duration_sec'])) : '—' ?></td>
           <td class="small"><?= e($j['target'] ?? '—') ?></td>
-          <td class="small text-right text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
+          <td class="small text-end text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
         </tr>
       <?php endforeach; ?>
       <?php if (!$b['jobs']): ?><tr><td colspan="7" class="text-muted p-3">No backup jobs for this client in <?= e($b['source']) ?>.</td></tr><?php endif; ?>
@@ -100,22 +100,22 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 </div>
 
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-server mr-2"></i>Protected machines</h3>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-server me-2"></i>Protected machines</h3>
     <div class="card-tools"><input type="search" class="form-control form-control-sm filter-input" data-filter-table="bk-machines" placeholder="Filter…"></div></div>
   <div class="card-body p-0"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless table-hover mb-0" id="bk-machines">
-      <thead class="text-dark"><tr><th>Status</th><th>Machine</th><th>Kind</th><th>Newest restore point</th><th class="text-right">Restore points</th><th class="text-right">Backup size</th><th>Device</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
+      <thead class="text-dark"><tr><th>Status</th><th>Machine</th><th>Kind</th><th>Newest restore point</th><th class="text-end">Restore points</th><th class="text-end">Backup size</th><th>Device</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($b['workloads'] as $w): ?>
         <tr>
           <td class="align-middle"><?= $pill($w['label'], $w['tone']) ?></td>
-          <td class="font-weight-bold"><?= e($w['name']) ?><?= $w['hosted'] ? $hostedBadge('Backed up on your own server: ' . ($howText[$w['client_how']] ?? '')) : '' ?></td>
+          <td class="fw-bold"><?= e($w['name']) ?><?= $w['hosted'] ? $hostedBadge('Backed up on your own server: ' . ($howText[$w['client_how']] ?? '')) : '' ?></td>
           <td class="small"><?= $w['kind'] === 'vm' ? 'Virtual machine' : 'Computer (agent)' ?></td>
           <td class="small text-nowrap"><?= $w['last_point'] ? e(Backup::age($w['age_h'])) . ' ago<div class="text-muted">' . e(fmt_datetime($w['last_point'])) . '</div>' : '<span class="text-danger">none</span>' ?></td>
-          <td class="small text-right"><?= $w['restore_points'] !== null ? (int) $w['restore_points'] : '—' ?></td>
-          <td class="small text-right text-nowrap"><?= e(fmt_bytes($w['backup_bytes'])) ?></td>
+          <td class="small text-end"><?= $w['restore_points'] !== null ? (int) $w['restore_points'] : '—' ?></td>
+          <td class="small text-end text-nowrap"><?= e(fmt_bytes($w['backup_bytes'])) ?></td>
           <td class="small"><?= $w['device_id'] ? '<a href="/devices/' . (int) $w['device_id'] . '">' . e($w['device_name'] ?: 'Device') . '</a>' : '<span class="text-muted">not matched</span>' ?></td>
-          <?php if ($canEx): ?><td class="text-right"><?= $w['tone'] !== 'ok' ? $exBtn('workload', $w['uid'], $w['name']) : '' ?></td><?php endif; ?>
+          <?php if ($canEx): ?><td class="text-end"><?= $w['tone'] !== 'ok' ? $exBtn('workload', $w['uid'], $w['name']) : '' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
       <?php if (!$b['workloads']): ?><tr><td colspan="8" class="text-muted p-3">No protected machines reported for this client.</td></tr><?php endif; ?>
@@ -125,15 +125,15 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 </div>
 <?php if ($m = $b['m365']): ?>
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft mr-2"></i>Microsoft 365</h3>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft me-2"></i>Microsoft 365</h3>
     <div class="card-tools small pt-1 text-light"><?= e(implode(', ', array_column($m['orgs'], 'name'))) ?></div></div>
   <div class="card-body pb-2">
     <div class="row">
       <?php foreach ($m['types'] as $t => $x): [$tl, $td] = Backup::M365_TYPES[$t]; ?>
         <div class="col-md-3 col-6 mb-2">
           <div class="border rounded p-2 h-100">
-            <div class="small text-muted text-uppercase font-weight-bold"><?= e($tl) ?></div>
-            <div class="h4 mb-0 font-weight-bold <?= $x['overdue'] ? 'text-warning' : 'text-success' ?>"><?= (int) $x['ok'] ?><small class="text-muted font-weight-normal"> / <?= (int) $x['total'] ?> current</small></div>
+            <div class="small text-muted text-uppercase fw-bold"><?= e($tl) ?></div>
+            <div class="h4 mb-0 fw-bold <?= $x['overdue'] ? 'text-warning' : 'text-success' ?>"><?= (int) $x['ok'] ?><small class="text-muted fw-normal"> / <?= (int) $x['total'] ?> current</small></div>
             <div class="small text-muted"><?= e($td) ?><?= $x['last'] ? ' · newest ' . e(rel_time($x['last'])) : '' ?></div>
           </div>
         </div>
@@ -142,22 +142,22 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
     </div>
     <div class="small text-muted">
       <?php foreach ($m['orgs'] as $o): ?>
-        <div class="mb-1"><i class="fas fa-building fa-fw mr-1"></i><b class="text-dark"><?= e($o['name']) ?></b>
-          <?php foreach ($o['service_labels'] as $sl): ?><span class="badge badge-light border ml-1"><?= e($sl) ?></span><?php endforeach; ?>
-          <span class="ml-1">· last backup <?= e(rel_time($o['last_backup'])) ?></span></div>
+        <div class="mb-1"><i class="fas fa-building fa-fw me-1"></i><b class="text-dark"><?= e($o['name']) ?></b>
+          <?php foreach ($o['service_labels'] as $sl): ?><span class="badge text-bg-light border ms-1"><?= e($sl) ?></span><?php endforeach; ?>
+          <span class="ms-1">· last backup <?= e(rel_time($o['last_backup'])) ?></span></div>
       <?php endforeach; ?>
-      <?php if ($m['users']): ?><div><i class="fas fa-id-badge fa-fw mr-1"></i><?= (int) $m['licensed'] ?> of <?= (int) $m['users'] ?> protected users use a<?= preg_match('/^[AEIOU]/i', $b['source']) ? 'n' : '' ?> <?= e($b['source']) ?> license.</div><?php endif; ?>
+      <?php if ($m['users']): ?><div><i class="fas fa-id-badge fa-fw me-1"></i><?= (int) $m['licensed'] ?> of <?= (int) $m['users'] ?> protected users use a<?= preg_match('/^[AEIOU]/i', $b['source']) ? 'n' : '' ?> <?= e($b['source']) ?> license.</div><?php endif; ?>
     </div>
   </div>
   <?php if ($m['overdue']): ?>
   <div class="card-body p-0 border-top"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless mb-0">
-      <thead class="text-dark"><tr><th>Status</th><th>Without a recent backup</th><th>Type</th><th>Newest restore point</th><th class="text-right">Restore points</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
+      <thead class="text-dark"><tr><th>Status</th><th>Without a recent backup</th><th>Type</th><th>Newest restore point</th><th class="text-end">Restore points</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
-      <?php $row = fn(array $o) => '<tr><td>' . $pill($o['last_point'] ? 'Overdue' : 'No restore point', $o['tone']) . '</td><td class="font-weight-bold">' . e($o['name']) . '</td><td class="small">' . e($o['type_label']) . '</td>'
+      <?php $row = fn(array $o) => '<tr><td>' . $pill($o['last_point'] ? 'Overdue' : 'No restore point', $o['tone']) . '</td><td class="fw-bold">' . e($o['name']) . '</td><td class="small">' . e($o['type_label']) . '</td>'
           . '<td class="small">' . ($o['last_point'] ? e(Backup::age($o['age_h'])) . ' ago <span class="text-muted">' . e(fmt_datetime($o['last_point'])) . '</span>' : '<span class="text-danger">none</span>') . '</td>'
-          . '<td class="small text-right">' . ($o['restore_points'] !== null ? (int) $o['restore_points'] : '—') . '</td>'
-          . ($canEx ? '<td class="text-right">' . $exBtn('m365', $o['uid'], $o['name']) . '</td>' : '') . '</tr>'; ?>
+          . '<td class="small text-end">' . ($o['restore_points'] !== null ? (int) $o['restore_points'] : '—') . '</td>'
+          . ($canEx ? '<td class="text-end">' . $exBtn('m365', $o['uid'], $o['name']) . '</td>' : '') . '</tr>'; ?>
       <?php foreach (array_slice($m['overdue'], 0, 10) as $o) echo $row($o); ?>
       </tbody>
     </table>
@@ -172,18 +172,18 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
 <?php endif; ?>
 <?php if ($b['exemptions']): ?>
 <div class="card card-outline card-secondary">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-ban text-secondary mr-2"></i>Backup not required (<?= count($b['exemptions']) ?>)</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-ban text-secondary me-2"></i>Backup not required (<?= count($b['exemptions']) ?>)</h3></div>
   <div class="card-body py-2 small text-muted border-bottom">These don't count as missing or overdue anywhere in Align, including reports. The reason is shown to the client on the backup report.</div>
   <div class="card-body p-0"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless mb-0">
       <thead class="text-dark"><tr><th>Item</th><th>Type</th><th>Reason</th><th>Marked by</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($b['exemptions'] as $x): ?>
-        <tr><td class="font-weight-bold"><?= $x['device_id'] ? '<a href="/devices/' . (int) $x['device_id'] . '">' . e($x['item_name']) . '</a>' : e($x['item_name']) ?></td>
+        <tr><td class="fw-bold"><?= $x['device_id'] ? '<a href="/devices/' . (int) $x['device_id'] . '">' . e($x['item_name']) . '</a>' : e($x['item_name']) ?></td>
           <td class="small"><?= e(Backup::EXEMPT_KINDS[$x['kind']] ?? $x['kind']) ?></td>
           <td class="small"><?= e($x['reason']) ?></td>
           <td class="small text-nowrap"><?= e($x['created_by_name'] ?? '—') ?><div class="text-muted"><?= e(fmt_date($x['created_at'])) ?></div></td>
-          <?php if ($canEx): ?><td class="text-right"><form method="post" action="/clients/<?= $cid ?>/backups/exempt"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="exemption" value="<?= (int) $x['id'] ?>"><button class="btn btn-xs btn-outline-primary text-nowrap">Monitor again</button></form></td><?php endif; ?></tr>
+          <?php if ($canEx): ?><td class="text-end"><form method="post" action="/clients/<?= $cid ?>/backups/exempt"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="exemption" value="<?= (int) $x['id'] ?>"><button class="btn btn-xs btn-outline-primary text-nowrap">Monitor again</button></form></td><?php endif; ?></tr>
       <?php endforeach; ?>
       </tbody>
     </table>
@@ -195,14 +195,14 @@ $pill = fn(string $label, string $tone) => '<span class="badge badge-' . tone_cl
   <div class="modal-dialog"><div class="modal-content">
     <form method="post" action="/clients/<?= $cid ?>/backups/exempt">
       <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="kind" value=""><input type="hidden" name="ref" value="">
-      <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-ban mr-2"></i>Backup not required</h5><button type="button" class="close text-white" data-dismiss="modal">&times;</button></div>
+      <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-ban me-2"></i>Backup not required</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
         <p>Stop flagging <b data-fill-text="item"></b> as missing or overdue. You can undo this any time.</p>
-        <div class="form-group mb-0"><label>Reason <small class="text-muted">(required, shown on the client's backup report)</small></label>
+        <div class="mb-3 mb-0"><label>Reason <small class="text-muted">(required, shown on the client's backup report)</small></label>
           <input name="reason" class="form-control" maxlength="255" required list="bk-reasons" placeholder="e.g. Test server, no business data">
           <datalist id="bk-reasons"><option value="Test / lab machine, no business data"><option value="Covered by another backup (image-level / SaaS)"><option value="Being decommissioned"><option value="Replica of a protected server"><option value="Former employee, data retained elsewhere"><option value="Client declined backup for this item"></datalist></div>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button class="btn btn-primary">Mark not required</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Mark not required</button></div>
     </form>
   </div></div>
 </div>

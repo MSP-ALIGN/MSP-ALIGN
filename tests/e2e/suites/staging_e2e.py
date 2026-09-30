@@ -20,7 +20,7 @@ try:
     # ---- every page says so; the normal server doesn't
     st = login("admin@example.com", "LongPassword123!", base=S_URL)
     t = st.get(S_URL + "/").text
-    ok("Test server." in t and TEST_BOX in t and "navbar-warning" in t and "<title>[TEST]" in t and not errs(t), "banner, title and colour on the test server")
+    ok("Test server." in t and TEST_BOX in t and "is-staging" in t and "<title>[TEST]" in t and not errs(t), "banner, title and colour on the test server")
     ok("Test server." not in login("admin@example.com", "LongPassword123!").get(B + "/").text, "the normal server shows no banner")
     t = st.get(S_URL + "/clients/1/report/assets").text
     ok("TEST SERVER — not for clients" in t, "printed reports are marked")

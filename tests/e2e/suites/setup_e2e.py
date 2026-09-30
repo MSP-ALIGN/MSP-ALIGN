@@ -52,7 +52,7 @@ ok(r.url.endswith("/setup/rmm") and "psa" in fq("select value from settings wher
 t = st.get(FB + "/setup/finish").text; ok("Skipped" in t and "Go to step" in t, "finish page shows what was skipped, with a way back")
 st.get(FB + "/setup/locale"); st.post(FB + "/setup/locale/skip", data={"_csrf": fcsrf(st, "/setup/locale")})
 t = st.get(FB + "/setup/finish").text
-ok(re.search(r'fa-circle-minus[^>]*></i><span class="mr-auto">Currency &amp; dates', t) is not None, "opening and skipping Currency & dates leaves it skipped, not done")
+ok(re.search(r'fa-circle-minus[^>]*></i><span class="me-auto">Currency &amp; dates', t) is not None, "opening and skipping Currency & dates leaves it skipped, not done")
 t = st.get(FB + "/setup/psa").text; ok("Continue without a PSA" in t and 'action="/setup/psa/skip"' in t, "no PSA: the way on is a skip")
 ok(st.get(FB + "/setup/nonsense", allow_redirects=False).status_code in (302, 303), "unknown step goes back to the start")
 

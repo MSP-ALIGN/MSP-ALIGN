@@ -10,14 +10,14 @@ use Align\Docs\Html;
   <?php foreach ($docs as $d): [$cl, $ci, $cc] = Documents::category($d['category']); $overdue = $d['review_due'] && $d['review_due'] < date('Y-m-d') && $d['status'] === 'active'; ?>
     <tr class="<?= $d['status'] === 'archived' ? 'text-muted' : '' ?>">
       <td>
-        <i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> mr-1"></i><a href="/documents/<?= (int) $d['id'] ?>" class="font-weight-bold"><?= e($d['title']) ?></a>
-        <?php if ($d['evidence_count']): ?><span class="badge badge-light border ml-1" title="Linked as compliance evidence"><i class="fas fa-clipboard-check mr-1"></i><?= (int) $d['evidence_count'] ?></span><?php endif; ?>
-        <div class="small text-muted ml-4 text-truncate doc-excerpt"><?= e(Html::excerpt($d['body_html'], 140)) ?></div>
+        <i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> me-1"></i><a href="/documents/<?= (int) $d['id'] ?>" class="fw-bold"><?= e($d['title']) ?></a>
+        <?php if ($d['evidence_count']): ?><span class="badge text-bg-light border ms-1" title="Linked as compliance evidence"><i class="fas fa-clipboard-check me-1"></i><?= (int) $d['evidence_count'] ?></span><?php endif; ?>
+        <div class="small text-muted ms-4 text-truncate doc-excerpt"><?= e(Html::excerpt($d['body_html'], 140)) ?></div>
       </td>
       <?php if ($showClient): ?><td class="small"><?= $d['client_id'] ? '<a href="/clients/' . (int) $d['client_id'] . '/documents">' . e($d['client_name']) . '</a>' : '<span class="text-muted">Internal</span>' ?></td><?php endif; ?>
       <td class="small"><?= e($cl) ?></td>
-      <td><span class="badge badge-<?= Documents::STATUSES[$d['status']][1] ?>"><?= e(Documents::STATUSES[$d['status']][0]) ?></span></td>
-      <td class="small text-nowrap"><?= $d['review_due'] ? ($overdue ? '<span class="badge badge-warning">' . e(fmt_date($d['review_due'])) . '</span>' : e(fmt_date($d['review_due']))) : '—' ?></td>
+      <td><span class="badge text-bg-<?= Documents::STATUSES[$d['status']][1] ?>"><?= e(Documents::STATUSES[$d['status']][0]) ?></span></td>
+      <td class="small text-nowrap"><?= $d['review_due'] ? ($overdue ? '<span class="badge text-bg-warning">' . e(fmt_date($d['review_due'])) . '</span>' : e(fmt_date($d['review_due']))) : '—' ?></td>
       <td class="small text-nowrap"><?= e(rel_time($d['updated_at'])) ?><?= $d['updated_by_name'] ? '<div class="text-muted">' . e($d['updated_by_name']) . ' · v' . (int) $d['version'] . '</div>' : '' ?></td>
     </tr>
   <?php endforeach; ?>

@@ -3,8 +3,8 @@
   <?= csrf_field() ?>
   <div class="input-group mb-3">
     <input type="email" name="email" class="form-control" placeholder="Email" autocomplete="username" required autofocus>
-    <div class="input-group-append"><div class="input-group-text"><span class="fas fa-envelope"></span></div></div>
+    <span class="input-group-text"><span class="fas fa-envelope"></span></span>
   </div>
-  <button class="btn btn-primary btn-block">Email me a reset link</button>
+  <button class="btn btn-primary w-100">Email me a reset link</button>
   <p class="mt-3 mb-0 small text-center"><a href="/portal/login">Back to sign in</a></p>
 </form>

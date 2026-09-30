@@ -19,14 +19,14 @@ foreach ($b['lines'] as $l) {
 }
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 mr-3"><i class="fas fa-coins text-secondary mr-2"></i>Technology budget</h1>
-  <div class="btn-group btn-group-sm mr-auto mt-2 mt-md-0">
+  <h1 class="h4 mb-0 me-3"><i class="fas fa-coins text-secondary me-2"></i>Technology budget</h1>
+  <div class="btn-group btn-group-sm me-auto mt-2 mt-md-0">
     <?php foreach ($b['years'] as $y => $yy): ?><a class="btn <?= $y === $year ? 'btn-primary' : 'btn-default' ?>" href="?year=<?= $y ?>"><?= e($yy['label']) ?></a><?php endforeach; ?>
   </div>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
-    <a class="btn btn-default" href="/clients/<?= $cid ?>/roadmap"><i class="fas fa-road mr-1"></i>Roadmap</a>
-    <a class="btn btn-default" href="/clients/<?= $cid ?>/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print mr-1"></i>Print budget</a>
-    <?php if ($canEdit): ?><button class="btn btn-primary" data-toggle="modal" data-target="#modal-budget"><i class="fas fa-plus mr-1"></i>Add budget line</button><?php endif; ?>
+    <a class="btn btn-default" href="/clients/<?= $cid ?>/roadmap"><i class="fas fa-road me-1"></i>Roadmap</a>
+    <a class="btn btn-default" href="/clients/<?= $cid ?>/report/budget?year=<?= $year ?>" target="_blank"><i class="fas fa-print me-1"></i>Print budget</a>
+    <?php if ($canEdit): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-budget"><i class="fas fa-plus me-1"></i>Add budget line</button><?php endif; ?>
   </div>
 </div>
 
@@ -39,7 +39,7 @@ foreach ($b['lines'] as $l) {
 
 <?php $n = $b['notes']; if ($n || (!$billing && !array_filter($b['lines'], fn($l) => $l['category'] === 'managed'))): ?>
   <div class="alert alert-light border small py-2">
-    <i class="fas fa-circle-info mr-1 text-info"></i><b>Not included yet:</b>
+    <i class="fas fa-circle-info me-1 text-info"></i><b>Not included yet:</b>
     <?php $bits = [];
     if (!empty($n['unpriced'])) $bits[] = '<a href="/clients/' . $cid . '/licenses">' . (int) $n['unpriced'] . ' license' . ($n['unpriced'] == 1 ? '' : 's') . ' without a price</a>';
     if (!empty($n['nodate'])) $bits[] = '<a href="/clients/' . $cid . '/devices?filter=noplan">' . (int) $n['nodate'] . ' device' . ($n['nodate'] == 1 ? '' : 's') . ' with no in-service date</a>';
@@ -51,12 +51,12 @@ foreach ($b['lines'] as $l) {
 
 <?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'budget', 'cid' => $cid, 'back' => $back]) ?>
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column mr-2"></i>3-year budget by quarter</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column me-2"></i>3-year budget by quarter</h3></div>
   <div class="card-body pb-2"><?= \Align\View::fetch('budget/_chart', ['b' => $b, 'year' => $year]) ?></div>
 </div>
 
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-table mr-2"></i><?= e($yr['label']) ?> budget detail</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-table me-2"></i><?= e($yr['label']) ?> budget detail</h3></div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 budget-table">
       <thead><tr><th>Line</th><?php foreach ($qIdx as $i): ?><th class="num"><?= e($b['quarters'][$i]['short']) ?> <small class="text-muted"><?= e($b['quarters'][$i]['months']) ?></small></th><?php endforeach; ?><th class="num"><?= e($yr['label']) ?></th><th class="num">Per month</th></tr></thead>
@@ -68,14 +68,14 @@ foreach ($b['lines'] as $l) {
         <?php foreach ($byCat[$cat] as $l): $ly = Budget::lineYear($l, $year); [$sl, $si] = $srcBadge[$l['source']]; ?>
           <tr class="<?= $l['tentative'] ? 'tentative' : '' ?>">
             <td class="line-name">
-              <?php if ($l['source'] === 'manual' && $canEdit): ?><a href="#" data-toggle="modal" data-target="#modal-budget-<?= (int) $l['id'] ?>"><?= e($l['name']) ?></a>
+              <?php if ($l['source'] === 'manual' && $canEdit): ?><a href="#" data-bs-toggle="modal" data-bs-target="#modal-budget-<?= (int) $l['id'] ?>"><?= e($l['name']) ?></a>
               <?php elseif ($l['link']): ?><a href="<?= e($l['link']) ?>"><?= e($l['name']) ?></a><?php else: ?><?= e($l['name']) ?><?php endif; ?>
-              <span class="badge badge-light border font-weight-normal ml-1" title="Where this line comes from"><i class="fas <?= $si ?> mr-1"></i><?= e($sl) ?></span>
-              <?php if ($l['tentative']): ?><span class="badge badge-warning font-weight-normal"><?= $l['source'] === 'psa' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
+              <span class="badge text-bg-light border fw-normal ms-1" title="Where this line comes from"><i class="fas <?= $si ?> me-1"></i><?= e($sl) ?></span>
+              <?php if ($l['tentative']): ?><span class="badge text-bg-warning fw-normal"><?= $l['source'] === 'psa' ? 'estimate' : 'proposed' ?></span><?php endif; ?>
               <div class="small text-muted"><?= e($l['detail']) ?></div>
             </td>
             <?php foreach ($qIdx as $i): ?><td class="num"><?= $l['q'][$i] ? money($l['q'][$i]) : '<span class="text-muted">—</span>' ?></td><?php endforeach; ?>
-            <td class="num font-weight-bold"><?= money($ly) ?></td><td class="num small text-muted"><?= money($ly / 12) ?></td>
+            <td class="num fw-bold"><?= money($ly) ?></td><td class="num small text-muted"><?= money($ly / 12) ?></td>
           </tr>
         <?php endforeach; ?>
       <?php endforeach; ?>
@@ -89,7 +89,7 @@ foreach ($b['lines'] as $l) {
 <div class="row">
 <div class="col-xl-7">
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group mr-2"></i>3-year summary</h3></div>
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-layer-group me-2"></i>3-year summary</h3></div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 budget-table">
       <thead><tr><th>Category</th><?php foreach ($b['years'] as $yy): ?><th class="num"><?= e($yy['label']) ?></th><?php endforeach; ?></tr></thead>

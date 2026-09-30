@@ -18,10 +18,10 @@ foreach (Todo::CATEGORIES as $k => $label) {
   <ul class="list-group list-group-flush todo-list">
     <?php foreach ($items as $i): ?>
       <li class="list-group-item d-flex align-items-center" data-todo="<?= e($i['key']) ?>">
-        <i class="fas fa-fw <?= e($i['icon']) ?> text-<?= e($i['tone']) ?> fa-lg mr-3"></i>
-        <div class="mr-auto pr-3"><b><?= e($i['title']) ?></b><div class="small text-muted"><?= e($i['detail']) ?></div></div>
-        <span class="badge badge-light border mr-3 d-none d-md-inline"><?= e(Todo::CATEGORIES[$i['category']]) ?></span>
-        <a class="btn btn-sm btn-outline-primary text-nowrap" href="<?= e($i['link']) ?>"><?= e($i['action']) ?> <i class="fas fa-arrow-right ml-1"></i></a>
+        <i class="fas fa-fw <?= e($i['icon']) ?> text-<?= e($i['tone']) ?> fa-lg me-3"></i>
+        <div class="me-auto pe-3"><b><?= e($i['title']) ?></b><div class="small text-muted"><?= e($i['detail']) ?></div></div>
+        <span class="badge text-bg-light border me-3 d-none d-md-inline"><?= e(Todo::CATEGORIES[$i['category']]) ?></span>
+        <a class="btn btn-sm btn-outline-primary text-nowrap" href="<?= e($i['link']) ?>"><?= e($i['action']) ?> <i class="fas fa-arrow-right ms-1"></i></a>
       </li>
     <?php endforeach; ?>
     <?php if (!$items): ?>
