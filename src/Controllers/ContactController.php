@@ -42,6 +42,7 @@ final class ContactController
         }
         $rows = $role ? array_values(array_filter($all, fn($k) => (int) $k[$role] === 1)) : $all;
         $q = \Align\Paging::q();
+        \Align\Audit::access('contacts', 'all clients' . ($q !== '' ? ' (search "' . mb_substr($q, 0, 60) . '")' : ''));
         $rows = \Align\Paging::search($rows, $q, ['name', 'title', 'department', 'email', 'phone', 'mobile', 'client_name', 'location']);
         $limit = \Align\Paging::limit();
         View::render('contacts/index', [
@@ -62,6 +63,7 @@ final class ContactController
     public static function json(int $id): void
     {
         Auth::require();
+        \Align\Audit::access('contacts', "#$id (meeting attendee list)");
         header('Content-Type: application/json');
         echo json_encode(array_map(fn($k) => [
             'name' => $k['name'], 'email' => $k['email'], 'title' => $k['title'],

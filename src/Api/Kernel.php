@@ -36,10 +36,15 @@ final class Kernel
         $body = null;
         $error = null;
         try {
+            $rel = '/' . trim(substr($path, strlen('/api')), '/');
+            // Answers given before a key is checked count against the address like failed requests, so an anonymous
+            // flood gets 429 and stops filling the request log (1.45)
+            if (!Keys::enabled() || $rel === '/' || $rel === '/v1/openapi.json' || !str_starts_with($rel . '/', '/v1/')) {
+                self::failedAttempt(false);
+            }
             if (!Keys::enabled()) {
                 throw new ApiError(404, 'api_disabled', 'The API is turned off. An admin can turn it on under Settings → API.');
             }
-            $rel = '/' . trim(substr($path, strlen('/api')), '/');
             if ($rel === '/') {
                 [$status, $body] = [200, ['name' => \Align\Branding::name() . ' API', 'versions' => ['v1' => '/api/v1'], 'openapi' => '/api/v1/openapi.json']];
                 throw new Done();
@@ -144,7 +149,7 @@ final class Kernel
         if (!$key) {
             self::failedAttempt(true);
             $msg = ['key_revoked' => 'This API key was revoked.', 'key_expired' => 'This API key has expired.',
-                'key_owner_inactive' => 'The staff account that created this API key is disabled, so the key no longer works. An admin can create a new one.'][$err] ?? 'The API key is not valid.';
+                'key_owner_inactive' => 'The staff account that created this API key is disabled or no longer an admin, so the key no longer works. An admin can create a new one.'][$err] ?? 'The API key is not valid.';
             throw new ApiError(401, $err, $msg, [], ['WWW-Authenticate' => 'Bearer realm="api", error="invalid_token"']);
         }
         Context::$key = $key;

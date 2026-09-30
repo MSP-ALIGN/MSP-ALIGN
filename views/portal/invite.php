@@ -10,6 +10,9 @@
     <div class="mb-3"><label class="small mb-1">Email</label><input class="form-control" value="<?= e($invitee['email']) ?>" readonly autocomplete="username"></div>
     <div class="mb-3"><label class="small mb-1">New password <span class="text-muted">(at least 12 characters)</span></label><input type="password" name="password" class="form-control" minlength="12" autocomplete="new-password" required autofocus></div>
     <div class="mb-3"><label class="small mb-1">Confirm password</label><input type="password" name="confirm" class="form-control" minlength="12" autocomplete="new-password" required></div>
+    <?php if (!empty($invitee['totp_enabled'])): ?>
+      <div class="mb-3"><label class="small mb-1">Code from your authenticator app</label><input name="code" class="form-control" inputmode="numeric" autocomplete="one-time-code" required></div>
+    <?php endif; ?>
     <button class="btn btn-primary w-100">Set password and sign in</button>
   </form>
 <?php endif; ?>

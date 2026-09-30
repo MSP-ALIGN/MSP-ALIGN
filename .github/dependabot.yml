@@ -1,0 +1,22 @@
+# Keeps the pinned GitHub Actions (by commit) and the Docker base images up to date with reviewed pull requests (1.45)
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    ignore:
+      # MariaDB stays on the version Debian 13 ships (11.8), like a dedicated install; majors are a deliberate change
+      - dependency-name: mariadb
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

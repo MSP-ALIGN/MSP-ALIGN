@@ -76,6 +76,18 @@ final class EmailController
         if (post('mail_provider') === 'smtp' && post('mail_mode') === 'delegated') {
             $_POST['mail_mode'] = 'app'; // SMTP is on or off (the sign-in choice was hidden)
         }
+        // The saved SMTP password is only sent to the server it was entered for, the way it was entered for: another
+        // server, no encryption or no certificate check needs it typed again, so a borrowed admin session can't
+        // send it somewhere and read it (1.45)
+        if (Settings::hasSecret('smtp_pass') && trim((string) ($_POST['smtp_pass'] ?? '')) === '' && !isset($_POST['clear_smtp_pass'])) {
+            $moved = (isset($_POST['smtp_host']) && strtolower(trim(post('smtp_host'))) !== strtolower((string) Settings::get('smtp_host', '')))
+                || (isset($_POST['smtp_security']) && post('smtp_security') === 'none' && Settings::get('smtp_security', 'starttls') !== 'none')
+                || (isset($_POST['smtp_verify_present']) && !isset($_POST['smtp_verify']) && Settings::get('smtp_verify', '1') !== '0');
+            if ($moved) {
+                flash('error', 'You changed the SMTP server, or turned off its encryption or certificate check. Enter the SMTP password again too: a saved password is only sent where and how it was entered for.');
+                redirect(setup_return('/integrations/email'));
+            }
+        }
         $changed = [];
         foreach (self::TEXT as $k) {
             if (!isset($_POST[$k])) {
@@ -377,11 +389,14 @@ final class EmailController
         Auth::requireRole('admin');
         $action = post('action');
         if ($action === 'retry') {
-            DB::run("UPDATE mail_queue SET status = 'queued', send_after = NOW(), attempts = 0 WHERE id = ? AND status = 'failed' AND purged = 0", [$id]);
-            Mailer::deliver($id);
-            flash('success', 'Retried.');
+            $n = DB::run("UPDATE mail_queue SET status = 'queued', send_after = NOW(), attempts = 0 WHERE id = ? AND status = 'failed' AND purged = 0", [$id])->rowCount();
+            if ($n) {
+                Mailer::deliver($id);
+            }
+            flash($n ? 'success' : 'warning', $n ? 'Retried.' : 'That message can\'t be sent again: its body was cleared (a one-time link, or past the retention period). For a portal invite or reset, create a new link.');
         } elseif ($action === 'cancel') {
             DB::run("UPDATE mail_queue SET status = 'cancelled' WHERE id = ? AND status = 'queued'", [$id]);
+            \Align\Mail\Mailer::wipeSensitive();
             flash('success', 'Cancelled.');
         }
         Audit::log('email.' . ($action === 'retry' ? 'retry' : 'cancel'), "#$id");

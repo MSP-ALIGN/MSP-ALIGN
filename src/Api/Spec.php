@@ -98,7 +98,7 @@ final class Spec
 
     public const ERRORS = [
         400 => ['invalid_json, invalid_idempotency_key', 'The request body or a header is malformed.'],
-        401 => ['missing_key, invalid_key, key_expired, key_revoked, key_owner_inactive', 'No usable API key (a key stops when the staff account that created it is disabled).'],
+        401 => ['missing_key, invalid_key, key_expired, key_revoked, key_owner_inactive', 'No usable API key (a key stops when the staff account that created it is disabled or is no longer an admin).'],
         403 => ['insufficient_scope, all_clients_required', 'The key lacks the permission (see the X-Required-Scope header).'],
         404 => ['not_found, api_disabled, no_backup_data, no_service_data', 'Not found, or outside the clients the key is limited to.'],
         405 => ['method_not_allowed', 'See the Allow header.'],

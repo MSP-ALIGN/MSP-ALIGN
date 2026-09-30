@@ -116,6 +116,30 @@ try {
             }
             break;
 
+        case 'audit:head':
+            // For the root agent's outside checkpoint (scripts/agent.php auditCheckpoint): the newest entry now
+            $c = Align\DB::one('SELECT last_id, last_hash FROM audit_chain WHERE id = 1');
+            echo json_encode(['id' => (int) ($c['last_id'] ?? 0), 'hash' => (string) ($c['last_hash'] ?? '')]), "\n";
+            break;
+
+        case 'audit:checkpoint':
+            // An entry seen at the last check must still be there, unchanged, unless it was pruned for age
+            $id = (int) ($opts['id'] ?? 0);
+            $hash = (string) ($opts['hash'] ?? '');
+            $c = Align\DB::one('SELECT anchor_id, last_id FROM audit_chain WHERE id = 1');
+            $row = $id > 0 ? Align\DB::one('SELECT row_hash FROM audit_log WHERE id = ?', [$id]) : null;
+            $fine = $id === 0 || ($row && hash_equals((string) $row['row_hash'], $hash)) || (!$row && $id <= (int) ($c['anchor_id'] ?? 0));
+            if (!$fine || (int) ($c['last_id'] ?? 0) < $id) {
+                $line = "AUDIT LOG TAMPERING DETECTED: entry #$id, seen at the last nightly check, " . ($row ? 'was changed' : 'is gone') . ' (or the log was put back to an older state)';
+                $say($line);
+                Audit::log('audit.checkpoint_failed', $line);
+                Align\Mail\Notify::security('Audit log verification failed', $line);
+                Align\Mail\Mailer::deliver();
+                exit(2);
+            }
+            $say("Audit checkpoint #$id still in the log.");
+            break;
+
         case 'mail:run':
             // Every minute from msp-align-mail.timer: send queued mail, reminders and digests
             $lines = Align\Mail\Notify::tick(isset($opts['force']));

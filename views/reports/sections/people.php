@@ -30,6 +30,7 @@ $costs ??= true;
   <?php endif; ?>
   <div class="avoid-break">
   <div class="two-col">
+    <?php if (empty($p['hidden'])): ?>
     <div class="panel">
       <h3>Key contacts</h3>
       <?php if (!$p['contacts']): ?><p class="muted">No key contacts recorded.</p><?php else: ?>
@@ -43,6 +44,7 @@ $costs ??= true;
       </table>
       <?php endif; ?>
     </div>
+    <?php endif; ?>
     <div class="panel">
       <h3>Your IT team</h3>
       <dl class="kv">
@@ -51,11 +53,13 @@ $costs ??= true;
         <?php if (!empty($provider['phone'])): ?><dt>Phone</dt><dd><?= e($provider['phone']) ?></dd><?php endif; ?>
         <?php if (!empty($provider['email'])): ?><dt>Email</dt><dd><?= e($provider['email']) ?></dd><?php endif; ?>
       </dl>
+      <?php if (empty($p['hidden'])): ?>
       <h3 style="margin-top:.8rem">Next meeting</h3>
       <?php if ($m): ?>
         <p style="margin:0"><b><?= e(\Align\Fmt::date($m['starts_at'], 'dayfull')) ?></b> at <?= e(fmt_time($m['starts_at'])) ?></p>
         <p class="muted" style="margin:0"><?= e($m['title']) ?> · <?= e(Meetings::typeLabel($m['type'])) ?><?= $m['location'] ? ' · ' . e($m['location']) : '' ?></p>
       <?php else: ?><p class="muted" style="margin:0">Not scheduled yet.</p><?php endif; ?>
+      <?php endif; ?>
     </div>
   </div>
   </div>

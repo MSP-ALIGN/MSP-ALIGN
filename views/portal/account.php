@@ -42,7 +42,8 @@
             <li>Enter the 6-digit code it shows.</li>
           </ol>
           <form method="post" action="/portal/account/2fa" class="d-flex flex-wrap align-items-center"><?= csrf_field() ?><input type="hidden" name="action" value="confirm">
-            <input name="code" class="form-control form-control-sm me-2 mb-2" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required autofocus>
+            <input name="code" class="form-control form-control-sm me-2 mb-2" inputmode="numeric" autocomplete="one-time-code" placeholder="<?= $pu['totp_enabled'] ? 'New phone\'s code' : '123456' ?>" aria-label="Code from the new authenticator" required autofocus>
+            <?php if ($pu['totp_enabled']): ?><input name="current_code" class="form-control form-control-sm me-2 mb-2" inputmode="numeric" autocomplete="off" placeholder="Current phone's code" aria-label="Code from your current authenticator" required><?php endif; ?>
             <button class="btn btn-sm btn-primary mb-2 me-2"><?= $pu['totp_enabled'] ? 'Use this authenticator' : 'Turn on' ?></button></form>
           <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-sm btn-link px-0">Cancel</button></form>
         <?php elseif ($pu['totp_enabled']): ?>

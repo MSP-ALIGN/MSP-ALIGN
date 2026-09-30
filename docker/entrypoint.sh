@@ -70,8 +70,13 @@ export TZ=$TZ_NAME
 
 # ------------------------------------------------------------------- folders --
 install -d -m 750 -o root -g www-data "$CONF_DIR"
-install -d -m 750 -o www-data -g www-data "$DATA" "$DATA/uploads" "$DATA/downloads" "$DATA/restore"
-install -d -m 700 -o www-data -g www-data "$DATA/sessions"
+install -d -m 750 -o www-data -g www-data "$DATA"
+# Inside the data folder only the web user makes or changes things: as root, a folder it had swapped for a
+# symlink would hand the symlink's target to www-data (1.45)
+# chown -h never follows a symlink, so a folder restored or copied in as root is handed back to www-data safely
+for d in sessions uploads downloads restore imports; do chown -h www-data:www-data "$DATA/$d" 2>/dev/null || true; done
+runuser -u www-data -- install -d -m 750 "$DATA/uploads" "$DATA/downloads" "$DATA/restore"
+runuser -u www-data -- install -d -m 700 "$DATA/sessions"
 install -d -m 750 -o root -g www-data "$AGENT" "$AGENT/jobs" "$AGENT/safety"
 install -d -m 700 -o root -g root "$AGENT/work"
 install -d -m 755 -o root -g root "$RUN"

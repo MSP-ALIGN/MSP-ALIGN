@@ -10,6 +10,25 @@ More in [Screenshots](docs/SCREENSHOTS.md): clients, the roadmap, the budget, co
 
 ## What's new
 
+- **Security audit (1.45):** before 2.0, every file of the app, installer, backup agent and Docker setup was reviewed line by line and tested against a live install; [Security](docs/SECURITY.md#security-audit-145) has the summary.
+  - **Serious fix:** with code already running as the web user, the root backup agent (and the installer and Docker start-up) could be tricked by a symlink into handing a root-owned folder to the web user. The agent now does everything in the web user's folders as that user.
+  - **The audit log:** its start and end are sealed too, and the nightly check keeps an outside checkpoint, so entries cut off either end, or an old copy written back, are caught.
+  - **Portal:**
+    - The QBR's key contacts and next meeting need the contacts permission.
+    - A reset link on a 2FA account asks for the code before anything changes.
+    - Service requests are rate limited.
+  - **Sign-in and 2FA:**
+    - Removing someone's 2FA also gives them a one-time password.
+    - Moving 2FA to a new phone needs a code from the old one.
+    - Lockouts and one-time codes hold up against parallel requests.
+  - **Integrations and email:** changing an integration's address or the SMTP server needs the key or password typed again.
+  - **API:** client-limited keys can't reword or cancel a meeting whose invitations went out, and a key stops when its creator is no longer an admin.
+  - **More in the audit log:** scheduled syncs, PSA changes, document autosaves, license restores, meeting notes and views of device lists, compliance and contacts.
+  - **Also:**
+    - Brand logos are re-encoded.
+    - Only admins can delete a document.
+    - Onboarding links end a week after onboarding is done.
+    - GitHub Actions are pinned to exact commits, with Dependabot watching them and the Docker images.
 - **Contacts sync both ways with ITFlow, archiving too (1.44.1):** archiving or restoring a contact in Align now does the same in ITFlow (ITFlow's own archive, so it also clears the contact's Important/Billing/Technical flags and archives their client-portal login there); a contact archived in ITFlow comes back in Align when it's restored there. Each client's Contacts page says whether its contacts sync both ways, come in only, or stay in Align (not linked, with a link to Client mapping), and the Integrations switch is now called *Two-way sync (devices and contacts)*. If ITFlow refuses, or is too old to archive from other apps, Align says so and archives in Align only.
 - **Install with Docker (1.44):** MSP-ALIGN also ships as a container image (`ghcr.io/msp-align/msp-align`, amd64 and arm64) with a `compose.yaml` for the app and MariaDB and an optional `compose.caddy.yaml` for automatic HTTPS. One container runs the web app, the scheduled jobs and the backup agent; data lives in named volumes. Backups and restore work from Settings as before, and a backup moves between Docker and a dedicated server. Updates in Docker are `docker compose pull && docker compose up -d`. In Docker, trusted proxies can be narrow address ranges, and the database is encrypted at rest as on a dedicated server. Dedicated installs are unchanged, and CI now proves it: every change runs a fresh `install.sh` and an update from the previous release in a Debian 13 VM. See [Install with Docker](docs/DOCKER.md). The docs site has a new [Screenshots](docs/SCREENSHOTS.md) page, and the docs are brought up to date with the 1.42 menus and 1.43 look.
 - **A cleaner look, and dark mode (1.43):** the interface moves to AdminLTE 4 and Bootstrap 5.3 with a cleaner design: white cards on a light gray page, softer borders and badges, one accent color (your brand color from Settings → Branding) and a compact dark sidebar. Each person picks **Light**, **Dark** or **Match my computer** under **Account → Light or dark**; printed reports and PDFs always stay light. The client portal gets a friendlier look: the client's logo and name at the top, larger text, more white space and simpler section tabs. jQuery is no longer used.

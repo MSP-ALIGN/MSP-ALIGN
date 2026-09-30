@@ -144,9 +144,10 @@ final class ReportController
 
     /**
      * Quarterly business review pack: cover, executive summary, then each section.
-     * $allowed limits the sections (the portal passes only what the user may see).
+     * $allowed limits the sections (the portal passes only what the user may see); $people false leaves out the key
+     * contacts and meetings (a portal user without "Documents, contacts & meetings", 1.45).
      */
-    public static function renderQbr(array $client, array $opt, array $allowed): void
+    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true): void
     {
         $id = (int) $client['id'];
         $on = fn(string $k) => in_array($k, $allowed, true) && !empty($opt[$k]);
@@ -179,7 +180,7 @@ final class ReportController
             'quarter' => $q,
             'on' => $on,
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
-            'people' => ReportData::people($id),
+            'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],
             'provider' => ['company' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],
             'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null),

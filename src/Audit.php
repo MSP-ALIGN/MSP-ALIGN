@@ -14,13 +14,15 @@ final class Audit
         if (\Align\Api\Context::active()) {
             $detail .= ' — via ' . \Align\Api\Context::label(); // changes made through the API name the key
         }
+        // Control characters (other than tab and new line) are dropped: the chain's HMAC joins fields with \x1f
+        $clean = fn(string $v) => preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $v) ?? '';
         try {
             AuditChain::append([
                 'user_id' => $userId,
                 'portal_user_id' => $portalUserId,
-                'action' => $action,
-                'detail' => mb_substr($detail, 0, 5000),
-                'ip' => $ip,
+                'action' => $clean($action),
+                'detail' => mb_substr($clean($detail), 0, 5000),
+                'ip' => $clean($ip),
             ]);
         } catch (\Throwable $e) {
             error_log('Audit log failed: ' . $e->getMessage());

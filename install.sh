@@ -185,11 +185,14 @@ timedatectl set-ntp true 2>/dev/null || true
 # ------------------------------------------------------------- directories --
 install -d -m 750 -o root -g www-data "$CONF_DIR"
 install -d -m 750 -o www-data -g www-data "$DATA_DIR"
-install -d -m 700 -o www-data -g www-data "$DATA_DIR/sessions"
-install -d -m 750 -o www-data -g www-data "$DATA_DIR/uploads"
+# The web user owns everything inside the data folder, so only that user makes or changes things there:
+# as root, a folder it had swapped for a symlink would hand the symlink's target to www-data (1.45).
 # Updates & backups: the web app queues requests in /run (RAM); the root agent does the work.
 # Backups are built for download and deleted once downloaded - nothing is kept on the server.
-install -d -m 750 -o www-data -g www-data "$DATA_DIR/downloads" "$DATA_DIR/restore"
+# chown -h never follows a symlink, so a folder copied in as root is handed back to www-data without that risk
+for d in sessions uploads downloads restore imports; do chown -h www-data:www-data "$DATA_DIR/$d" 2>/dev/null || true; done
+runuser -u www-data -- install -d -m 700 "$DATA_DIR/sessions"
+runuser -u www-data -- install -d -m 750 "$DATA_DIR/uploads" "$DATA_DIR/downloads" "$DATA_DIR/restore"
 install -d -m 750 -o root -g www-data "$AGENT_DIR" "$AGENT_DIR/jobs" "$AGENT_DIR/safety"
 install -d -m 700 -o root -g root "$AGENT_DIR/work"
 {
@@ -404,9 +407,11 @@ Header always unset X-Powered-By
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
 <Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"
+    Header always set X-Content-Type-Options "nosniff"
 </Directory>
 <Directory /opt/msp-align/public/vendor>
     Header set Cache-Control "public, max-age=2592000"
+    Header always set X-Content-Type-Options "nosniff"
 </Directory>
 
 # HSTS on every HTTPS response
@@ -603,7 +608,8 @@ systemctl restart fail2ban 2>/dev/null || warn "fail2ban did not start - check: 
 
 if [[ "${ALIGN_FIREWALL:-1}" == "1" ]] && command -v ufw >/dev/null; then
   log "Configuring firewall (ufw)"
-  SSH_PORTS=$(sshd -T 2>/dev/null | awk '/^port /{print $2}' | sort -u)
+  # no sshd (or sshd -T failing) must not stop the install under pipefail: fall back to port 22
+  SSH_PORTS=$({ sshd -T 2>/dev/null || true; } | awk '/^port /{print $2}' | sort -u)
   for p in ${SSH_PORTS:-22}; do ufw limit "$p/tcp" >/dev/null; done
   if [[ "$ALIGN_TLS" == "proxy" ]]; then
     for ip in $(echo "${ALIGN_PROXY_IP:-}" | tr ',' ' '); do ufw allow from "$ip" to any port 80 proto tcp >/dev/null; done
@@ -689,8 +695,13 @@ if [[ -n "$BACKUP_PRIV_SHOWN" ]]; then
   printf '%s  BACKUP DECRYPTION KEY - store it offline now (password manager or safe).%s\n' "$c_warn$c_b" "$c_0"
   echo "  Without it the backups cannot be restored. It is also saved in $PRIVKEY_FILE;"
   echo "  delete that file once you have a copy:  sudo shred -u $PRIVKEY_FILE"
-  echo
-  grep '^AGE-SECRET-KEY' "$PRIVKEY_FILE" | sed 's/^/    /'
+  if [[ -t 1 ]]; then
+    echo
+    grep '^AGE-SECRET-KEY' "$PRIVKEY_FILE" | sed 's/^/    /'
+  else
+    # Not a terminal (an update started from the web page, whose log admins can download): keep it in the file only
+    echo "  Read it on the server:  sudo cat $PRIVKEY_FILE"
+  fi
 elif [[ -f "$PRIVKEY_FILE" ]]; then
   warn "The backup private key is still on this server ($PRIVKEY_FILE). Store it offline, then shred it."
 fi

@@ -119,7 +119,7 @@ function owner(string $path, int $mode, bool $toRunAs = false, bool $groupOnly =
 
 function ensureDirs(): void
 {
-    foreach ([[STATE, 0750, false], [JOBS, 0750, false], [DOWNLOADS, 0750, true], [RESTORE, 0750, true], [SAFETY, 0750, false], [WORK, 0700, null], [KEYS, 0700, null]] as [$d, $mode, $asRun]) {
+    foreach ([[STATE, 0750, false], [JOBS, 0750, false], [SAFETY, 0750, false], [WORK, 0700, null], [KEYS, 0700, null]] as [$d, $mode, $asRun]) {
         if (!is_dir($d)) {
             @mkdir($d, $mode, true);
         }
@@ -129,6 +129,31 @@ function ensureDirs(): void
         }
         owner($d, $mode, $asRun);
     }
+    webDir(DOWNLOADS, 0750);
+    webDir(RESTORE, 0750);
+}
+
+/**
+ * The web user owns the data folder, so it could swap anything in it for a symlink: root never makes, changes
+ * ownership of, writes, reads or deletes anything in there itself; it runs those steps as the web user (1.45).
+ */
+function webDir(string $d, int $mode): void
+{
+    exec(asUser('install -d -m ' . sprintf('%o', $mode) . ' ' . q($d)) . ' 2>/dev/null');
+}
+
+/** Copies a file into the web user's data folder, written by the web user (see webDir). */
+function toWeb(Job $job, string $src, string $dest, string $error): void
+{
+    $job->must(asUser('sh -c ' . q('umask 027 && cat > "$1.part" && mv -f "$1.part" "$1"') . ' sh ' . q($dest)) . ' < ' . q($src), $error);
+}
+
+/** Copies a file out of the web user's data folder into the agent's own work folder, read as the web user. */
+function fromWeb(Job $job, string $src, string $dest, string $error): void
+{
+    $old = umask(077);
+    $job->must(asUser('cat -- ' . q($src)) . ' > ' . q($dest), $error);
+    umask($old);
 }
 
 function writeJson(string $path, array $data, int $mode = 0640): void
@@ -409,13 +434,11 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
             . " | gzip -6 | age $R -o " . q("$tmp/db.sql.gz.age"), 'The database backup failed.');
         $files = 0;
         $up = uploadDir();
-        if (is_dir($up)) {
+        if (is_dir($up) && !is_link($up)) {
             $job->step('Backing up uploaded files');
-            $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($up, FilesystemIterator::SKIP_DOTS));
-            foreach ($it as $f) {
-                $files += $f->isFile() ? 1 : 0;
-            }
-            $job->must('tar -czf - -C ' . q(dirname($up)) . ' --transform ' . q('s#^' . basename($up) . '#uploads#') . ' ' . q(basename($up)) . " | age $R -o " . q("$tmp/uploads.tar.gz.age"), 'Backing up uploaded files failed.');
+            // counted and read as the web user (see webDir); a file it can't read fails the backup, and says so
+            $files = (int) trim($job->must(asUser('find ' . q($up) . ' -type f') . ' | wc -l', 'Could not list the uploaded files.', true));
+            $job->must(asUser('tar -czf - -C ' . q(dirname($up)) . ' --transform ' . q('s#^' . basename($up) . '#uploads#') . ' ' . q(basename($up))) . " | age $R -o " . q("$tmp/uploads.tar.gz.age"), 'Backing up uploaded files failed (a file the web server can\'t read? Run sudo msp-align-update to fix permissions).');
         }
         $job->must("age $R -o " . q("$tmp/app-key.age"), 'Could not save the encryption key.', false, (string) conf()['app_key']);
         $manifest = [
@@ -729,9 +752,7 @@ function clearSessions(): void
 {
     $dir = conf()['session_path'] ?? null;
     if ($dir && is_dir($dir)) {
-        foreach (glob(rtrim($dir, '/') . '/sess_*') ?: [] as $f) {
-            @unlink($f);
-        }
+        exec(asUser('find ' . q(rtrim($dir, '/')) . ' -mindepth 1 -maxdepth 1 -type f -name ' . q('sess_*') . ' -delete') . ' 2>/dev/null');
     }
 }
 
@@ -958,30 +979,39 @@ function process(array $req, bool $echo = false): Job
             case 'backup':
                 $tmp = WORK . '/' . $req['id'] . '.tar';
                 $m = makeBackup($job, $tmp, 'download');
-                owner($tmp, 0640, true);
                 $out = DOWNLOADS . '/' . $req['id'] . '.tar';
-                if (!rename($tmp, $out)) {
+                $size = filesize($tmp);
+                $sha = hash_file('sha256', $tmp);
+                try {
+                    toWeb($job, $tmp, $out, 'Could not hand the backup to the web server.');
+                } finally {
                     @unlink($tmp);
-                    throw new JobFailed('Could not hand the backup to the web server.');
                 }
-                $job->finish(true, 'Backup ready to download.', ['file' => basename($out), 'filename' => nameFor($m), 'size' => filesize($out), 'sha256' => hash_file('sha256', $out), 'uploads_files' => $m['uploads_files']]);
+                $job->finish(true, 'Backup ready to download.', ['file' => basename($out), 'filename' => nameFor($m), 'size' => $size, 'sha256' => $sha, 'uploads_files' => $m['uploads_files']]);
                 break;
 
             case 'verify':
             case 'restore':
                 $token = (string) ($p['token'] ?? '');
-                $file = RESTORE . "/$token.tar";
-                if (!preg_match(TOKEN_RE, $token) || !is_file($file) || is_link($file)) {
+                $upload = RESTORE . "/$token.tar";
+                if (!preg_match(TOKEN_RE, $token) || !is_file($upload) || is_link($upload)) {
                     throw new JobFailed('The uploaded backup file is gone. Upload it again.');
                 }
-                $keyFile = keyFile($req['id'], (string) ($req['key'] ?? ''));
-                if ($req['action'] === 'verify') {
-                    $info = inspect($job, $file, $keyFile);
-                    $job->finish(true, 'The backup opened with this key and every part checked out.', ['backup' => summary($info)]);
-                } else {
-                    $r = doRestore($job, $file, $keyFile, !empty($p['db']), !empty($p['uploads']));
+                // Work on a copy in the agent's own folder, read as the web user (see webDir)
+                $file = WORK . '/' . $req['id'] . '-upload.tar';
+                try {
+                    fromWeb($job, $upload, $file, 'The uploaded backup file could not be read. Upload it again.');
+                    $keyFile = keyFile($req['id'], (string) ($req['key'] ?? ''));
+                    if ($req['action'] === 'verify') {
+                        $info = inspect($job, $file, $keyFile);
+                        $job->finish(true, 'The backup opened with this key and every part checked out.', ['backup' => summary($info)]);
+                    } else {
+                        $r = doRestore($job, $file, $keyFile, !empty($p['db']), !empty($p['uploads']));
+                        exec(asUser('rm -f -- ' . q($upload)));
+                        $job->finish(true, 'Restore complete. Everyone has been signed out.', $r);
+                    }
+                } finally {
                     @unlink($file);
-                    $job->finish(true, 'Restore complete. Everyone has been signed out.', $r);
                 }
                 break;
 
@@ -1026,19 +1056,35 @@ function process(array $req, bool $echo = false): Job
     return $job;
 }
 
+/**
+ * Outside checkpoint of the audit log (1.45): the head the last night saw is kept here, where the web user and the
+ * database can't change it. An entry it saw must still be there with the same hash (or have been pruned for age),
+ * so writing back an old copy of the chain's markers after removing newer entries is caught too.
+ */
+function auditCheckpoint(): void
+{
+    $file = STATE . '/audit-head.json';
+    $prev = readJson($file);
+    if ($prev && isset($prev['id'], $prev['hash'])) {
+        exec(asUser('php ' . q(APP . '/bin/align') . ' audit:checkpoint --id=' . (int) $prev['id'] . ' --hash=' . q((string) $prev['hash'])) . ' 2>&1', $o, $code);
+        if ($code === 2) {
+            fwrite(STDERR, "ALERT: audit log verification failed: " . implode(' ', $o) . "\n");
+        }
+    }
+    exec(asUser('php ' . q(APP . '/bin/align') . ' audit:head') . ' 2>/dev/null', $h, $code);
+    $head = json_decode(implode('', $h), true);
+    if ($code === 0 && is_array($head) && isset($head['id'], $head['hash']) && preg_match('/^[0-9a-f]{64}$|^$/', (string) $head['hash'])) {
+        writeJson($file, ['id' => (int) $head['id'], 'hash' => (string) $head['hash'], 'at' => now()]);
+    }
+}
+
 function cleanup(): void
 {
-    $old = fn(string $f, int $sec) => is_file($f) && filemtime($f) < time() - $sec;
-    foreach (glob(DOWNLOADS . '/*') ?: [] as $f) {
-        if ($old($f, 3600)) {
-            @unlink($f); // never downloaded within an hour
-        }
-    }
-    foreach (glob(RESTORE . '/*') ?: [] as $f) {
-        if ($old($f, 86400)) {
-            @unlink($f);
-        }
-    }
+    // Backups never downloaded within an hour, and uploads left for a day, removed as the web user (see webDir)
+    exec(asUser('find ' . q(DOWNLOADS) . ' -mindepth 1 -maxdepth 1 -type f -mmin +60 -delete') . ' 2>/dev/null');
+    exec(asUser('find ' . q(RESTORE) . ' -mindepth 1 -maxdepth 1 -type f -mmin +1440 -delete') . ' 2>/dev/null');
+    // Import previews nobody imported (client and contact details) go after a day, even if the importer isn't used again (1.45)
+    exec(asUser('find ' . q(DATA . '/imports') . ' -mindepth 1 -maxdepth 1 -type f -name ' . q('*.json') . ' -mmin +1440 -delete') . ' 2>/dev/null');
     foreach (glob(WORK . '/*') ?: [] as $f) {
         if (is_file($f) && filemtime($f) < time() - 6 * 3600) {
             @unlink($f);
@@ -1047,7 +1093,7 @@ function cleanup(): void
         }
     }
     foreach (glob(SAFETY . '/*.tar') ?: [] as $f) {
-        if ($old($f, 14 * 86400)) {
+        if (is_file($f) && filemtime($f) < time() - 14 * 86400) {
             @unlink($f);
         }
     }
@@ -1121,6 +1167,7 @@ switch ($cmd) {
 
     case 'nightly':
         cleanup();
+        auditCheckpoint();
         foreach (['audit:verify', 'audit:prune'] as $c) {
             passthru(asUser('php ' . q(APP . '/bin/align') . ' ' . $c), $code);
             if ($code !== 0 && $c === 'audit:verify') {
@@ -1141,17 +1188,22 @@ switch ($cmd) {
             exit(1);
         }
         $token = bin2hex(random_bytes(16));
-        copy($src, RESTORE . "/$token.tar");
+        ensureDirs();
+        exec('bash -o pipefail -c ' . q('cat -- ' . q($src) . ' | ' . asUser('sh -c ' . q('umask 027 && cat > "$1"') . ' sh ' . q(RESTORE . "/$token.tar"))), $o, $rc);
+        if ($rc !== 0) {
+            fwrite(STDERR, "Could not copy the backup into place.\n");
+            exit(1);
+        }
         $key = readSecret('Backup key (AGE-SECRET-KEY-1...): ');
         fwrite(STDOUT, "This replaces the current data and signs everyone out. Type RESTORE to continue: ");
         if (trim((string) fgets(STDIN)) !== 'RESTORE') {
-            @unlink(RESTORE . "/$token.tar");
+            exec(asUser('rm -f -- ' . q(RESTORE . "/$token.tar")));
             exit(1);
         }
         $only = $argv[3] ?? '';
         $job = process(['id' => newId(), 'action' => 'restore', 'user' => 'command line (' . (getenv('SUDO_USER') ?: 'root') . ')', 'key' => $key,
             'params' => ['token' => $token, 'db' => $only !== '--uploads-only', 'uploads' => $only !== '--db-only']], true);
-        @unlink(RESTORE . "/$token.tar");
+        exec(asUser('rm -f -- ' . q(RESTORE . "/$token.tar")));
         exit($job->s['state'] === 'succeeded' ? 0 : 1);
 
     default:

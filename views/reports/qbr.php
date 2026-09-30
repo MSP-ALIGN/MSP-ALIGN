@@ -49,7 +49,7 @@ foreach ($sections as $k => $_) {
     <div class="cover-client"><?= e($client['name']) ?></div>
     <div class="cover-bar"></div>
     <div class="cover-meta">
-      <div><span>Prepared for</span><?= e($client['contact_name'] ?: $client['name']) ?></div>
+      <div><span>Prepared for</span><?= e(empty($people['hidden']) && $client['contact_name'] ? $client['contact_name'] : $client['name']) ?></div>
       <div><span>Prepared by</span><?= e($brand['preparedBy'] ?: $brand['company']) ?></div>
       <div><span>Period</span><?= e($quarter['label']) ?> (<?= e($quarter['months']) ?>)</div>
     </div>

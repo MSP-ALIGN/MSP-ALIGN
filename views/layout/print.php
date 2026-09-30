@@ -10,7 +10,8 @@ $labels = ($optLabels ?? []) + ['costs' => 'Costs', 'inventory' => 'Full invento
 $brandColor = \Align\Branding::color();
 $clientLogo = !empty($client['id']) ? client_logo_url($client) : null;
 $footLeft = trim(($brand['company'] ?? '') . ($client ? ' · ' . $client['name'] : '') . ' · ' . ($reportTitle ?? $title ?? ''), ' ·');
-$cssStr = fn(string $s) => '"' . str_replace(['\\', '"', "\n", '<'], ['\\\\', '\\"', ' ', '\\3c '], $s) . '"';
+// A CSS string: escaped quote and backslash; every control character (CR, LF, FF... end a CSS string) and < become spaces or escapes (1.45)
+$cssStr = fn(string $s) => '"' . str_replace(['\\', '"', '<'], ['\\\\', '\\"', '\\3c '], preg_replace('/[\x00-\x1F\x7F]/', ' ', $s) ?? '') . '"';
 ?><!doctype html>
 <html lang="en" data-bs-theme="light">
 <head>

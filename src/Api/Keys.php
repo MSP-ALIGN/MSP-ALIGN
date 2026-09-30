@@ -116,8 +116,8 @@ final class Keys
         if ($row['expires_at'] && strtotime($row['expires_at']) <= time()) {
             return [null, 'key_expired'];
         }
-        // A key stops with the account that made it (e.g. an admin who left)
-        if ($row['created_by'] && !DB::value('SELECT is_active FROM users WHERE id = ?', [$row['created_by']])) {
+        // A key stops with the account that made it: an admin who left, or who is no longer an admin (1.45)
+        if ($row['created_by'] && !DB::value("SELECT 1 FROM users WHERE id = ? AND is_active = 1 AND role = 'admin'", [$row['created_by']])) {
             return [null, 'key_owner_inactive'];
         }
         return [self::decode($row), null];

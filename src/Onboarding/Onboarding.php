@@ -16,6 +16,9 @@ use Align\Settings;
  */
 final class Onboarding
 {
+    /** Days an onboarding link keeps working once onboarding is complete (1.45). */
+    public const AFTER_DONE_DAYS = 7;
+
     public const STEPS = [
         'contacts' => ['Your team\'s contacts', 'fa-address-book'],
         'review' => ['How we work together', 'fa-book-open'],
@@ -304,7 +307,9 @@ HTML],
                 if ($k['source'] === 'psa') {
                     if ($push) {
                         if ($err = \Align\Contacts\Contacts::pushUpdate($k, $f, (string) $client['psa_id'])) {
-                            $errors[] = $k['name'] . ': saved here, but ' . psa_name() . ' didn\'t accept the change (' . $err . ').';
+                            // The page needs no sign-in: the error's own text (hosts, API messages) goes to the audit log only (1.45)
+                            \Align\Audit::log('onboarding.contact_push_failed', "{$client['name']}: {$k['name']}: " . mb_substr($err, 0, 300));
+                            $errors[] = $k['name'] . ': saved, but not yet in our service desk. Our team will sort it out.';
                         }
                     } else {
                         // the PSA manages these details: keep the Align-only flags, note the rest for staff

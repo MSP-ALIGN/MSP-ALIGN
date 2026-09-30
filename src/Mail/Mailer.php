@@ -125,8 +125,19 @@ final class Mailer
             if ($lock) {
                 DB::value("SELECT RELEASE_LOCK('mountaineer_align_mail')");
             }
+            self::wipeSensitive();
         }
         return [$sent, $failed];
+    }
+
+    /**
+     * One-time links never wait in the outbox once they can't be sent: a failed or cancelled invite or reset
+     * email has its body wiped too, not only a sent one (1.45). The log line stays.
+     */
+    public static function wipeSensitive(): void
+    {
+        $in = implode(',', array_fill(0, count(self::SENSITIVE), '?'));
+        DB::run("UPDATE mail_queue SET body_html = NULL, attachments = NULL, purged = 1 WHERE purged = 0 AND status IN ('sent','failed','cancelled') AND kind IN ($in)", self::SENSITIVE);
     }
 
     /** Clears message bodies after the retention period (the log line stays), drops log rows after ~13 months. */

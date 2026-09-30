@@ -166,6 +166,7 @@ final class Meetings
             throw ApiError::invalid([], 'Send at least one field to change.');
         }
         self::guardInvites($in);
+        self::guardSent($m, $in);
         $cols = self::columns($in, $m);
         $status = $in['status'] ?? null;
         if ($status !== null && $status !== $m['status']) {
@@ -205,6 +206,29 @@ final class Meetings
             : ['status' => 'sent', 'message' => $r];
     }
 
+    /**
+     * Once invitations went out, what attendees were sent (and the cancellation they'd get) comes from a staff
+     * mailbox: a key limited to certain clients can't reword it, move it, cancel, reopen or delete it (1.45).
+     * Notes and marking it completed are fine.
+     */
+    private static function guardSent(array $m, array $in, bool $deleting = false): void
+    {
+        if (Context::clients() === null || !$m['invites_sent_at']) {
+            return;
+        }
+        $msg = 'Invitations already went out for this meeting; only a key for all clients can change what attendees see.';
+        if ($deleting) {
+            throw ApiError::invalid(['id' => $msg], 'Only a key for all clients can delete a meeting whose invitations went out.');
+        }
+        $bad = array_intersect(array_keys($in), ['title', 'type', 'starts_at', 'duration_minutes', 'location', 'video_url', 'agenda', 'client_id']);
+        if (in_array($in['status'] ?? null, ['cancelled', 'scheduled'], true) && ($in['status'] ?? null) !== $m['status']) {
+            $bad[] = 'status';
+        }
+        if ($bad) {
+            throw ApiError::invalid(array_fill_keys(array_values($bad), $msg));
+        }
+    }
+
     /** Sending invitations uses a staff mailbox, so it needs a key for all clients. */
     private static function guardInvites(array $in): void
     {
@@ -216,6 +240,7 @@ final class Meetings
     public static function delete(int $id): array
     {
         $m = self::load($id);
+        self::guardSent($m, [], true);
         if ($m['invites_sent_at'] && $m['status'] === 'scheduled') {
             \Align\Mail\Invites::send($id, 'cancel'); // tell attendees before it disappears
         }

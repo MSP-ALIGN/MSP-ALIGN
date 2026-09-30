@@ -9,6 +9,8 @@ namespace Align;
  * inserting or deleting an entry breaks the chain from that point, and verify() reports where.
  * Entries older than the retention period (6 years, the HIPAA documentation period) can be pruned;
  * the hash of the last pruned entry becomes the new anchor so the rest still verifies.
+ * The anchor and the head (the newest entry's id and hash) are sealed with their own HMAC (1.45), so entries
+ * can't be cut off either end of the log with the markers moved to match.
  */
 final class AuditChain
 {
@@ -19,6 +21,26 @@ final class AuditChain
         return hash_hmac('sha256', 'audit-chain-v1', Crypto::key(), true);
     }
 
+    /** The seal over the chain's start and end markers. */
+    private static function sealOf(array $c): string
+    {
+        return hash_hmac('sha256', implode('|', ['seal-v1', (int) ($c['anchor_id'] ?? 0), (string) ($c['anchor_hash'] ?? ''),
+            (int) ($c['last_id'] ?? 0), (string) ($c['last_hash'] ?? '')]), self::key());
+    }
+
+    /** Seals the markers as they are now (after pruning or backfilling, and once by migration 044). */
+    public static function reseal(): void
+    {
+        $seal = function () {
+            $c = DB::one('SELECT * FROM audit_chain WHERE id = 1 FOR UPDATE'); // no entry can be added in between
+            if ($c && array_key_exists('seal', $c)) {
+                DB::run('UPDATE audit_chain SET seal = ? WHERE id = 1', [self::sealOf($c)]);
+            }
+        };
+        DB::pdo()->inTransaction() ? $seal() : DB::transaction($seal);
+    }
+
+    /** Fields are joined with \x1f, which Audit::log strips from what it stores, so no field can shift into the next. */
     public static function hash(array $r, string $prev): string
     {
         $data = implode("\x1f", [$prev, (string) $r['id'], (string) $r['created_at'], (string) ($r['user_id'] ?? ''),
@@ -40,7 +62,12 @@ final class AuditChain
             $row['id'] = $id;
             $h = self::hash($row, (string) $chain['last_hash']);
             DB::run('UPDATE audit_log SET prev_hash = ?, row_hash = ? WHERE id = ?', [$chain['last_hash'], $h, $id]);
-            DB::run('UPDATE audit_chain SET last_id = ?, last_hash = ? WHERE id = 1', [$id, $h]);
+            if (array_key_exists('seal', $chain)) {
+                DB::run('UPDATE audit_chain SET last_id = ?, last_hash = ?, seal = ? WHERE id = 1',
+                    [$id, $h, self::sealOf(['last_id' => $id, 'last_hash' => $h] + $chain)]);
+            } else { // before migration 044
+                DB::run('UPDATE audit_chain SET last_id = ?, last_hash = ? WHERE id = 1', [$id, $h]);
+            }
         });
     }
 
@@ -57,6 +84,7 @@ final class AuditChain
             $lastId = (int) $r['id'];
         }
         DB::run('UPDATE audit_chain SET last_id = ?, last_hash = ? WHERE id = 1', [$lastId, $prev]);
+        self::reseal();
     }
 
     /** @return array{ok:bool, checked:int, broken_at:?int, reason:?string, head_id:int, head_hash:string} */
@@ -90,6 +118,11 @@ final class AuditChain
         $prev = $prevHash ?? (string) $chain['anchor_hash'];
         $n = 0;
         $lastId = $afterId;
+        // Migration 044 seals the markers, and every entry, prune and backfill reseals them: a missing seal is tampering too
+        if (array_key_exists('seal', $chain) && !hash_equals(self::sealOf($chain), (string) $chain['seal'])) {
+            return ['ok' => false, 'checked' => 0, 'broken_at' => (int) ($prevHash === null ? ($chain['anchor_id'] ?? 0) : $afterId),
+                'reason' => 'the markers for the start or end of the log were changed (entries cut off one end)', 'head_id' => $afterId, 'head_hash' => $prev];
+        }
         $stmt = DB::run('SELECT id, created_at, user_id, portal_user_id, action, detail, ip, prev_hash, row_hash FROM audit_log WHERE id > ? ORDER BY id', [$afterId]);
         while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $n++;
@@ -120,6 +153,7 @@ final class AuditChain
             }
             $n = DB::run('DELETE FROM audit_log WHERE id <= ?', [$last['id']])->rowCount();
             DB::run('UPDATE audit_chain SET anchor_id = ?, anchor_hash = ? WHERE id = 1', [$last['id'], $last['row_hash']]);
+            self::reseal();
             return $n;
         });
     }

@@ -83,7 +83,7 @@ tr=json.loads(q("select transition from client_onboardings where client_id=1")[0
 r=c.post(link+"/request/new_user",data={"_csrf":cs(),"first_name":"Sam","last_name":"Lee","job_title":"Assistant","start_date":"2026-10-20","supervisor":"Sam Rivera","by_name":"Jordan Ellis","by_email":"jordan@cedarridgedental.example"})
 ok("Request sent: NEW USER SETUP: Sam Lee" in flash(r.text),"new user request sent")
 created=mock("/mock/tickets-created")["created"]; tk=created[-1]
-ok(tk["ticket_subject"]=="NEW USER SETUP: Sam Lee" and tk["client_id"]==1 and "Sam Rivera" in tk["ticket_details"] and tk.get("ticket_contact_id")==2,"ITFlow ticket created with the details and the requester as contact")
+ok(tk["ticket_subject"]=="NEW USER SETUP: Sam Lee" and tk["client_id"]==1 and "Sam Rivera" in tk["ticket_details"] and "not verified" in tk["ticket_details"] and not tk.get("ticket_contact_id"),"ITFlow ticket created with the details; the typed-in requester is marked unverified and not made the ticket contact (1.45)")
 r=c.post(link+"/request/new_user",data={"_csrf":cs(),"first_name":"","by_name":""}); ok("First name is required" in flash(r.text) and "Please enter your name" in flash(r.text),"required fields checked")
 mock("/mock/ticket-create-fail",{"on":True})
 r=c.post(link+"/request/termination",data={"_csrf":cs(),"employee":"Old Tech","disable_at":"2026-10-01T17:00","disable_account":"1","mail_access[0][who]":"sam@cedarridgedental.example","mail_access[0][type]":"full","by_name":"Jordan"})

@@ -102,6 +102,8 @@ final class SyncRunner
         $status = !$this->errors ? 'success' : (count($this->summary) > count($this->errors) ? 'partial' : 'failed');
         $this->info("Sync finished: $status");
         $this->save($status, true);
+        // Every run in the audit log, scheduled ones included (the manual button also logs who pressed it) (1.45)
+        \Align\Audit::log('sync.run', "#{$this->runId} {$this->trigger}: $status" . ($this->errors ? ' (' . count($this->errors) . ' step' . (count($this->errors) === 1 ? '' : 's') . ' failed)' : ''), $this->userId);
         \Align\Mail\Notify::afterSync($status, $this->errors);
         DB::value("SELECT RELEASE_LOCK('mountaineer_align_sync')");
         return ['id' => $this->runId, 'status' => $status, 'summary' => $this->summary];
@@ -128,9 +130,10 @@ final class SyncRunner
             $this->save('running');
             return true;
         } catch (\Throwable $e) {
-            $this->errors[$name] = $e->getMessage();
-            $this->summary[$name] = 'ERROR: ' . $e->getMessage();
-            $this->info("$name FAILED: " . $e->getMessage());
+            $msg = safe_error($e);
+            $this->errors[$name] = $msg;
+            $this->summary[$name] = 'ERROR: ' . $msg;
+            $this->info("$name FAILED: " . $msg);
             $this->save('running');
             return false;
         }

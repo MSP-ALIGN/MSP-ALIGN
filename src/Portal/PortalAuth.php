@@ -104,30 +104,36 @@ final class PortalAuth
         return 'portal:' . strtolower(trim($email));
     }
 
-    public static function isLockedOut(string $email): bool
+    public static function isLockedOut(string $email, int $pending = 0): bool
     {
         $since = date('Y-m-d H:i:s', time() - self::FAILURE_WINDOW_MIN * 60);
         $byIp = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND success = 0 AND created_at > ?', [client_ip(), $since]);
         $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND success = 0 AND created_at > ?', [self::key($email), $since]);
-        return $byIp >= self::MAX_FAILURES * 2 || $byEmail >= self::MAX_FAILURES;
+        return $byIp >= self::MAX_FAILURES * 2 + $pending || $byEmail >= self::MAX_FAILURES + $pending;
     }
 
-    private static function recordAttempt(string $email, bool $ok): void
+    private static function recordAttempt(string $email, bool $ok): int
     {
-        DB::insert('login_attempts', ['ip' => client_ip(), 'email' => self::key($email), 'success' => $ok ? 1 : 0]);
+        return DB::insert('login_attempts', ['ip' => client_ip(), 'email' => self::key($email), 'success' => $ok ? 1 : 0]);
+    }
+
+    /** Counted as a failure before the slow check, cleared on success (see Auth::beginAttempt). Null when over the limit. */
+    private static function beginAttempt(string $email): ?int
+    {
+        $id = self::recordAttempt($email, false);
+        return self::isLockedOut($email, 1) ? null : $id;
     }
 
     /** 'ok', '2fa', 'locked' or 'invalid' */
     public static function attempt(string $email, string $password): string
     {
         $email = strtolower(trim($email));
-        if (self::isLockedOut($email)) {
+        if (self::isLockedOut($email) || ($attemptId = self::beginAttempt($email)) === null) {
             return 'locked';
         }
         $u = DB::one('SELECT p.*, c.is_archived AS client_archived FROM portal_users p JOIN clients c ON c.id = p.client_id WHERE p.email = ? AND p.is_active = 1', [$email]);
         $hash = ($u['password_hash'] ?? null) ?: \Align\Security::dummyHash();
         if (!password_verify($password, $hash) || !$u || !$u['password_hash'] || $u['client_archived']) {
-            self::recordAttempt($email, false);
             Audit::log('portal.login_failed', filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '(not an email address)', null, $u['id'] ?? null);
             \Align\Security::logAuthFailure('portal');
             if ($u && self::isLockedOut($email)) {
@@ -140,10 +146,11 @@ final class PortalAuth
         }
         if ($u['totp_enabled']) {
             session_regenerate_id(true);
+            DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
             $_SESSION['portal_pending_2fa'] = ['uid' => (int) $u['id'], 'at' => time()];
             return '2fa';
         }
-        self::recordAttempt($email, true);
+        DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
         self::completeLogin((int) $u['id']);
         return 'ok';
     }
@@ -156,22 +163,53 @@ final class PortalAuth
             return 'expired';
         }
         $u = DB::one('SELECT * FROM portal_users WHERE id = ? AND is_active = 1', [$p['uid']]);
-        if (!$u || self::isLockedOut($u['email'])) {
+        if (!$u || self::isLockedOut($u['email']) || ($attemptId = self::beginAttempt($u['email'])) === null) {
             return 'locked';
         }
         $secret = Crypto::decrypt((string) $u['totp_secret_enc']);
         $step = $secret ? Totp::verifyStep($secret, $code, $u['totp_last_step'] !== null ? (int) $u['totp_last_step'] : null) : null;
-        if ($step === null) {
-            self::recordAttempt($u['email'], false);
+        // one use per code, even for parallel requests
+        $used = $step !== null && DB::run('UPDATE portal_users SET totp_last_step = ? WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)', [$step, $u['id'], $step])->rowCount() === 1;
+        if (!$used) {
             Audit::log('portal.2fa_failed', $u['email'], null, (int) $u['id']);
             \Align\Security::logAuthFailure('portal-2fa');
             return 'invalid';
         }
-        DB::run('UPDATE portal_users SET totp_last_step = ? WHERE id = ?', [$step, $u['id']]);
         unset($_SESSION['portal_pending_2fa']);
-        self::recordAttempt($u['email'], true);
+        DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
         self::completeLogin((int) $u['id']);
         return 'ok';
+    }
+
+    /** Re-checks the signed-in portal user's password, counted and locked out like a sign-in (1.45). */
+    public static function checkPassword(array $pu, string $password): string
+    {
+        if (self::isLockedOut($pu['email']) || ($attemptId = self::beginAttempt($pu['email'])) === null) {
+            return 'locked';
+        }
+        if (!password_verify($password, (string) $pu['password_hash'])) {
+            Audit::log('portal.reauth_failed', 'Password confirmation failed', null, (int) $pu['id']);
+            return 'invalid';
+        }
+        DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
+        return 'ok';
+    }
+
+    /** Re-checks the signed-in portal user's current two-factor code (each code works once). */
+    public static function confirmCode(array $pu, string $code): bool
+    {
+        $u = DB::one('SELECT email, totp_secret_enc, totp_last_step FROM portal_users WHERE id = ?', [$pu['id']]);
+        if (!$u || self::isLockedOut($u['email']) || ($attemptId = self::beginAttempt($u['email'])) === null) {
+            return false;
+        }
+        $secret = $u['totp_secret_enc'] ? Crypto::decrypt((string) $u['totp_secret_enc']) : null;
+        $step = $secret ? Totp::verifyStep($secret, preg_replace('/\s+/', '', $code) ?? '', $u['totp_last_step'] !== null ? (int) $u['totp_last_step'] : null) : null;
+        if ($step === null || DB::run('UPDATE portal_users SET totp_last_step = ? WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)', [$step, $pu['id'], $step])->rowCount() !== 1) {
+            Audit::log('portal.reauth_failed', 'Two-factor confirmation failed', null, (int) $pu['id']);
+            return false;
+        }
+        DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
+        return true;
     }
 
     public static function completeLogin(int $id): void
@@ -198,12 +236,6 @@ final class PortalAuth
         }
     }
 
-    /** Invite link used on an account that already has two-factor: continue to the code step, don't sign in. */
-    public static function beginSecondFactor(int $id): void
-    {
-        session_regenerate_id(true);
-        $_SESSION['portal_pending_2fa'] = ['uid' => $id, 'at' => time()];
-    }
 
     public static function logout(): void
     {
@@ -240,7 +272,12 @@ final class PortalAuth
         if ($base !== '') {
             return rtrim($base, '/');
         }
-        $host = preg_replace('/[^A-Za-z0-9.:-]/', '', $_SERVER['HTTP_HOST'] ?? 'localhost');
-        return (is_https() ? 'https://' : 'http://') . $host;
+        // Without base_url (install.sh and Docker always set it), the Host header is only trusted from a signed-in
+        // staff member: anyone can send /portal/forgot with a Host of their choosing, which would put their site in
+        // a genuine reset email (1.45). Everyone else gets the configured server name.
+        $staff = !(defined('IS_PORTAL') && IS_PORTAL) && PHP_SAPI !== 'cli' && \Align\Auth::id() !== null;
+        $host = $staff ? ($_SERVER['HTTP_HOST'] ?? '') : (string) \Align\Config::get('fqdn', '');
+        $host = preg_replace('/[^A-Za-z0-9.:-]/', '', $host) ?: 'localhost';
+        return (is_https() || !$staff ? 'https://' : 'http://') . $host;
     }
 }

@@ -605,6 +605,7 @@ final class PsaAssetSync
         if ((int) DB::value('SELECT GET_LOCK(?, 60)', [self::LOCK]) !== 1) {
             throw new \RuntimeException("Another $n sync is still running.");
         }
+        $changesBefore = (int) DB::value('SELECT COALESCE(MAX(id), 0) FROM device_changes');
         try {
             $assets = $p->assets();
             $cached = (int) DB::value('SELECT COUNT(*) FROM psa_assets');
@@ -659,9 +660,18 @@ final class PsaAssetSync
             }
             $result = implode('; ', array_filter($parts));
             DB::run('UPDATE psa_poll_state SET last_run = NOW(), last_ok = NOW(), last_result = ? WHERE id = 1', [mb_substr($result, 0, 500)]);
+            // In the audit log when it changed something (every 2 minutes otherwise would bury the rest) (1.45)
+            $changes = (int) DB::value('SELECT COUNT(*) FROM device_changes WHERE id > ? AND user_id IS NULL', [$changesBefore]);
+            if ($changes > 0) {
+                \Align\Audit::log('sync.psa_poll', "$changes device change" . ($changes === 1 ? '' : 's') . " to or from $n: $result");
+            }
             return $result;
         } catch (\Throwable $e) {
+            $wasOk = !str_starts_with((string) DB::value('SELECT last_result FROM psa_poll_state WHERE id = 1'), 'ERROR');
             DB::run('UPDATE psa_poll_state SET last_run = NOW(), last_result = ? WHERE id = 1', [mb_substr('ERROR: ' . $e->getMessage(), 0, 500)]);
+            if ($wasOk) { // when it starts failing, not every 2 minutes after
+                \Align\Audit::log('sync.psa_poll_failed', mb_substr($e->getMessage(), 0, 300));
+            }
             throw $e;
         } finally {
             DB::value('SELECT RELEASE_LOCK(?)', [self::LOCK]);

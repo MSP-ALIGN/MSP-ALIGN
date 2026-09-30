@@ -129,7 +129,7 @@ final class OnboardingController
         $u = Auth::requireRole('tech');
         $client = ClientController::load($id);
         match (post('action')) {
-            'complete' => DB::run('UPDATE client_onboardings SET completed_at = NOW(), completed_by = ? WHERE client_id = ?', [$u['name'] . ' (staff)', $id]),
+            'complete' => DB::run('UPDATE client_onboardings SET completed_at = NOW(), completed_by = ?, token_expires_at = LEAST(token_expires_at, NOW() + INTERVAL ' . Onboarding::AFTER_DONE_DAYS . ' DAY) WHERE client_id = ?', [$u['name'] . ' (staff)', $id]),
             'reopen' => DB::run('UPDATE client_onboardings SET completed_at = NULL, completed_by = NULL WHERE client_id = ?', [$id]),
             'delete' => DB::run('DELETE FROM client_onboardings WHERE client_id = ?', [$id]),
             default => null,

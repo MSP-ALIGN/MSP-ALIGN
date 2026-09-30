@@ -72,7 +72,10 @@
           <form method="post" action="/account/2fa">
             <?= csrf_field() ?><input type="hidden" name="action" value="confirm">
             <div class="mb-3"><label>Enter the 6-digit code it shows</label><input name="code" class="form-control" inputmode="numeric" autocomplete="one-time-code" required></div>
-            <button class="btn btn-primary">Turn on</button>
+            <?php if ($u['totp_enabled']): ?>
+              <div class="mb-3"><label>And a code from your <b>current</b> authenticator</label><input name="current_code" class="form-control" inputmode="numeric" autocomplete="off" required></div>
+            <?php endif; ?>
+            <button class="btn btn-primary"><?= $u['totp_enabled'] ? 'Replace' : 'Turn on' ?></button>
             <button class="btn btn-light" name="action" value="cancel" formnovalidate>Cancel</button>
           </form>
         <?php elseif (!$u['totp_enabled']): ?>

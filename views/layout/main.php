@@ -2,15 +2,18 @@
 use Align\Auth;
 
 $u = Auth::user();
+// Counts, problem badges and the meeting form's client and staff lists only once sign-in is complete: not while a
+// temporary password or 2FA set-up is pending (those users can only reach /account) (1.45)
+$ready = $u && !$u['must_change_password'] && $u['totp_enabled'];
 $nav = $nav ?? '';
 $client = $client ?? null;
 $clientNav = $clientNav ?? '';
 $v = e(APP_VERSION);
 
-$todoCount = $u ? \Align\Workflow\Todo::count() : 0;
+$todoCount = $ready ? \Align\Workflow\Todo::count() : 0;
 // Global menu (1.42), grouped by the vCIO workflow: know the clients -> plan -> meet and report -> stay compliant;
 // setup tools live under Admin as pages with tabs (Integrations, People).
-$isAdmin = $u && Auth::can('admin');
+$isAdmin = $ready && Auth::can('admin');
 $adminTabs = \Align\Workflow\Todo::adminTabs();
 $firstTab = fn(string $group) => ($t = array_values(array_filter($adminTabs[$group], fn($t) => Auth::can($t['role'])))) ? $t[0]['href'] : null;
 $navSections = [
@@ -224,7 +227,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
     <span class="float-end"><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
   </footer>
 </div>
-<?php if (Auth::can('tech') && empty($noMeetingModal)): ?>
+<?php if ($ready && Auth::can('tech') && empty($noMeetingModal)): ?>
   <?= \Align\View::fetch('partials/meeting_modal', [
       'modalClients' => $modalClients ?? \Align\DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
       'modalUsers' => \Align\Controllers\ClientController::users(),

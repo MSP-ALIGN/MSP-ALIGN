@@ -101,7 +101,7 @@ final class Ui
                         continue;
                     }
                     $yy -= $ph;
-                    $svg .= '<rect x="' . round($x, 1) . '" y="' . round($yy, 1) . '" width="' . round($bw, 1) . '" height="' . round($ph, 1) . '" style="fill:' . (!empty($b['past']) ? '#c3cad3' : $pc) . '"/>';
+                    $svg .= '<rect x="' . round($x, 1) . '" y="' . round($yy, 1) . '" width="' . round($bw, 1) . '" height="' . round($ph, 1) . '" style="fill:' . (!empty($b['past']) ? '#c3cad3' : (preg_match('/^#[0-9a-fA-F]{3,8}$|^var\(--[a-z0-9-]+\)$/', (string) $pc) ? $pc : '#888')) . '"/>';
                 }
                 if ($showValues) {
                     $svg .= '<text class="val" x="' . round($x + $bw / 2, 1) . '" y="' . round($y - 3, 1) . '" text-anchor="middle">' . e($fmt($v)) . '</text>';

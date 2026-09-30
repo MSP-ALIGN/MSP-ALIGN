@@ -201,7 +201,7 @@ ok(codes[:3]==[200,200,200] and codes[3]==429 and r.json()["error"]["code"]=="ra
 vet=mk("e2e vet only", ALL, clients=[4])
 sj=[j for j in call(vet,"GET","/clients/4/backups").json()["data"]["jobs"] if j["shared_with_other_clients"]]
 fj=[j for j in call(full,"GET","/clients/4/backups").json()["data"]["jobs"] if j["shared_with_other_clients"]]
-ok(sj and sj[0]["message"] is None and sj[0]["size_bytes"] is None and fj[0]["message"],"shared hosted job details hidden from a client-limited key, kept for an all-clients key")
+ok(not sj and fj and fj[0]["message"],"shared hosted jobs left out for a client-limited key (1.45), shown with details to an all-clients key")
 ok(call(lim,"POST","/meetings",{"client_id":1,"starts_at":"2026-12-03T10:00:00","owner_id":2}).json()["error"]["fields"].get("owner_id","").startswith("Only a key for all clients"),"client-limited key can't choose the meeting owner")
 bad=mk("e2e corrupt", READ, clients=[1]); q("update api_keys set client_ids='garbage' where name='e2e corrupt'")
 ok(call(bad,"GET","/clients").json()["meta"]["total"]==0,"unreadable client limit fails closed (no clients)")

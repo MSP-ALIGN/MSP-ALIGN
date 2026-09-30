@@ -32,9 +32,9 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 | **Emergency access procedure** (a)(2)(ii) | `sudo align user:reset-password --email=… --clear-2fa` on the server. It issues a one-time password that must be changed at next sign-in, and it is written to the audit log. |
 | **Automatic logoff** (a)(2)(iii) | Idle timeout defaults to 15 minutes (Settings → General, 5–60 minutes). Absolute session limit defaults to 12 hours. The browser warns one minute before sign-out and signs the page out itself, so nothing stays on screen. The server enforces both limits independently. |
 | **Encryption and decryption** (a)(2)(iv) | **At rest:** MariaDB tables, the redo log, temp files and Aria tables are encrypted with a key file readable only by `mysql`. API keys (NinjaOne, ITFlow, Veeam, Dell, Lenovo), the Microsoft 365 client secret, certificate key and refresh token, the Google service-account key, OAuth client secret and refresh token, the SMTP password, and 2FA secrets are also encrypted in the application with libsodium, using `app_key`. **Backups:** encrypted with age to a public key; the private key is kept offline. |
-| **Audit controls** (b) | Everything is logged: sign-ins, failures and timeouts; every change; exports and reports; client-portal actions. So are views of client records: overview, contacts, devices, documents, meetings, compliance and portal pages, each logged once per 15 minutes per session. Each entry is sealed with an HMAC over its contents and the previous entry's hash, so edits, insertions and deletions are detected (Admin → Audit log, `align audit:verify`, and the nightly job). Entries are kept 6 years. The audit page checks every entry added since the last full check each time it opens; the whole chain is checked nightly and on demand (**Check the whole log**). Entries can be filtered by person, kind of action and text. |
+| **Audit controls** (b) | Everything is logged: sign-ins, failures and timeouts; every change; exports and reports; client-portal actions. So are views of client records: overview, contacts, devices, documents, meetings, compliance and portal pages, each logged once per 15 minutes per session. Each entry is sealed with an HMAC over its contents and the previous entry's hash, and the log's start and end markers have a seal of their own (1.45), so edits, insertions and deletions are detected, including entries cut off either end (Admin → Audit log, `align audit:verify`, and the nightly job). The nightly job also keeps the newest entry it saw outside the database, in the root agent's own folder, and checks it is still there the next night, so an old copy of the log written back is caught too. Entries are kept 6 years. The audit page checks every entry added since the last full check each time it opens; the whole chain is checked nightly and on demand (**Check the whole log**). Entries can be filtered by person, kind of action and text. |
 | **Integrity** (c)(1) | The hash-chained audit log, CSRF tokens on every form, and a strict allowlist HTML sanitizer for documents. Document versions are kept with full history. |
-| **Person or entity authentication** (d) | Two-factor sign-in (TOTP) is **required** for every staff and portal account; no data is shown until it's set up. Each code works only once. Passwords must be at least 12 characters and aren't allowed to be common passwords or contain the user's name or email. They're hashed with Argon2id. After 5 failed attempts an account is locked for 15 minutes (per account and per IP), and fail2ban bans repeat offenders at the firewall. Changing a password or resetting 2FA ends every other session. |
+| **Person or entity authentication** (d) | Two-factor sign-in (TOTP) is **required** for every staff and portal account; no data is shown until it's set up. Each code works only once. Passwords must be at least 12 characters and aren't allowed to be common passwords or contain the user's name or email. They're hashed with Argon2id. After 5 failed attempts an account is locked for 15 minutes (10 from one IP address, across accounts), and fail2ban bans repeat offenders at the firewall. Attempts are counted before the password is checked, so parallel guesses can't get past the limit, and the password check when changing your password is counted the same way. Changing a password or resetting 2FA ends every other session. Moving 2FA to a new phone needs a code from the current one. When an admin removes someone's 2FA, their password is replaced by a one-time password too, so whoever knew the old password can't set up their own authenticator. For client-portal users the password is cleared and a new link issued. |
 | **Transmission security** (e)(1) | TLS 1.2 or 1.3 only, with forward-secret AEAD ciphers. HSTS is on. Cookies are `Secure`, `HttpOnly` and `SameSite=Lax`, and carry the `__Host-`/`__Secure-` prefix. The ITFlow and Veeam connections must use `https://`. Email goes to Microsoft 365 over HTTPS through Microsoft Graph with OAuth 2.0 (client credentials with a secret or certificate, or authorization code with PKCE); With Google Workspace, mail goes over HTTPS through the Gmail API and invitations through the Google Calendar API, using a service account with domain-wide delegation (signed JWT) or authorization code with PKCE. With an SMTP server, mail goes over STARTTLS or TLS; its password, if any, is encrypted with `app_key` and never sent without encryption. Email bodies are cleared after the retention period set on Integrations → Email (30 days by default) and one-time invite/reset links are wiped as soon as they are sent. In proxy mode Apache and the firewall accept connections only from the proxy. |
 
 ## Application hardening
@@ -57,26 +57,30 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 
 **Uploads**
 
-- Uploaded images are checked, re-encoded and served with a sandbox CSP.
+- Uploaded images (pictures and the brand logo) are checked, re-encoded and served with a sandbox CSP.
 - SVG is refused.
 
 **Links and tokens**
 
 - The calendar feed is tech/admin only, and carries titles and times only (no agendas or attendees).
-- Invite, reset and calendar tokens are 256-bit, and only their SHA-256 hash is stored.
+- Invite, reset and calendar tokens are 256-bit, and only their SHA-256 hash is stored. A password change or 2FA reset voids any link still out. A reset link on an account with two-factor asks for the code on the same form before anything changes.
+- Onboarding links stop working 7 days after onboarding is complete. Requests sent from one say the name and email were typed, not verified.
+- Emailed links use the configured address (`base_url`), never the Host header of an unauthenticated request.
 - Secret URLs are kept out of the web server's access log.
 
 **Errors**
 
-- With `debug => false`, errors only go to the server log.
+- With `debug => false`, errors only go to the server log. Database and PHP errors from an integration test, a sync step or an invitation are shown and audited as "an internal error"; the details go to the server log.
+- A saved API key or SMTP password is only sent to the server it was entered for: changing the address to another server (or turning off SMTP encryption or its certificate check) needs it typed again, and raises a security alert.
+- Responses from integrations are limited to 128 MB.
 
 ## REST API (1.27)
 
 - **Off by default.** An admin turns it on under Settings → API; while it's off every request gets 404.
 - **Keys, not sessions.** `/api/*` never starts a session or reads cookies, so a browser can't be tricked into making API calls (no CSRF exposure), and no CORS headers are sent. Keys are `msa_<prefix>_<secret>` (32 random characters), shown once and stored only as a SHA-256 hash; the prefix finds the row and the hash is compared in constant time.
 - **Least privilege.** Each key has read / write scopes per area and can be limited to specific clients; anything outside them answers 404 so ids can't be probed. Only admins create, change or revoke keys, and those actions are audited.
-- **Expiry, revocation, rate limits.** Keys can expire (the dashboard warns admins two weeks ahead) and be revoked instantly; each has a per-minute limit (429 with Retry-After). Failed key attempts are written to the same log fail2ban watches, and an address with more than 30 failed requests in a minute gets 429 without further logging. A key stops working when the admin who created it is disabled.
-- **Client-limited keys** see only their clients' data (other ids answer 404, including archived clients), and can't send meeting invitations, set a meeting owner, change who's invited after invitations went out, or see hosted-backup jobs shared with other clients. Budget amounts from licensing or projects are shown without names or terms unless the key can also read that area.
+- **Expiry, revocation, rate limits.** Keys can expire (the dashboard warns admins two weeks ahead) and be revoked instantly; each has a per-minute limit (429 with Retry-After). Failed key attempts are written to the same log fail2ban watches, and an address with more than 30 failed requests in a minute gets 429 without further logging. A key stops working when the admin who created it is disabled or is no longer an admin. Requests answered before a key is checked (the API description, unknown versions, the API turned off) count against the same per-address limit.
+- **Client-limited keys** see only their clients' data (other ids answer 404, including archived clients), and can't send meeting invitations, set a meeting owner, change a meeting after invitations went out (who's invited, what they see, cancelling or deleting it), or see hosted-backup jobs shared with other clients. Budget amounts from licensing or projects are shown without names or terms unless the key can also read that area.
 - **Accountability.** Every change made through the API is written to the hash-chained audit log with the key's name. Every request (key, method, path, status, IP, request id; never the key or the body) is kept in the API request log for 30 days. Idempotency records (for safe retries) are kept 24 hours.
 - **Input.** JSON only, 1 MB limit, strict validation: unknown fields are refused, enums, lengths and date ranges are checked, control characters are stripped, and fields ITFlow owns stay read-only. Retries with an Idempotency-Key are reserved before the change runs, so parallel retries create one record.
 
@@ -116,9 +120,46 @@ Docker installs (1.44) get the app's own controls, the database encrypted at res
 - Downloaded through the browser by an admin and never kept on the server. Each backup is built on request and encrypted with age to the server's public key. Only encrypted data is written to disk. It is deleted after one download, or after an hour.
 - Contains the database, uploaded files and `app_key`, so it restores on new hardware.
 - Restoring needs the offline private key (pasted once, held in RAM, never saved or logged), the admin's current two-factor code and typing RESTORE. A safety copy is made first and put back automatically on failure. Everyone is signed out afterwards. Every download, upload, test and restore is in the audit log, and a restore also raises a security alert.
-- The web server can't run programs. A root service runs a fixed set of jobs from validated requests. Imports use the app's database user in sandbox mode, and files are extracted as `www-data`.
+- The web server can't run programs. A root service runs a fixed set of jobs from validated requests. Imports use the app's database user in sandbox mode, and files are extracted as `www-data`. Since 1.45 the root service never creates, changes, reads or deletes anything inside the web server's data folder itself: those steps run as `www-data`, so nothing the web server could plant there (such as a symlink) can reach root.
 - Admins are reminded by email when no backup has been downloaded for 7 days (adjustable).
 - Nightly: the audit chain is verified and its head hash recorded in the system journal, then retention pruning runs.
+
+## Security audit (1.45)
+
+Before 2.0 every file of the app, installer, backup agent and Docker setup was reviewed line by line (340 files) against six areas:
+
+1. Data taken in from ITFlow, NinjaOne, Microsoft 365, Google, backup tools and warranty lookups
+2. Database queries and isolation between clients
+3. Stored secrets
+4. Running programs
+5. The audit trail
+6. Dependencies
+
+Each finding was then checked against a test server, including attempts to break in. Findings and their fixes:
+
+- **Fixed (high):** with code already running as the web user, the root backup agent, the installer and the Docker entrypoint could be tricked by a symlink in the data folder into handing a root-owned folder to `www-data`. They now work in that folder only as `www-data`.
+- **Fixed (medium):**
+  - The portal QBR showed key contacts to users without the contacts permission.
+  - A client-limited API key could reword a meeting whose invitations had gone out and trigger cancellation emails.
+  - An admin removing 2FA left the old password working.
+  - Entries could be cut off either end of the audit log without detection.
+  - The installer stopped on servers without sshd.
+- **Fixed (low):** missing audit entries (scheduled syncs, PSA polls, document autosaves, views of device lists, compliance and contacts), race conditions in the lockout and one-time codes, one-time link emails kept after failing, detailed error text, the brand logo not being re-encoded, and more.
+- **Checked and sound:**
+  - All SQL uses bound parameters; table and column names are now also checked.
+  - Every view escapes its output.
+  - CSRF is checked on every form, and every route checks roles.
+  - The portal and client-limited API keys are isolated to their own client.
+  - Secrets are encrypted with libsodium, and TLS is verified.
+  - The HTML sanitizer survived about 80 bypass attempts.
+- **Dependencies:** MSP-ALIGN has no Composer (PHP) dependencies. The browser libraries (AdminLTE, Bootstrap, Quill, FullCalendar, Font Awesome) are included in the repository. GitHub Actions are pinned to exact commits, and Dependabot proposes updates for them and the Docker images.
+- **Known and accepted:**
+  - Updates follow the release branch without a signature check. Signed releases are planned for 2.0.
+  - A restore trusts any backup that opens with your key, so only restore backups you made.
+  - The 2 GB upload limit for restores applies before sign-in can be checked; put a body limit at your proxy or WAF on a public server.
+  - API reads are kept in the API request log (30 days), not the hash-chained audit log; API changes are in both.
+
+`tests/e2e/suites/sec145_e2e.py` checks each fix.
 
 ## Operator responsibilities (outside the app)
 
