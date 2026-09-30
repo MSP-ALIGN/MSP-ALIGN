@@ -333,16 +333,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.querySelectorAll('form.report-card').forEach((f) => {
       f.addEventListener('submit', (ev) => {
-        const id = rc.value;
-        const r = f.dataset.report;
+        // Only numeric ids and plain report paths make it into the address (never text taken from the page as-is)
+        const num = (v) => { const x = Number.parseInt(v, 10); return Number.isInteger(x) && x > 0 ? x : 0; };
+        const id = num(rc.value);
+        const r = f.dataset.report || '';
+        let path = '';
         if (r === 'compliance') {
-          f.action = '/clients/' + id + '/compliance/' + f.querySelector('.report-framework').value + '/export';
+          const fw = num(f.querySelector('.report-framework').value);
+          if (fw) path = '/clients/' + id + '/compliance/' + fw + '/export';
         } else if (r === 'document') {
-          f.action = '/documents/' + f.querySelector('.report-document').value + '/print';
+          const doc = num(f.querySelector('.report-document').value);
+          if (doc) path = '/documents/' + doc + '/print';
         } else {
-          f.action = '/clients/' + id + r;
+          const m = /^\/(report\/[a-z0-9-]+|reports|[a-z0-9-]+)$/.exec(r);
+          if (m) path = '/clients/' + id + '/' + m[1];
         }
-        if (!id) ev.preventDefault();
+        if (!id || !path) {
+          ev.preventDefault();
+          return;
+        }
+        f.action = path;
       });
     });
     rc.addEventListener('change', refresh);
@@ -378,13 +388,23 @@ document.addEventListener('DOMContentLoaded', () => {
   nameIn.addEventListener('input', () => { nameOut.textContent = nameIn.value || preview.dataset.defaultName; });
   document.querySelector('[data-preview="logo-only"]').addEventListener('change', (e) => nameOut.classList.toggle('d-none', e.target.checked));
   document.querySelector('[data-preview="sidebar"]').addEventListener('change', (e) => document.getElementById('bp-side').classList.toggle('is-light', e.target.value === 'light'));
-  const file = document.getElementById('logo');
-  file.addEventListener('change', () => {
-    const f = file.files[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-    document.getElementById('bp-logo').src = url;
-    document.getElementById('logo-img').src = url;
+  // The logo preview listens on the document, like the image pickers below
+  document.addEventListener('change', (e) => {
+    const input = e.target;
+    if (input.id !== 'logo' || !input.files || !input.files[0]) return;
+    const f = input.files[0];
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) return;
+    const url = URL.createObjectURL(f);   // a blob: address for the chosen file, only ever used as an image
+    ['bp-logo', 'logo-img'].forEach((elId) => {
+      const old = document.getElementById(elId);
+      if (!old) return;
+      const img = document.createElement('img');
+      img.id = old.id;
+      img.alt = old.alt;
+      img.className = old.className;
+      img.src = url;
+      old.replaceWith(img);
+    });
   });
 });
 
