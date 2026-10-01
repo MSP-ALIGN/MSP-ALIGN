@@ -13,7 +13,12 @@ $clientSel = $m['client_id'] ?? $presetClient ?? null;
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= e($action) ?>">
+      <?php $sentEarlier = !empty($m['invites_sent_at']); ?>
+      <form method="post" action="<?= e($action) ?>" data-unsaved data-confirm-rules="<?= e(json_encode([
+          ['when' => '[name=send_invites][type=checkbox]:checked', 'title' => $sentEarlier ? 'Email the update to the attendees?' : 'Email invitations to the attendees?', 'ok' => 'Save and send',
+           'text' => $sentEarlier ? 'Everyone on the attendee list gets the updated invitation.' : 'Everyone on the attendee list gets a calendar invitation.'],
+          ['when' => ['[name=send_invites][type=checkbox]:checked', '[name=repeat] option:checked:not([value="none"])'], 'text' => 'It repeats, so each meeting in the series is sent.'],
+      ])) ?>">
         <?= csrf_field() ?>
         <?php if (!$m): ?><input type="hidden" name="return" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>"><?php endif; ?>
         <div class="modal-header bg-dark">

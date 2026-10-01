@@ -58,11 +58,12 @@ with sync_playwright() as p:
     # a second open reuses the form already on the page
     pg.goto(B + "/contacts"); csel = f"#modal-contact-{con['id']}"
     pg.locator(f'[data-bs-target="{csel}"]').first.click(); pg.wait_for_selector(csel + ".show")
-    msgs = []; pg.once("dialog", lambda d: (msgs.append(d.message), d.dismiss()))
     btn = pg.locator(csel + " [data-confirm]").first
     if btn.count():
-        btn.click(); pg.wait_for_timeout(400)
-        ok(msgs and q("select archived_at from contacts where id=%s", con["id"])[0]["archived_at"] is None, "confirm asked on a loaded form; cancel keeps the contact")
+        btn.click(); pg.wait_for_selector("#align-confirm.show")
+        asked = pg.locator("#align-confirm-title").inner_text()
+        pg.click("#align-confirm button:has-text('Cancel')"); pg.wait_for_selector("#align-confirm", state="hidden"); pg.wait_for_timeout(300)
+        ok(asked and q("select archived_at from contacts where id=%s", con["id"])[0]["archived_at"] is None, "confirm asked on a loaded form; cancel keeps the contact")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(400)
     pg.locator(f'[data-bs-target="{csel}"]').first.click(); pg.wait_for_selector(csel + ".show")
     ok(pg.locator(csel).count() == 1, "opening it again reuses the form")

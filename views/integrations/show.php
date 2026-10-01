@@ -2,6 +2,19 @@
 /** @var \Align\Integrations\Connector $c; array $values, $status */
 [$tone, $label, $detail] = $status;
 $field = fn(array $f): string => \Align\View::fetch('integrations/_field', ['f' => $f, 'values' => $values]);
+// Settings that start writing into the PSA ask first (2.0.1)
+$names = array_column($c->fields(), 'name');
+$pn = $c->name();
+$rules = array_values(array_filter([
+    in_array('psa_two_way', $names, true) ? ['changed' => 'psa_two_way', 'is' => ['psa_two_way' => '1'], 'title' => "Write changes to $pn?", 'ok' => 'Save',
+        'text' => "Two-way sync: edits made in Align go to $pn straight away."] : null,
+    in_array('psa_create_assets', $names, true) ? ['changed' => 'psa_create_assets', 'is' => ['psa_create_assets' => '1'], 'title' => "Write changes to $pn?", 'ok' => 'Save',
+        'text' => "Devices added in Align are created as $pn assets."] : null,
+    in_array('psa_writeback', $names, true) ? ['changed' => 'psa_writeback', 'is' => ['psa_writeback' => 'overwrite'], 'title' => "Write changes to $pn?", 'ok' => 'Save', 'danger' => true,
+        'text' => "Warranty dates from Align overwrite the dates in $pn for every linked asset."] : null,
+    in_array('psa_writeback', $names, true) ? ['changed' => 'psa_writeback', 'is' => ['psa_writeback' => 'fill_empty'], 'title' => "Write changes to $pn?", 'ok' => 'Save',
+        'text' => "Warranty dates from Align fill in empty warranty fields in $pn."] : null,
+]));
 ?>
 <div class="small mb-1"><a href="/integrations">Integrations</a> /</div>
 <div class="d-flex flex-wrap align-items-center mb-3">
@@ -15,7 +28,7 @@ $field = fn(array $f): string => \Align\View::fetch('integrations/_field', ['f' 
 
 <div class="row">
   <div class="col-lg-7">
-    <form method="post" action="/integrations/<?= e($c->key()) ?>" class="card card-dark">
+    <form method="post" action="/integrations/<?= e($c->key()) ?>" class="card card-dark" data-unsaved<?= $rules ? ' data-confirm-rules="' . e(json_encode($rules)) . '"' : '' ?>>
       <?= csrf_field() ?>
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-sliders me-2"></i>Connection &amp; options</h3></div>
       <div class="card-body">

@@ -24,7 +24,8 @@
   </div>
 </div>
 <?php if (\Align\Auth::can('admin')): ?>
-<form method="post" action="/portal-users/settings" class="card">
+<form method="post" action="/portal-users/settings" class="card" data-confirm-rules="<?= e(json_encode([['changed' => 'portal_submissions', 'is' => ['portal_submissions' => '0'], 'title' => 'Turn off suggestions for every client?', 'ok' => 'Save',
+    'text' => 'No client can suggest licenses or budget items from the portal until you turn it back on. Suggestions already sent stay on the list.']])) ?>">
   <?= csrf_field() ?>
   <div class="card-body py-2 d-flex flex-wrap align-items-center">
     <div class="form-check form-switch me-auto"><input type="checkbox" class="form-check-input" id="portal_submissions" name="portal_submissions" value="1" <?= \Align\Settings::get('portal_submissions', '1') === '1' ? 'checked' : '' ?>>

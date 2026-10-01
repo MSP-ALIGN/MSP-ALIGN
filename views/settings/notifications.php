@@ -13,7 +13,17 @@ $mode = $v['mail_mode'] ?: 'off';
 <?php else: ?>
   <p class="small text-muted">Sending through <?= e(Mail::providerName()) ?> as <?= e((string) Mail::fromAddress()) ?> · <a href="/integrations/email">Mail connection</a> · <a href="/settings/notifications/log">Email log</a><?= $stats['queued'] ? ' <span class="badge text-bg-warning">' . (int) $stats['queued'] . ' queued</span>' : '' ?></p>
 <?php endif; ?>
-<form method="post" action="/settings/notifications" id="notifications">
+<?php
+// Emails that go to clients ask before they're switched on (2.0.1)
+$clientRules = [];
+foreach (N::CATALOG as $ck => [$cl, , $caud]) {
+    if ($caud !== 'staff') {
+        $clientRules[] = ['changed' => "on[$ck]", 'is' => ["on[$ck]" => '1'], 'title' => 'Start emailing clients?', 'ok' => 'Save notifications',
+            'text' => "\u{201C}$cl\u{201D} will be emailed to your clients' contacts."];
+    }
+}
+?>
+<form method="post" action="/settings/notifications" id="notifications" data-unsaved<?= $clientRules ? ' data-confirm-rules="' . e(json_encode($clientRules)) . '"' : '' ?>>
 <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock me-2"></i>Schedule &amp; meeting invitations</h3></div>
       <div class="card-body">
@@ -58,7 +68,7 @@ $mode = $v['mail_mode'] ?: 'off';
           <td class="align-middle"><?php if ($aud === 'staff'): ?><input name="extra[<?= $key ?>]" class="form-control form-control-sm" value="<?= e(\Align\Settings::get("notif_{$key}_extra", '')) ?>" placeholder="alerts@…, tickets@…"><?php endif; ?></td>
           <td class="align-middle text-nowrap"><?php if (in_array($timing, ['daily', 'weekly', 'monthly'], true)): ?>
             <a class="btn btn-xs btn-default" href="/settings/notifications/preview/<?= $key ?>" target="_blank" title="Preview for all clients">Preview</a>
-            <button class="btn btn-xs btn-default" formaction="/settings/notifications/digest/<?= $key ?>" <?= $ready ? '' : 'disabled' ?> title="Send it now to everyone who gets it">Send now</button>
+            <button class="btn btn-xs btn-default" formaction="/settings/notifications/digest/<?= $key ?>" <?= $ready ? '' : 'disabled' ?> title="Send it now to everyone who gets it" data-confirm="<?= e('Send ' . $label . ' now? It goes to everyone who gets it, as if it were its usual time.') ?>" data-confirm-danger="0" data-confirm-ok="Send now">Send now</button>
           <?php endif; ?></td>
         </tr>
       <?php endforeach; ?>

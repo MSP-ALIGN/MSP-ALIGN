@@ -95,11 +95,11 @@
           <input class="form-control form-control-sm mb-2 select-all" readonly value="<?= e($feedUrl) ?>">
           <p class="text-muted">Only titles, times and client names are included, never agendas or attendees.</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
-          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger" data-confirm="Turn off your calendar feed? Calendars subscribed to it stop updating." data-confirm-ok="Turn off">Turn off</button></form>
         <?php elseif ($feedOn): ?>
           <p><span class="badge text-bg-success">On</span> Your feed link is active. For security it isn't shown again; make a new link if you need it (the old one stops working).</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
-          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger" data-confirm="Turn off your calendar feed? Calendars subscribed to it stop updating." data-confirm-ok="Turn off">Turn off</button></form>
         <?php else: ?>
           <p class="text-muted">Create a private link to show Align meetings in Outlook, Google or Apple Calendar.</p>
           <form method="post" action="/calendar/feed"><?= csrf_field() ?><button class="btn btn-sm btn-primary">Create feed link</button></form>

@@ -294,7 +294,7 @@ $zone = function (string $z) use ($layout, $cards) {
 <div class="dash-editbar card card-body py-2 mb-3" id="dash-editbar" hidden data-csrf="<?= e(csrf_token()) ?>">
   <div class="d-flex flex-wrap align-items-center">
     <div class="me-auto small"><b>Customize your dashboard.</b> Drag cards by the handle, or use the arrows. Hidden cards are listed here; your layout is saved to your account.</div>
-    <button type="button" class="btn btn-sm btn-outline-secondary me-2 mt-1" id="dash-reset">Reset to default</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary me-2 mt-1" id="dash-reset" data-confirm="Reset your dashboard to the default layout? Your own arrangement and hidden cards are lost." data-confirm-ok="Reset">Reset to default</button>
     <button type="button" class="btn btn-sm btn-primary mt-1" id="dash-done"><i class="fas fa-check me-1"></i>Done</button>
   </div>
   <div class="dash-hidden mt-2" id="dash-hidden">

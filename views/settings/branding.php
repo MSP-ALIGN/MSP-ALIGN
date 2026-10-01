@@ -11,7 +11,7 @@ $company = (string) ($v['company_name'] ?: 'Your company');
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'branding']) ?>
 
-<form method="post" action="/settings/branding" enctype="multipart/form-data" id="branding-form">
+<form method="post" action="/settings/branding" enctype="multipart/form-data" id="branding-form" data-unsaved>
   <?= csrf_field() ?>
   <input type="hidden" name="MAX_FILE_SIZE" value="<?= Branding::MAX_BYTES ?>">
   <div class="row">

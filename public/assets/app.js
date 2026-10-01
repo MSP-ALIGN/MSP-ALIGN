@@ -39,13 +39,215 @@ const alignInit = {
   run(root) { this.fns.forEach((fn) => fn(root)); },
 };
 
-// Confirm before submitting: <button data-confirm="Are you sure?"> (one listener, so loaded forms get it too)
+// "Are you sure?" (2.0.1): an in-app dialog in place of the browser's confirm box.
+// alignConfirm({ title, text: 'line' or ['line', ...], ok: 'Delete', danger: true }) resolves to true or false.
+const alignConfirm = (() => {
+  let el = null, okBtn, titleEl, bodyEl, iconEl, answer = false, done = null, paused = [], back = null, danger = false;
+  const build = () => {
+    el = document.createElement('div');
+    el.className = 'modal fade align-confirm';
+    el.id = 'align-confirm';
+    el.tabIndex = -1;
+    el.setAttribute('role', 'alertdialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-labelledby', 'align-confirm-title');
+    el.setAttribute('aria-describedby', 'align-confirm-body');
+    el.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+      + '<div class="modal-body d-flex gap-3 pt-4 px-4"><div class="align-confirm-icon"><i></i></div><div class="flex-grow-1">'
+      + '<h5 class="modal-title mb-2" id="align-confirm-title"></h5><div id="align-confirm-body" class="text-body-secondary"></div></div></div>'
+      + '<div class="modal-footer border-0"><button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>'
+      + '<button type="button" class="btn" data-align-confirm-ok></button></div></div></div>';
+    document.body.appendChild(el);
+    okBtn = el.querySelector('[data-align-confirm-ok]');
+    titleEl = el.querySelector('#align-confirm-title');
+    bodyEl = el.querySelector('#align-confirm-body');
+    iconEl = el.querySelector('.align-confirm-icon i');
+    okBtn.addEventListener('click', () => { answer = true; bsModal(el).hide(); });
+    el.addEventListener('shown.bs.modal', () => {
+      el.setAttribute('role', 'alertdialog'); // Bootstrap sets role=dialog on show
+      // above an edit form that is already open: its backdrop and focus trap step aside meanwhile
+      const drops = document.querySelectorAll('.modal-backdrop');
+      if (drops.length > 1) drops[drops.length - 1].classList.add('align-confirm-backdrop');
+      // a red button isn't the default: Enter twice shouldn't delete
+      (danger ? el.querySelector('[data-bs-dismiss]') : okBtn).focus();
+    });
+    el.addEventListener('hidden.bs.modal', () => {
+      paused.forEach((t) => { try { t.activate(); } catch (e) { /* closed meanwhile */ } });
+      paused = [];
+      if (document.querySelector('.modal.show')) document.body.classList.add('modal-open');
+      if (back && document.contains(back)) { try { back.focus(); } catch (e) { /* gone */ } }
+      back = null;
+      const r = done; done = null;
+      if (r) r(answer);
+    });
+  };
+  return (o) => new Promise((resolve) => {
+    if (!window.bootstrap) { resolve(window.confirm([o.title, ...[].concat(o.text || [])].filter(Boolean).join('\n\n'))); return; }
+    if (!el) build();
+    if (done) { resolve(false); return; } // one at a time
+    answer = false;
+    done = resolve;
+    danger = !!o.danger;
+    back = document.activeElement;
+    titleEl.textContent = o.title || 'Are you sure?';
+    bodyEl.replaceChildren(...[].concat(o.text || []).filter(Boolean).map((t) => { const p = document.createElement('p'); p.className = 'mb-1'; p.textContent = t; return p; }));
+    okBtn.textContent = o.ok || 'Continue';
+    okBtn.className = 'btn ' + (o.danger ? 'btn-danger' : 'btn-primary');
+    iconEl.className = 'fas ' + (o.danger ? 'fa-triangle-exclamation text-danger' : 'fa-circle-question text-primary');
+    document.querySelectorAll('.modal.show').forEach((m) => {
+      const inst = window.bootstrap.Modal.getInstance(m);
+      if (inst && inst._focustrap) { try { inst._focustrap.deactivate(); paused.push(inst._focustrap); } catch (e) { /* older Bootstrap */ } }
+    });
+    bsModal(el).show();
+  });
+})();
+
+// The question and the rest from one message: "Delete Acme? This can't be undone." -> title + text
+const confirmParts = (msg) => {
+  const m = String(msg || '').match(/^([\s\S]+?\?)(?:\s+([A-Z\u201C"][\s\S]*))?$/);
+  return m ? { title: m[1], text: m[2] ? m[2].trim() : '' } : { title: 'Are you sure?', text: msg };
+};
+const looksDangerous = (el, msg) => /btn(-outline)?-danger/.test(el.className || '')
+  || /^(delete|remove|revoke|disable|retire|archive|reset|turn off|cancel|disconnect|forget|replace|skip)\b/i.test(String(msg || '').trim());
+
+// <button data-confirm="Delete this project?" [data-confirm-ok="Delete"] [data-confirm-danger="0|1"]>
+// The click waits for the dialog; Continue clicks it again for real (so the form's own handlers still run).
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest && ev.target.closest('[data-confirm]');
-  if (el && !window.confirm(el.dataset.confirm)) {
-    ev.preventDefault();
-    ev.stopPropagation();
-  }
+  if (!el) return;
+  if (el.dataset.confirmed === '1') { delete el.dataset.confirmed; return; }
+  ev.preventDefault();
+  ev.stopPropagation();
+  ev.stopImmediatePropagation();
+  const msg = el.dataset.confirm;
+  const label = el.dataset.confirmOk || (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40)
+    || ((String(msg || '').match(/^\s*([A-Za-z]+)/) || [])[1] || 'Continue');
+  const danger = el.dataset.confirmDanger ? el.dataset.confirmDanger === '1' : looksDangerous(el, msg);
+  alignConfirm({ ...confirmParts(msg), ok: label, danger }).then((ok) => {
+    if (!ok || el.disabled || !document.contains(el)) return;
+    el.dataset.confirmed = '1';
+    try { el.click(); } finally { delete el.dataset.confirmed; }
+  });
+}, true);
+
+// Field values, to tell what changed since the page opened: name -> [values]
+const formState = (form) => {
+  const st = {};
+  Array.from(form.elements).forEach((f) => {
+    if (!f.name || f.type === 'hidden' || f.type === 'submit' || f.type === 'button' || f.type === 'file' || f.disabled) return;
+    const v = (f.type === 'checkbox' || f.type === 'radio') ? (f.checked ? '1' : '0') : (f.multiple ? Array.from(f.selectedOptions).map((o) => o.value).join(',') : f.value);
+    (st[f.name] = st[f.name] || []).push(v);
+  });
+  return st;
+};
+const sameField = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+alignInit.add((root) => root.querySelectorAll('form[data-confirm-rules], form[data-unsaved]').forEach((f) => {
+  if (!f.alignStart) f.alignStart = formState(f);
+}));
+const formDirty = (f) => {
+  if (!f.alignStart) return false;
+  const now = formState(f);
+  return Object.keys({ ...now, ...f.alignStart }).some((k) => !sameField(now[k], f.alignStart[k]));
+};
+
+// Ask before a form makes a wide or outside change, only when it would:
+// <form data-confirm-rules='[{"when": "[name=send_invites]:checked", "count": "[name=\"ids[]\"]:checked",
+//   "changed": "lifespan_laptop,lifespan_desktop", "lowered": "retention_days", "is": {"field": "value"},
+//   "changes": true, "title": "...", "text": "... {n} ...",
+//   "danger": true, "ok": "Save"}]'>
+// A rule applies when all its conditions hold (when: something in the form matches; count: at least one match, and
+// {n} is the number; changed: one of these fields differs from when the page opened; lowered: this number went down;
+// is: these fields have these values now; changes: anything changed, {n} = how many fields; min: only from n up;
+// button: only when submitted with the button of this value or name; atmost: {field: n}, the number is n or less).
+// Every rule that applies adds its text; the first one's title and button are used.
+const confirmRules = (form, submitter) => {
+  let rules = [];
+  try { rules = JSON.parse(form.dataset.confirmRules || '[]'); } catch (e) { rules = []; }
+  const start = form.alignStart || {}, now = formState(form);
+  const num = (v) => parseFloat(String((v || [])[0] || '').replace(/[^0-9.\-]/g, ''));
+  // fields that belong to the form from elsewhere on the page (form="id") count too
+  const matches = (sel) => new Set([...Array.from(form.elements).filter((e) => e.matches(sel)), ...form.querySelectorAll(sel)]).size;
+  return rules.filter((r) => {
+    if (r.button && !(submitter && (submitter.value === r.button || submitter.name === r.button))) return false;
+    if (r.when && ![].concat(r.when).every((w) => matches(w))) return false;
+    if (r.count) { r.n = matches(r.count); if (!r.n) return false; }
+    if (r.changed && !r.changed.split(',').some((k) => !sameField(now[k.trim()], start[k.trim()]))) return false;
+    if (r.lowered && !(num(now[r.lowered]) < num(start[r.lowered]))) return false;
+    if (r.is && !Object.keys(r.is).every((k) => sameField(now[k], [].concat(r.is[k]).map(String)))) return false;
+    if (r.atmost && !Object.keys(r.atmost).every((k) => num(now[k]) <= r.atmost[k])) return false;
+    if (r.changes) { r.n = Object.keys({ ...now, ...start }).filter((k) => !sameField(now[k], start[k])).length; if (!r.n) return false; }
+    if (r.min && !(r.n >= r.min)) return false;
+    return true;
+  }).map((r) => ({ ...r, text: String(r.text || '').replace(/\{n\}/g, r.n), title: r.title ? String(r.title).replace(/\{n\}/g, r.n) : '' }));
+};
+document.addEventListener('submit', (ev) => {
+  const form = ev.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  if (form.dataset.confirmed === '1') return;
+  // a button that asked its own question (Delete framework, Send now) isn't asked about the form's other changes
+  const hit = form.dataset.confirmRules && !(ev.submitter && ev.submitter.hasAttribute('data-confirm')) ? confirmRules(form, ev.submitter) : [];
+  if (!hit.length) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const submitter = ev.submitter || null;
+  alignConfirm({
+    title: hit.find((r) => r.title)?.title || 'Save these changes?',
+    text: hit.map((r) => r.text),
+    ok: hit.find((r) => r.ok)?.ok || (submitter && submitter.textContent.trim()) || 'Save',
+    danger: hit.some((r) => r.danger),
+  }).then((ok) => {
+    if (!ok) return;
+    form.dataset.confirmed = '1';
+    try {
+      if (submitter && form.requestSubmit) form.requestSubmit(submitter); else if (form.requestSubmit) form.requestSubmit(); else form.submit();
+    } finally { delete form.dataset.confirmed; }
+  });
+}, true);
+// A form really on its way (nothing stopped it): its unsaved changes are being saved
+window.addEventListener('submit', (ev) => { if (!ev.defaultPrevented && ev.target instanceof HTMLFormElement) ev.target.alignSubmitting = true; });
+
+// Unsaved changes: <form data-unsaved> warns before leaving the page, or closing its window (modal), with changes
+// that weren't saved
+window.addEventListener('beforeunload', (ev) => {
+  const dirty = Array.from(document.querySelectorAll('form[data-unsaved]')).some((f) => !f.alignSubmitting && formDirty(f));
+  if (dirty) { ev.preventDefault(); ev.returnValue = ''; }
+});
+// A form in a window is filled in when the window opens (a new meeting on the day clicked): start from there
+document.addEventListener('show.bs.modal', (ev) => {
+  if (!ev.target.classList || !ev.target.classList.contains('modal')) return;
+  ev.target.querySelectorAll('form[data-unsaved], form[data-confirm-rules]').forEach((f) => { f.alignStart = formState(f); f.alignSubmitting = false; });
+});
+document.addEventListener('hide.bs.modal', (ev) => {
+  const m = ev.target;
+  if (m.id === 'align-confirm' || m.alignDiscard) { m.alignDiscard = false; return; }
+  const f = m.querySelector('form[data-unsaved]');
+  if (!f || f.alignSubmitting || !formDirty(f)) return;
+  ev.preventDefault();
+  alignConfirm({ title: 'Discard your changes?', text: 'What you typed in this form hasn’t been saved.', ok: 'Discard changes', danger: true }).then((ok) => {
+    if (!ok) return;
+    f.reset();
+    Array.from(f.elements).forEach((x) => { if (x.name) x.dispatchEvent(new Event('change', { bubbles: true })); });
+    f.alignStart = formState(f);
+    m.alignDiscard = true;
+    bsModal(m).hide();
+  });
+});
+
+// Enter in a text field submits the form with its first button. When that button is a delete, retire or send
+// button (it asks first, or is red), Enter uses the form's Save button instead, or does nothing.
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter' || ev.isComposing || ev.defaultPrevented) return;
+  const t = ev.target;
+  if (!(t instanceof HTMLInputElement) || !t.form || ['checkbox', 'radio', 'submit', 'button', 'file', 'reset'].includes(t.type)) return;
+  const form = t.form;
+  if (t.hasAttribute('data-enter-nosubmit')) { ev.preventDefault(); return; }
+  const buttons = Array.from(form.elements).filter((b) => b.type === 'submit');
+  const risky = (b) => b.hasAttribute('data-confirm') || /btn(-outline)?-danger/.test(b.className) || b.hasAttribute('data-enter-skip');
+  const first = buttons.find((b) => !b.disabled);
+  if (!first || !risky(first)) return;
+  ev.preventDefault();
+  const safe = form.querySelector('[data-default-submit]') || buttons.find((b) => !b.disabled && !risky(b) && /btn-primary|btn-success/.test(b.className));
+  if (safe && form.requestSubmit) form.requestSubmit(safe);
 }, true);
 
 // Edit forms on long lists load when opened: <a data-lazy-modal="/licenses/5/form?back=…" data-bs-target="#modal-license-5">
@@ -118,9 +320,22 @@ document.addEventListener('DOMContentLoaded', () => {
     apply();
   });
 
-  // Submit a select's form on change: <select data-autosubmit>
+  // Submit a select's form on change: <select data-autosubmit>. With data-confirm-change="Change the role from
+  // {from} to {to}?" it asks first, and puts the old choice back on Cancel.
   document.querySelectorAll('select[data-autosubmit]').forEach((sel) => {
-    sel.addEventListener('change', () => sel.form.submit());
+    let was = sel.value, asking = false;
+    sel.addEventListener('change', () => {
+      if (!sel.dataset.confirmChange) { sel.form.submit(); return; }
+      if (asking) return; // arrow keys fire a change each: the dialog already shows the first
+      asking = true;
+      const name = (v) => (Array.from(sel.options).find((o) => o.value === v) || {}).text || v;
+      const msg = sel.dataset.confirmChange.replace(/\{from\}/g, name(was)).replace(/\{to\}/g, name(sel.value));
+      const to = sel.value;
+      alignConfirm({ ...confirmParts(msg), ok: sel.dataset.confirmOk || 'Change', danger: false }).then((ok) => {
+        asking = false;
+        if (ok) { sel.value = to; was = to; sel.form.submit(); } else { sel.value = was; }
+      });
+    });
   });
 
   // Show/hide a block based on a select: <select data-toggle-target="#id"> (hidden when value = "none")

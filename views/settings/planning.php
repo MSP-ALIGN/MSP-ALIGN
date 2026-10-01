@@ -6,8 +6,27 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
     . '<input type="number" step="any" name="' . e($name) . '" class="form-control" value="' . e($v[$name] ?? '') . '">'
     . ($suffix ? '<span class="input-group-text">' . e($suffix) . '</span>' : '') . '</div></div>';
 ?>
+<?php
+// Changes here recalculate plans for many devices: say how many before saving (2.0.1)
+$perClass = [];
+foreach (\Align\DB::all("SELECT COALESCE(NULLIF(o.device_type, ''), d.device_type) AS t, COUNT(*) AS n FROM devices d
+    JOIN clients c ON c.id = d.client_id LEFT JOIN device_overrides o ON o.device_id = d.id
+    WHERE d.removed_at IS NULL AND d.retired_at IS NULL AND c.is_archived = 0 AND c.planning_excluded = 0 AND (o.device_id IS NULL OR o.excluded = 0) GROUP BY t") as $r) {
+    $cl = Lifecycle::TYPES[(string) $r['t']][0] ?? null;
+    if ($cl !== null) {
+        $perClass[$cl] = ($perClass[$cl] ?? 0) + (int) $r['n'];
+    }
+}
+$rules = [['changed' => 'fiscal_year_start,plan_start', 'title' => 'Change the planning settings?', 'ok' => 'Save',
+    'text' => 'Every client\'s roadmap and budget is laid out on the new quarters.']];
+foreach (Lifecycle::CLASSES as $class => $label) {
+    $n = $perClass[$class] ?? 0;
+    $rules[] = ['changed' => "lifespan_$class,cost_$class", 'title' => 'Change the lifecycle policy?', 'ok' => 'Save',
+        'text' => "$label: end-of-life dates and replacement costs are recalculated for " . ($n === 1 ? '1 device' : "$n devices") . ' (except ones with their own values).'];
+}
+?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'planning']) ?>
-<form method="post" action="/settings">
+<form method="post" action="/settings" data-unsaved data-confirm-rules="<?= e(json_encode($rules)) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="_tab" value="planning">
   <div class="row">

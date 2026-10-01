@@ -15,7 +15,7 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= $k ? '/contacts/' . (int) $k['id'] : '/clients/' . (int) $cid . '/contacts' ?>">
+      <form method="post" action="<?= $k ? '/contacts/' . (int) $k['id'] : '/clients/' . (int) $cid . '/contacts' ?>" data-unsaved>
         <?= csrf_field() ?>
         <input type="hidden" name="back" value="<?= e($back) ?>">
         <div class="modal-header bg-dark">
@@ -50,7 +50,7 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
         </div>
         <div class="modal-footer">
           <?php if ($k): ?>
-            <?php if ($k['archived_at']): ?><button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate<?= $push && ($k['archived_reason'] ?? '') === 'psa' && \Align\Providers\Providers::psaSupports('contacts.archive')
+            <?php if ($k['archived_at']): ?><button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate data-enter-skip<?= $push && ($k['archived_reason'] ?? '') === 'psa' && \Align\Providers\Providers::psaSupports('contacts.archive')
                 ? ' data-confirm="' . e('Restore ' . $k['name'] . ' in Align and ' . psa_name() . '? This also re-enables their client portal login in ' . psa_name() . ' if they have one. Their Important, Billing and Technical flags are not restored (set them again in ' . psa_name() . ').') . '"' : '' ?>><i class="fas fa-rotate-left me-1"></i>Restore</button>
             <?php else: ?><button class="btn btn-outline-secondary me-auto" name="action" value="archive" formnovalidate data-confirm="<?= e($push && \Align\Providers\Providers::psaSupports('contacts.archive')
                 ? 'Archive ' . $k['name'] . ' in Align and ' . psa_name() . '? ' . psa_name() . ' also clears their Important, Billing and Technical flags and archives their client portal login there.'

@@ -48,11 +48,11 @@ use Align\Meetings\Meetings;
           <input class="form-control form-control-sm mb-2 select-all" readonly value="<?= e($feedUrl) ?>">
           <p class="text-muted"><b>Copy it now:</b> it's shown only once. Treat it like a password: anyone with it can see meeting titles and times (never agendas or attendees).</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
-          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger" data-confirm="Turn off your calendar feed? Calendars subscribed to it stop updating." data-confirm-ok="Turn off">Turn off</button></form>
         <?php elseif (!empty($feedOn)): ?>
           <p><span class="badge text-bg-success">On</span> Your feed link is active. It isn't shown again; make a new one if you need it.</p>
           <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-xs btn-outline-secondary" data-confirm="Make a new link? The old one stops working.">New link</button></form>
-          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger">Turn off</button></form>
+          <form method="post" action="/calendar/feed" class="d-inline"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><input type="hidden" name="action" value="revoke"><button class="btn btn-xs btn-outline-danger" data-confirm="Turn off your calendar feed? Calendars subscribed to it stop updating." data-confirm-ok="Turn off">Turn off</button></form>
         <?php else: ?>
           <p>Get a private link to see Align meetings in your Outlook calendar.</p>
           <form method="post" action="/calendar/feed"><?= csrf_field() ?><input type="hidden" name="return" value="/calendar"><button class="btn btn-sm btn-primary">Create my feed link</button></form>

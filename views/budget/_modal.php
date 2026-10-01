@@ -11,7 +11,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= $edit ? '/budget-lines/' . (int) $m['id'] : '/clients/' . (int) $cid . '/budget' ?>">
+      <form method="post" action="<?= $edit ? '/budget-lines/' . (int) $m['id'] : '/clients/' . (int) $cid . '/budget' ?>" data-unsaved>
         <?php if ($sub): ?><input type="hidden" name="submission_id" value="<?= $sub ?>"><?php endif; ?>
         <?= csrf_field() ?>
         <input type="hidden" name="back" value="<?= e($back) ?>">
@@ -44,7 +44,7 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
           <div class="mb-3 mb-0"><label>Notes</label><textarea name="notes" class="form-control" rows="2"><?= e($m['notes'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
-          <?php if ($edit): ?><button class="btn btn-outline-danger me-auto" name="action" value="delete" formnovalidate data-confirm="Remove this budget line?"><i class="fas fa-trash me-1"></i>Remove</button><?php endif; ?>
+          <?php if ($edit): ?><button class="btn btn-outline-danger me-auto" name="action" value="delete" formnovalidate data-confirm="Remove this budget line? It comes off the budget. This can't be undone."><i class="fas fa-trash me-1"></i>Remove</button><?php endif; ?>
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save</button>
         </div>

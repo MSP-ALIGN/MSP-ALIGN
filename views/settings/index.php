@@ -7,7 +7,10 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
     . ($suffix ? '<span class="input-group-text">' . e($suffix) . '</span>' : '') . '</div></div>';
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'general']) ?>
-<form method="post" action="/settings">
+<form method="post" action="/settings" data-unsaved data-confirm-rules="<?= e(json_encode([
+    ['changed' => 'remember_2fa_days', 'atmost' => ['remember_2fa_days' => 0], 'title' => 'Stop remembering browsers?', 'ok' => 'Save', 'danger' => true,
+     'text' => 'Every remembered browser is forgotten, for all staff and client portal users: everyone enters a two-factor code at their next sign-in.'],
+])) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="_tab" value="general">
   <div class="row">

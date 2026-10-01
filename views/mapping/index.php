@@ -52,7 +52,7 @@ $cols = 1 + 3 * count($providers);
               <?php endif; ?>
               <?php if (\Align\Auth::can('admin')): ?>
               <form method="post" action="/mapping/create-clients" class="mb-1"><?= csrf_field() ?><input type="hidden" name="provider" value="<?= e($key) ?>"><input type="hidden" name="action" value="auto"><input type="hidden" name="auto" value="<?= $autoCreate ? '0' : '1' ?>">
-                <button class="btn btn-xs btn-default"><i class="fas fa-toggle-<?= $autoCreate ? 'on text-success' : 'off' ?> me-1"></i><?= $autoCreate ? 'New ' . e($plural($p['noun'], 2)) . ' become clients on each sync' : 'Also add clients for new ' . e($plural($p['noun'], 2)) . ' on each sync' ?></button></form>
+                <button class="btn btn-xs btn-default" <?= $autoCreate ? '' : 'data-confirm="' . e('Add a client for every new ' . $p['noun'] . ' on each sync? New ' . $plural($p['noun'], 2) . ' become clients without asking.') . '" data-confirm-danger="0" data-confirm-ok="Turn on"' ?>><i class="fas fa-toggle-<?= $autoCreate ? 'on text-success' : 'off' ?> me-1"></i><?= $autoCreate ? 'New ' . e($plural($p['noun'], 2)) . ' become clients on each sync' : 'Also add clients for new ' . e($plural($p['noun'], 2)) . ' on each sync' ?></button></form>
               <?php endif; ?>
             </div>
             <div class="small text-muted">No PSA is connected, so clients can come from here. Each <?= e($p['noun']) ?> becomes a client once; one you delete isn't added again.</div>
@@ -63,7 +63,8 @@ $cols = 1 + 3 * count($providers);
   <?php endforeach; ?>
 </div>
 
-<form method="post" action="/mapping">
+<form method="post" action="/mapping" data-unsaved data-confirm-rules="<?= e(json_encode([['changes' => true, 'title' => 'Save {n} mapping changes?', 'ok' => 'Save mapping',
+    'text' => 'Devices, backups and service data follow the links you changed, so they can move to a different client.']])) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="show" value="<?= e($show) ?>">
   <div class="card card-dark">
@@ -73,7 +74,7 @@ $cols = 1 + 3 * count($providers);
         <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === 'missing' ? ' active' : ' text-light' ?>" href="/mapping?show=missing"><i class="fas fa-link-slash me-1"></i>Missing a link <span class="badge text-bg-<?= $show === 'missing' ? 'light' : ($missing ? 'warning' : 'secondary') ?>"><?= (int) $missing ?></span></a></li>
       </ul>
       <div class="card-tools d-flex">
-        <input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="map-table" placeholder="Filter…" aria-label="Filter clients">
+        <input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="map-table" data-enter-nosubmit placeholder="Filter…" aria-label="Filter clients">
         <?php if ($clients): ?><button class="btn btn-sm btn-primary text-nowrap"><i class="fas fa-check me-1"></i>Save mapping</button><?php endif; ?>
       </div>
     </div>

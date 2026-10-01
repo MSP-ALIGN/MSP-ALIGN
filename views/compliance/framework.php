@@ -6,7 +6,12 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="f
     . '</select>';
 ?>
 <div class="small"><a href="/frameworks">Frameworks</a> /</div>
-<form method="post" action="/frameworks/<?= (int) $fw['id'] ?>" data-post-changed>
+<form method="post" action="/frameworks/<?= (int) $fw['id'] ?>" data-post-changed data-unsaved
+  data-confirm-rules="<?= e(json_encode([
+      ['count' => '[name$="[delete]"]:checked', 'title' => 'Delete {n} controls?', 'danger' => true, 'ok' => 'Delete and save',
+       'text' => $inUse ? 'Their answers, notes and evidence are deleted for the ' . (int) $inUse . ' client' . ($inUse == 1 ? '' : 's') . ' using this framework. This can\'t be undone.' : 'This can\'t be undone.'],
+      ['changed' => 'is_active', 'is' => ['is_active' => '0'], 'title' => 'Make this framework inactive?', 'text' => 'It can\'t be assigned to more clients. Clients that have it keep it.'],
+  ])) ?>">
   <?= csrf_field() ?>
   <div class="card card-dark">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i><?= e($fw['name']) ?></h3>

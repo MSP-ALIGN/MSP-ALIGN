@@ -35,7 +35,10 @@ $pages = array_values(array_filter($templates, fn($t) => $t['kind'] === 'page'))
     </div>
   </div>
   <div class="col-xl-4">
-    <form method="post" action="/settings/onboarding" class="card">
+    <form method="post" action="/settings/onboarding" class="card" data-unsaved data-confirm-rules="<?= e(json_encode([
+        ['changed' => 'client_requests', 'is' => ['client_requests' => '0'], 'title' => 'Turn off online requests?', 'ok' => 'Save',
+         'text' => 'Clients can no longer send new user and termination requests from onboarding pages or the client portal.'],
+    ])) ?>">
       <?= csrf_field() ?>
       <div class="card-header py-2"><h3 class="card-title mt-1">Options</h3></div>
       <div class="card-body">
@@ -53,7 +56,7 @@ $pages = array_values(array_filter($templates, fn($t) => $t['kind'] === 'page'))
         <a class="btn btn-sm btn-default mb-2" href="/settings/onboarding/export"><i class="fas fa-download me-1"></i>Export templates</a>
         <form method="post" action="/settings/onboarding/import" enctype="multipart/form-data"><?= csrf_field() ?>
           <div class="input-group input-group-sm"><input type="file" class="form-control" id="obimp" name="file" accept=".json,application/json" required>
-          <button class="btn btn-primary">Import</button></div></form>
+          <button class="btn btn-primary" data-confirm="Import these templates? Templates with the same name are replaced." data-confirm-danger="0" data-confirm-ok="Import">Import</button></div></form>
       </div>
     </div>
   </div>
