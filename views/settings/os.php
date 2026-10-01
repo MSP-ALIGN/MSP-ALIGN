@@ -1,5 +1,10 @@
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'os']) ?>
-<form method="post" action="/settings/os">
+<form method="post" action="/settings/os" data-unsaved data-confirm-rules="<?= e(json_encode([
+    ['count' => '[name$="[delete]"]:checked', 'title' => 'Delete {n} OS rows?', 'danger' => true, 'ok' => 'Delete and save',
+     'text' => 'Devices that matched them get their support status from the remaining rows, or show as unknown.'],
+    ['changes' => true, 'title' => 'Save the OS support dates?', 'ok' => 'Save',
+     'text' => 'The support status of every device with a matching operating system is updated, on every client.'],
+])) ?>">
   <?= csrf_field() ?>
   <div class="card card-dark">
     <div class="card-header py-2"><h3 class="card-title mt-2"><i class="fab fa-fw fa-windows me-2"></i>OS support dates</h3>

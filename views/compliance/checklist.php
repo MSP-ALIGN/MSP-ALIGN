@@ -47,7 +47,8 @@ $show = function (array $c) use ($filter) {
   </div>
 <?php endif; ?>
 
-<form method="post" action="/clients/<?= $cid ?>/compliance/<?= $fid ?>" id="checklist-form" data-post-changed>
+<form method="post" action="/clients/<?= $cid ?>/compliance/<?= $fid ?>" id="checklist-form" data-post-changed data-unsaved
+  data-confirm-rules="<?= e(json_encode([['count' => '[data-row][data-dirty]', 'min' => 10, 'title' => 'Save {n} changed answers?', 'text' => 'Every answer you changed or filled in on this page is saved for this client.', 'ok' => 'Save']])) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="filter" value="<?= e($filter) ?>">
   <?php foreach ($sections as $section => $controls): $visible = array_filter($controls, $show); if (!$visible) continue; ?>

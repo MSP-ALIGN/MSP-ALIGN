@@ -302,12 +302,15 @@ final class Backup
         $now = time();
         $types = [];
         $overdue = [];
+        $list = [];
         $last = null;
         foreach ($objects as $o) {
-            if (isset($exempt[$o['uid']])) {
-                continue; // marked "backup not required": not counted either way
-            }
             $age = $o['last_point'] ? ($now - strtotime($o['last_point'])) / 3600 : null;
+            if (isset($exempt[$o['uid']])) {
+                // marked "backup not required": not counted either way, listed as such
+                $list[] = $o + ['age_h' => $age, 'tone' => 'muted', 'exempt' => true, 'type_label' => rtrim(self::M365_TYPES[$o['object_type']][0], 's')];
+                continue;
+            }
             $tone = $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'));
             $t = $o['object_type'];
             $types[$t] ??= ['total' => 0, 'ok' => 0, 'overdue' => 0, 'last' => null];
@@ -319,8 +322,10 @@ final class Backup
             if ($o['last_point'] && $o['last_point'] > (string) $last) {
                 $last = $o['last_point'];
             }
+            $item = $o + ['age_h' => $age, 'tone' => $tone, 'type_label' => rtrim(self::M365_TYPES[$t][0], 's')];
+            $list[] = $item;
             if ($tone !== 'ok') {
-                $overdue[] = $o + ['age_h' => $age, 'tone' => $tone, 'type_label' => rtrim(self::M365_TYPES[$t][0], 's')];
+                $overdue[] = $item;
             }
         }
         $order = array_keys(self::M365_TYPES);
@@ -335,6 +340,8 @@ final class Backup
             'types' => $types,
             'overdue' => $overdue,
             'overdue_count' => count($overdue),
+            'objects' => $list,
+            'counting_since' => ($f = array_filter(array_column($list, 'days_from'))) ? min($f) : null,
             'total' => count($objects),
             'users' => $types['user']['total'] ?? 0,
             'licensed' => count(array_filter($objects, fn($o) => $o['object_type'] === 'user' && (int) $o['licensed'] === 1)),

@@ -16,7 +16,8 @@ echo \Align\View::fetch('partials/page_header', [
 <div class="card">
   <?= \Align\View::fetch('devices/_toolbar', ['base' => "/clients/$cid/devices", 'filter' => $filter, 'class' => $class, 'q' => $q, 'bkOn' => $bkOn, 'export' => "/clients/$cid/export"]) ?>
   <?php if ($canBulk): ?>
-  <form method="post" action="/clients/<?= $cid ?>/devices/replacement" id="bulk-replace" class="card-body py-2 border-bottom d-flex flex-wrap align-items-center small bulk-replace d-none" data-bulk-bar="device-table">
+  <form method="post" action="/clients/<?= $cid ?>/devices/replacement" id="bulk-replace" class="card-body py-2 border-bottom d-flex flex-wrap align-items-center small bulk-replace d-none" data-bulk-bar="device-table"
+    data-confirm-rules="<?= e(json_encode([['count' => '[name="ids[]"]:checked', 'title' => 'Change the replacement plan for {n} devices?', 'text' => 'Their place on the roadmap and in the budget moves with it.', 'ok' => 'Set replacement']])) ?>">
     <?= csrf_field() ?><input type="hidden" name="return_query" value="<?= e(http_build_query(array_filter(['filter' => $filter, 'class' => $class, 'q' => $q, 'limit' => $limit > \Align\Paging::STEP ? $limit : '']))) ?>">
     <span class="me-2 mb-1"><b data-bulk-count>0</b> selected · Replace in</span>
     <select name="replace_on" class="form-select form-select-sm me-2 mb-1 w-auto" aria-label="Replace in">
@@ -37,7 +38,7 @@ echo \Align\View::fetch('partials/page_header', [
 <div class="modal fade" id="modal-device" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="/clients/<?= $cid ?>/devices">
+      <form method="post" action="/clients/<?= $cid ?>/devices" data-unsaved>
         <?= csrf_field() ?>
         <div class="modal-header bg-dark">
           <h5 class="modal-title"><i class="fas fa-fw fa-plus me-2"></i>Add device to <?= e($client['name']) ?></h5>

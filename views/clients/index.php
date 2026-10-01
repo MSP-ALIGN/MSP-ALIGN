@@ -20,17 +20,17 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
         <li class="nav-item"><a class="nav-link <?= $view === $k ? 'active' : '' ?>" href="/clients?view=<?= $k ?>"><?= e($label) ?> <span class="badge <?= $view === $k ? 'text-bg-light' : 'text-bg-secondary' ?>"><?= (int) ($counts[$k] ?? 0) ?></span></a></li>
       <?php endforeach; ?>
     </ul>
-    <input type="search" class="form-control form-control-sm list-search my-1 me-1" data-filter-table="clients-table" placeholder="Filter clients…" aria-label="Filter clients" value="<?= e($q) ?>">
+    <input type="search" class="form-control form-control-sm list-search my-1 me-1" data-filter-table="clients-table" data-enter-nosubmit placeholder="Filter clients…" aria-label="Filter clients" value="<?= e($q) ?>">
     <?php if ($canEdit): ?>
       <div class="bulk-bar d-none d-flex flex-wrap align-items-center" id="bulk-bar">
         <span class="small me-2"><b id="bulk-count">0</b> selected</span>
         <?php if ($view !== 'removed'): ?>
-          <input name="reason" class="form-control form-control-sm me-2" placeholder="Reason (optional)" list="bulk-reasons">
+          <input name="reason" class="form-control form-control-sm me-2" placeholder="Reason (optional)" list="bulk-reasons" data-enter-nosubmit>
           <datalist id="bulk-reasons"><option value="Break-fix only"><option value="Not a managed client"><option value="Former client"><option value="Vendor / partner record"><option value="Internal / test"></datalist>
-          <button class="btn btn-sm btn-outline-secondary" name="action" value="exclude" data-confirm="Remove the selected clients from planning?"><i class="fas fa-eye-slash me-1"></i>Remove from planning</button>
+          <button class="btn btn-sm btn-outline-secondary" name="action" value="exclude" data-confirm="Remove the selected clients from planning? They're hidden from planning, reports and the dashboard until you restore them." data-confirm-ok="Remove from planning"><i class="fas fa-eye-slash me-1"></i>Remove from planning</button>
         <?php endif; ?>
         <?php if ($view === 'removed' || $view === 'all'): ?>
-          <button class="btn btn-sm btn-outline-primary ms-1" name="action" value="restore"><i class="fas fa-rotate-left me-1"></i>Restore to planning</button>
+          <button class="btn btn-sm btn-outline-primary ms-1" name="action" value="restore" data-confirm="Restore the selected clients to planning?" data-confirm-danger="0" data-confirm-ok="Restore"><i class="fas fa-rotate-left me-1"></i>Restore to planning</button>
         <?php endif; ?>
       </div>
     <?php endif; ?>

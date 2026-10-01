@@ -45,7 +45,8 @@ $status = match (true) {
 
 <div class="row">
   <div class="col-xl-7">
-    <form method="post" action="/integrations/email" class="card card-dark">
+    <form method="post" action="/integrations/email" class="card card-dark" data-unsaved data-confirm-rules="<?= e(json_encode([['lowered' => 'mail_log_days', 'title' => 'Keep email content for fewer days?', 'ok' => 'Save', 'danger' => true,
+      'text' => 'The content of logged emails older than that is deleted at the next clean-up, and can\'t be brought back.']])) ?>">
       <?= csrf_field() ?>
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-plug me-2"></i>Mail connection</h3>
         <div class="card-tools"><span class="badge text-bg-<?= $status[0] ?> px-2 py-1"><?= e($status[1]) ?></span></div></div>
@@ -131,7 +132,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
                 <div class="d-flex align-items-center"><i class="fas fa-circle-check text-success me-2"></i>
                   <div class="me-auto small">Connected as <b><?= e($v['g_connected_as']) ?></b><?= $v['g_connected_name'] ? ' (' . e($v['g_connected_name']) . ')' : '' ?> since <?= e(fmt_date($v['g_connected_at'])) ?>.<?= $v['g_calendar_granted'] === '0' ? ' <span class="text-warning">Calendar access not granted: invitations go out as .ics emails.</span>' : '' ?></div>
                   <a class="btn btn-sm btn-default me-1" href="/integrations/email/connect">Reconnect</a>
-                  <button class="btn btn-sm btn-outline-danger" form="email-disconnect">Disconnect</button></div>
+                  <button class="btn btn-sm btn-outline-danger" form="email-disconnect" data-confirm="Disconnect the mailbox? Align stops sending email (invitations, notifications and client portal emails) until it's connected again.">Disconnect</button></div>
               <?php else: ?>
                 <div class="d-flex align-items-center"><span class="small text-muted me-auto">Save the client ID and secret first, then sign in as the sending mailbox.</span>
                   <a class="btn btn-sm btn-primary" href="/integrations/email/connect"><i class="fab fa-google me-1"></i>Connect with Google</a></div>
@@ -165,7 +166,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <div class="d-flex align-items-center"><i class="fas fa-circle-check text-success me-2"></i>
                 <div class="me-auto small">Connected as <b><?= e($v['m365_connected_as']) ?></b><?= $v['m365_connected_name'] ? ' (' . e($v['m365_connected_name']) . ')' : '' ?> since <?= e(fmt_date($v['m365_connected_at'])) ?>.</div>
                 <a class="btn btn-sm btn-default me-1" href="/integrations/email/connect">Reconnect</a>
-                <button class="btn btn-sm btn-outline-danger" form="email-disconnect">Disconnect</button></div>
+                <button class="btn btn-sm btn-outline-danger" form="email-disconnect" data-confirm="Disconnect the mailbox? Align stops sending email (invitations, notifications and client portal emails) until it's connected again.">Disconnect</button></div>
             <?php else: ?>
               <div class="d-flex align-items-center"><span class="small text-muted me-auto">Save the details above first, then sign in as the sending mailbox.</span>
                 <a class="btn btn-sm btn-primary" href="/integrations/email/connect"><i class="fab fa-microsoft me-1"></i>Connect with Microsoft</a></div>

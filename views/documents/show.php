@@ -82,7 +82,7 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
               <span class="me-auto"><i class="fas fa-door-open me-1 text-muted"></i>Client portal:
                 <b class="<?= $doc['portal_shared'] ? 'text-success' : 'text-muted' ?>"><?= $doc['portal_shared'] ? ($doc['status'] === 'active' ? 'Shared' : 'Shared once Active') : 'Not shared' ?></b></span>
               <?php if ($canEdit): ?><form method="post" action="/documents/<?= $id ?>/portal"><?= csrf_field() ?><input type="hidden" name="shared" value="<?= $doc['portal_shared'] ? '0' : '1' ?>">
-                <button class="btn btn-xs btn-default"><?= $doc['portal_shared'] ? 'Hide' : 'Share' ?></button></form><?php endif; ?>
+                <button class="btn btn-xs btn-default"<?= $doc['portal_shared'] ? '' : ' data-confirm="' . e('Share this document with ' . $doc['client_name'] . '\'s client portal? Their portal users who can see documents can read it' . ($doc['status'] === 'active' ? ' now.' : ' once it\'s Active.')) . '" data-confirm-danger="0" data-confirm-ok="Share"' ?>><?= $doc['portal_shared'] ? 'Hide' : 'Share' ?></button></form><?php endif; ?>
             </div>
           <?php endif; ?>
         </div>

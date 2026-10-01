@@ -14,7 +14,7 @@ $tag = $fromPsa ? ' <span class="badge text-bg-light border fw-normal" title="Ma
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= $edit ? '/licenses/' . (int) $l['id'] : '/clients/' . (int) $cid . '/licenses' ?>">
+      <form method="post" action="<?= $edit ? '/licenses/' . (int) $l['id'] : '/clients/' . (int) $cid . '/licenses' ?>" data-unsaved>
         <?php if ($sub): ?><input type="hidden" name="submission_id" value="<?= $sub ?>"><?php endif; ?>
         <?= csrf_field() ?>
         <input type="hidden" name="back" value="<?= e($back) ?>">
@@ -64,7 +64,7 @@ $tag = $fromPsa ? ' <span class="badge text-bg-light border fw-normal" title="Ma
         <div class="modal-footer">
           <?php if ($edit): ?>
             <?php if ($l['retired_at']): ?>
-              <button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate><i class="fas fa-rotate-left me-1"></i>Restore</button>
+              <button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate data-enter-skip><i class="fas fa-rotate-left me-1"></i>Restore</button>
             <?php else: ?>
               <button class="btn btn-outline-secondary me-auto" name="action" value="retire" formnovalidate data-confirm="Retire <?= e($l['name']) ?>? It stops counting toward costs; you can restore it."><i class="fas fa-box-archive me-1"></i>Retire</button>
             <?php endif; ?>

@@ -49,7 +49,8 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
   <div class="alert alert-light border small py-2"><i class="fas fa-circle-check text-success me-1"></i>Every machine on your backup servers is matched to a client or marked as yours.</div>
 <?php endif; ?>
 
-<form method="post" action="/mapping/backups" id="hb-form">
+<form method="post" action="/mapping/backups" id="hb-form" data-unsaved data-confirm-rules="<?= e(json_encode([['changes' => true, 'min' => 2, 'title' => 'Save these hosted-backup changes?', 'ok' => 'Save',
+  'text' => 'Machines move to the clients you picked; their backups and costs follow.']])) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="show" value="<?= e($show) ?>">
   <div class="card card-dark">
@@ -59,7 +60,7 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
           <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === $t ? ' active' : ' text-light' ?>" href="?show=<?= $t ?>"><i class="fas <?= $ti ?> me-1"></i><?= e($tl) ?> <span class="badge text-bg-<?= $show === $t ? 'light' : 'secondary' ?>"><?= (int) $counts[$t] ?></span></a></li>
         <?php endforeach; ?>
       </ul>
-      <div class="card-tools d-flex"><input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="hb-machines" placeholder="Filter…" aria-label="Filter machines"><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div>
+      <div class="card-tools d-flex"><input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="hb-machines" placeholder="Filter…" data-enter-nosubmit aria-label="Filter machines"><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div>
     </div>
     <div class="card-body py-2 border-bottom d-flex flex-wrap align-items-center small bg-light d-none" data-bulk-bar="hb-machines">
       <span class="me-2"><b data-bulk-count>0</b> selected:</span>
@@ -90,7 +91,7 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
 
   <div class="card card-dark">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i>Jobs on your backup servers (<?= count($jobs) ?>)</h3>
-      <div class="card-tools d-flex"><input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="hb-jobs" placeholder="Filter…" aria-label="Filter jobs"><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div></div>
+      <div class="card-tools d-flex"><input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="hb-jobs" placeholder="Filter…" data-enter-nosubmit aria-label="Filter jobs"><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div></div>
     <div class="card-body py-2 small text-muted border-bottom">Assign a job to a client when it only backs up that client: all its machines, including ones added later, go to that client. Left on <b>Automatic</b>, a job counts for every client whose machines it backs up.</div>
     <div class="card-body p-0 table-responsive">
       <table class="table table-sm table-borderless table-striped table-hover mb-0" id="hb-jobs">
@@ -137,5 +138,6 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
     </div>
   </div>
 </form>
-<form method="post" action="/mapping/backups/bulk" id="hb-bulk"><?= csrf_field() ?><input type="hidden" name="show" value="<?= e($show) ?>"></form>
+<form method="post" action="/mapping/backups/bulk" id="hb-bulk" data-confirm-rules="<?= e(json_encode([['count' => '[name="ids[]"]:checked', 'title' => 'Move {n} machines?', 'ok' => 'Apply to selected',
+  'text' => 'They are assigned to the client you picked; their backups and costs follow.']])) ?>"><?= csrf_field() ?><input type="hidden" name="show" value="<?= e($show) ?>"></form>
 <?php endif; ?>

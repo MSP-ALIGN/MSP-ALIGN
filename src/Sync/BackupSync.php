@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Align\Sync;
 
 use Align\DB;
+use Align\Settings;
 use Align\Providers\Backup\BackupProvider;
 use Align\Providers\ClientLinks;
 use Align\Providers\Providers;
@@ -81,16 +82,32 @@ final class BackupSync
             DB::run('DELETE FROM backup_m365_orgs WHERE provider = ? AND synced_at < ?', [$key, $now]);
             $n = 0;
             if ($m['objects'] !== null) {
-                DB::transaction(function () use ($m, $now, $key, &$n) {
-                    foreach ($m['objects'] as $o) {
+                $multi = 0;
+                $objects = self::stableUids($m['objects'], $key);
+                DB::transaction(function () use ($objects, $now, $key, &$n, &$multi) {
+                    foreach ($objects as $o) {
+                        $others = array_values(array_diff($o['uids'] ?? [], [$o['uid']]));
+                        unset($o['days'], $o['uids']);
                         DB::upsert('backup_m365_objects', ['uid' => $o['uid'], 'provider' => $key] + $o + ['synced_at' => $now], ['uid']);
+                        if ($others) {
+                            // the other copies' rows and days now belong to this one (pruning by synced_at alone
+                            // misses a row from a sync in the same second)
+                            $in = self::in($others);
+                            DB::run("UPDATE IGNORE backup_m365_days SET object_uid = ? WHERE object_uid IN ($in)", [$o['uid'], ...$others]);
+                            DB::run("DELETE FROM backup_m365_days WHERE object_uid IN ($in)", $others);
+                            DB::run("DELETE FROM backup_m365_objects WHERE provider = ? AND uid IN ($in)", [$key, ...$others]);
+                        }
                         $n++;
+                        $multi += (int) (($o['repositories'] ?? 1) > 1);
                     }
                     DB::run('DELETE FROM backup_m365_objects WHERE provider = ? AND synced_at < ?', [$key, $now]);
+                    self::countDays($objects, $key, $now);
                 });
+                self::pruneDays($now);
             }
             $m365Jobs = count(array_filter($snap['jobs'], fn($j) => ($j['source'] ?? '') === 'm365')); // as the product lists them
-            $parts[] = 'Microsoft 365: ' . count($m['orgs']) . ' organizations, ' . $m365Jobs . ' jobs, ' . $n . ' protected objects';
+            $parts[] = 'Microsoft 365: ' . count($m['orgs']) . ' organizations, ' . $m365Jobs . ' jobs, ' . $n . ' protected objects'
+                . (!empty($multi) ? " ($multi in more than one repository)" : '');
         }
 
         // Protected machines and which jobs back them up
@@ -270,6 +287,95 @@ final class BackupSync
     public static function linkDevices(): int
     {
         return self::assign()['devices'];
+    }
+
+    /**
+     * An object combined from several repositories keeps the uid Align already stores for it, so "backup not
+     * required" marks and its days with a backup stay attached when a repository appears or goes away. A uid that
+     * carries a "backup not required" mark is passed over when another one is available: the mark was likely put on
+     * a legacy copy that showed as overdue, and must not now hide the current mailbox. (An object that really
+     * doesn't need a backup, such as a former employee's mailbox in both repositories, had every copy marked,
+     * because every copy was overdue: it keeps one of those uids and stays marked.)
+     */
+    private static function stableUids(array $objects, string $key): array
+    {
+        $stored = array_flip(array_column(DB::all('SELECT uid FROM backup_m365_objects WHERE provider = ?', [$key]), 'uid'));
+        $exempt = array_flip(array_column(DB::all('SELECT DISTINCT item_uid FROM backup_exemptions WHERE item_uid IS NOT NULL'), 'item_uid'));
+        foreach ($objects as &$o) {
+            $uids = $o['uids'] ?? [$o['uid']];
+            if (count($uids) > 1) {
+                $rank = fn(string $u) => (isset($stored[$u]) ? 0 : 1) + (isset($exempt[$u]) ? 2 : 0);
+                usort($uids, fn($a, $b) => [$rank($a), $a] <=> [$rank($b), $b]);
+                $o['uid'] = $uids[0];
+            }
+        }
+        unset($o);
+        return $objects;
+    }
+
+    /**
+     * Days with a backup per Microsoft 365 object: each sync records the day of every repository's newest restore
+     * point, so a day counts once however many restore points it has, and a day backed up in both a legacy and a
+     * current repository counts once. Counting starts at the object's first sync after 2.0.1 (days_from: that day,
+     * or the day before when its newest restore point is from yesterday): the console reports only each repository's
+     * newest restore point, not the dates of older ones. A day passes uncounted only if Align didn't sync after that
+     * day's last backup.
+     */
+    private static function countDays(array $objects, string $key, string $now): void
+    {
+        $today = substr($now, 0, 10);
+        $yesterday = date('Y-m-d', strtotime($today . ' -1 day'));
+        $from = [];
+        foreach (DB::all('SELECT o.uid, o.days_from, (SELECT MIN(d.day) FROM backup_m365_days d WHERE d.object_uid = o.uid) AS first_day
+            FROM backup_m365_objects o WHERE o.provider = ?', [$key]) as $r) {
+            $from[$r['uid']] = $r['days_from'] !== null ? (string) $r['days_from'] : null;
+            if ($from[$r['uid']] === null && $r['first_day'] !== null) {
+                $from[$r['uid']] = (string) $r['first_day'];   // an object that came back: carry on counting
+            }
+        }
+        $pairs = [];
+        $start = [];
+        foreach ($objects as $o) {
+            if (!array_key_exists($o['uid'], $from)) {
+                continue;
+            }
+            $f = $from[$o['uid']];
+            if ($f === null) {
+                $f = ($o['days'] ?? []) && max($o['days']) === $yesterday ? $yesterday : $today;
+                $start[$f][] = $o['uid'];
+            }
+            foreach ($o['days'] ?? [] as $day) {
+                if ($day >= $f && $day <= $today) {
+                    $pairs[] = [$o['uid'], $day];
+                }
+            }
+        }
+        foreach ($start as $day => $uids) {
+            foreach (array_chunk($uids, 500) as $part) {
+                DB::run('UPDATE backup_m365_objects SET days_from = ? WHERE uid IN (' . self::in($part) . ')', [$day, ...$part]);
+            }
+        }
+        // Objects that came back after being removed: carry on counting from their first recorded day
+        DB::run('UPDATE backup_m365_objects o SET o.days_from = (SELECT MIN(d.day) FROM backup_m365_days d WHERE d.object_uid = o.uid)
+            WHERE o.provider = ? AND o.days_from IS NULL', [$key]);
+        foreach (array_chunk($pairs, 300) as $part) {
+            DB::run('INSERT IGNORE INTO backup_m365_days (object_uid, day) VALUES ' . implode(',', array_fill(0, count($part), '(?, ?)')),
+                array_merge(...$part));
+        }
+        DB::run('UPDATE backup_m365_objects o SET o.restore_days = (SELECT COUNT(*) FROM backup_m365_days d WHERE d.object_uid = o.uid AND d.day >= o.days_from)
+            WHERE o.provider = ?', [$key]);
+    }
+
+    /** Days of objects no longer reported are kept for a month, in case they come back; tidied once a day. */
+    private static function pruneDays(string $now): void
+    {
+        $today = substr($now, 0, 10);
+        if (Settings::get('m365_days_pruned') === $today) {
+            return;
+        }
+        DB::run('DELETE d FROM backup_m365_days d JOIN (SELECT object_uid FROM backup_m365_days GROUP BY object_uid HAVING MAX(day) < ?) old ON old.object_uid = d.object_uid
+            LEFT JOIN backup_m365_objects o ON o.uid = d.object_uid WHERE o.uid IS NULL', [date('Y-m-d', strtotime($today . ' -30 days'))]);
+        Settings::set('m365_days_pruned', $today);
     }
 
     private static function in(array $vals): string

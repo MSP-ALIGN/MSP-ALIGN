@@ -24,6 +24,6 @@ if (!$rows && $days === 0) {
         </li>
       <?php endforeach; ?>
     </ul>
-    <?php if (count($rows) > 1): ?><form method="post" action="<?= e($action) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="all"><button class="btn btn-sm btn-default">Forget all</button></form><?php endif; ?>
+    <?php if (count($rows) > 1): ?><form method="post" action="<?= e($action) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="all"><button class="btn btn-sm btn-default" data-confirm="Forget all your remembered browsers? Each one asks for a two-factor code at its next sign-in." data-confirm-ok="Forget all">Forget all</button></form><?php endif; ?>
   <?php endif; ?>
 </div>

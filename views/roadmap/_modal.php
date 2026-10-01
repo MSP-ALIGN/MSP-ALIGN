@@ -14,7 +14,7 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="<?= e($action) ?>">
+      <form method="post" action="<?= e($action) ?>" data-unsaved>
         <?= csrf_field() ?>
         <?php if ($back): ?><input type="hidden" name="back" value="<?= e($back) ?>"><?php endif; ?>
         <div class="modal-header bg-dark">
@@ -67,7 +67,7 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
           <div class="mb-3 mb-0"><label>Description</label><textarea name="description" class="form-control" rows="4" placeholder="Scope, why it matters to the client, dependencies…"><?= e($it['description'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
-          <?php if ($it): ?><button class="btn btn-outline-danger me-auto" name="action" value="delete" formnovalidate data-confirm="Delete this project?"><i class="fas fa-trash me-1"></i>Delete</button><?php endif; ?>
+          <?php if ($it): ?><button class="btn btn-outline-danger me-auto" name="action" value="delete" formnovalidate data-confirm="Delete this project? It comes off the roadmap and the budget. This can't be undone."><i class="fas fa-trash me-1"></i>Delete</button><?php endif; ?>
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save</button>
         </div>

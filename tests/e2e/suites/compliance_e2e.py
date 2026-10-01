@@ -42,7 +42,11 @@ with sync_playwright() as p:
     pg.screenshot(path=WORK+"/shots/compliance_crosswalk.png",full_page=False)
     # one manual "Use this answer" on a control the bulk fill skipped
     pg.locator("details.xw").first.evaluate("d=>d.open=true")
-    pg.click("text=Save checklist"); pg.wait_for_load_state(); pg.wait_for_timeout(500)
+    pg.click("text=Save checklist"); pg.wait_for_timeout(400)
+    if n>=10:   # many answers at once: it asks first (2.0.1)
+        ok(pg.locator("#align-confirm.show").count() and f"Save {n}" in pg.locator("#align-confirm-title").inner_text(),"saving many filled answers asks first: "+pg.locator("#align-confirm-title").inner_text())
+        pg.click("#align-confirm [data-align-confirm-ok]")
+    pg.wait_for_load_state(); pg.wait_for_timeout(500)
     fl=pg.locator(".alert").first.inner_text()
     ok(f"Saved {n} change(s)" in fl and "too large" not in fl,"saved only the changed rows: "+fl.strip()[:80])
     got=q("select s.status, s.notes, s.document_id from client_control_status s join compliance_controls c on c.id=s.control_id where s.client_id=1 and c.framework_id=%s",ids[2])

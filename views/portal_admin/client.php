@@ -94,7 +94,8 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
 
 <div class="modal fade" id="modal-portal-invite" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg"><div class="modal-content">
-    <form method="post" action="/clients/<?= $cid ?>/portal">
+    <form method="post" action="/clients/<?= $cid ?>/portal" data-confirm-rules="<?= e(json_encode([['when' => '#inv-send:checked', 'title' => 'Email the invitation now?', 'ok' => 'Create and email',
+      'text' => 'They get an email with a one-time link to set up their client portal account.']])) ?>">
       <?= csrf_field() ?>
       <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Invite a <?= e($client['name']) ?> user</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
@@ -121,14 +122,16 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
 <?php foreach ($users as $u): [$sl] = $status($u); ?>
 <div class="modal fade" id="modal-portal-<?= (int) $u['id'] ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg"><div class="modal-content">
-    <form method="post" action="/portal-users/<?= (int) $u['id'] ?>">
+    <form method="post" action="/portal-users/<?= (int) $u['id'] ?>" data-unsaved>
       <?= csrf_field() ?>
       <div class="modal-header bg-dark"><h5 class="modal-title"><?= e($u['name']) ?> <small class="text-light"><?= e($u['email']) ?></small></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <div class="mb-3"><label>Name</label><input name="name" class="form-control" value="<?= e($u['name']) ?>" maxlength="190"></div>
         <?= \Align\View::fetch('portal_admin/_perms', ['u' => $u, 'pid' => 'pu' . (int) $u['id']]) ?>
         <div class="border-top mt-3 pt-3 d-flex flex-wrap">
-          <button class="btn btn-sm btn-default me-2 mb-2" name="action" value="link" formnovalidate><i class="fas fa-link me-1"></i><?= $u['password_hash'] ? 'Password reset link' : 'New invite link' ?></button>
+          <?php $mailsLink = \Align\Mail\Notifications::enabled('client_portal_invite') && \Align\Mail\Mail::ready(); ?>
+          <button class="btn btn-sm btn-default me-2 mb-2" name="action" value="link" formnovalidate data-confirm-danger="0" data-confirm-ok="Make the link"
+            data-confirm="<?= e('Make a new ' . ($u['password_hash'] ? 'password reset' : 'invite') . ' link for ' . $u['name'] . '? Any earlier link stops working' . ($mailsLink ? ', and the new one is emailed to ' . $u['email'] . '.' : '.')) ?>"><i class="fas fa-link me-1"></i><?= $u['password_hash'] ? 'Password reset link' : 'New invite link' ?></button>
           <?php if ($u['totp_enabled']): ?><button class="btn btn-sm btn-default me-2 mb-2" name="action" value="reset2fa" formnovalidate data-confirm="Reset two-factor sign-in for <?= e($u['name']) ?>? Their password is cleared too: they get a link to set a new one."><i class="fas fa-shield-halved me-1"></i>Reset 2FA</button><?php endif; ?>
           <?php if ($u['is_active']): ?><button class="btn btn-sm btn-outline-secondary me-2 mb-2" name="action" value="disable" formnovalidate data-confirm="Disable <?= e($u['name']) ?>? They are signed out right away."><i class="fas fa-ban me-1"></i>Disable</button>
           <?php else: ?><button class="btn btn-sm btn-outline-success me-2 mb-2" name="action" value="enable" formnovalidate><i class="fas fa-check me-1"></i>Enable</button><?php endif; ?>

@@ -29,7 +29,9 @@ r=st.post(B+"/clients/1/backups/exempt",data={"_csrf":tok,"action":"add","kind":
 t=r.text
 ok("Backup not required (3)" in t,"three exemptions listed")
 ok(re.search(r'SQL-TEST</td>\s*<td class="small">Virtual',t) is None and "No restore point" not in t.split("Backup not required")[0].split("Protected machines")[1],"SQL-TEST no longer listed as missing")
-ok("Former Employee" not in t.split("Backup not required")[0].split("Microsoft 365")[-1] if "Microsoft 365" in t else True,"M365 former employee not overdue")
+m365=t.split("Backup not required (")[0].split("Microsoft 365")[-1] if "Microsoft 365" in t else ""
+ok("Former Employee" not in m365.split('id="m365-all"')[0],"M365 former employee not overdue")
+ok(re.search(r'Not required</span></td><td class="fw-bold">Former Employee',m365.split('id="m365-all"')[-1]),"listed as Not required among all Microsoft 365 objects (2.0.1)")
 ok("11 / 11 current" in re.sub(r'<[^>]+>','',t).replace("\n"," ") or re.search(r'10\s*<small[^>]*>\s*/\s*11 current',t),"M365 users now counted without the exempt one")
 # other clients' items are refused
 r=st.post(B+"/clients/1/backups/exempt",data={"_csrf":tok,"action":"add","kind":"workload","ref":"vm:vm-16","reason":"x"}); ok(r.status_code==404,"can't exempt another client's machine")

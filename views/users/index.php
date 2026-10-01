@@ -22,7 +22,8 @@
           <td class="align-middle">
             <form method="post" action="/users/<?= (int) $u['id'] ?>" class="d-inline"><?= csrf_field() ?>
               <input type="hidden" name="action" value="role">
-              <select name="role" class="form-select form-select-sm w-auto" data-autosubmit>
+              <select name="role" class="form-select form-select-sm w-auto" data-autosubmit data-confirm-ok="Change role"
+                data-confirm-change="<?= e('Change ' . $u['name'] . '\'s role from {from} to {to}? ' . ((int) $u['id'] === (int) \Align\Auth::id() ? 'That\'s you: you lose anything the new role can\'t do as soon as it\'s saved.' : 'It takes effect right away.')) ?>">
                 <?php foreach ($roles as $r => $label): ?><option value="<?= $r ?>" <?= $u['role'] === $r ? 'selected' : '' ?>><?= e(ucfirst($r)) ?></option><?php endforeach; ?>
               </select>
             </form>

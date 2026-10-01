@@ -22,7 +22,7 @@ $past = strtotime($m['ends_at']) < time();
       <button class="btn btn-default" data-bs-toggle="modal" data-bs-target="#modal-meeting-edit"><i class="fas fa-pen me-1"></i>Edit</button>
       <?php if ($m['status'] === 'scheduled'): ?>
         <form method="post" action="/meetings/<?= (int) $m['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="complete"><button class="btn btn-success btn-sm rounded-0"><i class="fas fa-check me-1"></i>Mark completed</button></form>
-        <form method="post" action="/meetings/<?= (int) $m['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-outline-secondary btn-sm rounded-0" data-confirm="Cancel this meeting?">Cancel meeting</button></form>
+        <form method="post" action="/meetings/<?= (int) $m['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-outline-secondary btn-sm rounded-0" data-confirm="<?= e('Cancel this meeting?' . (!empty($m['invites_sent_at']) ? ' The attendees are sent a cancellation.' : '')) ?>" data-confirm-ok="Cancel meeting">Cancel meeting</button></form>
       <?php else: ?>
         <form method="post" action="/meetings/<?= (int) $m['id'] ?>" class="d-inline"><?= csrf_field() ?><input type="hidden" name="action" value="reopen"><button class="btn btn-outline-primary btn-sm rounded-0">Reopen</button></form>
       <?php endif; ?>
@@ -111,11 +111,14 @@ $past = strtotime($m['ends_at']) < time();
 
 <?php if ($canEdit): ?>
   <?= \Align\View::fetch('partials/meeting_modal', ['m' => $m, 'modalClients' => $clients, 'modalUsers' => $users, 'presetClient' => null]) ?>
-  <form method="post" action="/meetings/<?= (int) $m['id'] ?>/delete" class="text-end">
+  <form method="post" action="/meetings/<?= (int) $m['id'] ?>/delete" class="text-end" data-confirm-rules="<?= e(json_encode([
+      ['is' => ['scope' => 'future'], 'title' => 'Delete this and the later meetings in the series?', 'text' => 'Every later meeting in the series that isn\'t completed is deleted as well.'],
+      ['title' => 'Delete this meeting?', 'danger' => true, 'ok' => 'Delete', 'text' => 'Its agenda and notes are deleted with it.' . (!empty($m['invites_sent_at']) ? ' The attendees are sent a cancellation.' : '')],
+  ])) ?>">
     <?= csrf_field() ?>
     <?php if ($m['series_id']): ?>
       <select name="scope" class="form-select form-select-sm w-auto"><option value="one">Just this meeting</option><option value="future">This and later meetings in the series</option></select>
     <?php endif; ?>
-    <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this meeting?"><i class="fas fa-trash me-1"></i>Delete</button>
+    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash me-1"></i>Delete</button>
   </form>
 <?php endif; ?>

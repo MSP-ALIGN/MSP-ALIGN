@@ -36,7 +36,7 @@ if ($client) {
       <a class="btn btn-default" href="<?= e($psaAssetUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square me-1"></i><?= e($psa) ?> asset</a>
     <?php endif; ?>
     <?php if ($canEdit && $retired): ?>
-      <form method="post" action="/devices/<?= (int) $d['id'] ?>/restore" class="d-inline"><?= csrf_field() ?><button class="btn btn-sm btn-success rounded-0"><i class="fas fa-rotate-left me-1"></i>Restore</button></form>
+      <form method="post" action="/devices/<?= (int) $d['id'] ?>/restore" class="d-inline"><?= csrf_field() ?><button class="btn btn-sm btn-success rounded-0" data-confirm="<?= e('Restore ' . $d['name'] . '? It counts in plans and reports again' . ($linked && $twoWay && !$alignOnly ? ', and the ' . psa_name() . ' asset is marked Deployed.' : '.')) ?>" data-confirm-danger="0"><i class="fas fa-rotate-left me-1"></i>Restore</button></form>
     <?php endif; ?>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-device-edit"><i class="fas fa-pen me-1"></i>Edit</button><?php endif; ?>
   </div>
@@ -152,7 +152,7 @@ $hasSync = psa_on() || $sync['history'];
       <?php if ($d['source'] !== 'rmm' || $linked): ?>
       <form method="post" action="/devices/<?= (int) $d['id'] ?>/psa-sync" class="d-inline"><?= csrf_field() ?>
         <input type="hidden" name="on" value="<?= $alignOnly ? '1' : '0' ?>">
-        <button class="btn btn-sm btn-default ms-1" <?= $alignOnly ? '' : 'data-confirm="Stop syncing this device with ' . psa_name() . '? Changes on either side will no longer be copied."' ?>><?= $alignOnly ? '<i class="fas fa-link me-1"></i>Sync with ' . psa_name() : '<i class="fas fa-link-slash me-1"></i>Make Align-only' ?></button>
+        <button class="btn btn-sm btn-default ms-1" <?= $alignOnly ? 'data-confirm="' . e('Sync this device with ' . psa_name() . ' again? Align\'s details for it are sent to ' . psa_name() . ' now, and changes on either side are copied from then on.') . '" data-confirm-ok="Sync with ' . e(psa_name()) . '"' : 'data-confirm="Stop syncing this device with ' . psa_name() . '? Changes on either side will no longer be copied."' ?>><?= $alignOnly ? '<i class="fas fa-link me-1"></i>Sync with ' . psa_name() : '<i class="fas fa-link-slash me-1"></i>Make Align-only' ?></button>
       </form>
       <?php endif; ?>
     </div>
@@ -212,7 +212,7 @@ $hasSync = psa_on() || $sync['history'];
 <div class="modal fade" id="modal-device-edit" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="/devices/<?= (int) $d['id'] ?>">
+      <form method="post" action="/devices/<?= (int) $d['id'] ?>" data-unsaved>
         <?= csrf_field() ?>
         <div class="modal-header bg-dark">
           <h5 class="modal-title"><i class="fas fa-fw fa-pen me-2"></i>Edit <?= e($d['name']) ?></h5>

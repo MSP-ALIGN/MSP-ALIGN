@@ -187,6 +187,12 @@ body:not(.report) .sidebar-menu .nav-link.active .nav-badge { background-color: 
 [data-bs-theme=dark] .modal-header .btn-close, [data-bs-theme=dark] .modal-header .btn-close-white { --bs-btn-close-filter: invert(1) grayscale(100%) brightness(200%); filter: invert(1) grayscale(100%) brightness(200%); }
 .modal-header.bg-danger .modal-title { color: var(--bs-danger-text-emphasis); }
 .modal-title { font-weight: 600; font-size: 1.05rem; }
+/* "Are you sure?" dialog (2.0.1), above any edit form that is already open */
+.align-confirm { z-index: 1075; }
+.modal-backdrop.align-confirm-backdrop { z-index: 1070; }
+.align-confirm .modal-dialog { max-width: 460px; }
+.align-confirm-icon { flex: 0 0 auto; width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bs-tertiary-bg); font-size: 1.15rem; }
+.align-confirm .modal-footer { background: transparent; padding-top: .25rem; }
 .modal-title > i:first-child { color: var(--bs-secondary-color); }
 .modal-footer { background: var(--bs-tertiary-bg); border-bottom-left-radius: var(--bs-modal-inner-border-radius); border-bottom-right-radius: var(--bs-modal-inner-border-radius); }
 [data-bs-theme=dark] .bg-white { background-color: var(--bs-body-bg) !important; }

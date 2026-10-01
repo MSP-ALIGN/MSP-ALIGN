@@ -107,7 +107,10 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
 
   <div class="col-xl-7 order-xl-1">
     <?php if ($canEdit): ?>
-    <form method="post" action="/clients/<?= $cid ?>/onboarding/send" id="template-form" class="card card-outline card-primary">
+    <form method="post" action="/clients/<?= $cid ?>/onboarding/send" id="template-form" class="card card-outline card-primary" data-confirm-rules="<?= e(json_encode([
+        ['button' => 'send', 'title' => 'Email the welcome now?', 'ok' => 'Send',
+         'text' => 'It goes to the contacts you ticked and any other addresses you entered, with their Start onboarding button. If a link was made before, it stops working.'],
+    ])) ?>">
       <?= csrf_field() ?>
       <input type="hidden" name="body" id="template-body">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-envelope-open-text me-2"></i><?= $sent ? 'Send again' : 'Welcome email' ?></h3></div>
@@ -132,8 +135,8 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
       </div>
       <div class="card-footer d-flex flex-wrap align-items-center">
         <div class="form-check me-auto"><input type="checkbox" class="form-check-input" id="cc-me" name="cc_me" value="1" checked><label class="form-check-label small" for="cc-me">Send me a copy</label></div>
-        <button class="btn btn-default me-2 mt-1" name="action" value="link" formnovalidate title="Make the link without sending, to paste into your own email"><i class="fas fa-link me-1"></i>Create link only</button>
-        <button class="btn btn-primary mt-1" name="action" value="send" <?= $mailReady ? '' : 'disabled title="Set up Email under Integrations to send from Align"' ?>><i class="fas fa-paper-plane me-1"></i><?= $sent ? 'Send again' : 'Send welcome email' ?></button>
+        <button class="btn btn-default me-2 mt-1" name="action" value="link" formnovalidate title="Make the link without sending, to paste into your own email" data-confirm="Make a new onboarding link? If a link was made before, it stops working." data-confirm-danger="0" data-confirm-ok="Create link"><i class="fas fa-link me-1"></i>Create link only</button>
+        <button class="btn btn-primary mt-1" name="action" value="send" data-enter-skip <?= $mailReady ? '' : 'disabled title="Set up Email under Integrations to send from Align"' ?>><i class="fas fa-paper-plane me-1"></i><?= $sent ? 'Send again' : 'Send welcome email' ?></button>
       </div>
       <?php if (!$mailReady): ?><div class="card-footer small text-muted py-1">Email isn't connected, so use <b>Create link only</b> and send it from your own mailbox.</div><?php endif; ?>
     </form>

@@ -14,7 +14,8 @@ $twoWay = \Align\Sync\PsaAssetSync::twoWay();
 <?php if (!$rows): ?>
   <div class="card card-body text-center text-muted py-5"><i class="fas fa-check-circle fa-2x text-success mb-2"></i>Nothing to categorize. Everything from <?= e(psa_name()) ?> has a type.</div>
 <?php else: ?>
-<form method="post" action="/devices/bulk-type" id="bulk-type-form">
+<form method="post" action="/devices/bulk-type" id="bulk-type-form"
+  data-confirm-rules="<?= e(json_encode([['count' => '[name="ids[]"]:checked', 'title' => 'Change the type of {n} devices?', 'text' => 'They move into the matching category for lifecycle, budgets and reports' . ($twoWay ? ', and their ' . psa_name() . ' asset type is changed to match.' : '.'), 'ok' => 'Apply']])) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="back" value="/devices/unassigned">
   <div class="card card-dark">
