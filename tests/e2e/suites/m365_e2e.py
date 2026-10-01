@@ -83,4 +83,11 @@ ok("Current" in lee_row and "2 repositories" in lee_row and re.search(r"\b3\b", 
 ok("3,030 restore points in all" in allx, "the day count explains itself (restore points in all)")
 ok(re.search(r"(\d+)\s*<small[^>]*>\s*/\s*12 current", t) and re.search(r"(\d+)\s*<small[^>]*>\s*/\s*12 current", t).group(1) == "10", "users: 10 of 12 current (Dr Lee counts as current)")
 ok("10/12 users current" in st.get(B + "/clients/1").text, "the client overview agrees")
+# ---- two syncs in the same second: the copy that's no longer used is still removed
+q("delete from backup_exemptions where item_uid like %s", "o-1:site-1%"); q("update backup_m365_objects set uid='o-1:site-1-legacy' where uid='o-1:site-1'")
+php('$p=Align\\Providers\\Providers::backup("veeam"); Align\\Sync\\BackupSync::run($p, fn($m)=>null);'
+    ' Align\\DB::run("INSERT INTO backup_exemptions (client_id, kind, item_uid, item_name, reason) VALUES (1, \'m365\', \'o-1:site-1-legacy\', \'Intranet\', \'x\')");'
+    ' Align\\Sync\\BackupSync::run($p, fn($m)=>null);')
+ok([r["uid"] for r in q("select uid from backup_m365_objects where company_uid=%s and name='Intranet'", C1)] == ["o-1:site-1"], "two syncs in one second: one Intranet, not a leftover copy")
+q("delete from backup_exemptions where item_uid like %s", "o-1:site-1%")
 done()

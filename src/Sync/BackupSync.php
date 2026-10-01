@@ -86,8 +86,17 @@ final class BackupSync
                 $objects = self::stableUids($m['objects'], $key);
                 DB::transaction(function () use ($objects, $now, $key, &$n, &$multi) {
                     foreach ($objects as $o) {
+                        $others = array_values(array_diff($o['uids'] ?? [], [$o['uid']]));
                         unset($o['days'], $o['uids']);
                         DB::upsert('backup_m365_objects', ['uid' => $o['uid'], 'provider' => $key] + $o + ['synced_at' => $now], ['uid']);
+                        if ($others) {
+                            // the other copies' rows and days now belong to this one (pruning by synced_at alone
+                            // misses a row from a sync in the same second)
+                            $in = self::in($others);
+                            DB::run("UPDATE IGNORE backup_m365_days SET object_uid = ? WHERE object_uid IN ($in)", [$o['uid'], ...$others]);
+                            DB::run("DELETE FROM backup_m365_days WHERE object_uid IN ($in)", $others);
+                            DB::run("DELETE FROM backup_m365_objects WHERE provider = ? AND uid IN ($in)", [$key, ...$others]);
+                        }
                         $n++;
                         $multi += (int) (($o['repositories'] ?? 1) > 1);
                     }
