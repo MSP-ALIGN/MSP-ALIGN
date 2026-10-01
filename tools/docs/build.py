@@ -21,6 +21,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "_site"))
 REPO = "https://github.com/MSP-ALIGN/MSP-ALIGN"
+SUGGEST = REPO + "/issues/new?template=feature_request.yml"   # the Feature request form (.github/ISSUE_TEMPLATE)
 
 # slug, nav title, source: ("readme", [section headings]) or ("file", path), one-line summary for the home page
 PAGES = [
@@ -289,6 +290,7 @@ def page(slug, title, body, description):
                .replace("{{home_current}}", ' aria-current="page"' if slug == "index" else "")
                .replace("{{version}}", html.escape(version()))
                .replace("{{repo}}", REPO)
+               .replace("{{suggest}}", SUGGEST)
                .replace("{{edit}}", html.escape(edit_url(slug)))
                .replace("{{base}}", '<base href="/">\n' if slug == "404" else "")
                .replace("{{body}}", body))  # last, so text in a page can't fill the other placeholders
@@ -340,7 +342,15 @@ def main():
             f'<p><a href="screenshots.html">More screenshots →</a></p>'
             f'<h2>Install</h2><p>On a fresh Debian 13 VM:</p><pre><code>{html.escape(install)}</code></pre>'
             f'<p><a href="install.html">Full install and setup guide →</a></p>'
-            f'<h2>Documentation</h2><div class="cards">{cards}</div>')
+            f'<h2>Documentation</h2><div class="cards">{cards}</div>'
+            f'<h2 id="ideas">Ideas and feature requests</h2>'
+            f'<p>MSP-ALIGN is built by MSPs for MSPs. Missing something, or have an idea that would save you time? Tell us what '
+            f'you\'re trying to do and how you do it today.</p>'
+            f'<p class="actions"><a class="button" href="{SUGGEST}">Suggest a feature</a>'
+            f'<a class="button secondary" href="{REPO}/discussions">Talk an idea through first</a></p>'
+            f'<p class="free">Both need a free GitHub account. Please leave out client names and data. '
+            f'Found a bug? <a href="{REPO}/issues/new/choose">Report it here</a>; a security problem goes '
+            f'<a href="{REPO}/security/advisories/new">privately</a>.</p>')
     with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
         f.write(page("index", "MSP-ALIGN", body, "Self-hosted, open-source vCIO toolkit for managed service providers."))
 
