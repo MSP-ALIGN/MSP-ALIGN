@@ -88,6 +88,17 @@ cd MSP-ALIGN
 The first release that contains the key is the first signed release: tag it (below) as soon as it is merged, since
 servers that update from 1.x before the tag exists run the merged code until the tag appears, then move onto it.
 
+## Each release on Windows (the easy way)
+
+[`tools/sign-release.ps1`](../tools/sign-release.ps1) does everything below in one go: it fetches `main`, shows the
+version and commit for you to confirm, signs the tag through Bitwarden (or another SSH agent holding the key), checks
+the signature against your own copy of the key file and pushes the tag. Download it once to a folder of your own (not
+the repository), check its SHA-256 hash, and run that copy for every release:
+
+```
+powershell -ExecutionPolicy Bypass -File "$HOME\msp-align-tools\sign-release.ps1"
+```
+
 ## Each release
 
 After the release pull request (develop → main) is merged:
