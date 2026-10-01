@@ -164,7 +164,7 @@ for d in ["remote.git", "work"]:
 sh(["git", "clone", "-q", "--bare", "--no-local", "--single-branch", ROOT, f"{S}/remote.git"])
 sh(["git", "clone", "-q", f"{S}/remote.git", f"{S}/work"])
 g = f"cd {S}/work && git -c user.name=Test -c user.email=test@example.com"
-sh(f"{g} checkout -q -B main && echo 1.99.0 > VERSION && {g} commit -qam 'v1.99.0: Shiny new thing' -m 'Adds a thing.' -m 'Co-Authored-By: X <x@y>'"
+sh(f"{g} checkout -q -B main && echo 9.99.0 > VERSION && {g} commit -qam 'v9.99.0: Shiny new thing' -m 'Adds a thing.' -m 'Co-Authored-By: X <x@y>'"
    f" && echo '# Typo fixed' >> README.md && {g} commit -qam 'Fix a typo' && git push -q -f origin HEAD:main")
 # Clones check out main, like GitHub's default branch. Without this they'd get whatever the tests run from:
 # on a pull request that's GitHub's merge commit (a detached HEAD), not main.

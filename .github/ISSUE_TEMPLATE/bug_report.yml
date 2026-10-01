@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in MSP-ALIGN doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security problems go privately**, not here: see docs/SECURITY.md → Reporting a vulnerability.
+        Please don't paste client data, API keys, passwords or backups. Blur client names in screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → Updates & backups shows it.
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How it's installed
+      options:
+        - Dedicated server (install.sh on Debian 13)
+        - Docker
+        - Test server (develop branch)
+        - Development copy
+    validations:
+      required: true
+  - type: dropdown
+    id: psa
+    attributes:
+      label: PSA
+      options:
+        - ITFlow
+        - No PSA
+        - Other (say below)
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Press …
+        3. See …
+  - type: textarea
+    id: logs
+    attributes:
+      label: Errors or logs
+      description: From the page, `/var/log/apache2/msp-align-error.log`, `journalctl -u msp-align-sync` or `docker compose logs app`. Remove anything private.
+      render: text

@@ -74,8 +74,10 @@ services:
       ALIGN_TRUSTED_PROXIES: ${ALIGN_TRUSTED_PROXIES:-}
       ALIGN_APP_KEY: ${ALIGN_APP_KEY:-}   # optional: normally made on the first start and kept in the config volume
       ALIGN_UPDATE_BRANCH: ${ALIGN_UPDATE_BRANCH:-main}
+      ALIGN_STAGING: ${ALIGN_STAGING:-0}               # 1 = test server (docs/TEST-SERVER.md)
+      ALIGN_STAGING_MAIL_TO: ${ALIGN_STAGING_MAIL_TO:-}
     ports:
-      # Plain HTTP for a reverse proxy in front. Only on this machine by default; use 0.0.0.0 when the proxy is elsewhere.
+      # Plain HTTP for a reverse proxy in front. Only on this machine by default; set ALIGN_BIND to this machine's LAN address when the proxy is elsewhere.
       - "${ALIGN_BIND:-127.0.0.1}:${ALIGN_PORT:-8080}:80"
     volumes:
       - config:/etc/msp-align          # config, the encryption key and the backup key: keep a copy of this volume safe

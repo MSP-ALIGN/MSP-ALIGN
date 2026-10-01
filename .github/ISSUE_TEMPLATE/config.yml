@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/MSP-ALIGN/MSP-ALIGN/discussions
+    about: Ask how to do something, or share how you use MSP-ALIGN.
+  - name: Security problem (private)
+    url: https://github.com/MSP-ALIGN/MSP-ALIGN/security/advisories/new
+    about: Report a vulnerability privately. Please don't open a public issue.
+  - name: Documentation
+    url: https://mspalign.org
+    about: Install, setup, integrations, the REST API and more.

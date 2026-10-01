@@ -75,7 +75,9 @@ ok(check(ALIGN_RELEASE_SIGNERS="none", ALIGN_AGENT_TEST="0").get("mode") == "sig
 r = agent("update-cli")
 ok(r.returncode == 0 and head() == commit_of("v2.0.1") and version() == "2.0.1", "the update installs exactly the signed v2.0.1 commit: " + (r.stdout + r.stderr)[-200:])
 r = agent("update-cli")
-ok(r.returncode != 0 and version() == "2.0.1", "with no newer signed release, nothing is installed")
+ok(r.returncode == 0 and version() == "2.0.1" and head() == commit_of("v2.0.1") and "installing 2.0.1 again" in r.stdout + r.stderr,
+   "with no newer signed release, the same signed release is installed again (a repair), nothing else")
+ok(q("select id from audit_log where action='system.reinstalled' order by id desc limit 1"), "a repair is audited as a reinstall, not an update")
 
 # ---- tags that look like releases but aren't
 sh(f"{G} tag v2.0.7", cwd=WK)                                               # lightweight
@@ -95,7 +97,8 @@ push()
 u = check()
 ok(u.get("available") is False and "v2.0.6" in u.get("unsigned", []), "a release tag moved to other code (unsigned) is refused")
 r = agent("update-cli")
-ok(r.returncode != 0 and version() == "2.0.1" and not os.path.exists(W + "/app/evil.txt"), "and not installed")
+ok(version() == "2.0.1" and head() == commit_of("v2.0.1") and not os.path.exists(W + "/app/evil.txt") and "v2.0.6" in r.stdout + r.stderr and "Refused because not signed" in r.stdout + r.stderr,
+   "and not installed: only the signed 2.0.1 is installed again, and the refusal is said: " + (r.stdout + r.stderr)[-200:])
 sh(f"git -C {WK} rm -q evil.txt && {G} commit -q -m 'drop'", cwd=WK)
 release("2.0.6", "key"); push()
 r = agent("update-cli")
@@ -198,6 +201,13 @@ rc, out = publish("v2.0.2")
 ok(rc != 0, "Docker publish: an unsigned tag is refused")
 rc, out = publish("v2.1.0-beta.1")
 ok(rc == 0, "Docker publish: a signed pre-release tag passes (servers never take it): " + out[-200:])
+
+# ---- an unsigned head with no signed release of its version: the update fails and changes nothing (no repair)
+sh(f"git -C {W}/app checkout -q -B scratch v2.1.1 && git -C {W}/app -c user.name=x -c user.email=x@x -c commit.gpgsign=false commit -q --allow-empty -m local && printf '2.1.9\\n' > {W}/app/VERSION && git -C {W}/app -c user.name=x -c user.email=x@x -c commit.gpgsign=false commit -qam 'v2.1.9 local'")
+before = head()
+r = agent("update-cli")
+ok(r.returncode != 0 and head() == before and "no newer release signed" in (r.stdout + r.stderr), "an unsigned head with nothing signed to move to: refused, nothing reset or reinstalled")
+sh(f"git -C {W}/app checkout -q --detach v2.1.1")
 
 # ---- the checker missing: an error, never an unchecked update
 os.rename(W + "/app/scripts/release.sh", W + "/release.sh.bak")

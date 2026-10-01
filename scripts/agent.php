@@ -781,6 +781,9 @@ function doRestore(Job $job, string $file, string $keyFile, bool $withDb, bool $
         $s = $job->s['result']['backup'];
         audit($job, 'backup.restored', 'Restored ' . implode(' and ', array_filter([$withDb ? 'database' : null, $withUploads ? 'uploaded files' : null]))
             . ' from a backup made ' . ($s['created'] ?? 'unknown') . ($s['version'] ? " (v{$s['version']})" : ''));
+        if ($withDb) {
+            auditHeadSave();   // the restored log is the real one now: the nightly check starts from it, not from before
+        }
         return ['db' => $withDb, 'uploads' => $withUploads];
     } catch (Throwable $e) {
         if ($changed) {
@@ -1036,10 +1039,18 @@ function doUpdate(Job $job): array
                 audit($job, 'system.update_unsigned', 'Release tag(s) without a valid release signature were refused: ' . implode(', ', $unsigned));
             }
             if ($tag === null) {
-                throw new JobFailed('There is no newer release signed with the MSP-ALIGN release key. Nothing was changed.');
+                if (!headSigned()) {
+                    throw new JobFailed('There is no newer release signed with the MSP-ALIGN release key. Nothing was changed.');
+                }
+                // Up to date: run this signed release's installer again, which repairs packages, permissions and
+                // services (what "sudo msp-align-update" is for when nothing is new), as on a branch
+                [, $head] = $job->run('git -C ' . q(APP) . ' rev-parse HEAD', true);
+                $ref = trim($head);
+                $job->line("No newer signed release: installing $from again (repairs packages, permissions and services).");
+            } else {
+                $ref = $commit; // the commit that was checked, not the tag's name (which a later fetch could move)
+                $job->line("Signed release $tag ($commit) checked against the release key.");
             }
-            $ref = $commit; // the commit that was checked, not the tag's name (which a later fetch could move)
-            $job->line("Signed release $tag ($commit) checked against the release key.");
         } else {
             $job->must('git -C ' . q(APP) . ' fetch -q origin ' . q(BRANCH), 'Could not download the update from GitHub.');
             $ref = 'origin/' . BRANCH;
@@ -1071,6 +1082,12 @@ function doUpdate(Job $job): array
         @unlink($safety);
         $job->step('Checking for newer updates');
         check($job);
+        [, $now] = $job->run('git -C ' . q(APP) . ' rev-parse HEAD', true);
+        if (trim($now) !== '' && trim($now) === trim($previous)) {
+            // nothing new: the same code installed again (a repair), not an update, so no "updated" email
+            audit($job, 'system.reinstalled', "Installed $to again (packages, permissions and services repaired)");
+            return ['from' => $from, 'to' => $to, 'repair' => true, 'refused' => $unsigned ?? []];
+        }
         audit($job, 'system.updated', "Updated from $from to $to");
         return ['from' => $from, 'to' => $to];
     } catch (Throwable $e) {
@@ -1104,7 +1121,7 @@ function process(array $req, bool $echo = false): Job
 
             case 'update':
                 $r = doUpdate($job);
-                $job->finish(true, $r['from'] === $r['to'] ? "Updated (still {$r['to']})." : "Updated from {$r['from']} to {$r['to']}.", $r);
+                $job->finish(true, !empty($r['repair']) ? "No newer release: {$r['to']} was installed again." . (!empty($r['refused']) ? ' Refused because not signed with the MSP-ALIGN release key: ' . implode(', ', $r['refused']) . '.' : '') : ($r['from'] === $r['to'] ? "Updated (still {$r['to']})." : "Updated from {$r['from']} to {$r['to']}."), $r);
                 break;
 
             case 'backup':
@@ -1202,10 +1219,16 @@ function auditCheckpoint(): void
             fwrite(STDERR, "ALERT: audit log verification failed: " . implode(' ', $o) . "\n");
         }
     }
+    auditHeadSave();
+}
+
+/** Keeps the audit log's newest entry as the checkpoint (nightly, and after a restore replaced the log on purpose). */
+function auditHeadSave(): void
+{
     exec(asUser('php ' . q(APP . '/bin/align') . ' audit:head') . ' 2>/dev/null', $h, $code);
     $head = json_decode(implode('', $h), true);
     if ($code === 0 && is_array($head) && isset($head['id'], $head['hash']) && preg_match('/^[0-9a-f]{64}$|^$/', (string) $head['hash'])) {
-        writeJson($file, ['id' => (int) $head['id'], 'hash' => (string) $head['hash'], 'at' => now()]);
+        writeJson(STATE . '/audit-head.json', ['id' => (int) $head['id'], 'hash' => (string) $head['hash'], 'at' => now()]);
     }
 }
 

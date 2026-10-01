@@ -1,6 +1,6 @@
 # Screenshots
 
-A tour of MSP-ALIGN 1.44 with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
+A tour of MSP-ALIGN 2.0 with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
 can try all of this before connecting anything).
 
 ## Dashboard

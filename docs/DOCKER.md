@@ -54,10 +54,12 @@ docker compose exec app cat /etc/msp-align/app-key           # decrypts saved pa
 | `ALIGN_DB_PASSWORD` | The database password (make up a long random one: `openssl rand -base64 24`) |
 | `ALIGN_TRUSTED_PROXIES` | Your own reverse proxy's address, comma separated (a narrow range such as `10.0.0.0/29` also works; nothing wider than /8). The app only believes `X-Forwarded-For` and `X-Forwarded-Proto` from these, so this is what makes sign-in lockouts and the audit log see visitors' real addresses. See below. Not needed with the Caddy add-on |
 | `ALIGN_BIND`, `ALIGN_PORT` | Where the plain-HTTP port listens: `127.0.0.1:8080` by default (a proxy on the same machine). When the proxy is on another machine, set `ALIGN_BIND` to this machine's LAN address (not `0.0.0.0` unless you must) |
-| `ALIGN_VERSION` | Pin a release (`1.44.0`) instead of `latest` |
+| `ALIGN_VERSION` | Pin a release (`2.0.0`) instead of `latest` |
 | `ALIGN_DB_BUFFER_POOL` | MariaDB memory, about a quarter of the machine's RAM (default `512M`) |
 | `ALIGN_SUBNET` | The compose network, `172.30.57.0/24`. Change it only if it clashes with one of your networks (then also set `ALIGN_CADDY_IP` to an address in it when using the Caddy add-on) |
-| `ALIGN_APP_KEY` | Optional: the encryption key (`base64:…`). Normally made on the first start and kept in the config volume; set it only to reuse a key you already have. `ALIGN_DB_PASSWORD_FILE`, `ALIGN_ADMIN_PASSWORD_FILE` and `ALIGN_APP_KEY_FILE` read the value from a file instead (Docker secrets) |
+| `ALIGN_APP_KEY` | Optional: the encryption key (`base64:…`). Normally made on the first start and kept in the config volume; set it only to reuse a key you already have. `ALIGN_DB_PASSWORD_FILE`, `ALIGN_ADMIN_PASSWORD_FILE` and `ALIGN_APP_KEY_FILE` read the value from a file instead (Docker secrets); the shipped `compose.yaml` doesn't pass them, so add them, and `MARIADB_PASSWORD_FILE` for the database, in a `compose.override.yaml` |
+| `ALIGN_UPDATE_BRANCH` | The branch the Updates page compares against. Leave it on `main`: images are published for releases only |
+| `ALIGN_STAGING`, `ALIGN_STAGING_MAIL_TO` | `1` and a mailbox you read make this a [test server](TEST-SERVER.md) for a copy of production |
 
 Change a setting by editing `.env` and running `docker compose up -d`. The container writes its `config.php` from these
 settings on every start, so don't edit that file by hand. The exception is the database settings (`ALIGN_DB_NAME`,

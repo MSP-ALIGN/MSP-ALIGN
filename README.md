@@ -1,6 +1,6 @@
 # MSP-ALIGN
 
-Self-hosted vCIO toolkit for managed service providers. It pulls clients and assets from **ITFlow** and devices from **NinjaOne**, looks up hardware warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter.
+Self-hosted, open-source vCIO toolkit for managed service providers. It brings in clients and assets from **ITFlow** (or works without a PSA: clients come from your RMM, a CSV import or are added by hand), devices from **NinjaOne** and backups from **Veeam Service Provider Console**, looks up Dell and Lenovo warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter. On top of that: roadmaps and budgets, licensing and renewals, compliance frameworks, QBR reports, a client portal, email through Microsoft 365, Google Workspace or SMTP, and a [REST API](docs/API.md). Free under the AGPL; your client data stays on your server.
 
 ![The MSP-ALIGN dashboard](docs/screenshots/dashboard.png)
 
@@ -10,6 +10,12 @@ More in [Screenshots](docs/SCREENSHOTS.md): clients, the roadmap, the budget, co
 
 ## What's new
 
+- **MSP-ALIGN 2.0: ready for everyone (2.0.0).** The first public release: everything from 1.27 to 1.45 (REST API, no-PSA mode, setup wizard, demo data, the new look and dark mode, Docker, the security audit) is now the base for other MSPs to install. New in 2.0:
+  - **Signed releases:** a server installs only releases signed with the MSP-ALIGN release key, which is kept offline, and checks the signature itself against the key file it already has. A release that isn't signed with it is refused and raises a security alert, so a stolen GitHub account can't push an update to your server. Settings → Updates & backups shows the key's fingerprint. Docker images are signed too. See [Signed releases](docs/RELEASING.md).
+  - **API: PSA ids are text.** `psa_id` (clients, contacts, licenses) and `psa_asset_id` (devices) are now always text, for example `"57"`, so every PSA fits the same field. **If an integration compares `psa_id` with a number, update it** or use the `itflow_*` fields, which stay numbers. From 2.0, the v1 API only adds things; anything that would break an integration will come as v2. See [REST API](docs/API.md).
+  - **Docs:** new pages for the [REST API](docs/API.md) (every endpoint, generated from the API itself), [Troubleshooting](docs/TROUBLESHOOTING.md), the [FAQ](docs/FAQ.md) and [Contributing](CONTRIBUTING.md), fresh screenshots, and corrected install and Docker steps.
+  - **For contributors:** a [code of conduct](CODE_OF_CONDUCT.md), issue and pull request templates, sign-off on commits (DCO) and GitHub Discussions for questions.
+  - **Also:** `sudo msp-align-update` with nothing new installs the current release again, which repairs packages, permissions and services. A restore no longer sets off a false audit log alert at the next nightly check. A Docker container can be a test server (`ALIGN_STAGING`). The installer waits for a backup or update that's running instead of overlapping it.
 - **Branding page in the new look (1.45.2):** Settings → Branding now matches the 1.43 interface: cards for name & logo, colors (suggested colors, and dark or light menu as picture choices) and the sign-in page message. The live preview shows the app, the staff sign-in page and the client portal as they look now, in light or dark mode, and follows every change as you type. Nothing else about branding changes, and your settings are kept.
 - **Remember this browser, and yearly invoices (1.45.1):**
   - **Remember this browser:** after the two-factor code, staff and client-portal users can tick *Remember this browser* to skip the code on that browser for 14 days. Their password is still asked for at every sign-in. Admins set the number of days, or turn it off, under Settings → General → Security. Each person sees and can forget their remembered browsers on their Account page, and a password or authenticator change, *Sign out everywhere*, a 2FA reset or disabling the account forgets them all.
@@ -129,38 +135,44 @@ Prefer containers? See [Install with Docker](docs/DOCKER.md) instead.
 
 Recommended VM: 2 vCPU, 4 GB RAM, 20 GB disk, static IP, Debian 13 minimal with SSH.
 
-1. On the VM:
+1. On the VM (a minimal Debian may need `apt install -y curl sudo` first, as root):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/MSP-ALIGN/MSP-ALIGN/main/install.sh | sudo -E bash
 ```
 
-2. Installing from a private fork? Create a **fine-grained token** limited to that repo with **Contents: Read-only**, then run `read -rs GH_TOKEN && export GH_TOKEN` first, add `-H "Authorization: Bearer $GH_TOKEN"` to the `curl` command, and set `ALIGN_REPO=owner/name`. The installer keeps the token in `/etc/msp-align/github-token` (root only) and uses it for updates.
+2. Installing from a private fork? Create a **fine-grained token** limited to that repo with **Contents: Read-only**, then run `read -rs GH_TOKEN && export GH_TOKEN` first, add `-H "Authorization: Bearer $GH_TOKEN"` to the `curl` command, and set `ALIGN_REPO=owner/name`. The installer keeps the token in `/etc/msp-align/github-token` (root only) and uses it for updates. A fork installs only releases signed with a key in its `deploy/release-signers`: put your own key there ([Signed releases](docs/RELEASING.md)), or leave the file with no key to follow the branch unsigned.
 
 The installer asks for:
 
 | Prompt | Notes |
 |---|---|
+| GitHub token | Only for a private fork; leave blank for the public repository |
 | Hostname | The name users browse to, e.g. `align.example.com` |
 | TLS mode | `selfsigned` (internal), `letsencrypt` (public DNS + port 80 open), or `proxy` (plain HTTP behind BunkerWeb or another reverse proxy that handles TLS) |
-| Proxy IP | Proxy mode only. The app trusts `X-Forwarded-*` headers from this IP only |
-| Admin email / name | First admin account. A random password is printed at the end |
+| Let's Encrypt email | Let's Encrypt mode only: where certificate expiry notices go |
+| Proxy IP | Proxy mode only: one IP address. The app trusts `X-Forwarded-*` headers from this address only |
+| Admin email / name | First admin account (name defaults to Administrator). A random password is printed at the end |
 | Time zone | Defaults to the VM's zone |
 
-It installs Apache, PHP, MariaDB and git; creates the database, config and encryption key; sets up the site, an hourly sync timer, the update and backup service and automatic security updates.
+It installs Apache, PHP, MariaDB, git, age, fail2ban and ufw; creates the database (encrypted at rest), config and encryption key; turns on the firewall (SSH rate-limited, 80 and 443 open; in proxy mode only port 80 from the proxy; `ALIGN_FIREWALL=0` leaves the firewall alone); bans addresses with repeated failed sign-ins (fail2ban, not in proxy mode); and sets up the site, the sync, PSA, email, nightly and update-check timers, the update and backup service and automatic security updates.
 
-Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when the TLS mode needs one, and `GH_TOKEN` for a private fork) and it won't prompt. Optional: `ALIGN_ADMIN_NAME`, `ALIGN_REPO=owner/name`, `ALIGN_BRANCH`, `ALIGN_FIREWALL=0` (leave ufw alone), `ALIGN_DB_ENCRYPT=0` (no MariaDB encryption at rest), `ALIGN_FORCE=1` (skip the Debian 13 check), `ALIGN_RECONFIGURE=1` (rewrite the Apache site on an existing install: run the installer already on the server, `sudo ALIGN_RECONFIGURE=1 bash /opt/msp-align/install.sh --upgrade`, rather than a new download, so it stays on signed releases).
+**Proxy mode:** point the proxy at `http://<VM address>:80`. It must pass the `Host` header and send `X-Forwarded-For` and `X-Forwarded-Proto: https`. For restores from the browser, allow request bodies up to 2 GB and a long timeout on `/settings/system/upload` (or restore from the command line). After changing the proxy's address in `/etc/msp-align/config.php`, run `sudo msp-align-update` so Apache and the firewall let the new address in, then remove the old one's firewall rule (`sudo ufw status numbered`, `sudo ufw delete <number>`).
+
+**Certificates:** ITFlow and Veeam addresses must be `https://` with a certificate this server trusts. For an internal certificate authority, copy its certificate to `/usr/local/share/ca-certificates/` (as a `.crt` file) and run `sudo update-ca-certificates`.
+
+Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_ADMIN_NAME ALIGN_TZ` (plus `ALIGN_LE_EMAIL` or `ALIGN_PROXY_IP` when the TLS mode needs one, and `GH_TOKEN` for a private fork). With no terminal (cloud-init, a script) only `ALIGN_ADMIN_EMAIL` is required and the rest take the defaults in the table; run from a terminal, it still asks for anything not set, including the GitHub token. Optional: `ALIGN_ADMIN_NAME`, `ALIGN_REPO=owner/name`, `ALIGN_BRANCH`, `ALIGN_FIREWALL=0` (leave ufw alone), `ALIGN_DB_ENCRYPT=0` (no MariaDB encryption at rest), `ALIGN_FORCE=1` (skip the Debian 13 check), `ALIGN_RECONFIGURE=1` (rewrite the Apache site on an existing install: run the installer already on the server, `sudo ALIGN_RECONFIGURE=1 bash /opt/msp-align/install.sh --upgrade`, rather than a new download, so it stays on signed releases).
 
 ## First-time setup
 
 1. Sign in with the password the installer printed. You'll be asked to choose your own password and set up two-factor sign-in (required). **Store the backup decryption key the installer printed in your password manager, then run `sudo shred -u /root/msp-align-backup-key.txt`.** You need it to restore any backup. Check it on Settings → Updates & backups → Check key.
    On a new install the **setup wizard** (1.40) then opens: company details and logo, currency & dates, PSA (or none), RMM, backups and warranty, email, your first clients and your team, one step at a time. Skip any step and come back to it from Settings → General; the steps below are the same settings done by hand.
-2. **Integrations → NinjaOne:** Administration → Apps → API → Client app IDs → Add. Choose *API Services (machine-to-machine)*, scope *Monitoring*, grant type *Client credentials*. Align only reads from NinjaOne.
-3. **Integrations → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets). It also needs read access to Contacts and Locations (for client addresses and phone numbers) Software and Vendors (for licensing), and Invoices (for the managed-services estimate), and write access to Support (assets) and Contacts for two-way sync and warranty write-back.
+2. **Integrations → NinjaOne:** Administration → Apps → API → Client app IDs → Add. Choose *API Services (machine-to-machine)*, scope *Monitoring*, grant type *Client credentials*. Pick your NinjaOne **Instance** (US, US2, CA, EU or OC: the address you sign in to NinjaOne at). Align only reads from NinjaOne.
+3. **Integrations → ITFlow:** Admin → API Keys. The key runs as the ITFlow user you choose, so that user needs read access to Clients and Support (assets and tickets). It also needs read access to Contacts and Locations (for client addresses and phone numbers) Software and Vendors (for licensing), and Invoices (for the managed-services estimate), and write access to Support (assets) and Contacts for two-way sync and warranty write-back.
 4. Optional: **Integrations → Veeam Service Provider Console:** in VSPC open Configuration → Security → REST API Keys and create a key for a read-only portal administrator. Enter the portal address (for example `https://vspc.example.com`; the API is `/api/v3` on the same host) and the key. The certificate must be trusted by the Align server.
 5. Optional: **Integrations → Email:** choose Microsoft 365, Google Workspace or an SMTP server. For Microsoft or Google, register an Entra app or a Google service account/OAuth client (the page walks through each) and pick the connection type; for SMTP, enter the server, port, security and sign-in. Send a test. Then choose which emails to send under **Settings → Notifications**.
 6. Optional: **Integrations → Dell TechDirect** and **Lenovo** for automatic warranty dates.
-7. Press **Test connection** on each integration, then **Integrations → Sync history → Run sync now**.
+7. Press **Test connection** on each integration (**Send test** for email), then **Integrations → Sync history → Run sync now**.
 8. **Client mapping:** clients with matching names link automatically (NinjaOne organizations and Veeam companies); link the rest by hand.
 9. **Settings → Updates & backups → Download backup**, and keep the file somewhere safe (file server, documentation system). Do this regularly; Align reminds you by email.
 10. Optional: **client portal.** Make sure `base_url` in `/etc/msp-align/config.php` is the address clients will use (the installer sets it); invite links are built from it. Then open a client → **Client portal** → **Invite user**.
@@ -175,7 +187,7 @@ Unattended install: set `ALIGN_FQDN ALIGN_TLS ALIGN_ADMIN_EMAIL ALIGN_TZ` (plus 
 sudo msp-align-update
 ```
 
-Either one makes a safety copy, installs the newest release signed with the MSP-ALIGN release key (2.0; see [Signed releases](docs/RELEASING.md)), or on a test server the latest code of its `update_branch` in `config.php`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds; if the installer fails and the update had no database changes, the previous version is put back. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
+Either one makes a safety copy, installs the newest release signed with the MSP-ALIGN release key (2.0; see [Signed releases](docs/RELEASING.md)), or on a test server the latest code of its `update_branch` in `config.php`, installs any new packages, applies database migrations and reloads services. The safety copy is deleted once the update succeeds; if the installer fails and the update had no database changes, the previous version is put back. With nothing new, `sudo msp-align-update` installs the current release again (or a test server's current branch), which repairs packages, permissions and services. The server checks for updates every 6 hours by asking GitHub; to check a small version file first instead, add `'update_check_url' => 'https://mspalign.org/updates'` to `config.php` (updates still download from GitHub). Servers on 1.13 or earlier: run the command once on the server to install the update and backup service; after that the page works.
 
 ## Operations
 
@@ -183,11 +195,11 @@ Either one makes a safety copy, installs the newest release signed with the MSP-
 |---|---|
 | Run a sync now | `sudo align sync` |
 | Check the PSA (ITFlow) for asset changes now | `sudo align psa:poll` (runs every 2 minutes on its own; `itflow:poll` still works) |
-| Reset a locked-out user | `sudo align user:reset-password --email=you@example.com --clear-2fa` |
+| Reset a locked-out user | `sudo align user:reset-password --email=you@example.com --clear-2fa` (prints a one-time password; a 15-minute sign-in lock still runs out on its own, and an address banned by fail2ban is let back in with `sudo fail2ban-client set msp-align unbanip <IP>`) |
 | Health check | `sudo align check` |
 | Send queued email / due digests now | `sudo align mail:run --force` (runs every minute on its own) |
 | Test email (any email connection) | `sudo align mail:test --to=you@example.com` |
-| Sync timer status / logs | `systemctl list-timers msp-align*` · `journalctl -u msp-align-sync` · `journalctl -u msp-align-psa` · `journalctl -u msp-align-mail` |
+| Sync timer status / logs | `systemctl list-timers 'msp-align*'` · `journalctl -u msp-align-sync` · `journalctl -u msp-align-psa` · `journalctl -u msp-align-mail` |
 | App errors | `/var/log/apache2/msp-align-error.log` |
 | Download a backup | Settings → Updates & backups → Download backup (not kept on the server) |
 | Restore a backup | Settings → Updates & backups → Restore, or `sudo msp-align-restore FILE [--db-only\|--uploads-only]` |
@@ -195,6 +207,8 @@ Either one makes a safety copy, installs the newest release signed with the MSP-
 | Update and backup service logs | `journalctl -u msp-align-agent` · `journalctl -u msp-align-update-check` · `journalctl -u msp-align-nightly` (audit log check) |
 
 **Keep downloaded backups and the backup private key somewhere safe, and apart.** A backup includes `app_key` (encrypted), which decrypts the stored API keys and 2FA secrets, so a restore on new hardware needs nothing else. Nightly backups on the server stopped in 1.14. Old ones in `/var/backups/mountaineer-align/` stay until you delete them (the page offers to).
+
+Something not working? See [Troubleshooting](docs/TROUBLESHOOTING.md), and the [FAQ](docs/FAQ.md) for common questions.
 
 ## How lifecycle is calculated
 
@@ -210,7 +224,7 @@ Virtual machines are tracked for OS support only. Devices can be excluded (spare
 
 ```bash
 # MariaDB running locally, then:
-cp -n config.example.php /tmp/align-config.php    # edit db credentials
+cp -n config.example.php /tmp/align-config.php    # edit db credentials and set app_key (the file shows how to make one)
 export ALIGN_CONFIG=/tmp/align-config.php
 php bin/align migrate
 php bin/align user:create --email=dev@example.com
@@ -218,7 +232,7 @@ php -S 127.0.0.1:8099 tests/mock-server.php &                 # fake ITFlow/Ninj
 php -S 127.0.0.1:8080 -t public tests/dev-router.php
 ```
 
-To point at the mocks, set `ninja_instance`, `itflow_url`, `dell_api_base` and `lenovo_api_base` to `http://127.0.0.1:8099` in the `settings` table. The mock credentials are `ninja-id` / `ninja-secret` and `itflow-key`.
+To point at the mocks, add `'allow_insecure_integrations' => true` to the config (the mocks are plain `http://`) and set `ninja_instance`, `itflow_url`, `veeam_url`, `dell_api_base` and `lenovo_api_base` to `http://127.0.0.1:8099` in the `settings` table. The mock credentials are `ninja-id` / `ninja-secret` and `itflow-key`.
 
 **Tests:** `tests/e2e/run.sh` builds a throwaway install (fictional data from `tests/mock-server.php`), starts the app and the mock server and runs every end-to-end suite; see [tests/README.md](tests/README.md). GitHub Actions runs them on every push and pull request.
 
@@ -232,7 +246,7 @@ Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, Font
 
 MSP-ALIGN is free software, copyright © 2026 Mountaineer IT Inc. and MSP-ALIGN contributors, licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). You may use, change and share it. If you share it, or run a changed version that other people use over a network, you must offer them its source code under the same license; the app's footer links to the source (set the link under Settings → General). There is no warranty. The repository's [LICENSE](LICENSE) file covers every file in it, whether or not the file carries its own header.
 
-MSP-ALIGN was started by [Mountaineer IT](https://mountaineerit.com), an MSP in Northern California, and is now developed in the open at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Contributions are welcome under the same license.
+MSP-ALIGN was started by [Mountaineer IT](https://mountaineerit.com), an MSP in Northern California, and is now developed in the open at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Contributions are welcome under the same license: see [Contributing](CONTRIBUTING.md) and the [Code of conduct](CODE_OF_CONDUCT.md). Questions go to [GitHub Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN/discussions).
 
 Bundled third-party components keep their own licenses (all compatible): AdminLTE, Bootstrap and FullCalendar (MIT), Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1, code MIT) and Quill (BSD-3-Clause). Their license files are in `public/vendor/`, and the in-app **License** page lists them.
 

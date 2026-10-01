@@ -30,7 +30,7 @@ restore from a production backup keeps it.
    curl -fsSL https://raw.githubusercontent.com/MSP-ALIGN/MSP-ALIGN/develop/install.sh | sudo -E ALIGN_BRANCH=develop bash
    ```
 
-3. **Turn on staging mode before restoring anything.** Edit `/etc/msp-align/config.php` and add:
+3. **Turn on staging mode before restoring anything.** Edit `/etc/msp-align/config.php` and uncomment (or add) these lines:
 
    ```php
    'staging' => true,
@@ -44,3 +44,8 @@ restore from a production backup keeps it.
    there whenever a new test version is ready. Restore a fresh backup whenever you want newer data.
 
 `update_branch` in `config.php` sets the channel (`develop` here, `main` or absent on production).
+
+**In Docker** images are published for releases only, so a Docker test server runs a release (handy for trying a
+copy of production safely, not for testing `develop`). The container rewrites `config.php` on every start, so set
+`ALIGN_STAGING=1` and `ALIGN_STAGING_MAIL_TO=align-test@yourcompany.example` in `.env`, leave `ALIGN_UPDATE_BRANCH` on
+`main`, and run `docker compose up -d`. Check for the yellow banner before restoring.

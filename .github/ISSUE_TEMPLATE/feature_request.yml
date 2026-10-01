@@ -1,0 +1,25 @@
+name: Feature request
+description: An idea to make MSP-ALIGN better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The job or problem, in your own words (for example "show a client the cost of replacing their laptops next year").
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you'd like it to work
+  - type: textarea
+    id: now
+    attributes:
+      label: How you do it today
+      description: A workaround, another tool, a spreadsheet…
+  - type: input
+    id: tools
+    attributes:
+      label: Tools involved
+      description: PSA, RMM, backup or other products this touches, if any.
