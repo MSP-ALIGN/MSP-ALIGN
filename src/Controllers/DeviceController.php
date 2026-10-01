@@ -99,13 +99,51 @@ final class DeviceController
         redirect("/devices/$id");
     }
 
+    /** 2.1: the ticked devices (or one device) become projects on the roadmap, with a QUOTE- ticket in the PSA. */
+    public static function makeProjects(int $id): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $back = post('back');
+        $back = preg_match('#^/(clients/' . $id . '/devices|devices/\d+)(\?[a-z0-9=&_%.-]*)?$#i', $back) ? $back : "/clients/$id/devices";
+        $ids = array_map('intval', (array) ($_POST['ids'] ?? []));
+        if (!$ids) {
+            flash('error', 'Tick the devices first.');
+            redirect($back);
+        }
+        $cost = post('cost');
+        $r = \Align\Roadmap\DeviceProjects::create($client, $ids, [
+            'mode' => post('mode') === 'together' ? 'together' : 'each',
+            'quarter' => post('quarter'),
+            'status' => post('status'),
+            'cost' => is_numeric($cost) && (float) $cost >= 0 ? (float) $cost : null,
+            'title' => post('title'),
+            'note' => mb_substr(post('note'), 0, 2000),
+            'ticket' => post('ticket') === '1',
+        ], Auth::id());
+        $made = $r['projects'];
+        if (!$made) {
+            flash('error', 'No project was made' . ($r['skipped'] ? ': ' . implode('; ', $r['skipped']) : '') . '.');
+            redirect($back);
+        }
+        $n = count($made);
+        $tickets = array_filter(array_column($made, 'ticket'));
+        $failed = array_filter($made, fn($p) => $p['ticket_error'] !== null);
+        $msg = ($n === 1 ? 'Made the project "' . $made[0]['title'] . '"' : "Made $n projects") . ' on the roadmap.'
+            . ($tickets ? ' ' . psa_name() . ' quote ticket' . (count($tickets) === 1 ? ' ' : 's ') . implode(', ', array_map(fn($t) => "#$t", $tickets)) . ' created.' : '')
+            . ($r['skipped'] ? ' Skipped: ' . implode('; ', $r['skipped']) . '.' : '');
+        flash($failed ? 'warning' : 'success', $msg . ($failed ? ' The ' . psa_name() . ' ticket wasn\'t created for ' . count($failed) . ' (' . reset($failed)['ticket_error'] . ').' : ''));
+        redirect($n === 1 ? "/clients/$id/roadmap#modal-roadmap-" . $made[0]['id'] : "/clients/$id/roadmap");
+    }
+
     /** Client devices list: set or clear the planned replacement for the ticked devices. */
     public static function bulkReplacement(int $id): void
     {
         $clientId = $id;
         Auth::requireRole('tech');
         $client = ClientController::load($clientId);
-        $mine = array_column((new Lifecycle())->devices($clientId), 'name', 'id');
+        $all = (new Lifecycle())->devices($clientId);
+        $mine = array_column($all, 'name', 'id');
         $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), fn($i) => isset($mine[$i])));
         $back = '/clients/' . $clientId . '/devices' . (post('return_query') !== '' && preg_match('/^[a-z0-9=&_%.-]*$/i', post('return_query')) ? '?' . post('return_query') : '');
         // The roadmap's drag and drop calls this with fetch() and wants JSON back
@@ -127,10 +165,20 @@ final class DeviceController
         if (post('replace_on') !== '' && !$on) {
             $fail('Choose a quarter.');
         }
+        // a device a project replaces follows the project's quarter: setting its own would have no effect
+        $inProject = array_keys(array_filter(array_column($all, 'project', 'id')));
+        $skip = array_values(array_intersect($ids, $inProject));
+        $ids = array_values(array_diff($ids, $inProject));
+        if (!$ids) {
+            $fail(($skip && count($skip) === 1 ? $mine[$skip[0]] . ' is' : 'Those devices are') . ' in a project: move the project instead.');
+        }
         self::setReplacement($ids, $on, $note);
         $n = count($ids);
         Audit::log('device.replacement', $client['name'] . ': ' . $n . ' device' . ($n === 1 ? '' : 's') . ' ' . ($label ? "planned for $label" . ($note ? " ($note)" : '') : 'back to end of life') . ' (' . mb_strimwidth(implode(', ', array_map(fn($i) => $mine[$i], $ids)), 0, 400, '…') . ')');
         $msg = $label ? ($n === 1 ? $mine[$ids[0]] : "$n devices") . " will be replaced in $label. The roadmap and budget now use that quarter." : ($n === 1 ? $mine[$ids[0]] : "$n devices") . ' back on the end-of-life schedule.';
+        if ($skip) {
+            $msg .= ' Skipped ' . count($skip) . ' in a project (' . mb_strimwidth(implode(', ', array_map(fn($i) => $mine[$i], $skip)), 0, 200, '…') . '): move the project instead.';
+        }
         flash('success', $msg);
         if ($json) {
             header('Content-Type: application/json');

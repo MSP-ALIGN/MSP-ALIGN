@@ -238,7 +238,7 @@ final class Notify
         $until = date('Y-m-d', strtotime('+90 days'));
         $rows = [];
         foreach (array_merge(...array_values(self::devicesByClient())) as $d) {
-            if (!$d['client_id'] || $d['client_inactive'] || $d['status'] === 'excluded' || !$d['is_hardware'] || ($ids !== null && !in_array((int) $d['client_id'], $ids, true))) {
+            if (!$d['client_id'] || $d['client_inactive'] || $d['status'] === 'excluded' || !$d['is_hardware'] || !empty($d['project']) || ($ids !== null && !in_array((int) $d['client_id'], $ids, true))) {
                 continue;
             }
             $due = $d['replace_planned'] ? $d['replace_by'] : $d['eol_date'];

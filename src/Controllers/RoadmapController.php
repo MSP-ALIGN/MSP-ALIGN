@@ -105,6 +105,16 @@ final class RoadmapController
         if ($f['title'] === '') {
             $f['title'] = $row['title'];
         }
+        $wasLive = \Align\Roadmap\DeviceProjects::isLive($item);
+        if (!$wasLive && $f['status'] !== 'declined' && ($taken = \Align\Roadmap\DeviceProjects::conflicts($item))) {
+            // its devices went into another project meanwhile: counting them twice would double the budget
+            $f['status'] = $row['status'];
+            Audit::log('roadmap.update', "{$client['name']}: {$f['title']} (kept {$row['status']}: " . implode(', ', $taken) . ' in another project)');
+            flash('warning', 'Saved, but kept as ' . $row['status'] . ': ' . implode(', ', $taken) . (count($taken) === 1 ? ' is' : ' are') . ' in another project now. Decline or delete that one first.');
+            $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
+            DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
+            redirect(self::back($id));
+        }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
         Audit::log('roadmap.update', "{$client['name']}: {$f['title']}");

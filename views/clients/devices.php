@@ -24,8 +24,10 @@ echo \Align\View::fetch('partials/page_header', [
       <option value="">Automatic (end of life)</option>
       <?php foreach (\Align\Roadmap\Plan::choices(6) as $k => $l): ?><option value="<?= e($k) ?>"><?= e($l) ?></option><?php endforeach; ?>
     </select>
-    <input name="replace_note" class="form-control form-control-sm me-2 mb-1" maxlength="255" placeholder="Reason (optional)" style="min-width:220px">
+    <input name="replace_note" class="form-control form-control-sm me-2 mb-1" maxlength="255" placeholder="Reason (optional)" style="width:240px;max-width:100%">
     <button class="btn btn-sm btn-primary mb-1"><i class="fas fa-calendar-check me-1"></i>Set replacement</button>
+    <span class="text-muted mx-2 mb-1">or</span>
+    <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal" data-bs-target="#modal-make-project"><i class="fas fa-diagram-project me-1"></i>Make projects…</button>
   </form>
   <?php endif; ?>
   <div class="card-body p-0">
@@ -34,6 +36,7 @@ echo \Align\View::fetch('partials/page_header', [
   <?= \Align\View::fetch('partials/list_footer', ['shown' => count($devices), 'total' => $matched, 'moreUrl' => \Align\Paging::moreUrl($limit)]) ?>
 </div>
 
+<?php if ($canBulk) echo \Align\View::fetch('devices/_project_modal', ['client' => $client, 'back' => '/clients/' . $cid . '/devices' . ($_SERVER['QUERY_STRING'] ?? '' ? '?' . preg_replace('/[^a-z0-9=&_%.-]/i', '', (string) $_SERVER['QUERY_STRING']) : '')]); ?>
 <?php if (Auth::can('tech')): ?>
 <div class="modal fade" id="modal-device" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">

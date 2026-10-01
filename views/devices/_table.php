@@ -26,7 +26,7 @@ $cols = 7 + ($showClient ? 1 : 0) + ($canBulk ? 1 : 0) + 4 + ($bkOn ? 1 : 0);
   <tbody>
   <?php foreach ($devices as $d): ?>
     <tr>
-      <?php if ($canBulk): ?><td><?php if ($d['is_hardware'] && $d['status'] !== 'excluded'): ?><input type="checkbox" name="ids[]" value="<?= (int) $d['id'] ?>" form="bulk-replace" data-bulk-item aria-label="Select <?= e($d['name']) ?>"><?php endif; ?></td><?php endif; ?>
+      <?php if ($canBulk): ?><td><?php if ($d['is_hardware'] && $d['status'] !== 'excluded'): ?><input type="checkbox" name="ids[]" value="<?= (int) $d['id'] ?>" form="bulk-replace" data-bulk-item data-cost="<?= e((string) (float) $d['replacement_cost']) ?>"<?= !empty($d['project']) ? ' data-in-project' : '' ?> aria-label="Select <?= e($d['name']) ?>"><?php endif; ?></td><?php endif; ?>
       <td class="text-nowrap">
         <i class="fas fa-fw <?= e($d['icon']) ?> text-secondary me-1" title="<?= e($d['type']) ?>"></i><a href="/devices/<?= (int) $d['id'] ?>" class="fw-bold"><?= e($d['name']) ?></a>
         <?php if ($d['source'] === 'manual'): ?><span class="badge text-bg-light border" title="Added in Align">manual</span><?php elseif ($d['source'] === 'psa'): ?><span class="badge text-bg-light border" title="Imported from <?= e(psa_name()) ?> assets"><?= e(psa_name()) ?></span><?php endif; ?>
@@ -46,7 +46,8 @@ $cols = 7 + ($showClient ? 1 : 0) + ($canBulk ? 1 : 0) + 4 + ($bkOn ? 1 : 0);
         <?php if ($d['age_years'] !== null): ?><div class="text-muted"><?= e($d['age_years']) ?> yrs</div><?php endif; ?></td>
       <td class="col-opt col-warranty small text-nowrap"><?= e(fmt_date($d['warranty_end'])) ?></td>
       <td class="small text-nowrap"><?= e(fmt_date($d['eol_date'], 'month')) ?>
-        <?php if ($d['replace_planned']): ?><div><span class="badge text-bg-<?= $d['replace_deferred'] ? 'warning' : 'info' ?>" title="<?= e('Replacement planned for ' . $d['replace_label'] . ($d['replace_note'] ? ': ' . $d['replace_note'] : '')) ?>"><i class="fas fa-calendar-check me-1"></i><?= e($d['replace_label']) ?></span></div><?php endif; ?></td>
+        <?php if (!empty($d['project'])): $pj = $d['project']; ?><div><a class="badge text-bg-primary text-decoration-none" href="/clients/<?= (int) $pj['client_id'] ?>/roadmap#modal-roadmap-<?= (int) $pj['id'] ?>" title="<?= e('In the project "' . $pj['title'] . '" (' . \Align\Roadmap\Roadmap::STATUSES[$pj['status']][0] . ')' . ($pj['psa_ticket_id'] ? ', quote ticket #' . $pj['psa_ticket_id'] : '')) ?>"><i class="fas fa-diagram-project me-1"></i><?= e($pj['quarter_label'] ?? 'Project') ?></a></div>
+        <?php elseif ($d['replace_planned']): ?><div><span class="badge text-bg-<?= $d['replace_deferred'] ? 'warning' : 'info' ?>" title="<?= e('Replacement planned for ' . $d['replace_label'] . ($d['replace_note'] ? ': ' . $d['replace_note'] : '')) ?>"><i class="fas fa-calendar-check me-1"></i><?= e($d['replace_label']) ?></span></div><?php endif; ?></td>
       <td><?php require __DIR__ . '/../partials/status.php'; ?></td>
       <td class="col-opt col-cost text-end"><?= $d['is_hardware'] && $d['status'] !== 'excluded' ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td>
     </tr>

@@ -60,14 +60,22 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
           </div>
           <div class="row g-2">
             <div class="mb-3 col-md-6"><label>Budget <small class="text-muted">(one-time)</small></label>
-              <div class="input-group"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span><input type="number" min="0" step="1" name="cost" class="form-control" value="<?= e($it['cost'] ?? '') ?>"></div></div>
+              <div class="input-group"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span><input type="number" min="0" step="any" name="cost" class="form-control" value="<?= e($it['cost'] ?? '') ?>"></div></div>
             <div class="mb-3 col-md-6"><label>Recurring cost <small class="text-muted">(optional)</small></label>
               <div class="input-group"><span class="input-group-text"><?= e(\Align\Fmt::symbol()) ?></span><input type="number" min="0" step="1" name="recurring_monthly" class="form-control" value="<?= e($it['recurring_monthly'] ?? '') ?>"><span class="input-group-text">/ month</span></div></div>
           </div>
+          <?php if ($it && ($pd = \Align\Roadmap\DeviceProjects::devicesFor((int) $it['id']))): $pt = !empty($it['psa_ticket_id']) ? \Align\Providers\Providers::psaLink('ticket', (string) $it['psa_ticket_id']) : null; ?>
+            <div class="mb-3 small border rounded p-2 bg-body-tertiary">
+              <div class="fw-bold mb-1"><i class="fas fa-desktop me-1 text-secondary"></i>Replaces <?= count($pd) ?> device<?= count($pd) === 1 ? '' : 's' ?>
+                <span class="fw-normal text-muted">· they're out of the automatic replacement plan while this project isn't declined</span></div>
+              <?= implode(', ', array_map(fn($x) => '<a href="/devices/' . (int) $x['id'] . '">' . e($x['name']) . '</a>' . ($x['removed_at'] ? ' <span class="text-muted">(retired)</span>' : ''), $pd)) ?>
+              <?php if (!empty($it['psa_ticket_id'])): ?><div class="mt-1"><i class="fas fa-ticket me-1 text-secondary"></i>Quote ticket: <?= $pt ? '<a href="' . e($pt) . '" target="_blank" rel="noopener">' . e(psa_name()) . ' #' . e($it['psa_ticket_id']) . '</a>' : e(psa_name()) . ' #' . e($it['psa_ticket_id']) ?></div><?php endif; ?>
+            </div>
+          <?php endif; ?>
           <div class="mb-3 mb-0"><label>Description</label><textarea name="description" class="form-control" rows="4" placeholder="Scope, why it matters to the client, dependencies…"><?= e($it['description'] ?? '') ?></textarea></div>
         </div>
         <div class="modal-footer">
-          <?php if ($it): ?><button class="btn btn-outline-danger me-auto" name="action" value="delete" formnovalidate data-confirm="Delete this project? It comes off the roadmap and the budget. This can't be undone."><i class="fas fa-trash me-1"></i>Delete</button><?php endif; ?>
+          <?php if ($it): ?><button class="btn btn-outline-danger me-auto" name="action" value="delete" formnovalidate data-confirm="Delete this project? It comes off the roadmap and the budget<?= $it && \Align\Roadmap\DeviceProjects::devicesFor((int) $it['id']) ? ', and its devices go back to their replacement dates' : '' ?>. This can't be undone."><i class="fas fa-trash me-1"></i>Delete</button><?php endif; ?>
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save</button>
         </div>

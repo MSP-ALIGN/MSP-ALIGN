@@ -39,6 +39,13 @@ final class ClientController
             }
             unset($s);
         }
+        // Devices a project replaces count through the project's cost and quarter (2.1)
+        foreach (\Align\DB::all("SELECT ri.client_id, SUM(ri.cost) AS c FROM roadmap_items ri WHERE ri.status IN ('proposed', 'approved', 'scheduled')
+                AND ri.target_quarter IS NOT NULL AND ri.target_quarter <= ? AND ri.cost IS NOT NULL
+                AND EXISTS (SELECT 1 FROM roadmap_item_devices rid WHERE rid.roadmap_item_id = ri.id) GROUP BY ri.client_id", [date('Y-m-d', strtotime('+12 months'))]) as $r) {
+            $stats[(int) $r['client_id']] ??= ['total' => 0, 'bad' => 0, 'warn' => 0, 'cost12' => 0.0];
+            $stats[(int) $r['client_id']]['cost12'] += (float) $r['c'];
+        }
         $view = in_array(query('view'), ['active', 'removed', 'archived', 'all'], true) ? query('view') : 'active';
         $where = match ($view) {
             'removed' => 'c.planning_excluded = 1',
