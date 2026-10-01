@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.0.1', 'fa-cloud', 'Microsoft 365 backups in two repositories', 'When a tenant moved from a legacy Veeam repository to a new one, each mailbox, group, team and site now counts once, with its newest restore point, so it no longer shows as overdue. Each client\'s Backups page shows the days with a backup for every protected user, group, team and site (a day counts once, however many restore points it has), counted from the first sync after this update.', 'backups', 'tech'],
         ['2.0.1', 'fa-circle-question', '"Are you sure?" before big changes', 'Changes that are wide, hard to undo, email clients or write to ' . psa_name() . ' now ask first and say what will happen, often with a count (14 devices, 3 controls for 7 clients). Closing an edit window or leaving a long form with unsaved changes asks too, and Enter in a field always saves rather than deleting.', 'settings', 'admin'],
         ['2.0', 'fa-signature', 'MSP-ALIGN 2.0: signed releases', 'The first public release. Updates now install only releases signed with the MSP-ALIGN release key (kept offline), checked by your own server; anything else is refused with a security alert. Settings → Updates &amp; backups shows the key\'s fingerprint. Documentation, troubleshooting and an FAQ are at mspalign.org.', 'update', 'admin'],
         ['2.0', 'fa-code', 'API: PSA ids are text', 'In the REST API, <code>psa_id</code> and <code>psa_asset_id</code> are now always text (<code>"57"</code>), whatever the PSA. If an n8n flow or script compares them with a number, update it, or use the <code>itflow_*</code> fields, which stay numbers. From 2.0, v1 only adds things.', 'api', 'admin'],
@@ -186,6 +187,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   ], ['Budgets' => '/budget']) ?>
   <?= $guide('backups', 'fa-database', 'Check a client\'s backups', 'viewer', [
       'Open the client and choose <b>Backups</b>: health, failed jobs with the backup product\'s messages, overdue machines, Microsoft 365 coverage and servers with no backup.',
+      'Under Microsoft 365, open <b>All protected users, groups, teams and sites</b> to see each one\'s newest restore point and its <b>days with a backup</b> (a day counts once, however many restore points it has, and across repositories). A mailbox kept in a legacy and a current repository counts once, with its newest restore point.',
       'Something that genuinely doesn\'t need a backup (a test VM, a kiosk)? A tech can mark it <b>Backup not required</b> with a reason; it stops counting as missing everywhere.',
       '<b>Reports → Backup &amp; recovery</b> prints it for the client, and <b>Reports → Backups (all clients)</b> shows the whole portfolio.',
   ], ['Backups report (all clients)' => '/reports/backups']) ?>

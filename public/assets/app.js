@@ -42,7 +42,10 @@ const alignInit = {
 // "Are you sure?" (2.0.1): an in-app dialog in place of the browser's confirm box.
 // alignConfirm({ title, text: 'line' or ['line', ...], ok: 'Delete', danger: true }) resolves to true or false.
 const alignConfirm = (() => {
-  let el = null, okBtn, titleEl, bodyEl, iconEl, answer = false, done = null, paused = [], back = null, danger = false;
+  let el = null, okBtn, cancelBtn, titleEl, bodyEl, iconEl, answer = false, done = null, paused = [], back = null, danger = false;
+  let showing = false, wantHide = false;
+  // Bootstrap ignores hide() while the dialog is still fading in: a quick click waits for the fade instead of being lost
+  const close = (yes) => { answer = yes; if (showing) { wantHide = true; return; } bsModal(el).hide(); };
   const build = () => {
     el = document.createElement('div');
     el.className = 'modal fade align-confirm';
@@ -55,21 +58,26 @@ const alignConfirm = (() => {
     el.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
       + '<div class="modal-body d-flex gap-3 pt-4 px-4"><div class="align-confirm-icon"><i></i></div><div class="flex-grow-1">'
       + '<h5 class="modal-title mb-2" id="align-confirm-title"></h5><div id="align-confirm-body" class="text-body-secondary"></div></div></div>'
-      + '<div class="modal-footer border-0"><button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>'
+      + '<div class="modal-footer border-0"><button type="button" class="btn btn-default" data-align-confirm-cancel>Cancel</button>'
       + '<button type="button" class="btn" data-align-confirm-ok></button></div></div></div>';
     document.body.appendChild(el);
     okBtn = el.querySelector('[data-align-confirm-ok]');
     titleEl = el.querySelector('#align-confirm-title');
     bodyEl = el.querySelector('#align-confirm-body');
     iconEl = el.querySelector('.align-confirm-icon i');
-    okBtn.addEventListener('click', () => { answer = true; bsModal(el).hide(); });
+    cancelBtn = el.querySelector('[data-align-confirm-cancel]');
+    okBtn.addEventListener('click', () => close(true));
+    cancelBtn.addEventListener('click', () => close(false));
+    el.addEventListener('keydown', (e) => { if (e.key === 'Escape' && showing) close(false); });
     el.addEventListener('shown.bs.modal', () => {
+      showing = false;
+      if (wantHide) { wantHide = false; bsModal(el).hide(); return; }
       el.setAttribute('role', 'alertdialog'); // Bootstrap sets role=dialog on show
       // above an edit form that is already open: its backdrop and focus trap step aside meanwhile
       const drops = document.querySelectorAll('.modal-backdrop');
       if (drops.length > 1) drops[drops.length - 1].classList.add('align-confirm-backdrop');
       // a red button isn't the default: Enter twice shouldn't delete
-      (danger ? el.querySelector('[data-bs-dismiss]') : okBtn).focus();
+      (danger ? cancelBtn : okBtn).focus();
     });
     el.addEventListener('hidden.bs.modal', () => {
       paused.forEach((t) => { try { t.activate(); } catch (e) { /* closed meanwhile */ } });
@@ -86,6 +94,8 @@ const alignConfirm = (() => {
     if (!el) build();
     if (done) { resolve(false); return; } // one at a time
     answer = false;
+    wantHide = false;
+    showing = true;
     done = resolve;
     danger = !!o.danger;
     back = document.activeElement;

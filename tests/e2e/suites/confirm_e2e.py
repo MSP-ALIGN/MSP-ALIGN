@@ -33,6 +33,11 @@ with sync_playwright() as p:
     ok(pg.evaluate("document.querySelectorAll('.modal.show').length") == 2, "the dialog opens over the project's window")
     cancel(pg)
     ok(q("select id from roadmap_items where id=%s", prj["id"]) and pg.locator(sel).is_visible(), "Cancel: the project stays, and its window stays open")
+    # Cancel clicked while the dialog is still fading in isn't lost (Bootstrap ignores hide() mid-fade)
+    pg.locator(sel + " button[value=delete]").click()
+    pg.evaluate("document.querySelector('#align-confirm [data-align-confirm-cancel]').click()")
+    pg.wait_for_selector("#align-confirm", state="hidden", timeout=3000); pg.wait_for_timeout(300)
+    ok(q("select id from roadmap_items where id=%s", prj["id"]) and pg.locator(sel).is_visible(), "a quick Cancel, before the dialog has finished opening, still cancels")
 
     # ---- Enter in a field saves; it never runs the Delete button that comes first in the form
     pg.fill(sel + " input[name=title]", prj["title"] + " (edited)")

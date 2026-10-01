@@ -67,7 +67,11 @@ final class Backups
             'servers_without_backup' => Context::can('devices:read') ? array_map(fn($d) => ['device_id' => (int) $d['id'], 'name' => $d['name'], 'type' => $d['type']], $b['unprotected']) : null,
             'microsoft_365' => $b['m365'] ? ['health' => $b['m365']['tone'], 'protected_objects' => $b['m365']['total'], 'users' => $b['m365']['users'],
                 'overdue' => $b['m365']['overdue_count'], 'newest_restore_point' => Out::ts($b['m365']['last_point']),
-                'by_type' => array_map(fn($t) => ['protected' => $t['total'], 'current' => $t['ok'], 'overdue' => $t['overdue'], 'newest' => Out::ts($t['last'])], $b['m365']['types'])] : null,
+                'by_type' => array_map(fn($t) => ['protected' => $t['total'], 'current' => $t['ok'], 'overdue' => $t['overdue'], 'newest' => Out::ts($t['last'])], $b['m365']['types']),
+                'objects' => array_map(fn($o) => ['uid' => $o['uid'], 'name' => $o['name'], 'type' => $o['object_type'],
+                    'health' => $o['tone'], 'newest_restore_point' => Out::ts($o['last_point']), 'restore_points' => Out::int($o['restore_points']),
+                    'days_with_backup' => Out::int($o['restore_days']), 'counting_since' => $o['days_from'] ? (string) $o['days_from'] : null,
+                    'repositories' => Out::int($o['repositories']), 'not_required' => !empty($o['exempt'])], $b['m365']['objects'])] : null,
             'url' => Out::url("/clients/$id/backups"),
         ]);
     }

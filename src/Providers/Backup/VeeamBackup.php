@@ -258,14 +258,15 @@ final class VeeamBackup implements BackupProvider
         $objectsRaw = $api->m365ProtectedObjects();
         $objects = null;
         if ($objectsRaw !== null) {
-            $objects = [];
+            $rows = [];
             foreach ($objectsRaw as $o) {
                 $id = (string) ($o['id'] ?? '');
                 $name = trim((string) ($o['name'] ?? ''));
                 if ($id === '' || $name === '') {
                     continue;
                 }
-                $objects[] = [
+                $repo = V::pick($o, ['repositoryUid', 'backupRepositoryUid', 'repositoryId', 'repositoryName']);
+                $rows[] = [
                     'uid' => strlen($id) > 180 ? 'sha1:' . sha1($id) : $id,
                     'company_uid' => $companyOf($o),
                     'org_uid' => isset($o['vb365OrganizationUid']) ? mb_substr((string) $o['vb365OrganizationUid'], 0, 64) : null,
@@ -274,9 +275,87 @@ final class VeeamBackup implements BackupProvider
                     'restore_points' => V::int($o['restorePointsCount'] ?? null),
                     'last_point' => V::ts($o['latestRestorePointDate'] ?? null),
                     'licensed' => isset($o['consumesLicense']) ? ($o['consumesLicense'] ? 1 : 0) : null,
+                    'repo' => $repo !== null && $repo !== '' ? (string) $repo : null,
                 ];
             }
+            $objects = self::mergeRepositories($rows);
         }
         return ['orgs' => $orgs, 'jobs' => $jobs, 'objects' => $objects];
+    }
+
+    /**
+     * One record per Microsoft 365 user, group, team or site. The console lists an object once for each repository
+     * that holds restore points for it: a tenant moved from a legacy repository to a new one has two rows for the
+     * same mailbox, the old one stopped months ago and the new one current. The rows are combined, and the object is
+     * current when its newest restore point, from any repository, is recent:
+     *   - rows with the same id (in the same tenant and of the same type) are one object;
+     *   - rows with the same name, type and tenant are one object too when both name a repository and the
+     *     repositories differ (without repository details, two rows with one name stay two objects: two staff
+     *     called John Smith, two sites called Documents).
+     * (A job that stops writing to one of two live repositories still shows as failed or overdue under Jobs.)
+     * Restore points add up; `repositories` says how many were combined; `uids` lists every row's id (the sync keeps
+     * the one it already stores); `days` holds the day of each row's newest restore point.
+     *
+     * @param list<array<string, mixed>> $rows one per console row, with 'repo' (null when not reported)
+     * @return list<array<string, mixed>>
+     */
+    public static function mergeRepositories(array $rows): array
+    {
+        $groups = [];          // group index => rows
+        $byId = [];            // tenant|type|uid => group index
+        $byName = [];          // tenant|type|name => group indexes
+        foreach ($rows as $r) {
+            $scope = ($r['company_uid'] ?? '') . '|' . ($r['org_uid'] ?? '') . '|' . $r['object_type'] . '|';
+            $idKey = $scope . $r['uid'];
+            if (isset($byId[$idKey])) {
+                $groups[$byId[$idKey]][] = $r;
+                continue;
+            }
+            $nameKey = $scope . mb_strtolower($r['name']);
+            $into = null;
+            if ($r['repo'] !== null) {
+                foreach ($byName[$nameKey] ?? [] as $g) {
+                    $repos = array_column($groups[$g], 'repo');
+                    if (!in_array(null, $repos, true) && !in_array($r['repo'], $repos, true)) {
+                        $into = $g;   // the same object in another repository
+                        break;
+                    }
+                }
+            }
+            if ($into === null) {
+                $into = count($groups);
+                $groups[$into] = [];
+                $byName[$nameKey][] = $into;
+            }
+            $groups[$into][] = $r;
+            $byId[$idKey] = $into;
+        }
+        $out = [];
+        foreach ($groups as $g) {
+            usort($g, fn($a, $b) => strcmp($a['uid'], $b['uid']));
+            $newest = $g[0];
+            foreach ($g as $r) {
+                if ((string) $r['last_point'] > (string) $newest['last_point']) {
+                    $newest = $r;
+                }
+            }
+            $counts = array_filter(array_column($g, 'restore_points'), fn($v) => $v !== null);
+            $licensed = array_filter(array_column($g, 'licensed'), fn($v) => $v !== null);
+            $repos = count(array_unique(array_map(fn($i) => $g[$i]['repo'] ?? "row:$i", array_keys($g))));
+            $out[] = [
+                'uid' => $g[0]['uid'],
+                'uids' => array_values(array_unique(array_column($g, 'uid'))),
+                'company_uid' => $g[0]['company_uid'],
+                'org_uid' => $g[0]['org_uid'],
+                'name' => $newest['name'],
+                'object_type' => $g[0]['object_type'],
+                'restore_points' => $counts ? array_sum($counts) : null,
+                'last_point' => $newest['last_point'],
+                'licensed' => $licensed ? max($licensed) : null,
+                'repositories' => min(255, $repos),
+                'days' => array_values(array_unique(array_filter(array_map(fn($r) => $r['last_point'] ? substr($r['last_point'], 0, 10) : null, $g)))),
+            ];
+        }
+        return $out;
     }
 }

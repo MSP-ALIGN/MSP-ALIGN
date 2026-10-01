@@ -126,7 +126,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
 <?php if ($m = $b['m365']): ?>
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft me-2"></i>Microsoft 365</h3>
-    <div class="card-tools small pt-1 text-light"><?= e(implode(', ', array_column($m['orgs'], 'name'))) ?></div></div>
+    <div class="card-tools small pt-1 text-body-secondary"><?= e(implode(', ', array_column($m['orgs'], 'name'))) ?></div></div>
   <div class="card-body pb-2">
     <div class="row">
       <?php foreach ($m['types'] as $t => $x): [$tl, $td] = Backup::M365_TYPES[$t]; ?>
@@ -149,24 +149,49 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
       <?php if ($m['users']): ?><div><i class="fas fa-id-badge fa-fw me-1"></i><?= (int) $m['licensed'] ?> of <?= (int) $m['users'] ?> protected users use a<?= preg_match('/^[AEIOU]/i', $b['source']) ? 'n' : '' ?> <?= e($b['source']) ?> license.</div><?php endif; ?>
     </div>
   </div>
+  <?php
+    $days = function (array $o): string {
+        if ($o['restore_days'] === null) {
+            return '<span class="text-muted">—</span>';
+        }
+        $tip = 'Days with at least one restore point since ' . fmt_date($o['days_from']) . ', all repositories together'
+            . ($o['restore_points'] !== null ? '. ' . number_format((int) $o['restore_points']) . ' restore points in all.' : '.');
+        return '<span title="' . e($tip) . '">' . (int) $o['restore_days'] . '</span>';
+    };
+    $repos = fn(array $o) => (int) $o['repositories'] > 1
+        ? ' <span class="badge text-bg-light border" title="Restore points are kept in ' . (int) $o['repositories'] . ' repositories (for example a legacy one and a current one); the newest restore point counts.">' . (int) $o['repositories'] . ' repositories</span>' : '';
+    $row = fn(array $o) => '<tr' . (!empty($o['exempt']) ? ' class="text-muted"' : '') . '><td>' . $pill(!empty($o['exempt']) ? 'Not required' : ($o['tone'] === 'ok' ? 'Current' : ($o['last_point'] ? 'Overdue' : 'No restore point')), $o['tone']) . '</td><td class="fw-bold">' . e($o['name']) . $repos($o) . '</td><td class="small">' . e($o['type_label']) . '</td>'
+        . '<td class="small">' . ($o['last_point'] ? e(Backup::age($o['age_h'])) . ' ago <span class="text-muted">' . e(fmt_datetime($o['last_point'])) . '</span>' : '<span class="text-danger">none</span>') . '</td>'
+        . '<td class="small text-end">' . $days($o) . '</td>'
+        . ($canEx ? '<td class="text-end">' . (empty($o['exempt']) ? $exBtn('m365', $o['uid'], $o['name']) : '') . '</td>' : '') . '</tr>';
+    $cols = '<colgroup><col style="width:13%"><col style="width:24%"><col style="width:13%"><col style="width:30%"><col style="width:10%">' . ($canEx ? '<col style="width:10%">' : '') . '</colgroup>';
+    $head = fn(string $what) => $cols . '<thead class="text-dark"><tr><th>Status</th><th>' . $what . '</th><th>Type</th><th>Newest restore point</th><th class="text-end" title="Days with at least one restore point; several on one day count once">Days with a backup</th>' . ($canEx ? '<th></th>' : '') . '</tr></thead>';
+  ?>
   <?php if ($m['overdue']): ?>
   <div class="card-body p-0 border-top"><div class="table-responsive">
     <table class="table table-sm table-striped table-borderless mb-0">
-      <thead class="text-dark"><tr><th>Status</th><th>Without a recent backup</th><th>Type</th><th>Newest restore point</th><th class="text-end">Restore points</th><?php if ($canEx): ?><th></th><?php endif; ?></tr></thead>
+      <?= $head('Without a recent backup') ?>
       <tbody>
-      <?php $row = fn(array $o) => '<tr><td>' . $pill($o['last_point'] ? 'Overdue' : 'No restore point', $o['tone']) . '</td><td class="fw-bold">' . e($o['name']) . '</td><td class="small">' . e($o['type_label']) . '</td>'
-          . '<td class="small">' . ($o['last_point'] ? e(Backup::age($o['age_h'])) . ' ago <span class="text-muted">' . e(fmt_datetime($o['last_point'])) . '</span>' : '<span class="text-danger">none</span>') . '</td>'
-          . '<td class="small text-end">' . ($o['restore_points'] !== null ? (int) $o['restore_points'] : '—') . '</td>'
-          . ($canEx ? '<td class="text-end">' . $exBtn('m365', $o['uid'], $o['name']) . '</td>' : '') . '</tr>'; ?>
       <?php foreach (array_slice($m['overdue'], 0, 10) as $o) echo $row($o); ?>
       </tbody>
     </table>
     <?php if (count($m['overdue']) > 10): ?>
       <details class="bk-more"><summary class="px-3 py-2 small text-primary">Show <?= count($m['overdue']) - 10 ?> more</summary>
-        <table class="table table-sm table-striped table-borderless mb-0"><tbody><?php foreach (array_slice($m['overdue'], 10) as $o) echo $row($o); ?></tbody></table>
+        <table class="table table-sm table-striped table-borderless mb-0"><?= $cols ?><tbody><?php foreach (array_slice($m['overdue'], 10) as $o) echo $row($o); ?></tbody></table>
       </details>
     <?php endif; ?>
   </div></div>
+  <?php endif; ?>
+  <?php if ($m['objects']): ?>
+  <details class="bk-more" id="m365-all"><summary class="px-3 py-2 small text-primary">All protected users, groups, teams and sites (<?= count($m['objects']) ?>)</summary>
+    <div class="card-body p-0"><div class="table-responsive">
+      <table class="table table-sm table-striped table-borderless mb-0">
+        <?= $head('Name') ?>
+        <tbody><?php foreach ($m['objects'] as $o) echo $row($o); ?></tbody>
+      </table>
+    </div></div>
+    <?php if ($m['counting_since']): ?><div class="px-3 py-2 small text-muted border-top">Days with a backup: each day with at least one restore point counts once, across all repositories. Align counts from <?= e(fmt_date($m['counting_since'])) ?>, its first sync of these backups since version 2.0.1, as it syncs (the console reports each repository's newest restore point, not older dates). An object kept in more than one repository is current when its newest restore point, from any of them, is recent.</div><?php endif; ?>
+  </details>
   <?php endif; ?>
 </div>
 <?php endif; ?>

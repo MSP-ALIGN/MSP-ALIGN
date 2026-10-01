@@ -778,13 +778,26 @@ switch (true) {
             '/api/v3/protectedWorkloads/vb365ProtectedObjects' => array_merge(
                 array_map(fn($i) => ['id' => "o-1:user-$i", 'name' => ['Jordan Ellis', 'Sam Rivera', 'Front Desk', 'Hygiene One', 'Billing', 'Dr Lee', 'Scheduling', 'Lab', 'Hygiene Two', 'Office Manager', 'Assistant', 'Former Employee'][$i],
                     'protectedDataType' => 'User', 'restorePointsCount' => 30, 'latestRestorePointDate' => $i === 11 ? null : $iso($i === 10 ? 24 * 5 : 3),
-                    'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'consumesLicense' => $i !== 11], range(0, 11)),
+                    'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'consumesLicense' => $i !== 11, 'repositoryUid' => 'repo-current'], range(0, 11)),
                 [
                     ['id' => 'o-1:grp-1', 'name' => 'All Staff', 'protectedDataType' => 'Group', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(3), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
                     ['id' => 'o-1:grp-2', 'name' => 'Doctors', 'protectedDataType' => 'Group', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(3), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
                     ['id' => 'o-1:team-1', 'name' => 'Practice Team', 'protectedDataType' => 'Teams', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
-                    ['id' => 'o-1:site-1', 'name' => 'Intranet', 'protectedDataType' => 'Site', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
+                    ['id' => 'o-1:site-1', 'name' => 'Intranet', 'protectedDataType' => 'Site', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'repositoryUid' => 'repo-current'],
                     ['id' => 'o-1:site-2', 'name' => 'Archive', 'protectedDataType' => 'Site', 'restorePointsCount' => 12, 'latestRestorePointDate' => $iso(24 * 9), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
+                    // two different sites with the same name in the same repository: two objects, one of them overdue
+                    ['id' => 'o-1:site-3', 'name' => 'Documents', 'protectedDataType' => 'Site', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'repositoryUid' => 'repo-current'],
+                    ['id' => 'o-1:site-4', 'name' => 'Documents', 'protectedDataType' => 'Site', 'restorePointsCount' => 8, 'latestRestorePointDate' => $iso(24 * 40), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'repositoryUid' => 'repo-current'],
+                    // two sites with one name and no repository details: two objects
+                    ['id' => 'o-1:site-5', 'name' => 'Team Site', 'protectedDataType' => 'Site', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
+                    ['id' => 'o-1:site-6', 'name' => 'Team Site', 'protectedDataType' => 'Site', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
+                    // a group in two live repositories (one stopped 10 days ago): the newest restore point counts
+                    ['id' => 'o-1:grp-2', 'name' => 'Doctors', 'protectedDataType' => 'Group', 'restorePointsCount' => 9, 'latestRestorePointDate' => $iso(24 * 10), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'repositoryUid' => 'repo-split'],
+                    // the tenant moved to a new repository: the legacy one still lists the same objects, last backed up months ago
+                    ['id' => 'o-1:user-5', 'name' => 'Dr Lee', 'protectedDataType' => 'User', 'restorePointsCount' => 3000, 'latestRestorePointDate' => $iso(24 * 182),
+                        'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'consumesLicense' => false, 'repositoryUid' => 'repo-legacy'],
+                    ['id' => 'o-1:site-1-legacy', 'name' => 'Intranet', 'protectedDataType' => 'Site', 'restorePointsCount' => 2900, 'latestRestorePointDate' => $iso(24 * 182),
+                        'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'repositoryUid' => 'repo-legacy'],
                 ],
                 array_map(fn($i) => ['id' => "o-3:user-$i", 'name' => "Vet User $i", 'protectedDataType' => 'User', 'restorePointsCount' => 20, 'latestRestorePointDate' => $iso(5),
                     'organizationUid' => $c['c3'], 'vb365OrganizationUid' => 'o-3', 'consumesLicense' => true], range(1, 3)),
