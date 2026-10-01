@@ -28,18 +28,22 @@ def release(ver, sign=None, version_file=None, tag=True):
         return sh(f"{G} tag -f -a v{ver} -m 'v{ver} (unsigned)'", cwd=WK)
     return (0, "")
 def push(): sh(f"{G} push -q -f origin HEAD:main --tags", cwd=WK)
-# the app, with release.sh, and the test key as its release key
-sh(f"rsync -a --exclude .git --exclude tests {ROOT}/ {WK}/", cwd=WK)
+def must(r, what):
+    if r[0] != 0:   # setup has to work, or every check after it fails for no visible reason
+        ok(False, what + ": " + r[1][-400:]); done(); raise SystemExit(1)
+# the app, with release.sh, and the test key as its release key. Not -a: on CI the checkout belongs to another user,
+# and copying its owner would make git refuse the work folder ("dubious ownership")
+must(sh(f"rsync -rlpt --exclude .git --exclude tests {ROOT}/ {WK}/", cwd=WK), "copy the app")
 open(WK + "/deploy/release-signers", "w").write("# test release key\n" + line("key"))
-sh(f"{G} add -A && {G} commit -q -m code", cwd=WK)
-release("2.0.0", "key")
+must(sh(f"{G} add -A && {G} commit -q -m code", cwd=WK), "commit the app")
+must(release("2.0.0", "key"), "sign a test release")
 release("2.0.1", "key")
 release("2.0.2")                                     # annotated, not signed
 release("2.0.3", "other")                            # signed, but not with a release key
 release("2.0.4", "key", version_file="2.0.9")        # signed, but VERSION doesn't match the tag
 release("2.0.5", tag=False)                          # the branch head: no tag at all
-push()
-sh(f"git clone -q {W}/remote.git {W}/app && git -C {W}/app reset -q --hard v2.0.0")
+must(sh(f"{G} push -q -f origin HEAD:main --tags", cwd=WK), "push the test releases")
+must(sh(f"git clone -q {W}/remote.git {W}/app && git -C {W}/app reset -q --hard v2.0.0"), "clone the test server")
 for d in ["data/downloads", "data/restore", "agent/jobs", "agent/safety", "agent/work", "run/requests", "run/keys"]:
     os.makedirs(W + "/" + d, exist_ok=True)
 AENV = dict(ENV, ALIGN_APP_DIR=W + "/app", ALIGN_DATA_DIR=W + "/data", ALIGN_AGENT_DIR=W + "/agent", ALIGN_RUN_DIR=W + "/run", ALIGN_RECIPIENT=W + "/none.txt",
