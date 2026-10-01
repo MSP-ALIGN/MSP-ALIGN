@@ -28,6 +28,25 @@ final class Backup
         return max(1, Settings::int('backup_stale_hours', 48));
     }
 
+    /**
+     * A Microsoft 365 user, group, team or site with no restore point for this many days is no longer backed up: the
+     * product still keeps its old backups (a person who left, a retired tenant), so it is listed apart and counted
+     * neither as protected nor as overdue. Until then it shows as overdue. 0 = never.
+     */
+    public static function m365RetiredDays(): int
+    {
+        $d = max(0, Settings::int('m365_retired_days', 30));
+        // never sooner than an object shows as overdue (twice the overdue hours): a stopped backup is flagged first
+        return $d ? max($d, (int) ceil(self::staleHours() * 2 / 24) + 1) : 0;
+    }
+
+    /** The cutoff for m365RetiredDays() as a DATETIME ('1000-01-01 00:00:00' when off). */
+    public static function m365RetiredSince(): string
+    {
+        $d = self::m365RetiredDays();
+        return $d ? date('Y-m-d H:i:s', time() - $d * 86400) : '1000-01-01 00:00:00';
+    }
+
     public static function enabled(): bool
     {
         return Providers::anyBackup() || (int) DB::value('SELECT COUNT(*) FROM backup_companies') > 0;
@@ -303,14 +322,24 @@ final class Backup
         $types = [];
         $overdue = [];
         $list = [];
+        $retired = [];
+        $licensed = 0;
         $last = null;
+        $retiredAfter = self::m365RetiredDays();
         foreach ($objects as $o) {
             $age = $o['last_point'] ? ($now - strtotime($o['last_point'])) / 3600 : null;
+            $label = rtrim(self::M365_TYPES[$o['object_type']][0], 's');
             if (isset($exempt[$o['uid']])) {
                 // marked "backup not required": not counted either way, listed as such
-                $list[] = $o + ['age_h' => $age, 'tone' => 'muted', 'exempt' => true, 'type_label' => rtrim(self::M365_TYPES[$o['object_type']][0], 's')];
+                $list[] = $o + ['age_h' => $age, 'tone' => 'muted', 'exempt' => true, 'type_label' => $label];
                 continue;
             }
+            if ($retiredAfter && $age !== null && $age > $retiredAfter * 24) {
+                // no new backup for a long time: old backups kept, no longer backed up; not counted either way
+                $retired[] = $o + ['age_h' => $age, 'tone' => 'muted', 'retired' => true, 'type_label' => $label];
+                continue;
+            }
+            $licensed += (int) ($o['object_type'] === 'user' && (int) $o['licensed'] === 1);
             $tone = $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'));
             $t = $o['object_type'];
             $types[$t] ??= ['total' => 0, 'ok' => 0, 'overdue' => 0, 'last' => null];
@@ -322,7 +351,7 @@ final class Backup
             if ($o['last_point'] && $o['last_point'] > (string) $last) {
                 $last = $o['last_point'];
             }
-            $item = $o + ['age_h' => $age, 'tone' => $tone, 'type_label' => rtrim(self::M365_TYPES[$t][0], 's')];
+            $item = $o + ['age_h' => $age, 'tone' => $tone, 'type_label' => $label];
             $list[] = $item;
             if ($tone !== 'ok') {
                 $overdue[] = $item;
@@ -332,6 +361,11 @@ final class Backup
         uksort($types, fn($a, $b) => array_search($a, $order, true) <=> array_search($b, $order, true));
         usort($overdue, fn($a, $b) => [$a['tone'] === 'bad' ? 0 : 1, -($a['age_h'] ?? 1e9)] <=> [$b['tone'] === 'bad' ? 0 : 1, -($b['age_h'] ?? 1e9)]);
         foreach ($orgs as &$o) {
+            if (!$o['last_backup']) {
+                // the console doesn't always report a tenant's last backup: its newest restore point says the same
+                $pts = array_filter(array_map(fn($x) => $x['org_uid'] === $o['uid'] ? $x['last_point'] : null, $objects));
+                $o['last_backup'] = $pts ? max($pts) : null;
+            }
             $o['service_labels'] = array_map(fn($x) => self::M365_SERVICES[$x] ?? $x, array_filter(explode(',', (string) $o['services'])));
         }
         unset($o);
@@ -341,14 +375,16 @@ final class Backup
             'overdue' => $overdue,
             'overdue_count' => count($overdue),
             'objects' => $list,
+            'retired' => $retired,
+            'retired_days' => $retiredAfter,
             'counting_since' => ($f = array_filter(array_column($list, 'days_from'))) ? min($f) : null,
-            'total' => count($objects),
+            'total' => count($objects) - count($retired),
             'users' => $types['user']['total'] ?? 0,
-            'licensed' => count(array_filter($objects, fn($o) => $o['object_type'] === 'user' && (int) $o['licensed'] === 1)),
+            'licensed' => $licensed,
             'last_point' => $last ?? (max(array_map(fn($o) => (string) $o['last_backup'], $orgs ?: [['last_backup' => '']])) ?: null),
             'jobs' => $m365Jobs,
             'tone' => array_filter($m365Jobs, fn($j) => $j['is_enabled'] && $j['tone'] === 'bad') || array_filter($overdue, fn($o) => $o['tone'] === 'bad') ? 'bad'
-                : (array_filter($m365Jobs, fn($j) => $j['tone'] === 'warn') || $overdue ? 'warn' : 'ok'),
+                : (array_filter($m365Jobs, fn($j) => $j['tone'] === 'warn') || $overdue || (!$types && $retired) ? 'warn' : 'ok'),
         ];
     }
 
@@ -386,12 +422,12 @@ final class Backup
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS protected,
                 (SELECT COUNT(*) FROM backup_workloads w WHERE w.client_id = c.id AND (w.last_point IS NULL OR w.last_point < ?)
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND (e.item_uid = w.uid OR e.device_id = w.device_id))) AS overdue,
-                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid IN " . ClientLinks::backupCompaniesSql() . " AND (m.last_point IS NULL OR m.last_point < ?)
+                (SELECT COUNT(*) FROM backup_m365_objects m WHERE m.company_uid IN " . ClientLinks::backupCompaniesSql() . " AND (m.last_point IS NULL OR (m.last_point < ? AND m.last_point >= ?))
                     AND NOT EXISTS (SELECT 1 FROM backup_exemptions e WHERE e.client_id = c.id AND e.item_uid = m.uid)) AS m365_overdue,
                 (SELECT COUNT(*) FROM backup_job_runs r JOIN backup_job_clients rc ON rc.job_uid = r.job_uid AND rc.client_id = c.id WHERE r.run_at >= ?) AS runs,
                 (SELECT COUNT(*) FROM backup_job_runs r JOIN backup_job_clients rc ON rc.job_uid = r.job_uid AND rc.client_id = c.id WHERE r.run_at >= ? AND r.status <> 'failed') AS runs_ok
             FROM clients c WHERE " . ClientLinks::backupLinkedSql() . " OR EXISTS (SELECT 1 FROM backup_workloads w WHERE w.client_id = c.id)
-                OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)", [$stale, $stale, $since, $since]) as $r) {
+                OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)", [$stale, $stale, self::m365RetiredSince(), $since, $since]) as $r) {
             $r = array_map('intval', $r);
             $r['overdue'] += $r['m365_overdue'];
             $r['rate'] = $r['runs'] ? (int) floor($r['runs_ok'] / $r['runs'] * 100) : null;

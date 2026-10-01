@@ -1,7 +1,9 @@
 """2.0.1: Microsoft 365 backups kept in two repositories (a legacy one and a current one) count as one object, and the
-newest restore point wins; days with a backup count each day once, across repositories."""
+newest restore point wins; days with a backup count each day once, across repositories.
+2.0.2: objects with no new backup for 30 days (people who left, a tenant no longer used) are listed as no longer backed
+up, old backups kept, and counted nowhere."""
 from lib import *
-import re, subprocess, html as H
+import re, json, subprocess, html as H
 from datetime import date, timedelta
 
 C1 = "11111111-1111-1111-1111-111111111111"
@@ -29,7 +31,7 @@ ok(len(q("select uid from backup_m365_objects where company_uid=%s and name='Tea
 doc = q("select repositories, last_point from backup_m365_objects where uid='o-1:grp-2'")[0]
 ok(doc["repositories"] == 2 and str(doc["last_point"]) > d(1), "a group in two repositories: the newest restore point counts: " + str(doc))
 
-ok(q("select count(*) n from backup_m365_objects where company_uid=%s and object_type='user'", C1)[0]["n"] == 12, "still 12 users")
+ok(q("select count(*) n from backup_m365_objects where company_uid=%s and object_type='user'", C1)[0]["n"] == 13, "13 users stored: 12 in use, one whose old backups are kept")
 
 # ---- days with a backup: counted from the first sync, a day counts once
 lee = q("select days_from, restore_days from backup_m365_objects where uid='o-1:user-5'")[0]
@@ -67,6 +69,10 @@ import requests
 api = requests.get(B + "/api/v1/clients/1/backups", headers={"Authorization": "Bearer " + k}).json().get("data", {})
 objs = {o["uid"]: o for o in (api.get("microsoft_365") or {}).get("objects", [])}
 lee = objs.get("o-1:user-5", {})
+gone = objs.get("o-1:user-gone", {})
+ok(gone.get("no_longer_backed_up") is True and gone.get("health") == "retired" and objs.get("o-1:user-5", {}).get("no_longer_backed_up") is False,
+   "the API marks the user who left as no longer backed up: " + str(gone)[:160])
+ok((api.get("microsoft_365") or {}).get("users") == 12, "the API's user count leaves them out")
 ok(lee.get("days_with_backup") == 3 and lee.get("repositories") == 2 and lee.get("health") == "ok" and lee.get("counting_since") == d(5), "the API lists Dr Lee with 3 days with a backup, 2 repositories: " + str(lee)[:200])
 
 # ---- the Backups page
@@ -74,7 +80,11 @@ st = login("admin@example.com", "LongPassword123!")
 t = st.get(B + "/clients/1/backups").text
 ok(not errs(t), "page has no PHP errors: " + str(errs(t))[:200])
 over = text(t.split("Without a recent backup")[1].split("All protected users")[0]) if "Without a recent backup" in t else ""
-ok("Documents" in over and "Archive" in over and "Dr Lee" not in over and "Intranet" not in over, "overdue: the stale sites, not the ones a current repository backs up")
+ok("Archive" in over and "Dr Lee" not in over and "Intranet" not in over, "overdue: the stale site, not the ones a current repository backs up")
+ok("Departed Hygienist" not in over and "Documents" not in over, "no backup for over 30 days: not on the overdue list")
+ret = t.split('id="m365-retired"')[1].split("</details>")[0] if 'id="m365-retired"' in t else ""
+ok("No longer backed up: 2 with old backups kept" in text(ret) and "Departed Hygienist" in ret and "Documents" in ret and "400" in ret,
+   "they're listed as no longer backed up, old backups kept: " + text(ret)[:120])
 m365card = t.split("fa-microsoft")[1].split('id="m365-all"')[0] if "fa-microsoft" in t else ""
 ok("Days with a backup" in m365card and "Restore points</th>" not in m365card, "the Microsoft 365 column is days with a backup")
 allx = t.split('id="m365-all"')[1].split("</details>")[0] if 'id="m365-all"' in t else ""
@@ -83,6 +93,24 @@ ok("Current" in lee_row and "2 repositories" in lee_row and re.search(r"\b3\b", 
 ok("3,030 restore points in all" in allx, "the day count explains itself (restore points in all)")
 ok(re.search(r"(\d+)\s*<small[^>]*>\s*/\s*12 current", t) and re.search(r"(\d+)\s*<small[^>]*>\s*/\s*12 current", t).group(1) == "10", "users: 10 of 12 current (Dr Lee counts as current)")
 ok("10/12 users current" in st.get(B + "/clients/1").text, "the client overview agrees")
+ok("11 of 12 protected users" in t, "the license line leaves out the user no longer backed up")
+ok(re.search(r"(\d+)\s*<small[^>]*>\s*/\s*5 current", t) is not None, "sites: 5 counted, the 40-day-old Documents site left out")
+summ = php('echo json_encode(Align\\Backup\\Backup::summaries()[1] ?? null);').stdout
+over_n = json.loads(summ or "null")
+q("update backup_m365_orgs set last_backup=NULL where uid='o-1'")
+tb = text(st.get(B + "/clients/1/backups").text)
+ok("last backup never" not in tb and re.search(r"last backup \d+ (hr|min)", tb), "a tenant with no last backup reported shows its newest restore point instead")
+pr = text(st.get(B + "/clients/1/report/backup").text)
+ok("2 more (people who left, or a tenant no longer used)" in pr, "the client's backup report mentions them, not counted")
+# 0 days = never: everything counts as before
+setting("m365_retired_days", "0")
+t0 = st.get(B + "/clients/1/backups").text
+ok('id="m365-retired"' not in t0 and "Departed Hygienist" in t0.split("Without a recent backup")[1].split('id="m365-all"')[0], "0 days: the old ones are overdue again")
+ok(re.search(r"(\d+)\s*<small[^>]*>\s*/\s*13 current", t0) is not None, "0 days: 13 users counted")
+summ0 = json.loads(php('echo json_encode(Align\\Backup\\Backup::summaries()[1] ?? null);').stdout or "null")
+ok(over_n and summ0 and summ0["overdue"] == over_n["overdue"] + 2, "the client list's overdue count leaves them out too: %s vs %s" % (over_n and over_n["overdue"], summ0 and summ0["overdue"]))
+q("delete from settings where name='m365_retired_days'")
+sync()
 # ---- two syncs in the same second: the copy that's no longer used is still removed
 q("delete from backup_exemptions where item_uid like %s", "o-1:site-1%"); q("update backup_m365_objects set uid='o-1:site-1-legacy' where uid='o-1:site-1'")
 php('$p=Align\\Providers\\Providers::backup("veeam"); Align\\Sync\\BackupSync::run($p, fn($m)=>null);'

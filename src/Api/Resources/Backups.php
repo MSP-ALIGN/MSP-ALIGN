@@ -69,9 +69,10 @@ final class Backups
                 'overdue' => $b['m365']['overdue_count'], 'newest_restore_point' => Out::ts($b['m365']['last_point']),
                 'by_type' => array_map(fn($t) => ['protected' => $t['total'], 'current' => $t['ok'], 'overdue' => $t['overdue'], 'newest' => Out::ts($t['last'])], $b['m365']['types']),
                 'objects' => array_map(fn($o) => ['uid' => $o['uid'], 'name' => $o['name'], 'type' => $o['object_type'],
-                    'health' => $o['tone'], 'newest_restore_point' => Out::ts($o['last_point']), 'restore_points' => Out::int($o['restore_points']),
+                    'health' => !empty($o['retired']) ? 'retired' : $o['tone'], 'newest_restore_point' => Out::ts($o['last_point']), 'restore_points' => Out::int($o['restore_points']),
                     'days_with_backup' => Out::int($o['restore_days']), 'counting_since' => $o['days_from'] ? (string) $o['days_from'] : null,
-                    'repositories' => Out::int($o['repositories']), 'not_required' => !empty($o['exempt'])], $b['m365']['objects'])] : null,
+                    'repositories' => Out::int($o['repositories']), 'not_required' => !empty($o['exempt']),
+                    'no_longer_backed_up' => !empty($o['retired'])], array_merge($b['m365']['objects'], $b['m365']['retired']))] : null,
             'url' => Out::url("/clients/$id/backups"),
         ]);
     }
