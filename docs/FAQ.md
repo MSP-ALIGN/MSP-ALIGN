@@ -62,7 +62,7 @@ technical safeguards your risk analysis will look for: required two-factor sign-
 audit log kept six years, and encryption. See [Security](SECURITY.md).
 
 **How are updates kept safe?**
-Since 2.0, a server installs only releases signed with the project's release key, which is kept offline, and refuses
+Since 2.0, a server installs only releases signed with the project's release key, which is never stored on GitHub or a build machine, and refuses
 anything else with a security alert. See [Signed releases](RELEASING.md).
 
 **How do I report a security problem?**

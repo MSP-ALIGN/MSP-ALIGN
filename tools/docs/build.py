@@ -45,7 +45,7 @@ PAGES = [
     ("security", "Security", ("file", "docs/SECURITY.md"),
      "How client data is protected, the HIPAA technical safeguards, and how to report a vulnerability."),
     ("releasing", "Signed releases", ("file", "docs/RELEASING.md"),
-     "How updates are signed and checked, and how maintainers make a release."),
+     "How updates are signed and checked, and how to check a release yourself."),
     ("releases", "What's new", ("readme", ["What's new"]),
      "Release notes, newest first."),
     ("development", "Development", ("readme", ["Development"]),
