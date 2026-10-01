@@ -25,11 +25,17 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 syst
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 2; }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; letter-spacing: .02em; }
+.brand { white-space: nowrap; display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; letter-spacing: .02em; }
 .brand img { width: 28px; height: 28px; }
 .brand:hover { text-decoration: none; }
 .top .spacer { flex: 1; }
 .top .gh { color: var(--muted); font-size: 14px; }
+.top .suggest { white-space: nowrap; font-size: 14px; font-weight: 600; border: 1px solid var(--accent); border-radius: 999px; padding: 3px 12px; }
+.top .suggest:hover { background: var(--accent-soft); text-decoration: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.button { display: inline-block; padding: 9px 18px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; }
+.button:hover { text-decoration: none; filter: brightness(1.08); }
+.button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 .menu { display: none; background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 14px; }
 .wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
 nav.side { padding: 24px 16px; border-right: 1px solid var(--line); position: sticky; top: 53px; align-self: start; max-height: calc(100vh - 53px); overflow: auto; }
@@ -83,6 +89,8 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
   .top { padding: 10px 16px; }
   .menu { display: inline-block; }
   .top .gh { display: none; }
+  .top .suggest { padding: 2px 10px; font-size: 13px; }
+  .top .suggest .long { display: none; }
   .wrap { grid-template-columns: 1fr; }
   nav.side { display: none; position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px 16px 12px; }
   body.open nav.side { display: block; }
@@ -95,6 +103,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 <header class="top">
   <a class="brand" href="index.html"{{home_current}}><img src="icon.svg" alt="">MSP-ALIGN</a>
   <span class="spacer"></span>
+  <a class="suggest" href="{{suggest}}">Suggest<span class="long"> a feature</span></a>
   <a class="gh" href="{{repo}}">GitHub</a>
   <button class="menu" type="button" onclick="document.body.classList.toggle('open')" aria-label="Menu">Menu</button>
 </header>
@@ -102,7 +111,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
   <nav class="side" aria-label="Documentation">{{nav}}</nav>
   <main>
 {{body}}
-    <footer>MSP-ALIGN {{version}} · <a href="{{edit}}">Edit this page on GitHub</a> · <a href="license.html">AGPL-3.0-or-later</a></footer>
+    <footer>MSP-ALIGN {{version}} · <a href="{{edit}}">Edit this page on GitHub</a> · <a href="{{suggest}}">Suggest a feature</a> · <a href="license.html">AGPL-3.0-or-later</a></footer>
   </main>
 </div>
 </body>
