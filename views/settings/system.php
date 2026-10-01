@@ -71,10 +71,15 @@ $docker = Agent::docker();
           <dt class="col-5 fw-normal text-muted">This server</dt><dd class="col-7 mb-1"><b><?= e(APP_VERSION) ?></b></dd>
           <dt class="col-5 fw-normal text-muted">Latest</dt><dd class="col-7 mb-1"><?= $update && $update['latest'] ? e($update['latest']) . ($newer && ($update['behind'] ?? 0) ? ' <span class="text-muted small">(' . (int) $update['behind'] . ' change' . ((int) $update['behind'] === 1 ? '' : 's') . ')</span>' : '') : '<span class="text-muted">Not checked yet</span>' ?></dd>
           <?php $br = (string) (\Align\Config::get('update_branch') ?: 'main'); // this server's own setting (config.php) ?>
-          <dt class="col-5 fw-normal text-muted">Updates from</dt><dd class="col-7 mb-1"><?= $br === 'main' || $br === '' ? 'Releases (main)' : '<span class="badge text-bg-warning">Test channel</span> ' . e($br) ?></dd>
+          <?php $signedMode = ($update['mode'] ?? '') === 'signed'; $prints = (array) ($update['signers'] ?? []); ?>
+          <dt class="col-5 fw-normal text-muted">Updates from</dt><dd class="col-7 mb-1"><?php if ($docker): ?>Docker images (<code>docker compose pull</code>)<?php elseif ($signedMode): ?><i class="fas fa-shield-halved text-success me-1"></i>Signed releases only
+            <?php foreach ($prints as $p): ?><span class="d-block small text-muted text-break" title="Release key fingerprint: compare with the one on mspalign.org">Release key <code class="user-select-all"><?= e((string) $p) ?></code></span><?php endforeach; ?>
+            <?php if (($update['head_signed'] ?? true) === false): ?><span class="d-block small text-warning-emphasis">The code here isn't a signed release yet: the next update installs one.</span><?php endif; ?>
+            <?php elseif ($br === 'main' || $br === ''): ?>Releases (main)<?php if ($update && ($update['mode'] ?? '') === 'branch'): ?> <span class="small text-muted">not signed</span><?php endif; ?><?php else: ?><span class="badge text-bg-warning">Test channel</span> <?= e($br) ?> <span class="small text-muted">not signed</span><?php endif; ?></dd>
           <dt class="col-5 fw-normal text-muted">Last checked</dt><dd class="col-7 mb-1"><?= $update ? e(rel_time(date('Y-m-d H:i:s', strtotime($update['checked_at'])))) : '<span class="text-muted">Never</span>' ?></dd>
         </dl>
         <?php if ($update && $update['error']): ?><div class="alert alert-warning py-2 small"><?= e($update['error']) ?></div><?php endif; ?>
+        <?php if ($update && !empty($update['warning'])): ?><div class="alert alert-danger py-2 small"><i class="fas fa-triangle-exclamation me-1"></i><?= e($update['warning']) ?></div><?php endif; ?>
 
         <?php if ($newer): ?>
           <h6 class="mt-3">What's new</h6>

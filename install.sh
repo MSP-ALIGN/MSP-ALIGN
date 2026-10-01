@@ -90,6 +90,34 @@ if [[ -f "$CONF_FILE" || -f "$OLD_CONF_FILE" ]] && [[ "$MODE" == "install" ]]; t
   MODE=upgrade
 fi
 
+# One at a time with the update service: scripts/agent.php holds this lock while it updates or backs up. It runs this
+# installer itself while holding it (2.x with ALIGN_CODE_READY=1; 1.x without), so then there is nothing to wait for.
+lock_held_by_caller() {   # $1 = the lock file: does a process this installer runs under have it open?
+  local p=$PPID f
+  while [[ "$p" =~ ^[0-9]+$ && "$p" -gt 1 ]]; do
+    for f in /proc/"$p"/fd/*; do [[ "$(readlink "$f" 2>/dev/null)" == "$1" ]] && return 0; done
+    p=$(awk '/^PPid:/ {print $2}' /proc/"$p"/status 2>/dev/null || echo 0)
+  done
+  return 1
+}
+if [[ "${ALIGN_CODE_READY:-}" != 1 ]]; then
+  for d in "$AGENT_DIR" /var/lib/mountaineer-align-agent; do
+    [[ -d "$d" ]] || continue
+    LOCK=$(readlink -f "$d")/agent.lock
+    if ! lock_held_by_caller "$LOCK"; then
+      exec 9>>"$LOCK"
+      flock -w 1800 9 || die "An update or backup is still running (waited 30 minutes). Try again when it has finished."
+    fi
+    break
+  done
+fi
+# Signed releases (2.0): on the main branch, with a key in deploy/release-signers, the code is the newest release tag
+# signed with that key (scripts/release.sh). The key file and checker come from the code already installed, so a
+# download can only add keys by being signed with a trusted one. Other branches (test servers) and forks without a
+# key follow the branch unsigned, as before. See docs/RELEASING.md.
+has_keys() { [[ -f "$1" ]] && grep -qvE '^[[:space:]]*(#|$)' "$1"; }
+signed_mode() { [[ "$BRANCH" == main ]] && has_keys "$1/deploy/release-signers"; }
+
 # 1.35: an install still (or partly) in the mountaineer-align folders moves to msp-align first; the old names
 # keep working as links. The mover is safe to run again, so it runs until nothing is left to move. It comes
 # with the code; run through curl | bash on an old server, it's taken from the branch being installed.
@@ -104,6 +132,7 @@ done
 [[ -e /etc/apache2/sites-available/mountaineer-align.conf ]] && OLD_LEFT=1
 if [[ -z "$MOVER" && $OLD_LEFT == 1 ]]; then
   GIT_AT=$APP_DIR; [[ -d "$GIT_AT/.git" ]] || GIT_AT=$OLD_APP_DIR
+  signed_mode "$GIT_AT" && die "scripts/move-install.sh is missing from $GIT_AT. Reinstall the code from a signed release first."
   MOVER=$(mktemp); MOVER_TMP=$MOVER
   git -C "$GIT_AT" fetch -q origin "$BRANCH" && git -C "$GIT_AT" show "origin/$BRANCH:scripts/move-install.sh" >"$MOVER" \
     || die "Could not get scripts/move-install.sh from $(git -C "$GIT_AT" remote get-url origin 2>/dev/null) ($BRANCH)."
@@ -164,7 +193,7 @@ log "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd
-      mariadb-server git ca-certificates curl openssl unattended-upgrades age fail2ban ufw)
+      mariadb-server git openssh-client ca-certificates curl openssl unattended-upgrades age fail2ban ufw)
 [[ "${ALIGN_TLS:-}" == "letsencrypt" ]] && PKGS+=(certbot python3-certbot-apache)
 apt-get install -y -qq "${PKGS[@]}" >/dev/null
 PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
@@ -251,18 +280,93 @@ move_origin() {
   fi
 }
 CRED_HELPER="!f() { test \"\$1\" = get || exit 0; test -s $TOKEN_FILE || exit 0; echo username=x-access-token; echo password=\$(cat $TOKEN_FILE); }; f"
+TRUST=$(mktemp -d)
+trap 'rm -rf "$TRUST"' EXIT
+# The key file and checker used from here on: copies of the ones in the code installed now (or just cloned)
+trust_now() {
+  [[ -f "$APP_DIR/scripts/release.sh" ]] || die "$APP_DIR has a release key but no scripts/release.sh to check releases with. Nothing was installed."
+  cp "$APP_DIR/deploy/release-signers" "$TRUST/signers"; cp "$APP_DIR/scripts/release.sh" "$TRUST/release.sh"
+}
+fingerprints() {
+  grep -vE '^[[:space:]]*(#|$)' "$TRUST/signers" | grep -oE '(ssh|ecdsa|sk)-[a-z0-9@.-]+ [A-Za-z0-9+/]+={0,2}' \
+    | while read -r k; do ssh-keygen -lf - <<<"$k" 2>/dev/null | awk '{print $2}'; done | paste -sd' ' || true
+}
+# $1 = fresh: install the newest signed release (there must be one).
+#      update: install a newer signed release. When the code here isn't a signed release itself (the first update
+#      from 1.x, which took the branch head), the signed release of the same version counts as newer.
+release_checkout() {
+  local out tag commit cur since=0 head_ok=0 rc
+  git -C "$APP_DIR" fetch -q --force --tags origin || die "Could not download the release tags from github.com/$REPO."
+  if [[ "$1" == update ]]; then
+    cur=$(tr -d '[:space:]' <"$APP_DIR/VERSION")
+    if bash "$TRUST/release.sh" "$APP_DIR" "$TRUST/signers" --head; then since=$cur; head_ok=1
+    else since="$(sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*$/\1/' <<<"$cur")-0"; fi
+  fi
+  if out=$(bash "$TRUST/release.sh" "$APP_DIR" "$TRUST/signers" "$since" 2>"$TRUST/unsigned"); then
+    read -r tag commit <<<"$out"
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$commit" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || die "Unexpected answer from scripts/release.sh: $out"
+    unsigned_warning
+    git -C "$APP_DIR" reset -q --hard "$commit"
+    log "Signed release $tag (release key $(fingerprints))"
+    # The rest of the upgrade is that release's own installer (bash would go on reading this one): the same steps,
+    # with the code now in place. The lock (fd 9) stays held.
+    if [[ "$1" == update && "$MODE" == upgrade && -z "${ALIGN_REEXEC:-}" ]]; then
+      rm -rf "$TRUST"
+      exec env ALIGN_CODE_READY=1 ALIGN_REEXEC=1 ALIGN_BRANCH="$BRANCH" bash "$APP_DIR/install.sh" --upgrade
+    fi
+    return 0
+  else
+    rc=$?
+    [[ $rc == 3 ]] || die "Could not check the release signatures: $(grep -v '^UNSIGNED ' "$TRUST/unsigned" | head -3 | tr '\n' ' ')"
+    if [[ "$1" == fresh ]]; then
+      die "No release signed with the MSP-ALIGN release key was found on github.com/$REPO. Nothing was installed."
+    elif [[ $head_ok == 1 ]]; then
+      log "No newer signed release; keeping $cur"
+    else
+      warn "The code here ($cur) isn't a signed release yet. The next update installs the first signed one."
+    fi
+  fi
+  unsigned_warning
+}
+unsigned_warning() {
+  if grep -q '^UNSIGNED ' "$TRUST/unsigned"; then
+    warn "Not signed with the release key, so not installed: $(grep '^UNSIGNED ' "$TRUST/unsigned" | cut -d' ' -f2 | tr '\n' ' ')"
+  fi
+}
 if [[ -d "$APP_DIR/.git" ]]; then
-  log "Updating code"
   git -C "$APP_DIR" config credential.helper "$CRED_HELPER"
   move_origin
-  git -C "$APP_DIR" fetch -q origin "$BRANCH"
-  git -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
+  if signed_mode "$APP_DIR"; then
+    trust_now
+    if [[ "${ALIGN_CODE_READY:-}" == 1 ]] && bash "$TRUST/release.sh" "$APP_DIR" "$TRUST/signers" --head 2>/dev/null; then
+      log "Code already updated to a signed release by the update service"
+    else
+      # an update from 1.x (its updater took the branch head), or this installer run by hand
+      log "Updating code (signed releases)"
+      release_checkout update
+    fi
+  elif [[ "${ALIGN_CODE_READY:-}" == 1 ]]; then
+    log "Code already updated by the update service"
+  else
+    log "Updating code"
+    git -C "$APP_DIR" fetch -q origin "$BRANCH"
+    git -C "$APP_DIR" reset -q --hard "origin/$BRANCH"
+    if signed_mode "$APP_DIR"; then
+      # the first update from a copy without a release key to one with it: from now on only signed release tags
+      trust_now
+      release_checkout update
+    fi
+  fi
 else
   log "Downloading code from github.com/$REPO"
   rm -rf "$APP_DIR"
   git -c credential.helper="$CRED_HELPER" clone -q --branch "$BRANCH" "https://github.com/$REPO.git" "$APP_DIR" \
     || die "git clone failed. Check the token has Contents: Read on $REPO."
   git -C "$APP_DIR" config credential.helper "$CRED_HELPER"
+  if signed_mode "$APP_DIR"; then
+    trust_now
+    release_checkout fresh
+  fi
 fi
 chown -R root:root "$APP_DIR"
 # Readable by everyone (the web server runs as www-data), writable by root only - whatever umask

@@ -3,7 +3,7 @@ from lib import *
 import sitecustomize
 SP=WORK; T=SP+"/sys"; APP=ROOT
 AENV=dict(ENV, ALIGN_APP_DIR=APP, ALIGN_DATA_DIR=T+"/data", ALIGN_AGENT_DIR=T+"/agent", ALIGN_RUN_DIR=T+"/run", ALIGN_RECIPIENT=T+"/recipient.txt",
-          ALIGN_RUNAS="root", ALIGN_SYSTEMCTL="none", ALIGN_LEGACY_BACKUPS=T+"/legacy")
+          ALIGN_RUNAS="root", ALIGN_SYSTEMCTL="none", ALIGN_LEGACY_BACKUPS=T+"/legacy", ALIGN_RELEASE_SIGNERS="none", ALIGN_AGENT_TEST="1")  # branch updates (signed releases: sign_e2e)
 KEY=[l for l in open(T+"/key.txt") if l.startswith("AGE-SECRET")][0].strip()
 REC=open(T+"/recipient.txt").read().strip()
 def agent(*a, **env):
@@ -32,9 +32,9 @@ t=st.get(B+"/settings/system").text
 ok("Updates &amp; backups" in t and not errs(t) and "Not checked yet" in t,"page loads before the first check")
 ok(agent("check",ALIGN_APP_DIR=T+"/app").returncode==0,"agent check ran")
 t=st.get(B+"/settings/system").text
-ok("Update to 1.99.0" in t and "Shiny new thing" in t and "Adds a thing." in t and "Co-Authored" not in t and "2 changes" in t,"update available with release notes")
+ok("Update to 9.99.0" in t and "Shiny new thing" in t and "Adds a thing." in t and "Co-Authored" not in t and "2 changes" in t,"update available with release notes")
 d=st.get(B+"/").text
-ok("MSP-ALIGN <b>1.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
+ok("MSP-ALIGN <b>9.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
 tech=login("viewer@example.com","ViewerPassword123!"); ok(tech.get(B+"/settings/system").status_code==403 and "is available" not in tech.get(B+"/").text,"non-admins can't see it")
 
 # ---- backup for download
@@ -71,6 +71,8 @@ other=subprocess.run("age-keygen 2>/dev/null | grep AGE-SECRET",shell=True,captu
 i=jid(post(st,"/settings/system/verify",{"key":other})); agent(); ok("can't open the backup" in job(st,i)["message"],"wrong key explained")
 
 q("insert into settings (name,value) values ('zz_sys_marker','after-backup') on duplicate key update value='after-backup'")
+q("insert into settings (name,value) values ('zz_sys_marker2','x') on duplicate key update value='y'")
+agent("nightly")   # the outside checkpoint now holds an audit entry newer than the backup
 open(upload_dir+"/zz_after.txt","w").write("x")
 r=post(st,"/settings/system/restore",{"key":KEY,"restore_db":"1","restore_uploads":"1","code":"000000","confirm":"restore"}); ok("Type RESTORE" in flash(r.text),"must type RESTORE")
 r=post(st,"/settings/system/restore",{"key":KEY,"restore_db":"1","restore_uploads":"1","code":"000000","confirm":"RESTORE"}); ok("two-factor code is not right" in flash(r.text),"2FA code required")
@@ -90,6 +92,11 @@ ok(not glob.glob(T+"/data/restore/*") and not glob.glob(T+"/agent/safety/*"),"up
 st=login("admin@example.com","LongPassword123!")
 ok(q("select count(*) n from audit_log where action='backup.restored'")[0]["n"]>0,"restore audited")
 ok("Audit log intact" in align("audit:verify"),"audit chain intact after restore")
+mark=q("select max(id) m from audit_log")[0]["m"]
+n=agent("nightly")
+ok("TAMPERING" not in n.stdout+n.stderr and "ALERT" not in n.stdout+n.stderr and not q("select id from audit_log where action='audit.checkpoint_failed' and id>%s",mark),"the nightly check after restoring an older backup: no false tampering alert: "+(n.stdout+n.stderr)[-200:])
+ah=json.load(open(T+"/agent/audit-head.json")) if os.path.exists(T+"/agent/audit-head.json") else {}
+ok(ah.get("id") and ah["id"]>=q("select id from audit_log where action='backup.restored' order by id desc limit 1")[0]["id"],"the nightly checkpoint follows the restored log: "+str(ah))
 
 # ---- key check
 i=jid(post(st,"/settings/system/keycheck",{"key":KEY})); agent(); ok("matches this server" in job(st,i)["message"],"key check: match")
@@ -127,15 +134,15 @@ r=post(st,"/settings/system/update"); ok("Tick the box" in flash(r.text),"update
 was=open(T+"/app/VERSION").read().strip()
 i=jid(post(st,"/settings/system/update",{"confirm":"1"})); agent(ALIGN_APP_DIR=T+"/app",ALIGN_INSTALL_CMD="echo installer ran")
 j=job(st,i); lg=st.get(B+f"/settings/system/jobs/{i}/log").text
-ok(j["state"]=="succeeded" and j["message"]==f"Updated from {was} to 1.99.0." and "installer ran" in lg and "Making a safety copy" in lg,"update ran: "+str(j["message"]))
-ok(open(T+"/app/VERSION").read().strip()=="1.99.0" and not glob.glob(T+"/agent/safety/*"),"code updated; safety copy deleted on success")
-u=json.load(open(T+"/agent/update.json")); ok(u["current"]=="1.99.0" and not u["available"],"re-checked after the update")
+ok(j["state"]=="succeeded" and j["message"]==f"Updated from {was} to 9.99.0." and "installer ran" in lg and "Making a safety copy" in lg,"update ran: "+str(j["message"]))
+ok(open(T+"/app/VERSION").read().strip()=="9.99.0" and not glob.glob(T+"/agent/safety/*"),"code updated; safety copy deleted on success")
+u=json.load(open(T+"/agent/update.json")); ok(u["current"]=="9.99.0" and not u["available"],"re-checked after the update")
 # a failing update keeps the safety copy
-subprocess.run(f"cd {T}/work && echo 2.0.0 > VERSION && git -c user.name=t -c user.email=t@t commit -qam 'v2.0.0' && git push -q origin HEAD:main",shell=True)
+subprocess.run(f"cd {T}/work && echo 10.0.0 > VERSION && git -c user.name=t -c user.email=t@t commit -qam 'v10.0.0' && git push -q origin HEAD:main",shell=True)
 i=jid(post(st,"/settings/system/update",{"confirm":"1"})); agent(ALIGN_APP_DIR=T+"/app",ALIGN_INSTALL_CMD="echo boom; exit 3")
 j=job(st,i); sf=glob.glob(T+"/agent/safety/*")
 ok(j["state"]=="failed" and "safety copy" in j["message"] and j["result"].get("safety") and len(sf)==1,"failed update keeps a safety copy: "+str(j["message"]))
-ok("previous version's code (1.99.0) was put back" in j["message"] and open(T+"/app/VERSION").read().strip()=="1.99.0" and len(j["result"].get("previous_commit",""))==40,"no database changes in the update: the previous code is put back")
+ok("previous version's code (9.99.0) was put back" in j["message"] and open(T+"/app/VERSION").read().strip()=="9.99.0" and len(j["result"].get("previous_commit",""))==40,"no database changes in the update: the previous code is put back")
 t=st.get(B+"/settings/system").text; name=os.path.basename(sf[0])
 ok("Safety copies kept after a failed job" in t and name in t,"safety copy listed")
 r=post(st,f"/settings/system/safety/{name}/download"); ok(r.headers.get("Content-Type")=="application/x-tar" and r.content[:512].startswith(b"manifest.json"),"safety copy downloadable")
@@ -176,7 +183,7 @@ try:
     ok(u.get("source") is None,"plain-http version file (not local) ignored")
     subprocess.run(["git","-C",T+"/app","remote","set-url","origin",origin])
     agent("check",ALIGN_APP_DIR=T+"/app",ALIGN_UPDATE_CHECK_URL="http://127.0.0.1:8096"); u=json.load(open(T+"/agent/update.json"))
-    ok(u.get("source") is None and "Could not reach" not in (u["error"] or "") and u["latest"]=="1.99.0","version file unreachable: GitHub as usual")
+    ok(u.get("source") is None and "Could not reach" not in (u["error"] or "") and u["latest"]=="9.99.0","version file unreachable: GitHub as usual")
 finally:
     vs.terminate()
 
@@ -184,10 +191,10 @@ finally:
 agent("check",ALIGN_APP_DIR=T+"/app")
 subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; Align\\Settings::set("backup_last_download", null);'],env=ENV)
 q("delete from mail_queue"); q("delete from notify_state where k in ('update_notified','backup_reminder_at')")
-json.dump({**json.load(open(T+"/agent/update.json")),"current":"1.13.0","latest":"1.99.0","available":True,"changes":[{"sha":"x","subject":"Shiny new thing","body":"","date":"2026-09-26"}]},open(T+"/agent/update.json","w"))
+json.dump({**json.load(open(T+"/agent/update.json")),"current":"1.13.0","latest":"9.99.0","available":True,"changes":[{"sha":"x","subject":"Shiny new thing","body":"","date":"2026-09-26"}]},open(T+"/agent/update.json","w"))
 out=subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; echo Align\\Mail\\Notify::updateAvailable(), Align\\Mail\\Notify::updateAvailable(), "|", Align\\Mail\\Notify::backupReminder(time());'],env=ENV,capture_output=True,text=True).stdout
 mq=q("select kind, subject, body_html from mail_queue order by id")
-ok(out.startswith("10|") and any(m["kind"]=="updates" and "1.99.0 is available" in m["subject"] and "Shiny new thing" in m["body_html"] for m in mq),"update email once per version: "+out)
+ok(out.startswith("10|") and any(m["kind"]=="updates" and "9.99.0 is available" in m["subject"] and "Shiny new thing" in m["body_html"] for m in mq),"update email once per version: "+out)
 ok(any(m["kind"]=="backup_reminder" and "No backup of MSP-ALIGN has been downloaded yet" in m["body_html"] for m in mq),"backup reminder email")
 out=subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; var_dump(Align\\Mail\\Notify::backupReminder(time()));'],env=ENV,capture_output=True,text=True).stdout
 ok("NULL" in out,"reminder not repeated within the period")

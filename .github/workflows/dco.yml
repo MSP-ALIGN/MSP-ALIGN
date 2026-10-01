@@ -1,0 +1,37 @@
+name: DCO
+
+# Pull requests from forks: every commit carries a Signed-off-by line (Developer Certificate of Origin, see
+# CONTRIBUTING.md). Only reads the pull request's commits; never runs its code.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  signoff:
+    name: Commits are signed off
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check each commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          missing=0
+          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            if ! git show -s --format=%B "$c" | grep -qiE '^Signed-off-by: .+ <[^>]+>$'; then
+              echo "::error::$(git show -s --format='%h %s' "$c") has no Signed-off-by line"
+              missing=1
+            fi
+          done
+          if [ "$missing" = 1 ]; then
+            echo "Add a sign-off to each commit: git rebase --signoff $BASE && git push --force-with-lease (see CONTRIBUTING.md)"
+            exit 1
+          fi
+          echo "Every commit is signed off."

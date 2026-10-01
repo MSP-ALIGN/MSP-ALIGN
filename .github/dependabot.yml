@@ -1,21 +1,31 @@
-# Keeps the pinned GitHub Actions (by commit) and the Docker base images up to date with reviewed pull requests (1.45)
+# Keeps the pinned GitHub Actions (by commit) and the Docker base images up to date (1.45). Once a month, one pull
+# request per kind with every update in it, against develop; the maintainers test it and it ships with the next release.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     target-branch: develop
+    groups:
+      github-actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     target-branch: develop
+    groups:
+      docker-images:
+        patterns: ["*"]
   - package-ecosystem: docker-compose
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     target-branch: develop
+    groups:
+      docker-compose-images:
+        patterns: ["*"]
     ignore:
       # MariaDB stays on the version Debian 13 ships (11.8), like a dedicated install; majors are a deliberate change
       - dependency-name: mariadb

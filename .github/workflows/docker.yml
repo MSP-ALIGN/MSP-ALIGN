@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build
         run: docker build -t msp-align:ci .
       - name: Start (compose.yaml)
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Fresh install, and the previous release updated to this code
@@ -73,11 +73,47 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write   # keyless signing of the image (Sigstore)
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # the earlier release tags, for their key file
+      # 2.0: a release is only published when its tag is signed with a release key (docs/RELEASING.md), checked the
+      # way servers check it (scripts/release.sh) and against the key file of the release before it. This catches
+      # mistakes, not an attacker: whoever can push tags or change this workflow can get past it. Dedicated servers
+      # check the key themselves; for Docker, see docs/DOCKER.md.
+      - name: Check the release tag is signed with the release key
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq openssh-client >/dev/null
+          git fetch -q --force --tags origin
+          test "$(git rev-parse "refs/tags/${GITHUB_REF_NAME}^{commit}")" = "$(git rev-parse HEAD)" || { echo "The tag has moved since this run started"; exit 1; }
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "v$(tr -d '[:space:]' < VERSION)" = "$GITHUB_REF_NAME" || { echo "VERSION doesn't match the tag"; exit 1; }
+          keys() { git show "$1:deploy/release-signers" 2>/dev/null | grep -qvE '^[[:space:]]*(#|$)'; }
+          signers=""
+          for t in $(git tag -l 'v*' --sort=-v:refname); do
+            [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$t" != "$GITHUB_REF_NAME" ]] || continue
+            [[ "$(printf '%s\n%s\n' "${t#v}" "${GITHUB_REF_NAME#v}" | sort -V | head -1)" == "${t#v}" ]] || continue
+            if keys "$t"; then git show "$t:deploy/release-signers" > "$RUNNER_TEMP/signers"; signers="$RUNNER_TEMP/signers"; echo "Checking against the keys of $t"; break; fi
+          done
+          if [[ -z "$signers" ]] && keys HEAD; then
+            cp deploy/release-signers "$RUNNER_TEMP/signers"; signers="$RUNNER_TEMP/signers"; echo "First signed release: checking against its own key file"
+          fi
+          if [[ -n "$signers" ]]; then
+            if [[ "$GITHUB_REF_NAME" == *-* ]]; then   # a pre-release (servers never take these): the signature only
+              git -c gpg.ssh.program=ssh-keygen -c gpg.program=false -c gpg.ssh.allowedSignersFile="$signers" verify-tag "$GITHUB_REF_NAME"
+            else
+              bash scripts/release.sh "$PWD" "$signers" --head || { echo "The tag isn't signed with a release key"; exit 1; }
+            fi
+            echo "Signed release $GITHUB_REF_NAME"
+          else
+            echo "No release key yet: not checking the tag signature"
+          fi
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -91,10 +127,14 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      # Keyless signature: proves the image was built by this repository's workflow from this tag (docs/DOCKER.md)
+      - name: Sign the image
+        run: cosign sign --yes "ghcr.io/msp-align/msp-align@${{ steps.build.outputs.digest }}"

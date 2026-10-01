@@ -46,20 +46,20 @@ final class Out
     }
 
     /**
-     * An outside system's id (PSA): a number when it is one (so v1 answers for ITFlow stay exactly as before
-     * 1.34, when PSA ids were stored as numbers), otherwise the id as text (GUIDs and other text ids).
+     * A record's id in another system (the PSA): always text (2.0), whatever the PSA uses, so every integration reads
+     * one type ("57" for ITFlow, "0017R00002xYzAbQ" elsewhere). Null when there is none.
      */
-    public static function extId(mixed $v): int|string|null
+    public static function extId(mixed $v): ?string
     {
         $s = ext_id($v);
-        return $s === '' ? null : (preg_match('/^[1-9][0-9]{0,17}$/', $s) ? (int) $s : $s);
+        return $s === '' ? null : $s;
     }
 
     /** For the deprecated itflow_* aliases, which were always numbers: the id when it's a number, otherwise null. */
     public static function numId(mixed $v): ?int
     {
-        $id = self::extId($v);
-        return is_int($id) ? $id : null;
+        $s = ext_id($v);
+        return preg_match('/^[1-9][0-9]{0,17}$/', $s) ? (int) $s : null;
     }
 
     /**

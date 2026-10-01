@@ -3,7 +3,7 @@ from lib import *
 import sitecustomize
 SP=WORK; T=SP+"/sys"; APP=ROOT
 AENV=dict(ENV, ALIGN_APP_DIR=APP, ALIGN_DATA_DIR=T+"/data", ALIGN_AGENT_DIR=T+"/agent", ALIGN_RUN_DIR=T+"/run", ALIGN_RECIPIENT=T+"/recipient.txt",
-          ALIGN_RUNAS="root", ALIGN_SYSTEMCTL="none", ALIGN_LEGACY_BACKUPS=T+"/legacy")
+          ALIGN_RUNAS="root", ALIGN_SYSTEMCTL="none", ALIGN_LEGACY_BACKUPS=T+"/legacy", ALIGN_RELEASE_SIGNERS="none", ALIGN_AGENT_TEST="1")  # branch updates (signed releases: sign_e2e)
 KEY=[l for l in open(T+"/key.txt") if l.startswith("AGE-SECRET")][0].strip()
 REC=open(T+"/recipient.txt").read().strip()
 def agent(*a, **env):
@@ -31,7 +31,7 @@ ok(agent("check",ALIGN_APP_DIR=T+"/app").returncode==0,"agent check ran")
 pr=lambda *a: int(subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; echo Align\\System\\Agent::progress(...json_decode($argv[1], true));',json.dumps(list(a))],env=ENV,capture_output=True,text=True).stdout or -1)
 import datetime
 ago=lambda s: (datetime.datetime.now()-datetime.timedelta(seconds=s)).strftime("%Y-%m-%d %H:%M:%S")
-a,b_,c_=pr("update","running","Installing 1.99.0",ago(1)),pr("update","running","Installing 1.99.0",ago(60)),pr("update","running","Installing 1.99.0",ago(3600))
+a,b_,c_=pr("update","running","Installing 9.99.0",ago(1)),pr("update","running","Installing 9.99.0",ago(60)),pr("update","running","Installing 9.99.0",ago(3600))
 ok(44<=a<b_<=93 and c_==93,f"installing creeps forward but stops at its stage ({a}, {b_}, {c_})")
 ok(pr("update","running","Downloading the latest version",ago(0))<a+1 and pr("update","succeeded","Done",None)==100,"later steps are further along; done is 100")
 with sync_playwright() as p:
@@ -39,11 +39,11 @@ with sync_playwright() as p:
     pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); sitecustomize.after_login(pg,"admin@example.com")
     pg.goto(B+"/settings/system"); pg.wait_for_timeout(300)
     ok(not pg.locator("#job-overlay").is_visible(),"no overlay before updating")
-    pg.click("text=Update to 1.99.0"); pg.wait_for_timeout(300)
+    pg.click("text=Update to 9.99.0"); pg.wait_for_timeout(300)
     ok(not pg.locator("#job-overlay").is_visible(),"without the confirmation box nothing starts")
     pg.check("#upd-confirm", force=True)
     with pg.expect_navigation():
-        pg.click("text=Update to 1.99.0")
+        pg.click("text=Update to 9.99.0")
         pg.wait_for_timeout(50)
     pg.wait_for_timeout(300)
     ok(pg.locator("#job-overlay").is_visible() and "Updating" in pg.inner_text("#job-overlay") and "refreshes on its own" in pg.inner_text("#job-overlay"),"overlay shows as soon as the update starts")

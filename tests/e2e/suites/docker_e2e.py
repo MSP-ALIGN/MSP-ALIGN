@@ -60,7 +60,8 @@ commits = [
     {"sha": "e" * 40, "parents": [{}], "commit": {"message": "Older, already installed", "committer": {"date": "2026-09-01T10:00:00Z"}}},
 ]
 open(fake + "/router.php", "w").write('<?php $u = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);'
-    ' if (str_ends_with($u, "/main/VERSION")) { echo "9.9.9\\n"; return true; }'
+    ' if (str_ends_with($u, "/main/VERSION")) { echo "9.9.8\\n"; return true; }'
+    ' if (str_ends_with($u, "/tags")) { header("Content-Type: application/json"); echo json_encode([["name" => "v9.9.10-beta.1"], ["name" => "v9.9.9"], ["name" => "v1.0.0"], ["name" => "junk"]]); return true; }'
     ' if (str_contains($u, "/commits")) { header("Content-Type: application/json"); readfile(__DIR__ . "/commits.json"); return true; }'
     ' http_response_code(404); return true;')
 json.dump(commits, open(fake + "/commits.json", "w"))
@@ -68,9 +69,14 @@ srv = subprocess.Popen(["php", "-S", "127.0.0.1:8094", fake + "/router.php"], st
 time.sleep(1)
 subprocess.run(["php", ROOT + "/scripts/agent.php", "check"], env=dict(AENV, ALIGN_GITHUB_API="http://127.0.0.1:8094", ALIGN_GITHUB_RAW="http://127.0.0.1:8094"),
                capture_output=True, text=True, timeout=120)
-srv.terminate()
 u = json.load(open(T + "/agent/update.json"))
-ok(u.get("latest") == "9.9.9" and u.get("available") is True and u.get("error") is None, "Docker check: a newer version on GitHub is offered: " + json.dumps(u)[:160])
+# without a release key (a fork), the branch's VERSION
+subprocess.run(["php", ROOT + "/scripts/agent.php", "check"], env=dict(AENV, ALIGN_GITHUB_API="http://127.0.0.1:8094", ALIGN_GITHUB_RAW="http://127.0.0.1:8094", ALIGN_RELEASE_SIGNERS="none", ALIGN_AGENT_TEST="1"),
+               capture_output=True, text=True, timeout=120)
+srv.terminate()
+ub = json.load(open(T + "/agent/update.json"))
+ok(ub.get("latest") == "9.9.8" and ub.get("mode") is None, "Docker check without a release key: the branch's version")
+ok(u.get("latest") == "9.9.9" and u.get("mode") == "signed" and u.get("available") is True and u.get("error") is None, "Docker check: the newest release tag on GitHub is offered (images are built from release tags; pre-releases left out): " + json.dumps(u)[:160])
 ok([c["subject"] for c in u.get("changes", [])] == ["Add a shiny thing", "Fix another thing"] and u.get("behind") == 2, "Docker check: what's new since this release, without merges or older commits")
 ok("Co-Authored" not in json.dumps(u) and u["changes"][0]["body"] == "Longer text.", "Docker check: commit trailers left out")
 env_no = {k: v for k, v in AENV.items() if k != "ALIGN_DOCKER"}

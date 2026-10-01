@@ -9,6 +9,7 @@ return [
         'user' => 'align',
         'pass' => 'change-me',
     ],
+    // Make one with: php -r 'echo "base64:" . base64_encode(random_bytes(32)), PHP_EOL;'
     'app_key' => 'base64:REPLACE_WITH_32_RANDOM_BYTES_BASE64',
     'base_url' => 'http://127.0.0.1:8080',
     'timezone' => 'America/Los_Angeles',
