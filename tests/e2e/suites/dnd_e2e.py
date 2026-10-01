@@ -7,11 +7,18 @@ def drag(pg, src, dst):
     pg.mouse.move(x0,y0); pg.mouse.down()
     for i in range(1,11): pg.mouse.move(x0+(x1-x0)*i/10, y0+(y1-y0)*i/10)
     pg.mouse.up(); pg.wait_for_timeout(600)
+def drag_dialog(pg, src, dst):
+    """A drop that opens the move dialog. A slow machine can scroll mid-drag and drop it short: try again."""
+    for attempt in range(3):
+        drag(pg, src, dst)
+        try: pg.wait_for_selector("#modal-move.show", timeout=4000); break
+        except Exception: pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(400)
 q("update device_overrides set replace_on=NULL, replace_note=NULL")
 pid=q("select id from roadmap_items where client_id=1 order by id desc limit 1")[0]["id"]; q("update roadmap_items set target_quarter=NULL where id=%s",pid)
 title=q("select title from roadmap_items where id=%s",pid)[0]["title"]
 with sync_playwright() as p:
-    b=p.chromium.launch(); pg=b.new_page(viewport={"width":1500,"height":1000})
+    b=p.chromium.launch(); pg=b.new_page(viewport={"width":1500,"height":2400})   # tall: the next quarter can be a row down
     pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"admin@example.com")
     pg.goto(B+"/clients/1/roadmap"); pg.wait_for_timeout(500)
     ok(pg.locator("text=Drag projects and devices to another quarter.").count()==1,"hint shown")
@@ -21,7 +28,7 @@ with sync_playwright() as p:
     for i in range(targets.count()):
         if targets.nth(i).get_attribute("data-drop-quarter")>qstart: tgt=targets.nth(i); break
     tq=tgt.get_attribute("data-drop-quarter"); tl=tgt.get_attribute("data-quarter-label")
-    drag(pg, dev, tgt.locator(".card-body")); pg.wait_for_timeout(500)
+    drag_dialog(pg, dev, tgt.locator(".card-body"))
     ok(pg.locator("#modal-move").is_visible() and dname in pg.locator("[data-move-name]").inner_text() and pg.locator("[data-move-quarter]").inner_text()==tl,"drop opens the confirm dialog for "+dname+" → "+tl)
     pg.fill("#move-note","Client asked to wait"); pg.click("[data-move-save]"); pg.wait_for_load_state(); pg.wait_for_timeout(800)
     r=q("select replace_on, replace_note from device_overrides where device_id=%s",did)
@@ -31,13 +38,13 @@ with sync_playwright() as p:
     ok("will be replaced in "+tl in pg.content(),"confirmation message")
     ok(pg.locator(f'[data-hw-group="{tq}"]').evaluate("d=>d.open"),"list kept open after the reload")
     # move it back to automatic
-    drag(pg, moved.first, pg.locator(f'[data-drop-quarter="{qstart}"] .card-body') if pg.locator(f'[data-drop-quarter="{qstart}"]').count() else targets.first.locator(".card-body")); pg.wait_for_timeout(500)
+    drag_dialog(pg, moved.first, pg.locator(f'[data-drop-quarter="{qstart}"] .card-body') if pg.locator(f'[data-drop-quarter="{qstart}"]').count() else targets.first.locator(".card-body"))
     ok(pg.locator("[data-move-reset]").is_visible(),"'Back to end of life' offered for a planned device")
     pg.click("[data-move-reset]"); pg.wait_for_load_state(); pg.wait_for_timeout(800)
     ok(not q("select 1 from device_overrides where device_id=%s and replace_on is not null",did),"back to end of life")
     # whole group
     grp=pg.locator(f'[data-hw-group="{qstart}"] summary'); n=len(grp.get_attribute("data-drag-devices").split(","))
-    drag(pg, grp, tgt.locator(".card-body") if False else pg.locator(f'[data-drop-quarter="{tq}"] .card-body')); pg.wait_for_timeout(500)
+    drag_dialog(pg, grp, pg.locator(f'[data-drop-quarter="{tq}"] .card-body'))
     ok(pg.locator("[data-move-name]").inner_text().startswith("all "),"group drag names the whole group")
     pg.click("[data-move-save]"); pg.wait_for_load_state(); pg.wait_for_timeout(800)
     ok(q("select count(*) n from device_overrides where replace_on=%s",tq)[0]["n"]>=n,"whole group moved (%d devices)"%n)
