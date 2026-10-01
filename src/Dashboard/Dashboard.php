@@ -262,7 +262,7 @@ final class Dashboard
         // Lifecycle: devices past end of life that aren't planned (one line per client)
         $per = [];
         foreach ($ctx['devices'] ?? [] as $d) {
-            if ($d['status'] === 'replace' && empty($d['replace_planned']) && isset($names[$d['client_id']])) {
+            if ($d['status'] === 'replace' && empty($d['replace_planned']) && empty($d['project']) && isset($names[$d['client_id']])) {
                 $per[$d['client_id']] = ($per[$d['client_id']] ?? 0) + 1;
             }
         }

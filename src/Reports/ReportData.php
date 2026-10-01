@@ -119,7 +119,7 @@ final class ReportData
             }
             if ($d['is_hardware']) {
                 $c['value'] += $d['replacement_cost'];
-                if ($d['status'] === 'replace') {
+                if ($d['status'] === 'replace' && empty($d['project'])) { // a project's devices: counted as the project
                     $c['overdue_cost'] += $d['replacement_cost'];
                 }
             }

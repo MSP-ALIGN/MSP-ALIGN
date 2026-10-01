@@ -1534,3 +1534,49 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pick) bsTab(pick).show();
   tabs.forEach((t) => t.addEventListener('shown.bs.tab', (ev) => { try { window.history.replaceState(null, '', ev.target.getAttribute('href')); } catch (e) { /* ignore */ } }));
 });
+
+// A link to a project's window on the roadmap (/clients/5/roadmap#modal-roadmap-12) opens it (2.1)
+const openFromHash = () => {
+  const m = /^#(modal-roadmap-\d+)$/.exec(location.hash);
+  const el = m && document.getElementById(m[1]);
+  if (el && el.classList.contains('modal')) bsModal(el).show();
+};
+window.addEventListener('load', openFromHash);
+window.addEventListener('hashchange', openFromHash);
+
+// Devices page: "Make projects" carries the ticked devices into its window, with their count and budgeted total (2.1)
+document.addEventListener('show.bs.modal', (ev) => {
+  const form = ev.target.querySelector && ev.target.querySelector('form[data-project-from]');
+  if (!form) return;
+  form.querySelectorAll('input[data-copied]').forEach((i) => i.remove());
+  // devices already in a project are left out: the server would skip them anyway
+  const picked = Array.from(document.querySelectorAll(form.dataset.projectFrom)).filter((i) => i.checked && !i.hasAttribute('data-in-project'));
+  let total = 0;
+  picked.forEach((i) => {
+    const h = document.createElement('input');
+    h.type = 'hidden'; h.name = 'ids[]'; h.value = i.value; h.dataset.copied = '1';
+    form.appendChild(h);
+    total += parseFloat(i.dataset.cost || '0') || 0;
+  });
+  const n = picked.length;
+  form.querySelectorAll('[data-pick-count]').forEach((el) => { el.textContent = n; });
+  form.querySelectorAll('[data-pick-n]').forEach((el) => { el.value = String(n); });
+  form.querySelectorAll('[data-pick-s]').forEach((el) => { el.textContent = n === 1 ? '' : 's'; });
+  form.querySelectorAll('[data-pick-total]').forEach((el) => { el.textContent = total.toLocaleString(undefined, { style: 'currency', currency: form.dataset.currency || 'USD', maximumFractionDigits: 0 }); });
+  form.querySelectorAll('[data-pick-many]').forEach((el) => el.classList.toggle('d-none', n < 2));
+  const each = form.querySelector('input[name="mode"][value="each"]');
+  if (each) each.checked = true;
+  form.dispatchEvent(new Event('change'));
+});
+document.addEventListener('change', (ev) => {
+  const form = ev.target.closest ? ev.target.closest('form[data-project-from]') : null;
+  if (!form) return;
+  const n = form.querySelectorAll('input[data-copied]').length || parseInt(form.dataset.fixedCount || '0', 10);
+  const one = n === 1 || (form.querySelector('input[name="mode"]:checked') || {}).value === 'together';
+  form.querySelectorAll('[data-pick-one]').forEach((el) => el.classList.toggle('d-none', !one));
+  const btn = form.querySelector('[data-pick-submit]');
+  if (btn) {
+    btn.textContent = one ? 'Make the project' : 'Make ' + n + ' projects';
+    btn.disabled = !n; // nothing ticked that can still become a project
+  }
+});

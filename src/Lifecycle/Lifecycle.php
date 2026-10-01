@@ -213,6 +213,24 @@ final class Lifecycle
         return $out;
     }
 
+    /** @var array<int, array>|null device id => the project replacing it (not declined), loaded on first use */
+    private ?array $projects = null;
+
+    /** The project (not declined) that replaces each device, with its quarter's label: [device id => project]. */
+    public static function deviceProjects(): array
+    {
+        $out = [];
+        [$live, $p] = \Align\Roadmap\DeviceProjects::liveSql(); // a done project only for a while (see there)
+        foreach (DB::all("SELECT rid.device_id, ri.id, ri.client_id, ri.title, ri.status, ri.target_quarter, ri.psa_ticket_id
+                FROM roadmap_item_devices rid JOIN roadmap_items ri ON ri.id = rid.roadmap_item_id
+                WHERE $live ORDER BY ri.id", $p) as $r) {
+            $q = $r['target_quarter'] ? \Align\Roadmap\Plan::quarterFor($r['target_quarter']) : null;
+            $out[(int) $r['device_id']] = ['id' => (int) $r['id'], 'client_id' => (int) $r['client_id'], 'title' => $r['title'], 'status' => $r['status'],
+                'target_quarter' => $r['target_quarter'], 'quarter_label' => $q['label'] ?? null, 'psa_ticket_id' => $r['psa_ticket_id']];
+        }
+        return $out;
+    }
+
     private string $today;
     private string $planCutoff;
     private string $warnCutoff;
@@ -315,9 +333,15 @@ final class Lifecycle
 
         $stale = $d['last_contact'] && strtotime($d['last_contact']) < time() - $this->policy['stale_days'] * 86400;
 
-        // Replacement date used for budget forecasting (hardware only, not excluded)
+        // Replacement date used for budget forecasting (hardware only, not excluded). A device a project replaces
+        // (2.1) leaves the automatic plan: the project's own quarter and cost count instead, so nothing counts twice.
+        $this->projects ??= self::deviceProjects();
+        $project = $this->projects[(int) $d['id']] ?? null;
+        if ($project && $project['client_id'] !== (int) ($d['client_id'] ?? 0)) {
+            $project = null; // the device moved to another client: that client's plan counts it again
+        }
         $replaceBy = null;
-        if ($isHardware && $status !== 'excluded') {
+        if ($isHardware && $status !== 'excluded' && !$project) {
             $replaceBy = $due;
         }
         $plannedQ = $planned ? \Align\Roadmap\Plan::quarterFor($planned) : null;
@@ -347,6 +371,8 @@ final class Lifecycle
             'replace_note' => $planned ? ($d['o_replace_note'] ?? null) : null,
             'replace_deferred' => $planned !== null && $eol !== null && $planned > $eol,
             'replacement_cost' => $cost,
+            'replace_due' => $isHardware && $status !== 'excluded' ? $due : null,
+            'project' => $project,
         ];
     }
 
@@ -411,6 +437,17 @@ final class Lifecycle
         if (!$d['is_hardware']) {
             return $out(false, 'Not in plan', 'Not a hardware device');
         }
+        if (!empty($d['project'])) {
+            $p = $d['project'];
+            $why = 'Replaced by the project "' . $p['title'] . '" (' . strtolower(\Align\Roadmap\Roadmap::STATUSES[$p['status']][0]) . ')';
+            if (!$p['target_quarter']) {
+                return $out(false, 'Unscheduled', $why . ', which has no quarter yet, so it isn\'t in the budget', 'Give the project a quarter on the roadmap');
+            }
+            if (\Align\Roadmap\Plan::indexFor($p['target_quarter'], $p['status'] !== 'done') === null) {
+                return $out(false, 'Outside the plan', $why . ', in ' . ($p['quarter_label'] ?? fmt_date($p['target_quarter'])) . ', outside the 3-year plan');
+            }
+            return $out(true, $p['quarter_label'], $why . ': its quarter and cost count instead of this device\'s');
+        }
         if (!empty($d['replace_planned'])) {
             $qs = \Align\Roadmap\Plan::quarters();
             $idx = \Align\Roadmap\Plan::indexFor($d['replace_by']);
@@ -447,7 +484,7 @@ final class Lifecycle
     /** Hardware that should be budgeted but can't be placed in the plan (no in-service date). */
     public static function unplanned(array $devices): array
     {
-        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'] && empty($d['replace_planned'])));
+        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'] && empty($d['replace_planned']) && empty($d['project'])));
     }
 
     /** Totals per plan year from forecast() output. */

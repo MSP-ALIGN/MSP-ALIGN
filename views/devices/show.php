@@ -84,11 +84,15 @@ $hasSync = psa_on() || $sync['history'];
           <?= $row('Age', $d['age_years'] !== null ? e($d['age_years']) . ' years' : '—') ?>
           <?= $row('Lifespan policy', $d['lifespan'] ? (int) $d['lifespan'] . ' years' . ($d['o_lifespan'] ? ' <span class="small text-muted">(override)</span>' : '') : '—') ?>
           <?= $row('End of life', e(fmt_date($d['eol_date']))) ?>
-          <?php if ($d['is_hardware'] && $d['status'] !== 'excluded'): ?>
+          <?php if (!empty($d['project'])): $pj = $d['project']; $pt = $pj['psa_ticket_id'] ? \Align\Providers\Providers::psaLink('ticket', (string) $pj['psa_ticket_id']) : null; ?>
+          <?= $row('Project', '<a href="/clients/' . (int) $pj['client_id'] . '/roadmap#modal-roadmap-' . (int) $pj['id'] . '" class="fw-bold">' . e($pj['title']) . '</a> <span class="badge text-bg-' . e(\Align\Roadmap\Roadmap::STATUSES[$pj['status']][1]) . '">' . e(\Align\Roadmap\Roadmap::STATUSES[$pj['status']][0]) . '</span> <span class="small text-muted">' . e($pj['quarter_label'] ?? 'unscheduled') . '</span>'
+              . ($pj['psa_ticket_id'] ? ' <span class="small ms-1">' . ($pt ? '<a href="' . e($pt) . '" target="_blank" rel="noopener">' . e(psa_name()) . ' ticket #' . e($pj['psa_ticket_id']) . '</a>' : e(psa_name()) . ' ticket #' . e($pj['psa_ticket_id'])) . '</span>' : '')) ?>
+          <?php elseif ($d['is_hardware'] && $d['status'] !== 'excluded'): ?>
           <?= $row('Replace in', ($d['replace_planned']
               ? '<span class="badge text-bg-' . ($d['replace_deferred'] ? 'warning' : 'info') . '">' . e($d['replace_label']) . '</span> <span class="small text-muted">' . ($d['replace_deferred'] ? 'put off from end of life' : 'set by hand') . ($d['replace_note'] ? ': ' . e($d['replace_note']) : '') . '</span>'
               : ($d['eol_date'] ? e(\Align\Roadmap\Plan::quarterFor($d['eol_date'])['label'] ?? '') . ' <span class="small text-muted">(end of life)</span>' : '<span class="text-muted">—</span>'))
-              . ($canEdit ? ' <a href="#replace-form" class="small ms-1" data-bs-toggle="collapse" role="button" aria-expanded="false">Change</a>' : '')) ?>
+              . ($canEdit ? ' <a href="#replace-form" class="small ms-1" data-bs-toggle="collapse" role="button" aria-expanded="false">Change</a>'
+                  . (!empty($d['client_id']) && empty($d['removed_at']) ? ' <span class="text-muted small mx-1">·</span><a href="#" class="small" data-bs-toggle="modal" data-bs-target="#modal-make-project"><i class="fas fa-diagram-project me-1"></i>Make a project</a>' : '') : '')) ?>
           <?php endif; ?>
           <?= $row('Warranty ends', e(fmt_date($d['warranty_end'])) . ($d['warranty_source'] ? ' <span class="small text-muted">' . e($d['warranty_source']) . '</span>' : '')) ?>
           <?= $row('Est. replacement cost', $d['is_hardware'] ? money($d['replacement_cost']) . ($d['o_cost'] !== null ? ' <span class="small text-muted">(set on this device)</span>' : ' <span class="small text-muted">(policy default)</span>') : '—') ?>
@@ -99,7 +103,8 @@ $hasSync = psa_on() || $sync['history'];
           <?php if ($lookup) echo $row('Vendor lookup', e(ucfirst($lookup['vendor'])) . ': ' . e($lookup['status']) . ' · ' . e(rel_time($lookup['looked_up_at'])) . ($lookup['description'] ? '<div class="small text-muted">' . e($lookup['description']) . '</div>' : '')); ?>
           <?php if ($d['o_notes']) echo $row('Notes', '<span class="pre-line">' . e($d['o_notes']) . '</span>'); ?>
         </table>
-        <?php if ($canEdit && $d['is_hardware'] && $d['status'] !== 'excluded'): $choices = \Align\Roadmap\Plan::choices(6); ?>
+        <?php if ($canEdit && $d['is_hardware'] && $d['status'] !== 'excluded' && empty($d['project']) && !empty($d['client_id']) && empty($d['removed_at'])) echo \Align\View::fetch('devices/_project_modal', ['client' => \Align\DB::one('SELECT * FROM clients WHERE id = ?', [(int) $d['client_id']]), 'device' => $d, 'back' => '/devices/' . (int) $d['id']]); ?>
+        <?php if ($canEdit && $d['is_hardware'] && $d['status'] !== 'excluded' && empty($d['project'])): $choices = \Align\Roadmap\Plan::choices(6); ?>
         <form method="post" action="/devices/<?= (int) $d['id'] ?>/replacement" class="collapse border-top p-3" id="replace-form">
           <?= csrf_field() ?>
           <div class="row g-2">

@@ -152,6 +152,8 @@ final class Devices
                 'replace_by' => $d['replace_by'],
                 'planned_replacement' => $plan ? ['quarter' => $d['o_replace'], 'label' => $plan['label'], 'note' => $d['o_replace_note'], 'deferred' => (bool) $d['replace_deferred']] : null,
                 'replacement_cost' => $d['is_hardware'] ? Out::num($d['replacement_cost']) : null,
+                'project' => !empty($d['project']) ? ['id' => $d['project']['id'], 'title' => $d['project']['title'], 'status' => $d['project']['status'],
+                    'target_quarter' => $d['project']['target_quarter'], 'psa_ticket_id' => $d['project']['psa_ticket_id']] : null,
                 'excluded' => $d['status'] === 'excluded',
             ],
             'warranty' => ['end' => $d['warranty_end'], 'source' => $d['warranty_source']],

@@ -106,6 +106,9 @@ final class Projects
                 $in[$k] = $default;
             }
         }
+        if (isset($in['status']) && $in['status'] !== 'declined' && !\Align\Roadmap\DeviceProjects::isLive($id) && ($taken = \Align\Roadmap\DeviceProjects::conflicts($id))) {
+            throw ApiError::invalid(['status' => 'Its devices are in another project now (' . implode(', ', $taken) . '). Decline or delete that one first.']);
+        }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($in)));
         DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($in), $id]);
         \Align\Audit::log('roadmap.update', "{$r['client_name']}: " . ($in['title'] ?? $r['title']) . ' (' . implode(', ', array_keys($in)) . ')');
@@ -137,6 +140,8 @@ final class Projects
             'recurring_monthly' => Out::num($r['recurring_monthly']),
             'priority' => $r['priority'],
             'status' => $r['status'],
+            'device_ids' => array_map(fn($x) => (int) $x['id'], \Align\Roadmap\DeviceProjects::devicesFor((int) $r['id'])),
+            'psa_ticket_id' => isset($r['psa_ticket_id']) && $r['psa_ticket_id'] !== null ? (string) $r['psa_ticket_id'] : null,
             'decision' => $r['decided_at'] ? ['by' => $r['decided_by_name'], 'at' => Out::ts($r['decided_at']), 'comment' => $r['decision_comment'], 'via_portal' => (bool) $r['decided_by_portal_user_id']] : null,
             'created_at' => Out::ts($r['created_at']),
             'updated_at' => Out::ts($r['updated_at'] ?? $r['created_at']),
