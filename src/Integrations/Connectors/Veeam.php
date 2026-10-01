@@ -34,6 +34,7 @@ final class Veeam extends BackupConnector
             ['name' => 'veeam_url', 'label' => 'Console URL', 'type' => 'url', 'placeholder' => 'https://vspc.example.com'],
             ['name' => 'veeam_api_key', 'label' => 'API key', 'type' => 'secret'],
             ['name' => 'backup_stale_hours', 'label' => 'Flag a machine as overdue when its newest restore point is older than', 'type' => 'number', 'min' => 1, 'max' => 720, 'suffix' => 'hours', 'default' => '48'],
+            ['name' => 'm365_retired_days', 'label' => 'Treat a Microsoft 365 user, group, team or site as no longer backed up (its old backups kept, not counted) after no new backup for', 'type' => 'number', 'min' => 0, 'max' => 3650, 'suffix' => 'days (0 = never)', 'default' => '30'],
         ];
     }
 

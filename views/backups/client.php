@@ -138,7 +138,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
           </div>
         </div>
       <?php endforeach; ?>
-      <?php if (!$m['types']): ?><div class="col-12 small text-muted mb-2">No protected users, groups, teams or sites reported yet.</div><?php endif; ?>
+      <?php if (!$m['types']): ?><div class="col-12 small <?= $m['retired'] ? 'text-warning-emphasis' : 'text-muted' ?> mb-2"><?= $m['retired'] ? 'None backed up in the last ' . (int) $m['retired_days'] . ' days: all ' . count($m['retired']) . ' users, groups, teams and sites only have old backups. Check this tenant\'s backup jobs.' : 'No protected users, groups, teams or sites reported yet.' ?></div><?php endif; ?>
     </div>
     <div class="small text-muted">
       <?php foreach ($m['orgs'] as $o): ?>
@@ -191,6 +191,23 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
       </table>
     </div></div>
     <?php if ($m['counting_since']): ?><div class="px-3 py-2 small text-muted border-top">Days with a backup: each day with at least one restore point counts once, across all repositories. Align counts from <?= e(fmt_date($m['counting_since'])) ?>, its first sync of these backups since version 2.0.1, as it syncs (the console reports each repository's newest restore point, not older dates). An object kept in more than one repository is current when its newest restore point, from any of them, is recent.</div><?php endif; ?>
+  </details>
+  <?php endif; ?>
+  <?php if ($m['retired']): ?>
+  <details class="bk-more" id="m365-retired"><summary class="px-3 py-2 small text-primary">No longer backed up: <?= count($m['retired']) ?> with old backups kept</summary>
+    <div class="px-3 py-2 small text-muted">No new backup in more than <?= (int) $m['retired_days'] ?> days, usually people who left or a tenant no longer used. <?= e($b['source']) ?> still keeps their old backups, so they can be restored, but they aren't counted as protected or overdue. Until <?= (int) $m['retired_days'] ?> days pass, a stopped backup shows as overdue above.<?= Auth::can('admin') ? ' Change the number of days in the backup connection\'s settings under <a href="/integrations">Integrations</a>.' : '' ?></div>
+    <div class="card-body p-0"><div class="table-responsive">
+      <table class="table table-sm table-striped table-borderless mb-0">
+        <thead class="text-dark"><tr><th>Name</th><th>Type</th><th>Last backup</th><th class="text-end">Restore points kept</th></tr></thead>
+        <tbody>
+        <?php foreach ($m['retired'] as $o): ?>
+          <tr class="text-muted"><td class="fw-bold"><?= e($o['name']) ?></td><td class="small"><?= e($o['type_label']) ?></td>
+            <td class="small"><?= e(fmt_date($o['last_point'])) ?> <span class="text-muted">(<?= e(Backup::age($o['age_h'])) ?> ago)</span></td>
+            <td class="small text-end"><?= $o['restore_points'] !== null ? number_format((int) $o['restore_points']) : '—' ?></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div></div>
   </details>
   <?php endif; ?>
 </div>

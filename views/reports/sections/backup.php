@@ -150,9 +150,10 @@ $shown = $limit ? array_slice($b['workloads'], 0, $limit) : $b['workloads'];
           <td class="num" style="<?= $x['overdue'] ? 'color:var(--warn);font-weight:700' : '' ?>"><?= $x['overdue'] ?: '—' ?></td>
           <td><?= $x['last'] ? e(fmt_date($x['last'])) . '<div class="sub">' . e(rel_time($x['last'])) . '</div>' : '<span class="muted">—</span>' ?></td></tr>
       <?php endforeach; ?>
-      <?php if (!$m['types']): ?><tr><td colspan="5" class="muted">No protected users, groups, teams or sites reported yet.</td></tr><?php endif; ?>
+      <?php if (!$m['types']): ?><tr><td colspan="5" class="muted"><?= $m['retired'] ? 'None backed up in the last ' . (int) $m['retired_days'] . ' days: only old backups are kept.' : 'No protected users, groups, teams or sites reported yet.' ?></td></tr><?php endif; ?>
       </tbody>
     </table>
+    <?php if ($m['retired']): ?><p class="muted small-note"><?= count($m['retired']) ?> more (people who left, or a tenant no longer used) have had no new backup for over <?= (int) $m['retired_days'] ?> days. Their old backups are kept and can be restored; they aren't counted above.</p><?php endif; ?>
     <?php foreach ($m['orgs'] as $o): ?>
       <p class="muted small-note"><b><?= e($o['name']) ?></b><?= $o['service_labels'] ? ': ' . e(implode(', ', $o['service_labels'])) : '' ?> · last backup <?= e(rel_time($o['last_backup'])) ?></p>
     <?php endforeach; ?>

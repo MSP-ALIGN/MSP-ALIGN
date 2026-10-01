@@ -793,6 +793,9 @@ switch (true) {
                     ['id' => 'o-1:site-6', 'name' => 'Team Site', 'protectedDataType' => 'Site', 'restorePointsCount' => 30, 'latestRestorePointDate' => $iso(4), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1'],
                     // a group in two live repositories (one stopped 10 days ago): the newest restore point counts
                     ['id' => 'o-1:grp-2', 'name' => 'Doctors', 'protectedDataType' => 'Group', 'restorePointsCount' => 9, 'latestRestorePointDate' => $iso(24 * 10), 'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'repositoryUid' => 'repo-split'],
+                    // someone who left in 2023: Veeam keeps the old backups, nothing new since (no longer backed up)
+                    ['id' => 'o-1:user-gone', 'name' => 'Departed Hygienist', 'protectedDataType' => 'User', 'restorePointsCount' => 400, 'latestRestorePointDate' => $iso(24 * 900),
+                        'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'consumesLicense' => false, 'repositoryUid' => 'repo-current'],
                     // the tenant moved to a new repository: the legacy one still lists the same objects, last backed up months ago
                     ['id' => 'o-1:user-5', 'name' => 'Dr Lee', 'protectedDataType' => 'User', 'restorePointsCount' => 3000, 'latestRestorePointDate' => $iso(24 * 182),
                         'organizationUid' => $c['c1'], 'vb365OrganizationUid' => 'o-1', 'consumesLicense' => false, 'repositoryUid' => 'repo-legacy'],

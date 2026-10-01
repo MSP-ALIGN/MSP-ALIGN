@@ -74,7 +74,8 @@ abstract class BackupConnector extends Connector implements LinksClients
         $m365 = [];
         foreach (DB::all("SELECT l.client_id, COUNT(m.uid) AS n FROM client_links l
                 JOIN backup_m365_objects m ON m.provider = l.provider AND m.company_uid = l.external_id AND m.object_type = 'user'
-                WHERE l.provider = ? AND l.external_id IS NOT NULL GROUP BY l.client_id", [$this->key()]) as $r) {
+                    AND (m.last_point IS NULL OR m.last_point >= ?)
+                WHERE l.provider = ? AND l.external_id IS NOT NULL GROUP BY l.client_id", [\Align\Backup\Backup::m365RetiredSince(), $this->key()]) as $r) {
             $m365[(int) $r['client_id']] = (int) $r['n'];
         }
         $linked = array_flip(array_map('intval', array_column(DB::all('SELECT client_id FROM client_links WHERE provider = ? AND external_id IS NOT NULL', [$this->key()]), 'client_id')));
