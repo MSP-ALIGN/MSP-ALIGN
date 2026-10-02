@@ -1,5 +1,7 @@
-"""1.45.2: the Branding page in the 1.43 look, with a live preview of the app, the sign-in page and the client portal."""
+"""1.45.2: the Branding page in the 1.43 look, with a live preview of the app, the sign-in page and the client portal.
+2.1.1: sign-in backgrounds, one for staff and one for the client portal."""
 from lib import *
+import re
 
 admin = login("admin@example.com", "LongPassword123!")
 before = {r["name"]: r["value"] for r in q("select name, value from settings where name in ('brand_name','brand_primary','brand_sidebar','brand_logo_only','brand_login_message')")}
@@ -19,9 +21,46 @@ ok("Welcome back, team" in requests.get(B + "/login").text, "the sign-in page sh
 r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "reset"})
 t = admin.get(B + "/settings/branding").text
 ok('value="dark" checked' in t and "--bp-color: #007bff" in t, "reset: back to the default blue and dark menu")
+# ---- 2.1.1: sign-in backgrounds, one for staff and one for the client portal
+import io
+from PIL import Image
+def img(w, h, color, fmt="JPEG"):
+    b = io.BytesIO(); Image.new("RGB", (w, h), color).save(b, fmt); return b.getvalue()
+up = lambda files, data=None: admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "save", **(data or {})}, files=files)
+ok('background-image' not in requests.get(B + "/login").text and "has-login-bg" not in requests.get(B + "/login").text, "no background: the plain sign-in page")
+r = up({"bg_staff": ("office.jpg", img(1920, 1080, (20, 60, 120)), "image/jpeg")}, {"bg_staff_dim": "45"})
+ok("saved" in flash(r.text).lower(), "staff background uploaded: " + flash(r.text))
+t = requests.get(B + "/login").text
+m = re.search(r'--login-bg: url\("(/branding/background/staff\?v=[a-f0-9]{8})"\); --login-dim: 0.45', t)
+ok(m and "has-login-bg" in t, "the staff sign-in page shows it, darkened 45%")
+ok("has-login-bg" not in requests.get(B + "/portal/login").text, "the client portal sign-in doesn't: it has its own")
+r = requests.get(B + m.group(1)) if m else None
+ok(r is not None and r.status_code == 200 and r.headers.get("Content-Type") == "image/jpeg" and r.headers.get("X-Content-Type-Options") == "nosniff" and r.content[:2] == b"\xff\xd8",
+   "served before sign-in, as a JPEG, with nosniff")
+r = up({"bg_portal": ("calm.png", img(1600, 900, (230, 240, 235), "PNG"), "image/png")}, {"bg_portal_dim": "0"})
+t = requests.get(B + "/portal/login").text
+ok(re.search(r'--login-bg: url\("/branding/background/portal\?v=[a-f0-9]{8}"\); --login-dim: 0;', t), "the portal sign-in shows its own background (a PNG, stored as a JPEG), not darkened")
+f = q("select value from settings where name = 'brand_bg_portal'")[0]["value"]
+ok(re.fullmatch(r"bg-portal-[a-f0-9]{16}\.jpg", f or ""), "stored re-encoded as a JPEG: " + str(f))
+ok("has-login-bg" in requests.get(B + "/portal/forgot").text, "the portal's other sign-in pages use it too")
+import os
+noise = io.BytesIO(); Image.frombytes("RGB", (2400, 1600), os.urandom(2400 * 1600 * 3)).save(noise, "JPEG", quality=95); big = noise.getvalue()
+r = up({"bg_staff": ("big.jpg", big, "image/jpeg")})
+ok(len(big) > 2 * 1024 * 1024 and "saved" in flash(r.text).lower(), "a background over 2 MB is accepted (%.1f MB; the logo's 2 MB limit doesn't apply): %s" % (len(big) / 1048576, flash(r.text)))
+r = up({"bg_staff": ("tiny.jpg", img(300, 200, (1, 2, 3)), "image/jpeg")})
+ok("at least 640" in flash(r.text), "a tiny image is refused: " + flash(r.text))
+r = up({"bg_staff": ("x.svg", b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', "image/svg+xml")})
+ok("JPG, PNG or WebP" in flash(r.text) and m and m.group(1).split("?")[0] in requests.get(B + "/login").text, "an SVG is refused and the old background stays")
+ok(requests.get(B + "/branding/background/other").status_code == 404 and requests.get(B + "/branding/background/..%2fconfig").status_code == 404, "only the two backgrounds can be fetched")
+t = admin.get(B + "/settings/branding").text
+ok(t.count("brand-bg-thumb") == 2 and 'value="remove_bg_staff"' in t and 'value="remove_bg_portal"' in t and "bp-login has-bg" in t, "Branding shows both, with Remove, and the preview uses the staff one")
+r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "remove_bg_staff"})
+ok("removed" in flash(r.text) and "has-login-bg" not in requests.get(B + "/login").text and "has-login-bg" in requests.get(B + "/portal/login").text, "removing the staff one leaves the portal's")
+admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "remove_bg_portal"})
+ok(not q("select value from settings where name in ('brand_bg_staff','brand_bg_portal') and value is not null"), "both removed")
 viewer = login("viewer@example.com", "ViewerPassword123!")
 ok(viewer.get(B + "/settings/branding").status_code == 403, "admins only")
-q("delete from settings where name in ('brand_name','brand_primary','brand_sidebar','brand_logo_only','brand_login_message')")
+q("delete from settings where name in ('brand_name','brand_primary','brand_sidebar','brand_logo_only','brand_login_message','brand_bg_staff_dim','brand_bg_portal_dim')")
 for k, v in before.items():
     q("insert into settings (name, value, is_secret) values (%s, %s, 0)", k, v)
 done()

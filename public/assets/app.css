@@ -818,3 +818,20 @@ body:not(.portal) .form-control[type=file]::file-selector-button { padding: .2re
 [data-radio-buttons] > .btn:focus-within { box-shadow: 0 0 0 .2rem rgba(var(--align-brand-rgb), .25); z-index: 2; }
 .info-box .info-box-content { min-width: 0; }
 .info-box .info-box-content > * { white-space: normal; overflow-wrap: anywhere; }
+
+/* 2.1.1: a sign-in background (Settings → Branding), one for staff and one for the client portal. The image fills the
+   screen; a dark layer (the "darken" setting) keeps the logo and name readable; the sign-in box stays solid. */
+body.login-page.has-login-bg { background: #1b1f24 var(--login-bg) center / cover no-repeat fixed; position: relative; }
+body.login-page.has-login-bg::before { content: ""; position: fixed; inset: 0; background: rgba(0, 0, 0, var(--login-dim, .25)); pointer-events: none; }
+body.login-page.has-login-bg .login-box { position: relative; z-index: 1; }
+/* the logo and name sit on a frosted panel in the page's own colors, so any logo reads on any photo */
+body.login-page.has-login-bg .login-logo { width: fit-content; max-width: 100%; margin: 0 auto 1rem; padding: .6rem 1.4rem; border-radius: .8rem;
+  background: color-mix(in srgb, var(--bs-body-bg) 94%, transparent); color: var(--bs-emphasis-color); backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0, 0, 0, .2); }
+body.login-page.has-login-bg .login-box .card { box-shadow: 0 10px 40px rgba(0, 0, 0, .35); }
+body.login-page.has-login-bg .login-box > p.text-center { width: fit-content; margin: .75rem auto 0; padding: .15rem .8rem; border-radius: 999px;
+  background: color-mix(in srgb, var(--bs-body-bg) 80%, transparent); backdrop-filter: blur(6px); }
+@media (max-width: 576px) { body.login-page.has-login-bg { background-attachment: scroll; } }
+.brand-bg-thumb { width: 160px; height: 90px; border-radius: .5rem; border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg) center / cover no-repeat; display: flex; align-items: center; justify-content: center; }
+.brand-bg-thumb.is-empty span { color: var(--bs-secondary-color); font-size: .85rem; }
+.bp-login.has-bg { background-size: cover; background-position: center; }
+.bp-login.has-bg .bp-login-logo { background: color-mix(in srgb, var(--bs-body-bg) 88%, transparent); border-radius: .5rem; padding: 4px 12px; }

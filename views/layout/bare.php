@@ -10,8 +10,10 @@
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
+<?php $bgKind = defined('IS_PORTAL') && IS_PORTAL ? 'portal' : 'staff'; $bgUrl = \Align\Branding::backgroundUrl($bgKind); ?>
+<?php if ($bgUrl): ?><style>body.login-page.has-login-bg { --login-bg: url("<?= e($bgUrl) ?>"); --login-dim: <?= \Align\Branding::backgroundDim($bgKind) / 100 ?>; }</style><?php endif; ?>
 </head>
-<body class="login-page app-bare">
+<body class="login-page app-bare<?= $bgUrl ? ' has-login-bg' : '' ?>">
 <?php if (\Align\Staging::on()): ?><div style="position:fixed;top:0;left:0;right:0;background:#ffc107;color:#000;text-align:center;font:bold 13px sans-serif;padding:6px;z-index:9999">Test server: a copy of <?= e(APP_NAME) ?>. Changes here don&#039;t reach real clients or tools.</div><?php endif; ?>
 <div class="login-box">
   <div class="login-logo">

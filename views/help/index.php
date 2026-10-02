@@ -68,6 +68,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.1.1', 'fa-image', 'Sign-in backgrounds', 'Add a background image to your team\'s sign-in page, and a different one for the client portal, under Settings → Branding. Choose how much to darken each so the logo and form stay easy to read.', 'branding', 'admin'],
         ['2.1', 'fa-diagram-project', 'Replacements become projects', 'Client approved a replacement? Tick the devices on Devices &amp; assets (or open one) and choose <b>Make projects</b>: one per device or one for several, in their replacement quarter or one you pick, at the budgeted cost or the quote. Align can create a <b>QUOTE-</b> ticket in ' . psa_name() . ' for each. The devices leave the automatic plan, so nothing counts twice in the budget.', 'lifecycle', 'tech'],
         ['2.0.2', 'fa-box-archive', 'Microsoft 365: old backups kept', 'Users, groups, teams and sites with no new backup for 30 days (people who left, a tenant no longer used) move to a <b>No longer backed up</b> list on the client\'s Backups page. Their old backups are still kept and restorable, but they no longer count as protected or overdue. Change the days under Integrations → Veeam (0 = never).', 'backups', 'tech'],
         ['2.0.1', 'fa-cloud', 'Microsoft 365 backups in two repositories', 'When a tenant moved from a legacy Veeam repository to a new one, each mailbox, group, team and site now counts once, with its newest restore point, so it no longer shows as overdue. Each client\'s Backups page shows the days with a backup for every protected user, group, team and site (a day counts once, however many restore points it has), counted from the first sync after this update.', 'backups', 'tech'],
@@ -143,6 +144,11 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'The choice is yours alone and follows you to every computer you sign in from. Everyone else keeps their own.',
       'Printed reports, PDFs and the client portal always use the light colors, so what clients see doesn\'t change. Your brand color (Settings → Branding) is used in both modes.',
   ], ['Account' => '/account#appearance']) ?>
+  <?= $guide('branding', 'fa-image', 'Brand the app and the sign-in pages', 'admin', [
+      'Open <b>Settings → Branding</b>: the app\'s name, your logo, the brand color and the menu color. The preview on the right shows the app, the sign-in page and the client portal as you change them.',
+      'Under <b>Sign-in page</b>, set the message above the form, and upload a background for your team\'s sign-in and a separate one for the client portal\'s (JPG, PNG or WebP, 1920 × 1080 or larger). Use <b>Darken it</b> so the logo and form stay easy to read on a busy photo; something calm and neutral suits the client side.',
+      'Press <b>Save branding</b>. <b>Remove background</b> brings back the plain page.',
+  ], ['Branding' => '/settings/branding']) ?>
   <?= $guide('contacts', 'fa-address-book', 'Keep contacts in sync with ' . psa_name(), 'viewer', [
       'Each client\'s <b>Contacts</b> page says how its contacts sync: <b>both ways</b>, <b>in from ' . psa_name() . ' only</b> (two-way sync is off) or <b>in Align only</b> (the client isn\'t linked; link it on Client mapping).',
       'Both ways: a contact you add in Align is created in ' . psa_name() . ', and edits to name, title, department, email and phones go there as you save. Archiving or restoring a contact in Align does the same in ' . psa_name() . ' (1.44.1). ' . psa_name() . ' changes come in every few minutes.',

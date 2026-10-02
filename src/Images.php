@@ -78,7 +78,7 @@ final class Images
         $nw = max(1, (int) round($w * $scale));
         $nh = max(1, (int) round($h * $scale));
         $dst = imagecreatetruecolor($nw, $nh);
-        $alpha = $mime !== 'image/jpeg';
+        $alpha = !$jpeg && $mime !== 'image/jpeg'; // $jpeg: always a JPEG (photos such as sign-in backgrounds)
         if ($alpha) {
             imagealphablending($dst, false);
             imagesavealpha($dst, true);
@@ -106,7 +106,7 @@ final class Images
      * Re-encodes an uploaded image as PNG (or JPEG for a JPEG) at most $max pixels a side, so only pixels are kept:
      * no metadata, comments or bytes hidden after the image (1.45, the brand logo). False when it can't be read.
      */
-    public static function reencode(string $tmp, string $mime, string $out, int $max = 2000): bool
+    public static function reencode(string $tmp, string $mime, string $out, int $max = 2000, bool $jpeg = false): bool
     {
         if (!function_exists('imagecreatefromstring') || !($src = @imagecreatefromstring((string) file_get_contents($tmp)))) {
             return false;
@@ -126,7 +126,7 @@ final class Images
         }
         imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
         imagedestroy($src);
-        $ok = $alpha ? imagepng($dst, $out, 6) : imagejpeg($dst, $out, 90);
+        $ok = $alpha ? imagepng($dst, $out, 6) : imagejpeg($dst, $out, $jpeg ? 84 : 90);
         imagedestroy($dst);
         return $ok;
     }
