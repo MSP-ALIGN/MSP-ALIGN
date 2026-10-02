@@ -92,7 +92,10 @@ $company = (string) ($v['company_name'] ?: 'Your company');
             <hr class="my-3">
             <label class="d-block" for="bg_<?= $bk ?>"><?= e($bl) ?> background</label>
             <div class="d-flex flex-wrap align-items-start gap-3">
-              <div class="brand-bg-thumb<?= $bg['url'] ? '' : ' is-empty' ?>"<?= $bg['url'] ? ' style="background-image: url(&quot;' . e($bg['url']) . '&quot;)"' : '' ?>><?= $bg['url'] ? '' : '<span>None</span>' ?></div>
+              <div>
+                <div class="brand-bg-thumb<?= $bg['url'] ? '' : ' is-empty' ?>"<?= $bg['url'] ? ' style="background-image: url(&quot;' . e($bg['url']) . '&quot;)"' : '' ?>><?= $bg['url'] ? '' : '<span>No image</span>' ?></div>
+                <div class="small text-muted text-center mt-1"><?= ['custom' => 'Your image', 'default' => 'Built-in image', 'none' => 'Plain page'][$bg['mode']] ?></div>
+              </div>
               <div class="flex-grow-1" style="min-width: 220px">
                 <input type="file" class="form-control" id="bg_<?= $bk ?>" name="bg_<?= $bk ?>" accept="image/jpeg,image/png,image/webp">
                 <div class="row g-2 align-items-center mt-1">
@@ -101,10 +104,17 @@ $company = (string) ($v['company_name'] ?: 'Your company');
                     <?php foreach (Branding::BG_DIMS as $dv => $dl): ?><option value="<?= $dv ?>" <?= $bg['dim'] === $dv ? 'selected' : '' ?>><?= e($dl) ?></option><?php endforeach; ?>
                   </select></div>
                 </div>
-                <div class="form-text"><?= $bk === 'staff' ? 'Behind your team\'s sign-in.' : 'Behind the sign-in your clients see: something neutral works best.' ?> JPG, PNG or WebP up to 8 MB, 1920 × 1080 or larger. Darkening keeps your logo and name readable on a busy photo.</div>
-                <?php if ($bg['url']): ?>
-                  <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_bg_<?= $bk ?>" formnovalidate data-confirm="Remove the <?= e(strtolower($bl)) ?> background? The plain page comes back."><i class="fas fa-trash me-1"></i>Remove background</button>
-                <?php endif; ?>
+                <div class="form-text"><?= $bk === 'staff' ? 'Behind your team\'s sign-in.' : 'Behind the sign-in your clients see: something neutral works best.' ?> Upload your own to replace the built-in one. JPG, PNG or WebP up to 8 MB, 1920 × 1080 or larger. Darkening keeps your logo and name readable on a busy photo.</div>
+                <div class="d-flex flex-wrap gap-3">
+                  <?php if ($bg['mode'] === 'custom'): ?>
+                    <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_bg_<?= $bk ?>" formnovalidate data-confirm="Remove your <?= e(strtolower($bl)) ?> background? The built-in one comes back."><i class="fas fa-trash me-1"></i>Remove my image</button>
+                  <?php elseif ($bg['mode'] === 'none'): ?>
+                    <button class="btn btn-sm btn-link px-0" name="action" value="default_bg_<?= $bk ?>" formnovalidate><i class="fas fa-image me-1"></i>Use the built-in image</button>
+                  <?php endif; ?>
+                  <?php if ($bg['mode'] !== 'none'): ?>
+                    <button class="btn btn-sm btn-link text-secondary px-0" name="action" value="plain_bg_<?= $bk ?>" formnovalidate<?= $bg['mode'] === 'custom' ? ' data-confirm="Remove your ' . e(strtolower($bl)) . ' background and use a plain page?"' : '' ?>><i class="fas fa-ban me-1"></i>No image</button>
+                  <?php endif; ?>
+                </div>
               </div>
             </div>
           <?php endforeach; ?>

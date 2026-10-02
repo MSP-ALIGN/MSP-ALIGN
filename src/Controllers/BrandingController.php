@@ -27,7 +27,7 @@ final class BrandingController
             ],
             'hasLogo' => Branding::hasLogo(),
             'logoUrl' => Branding::logoUrl(),
-            'backgrounds' => array_map(fn($k) => ['url' => Branding::backgroundUrl($k), 'dim' => Branding::backgroundDim($k)], array_combine(array_keys(Branding::BG_KINDS), array_keys(Branding::BG_KINDS))),
+            'backgrounds' => array_map(fn($k) => ['url' => Branding::backgroundUrl($k), 'dim' => Branding::backgroundDim($k), 'mode' => Branding::backgroundMode($k)], array_combine(array_keys(Branding::BG_KINDS), array_keys(Branding::BG_KINDS))),
         ]);
     }
 
@@ -41,10 +41,10 @@ final class BrandingController
             flash('success', 'Logo removed. The default icon is back.');
             redirect('/settings/branding');
         }
-        if (preg_match('/^remove_bg_(staff|portal)$/', $action, $m)) {
-            Branding::removeBackground($m[1]);
-            Audit::log('branding.background_removed', Branding::BG_KINDS[$m[1]]);
-            flash('success', Branding::BG_KINDS[$m[1]] . ' background removed.');
+        if (preg_match('/^(remove|plain|default)_bg_(staff|portal)$/', $action, $m)) {
+            Branding::removeBackground($m[2], $m[1] === 'plain');
+            Audit::log('branding.background_' . ($m[1] === 'plain' ? 'none' : 'default'), Branding::BG_KINDS[$m[2]]);
+            flash('success', Branding::BG_KINDS[$m[2]] . ($m[1] === 'plain' ? ': no background image now.' : ': back to the built-in background.'));
             redirect('/settings/branding');
         }
         if ($action === 'reset') {

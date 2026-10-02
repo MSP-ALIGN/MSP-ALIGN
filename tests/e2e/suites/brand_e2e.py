@@ -27,13 +27,19 @@ from PIL import Image
 def img(w, h, color, fmt="JPEG"):
     b = io.BytesIO(); Image.new("RGB", (w, h), color).save(b, fmt); return b.getvalue()
 up = lambda files, data=None: admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "save", **(data or {})}, files=files)
-ok('background-image' not in requests.get(B + "/login").text and "has-login-bg" not in requests.get(B + "/login").text, "no background: the plain sign-in page")
+q("delete from settings where name in ('brand_bg_staff','brand_bg_portal','brand_bg_staff_dim','brand_bg_portal_dim')")
+t = requests.get(B + "/login").text
+ok(re.search(r'--login-bg: url\("/assets/login-staff\.jpg\?v=[^"]+"\); --login-dim: 0.25', t) and "has-login-bg" in t, "out of the box: the built-in staff background, darkened a little")
+ok(re.search(r'--login-bg: url\("/assets/login-portal\.jpg\?v=[^"]+"\); --login-dim: 0;', requests.get(B + "/portal/login").text), "and the built-in portal one, not darkened")
+ok(requests.get(B + "/assets/login-staff.jpg").headers.get("Content-Type", "").startswith("image/jpeg") and requests.get(B + "/assets/login-portal.jpg").status_code == 200, "both built-in images are there")
+t = admin.get(B + "/settings/branding").text
+ok(t.count("Built-in image") == 2 and 'value="plain_bg_staff"' in t and 'value="remove_bg_staff"' not in t, "Branding says they're the built-in images, with No image")
 r = up({"bg_staff": ("office.jpg", img(1920, 1080, (20, 60, 120)), "image/jpeg")}, {"bg_staff_dim": "45"})
 ok("saved" in flash(r.text).lower(), "staff background uploaded: " + flash(r.text))
 t = requests.get(B + "/login").text
 m = re.search(r'--login-bg: url\("(/branding/background/staff\?v=[a-f0-9]{8})"\); --login-dim: 0.45', t)
 ok(m and "has-login-bg" in t, "the staff sign-in page shows it, darkened 45%")
-ok("has-login-bg" not in requests.get(B + "/portal/login").text, "the client portal sign-in doesn't: it has its own")
+ok("/branding/background/staff" not in requests.get(B + "/portal/login").text and "/assets/login-portal.jpg" in requests.get(B + "/portal/login").text, "the client portal sign-in doesn't: it keeps its own (built-in) one")
 r = requests.get(B + m.group(1)) if m else None
 ok(r is not None and r.status_code == 200 and r.headers.get("Content-Type") == "image/jpeg" and r.headers.get("X-Content-Type-Options") == "nosniff" and r.content[:2] == b"\xff\xd8",
    "served before sign-in, as a JPEG, with nosniff")
@@ -55,9 +61,18 @@ ok(requests.get(B + "/branding/background/other").status_code == 404 and request
 t = admin.get(B + "/settings/branding").text
 ok(t.count("brand-bg-thumb") == 2 and 'value="remove_bg_staff"' in t and 'value="remove_bg_portal"' in t and "bp-login has-bg" in t, "Branding shows both, with Remove, and the preview uses the staff one")
 r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "remove_bg_staff"})
-ok("removed" in flash(r.text) and "has-login-bg" not in requests.get(B + "/login").text and "has-login-bg" in requests.get(B + "/portal/login").text, "removing the staff one leaves the portal's")
-admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "remove_bg_portal"})
-ok(not q("select value from settings where name in ('brand_bg_staff','brand_bg_portal') and value is not null"), "both removed")
+ok("built-in" in flash(r.text) and "/assets/login-staff.jpg" in requests.get(B + "/login").text and "/branding/background/portal" in requests.get(B + "/portal/login").text,
+   "removing your staff image brings back the built-in one, and leaves the portal's: " + flash(r.text))
+r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "plain_bg_portal"})
+ok("has-login-bg" not in requests.get(B + "/portal/login").text and q("select value from settings where name = 'brand_bg_portal'")[0]["value"] == "none",
+   "No image: the plain portal page (the uploaded one is removed)")
+t = admin.get(B + "/settings/branding").text
+ok("Plain page" in t and 'value="default_bg_portal"' in t, "Branding offers the built-in image again")
+admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "default_bg_portal"})
+ok("/assets/login-portal.jpg" in requests.get(B + "/portal/login").text, "Use the built-in image: back")
+admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "plain_bg_staff"})
+ok("has-login-bg" not in requests.get(B + "/login").text, "the staff page can be plain too")
+q("delete from settings where name in ('brand_bg_staff','brand_bg_portal')")
 viewer = login("viewer@example.com", "ViewerPassword123!")
 ok(viewer.get(B + "/settings/branding").status_code == 403, "admins only")
 q("delete from settings where name in ('brand_name','brand_primary','brand_sidebar','brand_logo_only','brand_login_message','brand_bg_staff_dim','brand_bg_portal_dim')")

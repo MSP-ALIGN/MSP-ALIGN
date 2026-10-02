@@ -91,17 +91,36 @@ final class Branding
         return is_file($path) ? $path : null;
     }
 
-    /** URL of the background (cache-busted), or null when there is none. */
+    /**
+     * Which background a sign-in page shows: 'custom' (an uploaded image), 'default' (the built-in one shipped in
+     * public/assets/login-<kind>.jpg, until someone chooses otherwise) or 'none' (the plain page).
+     */
+    public static function backgroundMode(string $kind): string
+    {
+        if (self::backgroundFile($kind)) {
+            return 'custom';
+        }
+        return Settings::get("brand_bg_$kind") === 'none' ? 'none' : 'default';
+    }
+
+    /** URL of the background (cache-busted), or null for the plain page. */
     public static function backgroundUrl(string $kind): ?string
     {
-        $f = self::backgroundFile($kind);
-        return $f ? "/branding/background/$kind?v=" . substr(basename($f), strlen("bg-$kind-"), 8) : null;
+        if (!isset(self::BG_KINDS[$kind])) {
+            return null;
+        }
+        return match (self::backgroundMode($kind)) {
+            'custom' => "/branding/background/$kind?v=" . substr(basename((string) self::backgroundFile($kind)), strlen("bg-$kind-"), 8),
+            'default' => "/assets/login-$kind.jpg?v=" . (defined('APP_VERSION') ? APP_VERSION : '1'),
+            default => null,
+        };
     }
 
     public static function backgroundDim(string $kind): int
     {
         $d = Settings::get("brand_bg_{$kind}_dim");
-        return $d !== null && isset(self::BG_DIMS[(int) $d]) ? (int) $d : 25;
+        // the built-in portal image is light and calm: not darkened unless someone chooses to
+        return $d !== null && isset(self::BG_DIMS[(int) $d]) ? (int) $d : ($kind === 'portal' ? 0 : 25);
     }
 
     /** Stores an uploaded sign-in background as a JPEG (re-encoded, at most 2560 px); returns an error or null. */
@@ -151,12 +170,13 @@ final class Branding
         return null;
     }
 
-    public static function removeBackground(string $kind): void
+    /** Removes an uploaded background: the built-in one comes back ($plain: the plain page instead). */
+    public static function removeBackground(string $kind, bool $plain = false): void
     {
         if ($f = self::backgroundFile($kind)) {
             @unlink($f);
         }
-        Settings::set("brand_bg_$kind", null);
+        Settings::set("brand_bg_$kind", $plain ? 'none' : null);
     }
 
     public static function loginMessage(): string
