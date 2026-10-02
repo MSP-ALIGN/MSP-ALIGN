@@ -22,10 +22,13 @@ r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/b
 t = admin.get(B + "/settings/branding").text
 ok('value="dark" checked' in t and "--bp-color: #007bff" in t, "reset: back to the default blue and dark menu")
 # ---- 2.1.1: sign-in backgrounds, one for staff and one for the client portal
-import io
-from PIL import Image
-def img(w, h, color, fmt="JPEG"):
-    b = io.BytesIO(); Image.new("RGB", (w, h), color).save(b, fmt); return b.getvalue()
+import subprocess
+def img(w, h, color, fmt="JPEG", noise=False):
+    """A test image made with PHP's GD (which the app needs anyway), so the tests don't need Pillow."""
+    php = f"""$i = imagecreatetruecolor({w}, {h}); imagefill($i, 0, 0, imagecolorallocate($i, {color[0]}, {color[1]}, {color[2]}));
+        if ({'true' if noise else 'false'}) for ($y = 0; $y < {h}; $y++) for ($x = 0; $x < {w}; $x++) imagesetpixel($i, $x, $y, mt_rand(0, 0xFFFFFF));
+        {'imagepng($i);' if fmt == 'PNG' else f'imagejpeg($i, null, {82 if noise else 95});'}"""
+    return subprocess.run(["php", "-r", php], capture_output=True, check=True).stdout
 up = lambda files, data=None: admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "save", **(data or {})}, files=files)
 q("delete from settings where name in ('brand_bg_staff','brand_bg_portal','brand_bg_staff_dim','brand_bg_portal_dim')")
 t = requests.get(B + "/login").text
@@ -49,8 +52,7 @@ ok(re.search(r'--login-bg: url\("/branding/background/portal\?v=[a-f0-9]{8}"\); 
 f = q("select value from settings where name = 'brand_bg_portal'")[0]["value"]
 ok(re.fullmatch(r"bg-portal-[a-f0-9]{16}\.jpg", f or ""), "stored re-encoded as a JPEG: " + str(f))
 ok("has-login-bg" in requests.get(B + "/portal/forgot").text, "the portal's other sign-in pages use it too")
-import os
-noise = io.BytesIO(); Image.frombytes("RGB", (2400, 1600), os.urandom(2400 * 1600 * 3)).save(noise, "JPEG", quality=95); big = noise.getvalue()
+big = img(2400, 1600, (0, 0, 0), noise=True)
 r = up({"bg_staff": ("big.jpg", big, "image/jpeg")})
 ok(len(big) > 2 * 1024 * 1024 and "saved" in flash(r.text).lower(), "a background over 2 MB is accepted (%.1f MB; the logo's 2 MB limit doesn't apply): %s" % (len(big) / 1048576, flash(r.text)))
 r = up({"bg_staff": ("tiny.jpg", img(300, 200, (1, 2, 3)), "image/jpeg")})
