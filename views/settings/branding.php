@@ -4,7 +4,7 @@ use Align\Branding;
 /**
  * Branding (1.45.2): the 1.43 look. Name and logo, the sign-in page, the brand color and the sidebar on the left;
  * on the right a live preview of the app, the sign-in page and the client portal as they look now, in light or dark.
- * @var array $v; bool $hasLogo; string $logoUrl
+ * @var array $v; bool $hasLogo; string $logoUrl; array $backgrounds [staff|portal => [url, dim]] (2.1.1)
  */
 $swatches = ['#007bff' => 'Default blue', '#2f7a55' => 'Mountain green', '#1d4e89' => 'Navy', '#0f766e' => 'Teal', '#6f42c1' => 'Purple', '#b3261e' => 'Red', '#e67e22' => 'Orange', '#343a40' => 'Charcoal'];
 $company = (string) ($v['company_name'] ?: 'Your company');
@@ -13,7 +13,6 @@ $company = (string) ($v['company_name'] ?: 'Your company');
 
 <form method="post" action="/settings/branding" enctype="multipart/form-data" id="branding-form" data-unsaved>
   <?= csrf_field() ?>
-  <input type="hidden" name="MAX_FILE_SIZE" value="<?= Branding::MAX_BYTES ?>">
   <div class="row">
     <div class="col-xl-6">
       <div class="card card-dark">
@@ -89,12 +88,42 @@ $company = (string) ($v['company_name'] ?: 'Your company');
           <label for="brand_login_message">Message above the form</label>
           <input name="brand_login_message" id="brand_login_message" class="form-control" maxlength="200" value="<?= e($v['brand_login_message']) ?>" placeholder="Sign in to continue" data-preview="message">
           <div class="form-text">For staff. Client portal users see their own sign-in page with your logo.</div>
+          <?php foreach (Branding::BG_KINDS as $bk => $bl): $bg = $backgrounds[$bk]; ?>
+            <hr class="my-3">
+            <label class="d-block" for="bg_<?= $bk ?>"><?= e($bl) ?> background</label>
+            <div class="d-flex flex-wrap align-items-start gap-3">
+              <div>
+                <div class="brand-bg-thumb<?= $bg['url'] ? '' : ' is-empty' ?>"<?= $bg['url'] ? ' style="background-image: url(&quot;' . e($bg['url']) . '&quot;)"' : '' ?>><?= $bg['url'] ? '' : '<span>No image</span>' ?></div>
+                <div class="small text-muted text-center mt-1"><?= ['custom' => 'Your image', 'default' => 'Built-in image', 'none' => 'Plain page'][$bg['mode']] ?></div>
+              </div>
+              <div class="flex-grow-1" style="min-width: 220px">
+                <input type="file" class="form-control" id="bg_<?= $bk ?>" name="bg_<?= $bk ?>" accept="image/jpeg,image/png,image/webp">
+                <div class="row g-2 align-items-center mt-1">
+                  <div class="col-auto"><label class="small mb-0 fw-normal" for="bg_<?= $bk ?>_dim">Darken it</label></div>
+                  <div class="col-auto"><select class="form-select form-select-sm" id="bg_<?= $bk ?>_dim" name="bg_<?= $bk ?>_dim">
+                    <?php foreach (Branding::BG_DIMS as $dv => $dl): ?><option value="<?= $dv ?>" <?= $bg['dim'] === $dv ? 'selected' : '' ?>><?= e($dl) ?></option><?php endforeach; ?>
+                  </select></div>
+                </div>
+                <div class="form-text"><?= $bk === 'staff' ? 'Behind your team\'s sign-in.' : 'Behind the sign-in your clients see: something neutral works best.' ?> Upload your own to replace the built-in one. JPG, PNG or WebP up to 8 MB, 1920 × 1080 or larger. Darkening keeps your logo and name readable on a busy photo.</div>
+                <div class="d-flex flex-wrap gap-3">
+                  <?php if ($bg['mode'] === 'custom'): ?>
+                    <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_bg_<?= $bk ?>" formnovalidate data-confirm="Remove your <?= e(strtolower($bl)) ?> background? The built-in one comes back."><i class="fas fa-trash me-1"></i>Remove my image</button>
+                  <?php elseif ($bg['mode'] === 'none'): ?>
+                    <button class="btn btn-sm btn-link px-0" name="action" value="default_bg_<?= $bk ?>" formnovalidate><i class="fas fa-image me-1"></i>Use the built-in image</button>
+                  <?php endif; ?>
+                  <?php if ($bg['mode'] !== 'none'): ?>
+                    <button class="btn btn-sm btn-link text-secondary px-0" name="action" value="plain_bg_<?= $bk ?>" formnovalidate<?= $bg['mode'] === 'custom' ? ' data-confirm="Remove your ' . e(strtolower($bl)) . ' background and use a plain page?"' : '' ?>><i class="fas fa-ban me-1"></i>No image</button>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
         </div>
       </div>
 
       <div class="d-flex flex-wrap gap-2 mb-3">
         <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save branding</button>
-        <button class="btn btn-default" name="action" value="reset" formnovalidate data-confirm="Reset the name and colors to the defaults? Your logo is kept.">Reset to defaults</button>
+        <button class="btn btn-default" name="action" value="reset" formnovalidate data-confirm="Reset the name and colors to the defaults? Your logo and sign-in backgrounds are kept.">Reset to defaults</button>
       </div>
     </div>
 
@@ -145,7 +174,8 @@ $company = (string) ($v['company_name'] ?: 'Your company');
                 </div>
               </div>
               <div class="tab-pane fade" id="bp-tab-login" role="tabpanel">
-                <div class="bp-login">
+                <?php $sb = $backgrounds['staff']; ?>
+                <div class="bp-login<?= $sb['url'] ? ' has-bg' : '' ?>"<?= $sb['url'] ? ' style="background-image: linear-gradient(rgba(0,0,0,' . ($sb['dim'] / 100) . '), rgba(0,0,0,' . ($sb['dim'] / 100) . ')), url(&quot;' . e($sb['url']) . '&quot;)"' : '' ?>>
                   <div class="bp-login-logo"><img src="<?= e($logoUrl) ?>" alt="" class="bp-logo"><b class="bp-name<?= $v['brand_logo_only'] ? ' d-none' : '' ?>"><?= e($v['brand_name']) ?></b></div>
                   <div class="bp-login-card">
                     <div class="bp-login-msg" id="bp-message"><?= e($v['brand_login_message'] ?: 'Sign in to continue') ?></div>

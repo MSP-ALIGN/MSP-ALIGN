@@ -72,6 +72,113 @@ final class Branding
         return Settings::get('brand_sidebar') === 'light' ? 'light' : 'dark';
     }
 
+    /** Sign-in page backgrounds (2.1.1): one for staff, one for the client portal. */
+    public const BG_KINDS = ['staff' => 'Staff sign-in', 'portal' => 'Client portal sign-in'];
+    public const BG_MAX_BYTES = 8 * 1024 * 1024;
+    /** How much the background is darkened behind the sign-in box, in percent. */
+    public const BG_DIMS = [0 => 'None', 25 => 'A little', 45 => 'Medium', 65 => 'A lot'];
+
+    public static function backgroundFile(string $kind): ?string
+    {
+        if (!isset(self::BG_KINDS[$kind])) {
+            return null;
+        }
+        $f = Settings::get("brand_bg_$kind");
+        if (!$f || !preg_match('/^bg-' . $kind . '-[a-f0-9]{16}\.jpg\z/', $f)) {
+            return null;
+        }
+        $path = self::uploadDir() . '/' . $f;
+        return is_file($path) ? $path : null;
+    }
+
+    /**
+     * Which background a sign-in page shows: 'custom' (an uploaded image), 'default' (the built-in one shipped in
+     * public/assets/login-<kind>.jpg, until someone chooses otherwise) or 'none' (the plain page).
+     */
+    public static function backgroundMode(string $kind): string
+    {
+        if (self::backgroundFile($kind)) {
+            return 'custom';
+        }
+        return Settings::get("brand_bg_$kind") === 'none' ? 'none' : 'default';
+    }
+
+    /** URL of the background (cache-busted), or null for the plain page. */
+    public static function backgroundUrl(string $kind): ?string
+    {
+        if (!isset(self::BG_KINDS[$kind])) {
+            return null;
+        }
+        return match (self::backgroundMode($kind)) {
+            'custom' => "/branding/background/$kind?v=" . substr(basename((string) self::backgroundFile($kind)), strlen("bg-$kind-"), 8),
+            'default' => "/assets/login-$kind.jpg?v=" . (defined('APP_VERSION') ? APP_VERSION : '1'),
+            default => null,
+        };
+    }
+
+    public static function backgroundDim(string $kind): int
+    {
+        $d = Settings::get("brand_bg_{$kind}_dim");
+        // the built-in portal image is light and calm: not darkened unless someone chooses to
+        return $d !== null && isset(self::BG_DIMS[(int) $d]) ? (int) $d : ($kind === 'portal' ? 0 : 25);
+    }
+
+    /** Stores an uploaded sign-in background as a JPEG (re-encoded, at most 2560 px); returns an error or null. */
+    public static function saveBackground(string $kind, array $file): ?string
+    {
+        if (!isset(self::BG_KINDS[$kind])) {
+            return 'Unknown background.';
+        }
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return match ($file['error'] ?? 0) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'That image is too large (8 MB max).',
+                UPLOAD_ERR_NO_FILE => 'Choose an image to upload.',
+                default => 'Upload failed. Try again.',
+            };
+        }
+        if ($file['size'] > self::BG_MAX_BYTES) {
+            return 'That image is too large (8 MB max).';
+        }
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']) ?: '';
+        $info = @getimagesize($file['tmp_name']);
+        if (!in_array($mime, ['image/png', 'image/jpeg', 'image/webp'], true) || !$info) {
+            return 'Use a JPG, PNG or WebP image for the background.';
+        }
+        [$w, $h] = $info;
+        if ($w < 640 || $h < 400) {
+            return 'Use an image at least 640 × 400 pixels (1920 × 1080 or larger looks best).';
+        }
+        if ($w > 8000 || $h > 8000 || $w * $h > 40_000_000) {
+            return 'That image is too big to process (at most 8000 pixels on a side): save a smaller copy, about 2560 pixels wide.';
+        }
+        $dir = self::uploadDir();
+        if (!is_dir($dir) && !@mkdir($dir, 0750, true)) {
+            return "Can't create the upload folder ($dir). Run sudo msp-align-update to fix permissions.";
+        }
+        // Public (before sign-in), so re-encoded: only its pixels go out, no location or camera details
+        $name = "bg-$kind-" . bin2hex(random_bytes(8)) . '.jpg';
+        if (!\Align\Images::reencode($file['tmp_name'], $mime, "$dir/$name", 2560, true)) {
+            @unlink("$dir/$name");
+            return 'That image couldn\'t be read or saved. Try saving it again as JPG, and check that the upload folder is writable.';
+        }
+        @chmod("$dir/$name", 0640);
+        $old = self::backgroundFile($kind);
+        Settings::set("brand_bg_$kind", $name);
+        if ($old && basename($old) !== $name) {
+            @unlink($old);
+        }
+        return null;
+    }
+
+    /** Removes an uploaded background: the built-in one comes back ($plain: the plain page instead). */
+    public static function removeBackground(string $kind, bool $plain = false): void
+    {
+        if ($f = self::backgroundFile($kind)) {
+            @unlink($f);
+        }
+        Settings::set("brand_bg_$kind", $plain ? 'none' : null);
+    }
+
     public static function loginMessage(): string
     {
         return (string) (Settings::get('brand_login_message') ?: 'Sign in to continue');

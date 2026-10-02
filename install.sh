@@ -508,6 +508,14 @@ Header always unset X-Powered-By
     </IfModule>
 </Location>
 
+# Settings -> Branding: a logo and two sign-in backgrounds can come in one save (2 + 8 + 8 MB)
+<Location "/settings/branding">
+    LimitRequestBody 31457280
+    <IfModule php_module>
+        php_value post_max_size 24M
+    </IfModule>
+</Location>
+
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
 <Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"
