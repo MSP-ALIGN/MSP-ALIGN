@@ -1,4 +1,6 @@
-<?= \Align\View::fetch('settings/_tabs', ['tab' => 'os']) ?>
+<?php
+/** Settings → OS support dates (admins). @var array $rows the os_support table. Every value is escaped; ids are cast to int. */
+?><?= \Align\View::fetch('settings/_tabs', ['tab' => 'os']) ?>
 <form method="post" action="/settings/os" data-unsaved data-confirm-rules="<?= e(json_encode([
     ['count' => '[name$="[delete]"]:checked', 'title' => 'Delete {n} OS rows?', 'danger' => true, 'ok' => 'Delete and save',
      'text' => 'Devices that matched them get their support status from the remaining rows, or show as unknown.'],

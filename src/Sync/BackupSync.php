@@ -125,22 +125,31 @@ final class BackupSync
         }
 
         // Protected machines and which jobs back them up
+        // Only the kinds whose list was readable are pruned (2.2.1): an unreadable list keeps what was there
         $wl = $snap['workloads'];
-        DB::transaction(function () use ($wl, $now, $key) {
+        $kinds = array_values(array_intersect($snap['workload_lists'] ?? ['vm', 'computer'], ['vm', 'computer']));
+        DB::transaction(function () use ($wl, $now, $key, $kinds) {
             foreach ($wl as $r) {
                 $row = $r;
                 unset($row['job_uids']);
                 DB::upsert('backup_workloads', ['uid' => $row['uid'], 'provider' => $key] + $row + ['device_id' => null, 'synced_at' => $now], ['uid']);
             }
-            DB::run('DELETE FROM backup_workloads WHERE provider = ? AND synced_at < ?', [$key, $now]);
-            DB::run('DELETE x FROM backup_workload_jobs x LEFT JOIN backup_workloads w ON w.uid = x.workload_uid WHERE w.uid IS NULL OR w.provider = ?', [$key]);
+            if ($kinds) {
+                $kIn = implode(',', array_fill(0, count($kinds), '?'));
+                DB::run("DELETE FROM backup_workloads WHERE provider = ? AND synced_at < ? AND kind IN ($kIn)", [$key, $now, ...$kinds]);
+                DB::run("DELETE x FROM backup_workload_jobs x LEFT JOIN backup_workloads w ON w.uid = x.workload_uid WHERE w.uid IS NULL OR (w.provider = ? AND w.kind IN ($kIn))", [$key, ...$kinds]);
+            } else {
+                DB::run('DELETE x FROM backup_workload_jobs x LEFT JOIN backup_workloads w ON w.uid = x.workload_uid WHERE w.uid IS NULL');
+            }
             foreach ($wl as $r) {
                 foreach ($r['job_uids'] ?? [] as $ju) {
                     DB::run('INSERT IGNORE INTO backup_workload_jobs (workload_uid, job_uid) VALUES (?, ?)', [mb_substr((string) $r['uid'], 0, 100), mb_substr((string) $ju, 0, 64)]);
                 }
             }
         });
-        $parts[] = count($wl) . ' protected machines';
+        $missing = array_diff(['vm', 'computer'], $kinds);
+        $parts[] = count($wl) . ' protected machines' . ($missing ? ' (' . implode(' and ', array_map(fn($k) => $k === 'vm' ? 'virtual machine' : 'computer', $missing))
+            . ' list unavailable; kept the ones from the last sync)' : '');
         $a = self::assign();
         $parts[] = $a['devices'] . ' matched to devices' . ($a['hosted'] ? ', ' . $a['hosted'] . ' hosted machines sorted into clients' : '') . ($a['unsorted'] ? ', ' . $a['unsorted'] . ' hosted machines not matched to a client' : '');
 

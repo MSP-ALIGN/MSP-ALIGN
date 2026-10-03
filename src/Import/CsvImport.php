@@ -13,11 +13,19 @@ use Align\DB;
  * Clients match by name (not case-sensitive); an existing client only gets the columns the file fills in.
  * Contacts match within their client by email, else by name. Details that come from the PSA are never
  * changed here: a PSA client only takes industry and notes, and PSA contacts are left alone.
+ *
+ * Security assumptions: the caller (ImportController) checks the tech role and keeps the plan on the server, so
+ * apply() trusts a plan's field names (they come from planClients/planContacts, never from the request). The file
+ * is untrusted data: its size, rows and columns are limited, every value is cut to its column size with control
+ * characters removed, and nothing in it is ever run or used as SQL. Values that start like a spreadsheet formula
+ * are stored as typed; every CSV export neutralizes them (Security::csvCell).
  */
 final class CsvImport
 {
     public const MAX_BYTES = 5 * 1024 * 1024;
     public const MAX_ROWS = 5000;
+    /** More columns than any real export has; a row of millions of commas would otherwise use up PHP's memory. */
+    public const MAX_COLUMNS = 1000; // wide CRM/PSA exports: unknown columns are ignored
 
     /** field => [label, header names that mean it (lower case, spaces for _ - .)] */
     public const CLIENT_COLUMNS = [
@@ -60,7 +68,7 @@ final class CsvImport
     /** Fields a client from the PSA still takes from a file (the PSA owns the rest). */
     private const PSA_CLIENT_FIELDS = ['industry', 'notes'];
 
-    /** Example rows for the template downloads. */
+    /** Example rows for the template downloads (made-up data). */
     public const TEMPLATES = [
         'clients' => [
             ['Name', 'Industry', 'Website', 'Main phone', 'Address', 'City', 'State', 'ZIP', 'Primary contact', 'Contact email', 'Notes'],
@@ -72,12 +80,20 @@ final class CsvImport
         ],
     ];
 
-    /** Reads a CSV file: [header row, data rows]. Comma, semicolon or tab separated; UTF-8 (a BOM is fine) or Windows-1252. */
+    /**
+     * Reads a CSV file: [header row, data rows]. Comma, semicolon or tab separated; UTF-8 (a BOM is fine), UTF-16
+     * with a BOM (Excel's "Unicode text") or Windows-1252. Throws RuntimeException with a message for people when the
+     * file is too large, has too many rows or columns, or is empty. $path is the upload's temporary file.
+     */
     public static function read(string $path): array
     {
         $raw = (string) file_get_contents($path, false, null, 0, self::MAX_BYTES + 1);
         if (strlen($raw) > self::MAX_BYTES) {
             throw new \RuntimeException('The file is larger than 5 MB.');
+        }
+        // 2.2.1: UTF-16 passed the UTF-8 check below (its NUL bytes are valid UTF-8), so no column was recognized
+        if (str_starts_with($raw, "\xFF\xFE") || str_starts_with($raw, "\xFE\xFF")) {
+            $raw = mb_convert_encoding(substr($raw, 2), 'UTF-8', $raw[0] === "\xFF" ? 'UTF-16LE' : 'UTF-16BE');
         }
         $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
         if (!mb_check_encoding($raw, 'UTF-8')) {
@@ -87,11 +103,21 @@ final class CsvImport
         $counts = [',' => substr_count($first, ','), ';' => substr_count($first, ';'), "\t" => substr_count($first, "\t")];
         arsort($counts);
         $sep = max($counts) > 0 ? (string) array_key_first($counts) : ',';
+        // 2.2.1: fgetcsv() builds a whole row before it can be checked, and one row of millions of separators used up
+        // PHP's memory. No file within the row and column limits has more separators than this (quoted ones included
+        // only make it rarer), so it bounds the largest row fgetcsv() can build to well under the memory limit.
+        if (substr_count($raw, $sep) > 2_000_000) { // a fixed cap on separators, before any row is split into memory
+            throw new \RuntimeException('The file has more than ' . self::MAX_COLUMNS . ' columns in a row. Check the file is a CSV file.');
+        }
         $h = fopen('php://temp', 'r+');
         fwrite($h, $raw);
         rewind($h);
         $rows = [];
         while (($r = fgetcsv($h, 0, $sep, '"', '')) !== false) {
+            if (count($r) > self::MAX_COLUMNS) { // before the copies below, which would each double the memory used
+                fclose($h);
+                throw new \RuntimeException('A row has more than ' . self::MAX_COLUMNS . ' columns. Check the file is a CSV file.');
+            }
             if ($r === [null] || implode('', array_map('trim', array_map('strval', $r))) === '') {
                 continue; // blank line
             }
@@ -107,7 +133,7 @@ final class CsvImport
         return [array_shift($rows), $rows];
     }
 
-    /** Which column holds which field: [field => column index], plus the headers nothing used. */
+    /** Which column holds which field: [field => column index], plus the headers nothing used (the first column for a field wins). */
     public static function mapHeaders(array $headers, array $columns): array
     {
         $norm = fn(string $h) => trim(preg_replace('/\s+/', ' ', preg_replace('/[_\-.\/]+/', ' ', strtolower($h)) ?? '') ?? '');
@@ -131,14 +157,25 @@ final class CsvImport
         return [$map, $unused];
     }
 
+    /** 1 for a yes-like cell (yes, y, true, 1, x, ✓, on), else 0. */
     private static function yes(string $v): int
     {
         return in_array(strtolower(trim($v)), ['1', 'y', 'yes', 'true', 'x', '✓', 'on'], true) ? 1 : 0;
     }
 
-    private static function cell(array $row, array $map, string $field, int $max = 190): ?string
+    /**
+     * A field's value from a row: trimmed, cut to $max characters, or null when empty or not in the file.
+     * 2.2.1: control characters are removed (NUL and the like reached client names), and line breaks and tabs
+     * become spaces unless the field holds several lines ($multiline: notes, the street address).
+     */
+    private static function cell(array $row, array $map, string $field, int $max = 190, bool $multiline = false): ?string
     {
-        $v = isset($map[$field]) ? trim((string) ($row[$map[$field]] ?? '')) : '';
+        $v = isset($map[$field]) ? (string) ($row[$map[$field]] ?? '') : '';
+        $v = (string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $v); // UTF-8 never uses these bytes inside a character
+        if (!$multiline) {
+            $v = (string) preg_replace('/[\t\r\n]+/', ' ', $v);
+        }
+        $v = trim($v);
         return $v === '' ? null : mb_substr($v, 0, $max);
     }
 
@@ -181,7 +218,7 @@ final class CsvImport
                 }
             }
             foreach (['website' => 255, 'main_phone' => 60, 'contact_name' => 190, 'contact_title' => 190, 'contact_phone' => 60, 'contact_mobile' => 60, 'notes' => 10000] as $f => $max) {
-                if (($x = self::cell($r, $map, $f, $max)) !== null) {
+                if (($x = self::cell($r, $map, $f, $max, $f === 'notes')) !== null) {
                     $v[$f] = $x;
                 }
             }
@@ -192,7 +229,7 @@ final class CsvImport
                     $notes[] = "\"$em\" isn't an email address, left out";
                 }
             }
-            $street = self::cell($r, $map, 'address', 500);
+            $street = self::cell($r, $map, 'address', 500, true);
             $ex = $existing[$key] ?? null;
             $city = self::cell($r, $map, 'city');
             $st = trim((self::cell($r, $map, 'state') ?? '') . ' ' . (self::cell($r, $map, 'zip') ?? ''));
@@ -257,7 +294,7 @@ final class CsvImport
             $v = ['name' => mb_substr($name, 0, 190)];
             $notes = [];
             foreach (['title' => 190, 'department' => 190, 'phone' => 60, 'extension' => 20, 'mobile' => 60, 'align_notes' => 10000] as $f => $max) {
-                if (($x = self::cell($r, $map, $f, $max)) !== null) {
+                if (($x = self::cell($r, $map, $f, $max, $f === 'align_notes')) !== null) {
                     $v[$f] = $x;
                 }
             }
@@ -294,18 +331,27 @@ final class CsvImport
         return $plan;
     }
 
-    /** An active contact at the client with that email, else one with that name and no email. */
+    /** An active contact at the client with that email, else one with that name and no email (the collation ignores case). */
     private static function findContact(int $clientId, ?string $email, string $name): ?array
     {
         return ($email !== null ? DB::one('SELECT id, source FROM contacts WHERE client_id = ? AND email = ? AND archived_at IS NULL LIMIT 1', [$clientId, $email]) : null)
             ?? DB::one('SELECT id, source FROM contacts WHERE client_id = ? AND name = ? AND (email IS NULL OR email = \'\' OR ? IS NULL) AND archived_at IS NULL LIMIT 1', [$clientId, $name, $email]);
     }
 
-    /** Writes a checked plan. Returns [added, updated]. Rows are checked again, in case things changed since the file was checked. */
+    /**
+     * Writes a checked plan in one transaction. Returns [added, updated, names of the records written] (the names
+     * go into the audit entry, so a changed contact can be found and put back; 2.2.1). Rows are checked again, in case things
+     * changed since the file was checked: a client added meanwhile isn't added twice, a client linked to the PSA
+     * meanwhile only takes industry and notes, and (2.2.1) a contact whose client was deleted meanwhile is skipped
+     * instead of failing the whole import. $plan comes from planClients/planContacts via the server-side stash.
+     */
     public static function apply(string $kind, array $plan, ?int $userId): array
     {
         $added = $updated = 0;
-        DB::transaction(function () use ($kind, $plan, $userId, &$added, &$updated) {
+        $names = [];
+        $label = fn(array $p) => $kind === 'clients' ? (string) $p['name'] : ($p['client'] ?? '') . ': ' . $p['name'];
+        DB::transaction(function () use ($kind, $plan, $userId, &$added, &$updated, &$names, $label) {
+            $clientIds = $kind === 'contacts' ? array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients'), 'id'))) : [];
             foreach ($plan as $p) {
                 $v = $p['values'];
                 if ($kind === 'clients') {
@@ -315,6 +361,7 @@ final class CsvImport
                         }
                         DB::insert('clients', $v + ['name' => $p['name'], 'source' => 'manual']);
                         $added++;
+                        $names[] = '+' . $label($p);
                     } elseif ($p['action'] === 'update' && $v) {
                         if (DB::value('SELECT source FROM clients WHERE id = ?', [$p['id']]) === 'psa') {
                             $v = array_intersect_key($v, array_flip(self::PSA_CLIENT_FIELDS)); // linked to the PSA since the check
@@ -322,21 +369,29 @@ final class CsvImport
                         if ($v) {
                             DB::run('UPDATE clients SET ' . implode(', ', array_map(fn($f) => "`$f` = ?", array_keys($v))) . ' WHERE id = ?', [...array_values($v), $p['id']]);
                             $updated++;
+                            $names[] = $label($p) . ' (' . implode(', ', array_keys($v)) . ')';
                         }
                     }
                 } else {
+                    if (in_array($p['action'], ['add', 'update'], true) && !isset($clientIds[(int) ($p['client_id'] ?? 0)])) {
+                        continue; // the client was deleted since the file was checked
+                    }
                     if ($p['action'] === 'add') {
                         if (self::findContact((int) $p['client_id'], $v['email'] ?? null, $v['name'])) {
                             continue; // added since the file was checked (another import, or a second tab)
                         }
                         DB::insert('contacts', $v + ['client_id' => $p['client_id'], 'source' => 'manual', 'created_by' => $userId, 'qbr' => $v['is_primary'] ?? 0]);
                         $added++;
+                        $names[] = '+' . $label($p);
                     } elseif ($p['action'] === 'update') {
-                        $updated += DB::run('UPDATE contacts SET ' . implode(', ', array_map(fn($f) => "`$f` = ?", array_keys($v))) . ' WHERE id = ? AND source = \'manual\'', [...array_values($v), $p['id']])->rowCount() > 0 ? 1 : 0;
+                        if (DB::run('UPDATE contacts SET ' . implode(', ', array_map(fn($f) => "`$f` = ?", array_keys($v))) . ' WHERE id = ? AND source = \'manual\'', [...array_values($v), $p['id']])->rowCount() > 0) {
+                            $updated++;
+                            $names[] = $label($p) . ' (' . implode(', ', array_keys($v)) . ')';
+                        }
                     }
                 }
             }
         });
-        return [$added, $updated];
+        return [$added, $updated, $names];
     }
 }

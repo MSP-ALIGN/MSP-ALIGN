@@ -137,7 +137,7 @@ try {
 
         case 'user:reset-password':
             // Emergency access (docs/SECURITY.md): a one-time password, the account enabled again, every session and
-            // remembered browser ended (session_version), and with --clear-2fa the authenticator removed. Written
+            // remembered browser and calendar feed link ended (session_version, ics_token; 2.2.1), and with --clear-2fa the authenticator removed. Written
             // to the audit log as all of that, and admins get the same security alert as for a reset on the Users
             // page, so a reset nobody expected is noticed (2.2.1)
             $email = strtolower((string) ($opts['email'] ?? ''));
@@ -145,7 +145,7 @@ try {
             $clear2fa = isset($opts['clear-2fa']);
             $password = UserController::randomPassword();
             DB::transaction(function () use ($u, $password, $clear2fa): void {
-                DB::run('UPDATE users SET password_hash = ?, is_active = 1, must_change_password = 1, session_version = session_version + 1 WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
+                DB::run('UPDATE users SET password_hash = ?, is_active = 1, must_change_password = 1, session_version = session_version + 1, ics_token = NULL WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
                 if ($clear2fa) {
                     DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$u['id']]);
                 }

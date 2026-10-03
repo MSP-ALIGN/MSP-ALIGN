@@ -8,9 +8,16 @@ use Align\DB;
 use Align\View;
 use Align\Workflow\Todo;
 
-/** 1.42: the To do list, the top-bar search and a client's Reports page. */
+/**
+ * 1.42: the To do list, the top-bar search and a client's Reports page.
+ *
+ * Security assumptions: the To do list is for techs and admins; search and the Reports page for any staff role.
+ * Search text is untrusted: cut to 100 characters, used only as a bound LIKE value with % _ \ escaped, at least two
+ * characters before anything is searched, and every list is capped. Contacts found are audited as a contacts view.
+ */
 final class TodoController
 {
+    /** The To do list (tech), optionally one category (?show=, a known key). */
     public static function index(): void
     {
         Auth::requireRole('tech'); // everything on it is work for techs and admins
@@ -30,7 +37,11 @@ final class TodoController
         ]);
     }
 
-    /** One search box for clients, devices, contacts and licenses (name, serial, last user, email, vendor). */
+    /**
+     * One search box for clients, devices, contacts and licenses (name, serial, last user, email, vendor). Any staff
+     * role. Clients include archived and removed ones (marked); devices (also those with no client yet), contacts
+     * and licenses only those of clients in planning, as on their own pages.
+     */
     public static function search(): void
     {
         Auth::require();
@@ -63,7 +74,7 @@ final class TodoController
         View::render('todo/search', ['title' => $q !== '' ? "Search: $q" : 'Search', 'nav' => 'search', 'q' => $q, 'res' => $res]);
     }
 
-    /** A client's reports in one place (the same list as the client header's Reports menu, with what each holds). */
+    /** A client's reports in one place (the same list as the client header's Reports menu, with what each holds). Any staff role. */
     public static function clientReports(int $id): void
     {
         Auth::require();

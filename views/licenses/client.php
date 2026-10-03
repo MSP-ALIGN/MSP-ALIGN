@@ -1,4 +1,5 @@
 <?php
+/** One client's licensing. @var array $client, $licenses, $totals, $dates, $subs; int $retiredCount; bool $showRetired; string $back */
 use Align\Auth;
 
 require __DIR__ . '/../partials/client_header.php';

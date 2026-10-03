@@ -138,6 +138,25 @@ final class Requests
     }
 
     /**
+     * Runs $fn while holding this client's request lock, so a rate-limit count and the submit it allows happen as
+     * one step: a COUNT followed later by the INSERT let parallel posts (one session each) all see the old count
+     * and each open a ticket (2.2.1). Returns $fn's result, or null when the lock wasn't free within 10 seconds.
+     * $fn must not redirect or exit (the lock is released in finally).
+     */
+    public static function locked(int $clientId, callable $fn): mixed
+    {
+        $lock = 'msp_align_req:' . $clientId;
+        if ((int) DB::value('SELECT GET_LOCK(?, 10)', [$lock]) !== 1) {
+            return null;
+        }
+        try {
+            return $fn();
+        } finally {
+            DB::value('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
+    }
+
+    /**
      * Saves and delivers a request. $by: ['name','email','portal_user_id'?, 'via' => onboarding|portal].
      * Returns the service_requests row (with psa_ticket_id / delivery).
      * $data must come from validate(). 'via' => 'portal' only when the caller signed the portal user in; only then is

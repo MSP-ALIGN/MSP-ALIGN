@@ -1,4 +1,10 @@
-<?php if ($chain['ok']): ?>
+<?php
+/**
+ * Audit log (admins). Vars: $rows, $page, $hasMore, $filters [q, user, group], $users, $chain (AuditChain::quick()).
+ * Security: every entry field is escaped (details are free text from many sources, including portal users and
+ * synced data); paging links are built with http_build_query and escaped.
+ */
+?><?php if ($chain['ok']): ?>
   <div class="alert alert-light border small py-2 d-flex align-items-center flex-wrap"><span class="me-auto"><i class="fas fa-link text-success me-1"></i><b>Tamper check passed.</b> All <?= num($chain['checked']) ?> entries are intact (each is sealed with a hash of the one before it, so edits or deletions would show here).
     <?= empty($chain['full']) && !empty($chain['at']) ? 'Whole log last checked ' . e(rel_time($chain['at'])) . '; entries since then checked just now.' : '' ?> Entries are kept <?= \Align\AuditChain::RETENTION_YEARS ?> years.</span>
     <form method="post" action="/audit/verify" class="ms-2"><?= csrf_field() ?><button class="btn btn-xs btn-default">Check the whole log</button></form></div>

@@ -6,9 +6,16 @@ namespace Align\Controllers;
 use Align\Auth;
 use Align\Demo\Demo;
 
-/** Load or remove the demo data (1.41), from Settings → General or the setup wizard. Admins only. */
+/**
+ * Load or remove the demo data (1.41), from Settings → General or the setup wizard. Admins only.
+ *
+ * Security assumptions: requireRole('admin') first; the Router has checked CSRF. Demo decides what may be loaded
+ * (only on an empty, unconnected install) and what is removed (only clients made as demo and their rows); both are
+ * audited there. Goes back to the wizard only through setup_return() (/setup paths).
+ */
 final class DemoController
 {
+    /** Adds the demo clients. A refusal (already loaded, clients exist, integrations connected) says why. */
     public static function load(): void
     {
         Auth::requireRole('admin');
@@ -24,6 +31,7 @@ final class DemoController
         redirect(setup_return('/settings#demo-data'));
     }
 
+    /** Removes the demo clients and everything attached to them (nothing else). */
     public static function remove(): void
     {
         Auth::requireRole('admin');

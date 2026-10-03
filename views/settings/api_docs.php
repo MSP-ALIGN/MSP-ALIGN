@@ -5,6 +5,7 @@ use Align\Api\Spec;
 /**
  * Settings -> API -> reference, generated from the same route table and validation rules the API uses.
  * @var array $spec, $routes; string $baseUrl; bool $enabled
+ * Security: everything here comes from code (route table, rules, spec); $md escapes before adding <b> and <code>.
  */
 $tab = 'api';
 require __DIR__ . '/_tabs.php';

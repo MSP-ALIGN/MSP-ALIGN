@@ -42,6 +42,21 @@ ok(all(boolv(v) == "VAL 0" for v in ["0", "false", "no", "off", ""]), "0/false/n
 ok("DIE" in boolv("ture") and "VAL" not in boolv("ture") and "DIE" in boolv("2"), "anything else stops the container with a message: " + boolv("ture"))
 ok("STAGING=$(env_bool ALIGN_STAGING)" in ent and "'staging' => $( [[ $STAGING == 1 ]]" in ent, "config.php's staging switch comes from the strict reading")
 
+# ---- .dockerignore: the release key file must reach the image, or the agent never trusts signed tags in Docker
+import fnmatch
+def ignored(path, rules=[l.strip() for l in open(ROOT + "/.dockerignore") if l.strip() and not l.lstrip().startswith("#")]):
+    """Docker's rule: the last matching pattern wins; a pattern matching a parent folder covers what's inside."""
+    parts, out = path.split("/"), False
+    for r in rules:
+        neg, pat = r.startswith("!"), r.lstrip("!").strip("/")
+        if any(fnmatch.fnmatchcase("/".join(parts[:i]), pat) for i in range(1, len(parts) + 1)):
+            out = not neg
+    return out
+ok(not ignored("deploy/release-signers"), "the image keeps deploy/release-signers (signed-release update checks work in Docker)")
+ok(ignored("deploy/systemd/msp-align-nightly.service") and ignored(".git/config") and ignored("config.php") and ignored(".env.local") and ignored("tests/e2e/run.sh"),
+   "systemd units, .git, a local config.php, .env files and tests stay out")
+ok(not ignored("src/Auth.php") and not ignored("scripts/agent.php"), "the app itself is in the image")
+
 # ---- config.php: hostile environment values stay inside their PHP strings
 cblock = re.search(r'^proxies_php="\["\n.*?^PHP\n\)\n', ent, re.M | re.S)
 ok(cblock is not None, "entrypoint: the config.php block is there")

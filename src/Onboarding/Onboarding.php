@@ -20,6 +20,11 @@ use Align\Settings;
  */
 final class Onboarding
 {
+    /** Characters kept in a contact's staff notes when onboarding adds to them (the newest are kept; 2.2.1). */
+    public const NOTES_MAX = 8000;
+    /** Contact saves per onboarding link per day (each can write to the PSA; counted in client_onboardings; 2.2.1). */
+    public const CONTACT_SAVES_PER_DAY = 30;
+
     /** Days an onboarding link keeps working once onboarding is complete (1.45). */
     public const AFTER_DONE_DAYS = 7;
 
@@ -371,7 +376,12 @@ HTML],
                         $rest = array_diff_key($diff, $flags);
                         $diff = $flags;
                         if ($rest) {
-                            $diff['align_notes'] = trim(($k['align_notes'] ?? '') . "\nOnboarding update from $who: " . implode(', ', array_map(fn($c, $v) => "$c = $v", array_keys($rest), $rest)));
+                            // The same update posted again isn't noted again, and the notes keep their last 8,000
+                            // characters: a link holder repeating the post filled the column until saves failed (2.2.1)
+                            $line = "Onboarding update from $who: " . implode(', ', array_map(fn($c, $v) => "$c = $v", array_keys($rest), $rest));
+                            if (!str_contains((string) ($k['align_notes'] ?? ''), $line)) {
+                                $diff['align_notes'] = mb_substr(trim(($k['align_notes'] ?? '') . "\n" . $line), -self::NOTES_MAX);
+                            }
                         }
                     }
                 }

@@ -8,20 +8,30 @@ use Align\Auth;
 use Align\Service\Sla;
 use Align\View;
 
-/** Service levels from the PSA ticket SLAs: client page, client report, all-clients report. */
+/**
+ * Service levels from the PSA ticket SLAs: client page, client report, all-clients report.
+ *
+ * Security assumptions: any staff role reads every client's service levels (archived clients included); the
+ * all-clients report is internal. renderReport() is shared with the portal, which has checked its own client and
+ * permission and gets no ticket list. ?period= is one of the known periods. Reports are audited. Ticket subjects
+ * and numbers come from the PSA and are escaped by the views.
+ */
 final class ServiceController
 {
+    /** ?period= when it is a known period, else 90 days. */
     private static function period(): string
     {
         $p = query('period', '90');
         return isset(Sla::PERIODS[$p]) || $p === 'quarter' ? $p : '90';
     }
 
+    /** Period key => label, for the period buttons and menus. */
     public static function periodChoices(): array
     {
         return Sla::PERIODS + ['quarter' => 'Last full quarter'];
     }
 
+    /** A client's service-levels page (any staff role). */
     public static function client(int $id): void
     {
         Auth::require();
@@ -40,13 +50,14 @@ final class ServiceController
         ]);
     }
 
+    /** A client's printable service-level report (any staff role). */
     public static function report(int $id): void
     {
         Auth::require();
         self::renderReport(ClientController::load($id), ['missed' => query('missed', '1') === '1'], self::period());
     }
 
-    /** Printable service-level report for one client; also used by the client portal (no ticket list there). */
+    /** Printable service-level report for one client; also used by the client portal (no ticket list there). The caller checked access to $client. */
     public static function renderReport(array $client, array $opt, string $period): void
     {
         $s = Sla::report((int) $client['id'], $period);
@@ -73,7 +84,7 @@ final class ServiceController
         ], 'layout/print');
     }
 
-    /** Internal: every client's service levels for a period, worst first. */
+    /** Internal: every client's service levels for a period, worst first (any staff role). */
     public static function portfolio(): void
     {
         Auth::require();

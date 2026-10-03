@@ -1,4 +1,7 @@
 <?php
+/**
+ * Compliance across clients in planning. @var array $frameworks, $clients, $assigned, $scores (only clients in planning).
+ */
 $rows = array_filter($clients, fn($c) => !empty($assigned[$c['id']]));
 $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
 ?>

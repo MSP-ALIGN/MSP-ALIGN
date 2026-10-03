@@ -1,7 +1,10 @@
 <?php
 use Align\Controllers\LegalController;
 
-/** @var array $company; string $source */
+/**
+ * License page (public). @var array $company; string $source (an http(s) URL, see LegalController::sourceUrl)
+ * Security: the third-party list is a constant in code; every value is escaped anyway.
+ */
 ?>
 <div class="card legal">
   <div class="card-body">

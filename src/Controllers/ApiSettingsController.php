@@ -10,9 +10,18 @@ use Align\DB;
 use Align\Settings;
 use Align\View;
 
-/** Settings -> API: switch the API on, create and manage keys, see recent requests, read the docs. */
+/**
+ * Settings -> API: switch the API on, create and manage keys, see recent requests, read the docs.
+ *
+ * Security assumptions: admins only (requireRole first in every action); the Router has checked CSRF. A new key's
+ * secret is shown once: it passes through the session only until the next page shows it, and only its SHA-256 is
+ * stored (Api\Keys::create). Scopes are kept only when they are valid scope names, client limits only for existing,
+ * unarchived clients, and a key can't be changed after it is revoked. Every create, change, revoke and delete is
+ * audited with the key's name and number, never its secret.
+ */
 final class ApiSettingsController
 {
+    /** The API page: on/off, keys (state, use in the last 24 hours), the last 50 requests and a new key shown once. */
     public static function index(): void
     {
         Auth::requireRole('admin');
@@ -35,6 +44,7 @@ final class ApiSettingsController
         ]);
     }
 
+    /** Turns the whole API on or off (keys are kept; while it's off every request gets 404). */
     public static function toggle(): void
     {
         Auth::requireRole('admin');
@@ -45,7 +55,11 @@ final class ApiSettingsController
         redirect('/settings/api');
     }
 
-    /** Validated key settings from the form. Returns [fields, error]. */
+    /**
+     * Validated key settings from the (untrusted) form. Returns [fields, null] or [null, error message]. Name up to
+     * 120 characters, scopes from a preset or normalized, clients that exist and aren't archived, expiry in 1-1095
+     * days, never, or a real future date, a rate within 1-MAX_RATE, notes up to 500 characters.
+     */
     private static function fields(): array
     {
         $name = trim(post('name'));
@@ -66,10 +80,12 @@ final class ApiSettingsController
             }
         }
         $exp = post('expires');
+        $on = post('expires_on');
         $expiresAt = match (true) {
             $exp === 'never' => null,
             ctype_digit($exp) && (int) $exp > 0 && (int) $exp <= 1095 => date('Y-m-d 23:59:59', strtotime('+' . (int) $exp . ' days')),
-            $exp === 'date' && preg_match('/^\d{4}-\d{2}-\d{2}$/', post('expires_on')) && post('expires_on') > date('Y-m-d') => post('expires_on') . ' 23:59:59',
+            // A real calendar date (2.2.1: "2027-02-30" reached the database and was a server error)
+            $exp === 'date' && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $on, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) && $on > date('Y-m-d') => $on . ' 23:59:59',
             default => false,
         };
         if ($expiresAt === false) {
@@ -83,6 +99,7 @@ final class ApiSettingsController
             'notes' => mb_substr(trim(post('notes')), 0, 500) ?: null], null];
     }
 
+    /** Creates a key owned by this admin (it stops working if they are disabled or stop being an admin). */
     public static function create(): void
     {
         Auth::requireRole('admin');
@@ -98,6 +115,7 @@ final class ApiSettingsController
         redirect('/settings/api');
     }
 
+    /** One key's page (settings and its last 100 requests). Never shows the secret, only the prefix. */
     public static function edit(int $id): void
     {
         Auth::requireRole('admin');
@@ -114,6 +132,11 @@ final class ApiSettingsController
         ]);
     }
 
+    /**
+     * Changes key $id (URL): action=revoke (immediate), action=delete (revoked keys only), else new settings. The
+     * secret and the creator never change. "Keep" expiry re-uses the saved date, so an expired key's settings can
+     * only be saved with a new expiry.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('admin');
@@ -132,7 +155,7 @@ final class ApiSettingsController
         if (post('action') === 'delete' && $k['revoked_at']) {
             DB::run('DELETE FROM api_keys WHERE id = ?', [$id]);
             Audit::log('api.key_delete', "{$k['name']} (#$id)");
-            flash('success', "Deleted {$k['name']}. Its request history stays in the audit log.");
+            flash('success', "Deleted {$k['name']}. Its changes stay in the audit log, and its requests in the API request log for 30 days.");
             redirect('/settings/api');
         }
         if ($k['revoked_at']) {
@@ -157,7 +180,7 @@ final class ApiSettingsController
         redirect("/settings/api/keys/$id");
     }
 
-    /** Human-readable reference generated from the OpenAPI spec. */
+    /** Human-readable reference generated from the OpenAPI spec (built from code, no data). */
     public static function docs(): void
     {
         Auth::requireRole('admin');
@@ -171,7 +194,10 @@ final class ApiSettingsController
         ]);
     }
 
-    /** Downloads the OpenAPI spec (works even while the API is off, so it can be imported first). */
+    /**
+     * Downloads the OpenAPI spec (works even while the API is off, so it can be imported first). The file name is
+     * the app name reduced to a-z, 0-9 and dashes, so it can't break the header.
+     */
     public static function openapi(): void
     {
         Auth::requireRole('admin');

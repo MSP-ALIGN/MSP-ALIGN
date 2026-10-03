@@ -60,7 +60,7 @@ final class WelcomeController
     /**
      * The page. Template pages are filled in (values escaped) and sanitized by Onboarding::fill(); the client's own
      * contacts and requests are listed for them to update. The first open is recorded once (the update only counts
-     * while opened_at is empty, so two tabs opening at once log it once).
+     * while opened_at is empty, so two tabs opening at once log it once); every view is also audited as access.
      */
     public static function show(string $token): void
     {
@@ -69,6 +69,9 @@ final class WelcomeController
         if (!$o['opened_at'] && DB::run('UPDATE client_onboardings SET opened_at = NOW() WHERE id = ? AND opened_at IS NULL', [$o['id']])->rowCount()) {
             Audit::log('onboarding.opened', $client['name']);
         }
+        // Every view shows the client's contact list without a sign-in: logged (once per 15 minutes per session, with
+        // the IP), not just the first open, so a forwarded link being read again shows up (2.2.1)
+        Audit::access('onboarding_page', $client['name']);
         $vals = Onboarding::placeholders($client, ['sender_name' => '']);
         $pages = array_map(fn($t) => $t + ['html' => Onboarding::fill((string) $t['body_html'], $vals), 'has_file' => (bool) Onboarding::filePath($t),
             'heading' => html_entity_decode(strip_tags(Onboarding::fill((string) $t['title'], $vals)), ENT_QUOTES)], Onboarding::templates(true, 'page'));
@@ -92,7 +95,8 @@ final class WelcomeController
 
     /**
      * Contacts table: JSON in contacts_json (the page's script), or plain row fields without JavaScript. Untrusted
-     * rows; Onboarding::saveContacts() only touches this client's contacts and validates each field.
+     * rows; Onboarding::saveContacts() only touches this client's contacts and validates each field. At most
+     * Onboarding::CONTACT_SAVES_PER_DAY saves per onboarding link per day (2.2.1).
      */
     public static function contacts(string $token): void
     {
@@ -107,6 +111,14 @@ final class WelcomeController
         $named = array_filter($rows, fn($r) => empty($r['remove']) && trim(($r['first'] ?? '') . ($r['last'] ?? '')) !== '');
         if (!$named) {
             flash('error', 'Please add at least one person before saving.');
+            self::back($token, 'contacts');
+        }
+        // At most CONTACT_SAVES_PER_DAY saves a day per onboarding link, claimed with one conditional UPDATE (so
+        // parallel posts can't all pass): with the service desk sync on, each save can write every contact to the PSA (2.2.1)
+        $claimed = DB::run('UPDATE client_onboardings SET contact_saves = IF(contact_saves_day = CURDATE(), contact_saves + 1, 1), contact_saves_day = CURDATE()
+            WHERE id = ? AND (contact_saves_day IS NULL OR contact_saves_day <> CURDATE() OR contact_saves < ?)', [$o['id'], Onboarding::CONTACT_SAVES_PER_DAY])->rowCount() === 1;
+        if (!$claimed) {
+            flash('error', 'Your contacts have been saved many times today. Please email or call us with any more changes.');
             self::back($token, 'contacts');
         }
         [$added, $updated, $removed, $errors] = Onboarding::saveContacts($client, $rows, $who);
@@ -177,10 +189,6 @@ final class WelcomeController
         if (!Requests::enabled() || !isset(Requests::FORMS[$kind])) {
             self::back($token);
         }
-        if ((int) DB::value('SELECT COUNT(*) FROM service_requests WHERE client_id = ? AND created_at > NOW() - INTERVAL 1 DAY', [$client['id']]) >= 25) {
-            flash('error', 'That\'s a lot of requests in one day. Please call or email us instead.');
-            self::back($token, 'requests');
-        }
         $by = ['name' => mb_substr(post('by_name'), 0, 120), 'email' => filter_var(post('by_email'), FILTER_VALIDATE_EMAIL) ? post('by_email') : '', 'via' => 'onboarding'];
         [$data, $errors] = Requests::validate($kind, $_POST);
         if ($by['name'] === '') {
@@ -190,7 +198,13 @@ final class WelcomeController
             flash('error', implode(' ', $errors));
             self::back($token, 'requests');
         }
-        $r = Requests::submit($client, $kind, $data, $by);
+        // Counted and submitted under the client's request lock, so parallel posts can't all pass the limit (2.2.1)
+        $r = Requests::locked((int) $client['id'], fn() => (int) DB::value('SELECT COUNT(*) FROM service_requests WHERE client_id = ? AND created_at > NOW() - INTERVAL 1 DAY', [$client['id']]) >= 25
+            ? 'limit' : Requests::submit($client, $kind, $data, $by));
+        if (!is_array($r)) {
+            flash('error', $r === 'limit' ? 'That\'s a lot of requests in one day. Please call or email us instead.' : 'We\'re busy with another request for your company. Please try again in a moment.');
+            self::back($token, 'requests');
+        }
         flash($r['delivery'] === 'failed' ? 'error' : 'success', $r['delivery'] === 'failed'
             ? 'We saved your request but couldn\'t send it to our service desk automatically. Please call us so nothing is missed.'
             : 'Request sent: ' . $r['title'] . '. Our service team will follow up.');

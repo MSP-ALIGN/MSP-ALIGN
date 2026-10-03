@@ -1,4 +1,8 @@
 <?php
+/**
+ * A client's budget page. @var array $client, $b (Budget::build), $billing, $dates, $subs; int $year; string $back.
+ * Line names and details are synced or typed text and are escaped; edit forms (one modal per manual line) only for techs.
+ */
 use Align\Auth;
 use Align\Budget\Budget;
 

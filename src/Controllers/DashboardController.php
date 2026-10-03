@@ -10,8 +10,20 @@ use Align\Lifecycle\Lifecycle;
 use Align\Meetings\Meetings;
 use Align\View;
 
+/**
+ * The home dashboard and saving each user's dashboard layout.
+ *
+ * Security assumptions: any staff role (viewers included) sees the dashboard; admin-only and tech-only items are
+ * filtered in Dashboard. Only clients in planning count. The layout endpoint changes only the signed-in user's own
+ * row; the Router has checked CSRF (the page sends the token with the request).
+ */
 final class DashboardController
 {
+    /**
+     * The dashboard (any staff role). New installs send admins to the setup wizard once per sign-in. Data for a card
+     * the user has hidden is mostly not loaded. Devices are loaded once and grouped per client; the planning
+     * checklist prefetches its counts for every client in a few grouped queries.
+     */
     public static function index(): void
     {
         Auth::require();
@@ -78,7 +90,13 @@ final class DashboardController
         $unmapped = \Align\Providers\Providers::anyRmm()
             ? (int) DB::value("SELECT COUNT(*) FROM clients c WHERE NOT " . \Align\Providers\ClientLinks::rmmLinkedSql() . " AND c.is_archived = 0 AND c.planning_excluded = 0") : 0;
         $unassigned = (int) DB::value('SELECT COUNT(*) FROM devices d ' . Lifecycle::CLIENT_JOIN . ' WHERE d.removed_at IS NULL AND cm.id IS NULL AND cn.id IS NULL');
-        $contract90 = isset($show['renewals']) || isset($show['kpis']) ? \Align\Budget\Contracts::upcoming(null, 90, date('Y-m-d')) : [];
+        // Contract dates from 30 days ago to 90 days ahead, read once: the renewals card, the money tiles and the
+        // attention list each take their part (they read every license and budget line three times before, 2.2.1)
+        $dates = \Align\Budget\Contracts::upcoming(null, 90);
+        $today = date('Y-m-d');
+        $contract90 = array_values(array_filter($dates, fn($d) => $d['date'] >= $today));
+        $weekAgo = date('Y-m-d', strtotime('-7 days'));
+        $in30 = date('Y-m-d', strtotime('+30 days'));
         $sla = isset($show['sla']) || isset($show['kpis']) ? self::slaSummary() : null;
         $complianceAvg = $scores ? (int) round(array_sum($scores) / count($scores)) : null;
         $upcomingCount = (int) DB::value("SELECT COUNT(*) FROM meetings WHERE status = 'scheduled' AND starts_at >= NOW() AND starts_at < ?", [date('Y-m-d', strtotime('+30 days'))]);
@@ -92,7 +110,7 @@ final class DashboardController
             'summary' => $summary,
             'forecast' => $forecast,
             'unplanned' => $unplanned,
-            'contractDates' => array_values(array_filter(\Align\Budget\Contracts::upcoming(null, 90), fn($d) => $d['urgency'] !== 'later')),
+            'contractDates' => array_values(array_filter($dates, fn($d) => $d['urgency'] !== 'later')),
             'topClients' => array_slice(array_filter($byClient, fn($c) => $c['attention'] > 0), 0, 8),
             'lastSync' => $lastSync,
             'upcoming' => DB::all("SELECT m.*, c.name AS client_name FROM meetings m LEFT JOIN clients c ON c.id = m.client_id
@@ -110,6 +128,7 @@ final class DashboardController
             'sla' => $sla,
             'attention' => isset($show['attention']) ? \Align\Dashboard\Dashboard::attention([
                 'devices' => $devices, 'overdue' => $overdue, 'lastSync' => $lastSync, 'unmapped' => $unmapped, 'unassigned' => $unassigned,
+                'contracts' => array_values(array_filter($dates, fn($d) => $d['date'] >= $weekAgo && $d['date'] <= $in30)),
             ]) : [],
             'kpis' => isset($show['kpis']) ? \Align\Dashboard\Dashboard::kpis([
                 'summary' => $summary, 'overdueCount' => count($overdue), 'upcomingCount' => $upcomingCount, 'complianceAvg' => $complianceAvg,
@@ -118,7 +137,11 @@ final class DashboardController
         ]);
     }
 
-    /** Saves the signed-in user's dashboard layout (POST layout = JSON {order:{top,main,side}, hidden:[]}, or reset=1). */
+    /**
+     * Saves the signed-in user's dashboard layout (POST layout = JSON {order:{top,main,side}, hidden:[]}, or reset=1).
+     * Any staff role, for their own account only. The JSON is untrusted: Dashboard::normalize() keeps known card keys
+     * only; anything that isn't a JSON object or array answers 400. Not audited: a personal display preference.
+     */
     public static function saveLayout(): void
     {
         $u = Auth::require();

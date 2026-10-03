@@ -206,7 +206,7 @@ final class Kernel
             \Align\Security::logAuthFailure('api');
         }
         $window = intdiv(time(), 60);
-        $ip = mb_substr(client_ip(), 0, 64);
+        $ip = mb_substr(rate_ip(), 0, 64); // IPv6 counted per /64 (2.2.1)
         DB::run('INSERT INTO api_ip_rate (ip, window_start, hits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE hits = hits + 1', [$ip, $window]);
         $hits = (int) DB::value('SELECT hits FROM api_ip_rate WHERE ip = ? AND window_start = ?', [$ip, $window]);
         if ($hits > self::MAX_FAILED_PER_MINUTE) {

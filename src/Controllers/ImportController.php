@@ -120,8 +120,9 @@ final class ImportController
             redirect('/clients/import');
         }
         $kind = self::kind((string) $data['kind']);
-        [$added, $updated] = CsvImport::apply($kind, (array) $data['plan'], Auth::id());
-        Audit::log('import.' . $kind, ($data['file'] ?? 'CSV') . ": $added added, $updated updated");
+        [$added, $updated, $names] = CsvImport::apply($kind, (array) $data['plan'], Auth::id());
+        // Names which records were added (+) or changed (with the fields), so a changed contact can be found (2.2.1)
+        Audit::log('import.' . $kind, ($data['file'] ?? 'CSV') . ": $added added, $updated updated" . ($names ? ' (' . mb_strimwidth(implode(', ', $names), 0, 1000, '…') . ')' : ''));
         $noun = $kind === 'clients' ? 'client' : 'contact';
         flash('success', "Imported $added new $noun" . ($added === 1 ? '' : 's') . " and updated $updated.");
         redirect($kind === 'clients' ? '/clients' : '/contacts');

@@ -16,6 +16,11 @@ use Align\Roadmap\Roadmap;
 /**
  * Builds the data behind every printed report, so the stand-alone reports and the QBR pack
  * show exactly the same numbers. Everything here is client-facing: no internal notes.
+ *
+ * Security assumptions: every function reads one client's data by the $clientId it is given; the caller (a staff
+ * report, or the portal for its own client) has checked access. Text in the results (device names, serials, job
+ * messages, project titles) is synced or typed and untrusted: the views escape it. Internal meetings never reach
+ * a report.
  */
 final class ReportData
 {
@@ -62,6 +67,7 @@ final class ReportData
         return 'Printers, phones & other';
     }
 
+    /** Evaluated devices per client for this request (the QBR asks for them from several sections). */
     private static array $deviceCache = [];
 
     /** Evaluated devices for a client (optionally without virtual machines), excluding excluded ones. */
@@ -71,6 +77,7 @@ final class ReportData
         return array_values(array_filter(self::$deviceCache[$clientId], fn($d) => $d['status'] !== 'excluded' && ($virtual || !$d['is_virtual'])));
     }
 
+    /** Sort rank of a device's status: replace first, then unsupported OS, plan, OS ending, warranty. */
     public static function severity(array $d): int
     {
         return ['replace' => 0, 'os_eos' => 1, 'plan' => 2, 'deferred' => 2, 'os_soon' => 3, 'warranty_expired' => 4, 'warranty_soon' => 5][$d['status']] ?? 9;
@@ -95,6 +102,7 @@ final class ReportData
         return implode(' · ', array_filter($parts));
     }
 
+    /** Everything the asset report shows for a client: summary, classes, OS, issues, attention list, forecast, inventory. $opt['virtual'] includes VMs. */
     public static function assets(int $clientId, array $opt): array
     {
         $lc = new Lifecycle();
@@ -205,11 +213,20 @@ final class ReportData
         ];
     }
 
-    public static function roadmap(int $clientId): array
+    /**
+     * The client's roadmap plan and its projects in decision order, without internal meetings. $meetings false
+     * leaves out the meetings and $compliance false the compliance due dates in the timeline: the portal passes
+     * the user's "Documents, contacts & meetings" and "Devices" permissions (2.2.1: a roadmap-only portal user
+     * saw meeting titles and dates the rest of the portal withholds).
+     */
+    public static function roadmap(int $clientId, bool $meetings = true, bool $compliance = true): array
     {
         $plan = Roadmap::build($clientId, self::devices($clientId));
         foreach ($plan['quarters'] as &$q) { // internal meetings never go to the client
-            $q['meetings'] = array_values(array_filter($q['meetings'], fn($m) => $m['type'] !== 'internal'));
+            $q['meetings'] = $meetings ? array_values(array_filter($q['meetings'], fn($m) => $m['type'] !== 'internal')) : [];
+            if (!$compliance) {
+                $q['compliance'] = [];
+            }
         }
         unset($q);
         $projects = [];
@@ -232,6 +249,7 @@ final class ReportData
         ];
     }
 
+    /** The client's budget for plan year $year (0-2, checked by the caller) and the contract dates in it. */
     public static function budget(int $clientId, int $year): array
     {
         $b = Budget::build($clientId, self::devices($clientId));
@@ -245,6 +263,7 @@ final class ReportData
         ];
     }
 
+    /** Assigned frameworks with scores, the average, and up to 25 open items (only of assigned frameworks). */
     public static function compliance(int $clientId): array
     {
         $fws = DB::all('SELECT f.id, f.name, f.description FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? ORDER BY f.name', [$clientId]);
@@ -260,6 +279,7 @@ final class ReportData
         return ['frameworks' => $fws, 'open' => $open, 'avg' => $avg];
     }
 
+    /** The client's licenses by category and cost, with totals. */
     public static function licensing(int $clientId): array
     {
         $ls = Licenses::load($clientId);
@@ -267,6 +287,10 @@ final class ReportData
         return ['licenses' => $ls, 'totals' => Licenses::totals($ls)];
     }
 
+    /**
+     * Key contacts and the next and last client meetings (internal ones left out). Contacts are personal data:
+     * the portal leaves this out for users without the contacts permission (ReportController::renderQbr).
+     */
     public static function people(int $clientId): array
     {
         return [
@@ -277,10 +301,6 @@ final class ReportData
         ];
     }
 
-    /**
-     * Plain-language highlights for the QBR executive summary, most important first.
-     * @return array<int, array{tone:string, title:string, text:string}>
-     */
     /** Backup status for a client, or null when it has no backup data. */
     public static function backup(int $clientId): ?array
     {
@@ -288,6 +308,11 @@ final class ReportData
         return $client ? \Align\Backup\Backup::forClient($client, self::devices($clientId)) : null;
     }
 
+    /**
+     * Plain-language highlights for the QBR executive summary, most important first. Each input is a section's data,
+     * or empty/null when that section is off (the caller decides). Amounts only when $costs. Plain text: escape it.
+     * @return array<int, array{tone:string, title:string, text:string}>
+     */
     public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs, ?array $bk = null, ?array $sla = null): array
     {
         $out = [];

@@ -1,7 +1,7 @@
 <?php
 use Align\Api\Keys;
 
-/** Settings -> API -> one key. @var array $apiKey (decoded); array $clients, $requests */
+/** Settings -> API -> one key. @var array $apiKey (decoded); array $clients, $requests. Never the secret, only its prefix; all escaped. */
 $tab = 'api';
 require __DIR__ . '/_tabs.php';
 $st = Keys::state($apiKey);

@@ -1,4 +1,9 @@
-<!doctype html>
+<?php
+/**
+ * Layout for the public pages (terms and licenses when not signed in). Vars: $title, $content.
+ * Security: no sign-in, so nothing here may show client data; the app name and title are escaped.
+ */
+?><!doctype html>
 <html lang="en" data-bs-theme="light">
 <head>
 <meta charset="utf-8">

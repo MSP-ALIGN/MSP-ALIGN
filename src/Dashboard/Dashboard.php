@@ -11,6 +11,11 @@ use Align\Service\Sla;
 /**
  * The home dashboard: a card registry, each user's own layout (order + hidden cards),
  * the "Needs attention" list and the portfolio health tiles.
+ *
+ * Security assumptions: any staff role sees the dashboard; items only admins act on (integration errors, API keys)
+ * or techs act on (hosted backups to match) are added only for them. A saved layout is untrusted JSON from the
+ * browser: normalize() keeps only known card keys (strings), each once, in known zones, so nothing else is stored
+ * or rendered. Item texts are plain text (client names, sync data): the view escapes them; links are same-site paths.
  */
 final class Dashboard
 {
@@ -33,6 +38,7 @@ final class Dashboard
 
     // ---- Layout ---------------------------------------------------------------------
 
+    /** Every card in its default zone, none hidden. */
     public static function defaultLayout(): array
     {
         $order = array_fill_keys(self::ZONES, []);
@@ -50,6 +56,11 @@ final class Dashboard
         return self::normalize(is_array($saved) ? $saved : []);
     }
 
+    /**
+     * A clean layout from untrusted input: {order: {top, main, side: [card keys]}, hidden: [card keys]}. Unknown or
+     * repeated keys and non-strings are dropped; cards missing from a saved order go to their default zone; nothing
+     * known at all gives the default. Never throws on odd shapes (strings, numbers, nesting).
+     */
     public static function normalize(array $in): array
     {
         $def = self::defaultLayout();
@@ -76,6 +87,7 @@ final class Dashboard
         return ['order' => $order, 'hidden' => $hidden];
     }
 
+    /** Stores the user's layout (normalized), or null to go back to the default. The caller passes the signed-in user's id. */
     public static function save(int $userId, ?array $layout): void
     {
         DB::run('UPDATE users SET dashboard_layout = ? WHERE id = ?', [$layout === null ? null : json_encode(self::normalize($layout)), $userId]);
@@ -97,6 +109,7 @@ final class Dashboard
 
     // ---- Needs attention ----------------------------------------------------------------
 
+    /** Needs-attention categories, in display order: key => [label, icon]. */
     public const CATEGORIES = [
         'system' => ['Sync & integrations', 'fa-plug'],
         'service' => ['Service levels', 'fa-stopwatch'],
@@ -112,7 +125,8 @@ final class Dashboard
     /**
      * Everything to act on, most urgent first. Each item:
      * [tone bad|warn|info, category, title, detail, link, client_name|null, when|null]
-     * @param array $ctx data the controller already has: devices, overdue (meetings), lastSync, unmapped, unassigned
+     * @param array $ctx data the controller already has: devices, overdue (meetings), lastSync, unmapped, unassigned,
+     *                   and optionally contracts (Contracts::upcoming() from 7 days ago to 30 days ahead)
      */
     public static function attention(array $ctx): array
     {
@@ -239,7 +253,7 @@ final class Dashboard
         }
 
         // Renewals and notice deadlines within 30 days
-        foreach (\Align\Budget\Contracts::upcoming(null, 30, date('Y-m-d', strtotime('-7 days'))) as $d) {
+        foreach ($ctx['contracts'] ?? \Align\Budget\Contracts::upcoming(null, 30, date('Y-m-d', strtotime('-7 days'))) as $d) {
             $overdue = $d['date'] < date('Y-m-d');
             $add($d['kind'] === 'renegotiate' || $overdue ? 'warn' : 'info', 'renewal', $d['label'] . ' ' . fmt_date($d['date']) . ': ' . $d['name'],
                 ($d['annual'] > 0 ? money($d['annual']) . '/yr' : 'No price recorded') . ($d['auto_renew'] ? ' · auto-renews' : ''), $d['link'], $d['client_name'], $d['date']);

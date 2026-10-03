@@ -270,6 +270,9 @@ final class SyncRunner
         'address' => 'Address', 'website' => 'Website',
     ];
 
+    /** Clients updated plus contacts added or archived by the last syncClientDetails() (for the PSA poll's audit entry; 2.2.1). */
+    public static int $detailChanges = 0;
+
     /**
      * Fills client details from the PSA: address + main phone from the primary location, name /
      * title / email / phones from the primary contact, and the website. PSA values replace
@@ -280,6 +283,7 @@ final class SyncRunner
      */
     public static function syncClientDetails(PsaProvider $psa, ?array $clientRows = null): string
     {
+        self::$detailChanges = 0;
         $clientRows ??= $psa->clients();
         $pick = function (array $rows): array {
             $by = [];
@@ -368,6 +372,7 @@ final class SyncRunner
             $locNames[ext_id($l['id'] ?? null)] = (string) ($l['name'] ?? '');
         }
         $people = $psa->supports('contacts') ? '; ' . \Align\Contacts\Contacts::syncFromPsa($rawContacts, $locNames, $psa->name()) : '';
+        self::$detailChanges = $updated + ($psa->supports('contacts') ? \Align\Contacts\Contacts::$changes : 0);
         return ($updated ? "contact details updated for $updated" : 'contact details up to date') . $people;
     }
 

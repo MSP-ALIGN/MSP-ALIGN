@@ -151,6 +151,21 @@ function client_ip(): string
     return $remote;
 }
 
+/**
+ * The address rate limits and lockouts count against: IPv4 (and IPv4-mapped IPv6) as is, other IPv6 addresses as
+ * their /64, which is what one host or customer is normally given. Counting single IPv6 addresses let a client
+ * rotate through its /64 and never reach a per-address limit (2.2.1). Logs and the audit keep client_ip().
+ */
+function rate_ip(): string
+{
+    $ip = client_ip();
+    $bin = @inet_pton($ip);
+    if ($bin !== false && strlen($bin) === 16 && !str_starts_with($bin, str_repeat("\0", 10) . "\xff\xff")) {
+        return inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+    return $ip;
+}
+
 /** Whether the request came over HTTPS (directly, or through a trusted proxy that says so). */
 function is_https(): bool
 {

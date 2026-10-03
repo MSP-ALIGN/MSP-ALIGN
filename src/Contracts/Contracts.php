@@ -900,8 +900,8 @@ final class Contracts
      * Afterwards the contract waits for the countersignature, or is completed.
      * Security: $in, $sig and $title come from the public signing page (untrusted); the caller checked the code and
      * the consent. Only the client's own fields that the contract prints are written, each cleaned for its type;
-     * your values, services, sections and vals.print are kept as sent. $in['_initials'] and $in['_initialed'] are set
-     * by the caller (not taken from f[]). The status moves only from "sent", with the link this request used, while
+     * your values, services, sections and vals.print are kept as sent. $in['_initials'], $in['_initialed'] and
+     * $in['_code_verified'] (this session entered the emailed code for this link) are set by the caller (not from f[]). The status moves only from "sent", with the link this request used, while
      * it's live, so a second submit, a decline, a cancel or a new link at the same moment wins at most once.
      */
     public static function clientSign(array $c, array $in, array|string $sig, string $title): ?string
@@ -936,7 +936,7 @@ final class Contracts
         }
         $initials = self::cleanInitials((string) ($in['_initials'] ?? '')) ?: initials($sig['name']);
         $sig += ['initials' => $initials, 'title' => mb_substr(trim($title), 0, 190), 'at' => date('Y-m-d H:i:s'), 'ip' => client_ip(),
-            'agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), 'consent' => true];
+            'agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), 'consent' => true, 'code_verified' => !empty($in['_code_verified'])];
         $next = $c['def']['signing']['countersign'] === 'after' && !$c['provider_signed_at'] ? 'client_signed' : 'completed';
         // Only through the link it was opened with, while that link is live (not one replaced or expired a moment ago)
         $done = DB::run("UPDATE contracts SET status = ?, vals = ?, client_signature = ?, client_signed_at = NOW(), signer_name = ?, signer_title = ?

@@ -1,5 +1,8 @@
 <?php
-/** Every client's devices (1.42). @var array $devices (this page); int $matched; int $total; int $limit; string $q, $filter, $class; int $clientId; array $clients, $tiles, $counts */
+/**
+ * Every client's devices (1.42). @var array $devices (this page); int $matched; int $total; int $limit; string $q, $filter, $class; int $clientId; array $clients, $tiles, $counts
+ * Query values only go into escaped, URL-encoded links; client names are escaped.
+ */
 $base = '/devices';
 $keep = array_filter(['client' => $clientId ?: '', 'q' => $q, 'class' => $class], fn($v) => $v !== '');
 echo \Align\View::fetch('partials/page_header', [

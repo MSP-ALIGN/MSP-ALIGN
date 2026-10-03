@@ -18,6 +18,7 @@ namespace Align\Providers\Backup;
  *   job_lists    which job sources were readable this time (only those are pruned)
  *   workloads    [uid ("vm:…" / "computer:…"), company_uid, kind (vm|computer), name, hostname (host_key()),
  *                 last_point, restore_points, backup_bytes, source_bytes, job_uids: string[]]
+ *   workload_lists which workload kinds (vm, computer) were readable this time (only those are pruned; 2.2.1)
  *   m365         null (not available) | [orgs: [uid, company_uid, name, services, is_backed_up, first_backup, last_backup],
  *                 objects: null | [uid, company_uid, org_uid, name, object_type (user|group|team|site|other),
  *                 restore_points, last_point, licensed]]

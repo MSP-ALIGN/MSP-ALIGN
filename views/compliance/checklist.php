@@ -1,4 +1,9 @@
 <?php
+/**
+ * A client's checklist for one framework. @var array $client, $fw, $link, $sections, $score, $indicators, $docs,
+ * $crosswalk; string $filter (from the query string: only compared, never printed unescaped). Control texts and answers are
+ * escaped (data-* values too); inputs are disabled for viewers, and the controller checks the role again on save.
+ */
 use Align\Auth;
 use Align\Compliance\Compliance;
 
@@ -117,7 +122,7 @@ $show = function (array $c) use ($filter) {
                         <option value="">— Link a document —</option>
                         <?php foreach ($docs as $doc): ?><option value="<?= (int) $doc['id'] ?>" <?= (int) $c['document_id'] === (int) $doc['id'] ? 'selected' : '' ?>><?= e($doc['title']) ?><?= $doc['status'] === 'draft' ? ' (draft)' : '' ?></option><?php endforeach; ?>
                       </select>
-                      <?php if ($c['document_id']): ?><a class="btn btn-outline-secondary" href="/documents/<?= (int) $c['document_id'] ?>" title="Open <?= e($c['doc_title']) ?>"><i class="fas fa-up-right-from-square"></i></a><?php endif; ?>
+                      <?php if ($c['document_id'] && $c['doc_title'] !== null): ?><a class="btn btn-outline-secondary" href="/documents/<?= (int) $c['document_id'] ?>" title="Open <?= e($c['doc_title']) ?>"><i class="fas fa-up-right-from-square"></i></a><?php endif; ?>
                     </div>
                   </div>
                 </div>

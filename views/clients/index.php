@@ -1,7 +1,11 @@
 <?php
+/**
+ * The client list. @var array $clients, $stats, $scores, $cadence, $counts, $users; string $view
+ * Names, reasons and RMM organization names are escaped; the bulk bar and the New client window are for techs and admins.
+ */
 use Align\Auth;
 
-$q = $_GET['q'] ?? '';
+$q = query('q'); // 2.2.1: ?q[]= made $_GET['q'] an array (an "Array to string" warning in the page)
 $canEdit = Auth::can('tech');
 $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archived' => psa_on() ? 'Archived in ' . psa_name() : 'Archived', 'all' => 'All'];
 ?>

@@ -1,4 +1,11 @@
-<h1 class="h3 mb-3">Your account <small class="text-muted h6"><?= e($u['email']) ?> · <?= e($u['role']) ?></small></h1>
+<?php
+/**
+ * Your account. Vars: $u (your own row), ?$setupSecret / ?$setupUri (2FA set-up in progress, this session only),
+ * ?$feedUrl (a new calendar link, shown once), $feedOn, $notifPrefs, $notifScope, $mailOn, $vcioCount.
+ * Security: only the signed-in user's own data; shown also before 2FA is set up, so nothing about clients. The set-up
+ * link is an otpauth: URI built by Totp::uri from the secret and email, escaped. Every form posts with CSRF.
+ */
+?><h1 class="h3 mb-3">Your account <small class="text-muted h6"><?= e($u['email']) ?> · <?= e($u['role']) ?></small></h1>
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-id-badge me-2"></i>Profile picture</h3></div>
   <div class="card-body">

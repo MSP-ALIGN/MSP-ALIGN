@@ -11,11 +11,24 @@ use Align\Meetings\Meetings;
 use Align\Settings;
 use Align\View;
 
+/**
+ * Staff meeting pages: lists, a meeting's page, scheduling (one-off or a series), editing, status changes, notes,
+ * deleting, the .ics download, the calendar and its JSON events, and each user's calendar feed link.
+ *
+ * Security assumptions: every action starts with its role check. Any staff role (viewers included) may read
+ * meetings, agendas, notes and attendees, and download a meeting's .ics; techs and admins schedule, edit, change
+ * status and delete, and only they get a calendar feed. The Router has checked CSRF on every POST. Invitations
+ * and cancellations go out from a staff mailbox (Mail\Invites, which reduces the attendee text to valid addresses);
+ * they are sent only for a scheduled meeting and only when asked, except a cancellation when a meeting whose
+ * invitations went out is cancelled or deleted. The feed is public but looked up by the SHA-256 of a 256-bit token,
+ * and carries titles, client names and times only.
+ */
 final class MeetingController
 {
     private const SELECT = 'SELECT m.*, c.name AS client_name, u.name AS owner_name
         FROM meetings m LEFT JOIN clients c ON c.id = m.client_id LEFT JOIN users u ON u.id = m.owner_id';
 
+    /** All meetings (upcoming, past or all; at most 300) and the clients due for one. Any staff role. */
     public static function index(): void
     {
         Auth::require();
@@ -40,6 +53,7 @@ final class MeetingController
         ]);
     }
 
+    /** One client's meetings and its cadence. Any staff role. */
     public static function clientIndex(int $id): void
     {
         Auth::require();
@@ -56,6 +70,7 @@ final class MeetingController
         ]);
     }
 
+    /** The meeting with its client and owner names, or a 404 page and exit. Callers have done their role check. */
     private static function load(int $id): array
     {
         $m = DB::one(self::SELECT . ' WHERE m.id = ?', [$id]);
@@ -67,6 +82,10 @@ final class MeetingController
         return $m;
     }
 
+    /**
+     * A meeting's page with its series and what to prepare. Any staff role; audited as a view. A meeting of a
+     * deleted client answers 404 (ClientController::load).
+     */
     public static function show(int $id): void
     {
         Auth::require();
@@ -86,13 +105,20 @@ final class MeetingController
         ]);
     }
 
-    /** Validates the posted form. Returns [fields, error]. */
+    /**
+     * Validates the posted form. Returns [fields, error]. Untrusted input: the date must be a real date (checkdate,
+     * years 1970-2999) and the time a real time (2.2.1: "2026-13-45" or "25:99" became a meeting in 1970, and
+     * "2026-02-30" quietly moved to March 2); attendees up to 4,000 characters, refused rather than cut; agenda cut to
+     * what its column holds; the type is one of TYPES; the client must exist; the video link must be
+     * http(s); the owner is an active tech or admin (invitations can go out from their mailbox), else the editor.
+     */
     private static function fields(): array
     {
         $date = post('date');
         $time = post('time') ?: '09:00';
         $mins = max(15, min(600, (int) (post('duration') ?: Settings::int('meeting_default_minutes', 60))));
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || !preg_match('/^\d{2}:\d{2}$/', $time)) {
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $d) || (int) $d[1] < 1970 || (int) $d[1] > 2999
+            || !checkdate((int) $d[2], (int) $d[3], (int) $d[1]) || !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/D', $time)) {
             return [null, 'Pick a date and time.'];
         }
         $start = strtotime("$date $time");
@@ -111,6 +137,11 @@ final class MeetingController
             $owner = Auth::id();
         }
         $url = post('video_url');
+        // Never cut the attendee list: a cut address can still look valid (bob@example.co) and the invitation would
+        // go to someone else (2.2.1; the API refuses a longer list the same way)
+        if (mb_strlen(post('attendees')) > 4000) {
+            return [null, 'The attendee list is too long (4,000 characters at most).'];
+        }
         return [[
             'client_id' => $clientId,
             'title' => $title,
@@ -119,18 +150,33 @@ final class MeetingController
             'ends_at' => date('Y-m-d H:i:s', $start + $mins * 60),
             'location' => mb_substr(post('location'), 0, 255) ?: null,
             'video_url' => preg_match('#^https?://#i', $url) ? mb_substr($url, 0, 500) : null,
-            'attendees' => mb_substr(post('attendees'), 0, 4000) ?: null,
-            'agenda' => mb_substr(post('agenda'), 0, 20000) ?: null,
+            'attendees' => post('attendees') ?: null,
+            'agenda' => self::text(post('agenda'), 20000),
             'owner_id' => $owner,
         ], null];
     }
 
+    /**
+     * $s cut to $chars characters and to the 65,535 bytes a TEXT column holds (whole characters only), or null when
+     * empty. 20,000 characters of emoji are 80,000 bytes: strict MariaDB refused them with a 500 (2.2.1).
+     */
+    private static function text(string $s, int $chars): ?string
+    {
+        return mb_strcut(mb_substr($s, 0, $chars), 0, 65535, 'UTF-8') ?: null;
+    }
+
+    /** Where to go after a form: the posted return path if it is a same-site path, else the meetings list. */
     private static function back(?int $clientId): string
     {
         $r = post('return');
         return \Align\Security::safePath($r, ($clientId ? "/clients/$clientId/meetings" : '/meetings'));
     }
 
+    /**
+     * Schedules a meeting, or a series of 2-24 (tech). A series repeats every 1, 3, 6 or 12 months from the first
+     * date; a day the month doesn't have becomes its last day (2.2.1: monthly from January 31 gave March 3, then
+     * March 31). Invitations go out for each meeting only when send_invites is ticked.
+     */
     public static function create(): void
     {
         Auth::requireRole('tech');
@@ -147,7 +193,7 @@ final class MeetingController
             $start = strtotime($f['starts_at']);
             $len = strtotime($f['ends_at']) - $start;
             for ($i = 0; $i < $count; $i++) {
-                $s = strtotime('+' . ($i * $months) . ' months', $start);
+                $s = Meetings::addMonths($start, $i * $months);
                 $id = DB::insert('meetings', array_merge($f, [
                     'uid' => Meetings::newUid(),
                     'series_id' => $seriesId,
@@ -176,6 +222,14 @@ final class MeetingController
         redirect(post('return') ? self::back($f['client_id']) : '/meetings/' . $ids[0]);
     }
 
+    /**
+     * Edits a meeting (tech): action complete | cancel | reopen | notes, or save (the edit form). A status change
+     * happens only from the state the page offers it in: complete and cancel a scheduled meeting, reopen one that
+     * isn't. The state is checked in the UPDATE itself, so a double submit or a second tab changes it once, and
+     * attendees get one cancellation, not one per click; cancelling a completed meeting no longer emails them
+     * (2.2.1). Reopening sends the invitation again only to undo a cancellation that went out; reopening a
+     * completed meeting emails nobody.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');
@@ -183,14 +237,21 @@ final class MeetingController
         $action = post('action', 'save');
         if (in_array($action, ['complete', 'cancel', 'reopen'], true)) {
             $status = ['complete' => 'completed', 'cancel' => 'cancelled', 'reopen' => 'scheduled'][$action];
-            DB::run('UPDATE meetings SET status = ? WHERE id = ?', [$status, $id]);
+            $changed = $action === 'reopen'
+                ? DB::run("UPDATE meetings SET status = 'scheduled' WHERE id = ? AND status <> 'scheduled'", [$id])->rowCount()
+                : DB::run("UPDATE meetings SET status = ? WHERE id = ? AND status = 'scheduled'", [$status, $id])->rowCount();
+            if (!$changed) {
+                flash('info', 'Nothing changed: the meeting is ' . DB::value('SELECT status FROM meetings WHERE id = ?', [$id]) . '.');
+                redirect("/meetings/$id");
+            }
             Audit::log("meeting.$action", $m['title']);
-            $inv = $action === 'cancel' ? \Align\Mail\Invites::send($id, 'cancel') : ($action === 'reopen' && $m['invites_sent_at'] ? \Align\Mail\Invites::send($id) : null);
+            $inv = $action === 'cancel' ? \Align\Mail\Invites::send($id, 'cancel')
+                : ($action === 'reopen' && $m['invites_sent_at'] && $m['status'] === 'cancelled' ? \Align\Mail\Invites::send($id) : null);
             flash($inv && str_contains($inv, 'not sent') ? 'warning' : 'success', 'Meeting marked ' . $status . '.' . ($inv ? ' ' . $inv : ''));
             redirect("/meetings/$id");
         }
         if ($action === 'notes') {
-            DB::run('UPDATE meetings SET notes = ? WHERE id = ?', [mb_substr(post('notes'), 0, 50000) ?: null, $id]);
+            DB::run('UPDATE meetings SET notes = ? WHERE id = ?', [self::text(post('notes'), 50000), $id]);
             Audit::log('meeting.notes', $m['title']);
             flash('success', 'Notes saved.');
             redirect("/meetings/$id");
@@ -208,6 +269,10 @@ final class MeetingController
         redirect("/meetings/$id");
     }
 
+    /**
+     * Deletes a meeting, or it and the later meetings of its series that aren't completed (tech). Attendees of
+     * scheduled meetings whose invitations went out get a cancellation first.
+     */
     public static function delete(int $id): void
     {
         Auth::requireRole('tech');
@@ -229,6 +294,10 @@ final class MeetingController
         redirect($m['client_id'] ? "/clients/{$m['client_id']}/meetings" : '/meetings');
     }
 
+    /**
+     * The meeting as an .ics download (any staff role, who can read the meeting page anyway; audited). The file
+     * name keeps only letters and digits, so nothing from the title reaches the header.
+     */
     public static function ics(int $id): void
     {
         Auth::require();
@@ -242,6 +311,7 @@ final class MeetingController
 
     // ---- Calendar ----------------------------------------------------------
 
+    /** The calendar page, and the feed link once right after it was made. Any staff role. */
     public static function calendar(): void
     {
         $u = Auth::require();
@@ -256,7 +326,7 @@ final class MeetingController
         ]);
     }
 
-    /** What to bring to a client meeting: reports, readiness and talking points. */
+    /** What to bring to a client meeting: reports, readiness and talking points. $client is a loaded row. */
     private static function prep(int $clientId, array $client): array
     {
         $proposed = DB::all("SELECT title, cost FROM roadmap_items WHERE client_id = ? AND status = 'proposed' ORDER BY target_quarter IS NULL, target_quarter LIMIT 5", [$clientId]);
@@ -271,6 +341,10 @@ final class MeetingController
         ];
     }
 
+    /**
+     * Calendar events as JSON for FullCalendar (any staff role): meetings overlapping start..end, and contract dates
+     * as all-day events. Titles are plain text (FullCalendar sets them as text, not HTML); links are same-site paths.
+     */
     public static function events(): void
     {
         Auth::require();
@@ -327,6 +401,10 @@ final class MeetingController
         return $url;
     }
 
+    /**
+     * Makes a new calendar feed link for the signed-in user, or turns it off (tech and admin only, as the feed).
+     * 256 random bits; only the SHA-256 is stored, and the link is shown once. A new link replaces the old one.
+     */
     public static function feedToken(): void
     {
         $u = Auth::requireRole('tech');
@@ -345,7 +423,12 @@ final class MeetingController
         redirect(post('return') === '/calendar' ? '/calendar' : '/account');
     }
 
-    /** Public, token-protected ICS feed for Outlook / Google / Apple calendar subscriptions. */
+    /**
+     * Public, token-protected ICS feed for Outlook / Google / Apple calendar subscriptions. No session: the token
+     * (hex, 192 bits for links made before 1.45, else 256) is looked up by its SHA-256, so the comparison leaks
+     * nothing useful; the user must be active and tech or admin. Only titles, client names and times go out
+     * (Ics::calendar minimal), from 90 days back to 18 months ahead. Unknown tokens get a plain 404.
+     */
     public static function feed(string $token): void
     {
         $token = preg_replace('/\.ics$/', '', $token);

@@ -1,4 +1,8 @@
 <?php
+/**
+ * Settings → Planning & lifecycle (admins). @var array $v saved values.
+ * Security: every value is escaped; the per-class device counts in the confirm texts are integers from the database.
+ */
 use Align\Lifecycle\Lifecycle;
 
 $num = fn(string $name, string $label, string $prefix = '', string $suffix = '') => '<div class="mb-3"><label class="small">' . e($label) . '</label><div class="input-group input-group-sm">'

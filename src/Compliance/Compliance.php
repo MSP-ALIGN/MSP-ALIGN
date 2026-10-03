@@ -5,6 +5,13 @@ namespace Align\Compliance;
 
 use Align\DB;
 
+/**
+ * Compliance scoring, device-data indicators, crosswalk tags and matches between frameworks.
+ *
+ * Security assumptions: every per-client query joins answers on the given client id, so one client's answers never
+ * show for another; callers have checked access to that client. allScores() covers every client (staff overview,
+ * dashboard and portfolio filter it to clients in planning). Tags are normalized to [a-z0-9_] by cleanTags().
+ */
 final class Compliance
 {
     public const STATUSES = [
@@ -22,7 +29,7 @@ final class Compliance
         'stale' => 'Devices checking in to RMM',
     ];
 
-    /** Score for one client + framework. */
+    /** Score for one client + framework (counts by status; partial counts half, N/A is left out). */
     public static function score(int $clientId, int $frameworkId): array
     {
         $rows = DB::all('SELECT COALESCE(s.status, \'not_assessed\') AS status, COUNT(*) AS n
@@ -53,6 +60,7 @@ final class Compliance
         return $out;
     }
 
+    /** Score, share assessed and tone from counts per status. */
     public static function fromCounts(array $c): array
     {
         $c = array_map('intval', $c) + ['met' => 0, 'partial' => 0, 'not_met' => 0, 'na' => 0, 'not_assessed' => 0];
@@ -124,7 +132,7 @@ final class Compliance
         return $tags ? implode(',', array_slice(array_keys($tags), 0, 8)) : null;
     }
 
-    /** Every tag in use, for the tag picker. */
+    /** Every tag in use, for the tag picker (plain text: the view escapes it). */
     public static function allTags(): array
     {
         $all = [];

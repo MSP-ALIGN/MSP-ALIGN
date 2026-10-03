@@ -1,4 +1,5 @@
 <?php
+/** Renewals and contract dates across clients. @var array $dates; int $days (one of 30, 90, 180, 365, checked by the controller) */
 $past = array_filter($dates, fn($d) => $d['urgency'] === 'past');
 $soon = array_filter($dates, fn($d) => $d['urgency'] === 'soon');
 $annual = array_sum(array_map(fn($d) => $d['kind'] === 'renegotiate' ? $d['annual'] : 0, $dates));

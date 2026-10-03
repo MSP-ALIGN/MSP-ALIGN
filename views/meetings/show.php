@@ -1,4 +1,9 @@
 <?php
+/**
+ * A meeting's page. @var array $m (meeting with client_name, owner_name); ?array $client; array $clients, $users,
+ * $series; ?array $prep. Everything from the meeting is staff-typed or synced text and is escaped; the edit, status
+ * and delete forms show for techs and admins only (the controller checks the role again).
+ */
 use Align\Auth;
 use Align\Meetings\Meetings;
 
@@ -42,7 +47,8 @@ $past = strtotime($m['ends_at']) < time();
         <p class="mb-2"><i class="far fa-fw fa-clock me-2 text-muted"></i><?= e(fmt_datetime($m['starts_at'])) ?> – <?= e(fmt_time($m['ends_at'])) ?></p>
         <p class="mb-2"><i class="fas fa-fw fa-building me-2 text-muted"></i><?= $m['client_id'] ? '<a href="/clients/' . (int) $m['client_id'] . '">' . e($m['client_name']) . '</a>' : 'Internal' ?></p>
         <?php if ($m['location']): ?><p class="mb-2"><i class="fas fa-fw fa-location-dot me-2 text-muted"></i><?= e($m['location']) ?></p><?php endif; ?>
-        <?php if ($m['video_url']): ?><p class="mb-2 text-truncate"><i class="fas fa-fw fa-video me-2 text-muted"></i><a href="<?= e($m['video_url']) ?>" target="_blank" rel="noopener">Join link</a></p><?php endif; ?>
+        <?php // The join link can also come from the calendar provider (Invites stores its online-meeting URL): link it only when it is http(s) (2.2.1)
+        if ($m['video_url']): ?><p class="mb-2 text-truncate"><i class="fas fa-fw fa-video me-2 text-muted"></i><?= preg_match('#^https?://#i', (string) $m['video_url']) ? '<a href="' . e($m['video_url']) . '" target="_blank" rel="noopener">Join link</a>' : e($m['video_url']) ?></p><?php endif; ?>
         <p class="mb-2"><i class="fas fa-fw fa-user-tie me-2 text-muted"></i><?= e($m['owner_name'] ?? '—') ?></p>
         <?php if ($m['attendees']): ?><p class="mb-0"><i class="fas fa-fw fa-users me-2 text-muted"></i><?= e($m['attendees']) ?></p><?php endif; ?>
       </div>

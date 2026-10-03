@@ -9,9 +9,20 @@ use Align\DB;
 use Align\Settings;
 use Align\View;
 
+/**
+ * Settings → General, Planning & lifecycle and OS support dates.
+ *
+ * Security assumptions: admins only; the Router has checked CSRF. Only the settings named here can be saved (never
+ * a name from the request), each validated before anything is written: text is cut to a length, numbers are
+ * clamped to their range, choices come from fixed lists, the timezone from PHP's list and the source link must be
+ * http(s). No secret settings are read or written here. Changes are audited with the names of the settings changed.
+ */
 final class SettingsController
 {
     public const TEXT = ['company_name', 'company_phone', 'company_email', 'company_website', 'report_footer', 'source_url'];
+    /** Longest value kept for each TEXT setting (the setup wizard uses the same for the company fields). */
+    private const TEXT_MAX = ['company_name' => 190, 'company_phone' => 60, 'company_email' => 190, 'company_website' => 190, 'report_footer' => 1000, 'source_url' => 500];
+    /** setting => [min, max]. All are whole numbers except the cost_* amounts (see save()). */
     public const NUMBERS = [
         'lifespan_desktop' => [1, 20], 'lifespan_laptop' => [1, 20], 'lifespan_server' => [1, 20], 'lifespan_network' => [1, 20],
         'cost_desktop' => [0, 1000000], 'cost_laptop' => [0, 1000000], 'cost_server' => [0, 1000000], 'cost_network' => [0, 1000000],
@@ -23,7 +34,7 @@ final class SettingsController
     ];
     private const LOCALE_DEFAULTS = ['locale_currency' => 'USD', 'locale_currency_position' => '', 'locale_number' => 'comma', 'locale_date' => 'mdy', 'locale_time' => '12', 'locale_week_start' => '0'];
 
-    /** Currency & dates (1.38): setting => allowed values. */
+    /** Currency & dates (1.38): setting => allowed values (save() keeps nothing else). */
     public static function localeChoices(): array
     {
         return [
@@ -36,6 +47,7 @@ final class SettingsController
     /** Old settings-page addresses that moved in 1.15. */
     public const MOVED = ['ninja' => 'ninjaone', 'itflow' => 'itflow', 'veeam' => 'veeam', 'dell' => 'dell', 'lenovo' => 'lenovo'];
 
+    /** The saved values the General and Planning forms show (plain settings only; no secrets). */
     private static function values(): array
     {
         $values = [];
@@ -45,19 +57,26 @@ final class SettingsController
         return $values;
     }
 
+    /** Settings → General. */
     public static function index(): void
     {
         Auth::requireRole('admin');
         View::render('settings/index', ['title' => 'Settings', 'nav' => 'settings', 'v' => self::values()]);
     }
 
+    /** Settings → Planning & lifecycle. */
     public static function planning(): void
     {
         Auth::requireRole('admin');
         View::render('settings/planning', ['title' => 'Planning & lifecycle', 'nav' => 'settings', 'v' => self::values()]);
     }
 
-    /** Saves whichever settings the posted tab contains (fields not on the form are left alone). */
+    /**
+     * Saves whichever settings the posted tab contains (fields not on the form are left alone). Also posted to by
+     * the setup wizard's Currency & dates step, which it then goes back to (setup_return: /setup paths only).
+     * Turning "remember this browser" off forgets every remembered browser, and any change to it raises a security
+     * alert.
+     */
     public static function save(): void
     {
         Auth::requireRole('admin');
@@ -68,12 +87,22 @@ final class SettingsController
             flash('error', 'Choose a timezone from the list.');
             redirect(setup_return($back));
         }
-        if (post('source_url') !== '' && (!filter_var(post('source_url'), FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', post('source_url')))) {
+        if (post('source_url') !== '' && (!filter_var(post('source_url'), FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', post('source_url'))
+            || strlen(post('source_url')) > self::TEXT_MAX['source_url'])) {
             flash('error', 'The source code link must be a web address starting with https://.');
             redirect(setup_return($back));
         }
+        // It goes into mailto: links, the terms and client emails: an address or nothing, as in the setup wizard (2.2.1)
+        // Only when it changes: an address an older version accepted must not block saving the rest of the tab
+        if (post('company_email') !== '' && post('company_email') !== (string) Settings::get('company_email')
+            && (!filter_var(self::asciiEmail(post('company_email')), FILTER_VALIDATE_EMAIL) || strlen(post('company_email')) > self::TEXT_MAX['company_email'])) {
+            flash('error', 'The company email must be an email address.');
+            redirect(setup_return($back));
+        }
         foreach (self::TEXT as $k) {
-            if (isset($_POST[$k]) && ($val = post($k)) !== (string) Settings::get($k)) {
+            // Cut to the column's purpose (2.2.1: any length was kept, up to the 64 KB the database refuses). A value
+            // posted back unchanged is left as it is, even if an older version saved it longer.
+            if (isset($_POST[$k]) && post($k) !== (string) Settings::get($k) && ($val = mb_substr(post($k), 0, self::TEXT_MAX[$k])) !== (string) Settings::get($k)) {
                 Settings::set($k, $val);
                 $changed[] = $k;
             }
@@ -102,8 +131,11 @@ final class SettingsController
             if ($v === '' || !is_numeric($v)) {
                 continue;
             }
-            $v = (string) max($min, min($max, (float) $v));
-            $v = rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
+            $v = max($min, min($max, (float) $v));
+            // Costs keep cents. Everything else is read back as a whole number (Settings::int), so it is stored as the
+            // whole number that is used (2.2.1): "0.4" days was saved as typed, read as 0 (off), and skipped the
+            // "off forgets every remembered browser" kill switch below, so the browsers came back when it was raised
+            $v = str_starts_with($k, 'cost_') ? rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') : (string) (int) $v;
             if ($v !== Settings::get($k)) {
                 if ($k === 'remember_2fa_days') {
                     // It changes what a sign-in needs (1.45.1): old and new value in the log, a security alert, and
@@ -126,13 +158,14 @@ final class SettingsController
         redirect(setup_return(setup_return($back), 'return_ok'));
     }
 
-    /** The integration Test buttons moved to Integrations (1.15). */
+    /** The integration Test buttons moved to Integrations (1.15). Only the fixed MOVED names make the redirect. */
     public static function test(): void
     {
         Auth::requireRole('admin');
         redirect('/integrations/' . (self::MOVED[post('target')] ?? ''));
     }
 
+    /** Settings → OS support dates (the table devices are matched against). */
     public static function os(): void
     {
         Auth::requireRole('admin');
@@ -143,39 +176,69 @@ final class SettingsController
         ]);
     }
 
+    /**
+     * Saves the OS support table: rows[id][label|name_contains|build|eos_date|delete] and one new[] row, all
+     * untrusted. A row is only written when every field is valid: label and text up to 190 characters, the build up
+     * to 20 digits and a real calendar date (2.2.1: "2026-02-31", a longer build or a field sent as a list was a
+     * server error). Ids that match no row change nothing. All in one transaction.
+     */
     public static function osSave(): void
     {
         Auth::requireRole('admin');
-        $valid = fn(array $r) => trim($r['label'] ?? '') !== '' && trim($r['name_contains'] ?? '') !== ''
-            && preg_match('/^\d+$/', trim($r['build'] ?? '')) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $r['eos_date'] ?? '');
+        $str = fn(mixed $x): string => is_string($x) ? trim($x) : '';
+        $valid = function (array $r) use ($str): bool {
+            [$label, $text, $build, $date] = [$str($r['label'] ?? ''), $str($r['name_contains'] ?? ''), $str($r['build'] ?? ''), $str($r['eos_date'] ?? '')];
+            return $label !== '' && mb_strlen($label) <= 190 && $text !== '' && mb_strlen($text) <= 190 && preg_match('/^\d{1,20}$/', $build)
+                && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
+        };
         $rows = is_array($_POST['rows'] ?? null) ? $_POST['rows'] : [];
-        foreach ($rows as $id => $r) {
-            if (!is_array($r)) {
-                continue;
-            }
-            if (!empty($r['delete'])) {
-                DB::run('DELETE FROM os_support WHERE id = ?', [(int) $id]);
-            } elseif ($valid($r)) {
-                DB::run('UPDATE os_support SET label = ?, name_contains = ?, build = ?, eos_date = ? WHERE id = ?', [
-                    trim($r['label']), trim($r['name_contains']), trim($r['build']), $r['eos_date'], (int) $id,
-                ]);
-            }
-        }
         $new = is_array($_POST['new'] ?? null) ? $_POST['new'] : [];
-        if (array_filter(array_map('trim', array_map('strval', $new)))) {
-            if ($valid($new)) {
-                DB::insert('os_support', [
-                    'label' => trim($new['label']),
-                    'name_contains' => trim($new['name_contains']),
-                    'build' => trim($new['build']),
-                    'eos_date' => $new['eos_date'],
-                ]);
-            } else {
-                flash('error', 'New row skipped: fill in every field (build is the number only, e.g. 26100).');
+        $n = ['updated' => 0, 'deleted' => 0, 'added' => 0, 'skipped' => 0];
+        DB::transaction(function () use ($rows, $new, $str, $valid, &$n) {
+            foreach ($rows as $id => $r) {
+                if (!is_array($r)) {
+                    continue;
+                }
+                if (!empty($r['delete'])) {
+                    $n['deleted'] += DB::run('DELETE FROM os_support WHERE id = ?', [(int) $id])->rowCount();
+                } elseif ($valid($r)) {
+                    $n['updated'] += DB::run('UPDATE os_support SET label = ?, name_contains = ?, build = ?, eos_date = ? WHERE id = ?', [
+                        $str($r['label']), $str($r['name_contains']), $str($r['build']), $str($r['eos_date']), (int) $id,
+                    ])->rowCount();
+                } else {
+                    $n['skipped']++;
+                }
             }
+            if (array_filter(array_map($str, $new))) {
+                if ($valid($new)) {
+                    DB::insert('os_support', [
+                        'label' => $str($new['label']),
+                        'name_contains' => $str($new['name_contains']),
+                        'build' => $str($new['build']),
+                        'eos_date' => $str($new['eos_date']),
+                    ]);
+                    $n['added']++;
+                } else {
+                    flash('error', 'New row skipped: fill in every field (build is the number only, e.g. 26100).');
+                }
+            }
+        });
+        Audit::log('settings.os_support', "{$n['updated']} changed, {$n['added']} added, {$n['deleted']} deleted");
+        if ($n['skipped']) {
+            flash('warning', $n['skipped'] . ' row' . ($n['skipped'] === 1 ? ' was' : 's were') . ' not saved: fill in every field, with the build as a number and a real date.');
         }
-        Audit::log('settings.os_support');
         flash('success', 'OS support dates saved.');
         redirect('/settings/os');
+    }
+
+    /** The address with its domain in ASCII (punycode), so an international domain such as bücher.de passes the check. */
+    private static function asciiEmail(string $e): string
+    {
+        $at = strrpos($e, '@');
+        if ($at === false || !function_exists('idn_to_ascii')) {
+            return $e;
+        }
+        $d = idn_to_ascii(substr($e, $at + 1), IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+        return $d === false ? $e : substr($e, 0, $at + 1) . $d;
     }
 }

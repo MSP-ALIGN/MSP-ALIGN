@@ -3,7 +3,6 @@
  * Signature: type it or draw it, with name, title and the consent to sign electronically. Used on the signing
  * page and for the provider's signature. contracts.js runs the pad; without JavaScript, typing still works.
  * @var string $p (id prefix); string $sigName, $sigTitle, $sigTyped; string $company (who it's with); ?string $photo (img URL)
- * (Not $name: View::fetch() keeps that for the view's own name.)
  */
 $sigTyped = $sigTyped ?? '';
 $photo = $photo ?? null;

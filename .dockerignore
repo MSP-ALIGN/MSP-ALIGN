@@ -8,7 +8,10 @@
 tests
 tools
 docs
-deploy
+# deploy/ holds systemd units the image doesn't use, but the release key file stays: the agent's update check
+# only trusts signed release tags when it is present (2.2.1)
+deploy/*
+!deploy/release-signers
 compose*.yaml
 Dockerfile
 **/__pycache__

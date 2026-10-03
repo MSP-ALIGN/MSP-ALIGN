@@ -1,5 +1,5 @@
 <?php
-/** Settings sub-navigation. @var string $tab */
+/** Settings sub-navigation (fixed links and labels). @var string $tab */
 $tabs = [
     'general' => ['/settings', 'General', 'fa-gear'],
     'planning' => ['/settings/planning', 'Planning & lifecycle', 'fa-recycle'],

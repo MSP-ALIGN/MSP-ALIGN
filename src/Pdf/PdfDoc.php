@@ -108,7 +108,9 @@ final class PdfDoc
                     $this->readXrefStream((int) $trailer['XRefStm']);
                 }
                 foreach ($free as $num) {
-                    $this->xref[$num] ??= [0, 0];
+                    if (!isset($this->xref[$num])) {
+                        $this->addEntry($num, [0, 0]); // free entries count toward MAX_ENTRIES too (2.2.1)
+                    }
                 }
             } else {
                 if ($first) {
@@ -210,8 +212,9 @@ final class PdfDoc
                 }
                 if ($type === 1 || $type === 2) {
                     $this->addEntry($num, [$type, $f2, $f3]);
-                } else {
-                    $this->xref[$num] ??= [0, 0];
+                } elseif (!isset($this->xref[$num])) {
+                    // free entries count too: an 8 KB xref stream listing 8 million free objects used ~500 MB (2.2.1)
+                    $this->addEntry($num, [0, 0]);
                 }
             }
         }
@@ -322,8 +325,11 @@ final class PdfDoc
                 if (isset($idx[$e[2]]) && $idx[$e[2]][0] === $num) {
                     $p = self::int($stm->dict->d['First'] ?? 0) + $idx[$e[2]][1];
                     $start = $p;
-                    $v = $this->parse($data, $p);
-                    $this->spend($p - $start);
+                    try {
+                        $v = $this->parse($data, $p);
+                    } finally {
+                        $this->spend($p - $start); // failed work is charged too (2.2.1)
+                    }
                 }
             }
         }
@@ -387,8 +393,13 @@ final class PdfDoc
             throw new \RuntimeException('too deep');
         }
         try {
-            $v = $this->parse($this->b, $p);
-            $this->spend($p - $off);
+            try {
+                $v = $this->parse($this->b, $p);
+            } finally {
+                // failed work is charged too (2.2.1): a file of objects that each scan far and then fail held a
+                // worker for the whole time limit without ever reaching the budget
+                $this->spend($p - $off);
+            }
             $q = $p;
             $this->ws($q);
             if ($v instanceof PdfDict && substr($this->b, $q, 6) === 'stream') {
@@ -625,6 +636,7 @@ final class PdfDoc
         if ($c === '<') {
             $end = strpos($b, '>', $p);
             if ($end === false) {
+                $p = strlen($b); // the scan to the end is charged to the parse budget (2.2.1)
                 throw new \RuntimeException('hex string');
             }
             $hex = preg_replace('/[^0-9A-Fa-f]/', '', substr($b, $p + 1, $end - $p - 1)) ?? '';

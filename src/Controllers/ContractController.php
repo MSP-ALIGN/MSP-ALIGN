@@ -54,6 +54,7 @@ final class ContractController
     {
         Auth::requireRole('tech');
         $show = isset(self::FILTERS[query('show')]) ? query('show') : 'open';
+        Audit::access('contracts', 'list (' . $show . ')'); // signer names and emails across clients (2.2.1)
         $where = match ($show) {
             'open' => "k.status IN ('sent','client_signed')",
             'draft' => "k.status = 'draft'",
@@ -414,13 +415,22 @@ final class ContractController
         Audit::log($signed ? 'contract.deleted_signed' : 'contract.deleted', Contracts::number($c) . ' ' . $c['title'] . ' (' . Contracts::party($c) . ', '
             . Contracts::status($c)[0] . ($c['signer_name'] ? ', signer ' . $c['signer_name'] : '') . ($c['pdf_hash'] ? ', PDF SHA-256 ' . $c['pdf_hash'] : '') . ')');
         flash('success', 'Contract ' . Contracts::number($c) . ' deleted.');
-        redirect('/contracts' . ($c['status'] === 'draft' ? '?show=draft' : ($signed ? '?show=signed' : '?show=closed')));
+        redirect('/contracts' . match (true) {
+            $c['status'] === 'draft' => '?show=draft',
+            $c['status'] === 'completed' || $c['source'] === 'uploaded' => '?show=signed',
+            $c['status'] === 'client_signed' => '',
+            default => '?show=closed',
+        });
     }
 
-    /** Signed by the client (or uploaded signed): deleting it needs an admin. */
+    /**
+     * Signed by the client (or uploaded signed): deleting it needs an admin and the typed number. Also true for a
+     * contract the client signed and staff then cancelled (2.2.1): before, Cancel then Delete let a tech remove a
+     * client's signature, consent and signing trail as if it had never been signed.
+     */
     public static function signed(array $c): bool
     {
-        return $c['source'] === 'uploaded' || in_array($c['status'], ['client_signed', 'completed'], true);
+        return $c['source'] === 'uploaded' || !empty($c['client_signed_at']) || in_array($c['status'], ['client_signed', 'completed'], true);
     }
 
     /**

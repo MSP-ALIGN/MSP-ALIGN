@@ -9,6 +9,12 @@ use Align\Config;
  * The web app's side of the system agent (scripts/agent.php, run as root by systemd).
  * The web server can't run programs, so it drops a small JSON request in /run/msp-align/requests
  * and reads the job's progress from /var/lib/msp-align-agent/jobs.
+ *
+ * Security assumptions: only admin actions (SystemController) call request(); the agent treats every request as
+ * untrusted and checks each field again. Job and state files are written by the agent (root) and read here as data:
+ * ids and names from the URL are checked against ID_RE / SAFETY_RE before they become part of a path. Folders come
+ * from config.php only. describeUpload() reads an uploaded file that anyone with an admin session could have
+ * crafted, so it only parses the unencrypted manifest, with size limits, and never trusts a field's type.
  */
 final class Agent
 {
@@ -19,7 +25,7 @@ final class Agent
         'restore' => 'Restore', 'keycheck' => 'Check backup key', 'purge_legacy' => 'Delete old server backups', 'delete_safety' => 'Delete safety copy',
     ];
 
-    /** The msp-align folder, or the mountaineer-align one on a server that hasn't moved yet (before 1.35). */
+    /** The msp-align folder, or the mountaineer-align one on a server that hasn't moved yet (before 1.35). Fixed paths only. */
     private static function installPath(string $new, string $old): string
     {
         return is_dir($new) || !is_dir($old) ? $new : $old;
@@ -31,21 +37,25 @@ final class Agent
         return Config::get('install_type') === 'docker';
     }
 
+    /** The app's data folder (downloads, restore uploads), from config.php or the install default. */
     public static function dataDir(): string
     {
         return rtrim((string) Config::get('data_dir', self::installPath('/var/lib/msp-align', '/var/lib/mountaineer-align')), '/');
     }
 
+    /** The RAM-backed folder requests are dropped in (the agent picks them up). */
     public static function runDir(): string
     {
         return rtrim((string) Config::get('run_dir', self::installPath('/run/msp-align', '/run/mountaineer-align')), '/');
     }
 
+    /** The agent's own folder (jobs, logs, update and system info, safety copies); readable, not writable, by the web server. */
     public static function agentDir(): string
     {
         return rtrim((string) Config::get('agent_dir', self::installPath('/var/lib/msp-align-agent', '/var/lib/mountaineer-align-agent')), '/');
     }
 
+    /** A path under the agent's folder. $f must be a literal or already checked against ID_RE / SAFETY_RE. */
     private static function state(string $f = ''): string
     {
         return self::agentDir() . ($f !== '' ? '/' . $f : '');
@@ -58,7 +68,11 @@ final class Agent
         return is_dir($d) && is_writable($d);
     }
 
-    /** Queues a job. The key (restore/verify/keycheck) only ever sits in the RAM-backed request file until the agent reads it. */
+    /**
+     * Queues a job and returns its id. The key (restore/verify/keycheck) only ever sits in the RAM-backed request
+     * file until the agent reads it. The file is written with umask 077 under a temporary name, then renamed, so the
+     * agent never reads half a request. $action must be an ACTIONS key; $params must already be checked by the caller.
+     */
     public static function request(string $action, array $params = [], ?string $key = null): string
     {
         if (!isset(self::ACTIONS[$action])) {
@@ -87,12 +101,17 @@ final class Agent
         return $id;
     }
 
+    /** A JSON file's array, or null when it is missing or isn't a JSON object or list. */
     private static function json(string $path): ?array
     {
         $d = is_file($path) ? json_decode((string) @file_get_contents($path), true) : null;
         return is_array($d) ? $d : null;
     }
 
+    /**
+     * The job with id $id (untrusted: anything but ID_RE gives null): its job file, or a "queued" placeholder while
+     * the request still waits for the agent (the key in it is never copied out).
+     */
     public static function job(string $id): ?array
     {
         if (!preg_match(self::ID_RE, $id)) {
@@ -106,6 +125,7 @@ final class Agent
         return $j;
     }
 
+    /** The newest $limit jobs, newest first (job ids start with the date, so names sort by time). */
     public static function jobs(int $limit = 25): array
     {
         $files = glob(self::state('jobs/*.json')) ?: [];
@@ -127,6 +147,7 @@ final class Agent
         return null;
     }
 
+    /** The end of job $id's log ($tail bytes from a line start; 0 = all), or '' for an unknown or invalid id. */
     public static function log(string $id, int $tail = 65536): string
     {
         $f = self::state("jobs/$id.log");
@@ -134,7 +155,10 @@ final class Agent
             return '';
         }
         $size = (int) filesize($f);
-        $fh = fopen($f, 'rb');
+        $fh = @fopen($f, 'rb');
+        if (!$fh) {
+            return '';
+        }
         if ($tail && $size > $tail) {
             fseek($fh, $size - $tail);
             fgets($fh);
@@ -144,6 +168,7 @@ final class Agent
         return $d;
     }
 
+    /** What the agent last found when checking for updates (update.json), or null. */
     public static function update(): ?array
     {
         return self::json(self::state('update.json'));
@@ -161,6 +186,7 @@ final class Agent
         return $newer ? $u : null;
     }
 
+    /** The server facts the agent reports (system.json: backup public keys, old backups...), or null. */
     public static function system(): ?array
     {
         return self::json(self::state('system.json'));
@@ -211,16 +237,19 @@ final class Agent
         return $m && strtotime((string) ($m['since'] ?? '')) > time() - 3 * 3600 ? $m : null;
     }
 
+    /** Where job $id's finished backup waits for its one download, or null for an invalid id. */
     public static function downloadPath(string $id): ?string
     {
         return preg_match(self::ID_RE, $id) ? self::dataDir() . "/downloads/$id.tar" : null;
     }
 
+    /** The folder uploaded backups are saved in (random names, made by SystemController::upload). */
     public static function restoreDir(): string
     {
         return self::dataDir() . '/restore';
     }
 
+    /** Safety copies kept after a failed update or restore, newest first (only names matching SAFETY_RE). */
     public static function safetyCopies(): array
     {
         $out = [];
@@ -233,16 +262,25 @@ final class Agent
         return $out;
     }
 
+    /** The path of safety copy $name (untrusted: it must match SAFETY_RE, so it can't leave the folder), or null. */
     public static function safetyPath(string $name): ?string
     {
         $f = self::state('safety/' . $name);
         return preg_match(self::SAFETY_RE, $name) && is_file($f) ? $f : null;
     }
 
-    /** Reads what's in an uploaded backup without the key (the manifest is not encrypted). */
+    /**
+     * Reads what's in an uploaded backup without the key (the manifest is not encrypted). Throws RuntimeException
+     * (a message for the admin) unless it is an age file (a backup from before 1.14) or a tar holding exactly the
+     * expected parts with a manifest of format 1. The file is untrusted: the manifest is read up to 64 KB and only
+     * scalar values are kept (2.2.1: a list there became the text "Array" with a PHP warning).
+     */
     public static function describeUpload(string $path): array
     {
-        $fh = fopen($path, 'rb');
+        $fh = @fopen($path, 'rb');
+        if (!$fh) {
+            throw new \RuntimeException('Cannot open the backup file.');
+        }
         $head = (string) fread($fh, 21);
         fclose($fh);
         if ($head === 'age-encryption.org/v1') {
@@ -261,8 +299,9 @@ final class Agent
         if (!is_array($man) || ($man['format'] ?? 0) !== 1) {
             throw new \RuntimeException('The backup manifest is not readable.');
         }
-        return ['kind' => 'bundle', 'version' => (string) ($man['version'] ?? ''), 'created' => (string) ($man['created'] ?? ''), 'host' => (string) ($man['host'] ?? ''),
-            'uploads_files' => (int) ($man['uploads_files'] ?? 0), 'has_uploads' => isset($m['uploads.tar.gz.age']), 'tag' => (string) ($man['tag'] ?? ''),
+        $str = fn(string $k): string => is_scalar($man[$k] ?? null) ? mb_substr((string) $man[$k], 0, 200) : '';
+        return ['kind' => 'bundle', 'version' => $str('version'), 'created' => $str('created'), 'host' => $str('host'),
+            'uploads_files' => is_numeric($man['uploads_files'] ?? null) ? max(0, (int) $man['uploads_files']) : 0, 'has_uploads' => isset($m['uploads.tar.gz.age']), 'tag' => $str('tag'),
             'recipients' => array_values(array_filter((array) ($man['recipients'] ?? []), 'is_string'))];
     }
 }

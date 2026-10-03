@@ -3,6 +3,7 @@
  * "Make projects" (2.1): devices due for replacement become projects on the roadmap, one per device or one for
  * several, with a QUOTE- ticket in the PSA. On the Devices page it takes the ticked devices; on a device's page, $device.
  * @var array $client; ?array $device (one device) ; string $back (where to return)
+ * Techs and admins. The confirm texts go into data-confirm-rules as escaped JSON (never an inline script).
  */
 use Align\Providers\Providers;
 use Align\Roadmap\Plan;

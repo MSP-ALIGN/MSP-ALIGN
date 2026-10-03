@@ -90,14 +90,14 @@ final class Auth
     /**
      * Whether sign-in is locked for this email (5 failures in 15 minutes) or this client IP (10, across accounts).
      * $pending: attempts already recorded for the request being checked (see beginAttempt()). The email must be
-     * normalized the way attempt() does it; the IP comes from client_ip() (trusted proxies only).
+     * normalized the way attempt() does it; the IP comes from rate_ip() (client_ip(), IPv6 per /64).
      */
     public static function isLockedOut(string $email, int $pending = 0): bool
     {
         $since = date('Y-m-d H:i:s', time() - self::FAILURE_WINDOW_MIN * 60);
         $byIp = (int) DB::value(
             'SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND success = 0 AND created_at > ?',
-            [client_ip(), $since]
+            [rate_ip(), $since]
         );
         $byEmail = (int) DB::value(
             'SELECT COUNT(*) FROM login_attempts WHERE email = ? AND success = 0 AND created_at > ?',
@@ -119,7 +119,7 @@ final class Auth
     /** Records one sign-in attempt for this email and IP and prunes rows older than 30 days. Returns the row id. */
     private static function recordAttempt(string $email, bool $ok): int
     {
-        $id = DB::insert('login_attempts', ['ip' => client_ip(), 'email' => self::attemptKey($email), 'success' => $ok ? 1 : 0]);
+        $id = DB::insert('login_attempts', ['ip' => rate_ip(), 'email' => self::attemptKey($email), 'success' => $ok ? 1 : 0]);
         DB::run('DELETE FROM login_attempts WHERE created_at < ?', [date('Y-m-d H:i:s', time() - 86400 * 30)]);
         return $id;
     }
@@ -217,9 +217,11 @@ final class Auth
         if ($step === null || !self::useStep((int) $u['id'], $step)) {
             Audit::log('login.2fa_failed', $u['email'], (int) $u['id']);
             Security::logAuthFailure('staff-2fa');
+            Security::secondFactorFailed('staff', $u); // alerts early; replaces the password at 50 in a row (2.2.1)
             return 'invalid';
         }
         unset($_SESSION['pending_2fa']);
+        Security::resetSecondFactorFailures('staff', (int) $u['id']);
         DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
         if ($remember && Remember::days() > 0) {
             Remember::issue('staff', (int) $u['id']);
@@ -330,12 +332,14 @@ final class Auth
 
     /**
      * Ends every other session for this user (after a password change, 2FA change or admin action), and with it any
-     * pending code step and remembered browser (both are tied to session_version). $keepCurrent keeps this session
-     * signed in, on a new id, when it belongs to $uid. The caller must have checked it may act on $uid.
+     * pending code step and remembered browser (both are tied to session_version). The calendar feed link is turned
+     * off too (2.2.1): someone who briefly had the session could have made one and kept reading every client's
+     * meetings after the password was reset; the user makes a new link on the Meetings page. $keepCurrent keeps
+     * this session signed in, on a new id, when it belongs to $uid. The caller must have checked it may act on $uid.
      */
     public static function revokeSessions(int $uid, bool $keepCurrent = false): void
     {
-        DB::run('UPDATE users SET session_version = session_version + 1 WHERE id = ?', [$uid]);
+        DB::run('UPDATE users SET session_version = session_version + 1, ics_token = NULL WHERE id = ?', [$uid]);
         if ($keepCurrent && (int) ($_SESSION['uid'] ?? 0) === $uid) {
             $_SESSION['sv'] = (int) DB::value('SELECT session_version FROM users WHERE id = ?', [$uid]);
             session_regenerate_id(true);

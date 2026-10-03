@@ -137,6 +137,9 @@ final class Licenses
         };
     }
 
+    /** Licenses the last syncFromPsa() added, retired, brought back or changed (the 2-minute PSA poll audits a run that changed any; 2.2.1). */
+    public static int $changes = 0;
+
     /**
      * Pulls licenses from the PSA. The PSA owns the license details; price, billing cycle, category
      * and seats in use stay in Align. Licenses archived or deleted in the PSA are retired in Align
@@ -148,11 +151,14 @@ final class Licenses
      */
     public static function syncFromPsa(PsaProvider $p): string
     {
+        self::$changes = 0;
         $rows = array_filter($p->licenses(), 'is_array');
         $n = $p->name();
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         $existing = [];
-        foreach (DB::all("SELECT id, psa_id, retired_at, retired_reason FROM licenses WHERE psa_id IS NOT NULL") as $r) {
+        // The PSA-owned columns too, so a changed license is counted for the poll's audit entry (2.2.1)
+        foreach (DB::all("SELECT id, psa_id, retired_at, retired_reason, client_id, name, version, software_type, license_type, seats, vendor, purchase_date,
+                expire_date, notes FROM licenses WHERE psa_id IS NOT NULL") as $r) {
             $existing[(string) $r['psa_id']] = $r;
         }
         // Refused unless the PSA has kept answering "none" for a day (all software really deleted there)
@@ -211,6 +217,9 @@ final class Licenses
                     $retired++;
                 } elseif (!$archived && $ex['retired_reason'] === 'psa') {
                     $vals += ['retired_at' => null, 'retired_reason' => null];
+                    self::$changes++;
+                } elseif (array_any(array_keys($vals), fn($k) => $k !== 'synced_at' && array_key_exists($k, $ex) && (string) ($ex[$k] ?? '') !== (string) ($vals[$k] ?? ''))) {
+                    self::$changes++; // seats, dates, name or client changed in the PSA
                 }
                 $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($vals)));
                 DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($vals), $ex['id']]);
@@ -231,6 +240,7 @@ final class Licenses
             }
         }
         });
+        self::$changes += $added + $retired;
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses WHERE retired_at IS NULL AND unit_price IS NULL');
         return count($seen) . ' licenses' . ($added ? ", $added new" : '') . ($retired ? ", $retired retired in $n" : '')
             . ($unpriced ? ", $unpriced need a price" : '');

@@ -143,7 +143,7 @@ final class PortalAuth
     public static function isLockedOut(string $email, int $pending = 0): bool
     {
         $since = date('Y-m-d H:i:s', time() - self::FAILURE_WINDOW_MIN * 60);
-        $byIp = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND success = 0 AND created_at > ?', [client_ip(), $since]);
+        $byIp = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND success = 0 AND created_at > ?', [rate_ip(), $since]);
         $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND success = 0 AND created_at > ?', [self::key($email), $since]);
         return $byIp >= self::MAX_FAILURES * 2 + $pending || $byEmail >= self::MAX_FAILURES + $pending;
     }
@@ -151,7 +151,7 @@ final class PortalAuth
     /** Records one attempt for this email and the client IP. Returns the row id. */
     private static function recordAttempt(string $email, bool $ok): int
     {
-        return DB::insert('login_attempts', ['ip' => client_ip(), 'email' => self::key($email), 'success' => $ok ? 1 : 0]);
+        return DB::insert('login_attempts', ['ip' => rate_ip(), 'email' => self::key($email), 'success' => $ok ? 1 : 0]);
     }
 
     /** Counted as a failure before the slow check, cleared on success (see Auth::beginAttempt). Null when over the limit. */
@@ -231,9 +231,11 @@ final class PortalAuth
         if (!$used) {
             Audit::log('portal.2fa_failed', $u['email'], null, (int) $u['id']);
             \Align\Security::logAuthFailure('portal-2fa');
+            \Align\Security::secondFactorFailed('portal', $u); // alerts early; replaces the password at 50 in a row (2.2.1)
             return 'invalid';
         }
         unset($_SESSION['portal_pending_2fa']);
+        \Align\Security::resetSecondFactorFailures('portal', (int) $u['id']);
         DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
         $remember = $remember && \Align\Remember::days() > 0;
         if ($remember) {

@@ -9,9 +9,15 @@ use Align\Roadmap\Plan;
 use Align\Roadmap\Roadmap;
 use Align\View;
 
-/** All planned projects across clients, grouped by plan quarter. */
+/**
+ * All planned projects across clients, grouped by plan quarter.
+ *
+ * Security assumptions: read only; any staff role (adding and editing go to RoadmapController, techs and admins).
+ * Every filter from the query string is checked against a fixed list or cast to int and bound; the ORDER BY is fixed.
+ */
 final class ProjectController
 {
+    /** The status tabs: ?status= value => label ('open' is proposed, approved and scheduled). */
     public const VIEWS = [
         'open' => 'Open',
         'proposed' => 'Proposed',
@@ -22,6 +28,10 @@ final class ProjectController
         'all' => 'All',
     ];
 
+    /**
+     * The Projects page: totals per plan year and per quarter (declined projects left out of the money), overdue
+     * open projects counted in the current quarter, then the ones beyond the plan and the unscheduled.
+     */
     public static function index(): void
     {
         Auth::require();

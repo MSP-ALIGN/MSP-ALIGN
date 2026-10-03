@@ -1,4 +1,10 @@
-<?php if ($newPassword): ?>
+<?php
+/**
+ * Staff accounts (admins). Vars: $users, $roles (UserController::ROLES), ?$newPassword [email, password] (shown once).
+ * Security: names and emails are escaped, also inside the confirm texts (data attributes); every button is a POST
+ * form with the CSRF token, and the controller re-checks every rule (last admin, yourself).
+ */
+?><?php if ($newPassword): ?>
   <div class="callout callout-success">
     <h5>Temporary password for <?= e($newPassword['email']) ?></h5>
     <p class="mb-1"><code class="h5 select-all"><?= e($newPassword['password']) ?></code></p>

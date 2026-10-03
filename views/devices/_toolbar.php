@@ -3,6 +3,7 @@
  * Device list toolbar (1.42): 7 view tabs, then search, Type and More menus, Columns and CSV.
  * @var string $base (list path); string $filter; string $class; string $q; bool $bkOn; ?string $export (CSV link); ?array $counts (by view key)
  * @var array $keep query parameters every link keeps (the client picked on the all-clients list); string[] $extraMenus HTML before Type
+ * $filter, $class and $q come from the query string: they only go into escaped, URL-encoded links and comparisons.
  */
 use Align\Lifecycle\Lifecycle;
 

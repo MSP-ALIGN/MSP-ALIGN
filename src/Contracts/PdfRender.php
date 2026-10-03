@@ -736,7 +736,8 @@ final class PdfRender
         $this->paragraph([['t' => 'This page records how and when this contract was signed. It is part of the signed document.', 'color' => self::GRAY]], $s);
         $this->y += 8;
         $events = Contracts::events((int) $c['id']);
-        $codeOk = array_values(array_filter($events, fn($e) => $e['event'] === 'code_ok'));
+        $lastLink = (string) array_reduce($events, fn($m, $e) => in_array($e['event'], ['sent', 'resent', 'link'], true) ? max((string) $m, (string) $e['created_at']) : $m, '');
+        $codeOk = array_values(array_filter($events, fn($e) => $e['event'] === 'code_ok' && (string) $e['created_at'] >= $lastLink));
         $row = function (string $label, string $value) use ($s) {
             $lw = 130;
             $h = $this->measure([['t' => $value]], $s, $this->w - $lw, 1.35) + 4;
@@ -775,7 +776,10 @@ final class PdfRender
             }
             if ($sg['side'] === 'client') {
                 $row('Email', (string) $c['signer_email']);
-                $row('Identity check', $codeOk ? 'Opened the private link sent to ' . $c['signer_email'] . ' and entered the one-time code emailed to that address (' . $dt($codeOk[0]['created_at']) . ').'
+                // The code claim follows the signature's own record (2.2.1). Signatures from before 2.2.1 have no
+                // flag: for those, a code entered after the last link was made, while codes were still required.
+                $verified = array_key_exists('code_verified', $sig) ? (bool) $sig['code_verified'] : ($codeOk && (bool) $c['verify_code'] && $codeOk[0]['created_at'] >= $lastLink);
+                $row('Identity check', $verified ? 'Opened the private link sent to ' . $c['signer_email'] . ' and entered the one-time code emailed to that address (' . $dt($codeOk[0]['created_at']) . ').'
                     : 'Opened the private signing link sent to ' . $c['signer_email'] . '.');
             } else {
                 $row('Email', (string) ($c['provider_email'] ?? ''));

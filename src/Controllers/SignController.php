@@ -200,6 +200,9 @@ final class SignController
         // The signing trail says how many boxes were initialed one by one: only the contract's real Initial boxes
         // count, not whatever ids were posted (the trail used to repeat any number the browser sent) (2.2.1)
         $in['_initialed'] = count(array_intersect(self::initialBoxes($c), self::initialedPosted()));
+        // Whether this session entered the emailed code for THIS link, recorded with the signature: the certificate
+        // used any code ever entered for the contract, even when a later link was sent without a code (2.2.1)
+        $in['_code_verified'] = (bool) $c['verify_code'] && ($_SESSION['contract_ok'][(int) $c['id']] ?? '') === $c['token_hash'];
         if ($err = Contracts::clientSign($c, $in, $sig, post('sig_title'))) {
             flash('error', $err);
             self::keep($c);

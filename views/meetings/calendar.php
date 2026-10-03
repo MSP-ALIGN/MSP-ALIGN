@@ -1,4 +1,8 @@
 <?php
+/**
+ * The calendar page. @var array $clients, $users; ?string $feedUrl (shown once, escaped); bool $feedOn.
+ * Events come from /calendar/events as JSON; FullCalendar shows their titles as text.
+ */
 use Align\Auth;
 use Align\Meetings\Meetings;
 
@@ -40,6 +44,7 @@ use Align\Meetings\Meetings;
         <div class="mb-1"><span class="badge me-2" style="background:#6c757d">&nbsp;</span>License expires / renews</div>
       </div>
     </div>
+    <?php if (Auth::can('tech')): // the feed is for techs and admins only (MeetingController::feedToken), so viewers aren't offered it (2.2.1) ?>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-rss me-2"></i>Subscribe in Outlook</h3></div>
       <div class="card-body small">
@@ -59,5 +64,6 @@ use Align\Meetings\Meetings;
         <?php endif; ?>
       </div>
     </div>
+    <?php endif; ?>
   </div>
 </div>

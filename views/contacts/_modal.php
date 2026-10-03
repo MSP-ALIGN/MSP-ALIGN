@@ -1,5 +1,9 @@
 <?php
-/** @var ?array $k contact (null = new); $cid; $back */
+/**
+ * The contact window (add or edit), for techs and admins. @var ?array $k contact (null = new); $cid; $back
+ * Details the PSA owns are read-only unless two-way sync pushes them; every value is escaped (also inside the
+ * data-confirm texts). $back is checked again by the controller.
+ */
 $k = $k ?? null;
 $fromPsa = $k && $k['source'] === 'psa';
 $push = $fromPsa && \Align\Contacts\Contacts::canPush(['psa_id' => $k['client_psa_id'] ?? null]);

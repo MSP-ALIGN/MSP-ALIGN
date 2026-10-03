@@ -8,10 +8,27 @@ namespace Align\System;
  * (plus a plaintext manifest), so nothing unencrypted is ever written to disk. Standard tools can
  * open it: tar -xf backup.tar, then age -d each part. No external programs are used here, so the
  * web app can read a backup's manifest and the agent can stream parts straight into age.
+ *
+ * Security assumptions: members() parses files an admin uploaded, which may be crafted: it accepts only plain files
+ * with short lower-case names (no paths, links or devices), at most $maxMembers, each inside the file, with a valid
+ * header checksum and octal numbers, so nothing it returns can point outside the archive. read() and copyTo() take
+ * only members returned by members() for the same file. write() is for the agent's own parts (fixed names).
  */
 final class Tar
 {
-    /** @return array<string, array{offset:int, size:int, type:string}> members by name; throws on anything unexpected */
+    /** A ustar number field (octal digits, padded with spaces or NULs), or null when it holds anything else. */
+    private static function octal(string $field): ?int
+    {
+        $f = trim($field, " \0");
+        return preg_match('/^[0-7]{1,12}$/D', $f) ? (int) octdec($f) : null;
+    }
+
+    /**
+     * The archive's members by name: array<string, array{offset:int, size:int, type:string}>. Throws RuntimeException
+     * (a message for the admin) on anything unexpected: a bad checksum or number field (2.2.1: octdec() skipped
+     * non-octal characters, so "1x2" was read as 10 with a deprecation notice), a member that isn't a plain file or
+     * runs past the end, a name that isn't a plain lower-case name, a repeated name, or too many members.
+     */
     public static function members(string $path, int $maxMembers = 20): array
     {
         $fh = @fopen($path, 'rb');
@@ -35,7 +52,7 @@ final class Tar
                 for ($i = 0; $i < 512; $i++) {
                     $sum += ($i >= 148 && $i < 156) ? 32 : ord($h[$i]);
                 }
-                if ($sum !== octdec(trim(substr($h, 148, 8), " \0"))) {
+                if ($sum !== self::octal(substr($h, 148, 8))) {
                     throw new \RuntimeException('This is not an MSP-ALIGN backup (bad tar header).');
                 }
                 $name = rtrim(substr($h, 0, 100), "\0");
@@ -43,7 +60,10 @@ final class Tar
                 if ($prefix !== '' && substr($h, 257, 5) === 'ustar') {
                     $name = $prefix . '/' . $name;
                 }
-                $size = (int) octdec(trim(substr($h, 124, 12), " \0"));
+                $size = self::octal(substr($h, 124, 12));
+                if ($size === null) {
+                    throw new \RuntimeException('This is not an MSP-ALIGN backup (bad tar header).');
+                }
                 $type = substr($h, 156, 1);
                 if ($type === "\0") {
                     $type = '0';
@@ -66,19 +86,23 @@ final class Tar
         return $out;
     }
 
+    /** One member's bytes, at most $max of them (larger members throw). $member must come from members($path). */
     public static function read(string $path, array $member, int $max = 1048576): string
     {
         if ($member['size'] > $max) {
             throw new \RuntimeException('Backup entry is too large.');
         }
-        $fh = fopen($path, 'rb');
+        $fh = @fopen($path, 'rb');
+        if (!$fh) {
+            throw new \RuntimeException('Cannot open the backup file.');
+        }
         fseek($fh, $member['offset']);
         $d = $member['size'] ? (string) fread($fh, $member['size']) : '';
         fclose($fh);
         return $d;
     }
 
-    /** Copies one member's bytes to a stream (for piping into age). */
+    /** Copies one member's bytes to a stream (for piping into age). $member must come from members($path). */
     public static function copyTo(string $path, array $member, $dest): void
     {
         $fh = fopen($path, 'rb');
@@ -102,9 +126,22 @@ final class Tar
         fclose($fh);
     }
 
-    /** Writes a tar of the given files: [member name => source path]. */
+    /**
+     * Writes a tar of the given files: [member name => source path]. Names must be short plain names (the agent's
+     * fixed part names); the output file must not exist yet (opened with x, so a planted file or link fails).
+     */
     public static function write(string $out, array $files): void
     {
+        // The header has 11 octal digits for the size (up to 8 GiB) and 100 bytes for the name: anything bigger made
+        // a header longer than 512 bytes, so a corrupt backup (2.2.1). Checked before anything is written.
+        foreach ($files as $name => $src) {
+            if (strlen((string) $name) > 99) {
+                throw new \RuntimeException("Cannot add $name to the backup: its name is longer than 99 characters.");
+            }
+            if ((int) filesize($src) > 077777777777) {
+                throw new \RuntimeException("Cannot add $name to the backup: it is larger than 8 GB.");
+            }
+        }
         $fh = fopen($out, 'xb');
         if (!$fh) {
             throw new \RuntimeException("Cannot create $out");

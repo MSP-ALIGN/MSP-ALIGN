@@ -1,4 +1,8 @@
 <?php
+/**
+ * The framework editor (admin). @var array $fw, $controls, $allTags; int $inUse. Every value is escaped; the
+ * confirm rules are JSON in an attribute, escaped by e().
+ */
 use Align\Compliance\Compliance;
 
 $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="form-select form-select-sm"><option value="">—</option>'

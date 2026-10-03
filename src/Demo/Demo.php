@@ -18,6 +18,10 @@ use Align\Settings;
  * and listed in the demo_clients setting; remove() deletes only clients that are both, with everything attached
  * to them. Names, emails (.example) and serials (DEMO…) are all invented. Service levels aren't included: they
  * come from a PSA's tickets.
+ *
+ * Security assumptions: load() and remove() are admin actions (DemoController checks the role; the Router checks
+ * CSRF) and both are audited. Everything written is a literal from this class or derived from it (no request
+ * input), so the made-up names and emails can never be a real client's.
  */
 final class Demo
 {
@@ -61,6 +65,7 @@ final class Demo
         [['Laura Kent', 'Principal attorney', true], ['James Oduya', 'Associate attorney', false], ['Nina Brooks', 'Paralegal', false], ['Carl Vance', 'Office manager', false]],
     ];
 
+    /** Whether demo data is loaded now (some demo client still exists). */
     public static function loaded(): bool
     {
         return self::clientIds() !== [];
@@ -93,7 +98,11 @@ final class Demo
         return null;
     }
 
-    /** Adds the demo. Returns the number of clients made. */
+    /**
+     * Adds the demo, all in one transaction. Returns the number of clients made. Throws DomainException (shown to the
+     * admin) when blocked() says no or another load is running. Security: the caller is an admin (DemoController);
+     * $userId (that admin) becomes the vCIO, owner and author of the made-up records.
+     */
     public static function load(?int $userId): int
     {
         // One at a time (a double click must not make two sets, one of them no longer listed as demo)
@@ -119,7 +128,13 @@ final class Demo
         return count($ids);
     }
 
-    /** Removes every demo client and everything attached to it. Returns the number of clients removed. */
+    /**
+     * Removes every demo client and everything attached to it. Returns the number of clients removed.
+     * Security: the caller is an admin (DemoController). Only clients that are both listed in demo_clients and marked
+     * is_demo are touched, and of the backup tables only the exact records backups() made for them (2.2.1: any
+     * backup job, run, company or workload whose id merely started with "demo-" went too, from any client or
+     * provider). The ids are integers from the database, so they are safe to put in the SQL.
+     */
     public static function remove(): int
     {
         $ids = self::clientIds(); // only clients made as demo, whatever the setting says
@@ -128,21 +143,35 @@ final class Demo
             return 0;
         }
         $in = implode(',', $ids);
+        // The backup records backups() made, by their exact ids
+        $companies = array_map(fn(int $c) => "demo-co-$c", $ids);
+        $jobs = array_merge(...array_map(fn(int $c) => ["demo-job-$c-srv", "demo-job-$c-ws"], $ids));
+        $cIn = implode(',', array_fill(0, count($companies), '?'));
+        $jIn = implode(',', array_fill(0, count($jobs), '?'));
         $logos = DB::all("SELECT logo_file FROM clients WHERE id IN ($in) AND logo_file IS NOT NULL");
-        $removed = DB::transaction(function () use ($in) {
+        $removed = DB::transaction(function () use ($in, $companies, $jobs, $cIn, $jIn) {
             DB::run("UPDATE mail_queue SET status = 'cancelled', last_error = 'Demo data removed' WHERE client_id IN ($in) AND status = 'queued'");
             DB::run("DELETE w FROM warranty_lookups w JOIN devices d ON d.serial = w.serial WHERE d.client_id IN ($in) AND d.serial LIKE 'DEMO%'");
             // Tables without a foreign key to clients first; the rest go with the client (ON DELETE CASCADE)
             DB::run("DELETE FROM devices WHERE client_id IN ($in)");
             DB::run("DELETE FROM meetings WHERE client_id IN ($in)");
-            DB::run("DELETE FROM backup_workloads WHERE client_id IN ($in) OR (provider = 'veeam' AND uid LIKE 'demo-%')");
-            DB::run("DELETE FROM backup_job_clients WHERE client_id IN ($in) OR job_uid LIKE 'demo-%'");
-            DB::run("DELETE FROM backup_job_runs WHERE job_uid LIKE 'demo-%'");
-            DB::run("DELETE FROM backup_jobs WHERE provider = 'veeam' AND uid LIKE 'demo-%'");
-            DB::run("DELETE FROM backup_companies WHERE provider = 'veeam' AND uid LIKE 'demo-%'");
+            DB::run("DELETE FROM backup_workloads WHERE client_id IN ($in) OR (provider = 'veeam' AND company_uid IN ($cIn))", $companies);
+            DB::run("DELETE FROM backup_job_clients WHERE client_id IN ($in) OR job_uid IN ($jIn)", $jobs);
+            DB::run("DELETE FROM backup_job_runs WHERE job_uid IN ($jIn) OR company_uid IN ($cIn)", [...$jobs, ...$companies]);
+            DB::run("DELETE FROM backup_jobs WHERE provider = 'veeam' AND (uid IN ($jIn) OR company_uid IN ($cIn))", [...$jobs, ...$companies]);
+            DB::run("DELETE FROM backup_companies WHERE provider = 'veeam' AND uid IN ($cIn)", $companies);
             DB::run("DELETE FROM backup_assignments WHERE client_id IN ($in)");
             DB::run("DELETE FROM psa_tickets WHERE client_id IN ($in)");
             $n = DB::run("DELETE FROM clients WHERE id IN ($in) AND is_demo = 1")->rowCount();
+            // Records of demo clients removed some other way (deleted on their own page, or by an older version):
+            // only ids in exactly the form backups() makes, whose client no longer exists
+            $gone = fn(string $col, string $re, int $at) => "($col REGEXP '$re' AND CAST(SUBSTRING_INDEX(SUBSTRING($col, $at), '-', 1) AS UNSIGNED) NOT IN (SELECT id FROM clients))";
+            $co = $gone('company_uid', '^demo-co-[0-9]+$', 9);
+            DB::run("DELETE FROM backup_workloads WHERE provider = 'veeam' AND " . $co);
+            DB::run("DELETE FROM backup_job_runs WHERE " . $gone('job_uid', '^demo-job-[0-9]+-(srv|ws)$', 10) . " OR " . $co);
+            DB::run("DELETE FROM backup_job_clients WHERE " . $gone('job_uid', '^demo-job-[0-9]+-(srv|ws)$', 10));
+            DB::run("DELETE FROM backup_jobs WHERE provider = 'veeam' AND (" . $gone('uid', '^demo-job-[0-9]+-(srv|ws)$', 10) . " OR " . $co . ")");
+            DB::run("DELETE FROM backup_companies WHERE provider = 'veeam' AND " . $gone('uid', '^demo-co-[0-9]+$', 9));
             Settings::set('demo_clients', null);
             return $n;
         });
@@ -155,11 +184,13 @@ final class Demo
 
     // ---- building one client ------------------------------------------------------------------------
 
+    /** A date relative to today ("+3 months") as Y-m-d. $rel is always a literal from this class. */
     private static function d(string $rel): string
     {
         return date('Y-m-d', strtotime($rel));
     }
 
+    /** Makes demo client $i (a CLIENTS row) with everything attached; returns its id. */
     private static function client(int $i, array $c, ?int $userId): int
     {
         [$name, $industry, $cadence, $framework, $managed, $staff, $city, $counts] = $c;
@@ -202,6 +233,7 @@ final class Demo
         return $cid;
     }
 
+    /** first-name@domain for a made-up person (domains are all .example). */
     private static function email(string $name, string $domain): string
     {
         $parts = explode(' ', preg_replace('/^Dr\.\s+/', '', $name));
@@ -215,7 +247,7 @@ final class Demo
         return $b ??= (string) (DB::value("SELECT build FROM os_support WHERE name_contains = 'Windows 11' ORDER BY eos_date DESC LIMIT 1") ?: '26200');
     }
 
-    /** @return array<string, int[]> device ids by type */
+    /** The client's devices, of every age, with purchase and warranty dates. @return array<string, int[]> device ids by type */
     private static function devices(int $cid, int $ci, array $counts, string $slug, array $people): array
     {
         $out = [];
@@ -263,6 +295,7 @@ final class Demo
         return $out;
     }
 
+    /** Licenses for client $cid: Microsoft 365, security, a line-of-business app, backup storage. */
     private static function licenses(int $cid, int $i, int $staff, array $counts): void
     {
         $computers = ($counts['Desktop'] ?? 0) + ($counts['Laptop'] ?? 0) + ($counts['Server'] ?? 0);
@@ -283,6 +316,7 @@ final class Demo
         }
     }
 
+    /** Budget lines for client $cid: managed services, internet, phones and domains, some with contract terms. */
     private static function budget(int $cid, int $managed, int $i, ?int $userId): void
     {
         $start = self::d('first day of january this year');
@@ -309,6 +343,7 @@ final class Demo
         return \Align\Roadmap\Plan::quarterFor(date('Y-m-d', $t))['start'];
     }
 
+    /** Roadmap projects for client $cid in every status, decided ones by the main contact. */
     private static function roadmap(int $cid, int $i, ?int $userId, string $contact): void
     {
         $items = [
@@ -333,6 +368,7 @@ final class Demo
         }
     }
 
+    /** A past review, the next one and its prep meeting for client $cid, on weekdays. */
     private static function meetings(int $cid, int $i, string $cadence, ?int $userId, string $contact, string $email): void
     {
         [$type, $title, $since] = match ($cadence) {
@@ -360,6 +396,7 @@ final class Demo
         }
     }
 
+    /** Assigns framework $slug to client $cid and answers part of its controls (nothing when it isn't installed). */
     private static function compliance(int $cid, string $slug, int $i, ?int $userId): void
     {
         $fw = DB::one('SELECT id FROM compliance_frameworks WHERE slug = ?', [$slug]);
@@ -380,6 +417,7 @@ final class Demo
         }
     }
 
+    /** Three policies from the built-in templates, filled in for client $cid and cleaned like any saved document. */
     private static function documents(int $cid, int $i, ?int $userId): void
     {
         $client = DB::one('SELECT * FROM clients WHERE id = ?', [$cid]);

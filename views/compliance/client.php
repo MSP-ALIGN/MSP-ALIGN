@@ -1,4 +1,8 @@
 <?php
+/**
+ * A client's compliance summary. @var array $client, $assigned (frameworks with score and gaps), $available, $indicators.
+ * The add-framework form shows for techs only.
+ */
 use Align\Auth;
 use Align\Compliance\Compliance;
 

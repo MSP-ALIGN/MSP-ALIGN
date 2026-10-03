@@ -1,4 +1,10 @@
 <?php
+/**
+ * A device's page. @var array $d, $sync, $syncRow; ?array $client, $lookup, $backups, $backupExempt; ?string $rmmUrl;
+ * string $rmmName; bool $twoWay, $clientInPsa
+ * Device data comes from the RMM and PSA and is escaped. The RMM and PSA links come from their providers, which only
+ * build http(s) links to the configured address. Edit, sync and backup forms are for techs and admins.
+ */
 use Align\Auth;
 
 use Align\Sync\PsaAssetSync;

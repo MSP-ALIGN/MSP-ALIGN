@@ -141,13 +141,15 @@ final class VeeamSpc
         return $this->optional('/protectedWorkloads/virtualMachines');
     }
 
-    /** Protected computers, managed by the console or by a backup server (each list skipped when unavailable). */
-    public function protectedComputers(): array
+    /**
+     * Protected computers, managed by the console or by a backup server (each list skipped when unavailable). Null
+     * when neither list could be read, so the sync keeps the computers it has instead of deleting them all (2.2.1).
+     */
+    public function protectedComputers(): ?array
     {
-        return array_merge(
-            $this->optional('/protectedWorkloads/computersManagedByConsole') ?? [],
-            $this->optional('/protectedWorkloads/computersManagedByBackupServer') ?? [],
-        );
+        $console = $this->optional('/protectedWorkloads/computersManagedByConsole');
+        $server = $this->optional('/protectedWorkloads/computersManagedByBackupServer');
+        return $console === null && $server === null ? null : array_merge($console ?? [], $server ?? []);
     }
 
     /** Cloud Connect backup storage quota and use per company (path moved in VSPC 9 / API 3.6). */

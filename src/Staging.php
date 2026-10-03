@@ -17,9 +17,13 @@ namespace Align;
  *   calendar events from the copied data (the real ones) are never changed or cancelled
  * - the client portal (and its onboarding pages) and the REST API are off
  * - every page shows a "Test server" banner
+ *
+ * Security assumptions: the switch is config.php only (an admin can't turn it off from the web). Callers that send
+ * mail, write to a PSA or serve the portal/API check on()/blocks() themselves; this class only answers.
  */
 final class Staging
 {
+    /** Whether this server is a test copy (config.php 'staging' => true). */
     public static function on(): bool
     {
         return (bool) Config::get('staging', false);

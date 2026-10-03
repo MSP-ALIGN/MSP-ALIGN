@@ -52,7 +52,7 @@ final class DocumentController
             WHERE $where ORDER BY d.status = 'archived', d.updated_at DESC", $params);
     }
 
-    /** All documents, filtered by client/internal, category and status. Any signed-in staff user. */
+    /** All documents, filtered by client/internal, category and status. Any signed-in staff user; the view is audited. */
     public static function index(): void
     {
         Auth::require();
@@ -74,6 +74,7 @@ final class DocumentController
         if (query('status') !== 'all') {
             $where[] = "d.status <> 'archived'";
         }
+        Audit::access('documents', 'list' . ($scope === 'internal' ? ' (internal)' : (ctype_digit($scope) ? " (client #$scope)" : ' (all)'))); // titles and excerpts (2.2.1)
         View::render('documents/index', [
             'title' => 'Documents',
             'nav' => 'documents',
@@ -86,11 +87,12 @@ final class DocumentController
         ]);
     }
 
-    /** One client's documents (and, for techs and admins, its contracts). Any signed-in staff user. */
+    /** One client's documents (and, for techs and admins, its contracts). Any signed-in staff user; the view is audited. */
     public static function clientIndex(int $id): void
     {
         Auth::require();
         $client = ClientController::load($id);
+        Audit::access('documents', "list ({$client['name']})"); // its documents and contracts (2.2.1)
         View::render('documents/client', [
             'title' => $client['name'] . ' · Documents',
             'nav' => 'clients',

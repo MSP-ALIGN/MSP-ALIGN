@@ -5,7 +5,15 @@ namespace Align\Contacts;
 
 use Align\DB;
 
-/** Client contacts: synced from the PSA (read-only details) plus Align-only vCIO roles and notes. */
+/**
+ * Client contacts: synced from the PSA (read-only details) plus Align-only vCIO roles and notes.
+ *
+ * Security assumptions: callers check the staff role (or the portal permission) before reading or changing
+ * contacts. The push* methods change data in the PSA: callers must first check canPush()/canPushArchive(), which
+ * include two-way sync, the PSA's capability and staging mode (a test server never writes to the PSA). What the PSA
+ * sends is untrusted: syncFromPsa() cuts text to the column sizes, keeps only valid email addresses and files a
+ * contact only under a client linked to the PSA client id it names. Errors shown to people go through safe_error().
+ */
 final class Contacts
 {
     /** Details the PSA manages for synced contacts (read-only in Align). */
@@ -21,6 +29,10 @@ final class Contacts
         'is_technical' => ['Technical', 'info', 'psa'],
     ];
 
+    /**
+     * Contacts of one client, or ($clientId null) of every client in planning, with client_name and client_psa_id.
+     * The client id is cast to int before it goes into the SQL text.
+     */
     public static function load(?int $clientId, bool $includeArchived = false): array
     {
         $where = [$clientId !== null ? 'k.client_id = ' . (int) $clientId : 'c.is_archived = 0 AND c.planning_excluded = 0'];
@@ -53,7 +65,10 @@ final class Contacts
         return self::canPush($client) && \Align\Providers\Providers::psaSupports('contacts.archive');
     }
 
-    /** Archives (or restores) the contact in the PSA. Returns null on success, or an error message. */
+    /**
+     * Archives (or restores) the contact in the PSA. Returns null on success, or an error message for people.
+     * The caller has checked the role and canPushArchive(); $k is the stored contact (its psa_id is the PSA's id).
+     */
     public static function pushArchive(array $k, string $psaClientId, bool $archived): ?string
     {
         try {
@@ -61,10 +76,11 @@ final class Contacts
             return $p->archiveContact($psaClientId, (string) $k['psa_id'], $archived) ? null
                 : $p->name() . ' didn\'t change it: it may already be ' . ($archived ? 'archived' : 'active') . ' or removed there, or the API key can\'t edit contacts';
         } catch (\Throwable $e) {
-            return $e->getMessage();
+            return safe_error($e); // 2.2.1: a database or PHP error's text (SQL, file paths) stays in the server log
         }
     }
 
+    /** The PSA's contact fields (PsaProvider names) for the PUSH_FIELDS present in $f, as text. */
     private static function psaPayload(array $f): array
     {
         $out = [];
@@ -76,7 +92,10 @@ final class Contacts
         return $out;
     }
 
-    /** Pushes the details of a PSA contact. Returns null on success, or an error message. */
+    /**
+     * Pushes the details of a PSA contact. Returns null on success, or an error message for people.
+     * The caller has checked the role and canPush(); $f holds already validated values.
+     */
     public static function pushUpdate(array $k, array $f, string $psaClientId): ?string
     {
         // Send the full set of details (not just the difference) so the PSA ends up matching what the user saw and saved
@@ -88,11 +107,14 @@ final class Contacts
             $p = \Align\Providers\Providers::psa();
             return $p->updateContact($psaClientId, (string) $k['psa_id'], $changed) ? null : $p->name() . ' did not accept the change';
         } catch (\Throwable $e) {
-            return $e->getMessage();
+            return safe_error($e);
         }
     }
 
-    /** Creates the contact in the PSA. Returns [psa contact id|null, error|null]. */
+    /**
+     * Creates the contact in the PSA. Returns [psa contact id|null, error for people|null].
+     * The caller has checked the role and canPush(); $f holds already validated values.
+     */
     public static function pushCreate(array $f, string $psaClientId): array
     {
         try {
@@ -108,25 +130,34 @@ final class Contacts
             }
             return [$p->createContact($psaClientId, self::psaPayload($f) + $flags), null];
         } catch (\Throwable $e) {
-            return [null, $e->getMessage()];
+            return [null, safe_error($e)];
         }
     }
 
+    /** "555-0100 x12": the phone with its extension, as plain text (escape it in HTML). */
     public static function phone(array $k): string
     {
         return trim(($k['phone'] ?? '') . ($k['extension'] ? ' x' . $k['extension'] : ''));
     }
 
+    /** Contacts the last syncFromPsa() added, archived, restored or changed (counted by the PSA poll's audit entry; 2.2.1). */
+    public static int $changes = 0;
+
     /**
      * Stores PSA contacts (already fetched for the client-details sync). The PSA owns name, title,
      * email, phones, location and its flags; decision maker, meeting invitee and Align notes are
      * never touched. Archived or deleted in the PSA = archived here (restored if it comes back).
+     * Called by the sync with every PSA contact. A contact is matched by its PSA id only and filed under the client
+     * linked to its PSA client id (rows for unlinked clients are skipped); it follows its client if the PSA moves it.
      */
     public static function syncFromPsa(array $rows, array $locationNames = [], string $psaName = 'the PSA'): string
     {
+        self::$changes = 0;
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         $existing = [];
-        foreach (DB::all('SELECT id, psa_id, archived_at, archived_reason FROM contacts WHERE psa_id IS NOT NULL') as $r) {
+        // The PSA-owned columns too, so a changed or restored contact is counted for the poll's audit entry (2.2.1)
+        foreach (DB::all('SELECT id, psa_id, archived_at, archived_reason, client_id, name, title, department, email, phone, extension, mobile, location,
+                is_primary, is_important, is_billing, is_technical, psa_notes FROM contacts WHERE psa_id IS NOT NULL') as $r) {
             $existing[(string) $r['psa_id']] = $r;
         }
         $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len) ?: null;
@@ -135,6 +166,7 @@ final class Contacts
         $seen = [];
         $added = 0;
         $archived = 0;
+        $changed = 0;
         foreach ($rows as $r) {
             $kid = ext_id($r['id'] ?? null);
             $clientId = $clients[ext_id($r['client_id'] ?? null)] ?? null;
@@ -168,6 +200,9 @@ final class Contacts
                     $archived++;
                 } elseif (!$gone && $ex['archived_reason'] === 'psa') {
                     $vals += ['archived_at' => null, 'archived_reason' => null];
+                    $changed++;
+                } elseif (array_any(array_keys($vals), fn($k) => $k !== 'synced_at' && array_key_exists($k, $ex) && (string) ($ex[$k] ?? '') !== (string) ($vals[$k] ?? ''))) {
+                    $changed++;
                 }
                 $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($vals)));
                 DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($vals), $ex['id']]);
@@ -183,6 +218,7 @@ final class Contacts
                 $archived++;
             }
         }
+        self::$changes = $added + $archived + $changed;
         return count($seen) . ' contacts' . ($added ? ", $added new" : '') . ($archived ? ", $archived archived in $psaName" : '');
     }
 }

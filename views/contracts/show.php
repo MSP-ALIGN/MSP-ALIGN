@@ -43,7 +43,7 @@ $icon = ['created' => 'fa-file-circle-plus', 'sent' => 'fa-paper-plane', 'resent
   <?php
   $canVoid = in_array($c['status'], ['sent', 'client_signed', 'expired', 'declined'], true);
   $delSigned = \Align\Controllers\ContractController::signed($c) && Auth::can('admin'); // typed confirmation, below
-  $delPlain = in_array($c['status'], ['void', 'declined', 'expired'], true) && $c['source'] === 'built';
+  $delPlain = in_array($c['status'], ['void', 'declined', 'expired'], true) && $c['source'] === 'built' && empty($c['client_signed_at']); // a cancelled one the client signed counts as signed
   if ($canVoid || $delSigned || $delPlain || $canLink): ?>
   <div class="btn-group">
     <button class="btn btn-sm btn-default dropdown-toggle" data-bs-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis"></i></button>

@@ -108,10 +108,22 @@ final class PortalController
         // insert can't fail with an error page (2.2.1)
         $key = mb_strlen('reset:' . $email) <= 190 ? 'reset:' . $email : 'reset:sha256:' . hash('sha256', $email);
         $since = date('Y-m-d H:i:s', time() - 3600);
-        $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND created_at > ?', [$key, $since]);
-        $byIp = (int) DB::value("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND email LIKE 'reset:%' AND created_at > ?", [client_ip(), $since]);
-        if (filter_var($email, FILTER_VALIDATE_EMAIL) && $byEmail < 3 && $byIp < 10) {
-            DB::insert('login_attempts', ['ip' => client_ip(), 'email' => $key, 'success' => 1]);
+        $ok = false;
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            // Claim first, then count including the claim (2.2.1): with COUNT-then-INSERT, parallel posts from separate
+            // sessions all saw the old count and each sent a reset email. Of N parallel claims exactly the first 3 (by
+            // id) see a count of 3 or less. A refused claim is removed again, so refusals don't keep the limit going.
+            $claim = DB::insert('login_attempts', ['ip' => rate_ip(), 'email' => $key, 'success' => 1]);
+            // Only rows up to this claim: the first 3 claims always win, even when a burst inserts all its claims
+            // before any of them counts (counting every row could then refuse them all)
+            $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND created_at > ? AND id <= ?', [$key, $since, $claim]);
+            $byIp = (int) DB::value("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND email LIKE 'reset:%' AND created_at > ? AND id <= ?", [rate_ip(), $since, $claim]);
+            $ok = $byEmail <= 3 && $byIp <= 10;
+            if (!$ok) {
+                DB::run('DELETE FROM login_attempts WHERE id = ?', [$claim]);
+            }
+        }
+        if ($ok) {
             $u = DB::one('SELECT p.*, c.name AS client_name FROM portal_users p JOIN clients c ON c.id = p.client_id
                 WHERE p.email = ? AND p.is_active = 1 AND c.is_archived = 0 AND p.password_hash IS NOT NULL', [$email]);
             if ($u) {
@@ -176,7 +188,9 @@ final class PortalController
     /** Signs out (POST, so CSRF-checked). */
     public static function logout(): void
     {
-        Audit::log('portal.logout');
+        if (PortalAuth::user()) {
+            Audit::log('portal.logout'); // only a real sign-out: anonymous posts can't flood the audit chain (2.2.1)
+        }
         PortalAuth::logout();
         redirect('/portal/login');
     }
@@ -273,7 +287,7 @@ final class PortalController
         return $fws;
     }
 
-    /** Roadmap and projects (can_roadmap); costs only with can_budget. */
+    /** Roadmap and projects (can_roadmap); costs only with can_budget, device names only with can_devices. */
     public static function roadmap(): void
     {
         $pu = PortalAuth::require('can_roadmap');
@@ -285,6 +299,8 @@ final class PortalController
             'plan' => Roadmap::build($cid, (new Lifecycle())->devices($cid)),
             'items' => $items,
             'showCosts' => (bool) $pu['can_budget'],
+            // Device names and models only with the devices permission; counts otherwise, as in the roadmap report (2.2.1)
+            'showDevices' => (bool) $pu['can_devices'],
         ], $pu);
     }
 
@@ -355,17 +371,29 @@ final class PortalController
             self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can\'t suggest items. Contact your IT provider.'], $pu);
             return;
         }
-        // A burst of suggestions is almost certainly a mistake (or a script): 20 an hour per user
-        if ((int) DB::value('SELECT COUNT(*) FROM portal_submissions WHERE portal_user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 20) {
-            flash('error', 'That\'s a lot of suggestions in one hour. Please wait a little, or contact your IT provider.');
-            redirect($back);
-        }
         [$data, $errors] = Submissions::fromPost($kind, $_POST);
         if ($errors) {
             flash('error', implode(' ', $errors));
             redirect($back);
         }
-        Submissions::create($pu, $kind, $data);
+        // A burst of suggestions is almost certainly a mistake (or a script): 20 an hour per user. Counted and saved
+        // under the user's lock, so parallel posts can't all pass the limit (2.2.1)
+        $lock = 'msp_align_sugg:' . (int) $pu['id'];
+        $got = (int) DB::value('SELECT GET_LOCK(?, 10)', [$lock]) === 1;
+        try {
+            $over = !$got || (int) DB::value('SELECT COUNT(*) FROM portal_submissions WHERE portal_user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 20;
+            if (!$over) {
+                Submissions::create($pu, $kind, $data);
+            }
+        } finally {
+            if ($got) {
+                DB::value('SELECT RELEASE_LOCK(?)', [$lock]);
+            }
+        }
+        if ($over) {
+            flash('error', 'That\'s a lot of suggestions in one hour. Please wait a little, or contact your IT provider.');
+            redirect($back);
+        }
         flash('success', 'Sent "' . $data['name'] . '" to your IT provider. It shows here as waiting until they review it.');
         redirect($back . '#suggestions');
     }
@@ -487,18 +515,23 @@ final class PortalController
         if (!isset(\Align\Onboarding\Requests::FORMS[$kind])) {
             redirect('/portal/requests');
         }
-        // Each request opens a ticket and emails the team: a burst is almost certainly a script (1.45)
-        if ((int) DB::value('SELECT COUNT(*) FROM service_requests WHERE portal_user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 10
-            || (int) DB::value('SELECT COUNT(*) FROM service_requests WHERE client_id = ? AND created_at > NOW() - INTERVAL 1 DAY', [$pu['client_id']]) >= 25) {
-            flash('error', 'That\'s a lot of requests in a short time. Please wait a little, or call your IT team.');
-            redirect('/portal/requests');
-        }
         [$data, $errors] = \Align\Onboarding\Requests::validate($kind, $_POST);
         if ($errors) {
             flash('error', implode(' ', $errors));
             redirect('/portal/requests');
         }
-        $r = \Align\Onboarding\Requests::submit(self::client($pu), $kind, $data, ['name' => $pu['name'], 'email' => $pu['email'], 'portal_user_id' => (int) $pu['id'], 'via' => 'portal']);
+        // Each request opens a ticket and emails the team: a burst is almost certainly a script (1.45). Counted and
+        // submitted under the client's request lock, so parallel posts can't all pass the limit (2.2.1)
+        $client = self::client($pu);
+        $r = \Align\Onboarding\Requests::locked((int) $pu['client_id'], fn() =>
+            (int) DB::value('SELECT COUNT(*) FROM service_requests WHERE portal_user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 10
+            || (int) DB::value('SELECT COUNT(*) FROM service_requests WHERE client_id = ? AND created_at > NOW() - INTERVAL 1 DAY', [$pu['client_id']]) >= 25
+                ? 'limit'
+                : \Align\Onboarding\Requests::submit($client, $kind, $data, ['name' => $pu['name'], 'email' => $pu['email'], 'portal_user_id' => (int) $pu['id'], 'via' => 'portal']));
+        if (!is_array($r)) {
+            flash('error', $r === 'limit' ? 'That\'s a lot of requests in a short time. Please wait a little, or call your IT team.' : 'Another request for your company is being sent. Please try again in a moment.');
+            redirect('/portal/requests');
+        }
         flash($r['delivery'] === 'failed' ? 'error' : 'success', $r['delivery'] === 'failed'
             ? 'We saved your request but couldn\'t send it to the service desk automatically. Please call us so nothing is missed.'
             : 'Request sent: ' . $r['title'] . '. Your IT team will follow up.');
@@ -568,7 +601,7 @@ final class PortalController
         match ($kind) {
             // Internal device notes are never included; costs only with budget access
             'assets' => ReportController::renderAssets($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '1') === '1', 'users' => query('users', '1') === '1', 'virtual' => query('virtual') === '1', 'notes' => false, '_hide' => $pu['can_budget'] ? ['notes'] : ['costs', 'notes']]),
-            'roadmap' => ReportController::renderRoadmap($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'notes' => query('notes', '1') === '1', 'position' => (bool) $pu['can_devices'], '_hide' => $pu['can_budget'] ? [] : ['costs']]),
+            'roadmap' => ReportController::renderRoadmap($client, ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'notes' => query('notes', '1') === '1', 'position' => (bool) $pu['can_devices'], 'meetings' => (bool) $pu['can_documents'], '_hide' => $pu['can_budget'] ? [] : ['costs']]),
             'budget' => BudgetController::renderReport($client, ctype_digit(query('year')) && (int) query('year') < 3 ? (int) query('year') : Plan::quarters()[Plan::currentIndex()]['year'],
                 ['details' => query('details', '1') === '1', 'notes' => true, '_hide' => ['notes']]),
         };

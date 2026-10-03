@@ -22,10 +22,11 @@ final class PortalAdminController
     /** The permission columns, in the order the form and the UPDATE use them. */
     private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts'];
 
-    /** Every portal user across clients (tech). */
+    /** Every portal user across clients (tech). The view is audited (once per 15 minutes per session). */
     public static function index(): void
     {
         Auth::requireRole('tech');
+        Audit::access('portal_users', 'all clients'); // names and emails of every client's portal users (2.2.1)
         View::render('portal_admin/index', [
             'title' => 'Client portal users',
             'nav' => 'portal-users',
@@ -49,12 +50,13 @@ final class PortalAdminController
 
     /**
      * A client's portal page (tech): its users, their recent portal activity, and a link issued on the previous
-     * request (shown once, and only on the page of the client it belongs to).
+     * request (shown once, and only on the page of the client it belongs to). The view is audited.
      */
     public static function show(int $id): void
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        Audit::access('portal_users', $client['name']); // its portal users and contact emails (2.2.1)
         $link = $_SESSION['portal_link'] ?? null;
         unset($_SESSION['portal_link']);
         View::render('portal_admin/client', [

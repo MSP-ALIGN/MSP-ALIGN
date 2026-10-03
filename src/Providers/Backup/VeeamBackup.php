@@ -145,11 +145,16 @@ final class VeeamBackup implements BackupProvider
         // Protected machines: one row per machine, newest restore point wins when it's in several jobs
         $wl = [];
         $wlJobs = [];
-        foreach ($api->protectedVms() ?? [] as $vm) {
+        $vms = $api->protectedVms();
+        $computers = $api->protectedComputers();
+        // Only lists that were readable are pruned by BackupSync (2.2.1): a lost permission or an error page in front
+        // of VSPC used to empty every client's protected machines until a later sync
+        $wlLists = array_keys(array_filter(['vm' => $vms !== null, 'computer' => $computers !== null]));
+        foreach ($vms ?? [] as $vm) {
             // A VM on the provider's own server belongs to the company its job is mapped to (in VSPC)
             self::addWorkload($wl, $vm, 'vm', $jobCompany[self::uid($vm['jobUid'] ?? null) ?? ''] ?? null, $wlJobs);
         }
-        foreach ($api->protectedComputers() as $c) {
+        foreach ($computers ?? [] as $c) {
             self::addWorkload($wl, $c, 'computer', null, $wlJobs);
         }
         // Agent jobs name their computer
@@ -169,6 +174,7 @@ final class VeeamBackup implements BackupProvider
             'jobs' => $jobs,
             'job_lists' => $lists,
             'workloads' => $workloads,
+            'workload_lists' => $wlLists,
             'm365' => $m365 === null ? null : ['orgs' => $m365['orgs'], 'objects' => $m365['objects']],
         ];
     }

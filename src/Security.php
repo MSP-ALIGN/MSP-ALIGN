@@ -122,6 +122,47 @@ final class Security
         }
     }
 
+    /** Wrong two-factor codes in a row (after the correct password) that replace the password. */
+    public const TOTP_FAILURE_LIMIT = 50;
+
+    /**
+     * Counts a wrong two-factor code for a staff ('staff') or portal ('portal') account. Codes are only asked for
+     * after the correct password, so the count can't be run up by a stranger to lock someone out; a high count means
+     * someone knows the password and is guessing codes (5 per 15 minutes under the lockout, ~4% success in a month
+     * without this). Admins get an alert at 5 and every 25 after; at TOTP_FAILURE_LIMIT the password is replaced with
+     * a random one and every session ended, so the guessing stops until an admin or a reset link sets a new one.
+     * A successful code resets the count (resetSecondFactorFailures). Added in 2.2.1; NIST SP 800-63B caps
+     * consecutive failures per account at 100.
+     * Security: $kind picks the table from a fixed list (never request input); $u is the account's own row.
+     */
+    public static function secondFactorFailed(string $kind, array $u): void
+    {
+        $table = match ($kind) { 'staff' => 'users', 'portal' => 'portal_users' };
+        $id = (int) $u['id'];
+        // One statement adds and reads the count (LAST_INSERT_ID(expr) is per connection), so two wrong codes at
+        // the same moment each get their own number and the alert at 5 can't be skipped
+        DB::run("UPDATE $table SET totp_failures = LAST_INSERT_ID(totp_failures + 1) WHERE id = ?", [$id]);
+        $n = (int) DB::value('SELECT LAST_INSERT_ID()');
+        $who = ($kind === 'portal' ? 'Portal user ' : '') . $u['email'];
+        if ($n >= self::TOTP_FAILURE_LIMIT) {
+            DB::run("UPDATE $table SET password_hash = ?, totp_failures = 0 WHERE id = ?", [self::hashPassword(bin2hex(random_bytes(32))), $id]);
+            $kind === 'portal' ? Portal\PortalAuth::revokeSessions($id) : Auth::revokeSessions($id);
+            $kind === 'portal' ? Audit::log('portal.2fa_password_reset', $u['email'], null, $id) : Audit::log('login.2fa_password_reset', $u['email'], $id);
+            Mail\Notify::security('Password replaced after wrong two-factor codes', "$who: $n wrong two-factor codes in a row after the correct password. "
+                . 'Someone else probably knows this password. It was replaced with a random one and every session ended; '
+                . ($kind === 'portal' ? 'the user can set a new one with Forgot password, or staff can send a reset link.' : 'an admin needs to set a new one.'));
+        } elseif ($n === 5 || $n % 25 === 0) {
+            Mail\Notify::security('Wrong two-factor codes after a correct password', "$who: $n wrong codes in a row. Someone may know this password.");
+        }
+    }
+
+    /** Clears the wrong-code count after a correct code (see secondFactorFailed). $kind as there. */
+    public static function resetSecondFactorFailures(string $kind, int $id): void
+    {
+        $table = match ($kind) { 'staff' => 'users', 'portal' => 'portal_users' };
+        DB::run("UPDATE $table SET totp_failures = 0 WHERE id = ? AND totp_failures <> 0", [$id]);
+    }
+
     /** Argon2id (memory-hard) when PHP supports it, bcrypt otherwise. Old hashes upgrade at next sign-in (needsRehash). */
     public static function hashPassword(string $pw): string
     {

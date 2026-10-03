@@ -2,6 +2,8 @@
 /**
  * CSV import of clients or contacts: the upload form, then the check of what would change.
  * @var string $kind; ?array $plan; string $token, $fileName; array $used, $unused
+ * Techs and admins (ImportController). Everything from the file (its name, headers and cells) is escaped; at most
+ * 500 rows are drawn. $kind is 'clients' or 'contacts' (checked by the controller).
  */
 use Align\Import\CsvImport;
 

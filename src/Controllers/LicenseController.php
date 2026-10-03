@@ -9,9 +9,21 @@ use Align\DB;
 use Align\Licensing\Licenses;
 use Align\View;
 
+/**
+ * Licensing: one client's licenses, the all-clients list, renewals, and adding, editing, retiring, restoring and
+ * deleting licenses (including accepting a client's suggestion from the portal).
+ *
+ * Security assumptions: any staff role reads; techs and admins change (the router checks CSRF). A license is found
+ * by its own id and its client comes from the database. Licenses from the PSA keep the details the PSA owns
+ * (fields() leaves them out) and can't be deleted. Form values are checked (real dates, amounts that fit their
+ * columns, fixed lists) and column names are fixed in code. Every change is audited.
+ */
 final class LicenseController
 {
-    /** Licensing for one client. */
+    /** Largest amount licenses.unit_price (DECIMAL(12,2)) holds. */
+    private const MAX_PRICE = 9999999999.99;
+
+    /** Licensing for one client (?retired=1 adds the retired ones). Any staff role. */
     public static function clientIndex(int $id): void
     {
         Auth::require();
@@ -34,7 +46,7 @@ final class LicenseController
         ]);
     }
 
-    /** Licensing across every client in planning. */
+    /** Licensing across every client in planning (or one client, ?client=), with filters and search. Any staff role. */
     public static function index(): void
     {
         Auth::require();
@@ -78,7 +90,7 @@ final class LicenseController
         ]);
     }
 
-    /** Upcoming contract ends, renegotiation dates and license renewals across all clients. */
+    /** Upcoming contract ends, renegotiation dates and license renewals across all clients. Any staff role. */
     public static function renewals(): void
     {
         Auth::require();
@@ -92,29 +104,35 @@ final class LicenseController
         ]);
     }
 
+    /** Where to go after saving: the posted same-site path (Security::safePath), else $default. */
     private static function back(string $default): string
     {
         $b = post('back');
         return \Align\Security::safePath($b, $default);
     }
 
+    /**
+     * The form's values for a license: Align's own (price, billing, category, seats in use, contract) always, the
+     * details only for a license added in Align. The keys are fixed column names.
+     */
     private static function fields(bool $fromPsa): array
     {
         $num = fn(string $k) => ctype_digit(post($k)) ? min(1000000, (int) post($k)) : null;
-        $date = fn(string $k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', post($k)) ? post($k) : null;
-        $price = post('unit_price');
+        // 2.2.1: a real day only; 2026-02-30 used to fail the save with a database error
+        $date = fn(string $k) => preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', post($k), $m) && (int) $m[1] >= 1900 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? post($k) : null;
+        $price = is_numeric(post('unit_price')) ? round((float) post('unit_price'), 2) : -1.0;
         $f = [
             'category' => isset(Licenses::CATEGORIES[post('category')]) ? post('category') : 'other',
             'pricing' => post('pricing') === 'flat' ? 'flat' : 'per_seat',
-            'unit_price' => is_numeric($price) && (float) $price >= 0 ? round((float) $price, 2) : null,
+            'unit_price' => $price >= 0 && $price <= self::MAX_PRICE ? $price : null, // a larger one failed the save
             'billing_cycle' => isset(Licenses::CYCLES[post('billing_cycle')]) ? post('billing_cycle') : 'monthly',
             'seats_used' => $num('seats_used'),
             'auto_renew' => isset($_POST['auto_renew']) ? 1 : 0,
             'align_notes' => mb_substr(post('align_notes'), 0, 5000) ?: null,
         ];
-        $cs = preg_match('/^\d{4}-\d{2}-\d{2}$/', post('contract_start')) ? post('contract_start') : null;
+        $cs = $date('contract_start');
         $f['contract_start'] = $cs;
-        $f += \Align\Budget\Contracts::fromPost($cs ?: (preg_match('/^\d{4}-\d{2}-\d{2}$/', post('purchase_date')) ? post('purchase_date') : null));
+        $f += \Align\Budget\Contracts::fromPost($cs ?: $date('purchase_date'));
         if (!$fromPsa) { // details are managed in the PSA for synced licenses
             $f += [
                 'name' => mb_substr(post('name'), 0, 255),
@@ -130,6 +148,10 @@ final class LicenseController
         return $f;
     }
 
+    /**
+     * Adds a license to the client in the URL. Techs and admins. With submission_id it accepts that client's
+     * suggestion: Submissions::accept checks it is this client's and still pending, in the same transaction.
+     */
     public static function create(int $id): void
     {
         $clientId = $id;
@@ -159,6 +181,7 @@ final class LicenseController
         redirect($back);
     }
 
+    /** Saves, retires, restores or deletes a license (post action). Techs and admins; only Align's own can be deleted. */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');

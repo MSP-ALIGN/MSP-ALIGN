@@ -10,9 +10,14 @@ use Align\Lifecycle\Lifecycle;
  * Builds a client's 3-year roadmap: planned items plus everything the data says
  * will happen (hardware reaching end of life, OS support ending, warranties
  * expiring, meetings, compliance remediation due dates).
+ *
+ * Security assumptions: read only. Callers check the staff role and pass a client id that exists; every query binds
+ * it. Totals leave declined projects out, and a device a project replaces counts only through the project
+ * (Lifecycle::evaluate leaves it out of replace_by), so no cost is counted twice.
  */
 final class Roadmap
 {
+    /** Project categories: key => [label, Font Awesome icon, Bootstrap tone]. */
     public const CATEGORIES = [
         'hardware' => ['Hardware', 'fa-desktop', 'primary'],
         'infrastructure' => ['Infrastructure / network', 'fa-network-wired', 'info'],
@@ -25,6 +30,7 @@ final class Roadmap
         'training' => ['Training / people', 'fa-user-graduate', 'dark'],
     ];
 
+    /** Project statuses: key => [label, Bootstrap tone]. */
     public const STATUSES = [
         'proposed' => ['Proposed', 'light'],
         'approved' => ['Approved', 'primary'],
@@ -33,6 +39,7 @@ final class Roadmap
         'declined' => ['Declined', 'secondary'],
     ];
 
+    /** Project priorities, most urgent first: key => [label, Bootstrap tone]. */
     public const PRIORITIES = [
         'critical' => ['Critical', 'danger'],
         'high' => ['High', 'warning'],
@@ -51,6 +58,8 @@ final class Roadmap
     ];
 
     /**
+     * The roadmap's quarters with their lanes and money, the plan years' totals and the backlog (unscheduled
+     * projects, and open ones beyond the plan). Overdue open items roll into the current quarter.
      * @param array $devices evaluated devices for the client (Lifecycle::devices)
      * @return array{quarters:array,years:array,backlog:array,totals:array}
      */
@@ -198,6 +207,7 @@ final class Roadmap
         return $forecast;
     }
 
+    /** A category's [label, icon, tone]; an unknown one shows as Other. */
     public static function category(string $c): array
     {
         return self::CATEGORIES[$c] ?? ['Other', 'fa-tag', 'secondary'];

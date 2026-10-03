@@ -2,6 +2,8 @@
 /**
  * Printable report layout. Vars: $title, $reportTitle, ?$reportSubtitle, ?$client, $brand, ?$opt,
  * ?$optLabels (extra toolbar checkboxes), ?$noMasthead (QBR pack draws its own cover), ?$docPrint.
+ * Security: every value is escaped for its context: e() for HTML, $cssStr for the CSS string in @page, the brand
+ * colour is a validated #rrggbb. The toolbar keeps the current query's string fields as escaped hidden inputs.
  */
 $opt = $opt ?? [];
 $client = $client ?? null;

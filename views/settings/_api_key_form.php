@@ -4,6 +4,7 @@ use Align\Api\Keys;
 /**
  * Fields for creating or editing an API key.
  * @var array $clients; ?array $formKey (decoded key when editing; null when creating)
+ * Security: names and notes are escaped; scope values are fixed names from Keys::AREAS; client ids are cast to int.
  */
 $k = $formKey ?? null;
 $scopes = array_flip($k['scope_list'] ?? Keys::preset('read_all'));

@@ -1,4 +1,9 @@
 <?php
+/**
+ * A client's Devices & assets list. @var array $client, $devices, $backupMap; int $matched, $total, $limit; string $q, $filter, $class
+ * Bulk replacement, Make projects and Add device are for techs and admins. The return query is kept to
+ * [a-z0-9=&_%.-] here and checked again by the controller.
+ */
 use Align\Auth;
 
 require __DIR__ . '/../partials/client_header.php';

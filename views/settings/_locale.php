@@ -1,5 +1,8 @@
 <?php
-/** Currency & dates card (Settings → General and the setup wizard). @var array $v saved values: timezone, locale_currency_position */
+/**
+ * Currency & dates card (Settings → General and the setup wizard). @var array $v saved values: timezone, locale_currency_position
+ * Security: options come from Fmt's fixed lists and PHP's timezone list; every value is escaped.
+ */
 ?>
       <?php
       $F = \Align\Fmt::class;
