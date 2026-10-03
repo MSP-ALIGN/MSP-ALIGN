@@ -17,6 +17,45 @@ use Align\View;
 /** Staff side of client onboarding: send the welcome email, follow progress, and edit the templates. */
 final class OnboardingController
 {
+    /**
+     * Onboarding → New clients (2.2): every client's onboarding at a glance, and clients who signed a contract
+     * recently but haven't been sent the welcome email yet.
+     */
+    public static function overview(): void
+    {
+        Auth::requireRole('tech');
+        if ((int) query('client')) {
+            redirect('/clients/' . (int) query('client') . '/onboarding');
+        }
+        $rows = DB::all('SELECT o.*, c.name AS client_name, u.name AS sent_by_name FROM client_onboardings o JOIN clients c ON c.id = o.client_id
+            LEFT JOIN users u ON u.id = o.sent_by WHERE c.is_archived = 0 ORDER BY o.completed_at IS NULL DESC, COALESCE(o.sent_at, o.created_at) DESC');
+        $show = query('show') === 'all' ? 'all' : 'open';
+        if ($show === 'open') {
+            $rows = array_values(array_filter($rows, fn($o) => !$o['completed_at'] || strtotime($o['completed_at']) > strtotime('-30 days')));
+        }
+        $since = date('Y-m-d H:i:s', strtotime('-120 days'));
+        // The latest contract each client signed in Align, for clients not sent the welcome email yet
+        $signed = DB::all("SELECT k.id, k.title, k.client_id, k.signed_on, k.completed_at, c.name AS client_name FROM contracts k JOIN clients c ON c.id = k.client_id
+            LEFT JOIN client_onboardings o ON o.client_id = k.client_id
+            WHERE k.id IN (SELECT MAX(id) FROM contracts WHERE status = 'completed' AND source = 'built' AND client_id IS NOT NULL AND completed_at > ? GROUP BY client_id)
+                AND c.is_archived = 0 AND (o.id IS NULL OR o.sent_at IS NULL)
+            ORDER BY k.completed_at DESC", [$since]);
+        // Signed in Align by someone who isn't a client yet (not a client that was deleted): one click makes them one
+        $leads = DB::all("SELECT k.id, k.title, k.lead_company, k.signer_name, k.completed_at FROM contracts k
+            WHERE k.status = 'completed' AND k.source = 'built' AND k.client_id IS NULL AND k.lead_company IS NOT NULL AND k.completed_at > ?
+                AND NOT EXISTS (SELECT 1 FROM contract_events e WHERE e.contract_id = k.id AND e.event = 'client_deleted')
+            ORDER BY k.completed_at DESC", [$since]);
+        View::render('onboarding/overview', [
+            'title' => 'New clients',
+            'nav' => 'newclients',
+            'rows' => $rows,
+            'show' => $show,
+            'signed' => $signed,
+            'leads' => $leads,
+            'clients' => ContractController::clients(),
+        ]);
+    }
+
     public static function client(int $id): void
     {
         Auth::require();
@@ -146,7 +185,7 @@ final class OnboardingController
         Auth::requireRole('admin');
         View::render('settings/onboarding', [
             'title' => 'Onboarding',
-            'nav' => 'settings',
+            'nav' => 'welcome',
             'templates' => Onboarding::templates(),
             'days' => (int) Settings::get('onboarding_link_days', '30'),
             'requestsOn' => Requests::enabled(),
@@ -183,7 +222,7 @@ final class OnboardingController
         }
         View::render('settings/onboarding_template', [
             'title' => $t['title'],
-            'nav' => 'settings',
+            'nav' => 'welcome',
             't' => $t,
             'hasFile' => (bool) Onboarding::filePath($t),
             'placeholders' => Onboarding::PLACEHOLDERS,

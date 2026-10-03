@@ -145,6 +145,41 @@ $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']
 $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
 
+// Onboarding → Contracts (2.2)
+$K = \Align\Controllers\ContractController::class;
+$KT = \Align\Controllers\ContractTemplateController::class;
+$r->get('/contracts', [$K, 'index']);
+$r->post('/contracts', [$K, 'create']);
+$r->post('/contracts/upload', [$K, 'upload']);
+$r->get('/contracts/verify', [$K, 'verify']);
+$r->post('/contracts/verify', [$K, 'verify']);
+$r->get('/contracts/templates', [$KT, 'index']);
+$r->post('/contracts/templates', [$KT, 'create']);
+$r->post('/contracts/templates/import', [$KT, 'import']);
+$r->post('/contracts/templates/settings', [$KT, 'settings']);
+$r->get('/contracts/templates/{id}', [$KT, 'show']);
+$r->post('/contracts/templates/{id}', [$KT, 'save']);
+$r->post('/contracts/templates/{id}/preview', [$KT, 'preview']);
+$r->get('/contracts/templates/{id}/pdf', [$KT, 'pdf']);
+$r->post('/contracts/templates/{id}/duplicate', [$KT, 'duplicate']);
+$r->post('/contracts/templates/{id}/delete', [$KT, 'delete']);
+$r->get('/contracts/templates/{id}/export', [$KT, 'export']);
+$r->get('/contracts/templates/{id}/source', [$KT, 'source']);
+$r->post('/contracts/templates/{id}/pdf', [$KT, 'replacePdf']);
+$r->get('/contracts/{id}', [$K, 'show']);
+$r->post('/contracts/{id}', [$K, 'save']);
+$r->post('/contracts/{id}/preview', [$K, 'preview']);
+$r->get('/contracts/{id}/pdf', [$K, 'pdf']);
+$r->get('/contracts/{id}/source', [$K, 'source']);
+$r->post('/contracts/{id}/send', [$K, 'send']);
+$r->post('/contracts/{id}/remind', [$K, 'remind']);
+$r->post('/contracts/{id}/countersign', [$K, 'countersign']);
+$r->post('/contracts/{id}/void', [$K, 'void']);
+$r->post('/contracts/{id}/delete', [$K, 'delete']);
+$r->post('/contracts/{id}/client', [$K, 'client']);
+$r->post('/contracts/{id}/details', [$K, 'details']);
+$r->get('/onboarding', [\Align\Controllers\OnboardingController::class, 'overview']);
+
 // Reports
 // Integrations (1.15): every connected service has a page generated from Integrations\Registry
 $E = \Align\Controllers\EmailController::class;
@@ -293,6 +328,15 @@ $r->post('/portal/welcome/{token:str}/transition', [$W, 'transition']);
 $r->post('/portal/welcome/{token:str}/request/{kind:str}', [$W, 'request']);
 $r->post('/portal/welcome/{token:str}/finish', [$W, 'finish']);
 $r->get('/portal/welcome/{token:str}/guide/{id}', [$W, 'guide']);
+// Contract signing page (private link from the contract email; no sign-in) (2.2)
+$SG = \Align\Controllers\SignController::class;
+$r->get('/portal/sign/{token:str}', [$SG, 'show']);
+$r->post('/portal/sign/{token:str}', [$SG, 'sign']);
+$r->post('/portal/sign/{token:str}/code', [$SG, 'code']);
+$r->post('/portal/sign/{token:str}/verify', [$SG, 'verify']);
+$r->post('/portal/sign/{token:str}/decline', [$SG, 'decline']);
+$r->get('/portal/sign/{token:str}/pdf', [$SG, 'pdf']);
+$r->get('/portal/sign/{token:str}/source', [$SG, 'source']);
 $r->get('/portal/invite/{token:str}', [PortalController::class, 'inviteForm']);
 $r->post('/portal/invite/{token:str}', [PortalController::class, 'invite']);
 $r->get('/portal', [PortalController::class, 'home']);

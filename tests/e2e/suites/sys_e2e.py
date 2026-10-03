@@ -32,7 +32,10 @@ t=st.get(B+"/settings/system").text
 ok("Updates &amp; backups" in t and not errs(t) and "Not checked yet" in t,"page loads before the first check")
 ok(agent("check",ALIGN_APP_DIR=T+"/app").returncode==0,"agent check ran")
 t=st.get(B+"/settings/system").text
-ok("Update to 9.99.0" in t and "Shiny new thing" in t and "Adds a thing." in t and "Co-Authored" not in t and "2 changes" in t,"update available with release notes")
+u=json.load(open(T+"/agent/update.json"))
+ok("Update to 9.99.0" in t and "<b>Shiny new thing</b>" in t and "Adds a <b>thing</b> &lt;i&gt;for you&lt;/i&gt;, see the docs." in t and "<b>Part one:</b> the first part." in t,"update available with the release's notes from the README")
+ok("Fix a typo" not in t and "Not yet" not in t and "Co-Authored" not in t and "2 changes" not in t and [n["version"] for n in u["notes"]]==["9.99.0"] and len(u["changes"])==2,
+   "the notes, not every commit; a later release's entry left out")
 d=st.get(B+"/").text
 ok("MSP-ALIGN <b>9.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
 tech=login("viewer@example.com","ViewerPassword123!"); ok(tech.get(B+"/settings/system").status_code==403 and "is available" not in tech.get(B+"/").text,"non-admins can't see it")
@@ -195,6 +198,11 @@ json.dump({**json.load(open(T+"/agent/update.json")),"current":"1.13.0","latest"
 out=subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; echo Align\\Mail\\Notify::updateAvailable(), Align\\Mail\\Notify::updateAvailable(), "|", Align\\Mail\\Notify::backupReminder(time());'],env=ENV,capture_output=True,text=True).stdout
 mq=q("select kind, subject, body_html from mail_queue order by id")
 ok(out.startswith("10|") and any(m["kind"]=="updates" and "9.99.0 is available" in m["subject"] and "Shiny new thing" in m["body_html"] for m in mq),"update email once per version: "+out)
+# the update email lists the release notes when there are some
+q("delete from mail_queue"); q("delete from notify_state where k='update_notified'")
+json.dump({**json.load(open(T+"/agent/update.json")),"notes":[{"version":"9.99.0","title":"Big feature","text":"","items":[]}]},open(T+"/agent/update.json","w"))
+subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; Align\\Mail\\Notify::updateAvailable();'],env=ENV)
+ok(any("Big feature (9.99.0)" in m["body_html"] and "Shiny new thing" not in m["body_html"] for m in q("select body_html from mail_queue where kind='updates'")),"the update email lists the release notes when there are some")
 ok(any(m["kind"]=="backup_reminder" and "No backup of MSP-ALIGN has been downloaded yet" in m["body_html"] for m in mq),"backup reminder email")
 out=subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; var_dump(Align\\Mail\\Notify::backupReminder(time()));'],env=ENV,capture_output=True,text=True).stdout
 ok("NULL" in out,"reminder not repeated within the period")

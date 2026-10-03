@@ -164,7 +164,12 @@ for d in ["remote.git", "work"]:
 sh(["git", "clone", "-q", "--bare", "--no-local", "--single-branch", ROOT, f"{S}/remote.git"])
 sh(["git", "clone", "-q", f"{S}/remote.git", f"{S}/work"])
 g = f"cd {S}/work && git -c user.name=Test -c user.email=test@example.com"
-sh(f"{g} checkout -q -B main && echo 9.99.0 > VERSION && {g} commit -qam 'v9.99.0: Shiny new thing' -m 'Adds a thing.' -m 'Co-Authored-By: X <x@y>'"
+sh(f"{g} checkout -q -B main")
+# the release notes, as a release adds them to the README's What's new
+rd = open(f"{S}/work/README.md").read()
+open(f"{S}/work/README.md", "w").write(rd.replace("## What's new\n\n", "## What's new\n\n- **Shiny new thing (9.99.0):** adds a **thing** <i>for you</i>, see [the docs](docs/FAQ.md).\n"
+                                                  "  - **Part one:** the first part.\n- **Not yet (9.99.1):** after this release.\n", 1))
+sh(f"echo 9.99.0 > {S}/work/VERSION && {g} commit -qam 'v9.99.0: Shiny new thing' -m 'Adds a thing.' -m 'Co-Authored-By: X <x@y>'"
    f" && echo '# Typo fixed' >> README.md && {g} commit -qam 'Fix a typo' && git push -q -f origin HEAD:main")
 # Clones check out main, like GitHub's default branch. Without this they'd get whatever the tests run from:
 # on a pull request that's GitHub's merge commit (a detached HEAD), not main.

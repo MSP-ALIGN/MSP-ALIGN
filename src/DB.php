@@ -104,6 +104,22 @@ final class DB
         return (int) self::pdo()->lastInsertId();
     }
 
+    /** UPDATE table SET row... WHERE every $where column equals its value (not null). Returns rows changed (not just matched). */
+    public static function update(string $table, array $row, array $where): int
+    {
+        if (!$row || !$where) {
+            return 0;
+        }
+        if (in_array(null, $where, true)) {
+            throw new \InvalidArgumentException('DB::update: a null in WHERE never matches; use DB::run with IS NULL');
+        }
+        self::names($table, array_merge(array_keys($row), array_keys($where)));
+        $sql = sprintf('UPDATE `%s` SET %s WHERE %s', $table,
+            implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($row))),
+            implode(' AND ', array_map(fn($c) => "`$c` = ?", array_keys($where))));
+        return self::run($sql, [...array_values($row), ...array_values($where)])->rowCount();
+    }
+
     /** INSERT ... ON DUPLICATE KEY UPDATE for every non-key column given. */
     public static function upsert(string $table, array $row, array $keyCols): void
     {

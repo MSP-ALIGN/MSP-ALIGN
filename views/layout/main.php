@@ -26,6 +26,10 @@ $navSections = [
         ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
         ['devices', '/devices', 'Devices & assets', 'fa-desktop', 'viewer'],
     ],
+    'ONBOARDING' => [
+        ...(($h = $firstTab('contracts')) ? [['contracts', $h, 'Contracts', 'fa-file-signature', 'tech', $ready && Auth::can('tech') ? \Align\Workflow\Todo::contractsWaiting() : 0]] : []),
+        ...(($h = $firstTab('newclients')) ? [['newclients', $h, 'New clients', 'fa-mountain-sun', 'tech']] : []),
+    ],
     'PLANNING' => [
         ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
         ['budget', '/budget', 'Budgets', 'fa-coins', 'viewer'],
@@ -48,7 +52,8 @@ $navSections = [
     ],
 ];
 // Pages that belong to a menu item with tabs (their own nav key picks the tab)
-$navGroup = ['mapping' => 'integrations', 'hosted-backups' => 'integrations', 'sync' => 'integrations', 'users' => 'people', 'portal-users' => 'people', 'unassigned' => 'devices'];
+$navGroup = ['mapping' => 'integrations', 'hosted-backups' => 'integrations', 'sync' => 'integrations', 'users' => 'people', 'portal-users' => 'people', 'unassigned' => 'devices',
+    'contract-templates' => 'contracts', 'welcome' => 'newclients'];
 $tabKey = $nav;
 $nav = $navGroup[$nav] ?? $nav;
 // Client menu in workflow order (1.42: grouped): what they have -> the plan -> meetings.
@@ -99,6 +104,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
 <?php if (!empty($calendar)): ?><script src="/vendor/fullcalendar/index.global.min.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <?php if (!empty($editor)): ?><link rel="stylesheet" href="/vendor/quill/quill.snow.css?v=<?= $v ?>"><script src="/vendor/quill/quill.js?v=<?= $v ?>" defer></script><script src="/assets/docs.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
+<?php if (!empty($contractsJs)): ?><script src="/assets/pdfview.js?v=<?= $v ?>" defer></script><script src="/assets/contracts.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
 <body class="layout-fixed sidebar-expand-lg sidebar-mini app-staff<?= \Align\Staging::on() ? ' is-staging' : '' ?>" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">

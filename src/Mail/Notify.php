@@ -17,8 +17,17 @@ final class Notify
     public static function tick(bool $force = false): array
     {
         $out = [];
+        // Contracts (2.2), hourly and with or without email: expired links, reminders, a signed PDF to retry
+        if ($force || N::state('contracts_hour') !== date('Y-m-d H')) {
+            N::setState('contracts_hour', date('Y-m-d H'));
+            try {
+                array_push($out, ...\Align\Contracts\Contracts::hourly());
+            } catch (\Throwable $e) {
+                $out[] = 'contracts: ' . $e->getMessage();
+            }
+        }
         if (!Mail::on()) {
-            return ['email is off'];
+            return array_merge($out, ['email is off']);
         }
         try {
             Invites::reminders();
@@ -421,7 +430,9 @@ final class Notify
             return 0;
         }
         N::setState('update_notified', (string) $u['latest']);
-        $changes = array_map(fn($c) => [$c['subject'], 'info'], array_slice($u['changes'] ?? [], 0, 15));
+        $changes = !empty($u['notes'])
+            ? array_map(fn($n) => [$n['title'] . ' (' . $n['version'] . ')', 'info'], array_slice($u['notes'], 0, 15))
+            : array_map(fn($c) => [$c['subject'], 'info'], array_slice($u['changes'] ?? [], 0, 15));
         $blocks = [T::p('MSP-ALIGN ' . $u['latest'] . ' is available. This server runs ' . APP_VERSION . '.')];
         if ($changes) {
             $blocks[] = T::h2('What\'s new');

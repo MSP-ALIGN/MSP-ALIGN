@@ -841,7 +841,7 @@ function check(?Job $job = null): array
     $prev = readJson(STATE . '/update.json') ?? [];
     $git = 'git -C ' . q(APP);
     $signed = signedMode();
-    $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [], 'error' => null, 'branch' => BRANCH,
+    $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [], 'notes' => $prev['notes'] ?? [], 'error' => null, 'branch' => BRANCH,
         'mode' => $signed ? 'signed' : 'branch', 'signers' => $signed ? signerPrints() : [], 'release_tag' => $prev['release_tag'] ?? null, 'unsigned' => [],
         'head_signed' => $signed ? headSigned() : null];
     $run = function (string $cmd) use ($job): array {
@@ -861,6 +861,7 @@ function check(?Job $job = null): array
         $s['latest'] = $listed;
         $s['behind'] = 0;
         $s['changes'] = [];
+        $s['notes'] = [];
         $s['source'] = 'version file';
         $c = null;
     } else {
@@ -894,6 +895,8 @@ function check(?Job $job = null): array
         [, $log] = $run("$git log --no-merges -n 60 --format=%h%x1f%s%x1f%b%x1f%cI%x1e " . q('HEAD..' . $target));
         $s['latest'] = trim($latest) ?: null;
         $s['behind'] = (int) trim($behind);
+        [$rc, $readme] = $run("$git show " . q($target . ':README.md'));
+        $s['notes'] = $rc === 0 && $s['latest'] !== null ? releaseNotes($readme, $s['current'], $s['latest']) : [];
         $s['changes'] = [];
         foreach (array_filter(explode("\x1e", $log), fn($x) => trim($x) !== '') as $entry) {
             [$sha, $subject, $body, $date] = array_pad(explode("\x1f", trim($entry)), 4, '');
@@ -927,7 +930,7 @@ function checkDocker(?Job $job = null): array
 {
     $prev = readJson(STATE . '/update.json') ?? [];
     $s = ['checked_at' => now(), 'current' => version(), 'latest' => $prev['latest'] ?? null, 'behind' => $prev['behind'] ?? 0, 'changes' => $prev['changes'] ?? [],
-        'error' => null, 'branch' => BRANCH, 'fetched_at' => $prev['fetched_at'] ?? null, 'source' => 'github', 'docker' => true];
+        'notes' => $prev['notes'] ?? [], 'error' => null, 'branch' => BRANCH, 'fetched_at' => $prev['fetched_at'] ?? null, 'source' => 'github', 'docker' => true];
     $get = function (string $url, int $max = 4096): ?string {
         $ctx = stream_context_create(['http' => ['timeout' => 20, 'follow_location' => 1, 'max_redirects' => 3, 'user_agent' => 'MSP-ALIGN update check',
             'header' => "Accept: application/vnd.github+json\r\n", 'ignore_errors' => false]]);
@@ -954,8 +957,12 @@ function checkDocker(?Job $job = null): array
         $s['fetched_at'] = now();
         $s['latest'] = $latest;
         $s['changes'] = [];
+        $s['notes'] = [];
         $s['behind'] = 0;
         if (version_compare($latest, $s['current'], '>')) {
+            // The release notes: "What's new" in the README of that release (the tag; the branch without release keys)
+            $ref = signedMode() ? 'v' . $latest : $branchPath;
+            $s['notes'] = releaseNotes((string) $get(GITHUB_RAW . '/' . REPO . '/' . $ref . '/README.md', 1 << 20), $s['current'], $latest);
             // "What's new": the branch's commits, newest first, back to this version's release commit ("v1.2.3: ...")
             $list = json_decode((string) $get(GITHUB_API . '/repos/' . REPO . '/commits?per_page=100&sha=' . rawurlencode(BRANCH), 2 << 20), true);
             foreach (is_array($list) ? $list : [] as $c) {
@@ -981,6 +988,44 @@ function checkDocker(?Job $job = null): array
     writeJson(STATE . '/update.json', $s);
     systemInfo();
     return $s;
+}
+
+/**
+ * The release notes for the versions after $from up to $to: the README's "What's new" entries ("- **Title (1.2):** text",
+ * with their indented sub-points), newest first. Written for people, unlike the commits in between, which are the
+ * "What's new" list only when there are no notes (a test channel's changes within one version).
+ */
+function releaseNotes(string $readme, string $from, string $to): array
+{
+    $v3 = fn(string $v) => implode('.', array_pad(explode('.', $v), 3, '0'));
+    $notes = [];
+    $in = false;
+    $cur = null;
+    foreach (preg_split('/\r?\n/', $readme) ?: [] as $line) {
+        if (str_starts_with($line, '## ')) {
+            if ($in) {
+                break;
+            }
+            $in = (bool) preg_match('/^## What.s new\s*$/u', $line);
+            continue;
+        }
+        if (!$in) {
+            continue;
+        }
+        if (preg_match('/^- \*\*(.+?)\s*\((\d+\.\d+(?:\.\d+)?)\)[:.]?\*\*[:.]?\s*(.*)$/u', $line, $m)) {
+            $v = $v3($m[2]);
+            $cur = null;
+            if (version_compare($v, $from, '>') && version_compare($v, $to, '<=') && count($notes) < 20) {
+                $cur = count($notes);
+                $notes[] = ['version' => $v, 'title' => mb_substr($m[1], 0, 200), 'text' => mb_substr(trim($m[3]), 0, 3000), 'items' => []];
+            }
+        } elseif (str_starts_with($line, '- ')) {
+            $cur = null;   // an entry without a version (the feature list further down)
+        } elseif ($cur !== null && preg_match('/^( {2,})- (.+)$/u', $line, $m) && count($notes[$cur]['items']) < 40) {
+            $notes[$cur]['items'][] = ['level' => strlen($m[1]) >= 4 ? 2 : 1, 'text' => mb_substr(trim($m[2]), 0, 3000)];
+        }
+    }
+    return $notes;
 }
 
 /** The latest version according to update_check_url ({url}/{branch}.json: {"version": "1.33.0"}), or null (unset, unreachable or unreadable). */

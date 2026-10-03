@@ -225,9 +225,20 @@ final class ClientController
             redirect("/clients/$id");
         }
         \Align\Images::delete('clients', $client['logo_file'] ?? null);
-        DB::transaction(function () use ($id) {
+        DB::transaction(function () use ($id, $client) {
             DB::run('DELETE FROM meetings WHERE client_id = ?', [$id]);
             DB::run('DELETE FROM devices WHERE client_id = ?', [$id]);
+            // Contracts are kept (the signed record), with the client's name. Ones still out for signature are cancelled
+            // (their links stop working), and none of them is offered as a new client later.
+            foreach (DB::all("SELECT id FROM contracts WHERE client_id = ? AND status IN ('sent','client_signed','expired')", [$id]) as $k) {
+                \Align\Contracts\Contracts::event((int) $k['id'], 'void', 'The client was deleted');
+            }
+            DB::run("UPDATE contracts SET status = 'void', voided_at = NOW(), void_reason = 'The client was deleted', token_hash = NULL, token_enc = NULL
+                WHERE client_id = ? AND status IN ('sent','client_signed','expired')", [$id]);
+            foreach (DB::all('SELECT id FROM contracts WHERE client_id = ?', [$id]) as $k) {
+                \Align\Contracts\Contracts::event((int) $k['id'], 'client_deleted', 'Client deleted: ' . $client['name']);
+            }
+            DB::run('UPDATE contracts k JOIN clients c ON c.id = k.client_id SET k.lead_company = COALESCE(k.lead_company, c.name) WHERE k.client_id = ?', [$id]);
             DB::run('DELETE FROM clients WHERE id = ?', [$id]); // compliance + roadmap cascade
         });
         Audit::log('client.delete', $client['name']);

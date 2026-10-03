@@ -20,7 +20,9 @@ final class LegalController
         ['Bootstrap', '5.3.8', 'MIT', 'https://getbootstrap.com', 'public/vendor/bootstrap/LICENSE'],
         ['Font Awesome Free', '6.7.2', 'Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT', 'https://fontawesome.com', 'public/vendor/fontawesome/LICENSE.txt'],
         ['FullCalendar', '6.1.19', 'MIT', 'https://fullcalendar.io', 'public/vendor/fullcalendar/LICENSE.md'],
+        ['PDF.js', '4.10.38', 'Apache-2.0; its fonts SIL OFL 1.1 (Liberation) and BSD (Foxit)', 'https://mozilla.github.io/pdf.js/', ['public/vendor/pdfjs/LICENSE', 'public/vendor/pdfjs/standard_fonts/LICENSE_LIBERATION', 'public/vendor/pdfjs/standard_fonts/LICENSE_FOXIT']],
         ['Quill', '2.0.3', 'BSD-3-Clause', 'https://quilljs.com', ['public/vendor/quill/LICENSE', 'public/vendor/quill/quill.js.LICENSE.txt']],
+        ['Adobe Core 14 font metrics', 'AFM 4.1 (character widths only, in src/Pdf/Metrics.php)', 'Adobe AFM notice (free to use, copy and distribute)', 'https://github.com/matplotlib/matplotlib/tree/main/lib/matplotlib/mpl-data/fonts/pdfcorefonts', 'src/Pdf/ADOBE-AFM-README.txt'],
     ];
 
     public static function company(): array

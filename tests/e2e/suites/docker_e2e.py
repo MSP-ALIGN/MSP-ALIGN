@@ -62,9 +62,12 @@ commits = [
 open(fake + "/router.php", "w").write('<?php $u = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);'
     ' if (str_ends_with($u, "/main/VERSION")) { echo "9.9.8\\n"; return true; }'
     ' if (str_ends_with($u, "/tags")) { header("Content-Type: application/json"); echo json_encode([["name" => "v9.9.10-beta.1"], ["name" => "v9.9.9"], ["name" => "v1.0.0"], ["name" => "junk"]]); return true; }'
+    ' if (str_ends_with($u, "/v9.9.9/README.md")) { readfile(__DIR__ . "/README.md"); return true; }'
     ' if (str_contains($u, "/commits")) { header("Content-Type: application/json"); readfile(__DIR__ . "/commits.json"); return true; }'
     ' http_response_code(404); return true;')
 json.dump(commits, open(fake + "/commits.json", "w"))
+open(fake + "/README.md", "w").write("# MSP-ALIGN\n\n## What's new\n\n- **Later (9.9.10):** not yet.\n- **Big thing (9.9.9):** it does more.\n  - **One:** a part.\n"
+                                     "- **Old (%s):** installed already.\n- **A feature:** no version.\n\n## Install\n\n- **Step (9.9.9):** not notes.\n" % CUR)
 srv = subprocess.Popen(["php", "-S", "127.0.0.1:8094", fake + "/router.php"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1)
 subprocess.run(["php", ROOT + "/scripts/agent.php", "check"], env=dict(AENV, ALIGN_GITHUB_API="http://127.0.0.1:8094", ALIGN_GITHUB_RAW="http://127.0.0.1:8094"),
@@ -79,6 +82,8 @@ ok(ub.get("latest") == "9.9.8" and ub.get("mode") is None, "Docker check without
 ok(u.get("latest") == "9.9.9" and u.get("mode") == "signed" and u.get("available") is True and u.get("error") is None, "Docker check: the newest release tag on GitHub is offered (images are built from release tags; pre-releases left out): " + json.dumps(u)[:160])
 ok([c["subject"] for c in u.get("changes", [])] == ["Add a shiny thing", "Fix another thing"] and u.get("behind") == 2, "Docker check: what's new since this release, without merges or older commits")
 ok("Co-Authored" not in json.dumps(u) and u["changes"][0]["body"] == "Longer text.", "Docker check: commit trailers left out")
+ok(u.get("notes") == [{"version": "9.9.9", "title": "Big thing", "text": "it does more.", "items": [{"level": 1, "text": "**One:** a part."}]}],
+   "Docker check: the release's notes from its README, only for the versions after this one: " + json.dumps(u.get("notes"))[:200])
 env_no = {k: v for k, v in AENV.items() if k != "ALIGN_DOCKER"}
 subprocess.run(["php", ROOT + "/scripts/agent.php", "check"], env=dict(env_no, ALIGN_APP_DIR=SYS + "/work"), capture_output=True, text=True, timeout=120)
 u2 = json.load(open(T + "/agent/update.json"))

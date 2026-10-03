@@ -2,7 +2,7 @@
 /** Edit one onboarding template. @var array $t; bool $hasFile; array $placeholders */
 $isEmail = $t['kind'] === 'email';
 ?>
-<div class="small"><a href="/settings/onboarding">Settings → Onboarding</a> /</div>
+<div class="small"><a href="/settings/onboarding">Onboarding → Welcome email &amp; guide</a> /</div>
 <form method="post" action="/settings/onboarding/templates/<?= (int) $t['id'] ?>" id="template-form" enctype="multipart/form-data">
   <?= csrf_field() ?>
   <input type="hidden" name="body" id="template-body">

@@ -31,7 +31,7 @@ final class Onboarding
 
     // ---- Templates -------------------------------------------------------------------------
 
-    /** Generic defaults (installed by migration 028). Your own wording goes in Settings -> Onboarding. */
+    /** Generic defaults (installed by migration 028). Your own wording goes in Onboarding -> Welcome email & guide. */
     public static function defaultTemplates(): array
     {
         return [
@@ -72,7 +72,7 @@ HTML],
 <p>For urgent matters please call. If you email about something urgent, put "urgent" in the subject line so we can help right away.</p>
 HTML],
             ['slug' => 'billing', 'kind' => 'page', 'title' => 'Billing & payments', 'subject' => null, 'body_html' => <<<'HTML'
-<p>Describe how clients receive and pay invoices: where to sign in, payment methods and any fees, automatic payments, and who to contact with billing questions. Edit this page in Settings → Onboarding.</p>
+<p>Describe how clients receive and pay invoices: where to sign in, payment methods and any fees, automatic payments, and who to contact with billing questions. Edit this page in Onboarding → Welcome email &amp; guide.</p>
 HTML],
         ];
     }
