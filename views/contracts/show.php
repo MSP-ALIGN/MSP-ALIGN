@@ -3,7 +3,9 @@ use Align\Auth;
 use Align\Contracts\Contracts;
 
 /**
- * A sent, signed or uploaded contract. @var array $c, $events, $clients, $me; string $preview; bool $mailReady; ?string $link
+ * A sent, signed or uploaded contract. @var array $c, $events, $clients, $me; string $preview; bool $mailReady, $clientDeleted; ?string $link
+ * Every value is escaped with e(); $preview is HTML from Render (values escaped there). Buttons only mirror the
+ * controller's checks, which are the real ones.
  */
 $id = (int) $c['id'];
 [$label, $tone] = Contracts::status($c);
@@ -11,6 +13,8 @@ $built = $c['source'] === 'built';
 $open = in_array($c['status'], ['sent', 'client_signed'], true);
 $signed = $c['status'] === 'completed';
 $hasPdf = (bool) Contracts::pdfPath($c);
+// Signed and not linked to a client: can be made a client's (an admin only, when its client was deleted)
+$canLink = $signed && !$c['client_id'] && (empty($clientDeleted) || Auth::can('admin'));
 $icon = ['created' => 'fa-file-circle-plus', 'sent' => 'fa-paper-plane', 'resent' => 'fa-paper-plane', 'link' => 'fa-link', 'reminder' => 'fa-bell', 'opened' => 'fa-envelope-open',
     'code_sent' => 'fa-key', 'code_ok' => 'fa-user-check', 'code_bad' => 'fa-triangle-exclamation', 'provider_signed' => 'fa-pen-nib', 'client_signed' => 'fa-signature',
     'completed' => 'fa-circle-check', 'declined' => 'fa-circle-xmark', 'void' => 'fa-ban', 'expired' => 'fa-hourglass-end', 'downloaded' => 'fa-download',
@@ -31,7 +35,7 @@ $icon = ['created' => 'fa-file-circle-plus', 'sent' => 'fa-paper-plane', 'resent
     <form method="post" action="/contracts/<?= $id ?>/send" class="me-1"><?= csrf_field() ?><input type="hidden" name="action" value="<?= $mailReady ? 'send' : 'link' ?>">
       <button class="btn btn-sm btn-primary" data-confirm="<?= $mailReady ? 'Email ' . e((string) $c['signer_email']) . ' a new link?' : 'Make a new link to send yourself?' ?>" data-confirm-danger="0" data-confirm-ok="<?= $mailReady ? 'Send again' : 'Make a link' ?>"><i class="fas fa-paper-plane me-1"></i>Send again</button></form>
   <?php endif; ?>
-  <?php if ($signed && !$c['client_id']): ?>
+  <?php if ($canLink): ?>
     <form method="post" action="/contracts/<?= $id ?>/client" class="me-1"><?= csrf_field() ?><button class="btn btn-sm btn-success" data-confirm="Add <?= e((string) $c['lead_company']) ?> as a client in Align, with <?= e((string) $c['signer_name']) ?> as the main contact? If a client with exactly this name is already in Align, the contract is linked to it instead." data-confirm-danger="0" data-confirm-ok="Add the client"><i class="fas fa-building me-1"></i>Add as a client</button></form>
   <?php elseif ($signed && $c['client_id'] && $built): ?>
     <a class="btn btn-sm btn-success me-1" href="/clients/<?= (int) $c['client_id'] ?>/onboarding"><i class="fas fa-mountain-sun me-1"></i>Onboarding</a>
@@ -40,11 +44,11 @@ $icon = ['created' => 'fa-file-circle-plus', 'sent' => 'fa-paper-plane', 'resent
   $canVoid = in_array($c['status'], ['sent', 'client_signed', 'expired', 'declined'], true);
   $delSigned = \Align\Controllers\ContractController::signed($c) && Auth::can('admin'); // typed confirmation, below
   $delPlain = in_array($c['status'], ['void', 'declined', 'expired'], true) && $c['source'] === 'built';
-  if ($canVoid || $delSigned || $delPlain || ($signed && !$c['client_id'])): ?>
+  if ($canVoid || $delSigned || $delPlain || $canLink): ?>
   <div class="btn-group">
     <button class="btn btn-sm btn-default dropdown-toggle" data-bs-toggle="dropdown" aria-label="More actions"><i class="fas fa-ellipsis"></i></button>
     <div class="dropdown-menu dropdown-menu-end">
-      <?php if ($signed && !$c['client_id']): ?><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modal-link-client"><i class="fas fa-fw fa-link me-1"></i>Link to an existing client</button><?php endif; ?>
+      <?php if ($canLink): ?><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modal-link-client"><i class="fas fa-fw fa-link me-1"></i>Link to an existing client</button><?php endif; ?>
       <?php if ($canVoid): ?><form method="post" action="/contracts/<?= $id ?>/void"><?= csrf_field() ?><button class="dropdown-item text-danger" data-confirm="Cancel this contract? The signing link stops working. The record and its history are kept." data-confirm-ok="Cancel contract"><i class="fas fa-fw fa-ban me-1"></i>Cancel contract</button></form><?php endif; ?>
       <?php if ($delPlain): ?><form method="post" action="/contracts/<?= $id ?>/delete"><?= csrf_field() ?><button class="dropdown-item text-danger" data-confirm="Delete this contract and its history? It was never signed." data-confirm-ok="Delete"><i class="fas fa-fw fa-trash me-1"></i>Delete</button></form><?php endif; ?>
       <?php if ($delSigned): ?><button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#modal-delete-contract"><i class="fas fa-fw fa-trash me-1"></i>Delete…</button><?php endif; ?>
@@ -143,7 +147,7 @@ $icon = ['created' => 'fa-file-circle-plus', 'sent' => 'fa-paper-plane', 'resent
   </div>
 </div>
 
-<?php if ($signed && !$c['client_id']): ?>
+<?php if ($canLink): ?>
 <div class="modal fade" id="modal-link-client" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <form method="post" action="/contracts/<?= $id ?>/client"><?= csrf_field() ?>
@@ -164,7 +168,8 @@ $icon = ['created' => 'fa-file-circle-plus', 'sent' => 'fa-paper-plane', 'resent
       <div class="modal-body">
         <p class="small">This deletes <b><?= e(\Align\Contracts\Contracts::number($c)) ?></b>, its signed PDF and its signing history from Align for good. Copies already emailed aren't affected. The audit log keeps a note of what was deleted.</p>
         <label for="del-confirm" class="small">Type <b><?= e(\Align\Contracts\Contracts::number($c)) ?></b> to confirm</label>
-        <input id="del-confirm" name="confirm" class="form-control" autocomplete="off" required pattern="<?= e(preg_quote(\Align\Contracts\Contracts::number($c), '/')) ?>">
+        <?php /* The number ("C-0001") has no regex characters. preg_quote's "\-" is invalid in a browser's (u/v-flag) pattern, which then checked nothing. */ ?>
+        <input id="del-confirm" name="confirm" class="form-control" autocomplete="off" required pattern="<?= e(\Align\Contracts\Contracts::number($c)) ?>">
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Delete for good</button></div>
     </form>

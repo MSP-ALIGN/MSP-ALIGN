@@ -101,15 +101,25 @@ final class Auth
         );
         $byEmail = (int) DB::value(
             'SELECT COUNT(*) FROM login_attempts WHERE email = ? AND success = 0 AND created_at > ?',
-            [$email, $since]
+            [self::attemptKey($email), $since]
         );
         return $byIp >= self::MAX_FAILURES * 2 + $pending || $byEmail >= self::MAX_FAILURES + $pending;
+    }
+
+    /**
+     * The login_attempts key for a typed email: the email itself, or a hash when it wouldn't fit the 190-character
+     * column (2.2.1: a longer typed address made the insert fail with a server error). Invalid UTF-8 is replaced.
+     */
+    private static function attemptKey(string $email): string
+    {
+        $k = mb_scrub($email, 'UTF-8');
+        return mb_strlen($k) <= 190 ? $k : 'sha256:' . hash('sha256', $k);
     }
 
     /** Records one sign-in attempt for this email and IP and prunes rows older than 30 days. Returns the row id. */
     private static function recordAttempt(string $email, bool $ok): int
     {
-        $id = DB::insert('login_attempts', ['ip' => client_ip(), 'email' => $email, 'success' => $ok ? 1 : 0]);
+        $id = DB::insert('login_attempts', ['ip' => client_ip(), 'email' => self::attemptKey($email), 'success' => $ok ? 1 : 0]);
         DB::run('DELETE FROM login_attempts WHERE created_at < ?', [date('Y-m-d H:i:s', time() - 86400 * 30)]);
         return $id;
     }

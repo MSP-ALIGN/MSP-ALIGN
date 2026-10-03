@@ -1,4 +1,10 @@
-<?php /** @var ?array $invitee */ ?>
+<?php
+/**
+ * Invite / reset form. $token is shown only when it matched a user (so it is 64 hex characters); the code field
+ * appears for an account with two-factor, whose password can't change without it.
+ * @var ?array $invitee; string $token
+ */
+?>
 <?php if (!$invitee): ?>
   <p class="login-box-msg"><b>This link has expired or was already used.</b></p>
   <p class="small text-muted text-center">Sign-in links work once and expire after <?= \Align\Portal\PortalAuth::INVITE_DAYS ?> days. Ask your IT provider to send you a new one.</p>

@@ -6,6 +6,7 @@ namespace Align\Pdf;
 /** A PDF value, as read by PdfDoc. */
 final class PdfRef
 {
+    /** An indirect reference: object number and generation. */
     public function __construct(public readonly int $num, public readonly int $gen = 0)
     {
     }

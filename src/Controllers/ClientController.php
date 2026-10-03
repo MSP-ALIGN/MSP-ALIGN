@@ -120,12 +120,19 @@ final class ClientController
         return $f;
     }
 
-    /** Saves or removes the client logo from the edit form. Returns an error message or null. */
+    /**
+     * Saves or removes the client logo from the edit form. Returns an error message or null.
+     * Security: called only from create()/update(), which check the tech role (CSRF by the router). $current is the
+     * stored name from the database. Images::store checks and re-encodes the upload and picks the file name.
+     */
     private static function handleLogo(int $id, ?string $current): ?string
     {
         if (isset($_POST['remove_logo'])) {
             \Align\Images::delete('clients', $current);
             DB::run('UPDATE clients SET logo_file = NULL WHERE id = ?', [$id]);
+            if ($current) {
+                Audit::log('client.logo_removed', "Logo removed for client #$id"); // every change is audited (uploads were)
+            }
             return null;
         }
         if (empty($_FILES['logo']) || ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
@@ -141,7 +148,10 @@ final class ClientController
         return null;
     }
 
-    /** Serves a client's logo (signed-in users only). */
+    /**
+     * Serves a client's logo (signed-in staff only; every staff role sees every client). The portal has its own
+     * route for its own client's logo, so a portal session can't fetch another client's logo by id.
+     */
     public static function logo(int $id): void
     {
         Auth::require();

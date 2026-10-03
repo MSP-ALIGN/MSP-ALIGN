@@ -1,4 +1,10 @@
-<?php /** @var array $doc */ ?>
+<?php
+/**
+ * One shared document. The body is printed as HTML on purpose: it was cleaned by the allowlist sanitizer
+ * (Docs\Html::clean) when it was saved, and the page's CSP allows no inline script. Everything else is escaped.
+ * @var array $doc
+ */
+?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <div class="me-auto"><a href="/portal/documents" class="small"><i class="fas fa-arrow-left me-1"></i>Documents</a>
     <h1 class="h4 mb-0"><?= e($doc['title']) ?></h1>

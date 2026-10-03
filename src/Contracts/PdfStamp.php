@@ -48,7 +48,6 @@ final class PdfStamp
         readfile($p);
     }
 
-    /** Whether any template or contract still uses this PDF file (they're never changed, so copies share them). */
     /** Deletes a template's PDF once no template or contract uses it any more. */
     public static function removeIfUnused(string $file): void
     {
@@ -57,6 +56,13 @@ final class PdfStamp
         }
     }
 
+    /**
+     * Whether any template or contract still uses this PDF file (they're never changed, so copies share them).
+     * It looks for $file anywhere in the stored defs (LIKE, with % and _ escaped), so the caller passes a name it has
+     * checked against the source-<hex>.pdf pattern, as removeIfUnused() does: a looser string only matches more and
+     * keeps the file. $exceptTemplate leaves one template out (null leaves none out). The check isn't locked
+     * against a template or contract being saved at the same time.
+     */
     public static function inUse(string $file, ?int $exceptTemplate = null): bool
     {
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $file) . '%';
@@ -134,6 +140,7 @@ final class PdfStamp
 
     // ---- What each box shows ---------------------------------------------------------------------------------
 
+    /** An amount for a box: with the currency symbol, or without it ($plain) when the MSP's page prints its own. */
     private static function money(float $v, bool $plain): string
     {
         $s = Fmt::money($v, true);
@@ -331,8 +338,12 @@ final class PdfStamp
 
     /**
      * The lowest and the final save depth of a content stream: each "q" adds one, each "Q" takes one away. Strings,
-     * comments, hex strings, dictionaries, arrays and inline images are skipped, so a "q" inside them doesn't count.
-     * Throws when the content ends inside one of them (a viewer would read what follows, our stamp, as part of it).
+     * comments, hex strings and inline images are skipped, so a "q" inside them doesn't count. Inside an array or a
+     * dictionary q and Q are operands, not operators (a viewer doesn't run them), so they don't count either (2.2.1:
+     * a "Q" counted there made isolate() close one save too few, so the page's own clip or scale could hide the
+     * stamp). Arrays and dictionaries are also tracked to notice content that ends inside one. Throws when the content
+     * ends inside a string, hex string, inline image, array or dictionary (a viewer would read what follows, our
+     * stamp, as part of it).
      */
     public static function balance(string $s): array
     {
@@ -391,7 +402,7 @@ final class PdfStamp
                 $p++;
             } elseif ($c === 'B' && ($s[$p + 1] ?? '') === 'I' && $token($p, 2)) {
                 $p = self::skipInlineImage($s, $p + 2, $token, $space) ?? throw $open('an inline image');
-            } elseif (($c === 'q' || $c === 'Q') && $token($p, 1)) {
+            } elseif (($c === 'q' || $c === 'Q') && $token($p, 1) && $arrays === 0 && $dicts === 0) {
                 $depth += $c === 'q' ? 1 : -1;
                 $min = min($min, $depth);
                 $p++;
@@ -671,6 +682,10 @@ final class PdfStamp
         }
     }
 
+    /**
+     * Breaks UTF-8 text into lines no wider than $w at its line breaks and spaces. A single word wider than $w keeps a
+     * line of its own and is never cut (draw() shrinks the text instead).
+     */
     private static function wrap(string $text, string $font, float $size, float $w): array
     {
         $out = [];

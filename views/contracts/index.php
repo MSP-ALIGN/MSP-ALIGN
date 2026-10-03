@@ -2,7 +2,11 @@
 use Align\Auth;
 use Align\Contracts\Contracts;
 
-/** Onboarding → Contracts. @var array $rows, $counts, $templates, $clients; string $show; int $waitingOnYou */
+/**
+ * Onboarding → Contracts. @var array $rows, $counts, $templates, $clients; string $show; int $waitingOnYou
+ * Every value is escaped with e(); $show is one of ContractController::FILTERS (the controller checks it).
+ * $fmtParty: the client's link, or the lead's company name.
+ */
 $fmtParty = fn($r) => $r['client_id'] ? '<a href="/clients/' . (int) $r['client_id'] . '">' . e($r['client_name']) . '</a>'
     : e($r['lead_company'] ?: '—') . ' <span class="badge text-bg-light border" title="Not a client in Align yet">new</span>';
 ?>

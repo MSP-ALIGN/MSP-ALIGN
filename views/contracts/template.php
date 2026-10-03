@@ -1,7 +1,11 @@
 <?php
 use Align\Contracts\Template;
 
-/** The contract template builder (written in Align). contracts.js builds the blocks and lists from the JSON below. @var array $t, $unknown; int $uses */
+/**
+ * The contract template builder (written in Align). contracts.js builds the blocks and lists from the JSON below. @var array $t, $unknown; int $uses
+ * The JSON goes in <script type="application/json"> with the JSON_HEX_* flags, so "</script>", quotes and "&" in a
+ * template can't end the element; contracts.js reads it with JSON.parse and escapes each value (esc()) as it builds the page.
+ */
 $id = (int) $t['id'];
 $def = $t['def'];
 $st = $def['style'];

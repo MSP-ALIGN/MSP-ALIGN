@@ -13,9 +13,21 @@ use Align\View;
  * The client's signing page, opened from the contract email: /portal/sign/{token}. No sign-in: the private link
  * is the key, and (when the contract asks for it) a one-time code emailed to the signer confirms it's them.
  * Uses the client portal's session (separate from staff).
+ *
+ * Security assumptions: every route is public (routes.php), so each handler starts with load(), which finds the
+ * contract only by the SHA-256 of a well-formed token and only while the link is live (Contracts::byToken). The
+ * router checks CSRF on every POST. Whatever the browser sends is untrusted: the signer can change only their own
+ * fields, their signature and title (Contracts::clientSign), and every status change is a conditional UPDATE there,
+ * so double submits and parallel sign/decline/cancel can't both win. The emailed code is checked per contract and
+ * per link (needsCode) before the contract, its PDF or the signed copy is shown, signed or declined. The token
+ * itself is never logged or shown except in this page's own links.
  */
 final class SignController
 {
+    /**
+     * The contract for a signing link, or the "link expired" page (404) and the end of the request. Never says
+     * whether a link existed, was replaced or expired.
+     */
     private static function load(string $token): array
     {
         $c = Contracts::byToken($token);
@@ -27,11 +39,17 @@ final class SignController
         return $c;
     }
 
+    /** Back to the signing page. $token has passed byToken()'s format check; $anchor is a fixed word from this class. */
     private static function back(string $token, string $anchor = ''): never
     {
         redirect('/portal/sign/' . $token . ($anchor ? '#' . $anchor : ''));
     }
 
+    /**
+     * Whether this browser still has to enter the emailed code. The session remembers a correct code per contract
+     * together with the link's hash, so a link sent again (a new token) asks for a new code. A declined contract
+     * shows nothing private (no wording, no copy), so it needs none.
+     */
     private static function needsCode(array $c): bool
     {
         // Asked for whenever the contract says so (also after signing: the signed copy is just as private). If email
@@ -42,6 +60,8 @@ final class SignController
     /**
      * Records that the signer opened the link (or downloaded the copy): once per browser session, and in the history
      * at most once a day per IP address and EVENT_CAP times in all, so someone holding the link can't flood it.
+     * $event is 'opened' or 'downloaded' (fixed by the callers). "Opened" is recorded before any code is entered: it
+     * means the link was used, not that the signer was verified (code_ok says that).
      */
     private static function seen(array $c, string $event): void
     {
@@ -61,7 +81,10 @@ final class SignController
 
     private const EVENT_CAP = 50;
 
-    /** Whether the signer initials: on every page of a written contract, an Initials field, or an Initials box on the PDF. */
+    /**
+     * Whether the signer initials: on every page of a written contract, an Initials field, or an Initials box on the
+     * PDF. Only decides whether the form shows an initials box; what's required is checked in sign().
+     */
     private static function initials(array $c): bool
     {
         return ($c['def']['style']['initials_footer'] && empty($c['def']['pdf']))
@@ -69,6 +92,11 @@ final class SignController
             || in_array('initials.client', array_column($c['def']['places'] ?? [], 'key'), true);
     }
 
+    /**
+     * GET: the code page until the code is entered; then the contract to fill in and sign (while it waits for the
+     * client), or the signed/declined page with the signer's copy. What the signer typed before an error comes back
+     * from the session (their own fields only, cleaned again when shown; the view escapes it).
+     */
     public static function show(string $token): void
     {
         $c = self::load($token);
@@ -105,6 +133,10 @@ final class SignController
             'daysLeft' => max(1, (int) ceil(($since + Contracts::DOWNLOAD_DAYS * 86400 - time()) / 86400))], 'layout/welcome');
     }
 
+    /**
+     * POST: emails a code to the contract's signer (never to an address from the request). Contracts::sendCode limits
+     * how often, so someone holding the link can't flood the signer's mailbox.
+     */
     public static function code(string $token): void
     {
         $c = self::load($token);
@@ -115,6 +147,11 @@ final class SignController
         self::back($token);
     }
 
+    /**
+     * POST: checks the emailed code (tries are counted before checking, in Contracts::checkCode). A right code is
+     * remembered in this session for this contract and link only, and the session id is renewed, so an id known
+     * before the code was entered (fixation) can't use it.
+     */
     public static function verify(string $token): void
     {
         $c = self::load($token);
@@ -131,6 +168,12 @@ final class SignController
         self::back($token);
     }
 
+    /**
+     * POST: the client signs. Needs the code (when asked for), the consent box, every Initial box of a PDF contract
+     * and a valid signature; Contracts::clientSign then checks the required fields and moves the status only from
+     * "sent" with this link, so a double submit or a cancel at the same moment signs at most once. On an error what
+     * the signer typed is kept for the form (not the drawn signature).
+     */
     public static function sign(string $token): void
     {
         $c = self::load($token);
@@ -154,7 +197,9 @@ final class SignController
         $sig = Contracts::signature(post('sig_kind'), post('sig_typed'), post('sig_png'), post('sig_name'));
         $in = is_array($_POST['f'] ?? null) ? $_POST['f'] : [];
         $in['_initials'] = post('initials');
-        $in['_initialed'] = count(array_filter((array) ($_POST['initialed'] ?? []), 'is_string'));
+        // The signing trail says how many boxes were initialed one by one: only the contract's real Initial boxes
+        // count, not whatever ids were posted (the trail used to repeat any number the browser sent) (2.2.1)
+        $in['_initialed'] = count(array_intersect(self::initialBoxes($c), self::initialedPosted()));
         if ($err = Contracts::clientSign($c, $in, $sig, post('sig_title'))) {
             flash('error', $err);
             self::keep($c);
@@ -167,17 +212,15 @@ final class SignController
 
     /**
      * On a PDF contract, what the guide asked for: every Initial box clicked (not just initials typed once), and the
-     * title when the PDF has a box for it. Returns an error message or null.
+     * title when the PDF has a box for it. Returns an error message or null. The browser says which boxes were
+     * clicked; this can only check that every real box is in that list.
      */
     private static function pdfSteps(array $c): ?string
     {
         if (empty($c['def']['pdf'])) {
             return null;
         }
-        $initialsFields = array_column(array_filter($c['def']['fields'], fn($f) => $f['type'] === 'initials' && $f['by'] === 'client'), 'key');
-        $need = array_column(array_filter($c['def']['places'], fn($p) => $p['key'] === 'initials.client' || in_array($p['key'], $initialsFields, true)), 'id');
-        $done = array_filter((array) ($_POST['initialed'] ?? []), 'is_string');
-        $left = count(array_diff($need, $done));
+        $left = count(array_diff(self::initialBoxes($c), self::initialedPosted()));
         if ($left) {
             return 'Please initial every Initial box (' . $left . ' left). Press Next to go to them.';
         }
@@ -185,6 +228,25 @@ final class SignController
             return 'Please fill in your title.';
         }
         return null;
+    }
+
+    /**
+     * The ids of the Initial boxes on a PDF contract (the client's initials box and boxes for an Initials field),
+     * from the contract's own frozen definition. None on a contract written in Align.
+     */
+    private static function initialBoxes(array $c): array
+    {
+        if (empty($c['def']['pdf'])) {
+            return [];
+        }
+        $initialsFields = array_column(array_filter($c['def']['fields'], fn($f) => $f['type'] === 'initials' && $f['by'] === 'client'), 'key');
+        return array_column(array_filter($c['def']['places'], fn($p) => $p['key'] === 'initials.client' || in_array($p['key'], $initialsFields, true)), 'id');
+    }
+
+    /** The box ids the signing page posted as initialed (untrusted: only strings, compared with initialBoxes()). */
+    private static function initialedPosted(): array
+    {
+        return array_values(array_filter((array) ($_POST['initialed'] ?? []), 'is_string'));
     }
 
     /** What the signer typed, kept for the form after an error (not the drawn signature): only their own fields. */
@@ -201,6 +263,10 @@ final class SignController
             'sig_name' => mb_substr(post('sig_name'), 0, 120), 'sig_title' => mb_substr(post('sig_title'), 0, 190), 'sig_typed' => mb_substr(post('sig_typed'), 0, 120), 'initials' => mb_substr(post('initials'), 0, 6)]];
     }
 
+    /**
+     * POST: the client declines (needs the code, like signing). Contracts::decline moves the status only from "sent"
+     * with this link, so declining and signing at the same moment can't both happen.
+     */
     public static function decline(string $token): void
     {
         $c = self::load($token);
@@ -215,7 +281,10 @@ final class SignController
         self::back($token);
     }
 
-    /** The contract's PDF without the values (the page viewer draws them), once the signer may see it. */
+    /**
+     * GET: the contract's PDF without the values (the page viewer draws them), once the signer may see it: after the
+     * code, and not for a declined contract. Served sandboxed by PdfStamp::serve (404 for a contract written in Align).
+     */
     public static function source(string $token): void
     {
         $c = self::load($token);
@@ -226,6 +295,10 @@ final class SignController
         \Align\Contracts\PdfStamp::serve($c['def']['pdf'] ?? null);
     }
 
+    /**
+     * GET: the signed PDF as a download, for a completed contract, after the code, while the link's download window
+     * lasts (Contracts::byToken). The file name comes from the contract (cleaned), the path from pdfPath()'s pattern.
+     */
     public static function pdf(string $token): void
     {
         $c = self::load($token);

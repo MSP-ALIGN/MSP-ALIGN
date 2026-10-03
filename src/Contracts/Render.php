@@ -10,6 +10,12 @@ use Align\Fmt;
  * and the read-only signed view. The PDF (PdfRender) prints the same blocks.
  *
  * Modes: 'preview' (empty values show as labelled chips), 'sign' (client fields are inputs), 'view' (as signed).
+ *
+ * Security assumptions: the output goes straight into pages (the signing page included), so everything here is
+ * escaped: values, labels and template text with e(); the wording is the def's Html::clean output (cleaned again on
+ * every load by Template::normalize) and placeholders are filled only between its tags; style values reach CSS
+ * only after normStyle limited them (colour #rrggbb, size an integer, font a fixed word). The PDF viewer's data is
+ * JSON with every HTML-special character escaped. The caller decides who may see the contract.
  */
 final class Render
 {
@@ -29,6 +35,10 @@ final class Render
         ];
     }
 
+    /**
+     * The contract as HTML for $mode ('preview', 'sign' or 'view'; see the class comment). $me: the staff member
+     * looking (for their own signature preview on a PDF), null on the signing page. Safe to echo as is.
+     */
     public static function html(array $c, string $mode = 'preview', ?array $me = null): string
     {
         if (!empty($c['def']['pdf'])) {
@@ -112,6 +122,11 @@ final class Render
         return '<span class="cf-val">' . $s . '</span>';
     }
 
+    /**
+     * The input for one of the client's fields on the signing page (part of #sign-form). The key matched
+     * Template::KEY, so the name f[key] needs no more than e(); $v may be what the signer typed before an error.
+     * The browser limits (maxlength, type) are for convenience only: Contracts::clientSign checks again.
+     */
     private static function input(array $f, string $v, bool $block): string
     {
         $n = 'f[' . e($f['key']) . ']';
@@ -131,7 +146,11 @@ final class Render
         };
     }
 
-    /** Placeholders in the text are filled in (only between tags: the cleaned wording never has one inside a tag). */
+    /**
+     * Placeholders in the text are filled in (only between tags: the cleaned wording never has one inside a tag).
+     * Relies on $html being Html::clean output, where a ">" inside an attribute is written as &gt;, so the split on
+     * tags can't put a value inside one.
+     */
     private static function text(string $html, array $c, array $vals, string $mode): string
     {
         $out = '';
@@ -141,6 +160,7 @@ final class Render
         return $out;
     }
 
+    /** A "fields" block: each listed key with its label and value (or input, for the client when signing). */
     private static function fieldList(array $b, array $c, array $vals, string $mode): string
     {
         if (!$b['keys']) {
@@ -155,11 +175,13 @@ final class Render
         return $out . '</dl></div>';
     }
 
+    /** A quantity as printed: whole numbers without decimals, others with 2. */
     public static function qty(float $q): string
     {
         return Fmt::number($q, fmod($q, 1.0) ? 2 : 0);
     }
 
+    /** The services table with the lines that are on and the totals per period (amounts as sent, labels escaped). */
     private static function services(array $c): string
     {
         $def = $c['def'];
@@ -198,6 +220,10 @@ final class Render
         return $out;
     }
 
+    /**
+     * The signature boxes. A drawn signature is the PNG Contracts::signature() re-encoded (base64 in a data: URL),
+     * a photo the JPEG Contracts::photo() made; both only ever come from the stored contract.
+     */
     private static function signatures(array $c, array $vals, string $mode): string
     {
         $out = '<div class="cd-signatures">';

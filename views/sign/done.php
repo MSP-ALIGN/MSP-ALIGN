@@ -1,5 +1,9 @@
 <?php
-/** After signing (or declining). @var array $c, $company; string $token, $doc; bool $pdfReady; int $daysLeft */
+/**
+ * After signing (or declining). @var array $c, $company; string $token, $doc; bool $pdfReady; int $daysLeft
+ * Shown only after the emailed code (SignController::show). $doc is Render::html output (already escaped) and is
+ * empty for a declined contract; everything else is escaped here. $token passed byToken()'s format check.
+ */
 $st = $c['status'];
 ?>
 <div class="card sign-card mx-auto mb-4">

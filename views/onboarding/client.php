@@ -5,6 +5,8 @@ use Align\Onboarding\Requests;
 
 /**
  * Client onboarding (staff). @var array $client, $contacts, $requests; ?array $o; string $status, $subject, $body; bool $mailReady; ?string $link
+ * Every value is escaped with e(); $body was sanitized with Html::clean() before it was stored or filled in.
+ * $step draws one progress step; its $detail is HTML the caller has escaped.
  */
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];

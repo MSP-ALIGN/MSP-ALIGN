@@ -17,6 +17,13 @@ use Align\View;
 /**
  * Onboarding → Contracts (2.2): the list, making a contract from a template, filling it in, sending it for
  * signature, countersigning, the signed PDF, and uploading contracts signed elsewhere. Techs and admins.
+ *
+ * Security assumptions: every handler starts with Auth::requireRole('tech') (viewers get 403); deleting a signed
+ * contract also needs an admin. The router has checked the CSRF token of every POST. Contract ids come from the URL
+ * and are loaded with load() (404 when unknown); client ids from a form are loaded before use. Every status change
+ * is a conditional UPDATE/DELETE from the status it was checked in (here or in Contracts), so parallel requests
+ * can't sign, send or delete a contract that changed meanwhile. Files are only read from paths Contracts::pdfPath()
+ * and PdfStamp validate; download names go through content_filename().
  */
 final class ContractController
 {
@@ -24,6 +31,7 @@ final class ContractController
         'open' => 'In progress', 'draft' => 'Drafts', 'signed' => 'Signed', 'closed' => 'Declined, expired or cancelled', 'all' => 'All',
     ];
 
+    /** The contract, or a 404 page and the request ends. */
     private static function load(int $id): array
     {
         $c = Contracts::load($id);
@@ -41,6 +49,7 @@ final class ContractController
         return DB::all('SELECT id, name FROM clients WHERE is_archived = 0 ORDER BY name');
     }
 
+    /** The list, filtered by ?show= (one of FILTERS; anything else shows "open"), newest activity first, at most 500. */
     public static function index(): void
     {
         Auth::requireRole('tech');
@@ -71,7 +80,7 @@ final class ContractController
         ]);
     }
 
-    /** New contract: from a template, for a client or a new lead. */
+    /** New contract: from an active template, for a client (loaded, so it must exist) or a new lead's company name. */
     public static function create(): void
     {
         Auth::requireRole('tech');
@@ -91,6 +100,11 @@ final class ContractController
         redirect('/contracts/' . $id);
     }
 
+    /**
+     * A contract: the prepare form for a draft, else its record. The view is audited (once per 15 minutes). The
+     * signing link from "Create link only" is shown once, to the session that made it. The preview is HTML built by
+     * Render, which escapes every value.
+     */
     public static function show(int $id): void
     {
         $me = Auth::requireRole('tech');
@@ -107,6 +121,7 @@ final class ContractController
             'clients' => self::clients(),
             'link' => $_SESSION['contract_link_once'][$id] ?? null,
             'me' => $me,
+            'clientDeleted' => !$c['client_id'] && self::clientDeleted($id),
         ];
         unset($_SESSION['contract_link_once'][$id]);
         if ($c['source'] === 'built' && $c['status'] === 'draft') {
@@ -125,7 +140,10 @@ final class ContractController
         View::render('contracts/show', $view);
     }
 
-    /** Applies the prepare form to the draft (party, signer, values). */
+    /**
+     * Applies the prepare form to the draft (party, signer, values): returns [contract columns, values]. Untrusted
+     * input, cut to length; a client id that doesn't exist is dropped; an invalid signer email keeps the old one.
+     */
     private static function applyForm(array $c): array
     {
         $vals = Contracts::applyPrepare($c, $_POST);
@@ -147,6 +165,7 @@ final class ContractController
         return [$row, $vals];
     }
 
+    /** Saves the prepare form, only while the contract is a draft (conditional UPDATE), then optionally opens Send. */
     public static function save(int $id): void
     {
         Auth::requireRole('tech');
@@ -160,11 +179,23 @@ final class ContractController
             flash('error', '"' . trim(post('signer_email')) . '" isn\'t a valid email address.');
         }
         $row['vals'] = json_encode($vals, JSON_UNESCAPED_UNICODE);
+        // "Sign first" where your signature is on but sending failed (2.2.1): a change to the draft takes your
+        // signature off, so it never stands under wording or prices you didn't sign
+        $unsigned = false;
+        $changed = json_encode($vals) !== json_encode($c['vals'])
+            || array_any(array_keys(array_diff_key($row, ['vals' => 1])), fn($k) => (string) ($row[$k] ?? '') !== (string) ($c[$k] ?? ''));
+        if ($c['provider_signed_at'] && $changed) {
+            $row += ['provider_user_id' => null, 'provider_signature' => null, 'provider_signed_at' => null];
+            $unsigned = true;
+        }
         if (!DB::update('contracts', $row, ['id' => $id, 'status' => 'draft']) && Contracts::load($id)['status'] !== 'draft') {
             flash('error', 'This contract was sent meanwhile, so your changes weren\'t saved.');
             redirect("/contracts/$id");
         }
-        Audit::log('contract.saved', Contracts::number($c) . ' ' . $row['title'] . ' (draft)');
+        Audit::log('contract.saved', Contracts::number($c) . ' ' . $row['title'] . ' (draft)' . ($unsigned ? '; your signature was taken off' : ''));
+        if ($unsigned) {
+            flash('warning', 'The draft changed, so your signature was taken off. Sign it again before sending.');
+        }
         if (post('then') === 'send') {
             redirect("/contracts/$id#send");
         }
@@ -172,7 +203,7 @@ final class ContractController
         redirect("/contracts/$id");
     }
 
-    /** Live preview of the prepare form (unsaved). */
+    /** Live preview of the prepare form (unsaved), as HTML for the page. Nothing is saved. */
     public static function preview(int $id): void
     {
         $me = Auth::requireRole('tech');
@@ -187,7 +218,10 @@ final class ContractController
         echo Render::html($c, 'preview', $me);
     }
 
-    /** The contract's own PDF (as uploaded for its template), for the page viewer. */
+    /**
+     * The contract's own PDF (as uploaded for its template), for the page viewer. Techs may see it for a contract
+     * (only the template's PDF itself is admins only). Served by PdfStamp::serve with a sandbox CSP.
+     */
     public static function source(int $id): void
     {
         Auth::requireRole('tech');
@@ -196,7 +230,12 @@ final class ContractController
         \Align\Contracts\PdfStamp::serve($c['def']['pdf'] ?? null);
     }
 
-    /** The PDF: the signed copy, the uploaded file, or (drafts and unsigned) a draft copy. */
+    /**
+     * The PDF: the signed copy, the uploaded file, or (drafts and unsigned) a draft copy. Every view is audited
+     * (2.2.1: the draft copy, which holds the client's details too, wasn't). Inline by default; ?download=1 makes it
+     * an attachment with a sandbox CSP. The stored name is checked by Contracts::pdfPath; an uploaded file's own name
+     * is only used, cleaned, for the download name.
+     */
     public static function pdf(int $id): void
     {
         Auth::requireRole('tech');
@@ -209,6 +248,7 @@ final class ContractController
         } elseif ($c['source'] === 'built') {
             $bytes = PdfRender::build($c, false);
             $name = 'DRAFT ' . Contracts::fileName($c);
+            Audit::access('contract.pdf', Contracts::number($c) . ' (draft copy)');
         } else {
             http_response_code(404);
             echo 'The file is missing.';
@@ -224,6 +264,11 @@ final class ContractController
         echo $bytes;
     }
 
+    /**
+     * Sends the contract for signature (or makes the link only), from draft, sent (a new link) or expired. A "sign
+     * first" template takes the staff signature here, before sending. Contracts::send only moves it from the status
+     * it was loaded in. The link from "Create link only" is kept in the session to show once.
+     */
     public static function send(int $id): void
     {
         $u = Auth::requireRole('tech');
@@ -276,6 +321,7 @@ final class ContractController
         redirect("/contracts/$id");
     }
 
+    /** Emails the signer a reminder with the same link (Contracts::remind checks the status and claims the send). */
     public static function remind(int $id): void
     {
         Auth::requireRole('tech');
@@ -288,6 +334,10 @@ final class ContractController
         redirect("/contracts/$id");
     }
 
+    /**
+     * Staff countersignature once the client has signed: needs the consent box and a valid signature, and
+     * completes the contract only from client_signed (Contracts::providerSign).
+     */
     public static function countersign(int $id): void
     {
         $u = Auth::requireRole('tech');
@@ -315,6 +365,7 @@ final class ContractController
         redirect("/contracts/$id");
     }
 
+    /** Cancels a contract out for signature (its link stops working). Contracts::void only acts from those statuses. */
     public static function void(int $id): void
     {
         Auth::requireRole('tech');
@@ -375,6 +426,8 @@ final class ContractController
     /**
      * Signed contract for a lead: make it a client (or link an existing one). Only once it's signed (or uploaded) and
      * only while it has no client, so a signed record can't be moved to another client.
+     * A contract whose client was deleted also has no client: only an admin may link it again (to put back a client
+     * deleted by mistake), so a tech can't attach one company's signed contract to another (2.2.1).
      */
     public static function client(int $id): void
     {
@@ -382,6 +435,10 @@ final class ContractController
         $c = self::load($id);
         if ($c['client_id'] || ($c['status'] !== 'completed' && $c['source'] !== 'uploaded')) {
             flash('error', 'Only a signed contract that isn\'t linked to a client yet can be made a client\'s.');
+            redirect("/contracts/$id");
+        }
+        if (self::clientDeleted($id) && !Auth::can('admin')) {
+            flash('error', 'This contract\'s client was deleted. Only an admin can link it to a client again.');
             redirect("/contracts/$id");
         }
         if ((int) post('client_id')) {
@@ -406,7 +463,13 @@ final class ContractController
         redirect("/clients/$cid/onboarding");
     }
 
-    /** Details kept with a signed or uploaded contract: dates and notes. */
+    /** Whether the contract's client was deleted (the contract keeps the name, and a "client_deleted" event). */
+    public static function clientDeleted(int $id): bool
+    {
+        return (bool) DB::value("SELECT 1 FROM contract_events WHERE contract_id = ? AND event = 'client_deleted' LIMIT 1", [$id]);
+    }
+
+    /** Details kept with a signed or uploaded contract: dates (real calendar dates only) and notes. */
     public static function details(int $id): void
     {
         Auth::requireRole('tech');
@@ -426,7 +489,11 @@ final class ContractController
         redirect("/contracts/$id");
     }
 
-    /** A contract signed somewhere else (DocuSeal, paper): the PDF and its dates. */
+    /**
+     * A contract signed somewhere else (DocuSeal, paper): the PDF and its dates. Contracts::storeUpload checks it's a
+     * real upload, up to 25 MB, that starts as a PDF, and keeps it under a random name. The redirect target is a
+     * same-site path only (Security::safePath).
+     */
     public static function upload(): void
     {
         $u = Auth::requireRole('tech');
@@ -458,7 +525,10 @@ final class ContractController
         redirect("/contracts/$id");
     }
 
-    /** Is this PDF one of ours, unchanged? Compares its SHA-256 with the signed copies Align keeps. */
+    /**
+     * Is this PDF one of ours, unchanged? Compares its SHA-256 with the signed copies Align keeps. The file is read
+     * from PHP's upload and not kept. Its name is only shown (escaped) and written to the audit log.
+     */
     public static function verify(): void
     {
         Auth::requireRole('tech');

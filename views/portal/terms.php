@@ -1,5 +1,5 @@
 <?php
-/** @var array $company; string $updated */
+/** Portal terms of use, before and after sign-in. Company details are escaped. @var array $company; string $updated */
 $c = e($company['name']);
 $contact = $company['email'] !== '' ? '<a href="mailto:' . e($company['email']) . '">' . e($company['email']) . '</a>' : 'your IT team';
 ?>

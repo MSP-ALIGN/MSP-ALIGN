@@ -6,6 +6,13 @@ namespace Align\Docs;
 /**
  * Allowlist HTML sanitizer for document bodies produced by the Quill editor.
  * Everything not explicitly allowed is removed (dangerous elements) or unwrapped (unknown tags).
+ *
+ * Security assumptions: input is untrusted (any tech, an admin's template or onboarding page, a crafted request).
+ * The output is printed as is in staff pages, the client portal, printouts and the onboarding welcome pages, so it
+ * must hold only the tags in ALLOWED with the attributes cleanAttributes() keeps: no event handlers, no ids, links
+ * only to http(s), mailto, tel, same-site paths and #anchors, and only color styles. Values are checked after the
+ * parser has decoded entities, so encoded schemes are seen as the browser sees them. libxml re-serializes the
+ * result, escaping text and attribute values, so the output can't re-parse into new tags in the browser.
  */
 final class Html
 {
@@ -17,6 +24,10 @@ final class Html
         'form', 'input', 'button', 'select', 'textarea', 'option', 'link', 'meta', 'base', 'title', 'head', 'noscript',
         'template', 'video', 'audio', 'source', 'track', 'canvas', 'img', 'picture'];
 
+    /**
+     * Clean HTML for storing and printing; '' for empty input. Input over 4 MB is cut first (the editor never sends
+     * that much), and libxml's own depth limit stops deeply nested input, so hostile input can't run long.
+     */
     public static function clean(?string $html): string
     {
         $html = str_replace(["\u{00A0}", '&nbsp;'], ' ', (string) $html);
@@ -43,6 +54,7 @@ final class Html
         return trim($out);
     }
 
+    /** Cleans $node's children in place: drops comments and DROP elements, unwraps unknown ones, cleans attributes. */
     private static function walk(\DOMNode $node): void
     {
         foreach (iterator_to_array($node->childNodes) as $child) {
@@ -71,6 +83,10 @@ final class Html
         }
     }
 
+    /**
+     * Removes every attribute except a few known-safe ones with checked values, then adds target/rel to outside links
+     * (so the opened page can't reach window.opener).
+     */
     private static function cleanAttributes(\DOMElement $el, string $tag): void
     {
         $keep = [];
@@ -107,8 +123,10 @@ final class Html
                     break;
             }
         }
-        while ($el->attributes->length) {
-            $el->removeAttribute($el->attributes->item(0)->name);
+        // Removed by node, not by name: a namespaced attribute (xmlns:x="…" x:href="…") has the local name "href",
+        // so removeAttribute('href') never matched it and this loop spun forever (2.2.1)
+        foreach (iterator_to_array($el->attributes) as $attr) {
+            $el->removeAttributeNode($attr);
         }
         foreach ($keep as $k => $v) {
             $el->setAttribute($k, $v);
@@ -119,7 +137,7 @@ final class Html
         }
     }
 
-    /** Plain-text preview (first N characters). */
+    /** Plain-text preview (first N characters). Decoded text: the caller escapes it. */
     public static function excerpt(?string $html, int $len = 180): string
     {
         $text = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '</li>', '</h1>', '</h2>', '</h3>'], ' ', (string) $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');

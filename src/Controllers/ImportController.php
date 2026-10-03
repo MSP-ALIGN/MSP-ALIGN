@@ -8,17 +8,26 @@ use Align\Auth;
 use Align\Import\CsvImport;
 use Align\View;
 
-/** Clients and contacts from a CSV file: upload, check what would change, then import (see CsvImport). */
+/**
+ * Clients and contacts from a CSV file: upload, check what would change, then import (see CsvImport).
+ * Security assumptions: techs and admins only (each action checks the role; the router checks CSRF). The file is
+ * untrusted: CsvImport limits its size and rows and reads it as data only. The checked plan waits in a file named by
+ * a 128-bit random token in the web server's own data folder, tied to the user who checked it, and runs once.
+ */
 final class ImportController
 {
     private const KINDS = ['clients' => 'Clients', 'contacts' => 'Contacts'];
 
+    /** 'clients' or 'contacts' (anything else becomes 'clients'). */
     private static function kind(string $k): string
     {
         return isset(self::KINDS[$k]) ? $k : 'clients';
     }
 
-    /** Where a checked file waits for the Import button (the web server's own data folder, not public). */
+    /**
+     * Where a checked file waits for the Import button (the web server's own data folder, not public).
+     * $token must already be checked as 32 hex characters (it is part of a path). Also removes day-old stashes.
+     */
     private static function stash(string $token): string
     {
         $dir = \Align\System\Agent::dataDir() . '/imports';
@@ -34,12 +43,14 @@ final class ImportController
         return $dir . '/' . $token . '.json';
     }
 
+    /** The upload form. Techs and admins. */
     public static function index(): void
     {
         Auth::requireRole('tech');
         View::render('clients/import', ['title' => 'Import clients and contacts', 'nav' => 'clients', 'kind' => self::kind(query('kind', 'clients')), 'plan' => null]);
     }
 
+    /** An example CSV with the column headers. $kind comes from the URL and is checked. Techs and admins. */
     public static function template(string $kind): void
     {
         Auth::requireRole('tech');
@@ -53,6 +64,10 @@ final class ImportController
         fclose($out);
     }
 
+    /**
+     * Reads the uploaded CSV and shows what would be added, updated or skipped, without changing anything.
+     * Techs and admins. The file name is shown escaped and kept (cut to 120 characters) for the audit entry only.
+     */
     public static function preview(): void
     {
         Auth::requireRole('tech');
@@ -87,17 +102,23 @@ final class ImportController
         ]);
     }
 
+    /**
+     * Imports a checked plan. Techs and admins; only the user who checked the file can run it, and only once.
+     * The plan was built by preview() on the server, so its field names are trusted; CsvImport::apply re-checks
+     * for clients or contacts added since.
+     */
     public static function run(): void
     {
         Auth::requireRole('tech');
         $token = post('token');
         $path = preg_match('/^[a-f0-9]{32}$/', $token) ? self::stash($token) : '';
         $data = $path !== '' && is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
-        if (!is_array($data) || ($data['user'] ?? null) !== Auth::id()) {
+        // The unlink claims the plan: of two clicks (or tabs) at once only one removes the file, so it runs once
+        // (before 2.2.1 both could read it and import every new client or contact twice)
+        if (!is_array($data) || ($data['user'] ?? null) !== Auth::id() || !@unlink($path)) {
             flash('error', 'That import has expired. Upload the file again.');
             redirect('/clients/import');
         }
-        @unlink($path);
         $kind = self::kind((string) $data['kind']);
         [$added, $updated] = CsvImport::apply($kind, (array) $data['plan'], Auth::id());
         Audit::log('import.' . $kind, ($data['file'] ?? 'CSV') . ": $added added, $updated updated");

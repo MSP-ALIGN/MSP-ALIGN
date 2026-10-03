@@ -14,12 +14,21 @@ use Align\Onboarding\Requests;
 use Align\Settings;
 use Align\View;
 
-/** Staff side of client onboarding: send the welcome email, follow progress, and edit the templates. */
+/**
+ * Staff side of client onboarding: send the welcome email, follow progress, and edit the templates.
+ *
+ * Security assumptions: every handler starts with its own role check (viewers may only look at a client's progress;
+ * techs send, revoke and mark complete; admins edit the templates, import/export them and remove an onboarding).
+ * The router has already checked the CSRF token of every POST. Client ids come from the URL and are loaded with
+ * ClientController::load() (404 when unknown); every query is limited to that client. Template HTML is sanitized with
+ * Html::clean() before it's stored.
+ */
 final class OnboardingController
 {
     /**
      * Onboarding → New clients (2.2): every client's onboarding at a glance, and clients who signed a contract
-     * recently but haven't been sent the welcome email yet.
+     * recently but haven't been sent the welcome email yet. Techs and admins (it lists contracts, which viewers don't
+     * see). ?client=N only redirects to that client's page, which does its own checks.
      */
     public static function overview(): void
     {
@@ -56,10 +65,17 @@ final class OnboardingController
         ]);
     }
 
+    /**
+     * A client's onboarding page: progress, what the client sent, and (techs and admins) the welcome email form.
+     * Any signed-in staff member may look; the view hides the send/revoke/complete forms from viewers, and those
+     * handlers check the role again. The link made by "Create link only" is shown once, to the session that made it.
+     * The view is audited like the other client pages (2.2.1): it lists contacts and what the client sent.
+     */
     public static function client(int $id): void
     {
         Auth::require();
         $client = ClientController::load($id);
+        Audit::access('onboarding', "#$id {$client['name']}");
         $o = Onboarding::forClient($id);
         $tpl = Onboarding::emailTemplate();
         // Prefill: everything filled in except what's only known at send time
@@ -87,7 +103,12 @@ final class OnboardingController
         unset($_SESSION['onboarding_link_once'][$id]);
     }
 
-    /** Creates a new private link and emails the welcome message (or just creates the link to copy). */
+    /**
+     * Creates a new private link and emails the welcome message (or just creates the link to copy). Techs and
+     * admins. Picked contacts must belong to this client (checked in the query); other addresses must be valid
+     * emails. The body is sanitized before it's stored or sent, and the values filled in at send time are escaped.
+     * A new link replaces the old one (only its hash is stored), so an earlier link stops working.
+     */
     public static function send(int $id): void
     {
         $u = Auth::requireRole('tech');
@@ -153,6 +174,7 @@ final class OnboardingController
         redirect("/clients/$id/onboarding");
     }
 
+    /** Turns the client's onboarding link off (the record and progress stay). Techs and admins. */
     public static function revoke(int $id): void
     {
         Auth::requireRole('tech');
@@ -163,23 +185,43 @@ final class OnboardingController
         redirect("/clients/$id/onboarding");
     }
 
+    /**
+     * Staff changes to an onboarding's status: complete (the link then works 7 more days), reopen, or delete (removes
+     * the record and what the client sent, so admins only; there's no button for it). Techs and admins.
+     * Only these three actions exist: anything else is refused and not written to the audit log (2.2.1: any posted
+     * word used to be logged as "onboarding.<word>"). Each runs only from the state it applies to, so marking a
+     * finished onboarding complete again doesn't overwrite who finished it.
+     */
     public static function status(int $id): void
     {
         $u = Auth::requireRole('tech');
         $client = ClientController::load($id);
-        match (post('action')) {
-            'complete' => DB::run('UPDATE client_onboardings SET completed_at = NOW(), completed_by = ?, token_expires_at = LEAST(token_expires_at, NOW() + INTERVAL ' . Onboarding::AFTER_DONE_DAYS . ' DAY) WHERE client_id = ?', [$u['name'] . ' (staff)', $id]),
-            'reopen' => DB::run('UPDATE client_onboardings SET completed_at = NULL, completed_by = NULL WHERE client_id = ?', [$id]),
-            'delete' => DB::run('DELETE FROM client_onboardings WHERE client_id = ?', [$id]),
-            default => null,
+        $action = post('action');
+        if (!in_array($action, ['complete', 'reopen', 'delete'], true)) {
+            flash('error', 'That isn\'t something you can do to an onboarding.');
+            redirect("/clients/$id/onboarding");
+        }
+        if ($action === 'delete' && !Auth::can('admin')) {
+            flash('error', 'Only an admin can remove an onboarding.');
+            redirect("/clients/$id/onboarding");
+        }
+        $changed = match ($action) {
+            'complete' => DB::run('UPDATE client_onboardings SET completed_at = NOW(), completed_by = ?, token_expires_at = LEAST(token_expires_at, NOW() + INTERVAL ' . Onboarding::AFTER_DONE_DAYS . ' DAY) WHERE client_id = ? AND completed_at IS NULL', [$u['name'] . ' (staff)', $id])->rowCount(),
+            'reopen' => DB::run('UPDATE client_onboardings SET completed_at = NULL, completed_by = NULL WHERE client_id = ? AND completed_at IS NOT NULL', [$id])->rowCount(),
+            'delete' => DB::run('DELETE FROM client_onboardings WHERE client_id = ?', [$id])->rowCount(),
         };
-        Audit::log('onboarding.' . preg_replace('/\W/', '', post('action')), $client['name']);
-        flash('success', ['complete' => 'Onboarding marked complete.', 'reopen' => 'Onboarding reopened.', 'delete' => 'Onboarding removed. The link no longer works.'][post('action')] ?? 'Saved.');
+        if (!$changed) {
+            flash('info', ['complete' => 'This onboarding is already complete (or hasn\'t been started).', 'reopen' => 'This onboarding is already open.', 'delete' => 'There\'s no onboarding to remove.'][$action]);
+            redirect("/clients/$id/onboarding");
+        }
+        Audit::log('onboarding.' . $action, $client['name']);
+        flash('success', ['complete' => 'Onboarding marked complete.', 'reopen' => 'Onboarding reopened.', 'delete' => 'Onboarding removed. The link no longer works.'][$action]);
         redirect("/clients/$id/onboarding");
     }
 
     // ---- Settings -> Onboarding ---------------------------------------------------------------------
 
+    /** Settings → Onboarding: the templates (welcome email and guide pages) and the link options. Admins. */
     public static function settings(): void
     {
         Auth::requireRole('admin');
@@ -192,6 +234,7 @@ final class OnboardingController
         ]);
     }
 
+    /** Saves the link lifetime (clamped to 1-180 days) and whether clients can send requests. Admins. */
     public static function saveSettings(): void
     {
         Auth::requireRole('admin');
@@ -202,6 +245,7 @@ final class OnboardingController
         redirect('/settings/onboarding');
     }
 
+    /** Adds an empty guide page (a random suffix keeps its slug unique) and opens it. Admins. */
     public static function templateNew(): void
     {
         Auth::requireRole('admin');
@@ -213,6 +257,7 @@ final class OnboardingController
         redirect("/settings/onboarding/templates/$id");
     }
 
+    /** The editor for one template (the welcome email or a guide page). Admins. */
     public static function template(int $id): void
     {
         Auth::requireRole('admin');
@@ -230,6 +275,11 @@ final class OnboardingController
         ]);
     }
 
+    /**
+     * Saves a template, or deletes a guide page (action=delete; the welcome email can't be deleted). Admins.
+     * The body is sanitized with Html::clean(). An attached guide must be a real upload that starts as a PDF, up to
+     * 15 MB; it's stored under a random name (Onboarding::storeFile), and only a cleaned copy of its file name is kept.
+     */
     public static function templateSave(int $id): void
     {
         Auth::requireRole('admin');
@@ -263,7 +313,7 @@ final class OnboardingController
             $row['file_name'] = null;
         }
         $f = $_FILES['file'] ?? null;
-        if ($f && ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && $t['kind'] === 'page') {
+        if ($f && ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && $t['kind'] === 'page' && is_uploaded_file((string) $f['tmp_name'])) {
             try {
                 $row['file_stored'] = Onboarding::storeFile($f['tmp_name'], (string) $f['name']);
                 $row['file_name'] = mb_substr(preg_replace('/[^\w .()-]/u', '', (string) $f['name']) ?: 'guide.pdf', 0, 190);
@@ -271,7 +321,7 @@ final class OnboardingController
                     @unlink($old);
                 }
             } catch (\Throwable $e) {
-                flash('error', $e->getMessage());
+                flash('error', safe_error($e)); // a PHP error's text (paths) goes to the server log only
             }
         }
         $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($row)));
@@ -281,6 +331,10 @@ final class OnboardingController
         redirect("/settings/onboarding/templates/$id");
     }
 
+    /**
+     * Downloads every onboarding template (with attached guide PDFs as base64) as JSON. Admins. Holds no client
+     * data. Sent as an attachment; the global nosniff header stops it being read as anything else.
+     */
     public static function export(): void
     {
         Auth::requireRole('admin');
@@ -290,12 +344,17 @@ final class OnboardingController
         echo json_encode(Onboarding::export(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * Imports an onboarding export (Onboarding::import validates it, sanitizes the HTML and checks each PDF).
+     * Admins. The file must be a real upload; its size is limited by PHP's upload limit. A message written for people
+     * is shown as is; a database or PHP error only as "an internal error" (the details go to the server log).
+     */
     public static function import(): void
     {
         Auth::requireRole('admin');
         $f = $_FILES['file'] ?? null;
         try {
-            if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
                 throw new \InvalidArgumentException('Choose an onboarding export (.json) to import.');
             }
             $data = json_decode((string) file_get_contents($f['tmp_name']), true);
@@ -306,7 +365,7 @@ final class OnboardingController
             Audit::log('settings.onboarding', "imported $n template(s)");
             flash('success', "Imported $n template" . ($n === 1 ? '' : 's') . '.');
         } catch (\Throwable $e) {
-            flash('error', $e->getMessage());
+            flash('error', safe_error($e));
         }
         redirect('/settings/onboarding');
     }

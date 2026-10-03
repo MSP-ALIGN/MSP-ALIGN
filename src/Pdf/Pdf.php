@@ -27,6 +27,7 @@ final class Pdf
     private array $images = [];
     private array $info = [];
 
+    /** The default page size in points (Pdf::LETTER, Pdf::A4 or any other). */
     public function __construct(public readonly float $w, public readonly float $h)
     {
     }
@@ -45,6 +46,10 @@ final class Pdf
         return $this->pages[$this->page]['h'] ?? $this->h;
     }
 
+    /**
+     * Sends drawing to page $n (0-based), e.g. for headers and footers once the page count is known. Throws if
+     * there's no such page.
+     */
     public function setPage(int $n): void
     {
         if (!isset($this->pages[$n])) {
@@ -53,6 +58,7 @@ final class Pdf
         $this->page = $n;
     }
 
+    /** Number of pages so far. */
     public function pageCount(): int
     {
         return count($this->pages);
@@ -64,6 +70,7 @@ final class Pdf
         return [$this->pages[$i]['w'], $this->pages[$i]['h']];
     }
 
+    /** The document information (empty values are left out). Any UTF-8 text is safe: output() writes it with str(). */
     public function setInfo(string $title, string $author = '', string $subject = ''): void
     {
         $this->info = ['Title' => $title, 'Author' => $author, 'Subject' => $subject];
@@ -103,6 +110,10 @@ final class Pdf
         return $sum * $size / 1000;
     }
 
+    /**
+     * Appends operators to the current page's content stream, starting a page if there is none. $s is written as
+     * is: only this class's drawing methods call it, with numbers from n() and text as hex strings.
+     */
     private function out(string $s): void
     {
         if ($this->page < 0) {
@@ -111,6 +122,7 @@ final class Pdf
         $this->pages[$this->page]['c'] .= $s . "\n";
     }
 
+    /** A number for a content stream: at most three decimals, never an exponent, "0" for -0, INF and NAN. */
     private static function n(float $v): string
     {
         if (!is_finite($v)) {
@@ -120,6 +132,7 @@ final class Pdf
         return $s === '-0' || $s === '' ? '0' : $s;
     }
 
+    /** The fill (rg) or stroke (RG) operator for [r, g, b]: each part cast to float and clamped to 0..1, missing ones 0. */
     private static function rgb(array $c, bool $stroke): string
     {
         [$r, $g, $b] = array_map(fn($v) => max(0.0, min(1.0, (float) $v)), $c + [0, 0, 0]);
@@ -145,6 +158,13 @@ final class Pdf
         return $this->textRaw($x, $y, self::encode($text), $font, $size, $color);
     }
 
+    /**
+     * Like text(), for bytes already in Windows-1252 (encode()), with $wordSpacing points added after each space
+     * (justified lines). Returns the width including that spacing. The bytes go into the content stream as a hex
+     * string, so no byte value can end the string or add operators. An unknown font becomes Helvetica, so only
+     * core font names are used. The font's resource name includes $prefix unescaped: whoever sets it uses letters
+     * and digits only.
+     */
     public function textRaw(float $x, float $y, string $bytes, string $font = 'Helvetica', float $size = 10, array $color = [0, 0, 0], float $wordSpacing = 0): float
     {
         if ($bytes === '') {
@@ -160,6 +180,7 @@ final class Pdf
         return self::widthRaw($bytes, $font, $size) + $wordSpacing * substr_count($bytes, ' ');
     }
 
+    /** A straight line from x1,y1 to x2,y2 (from the top-left). */
     public function line(float $x1, float $y1, float $x2, float $y2, float $width = 0.5, array $color = [0, 0, 0]): void
     {
         $this->out('q ' . self::rgb($color, true) . ' ' . self::n($width) . ' w ' . self::n($x1) . ' ' . self::n($this->ph() - $y1) . ' m '
@@ -224,6 +245,10 @@ final class Pdf
         $this->out('q ' . self::n($w) . ' 0 0 ' . self::n($h) . ' ' . self::n($x) . ' ' . self::n($this->ph() - $y - $h) . ' cm /' . $this->prefix . 'I' . ($handle + 1) . ' Do Q');
     }
 
+    /**
+     * A document info value as a PDF string. The hex form means untrusted text (party names, contract titles) can't
+     * end the string or add keys.
+     */
     private static function str(string $utf8): string
     {
         // Document info strings: UTF-16BE with BOM, as a hex string
@@ -231,8 +256,9 @@ final class Pdf
     }
 
     /**
-     * The shared objects (fonts, images) numbered from $next. Returns [objects (number => body), resources dictionary
-     * as PDF source, next free number].
+     * The shared objects (fonts, images) numbered from $next. Returns [objects (number => body: PDF source, or a
+     * [dictionary, data] pair for an image), font number => object number, image index => object number, next free
+     * number].
      */
     private function sharedObjects(int $next): array
     {
@@ -251,12 +277,14 @@ final class Pdf
         return [$objs, $fontRefs, $imgRefs, $next];
     }
 
+    /** A content stream as [dictionary, data]: Flate-compressed when zlib is there, /Length from the bytes written. */
     private static function stream(string $content): array
     {
         $z = function_exists('gzcompress') ? gzcompress($content, 6) : false;
         return $z !== false ? ['<< /Filter /FlateDecode /Length ' . strlen($z) . ' >>', $z] : ['<< /Length ' . strlen($content) . ' >>', $content];
     }
 
+    /** An object's body: PDF source as is, or a [dictionary, data] pair written as a stream. */
     private static function body(string|array $o): string
     {
         return is_array($o) ? $o[0] . "\nstream\n" . $o[1] . "\nendstream" : $o;

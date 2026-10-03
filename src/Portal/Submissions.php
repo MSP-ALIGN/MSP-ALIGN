@@ -15,6 +15,11 @@ use Align\Mail\Template as T;
  * Licenses and budget items a client suggests from the portal (1.39). They wait here until staff accept
  * them, as a real license or budget line (edited first if needed), or decline them with a note. Until then
  * nothing changes in the plan or the budget; the client sees the suggestion as waiting.
+ *
+ * Security assumptions: everything in a suggestion is client-written text, stored as given (cleaned) and escaped
+ * wherever it is shown. Every lookup takes the client id from the caller (the portal user's own, or the staff
+ * page's client), never from the suggestion. Status changes only happen from 'pending', so parallel decisions
+ * can't both land.
  */
 final class Submissions
 {
@@ -23,7 +28,7 @@ final class Submissions
     /** Budget categories a client can pick (managed services are the IT provider's own line). */
     public const CLIENT_BUDGET_CATEGORIES = ['connectivity', 'telecom', 'cloud', 'other'];
 
-    /** Whether suggestions are switched on (Client portal users page) and this user may send them. */
+    /** Whether suggestions are switched on (Client portal users page) and portal user $pu may send them (can_budget + can_submit). */
     public static function allowed(array $pu): bool
     {
         return \Align\Settings::get('portal_submissions', '1') === '1' && !empty($pu['can_budget']) && !empty($pu['can_submit']);
@@ -31,14 +36,20 @@ final class Submissions
 
     /**
      * The client's form, checked. Returns [data, errors]. Only plain values are kept; staff see and can
-     * change every field before anything is added.
+     * change every field before anything is added. $in is the raw, untrusted $_POST; unknown keys are ignored.
      */
     public static function fromPost(string $kind, array $in): array
     {
-        // Only text counts: a field sent as a list (name[]=…) is treated as empty
-        $in = array_map(fn($v) => is_string($v) ? $v : '', $in);
-        $s = fn(string $k, int $len) => mb_substr(trim($in[$k] ?? ''), 0, $len);
-        $date = fn(string $k) => preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $in[$k] ?? '', $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $in[$k] : null;
+        // Only text counts: a field sent as a list (name[]=…) is treated as empty. Invalid UTF-8 becomes "?" (2.2.1):
+        // it made json_encode() fail, so the suggestion was saved with no details, or the insert failed.
+        $in = array_map(fn($v) => is_string($v) ? mb_scrub($v, 'UTF-8') : '', $in);
+        // Names are one line (they become email subjects and audit entries): control characters and line breaks
+        // turn into spaces (2.2.1). ASCII control bytes never occur inside a UTF-8 character, so no /u is needed.
+        $s = fn(string $k, int $len) => mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', $in[$k] ?? '') ?? ''), 0, $len);
+        // Notes keep their line breaks and tabs only
+        $text = fn(string $k, int $len) => mb_substr(trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', str_replace(["\r\n", "\r"], "\n", $in[$k] ?? '')) ?? ''), 0, $len);
+        // D: without it "2026-01-31\n" passed and the line break was kept (2.2.1)
+        $date = fn(string $k) => preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $in[$k] ?? '', $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $in[$k] : null;
         $money = function (string $k) use ($in): ?float {
             $v = str_replace([' ', "\u{00A0}", "\u{202F}"], '', trim($in[$k] ?? ''));
             return $v !== '' && is_numeric($v) && (float) $v >= 0 && (float) $v < 100000000 ? round((float) $v, 2) : null;
@@ -59,7 +70,7 @@ final class Submissions
                 'unit_price' => $money('unit_price'),
                 'billing_cycle' => isset(Licenses::CYCLES[$in['billing_cycle'] ?? '']) ? (string) $in['billing_cycle'] : 'monthly',
                 'expire_date' => $date('expire_date'),
-                'notes' => $s('notes', 2000) ?: null,
+                'notes' => $text('notes', 2000) ?: null,
             ];
             if (trim($in['unit_price'] ?? '') !== '' && $d['unit_price'] === null) {
                 $errors[] = 'The price must be a number.';
@@ -71,7 +82,7 @@ final class Submissions
                 'amount' => $money('amount'),
                 'frequency' => isset(Budget::FREQUENCIES[$in['frequency'] ?? '']) ? (string) $in['frequency'] : 'monthly',
                 'start_date' => $date('start_date'),
-                'notes' => $s('notes', 2000) ?: null,
+                'notes' => $text('notes', 2000) ?: null,
             ];
             if ($d['amount'] === null) {
                 $errors[] = 'Enter the amount (a number, 0 if you don\'t know it yet).';
@@ -80,6 +91,10 @@ final class Submissions
         return [$d, $errors];
     }
 
+    /**
+     * Saves a checked suggestion (from fromPost()) for portal user $pu's own client, logs it and tells staff.
+     * $kind must be a KINDS key. The caller checked allowed() and the rate limit.
+     */
     public static function create(array $pu, string $kind, array $data): int
     {
         $id = (int) DB::insert('portal_submissions', ['client_id' => (int) $pu['client_id'], 'kind' => $kind, 'title' => $data['name'],
@@ -91,34 +106,35 @@ final class Submissions
         return $id;
     }
 
+    /** A row with its JSON data decoded (an empty array when it can't be read). */
     private static function decode(array $r): array
     {
         $r['data'] = json_decode((string) $r['data'], true) ?: [];
         return $r;
     }
 
-    /** Waiting suggestions for a client (staff pages), optionally of one kind. */
+    /** Waiting suggestions for a client (staff pages, which checked the role), optionally of one kind. */
     public static function pending(int $clientId, ?string $kind = null): array
     {
         return array_map([self::class, 'decode'], DB::all("SELECT * FROM portal_submissions WHERE client_id = ? AND status = 'pending'" . ($kind ? ' AND kind = ?' : '') . ' ORDER BY id',
             $kind ? [$clientId, $kind] : [$clientId]));
     }
 
-    /** What the client sees: everything waiting, plus what was decided in the last 90 days. */
+    /** What the client sees: everything waiting, plus what was decided in the last 90 days. $clientId is the portal user's own. */
     public static function forClient(int $clientId, string $kind): array
     {
         return array_map([self::class, 'decode'], DB::all("SELECT * FROM portal_submissions WHERE client_id = ? AND kind = ?
             AND (status = 'pending' OR COALESCE(decided_at, created_at) >= NOW() - INTERVAL 90 DAY) ORDER BY status = 'pending' DESC, id DESC LIMIT 50", [$clientId, $kind]));
     }
 
-    /** A waiting suggestion of this client, or null. */
+    /** A waiting suggestion of this client, or null ($id is untrusted; another client's id matches nothing). */
     public static function find(int $id, int $clientId): ?array
     {
         $r = DB::one("SELECT * FROM portal_submissions WHERE id = ? AND client_id = ? AND status = 'pending'", [$id, $clientId]);
         return $r ? self::decode($r) : null;
     }
 
-    /** Values for the staff Add license / Add budget line form. */
+    /** Values for the staff Add license / Add budget line form; the form escapes them and staff review them before saving. */
     public static function prefill(array $s): array
     {
         $d = $s['data'];
@@ -145,6 +161,10 @@ final class Submissions
         return $n === 1;
     }
 
+    /**
+     * Staff declined it with an optional note the client sees (cut to 2000 characters). Returns the suggestion, or
+     * null when it isn't this client's or was already decided. The caller checked the staff role.
+     */
     public static function decline(int $id, int $clientId, string $note, ?int $userId): ?array
     {
         $s = self::find($id, $clientId);
@@ -156,7 +176,10 @@ final class Submissions
         return $s;
     }
 
-    /** The person who sent a suggestion takes it back while it's still waiting (works even with suggestions switched off). */
+    /**
+     * The person who sent a suggestion takes it back while it's still waiting (works even with suggestions switched
+     * off). $pu is the signed-in portal user: only their own suggestion of their own client matches.
+     */
     public static function withdraw(int $id, array $pu): ?array
     {
         $s = DB::one("SELECT * FROM portal_submissions WHERE id = ? AND client_id = ? AND portal_user_id = ? AND status = 'pending'", [$id, $pu['client_id'], $pu['id']]);
@@ -176,7 +199,11 @@ final class Submissions
         }
     }
 
-    /** Emails the person who suggested it when it's decided (Settings → Notifications: "Portal suggestions"). */
+    /**
+     * Emails the person who suggested it when it's decided (Settings → Notifications: "Portal suggestions"); not when
+     * they were disabled or deleted. The title is the client's own text: the template escapes it and the mail layer
+     * keeps line breaks out of the subject.
+     */
     private static function tellClient(int $id): void
     {
         if (!N::enabled('client_submission_decided')) {

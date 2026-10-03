@@ -1,5 +1,9 @@
 <?php
-/** Client portal layout: top navigation, only the sections this portal user may see. */
+/**
+ * Client portal layout: top navigation, only the sections this portal user may see. $pu is null on pages shown
+ * before sign-in. Every outside value is escaped; the nav hrefs and icons are the fixed strings below, and the
+ * brand CSS is built from a validated #rrggbb colour (Branding::css). $content is the already-rendered page.
+ */
 $pu = $pu ?? null;
 $nav = $nav ?? '';
 $v = e(APP_VERSION);

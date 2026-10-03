@@ -23,16 +23,21 @@ use Align\View;
 /**
  * The client portal. Every page takes the client from the signed-in portal user's own record
  * (never from the URL), checks that user's section permission, and leaves out internal notes.
+ *
+ * Security assumptions: the router checked CSRF on every POST. Each page's first line is PortalAuth::require()
+ * with the section it shows; ids from the URL or a form are only ever looked up together with the user's own
+ * client_id. Sign-in, reset and invite handlers are public and treat everything they get as hostile.
  */
 final class PortalController
 {
+    /** Renders a portal page in the portal layout and logs the view (once per 15 minutes per page). */
     private static function render(string $view, array $vars, array $pu): void
     {
         Audit::access('portal_' . ($vars['nav'] ?? $view), (string) $pu['client_name']);
         View::render('portal/' . $view, $vars + ['pu' => $pu, 'provider' => self::provider($pu)], 'portal/layout');
     }
 
-    /** "Your IT team" details shown in the portal. */
+    /** "Your IT team" details shown in the portal: company settings and this client's own vCIO (name, email, picture). */
     private static function provider(array $pu): array
     {
         $vcio = DB::one('SELECT u.name, u.email, u.id, u.avatar_file FROM clients c JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$pu['client_id']]);
@@ -51,6 +56,7 @@ final class PortalController
         return array_map(fn($d) => ['link' => str_ends_with($d['link'], '/licenses') ? '/portal/licensing' : '/portal/budget'] + $d, Contracts::upcoming($cid, $days));
     }
 
+    /** The signed-in user's own client row (never one chosen by the request). */
     private static function client(array $pu): array
     {
         return DB::one('SELECT * FROM clients WHERE id = ?', [$pu['client_id']]);
@@ -70,6 +76,7 @@ final class PortalController
         View::render('portal/terms', $vars, 'layout/public');
     }
 
+    /** Portal sign-in form (signed-in users go home). */
     public static function loginForm(): void
     {
         if (PortalAuth::user()) {
@@ -78,6 +85,7 @@ final class PortalController
         View::render('portal/login', ['title' => 'Client sign in'], 'layout/bare');
     }
 
+    /** "Forgot your password" form, only when self-service reset emails are switched on and mail works. */
     public static function forgotForm(): void
     {
         if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Mail::ready()) {
@@ -95,12 +103,15 @@ final class PortalController
         if (!\Align\Mail\Notifications::enabled('client_portal_reset') || !\Align\Mail\Mail::ready()) {
             redirect('/portal/login');
         }
-        $email = strtolower(trim(post('email')));
+        $email = mb_scrub(strtolower(trim(post('email'))), 'UTF-8');
+        // login_attempts.email holds 190 characters and a valid address can be longer: such a key is hashed, so the
+        // insert can't fail with an error page (2.2.1)
+        $key = mb_strlen('reset:' . $email) <= 190 ? 'reset:' . $email : 'reset:sha256:' . hash('sha256', $email);
         $since = date('Y-m-d H:i:s', time() - 3600);
-        $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND created_at > ?', ['reset:' . $email, $since]);
+        $byEmail = (int) DB::value('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND created_at > ?', [$key, $since]);
         $byIp = (int) DB::value("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND email LIKE 'reset:%' AND created_at > ?", [client_ip(), $since]);
         if (filter_var($email, FILTER_VALIDATE_EMAIL) && $byEmail < 3 && $byIp < 10) {
-            DB::insert('login_attempts', ['ip' => client_ip(), 'email' => 'reset:' . $email, 'success' => 1]);
+            DB::insert('login_attempts', ['ip' => client_ip(), 'email' => $key, 'success' => 1]);
             $u = DB::one('SELECT p.*, c.name AS client_name FROM portal_users p JOIN clients c ON c.id = p.client_id
                 WHERE p.email = ? AND p.is_active = 1 AND c.is_archived = 0 AND p.password_hash IS NOT NULL', [$email]);
             if ($u) {
@@ -113,6 +124,7 @@ final class PortalController
         redirect('/portal/login');
     }
 
+    /** Password step. The messages never say whether the email has an account. */
     public static function login(): void
     {
         switch (PortalAuth::attempt(post('email'), (string) ($_POST['password'] ?? ''))) {
@@ -129,6 +141,7 @@ final class PortalController
         redirect('/portal/login');
     }
 
+    /** Code step form, only while a password step is pending in this session. */
     public static function twoFactorForm(): void
     {
         if (empty($_SESSION['portal_pending_2fa'])) {
@@ -137,6 +150,7 @@ final class PortalController
         View::render('portal/twofactor', ['title' => 'Two-factor code'], 'layout/bare');
     }
 
+    /** Code step: signs in on a valid, unused code (see PortalAuth::verifySecondFactor). */
     public static function twoFactor(): void
     {
         $r = PortalAuth::verifySecondFactor(post('code'), post('remember') === '1');
@@ -147,6 +161,7 @@ final class PortalController
         redirect($r === 'expired' ? '/portal/login' : '/portal/login/2fa');
     }
 
+    /** Keep-alive for the idle warning: 401 when signed out, else the idle limit. Works before 2FA is set up. */
     public static function ping(): void
     {
         header('Content-Type: application/json');
@@ -158,6 +173,7 @@ final class PortalController
         echo json_encode(['signedIn' => true, 'idle' => \Align\Security::idleSeconds()]);
     }
 
+    /** Signs out (POST, so CSRF-checked). */
     public static function logout(): void
     {
         Audit::log('portal.logout');
@@ -165,13 +181,19 @@ final class PortalController
         redirect('/portal/login');
     }
 
-    /** Invite / reset link: set a password, then sign in. */
+    /** Invite / reset link page. $token is untrusted; an unknown, used or expired one shows the "expired" text. */
     public static function inviteForm(string $token): void
     {
         $u = PortalAuth::findByToken($token);
         View::render('portal/invite', ['title' => 'Set your password', 'invitee' => $u, 'token' => $token], 'layout/bare');
     }
 
+    /**
+     * Invite / reset link: set a password, then sign in. The token alone is enough only for an account without
+     * two-factor (a new invite); otherwise the current code is checked on the same form first. The link works once:
+     * the update only lands while this token is still the stored one, so two requests racing with the same link
+     * can't both set a password (2.2.1). All other sessions end.
+     */
     public static function invite(string $token): void
     {
         $u = PortalAuth::findByToken($token);
@@ -194,8 +216,12 @@ final class PortalController
             flash('error', 'That code from your authenticator app is not valid. Enter a fresh one.');
             redirect('/portal/invite/' . $token);
         }
-        DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW(), invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?',
-            [\Align\Security::hashPassword($pw), $u['id']]);
+        $used = DB::run('UPDATE portal_users SET password_hash = ?, password_changed_at = NOW(), invite_token_hash = NULL, invite_expires_at = NULL
+            WHERE id = ? AND invite_token_hash = ? AND is_active = 1', [\Align\Security::hashPassword($pw), $u['id'], hash('sha256', $token)])->rowCount() === 1;
+        if (!$used) {
+            flash('error', 'That link has expired or was already used. Ask your IT provider for a new one.');
+            redirect('/portal/login');
+        }
         PortalAuth::revokeSessions((int) $u['id']);
         Audit::log('portal.password_set', $u['email'], null, (int) $u['id']);
         PortalAuth::completeLogin((int) $u['id']);
@@ -209,6 +235,7 @@ final class PortalController
 
     // ---- Pages --------------------------------------------------------------------------------
 
+    /** Home: a summary of each section this user may see (each part checks its own permission). */
     public static function home(): void
     {
         $pu = PortalAuth::require();
@@ -236,6 +263,7 @@ final class PortalController
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
     }
 
+    /** Compliance frameworks assigned to client $cid (the caller's own), with their scores. */
     private static function frameworks(int $cid): array
     {
         $fws = DB::all('SELECT f.id, f.name, f.description FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? ORDER BY f.name', [$cid]);
@@ -245,6 +273,7 @@ final class PortalController
         return $fws;
     }
 
+    /** Roadmap and projects (can_roadmap); costs only with can_budget. */
     public static function roadmap(): void
     {
         $pu = PortalAuth::require('can_roadmap');
@@ -259,7 +288,11 @@ final class PortalController
         ], $pu);
     }
 
-    /** Approve or decline a proposed project. */
+    /**
+     * Approve or decline a proposed project of the user's own client (can_roadmap and can_approve). $id is from the
+     * URL: another client's project is "no longer waiting". The decision only lands while the project is still
+     * proposed, so a double submit or two people deciding at once give one decision, one entry and one email (2.2.1).
+     */
     public static function decide(int $id): void
     {
         $pu = PortalAuth::require('can_roadmap');
@@ -276,14 +309,19 @@ final class PortalController
         if (!$decision) {
             redirect('/portal/roadmap');
         }
-        DB::run('UPDATE roadmap_items SET status = ?, decided_by_portal_user_id = ?, decided_by_name = ?, decided_at = NOW(), decision_comment = ? WHERE id = ?',
-            [$decision, $pu['id'], $pu['name'], mb_substr(post('comment'), 0, 2000) ?: null, $id]);
+        $n = DB::run("UPDATE roadmap_items SET status = ?, decided_by_portal_user_id = ?, decided_by_name = ?, decided_at = NOW(), decision_comment = ?
+            WHERE id = ? AND client_id = ? AND status = 'proposed'", [$decision, $pu['id'], $pu['name'], mb_substr(post('comment'), 0, 2000) ?: null, $id, $pu['client_id']])->rowCount();
+        if ($n !== 1) {
+            flash('error', 'That project is no longer waiting for a decision.');
+            redirect('/portal/roadmap');
+        }
         Audit::log('portal.project_' . ($decision === 'approved' ? 'approved' : 'declined'), "{$pu['client_name']}: {$item['title']}" . (post('comment') ? ' — ' . post('comment') : ''));
         \Align\Mail\Notify::portalActivity((int) $pu['client_id'], $pu['client_name'], $pu['name'], $decision . ' "' . $item['title'] . '"' . (post('comment') ? ' with the comment: ' . mb_strimwidth(post('comment'), 0, 500, '…') : ''), '/clients/' . (int) $pu['client_id'] . '/roadmap');
         flash('success', ($decision === 'approved' ? 'Approved' : 'Declined') . " \"{$item['title']}\". Your IT provider has been notified in their dashboard.");
         redirect('/portal/roadmap');
     }
 
+    /** Technology budget (can_budget). ?year is 0-2 (the plan's three years); anything else means this year. */
     public static function budget(): void
     {
         $pu = PortalAuth::require('can_budget');
@@ -294,6 +332,7 @@ final class PortalController
             'dates' => self::portalDates($cid), 'subs' => Submissions::forClient($cid, 'budget'), 'canSubmit' => Submissions::allowed($pu)], $pu);
     }
 
+    /** Licensing (can_budget). */
     public static function licensing(): void
     {
         $pu = PortalAuth::require('can_budget');
@@ -302,7 +341,11 @@ final class PortalController
             'subs' => Submissions::forClient((int) $pu['client_id'], 'license'), 'canSubmit' => Submissions::allowed($pu)], $pu);
     }
 
-    /** A license or budget item the client suggests; staff review it before anything is added (1.39). */
+    /**
+     * A license or budget item the client suggests; staff review it before anything is added (1.39). Needs can_budget
+     * and can_submit with suggestions switched on; 20 an hour per user. The client always comes from the user, never
+     * the form; Submissions::fromPost() checks and cleans every field.
+     */
     public static function suggest(string $kind): void
     {
         $pu = PortalAuth::require('can_budget');
@@ -327,6 +370,7 @@ final class PortalController
         redirect($back . '#suggestions');
     }
 
+    /** Takes back one of the user's own waiting suggestions (can_budget). $id is from the URL and checked in Submissions::withdraw(). */
     public static function withdraw(int $id): void
     {
         $pu = PortalAuth::require('can_budget');
@@ -340,6 +384,7 @@ final class PortalController
         redirect(($s && $s['kind'] === 'budget') || post('back') === 'budget' ? '/portal/budget#suggestions' : '/portal/licensing#suggestions');
     }
 
+    /** Devices (can_devices); excluded devices and internal notes are never shown, costs only with can_budget. */
     public static function devices(): void
     {
         $pu = PortalAuth::require('can_devices');
@@ -355,12 +400,14 @@ final class PortalController
             'hasBackup' => \Align\Backup\Backup::has((int) $pu['client_id'])], $pu);
     }
 
+    /** Compliance frameworks and scores (can_devices). */
     public static function compliance(): void
     {
         $pu = PortalAuth::require('can_devices');
         self::render('compliance', ['title' => 'Compliance', 'nav' => 'compliance', 'frameworks' => self::frameworks((int) $pu['client_id'])], $pu);
     }
 
+    /** One framework's controls (can_devices), only when assigned to the user's client; $id is from the URL. */
     public static function complianceFramework(int $id): void
     {
         $pu = PortalAuth::require('can_devices');
@@ -385,6 +432,7 @@ final class PortalController
             'score' => Compliance::score($cid, $id)], $pu);
     }
 
+    /** Shared, active documents of the user's client (can_documents). */
     public static function documents(): void
     {
         $pu = PortalAuth::require('can_documents');
@@ -392,6 +440,10 @@ final class PortalController
         self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs], $pu);
     }
 
+    /**
+     * One document (can_documents): only the user's own client's, active and shared; anything else is 404. The body
+     * is HTML that was sanitized when it was saved (Docs\Html::clean).
+     */
     public static function document(int $id): void
     {
         $pu = PortalAuth::require('can_documents');
@@ -418,13 +470,17 @@ final class PortalController
             'canRequest' => $pu['can_contacts'] && \Align\Onboarding\Requests::enabled()], $pu);
     }
 
-    /** New user / termination request forms (portal users who can edit contacts). */
+    /** New user / termination request forms (can_documents and can_contacts, requests switched on). */
     public static function requests(): void
     {
         $pu = self::requireRequests();
         self::render('requests', ['title' => 'Requests', 'nav' => 'requests', 'requests' => \Align\Onboarding\Requests::forClient((int) $pu['client_id'], 15)], $pu);
     }
 
+    /**
+     * Sends a new user / termination request for the user's own client. $kind is from the URL and must be a known
+     * form; Requests::validate() checks the fields. 10 an hour per user and 25 a day per client.
+     */
     public static function requestSubmit(string $kind): void
     {
         $pu = self::requireRequests();
@@ -449,6 +505,7 @@ final class PortalController
         redirect('/portal/requests');
     }
 
+    /** require('can_documents') plus can_contacts and requests switched on, or a 403 page. */
     private static function requireRequests(): array
     {
         $pu = PortalAuth::require('can_documents');
@@ -460,6 +517,7 @@ final class PortalController
         return $pu;
     }
 
+    /** Upcoming and recent meetings (can_documents); internal meetings and meeting notes are never shown. */
     public static function meetings(): void
     {
         $pu = PortalAuth::require('can_documents');
@@ -474,7 +532,11 @@ final class PortalController
         ], $pu);
     }
 
-    /** Printable reports the user has access to. */
+    /**
+     * Printable reports the user has access to. $kind is from the URL and maps to the permission it needs; the QBR
+     * shows only the sections the user may see. Costs, notes and ticket lists are forced off where the user may not
+     * see them, whatever the query string says.
+     */
     public static function report(string $kind): void
     {
         $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'backup' => 'can_devices', 'sla' => 'can_devices', 'qbr' => ''][$kind] ?? null;
@@ -512,6 +574,7 @@ final class PortalController
         };
     }
 
+    /** The user's own client's logo. */
     public static function logo(): void
     {
         $pu = PortalAuth::require();
@@ -528,6 +591,7 @@ final class PortalController
 
     // ---- Account ------------------------------------------------------------------------------
 
+    /** Account page: details, password, 2FA setup (reachable before 2FA is set up). */
     public static function account(): void
     {
         $pu = PortalAuth::require();
@@ -536,6 +600,10 @@ final class PortalController
             'setupUri' => $pending ? Totp::uri($pending, $pu['email']) : null], $pu);
     }
 
+    /**
+     * Changes the user's own password: the current one is checked (counted like a sign-in), outstanding links are
+     * voided and every other session ends.
+     */
     public static function password(): void
     {
         $pu = PortalAuth::require();
@@ -572,6 +640,10 @@ final class PortalController
         redirect('/portal/account');
     }
 
+    /**
+     * Two-factor setup: begin (new key kept in this session only), confirm (a code from the new key, plus one from
+     * the current key when replacing; ends other sessions and remembered browsers), cancel. 2FA can't be turned off.
+     */
     public static function twoFactorSetup(): void
     {
         $pu = PortalAuth::require();

@@ -14,7 +14,7 @@
           </div>
         </div>
         <div id="doc-editor" class="doc-editor" data-mode="template"></div>
-        <template id="doc-initial"><?= $t['body_html'] ?></template>
+        <template id="doc-initial"><?= $t['body_html'] /* cleaned when saved; built-in templates ship with the app */ ?></template>
       </div>
     </div>
     <div class="col-xl-3">

@@ -1,9 +1,14 @@
 <?php
 use Align\Portal\PortalAuth;
 
-/** @var array $client, $users, $contacts, $activity; ?array $link; string $portalUrl */
+/**
+ * Staff page for a client's portal users. $link is a just-issued invite/reset link, shown once (the controller only
+ * passes it on the page of its own client); it goes into a readonly field and a mailto: link, both escaped.
+ * @var array $client, $users, $contacts, $activity; ?array $link; string $portalUrl
+ */
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
+/** A portal user's status label and badge colour (fixed strings). */
 $status = function (array $u): array {
     if (!$u['is_active']) return ['Disabled', 'secondary'];
     if (!$u['password_hash']) return [$u['invite_expires_at'] && $u['invite_expires_at'] >= date('Y-m-d H:i:s') ? 'Invited' : 'Invite expired', $u['invite_expires_at'] && $u['invite_expires_at'] >= date('Y-m-d H:i:s') ? 'info' : 'warning'];

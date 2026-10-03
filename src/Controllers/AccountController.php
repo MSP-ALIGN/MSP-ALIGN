@@ -75,7 +75,11 @@ final class AccountController
         redirect('/account#appearance');
     }
 
-    /** Upload or remove your profile picture. */
+    /**
+     * Upload or remove your profile picture. Any signed-in staff user, for their own account only (the id comes
+     * from the session, CSRF from the router). Images::store checks and re-encodes the upload (EXIF dropped) and
+     * picks the file name; staff see it through /users/{id}/avatar, the portal only its own vCIO's.
+     */
     public static function avatar(): void
     {
         $u = Auth::require();
