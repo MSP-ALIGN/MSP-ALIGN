@@ -1,5 +1,11 @@
 <?php ob_start(); ?>
 <?php
+/**
+ * Help & how-to (any signed-in staff user). Guides for roles the user doesn't have are left out.
+ * Security: the text is written here (HTML on purpose, printed as is); the only values put into it are connector
+ * names (psa_name(), rmmNames(), backupNames(): constants in the connector classes) and the app name, which is
+ * escaped where the output is rewritten at the end of this file.
+ */
 use Align\Auth;
 
 $isAdmin = Auth::can('admin');
@@ -68,6 +74,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.2.1', 'fa-shield-halved', 'Security and quality review', 'Every file was read line by line and the whole program audited again. Wrong two-factor codes after a correct password now alert admins, and after 50 the password is replaced. A password or 2FA change, or Sign out everywhere, turns off your calendar feed link (make a new one on the Meetings page). Integrations never connect to the server itself or cloud metadata addresses and don\'t follow redirects. A contract the client signed stays signed after it\'s cancelled. More views and syncs are in the audit log.', 'users', 'viewer'],
         ['2.2', 'fa-file-signature', 'Contracts, signed online', 'A new <b>Onboarding</b> section in the menu: upload your own contract PDF and place boxes on it for the fields, prices and signatures (Align can find the blanks for you), send them to sign online (with an emailed code), countersign, and keep the signed PDF with a signature certificate. Upload contracts signed elsewhere too. The welcome email and guide moved here from Settings, and <b>New clients</b> shows every onboarding at a glance.', 'contracts', 'tech'],
         ['2.1.1', 'fa-image', 'Sign-in backgrounds', 'The sign-in pages have a background now: a built-in one for your team and a lighter one for the client portal. Under Settings → Branding, upload your own for either, choose how much to darken it, or pick No image for the plain page.', 'branding', 'admin'],
         ['2.1', 'fa-diagram-project', 'Replacements become projects', 'Client approved a replacement? Tick the devices on Devices &amp; assets (or open one) and choose <b>Make projects</b>: one per device or one for several, in their replacement quarter or one you pick, at the budgeted cost or the quote. Align can create a <b>QUOTE-</b> ticket in ' . psa_name() . ' for each. The devices leave the automatic plan, so nothing counts twice in the budget.', 'lifecycle', 'tech'],
@@ -110,7 +117,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
     ] as [$ver, $icon, $title, $text, $g, $who]): $canOpen = Auth::can($who); ?>
       <<?= $canOpen ? 'a' : 'div' ?> class="list-group-item<?= $canOpen ? ' list-group-item-action' : '' ?> d-flex"<?= $canOpen ? ' href="#guide-' . e($g) . '"' : '' ?>>
         <i class="fas <?= $icon ?> fa-fw text-secondary me-3 mt-1"></i>
-        <div class="flex-grow-1"><div class="d-flex flex-wrap align-items-center"><b class="me-2"><?= e($title) ?></b><span class="badge text-bg-light border">v<?= e($ver) ?></span></div><div class="small text-muted"><?= e($text) ?></div></div>
+        <div class="flex-grow-1"><div class="d-flex flex-wrap align-items-center"><b class="me-2"><?= e($title) ?></b><span class="badge text-bg-light border">v<?= e($ver) ?></span></div><div class="small text-muted"><?= $text /* HTML written above, like the guides (2.2.1: it was escaped, so "<b>" showed as text) */ ?></div></div>
         <?php if ($canOpen): ?><i class="fas fa-angle-right text-muted ms-2 mt-1"></i><?php endif; ?>
       </<?= $canOpen ? 'a' : 'div' ?>>
     <?php endforeach; ?>
