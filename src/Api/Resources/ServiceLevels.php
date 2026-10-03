@@ -8,9 +8,20 @@ use Align\Api\Input;
 use Align\Api\Out;
 use Align\Service\Sla;
 
-/** SLA results from PSA tickets for one client. */
+/**
+ * SLA results from PSA tickets for one client (read-only).
+ *
+ * Security: reached only through the Kernel with service:read checked. Clients::load() applies the key's client limit
+ * (404 for other or archived clients), and Sla::report() works on that one client id only.
+ */
 final class ServiceLevels
 {
+    /**
+     * GET /clients/{id}/service-levels. Query: period (a key of ServiceController::periodChoices(), default 90) and
+     * missed_limit (0-100 missed tickets to list, default 25).
+     * Returns 409 when SLA tracking is off, 404 when the client isn't linked to the PSA or has no ticket data.
+     * Ticket subjects are client data the service:read scope covers; nothing internal (PSA ids, error text) is passed on.
+     */
     public static function client(int $id): array
     {
         $c = Clients::load($id);

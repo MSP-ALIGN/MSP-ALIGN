@@ -3,16 +3,24 @@ declare(strict_types=1);
 
 namespace Align;
 
-/** RFC 6238 TOTP (30s, 6 digits, SHA1) - compatible with standard authenticator apps. */
+/**
+ * RFC 6238 TOTP (30s, 6 digits, SHA1) - compatible with standard authenticator apps. Pure functions: no database,
+ * no session. Callers keep secrets encrypted at rest (Crypto) and enforce one use per code (totp_last_step) and the
+ * sign-in lockout; this class only does the maths.
+ */
 final class Totp
 {
     private const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    /** Shortest key accepted for checking codes: RFC 4226 (R6) asks for at least 128 bits; ours are 160. */
+    private const MIN_KEY_BYTES = 16;
 
+    /** A new random secret (160 bits by default), base32 for the authenticator app. */
     public static function generateSecret(int $bytes = 20): string
     {
         return self::base32Encode(random_bytes($bytes));
     }
 
+    /** The otpauth:// URI shown as a QR code at setup. $account (an email) and $issuer are URL-encoded. */
     public static function uri(string $secret, string $account, ?string $issuer = null): string
     {
         $issuer ??= Branding::name();
@@ -25,6 +33,7 @@ final class Totp
         );
     }
 
+    /** The 6-digit code for $secret at $time (now by default). */
     public static function code(string $secret, ?int $time = null): string
     {
         $counter = intdiv($time ?? time(), 30);
@@ -40,12 +49,15 @@ final class Totp
 
     /**
      * Verifies a code and returns the time-step it matched, or null. Pass the last step accepted for
-     * this user to refuse replays: a code (or an older one) can only be used once.
+     * this user to refuse replays: a code (or an older one) can only be used once. $code is untrusted input; the
+     * comparison is constant-time. $window steps either side allow for clock drift (one step = 30 seconds).
+     * The caller must still store the returned step atomically (see Auth::useStep) for parallel requests.
      */
     public static function verifyStep(string $secret, string $code, ?int $lastStep = null, int $window = 1): ?int
     {
         $code = preg_replace('/\D/', '', $code) ?? '';
-        if (strlen($code) !== 6) {
+        // A blank or garbled secret decodes to a short or empty key, whose codes anyone can work out: never accept them
+        if (strlen($code) !== 6 || strlen(self::base32Decode($secret)) < self::MIN_KEY_BYTES) {
             return null;
         }
         $now = intdiv(time(), 30);
@@ -61,10 +73,14 @@ final class Totp
         return null;
     }
 
+    /**
+     * Whether $code is valid now, WITHOUT replay protection. Not used for sign-in or confirmations (they use
+     * verifyStep with the last step); kept for callers that only test a secret.
+     */
     public static function verify(string $secret, string $code, int $window = 1): bool
     {
         $code = preg_replace('/\D/', '', $code) ?? '';
-        if (strlen($code) !== 6) {
+        if (strlen($code) !== 6 || strlen(self::base32Decode($secret)) < self::MIN_KEY_BYTES) {
             return false;
         }
         $now = time();
@@ -76,6 +92,7 @@ final class Totp
         return false;
     }
 
+    /** RFC 4648 base32 without padding. */
     public static function base32Encode(string $data): string
     {
         $bits = '';
@@ -89,6 +106,7 @@ final class Totp
         return $out;
     }
 
+    /** RFC 4648 base32 to bytes; characters outside the alphabet (spaces, padding) are skipped, trailing bits dropped. */
     public static function base32Decode(string $b32): string
     {
         $b32 = strtoupper(preg_replace('/[^A-Za-z2-7]/', '', $b32) ?? '');

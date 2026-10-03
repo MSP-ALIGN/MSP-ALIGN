@@ -63,6 +63,10 @@ final class PortalAuth
                 FROM portal_users p JOIN clients c ON c.id = p.client_id WHERE p.id = ? AND p.is_active = 1', [$_SESSION['portal_uid']]);
             if (!$u || $u['client_archived'] || (int) $u['session_version'] !== (int) ($_SESSION['sv'] ?? -1)) {
                 self::logout();
+                // a fresh session, so a sign-in form shown on this request gets a CSRF token that works (2.2.1)
+                if (PHP_SAPI !== 'cli' && !headers_sent()) {
+                    session_start();
+                }
                 return null;
             }
             self::$user = $u;
@@ -146,17 +150,18 @@ final class PortalAuth
         }
         if ($u['totp_enabled'] && ($rid = \Align\Remember::valid('portal', (int) $u['id']))) {
             DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]); // remembered browser: no code (1.45.1)
-            self::completeLogin((int) $u['id'], "remembered browser #$rid, no code asked");
+            self::completeLogin((int) $u['id'], "remembered browser #$rid, no code asked", (int) $u['session_version']);
             return 'ok';
         }
         if ($u['totp_enabled']) {
             session_regenerate_id(true);
             DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]);
-            $_SESSION['portal_pending_2fa'] = ['uid' => (int) $u['id'], 'at' => time()];
+            // sv: a password reset or "sign out everywhere" during the code step voids it (2.2.1)
+            $_SESSION['portal_pending_2fa'] = ['uid' => (int) $u['id'], 'at' => time(), 'sv' => (int) $u['session_version']];
             return '2fa';
         }
         DB::run('UPDATE login_attempts SET success = 1 WHERE id = ?', [$attemptId]);
-        self::completeLogin((int) $u['id']);
+        self::completeLogin((int) $u['id'], '', (int) $u['session_version']);
         return 'ok';
     }
 
@@ -168,6 +173,10 @@ final class PortalAuth
             return 'expired';
         }
         $u = DB::one('SELECT * FROM portal_users WHERE id = ? AND is_active = 1', [$p['uid']]);
+        if ($u && (int) $u['session_version'] !== (int) ($p['sv'] ?? -1)) {
+            unset($_SESSION['portal_pending_2fa']);
+            return 'expired';
+        }
         if (!$u || self::isLockedOut($u['email']) || ($attemptId = self::beginAttempt($u['email'])) === null) {
             return 'locked';
         }
@@ -186,7 +195,7 @@ final class PortalAuth
         if ($remember) {
             \Align\Remember::issue('portal', (int) $u['id']);
         }
-        self::completeLogin((int) $u['id'], $remember ? 'browser remembered for ' . \Align\Remember::days() . ' days' : '');
+        self::completeLogin((int) $u['id'], $remember ? 'browser remembered for ' . \Align\Remember::days() . ' days' : '', (int) $u['session_version']);
         return 'ok';
     }
 
@@ -221,12 +230,13 @@ final class PortalAuth
         return true;
     }
 
-    public static function completeLogin(int $id, string $note = ''): void
+    public static function completeLogin(int $id, string $note = '', ?int $sv = null): void
     {
         session_regenerate_id(true);
         unset($_SESSION['_csrf'], $_SESSION['timed_out']);
         $_SESSION['portal_uid'] = $id;
-        $_SESSION['sv'] = (int) DB::value('SELECT session_version FROM portal_users WHERE id = ?', [$id]);
+        // $sv: the version the password (and code) were checked against, so a reset landing in between ends this session
+        $_SESSION['sv'] = $sv ?? (int) DB::value('SELECT session_version FROM portal_users WHERE id = ?', [$id]);
         $_SESSION['last_seen'] = time();
         $_SESSION['login_at'] = time();
         DB::run('UPDATE portal_users SET last_login_at = NOW() WHERE id = ?', [$id]);

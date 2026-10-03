@@ -8,6 +8,10 @@ use Align\DB;
 /**
  * API keys: token format, hashing, scopes and lookups.
  * Token: msa_<8-char prefix>_<32-char secret>. Only sha256(token) is stored; the prefix finds the row.
+ *
+ * Security: the secret is 32 characters from a 57-character alphabet (about 186 bits) from random_int, so an
+ * unsalted SHA-256 is enough and guessing is hopeless. Creating, changing and revoking keys is admin-only
+ * (ApiSettingsController); nothing here checks the caller's role.
  */
 final class Keys
 {
@@ -37,7 +41,7 @@ final class Keys
 
     public const MAX_RATE = 1200;
 
-    /** Every valid scope string. */
+    /** Every valid scope string: area:read for each area, area:write where the area can be written. */
     public static function allScopes(): array
     {
         $out = [];
@@ -50,7 +54,7 @@ final class Keys
         return $out;
     }
 
-    /** Scopes for a preset key. */
+    /** Scopes for a preset key (an unknown preset gets read-only access to every area). */
     public static function preset(string $name): array
     {
         $reads = array_map(fn($a) => "$a:read", array_keys(self::AREAS));
@@ -61,7 +65,7 @@ final class Keys
         return array_values(array_unique(array_merge($reads, is_array($p) ? $p : [])));
     }
 
-    /** Keeps valid scopes only, adds read wherever write is granted, sorted in area order. */
+    /** Keeps valid scopes only (anything else from the form is dropped), adds read wherever write is granted, sorted in area order. */
     public static function normalize(array $scopes): array
     {
         $valid = array_flip(self::allScopes());
@@ -78,7 +82,11 @@ final class Keys
         return array_values(array_filter(self::allScopes(), fn($s) => isset($set[$s])));
     }
 
-    /** Creates a key. Returns [id, token]; the token is never stored and can't be shown again. */
+    /**
+     * Creates a key. Returns [id, token]; the token is never stored and can't be shown again.
+     * The caller must be an admin and pass their own user id as $userId: the key works only while that account is
+     * an active admin. $clientIds null = all clients; scopes are normalized and the rate is clamped to 1-MAX_RATE.
+     */
     public static function create(string $name, array $scopes, ?array $clientIds, ?string $expiresAt, int $rate, ?string $notes, ?int $userId): array
     {
         do {
@@ -99,7 +107,11 @@ final class Keys
         return [$id, $token];
     }
 
-    /** Finds the active key for a token. Returns [row|null, error code|null]. */
+    /**
+     * Finds the active key for a token. Returns [row|null, error code|null].
+     * The token is untrusted. Revoked, expired and owner_inactive are only reported once the whole token matched,
+     * so they can't be used to learn which prefixes exist.
+     */
     public static function authenticate(string $token): array
     {
         if (!preg_match('/^msa_([A-Za-z0-9]{8})_[A-Za-z0-9]{32}$/', $token, $m)) {
@@ -123,23 +135,36 @@ final class Keys
         return [self::decode($row), null];
     }
 
-    /** Adds decoded scopes / client ids to a key row. */
+    /**
+     * Adds decoded scopes / client ids to a key row. Fails closed: scopes that can't be read mean none, and a
+     * client limit that can't be read means no clients, never all of them.
+     */
     public static function decode(array $row): array
     {
-        $row['scope_list'] = json_decode((string) $row['scopes'], true) ?: [];
+        $scopes = json_decode((string) $row['scopes'], true);
+        // Only strings count: a JSON string or object here made Context::can() throw on every request
+        $row['scope_list'] = is_array($scopes) ? array_values(array_filter($scopes, 'is_string')) : [];
         $ids = $row['client_ids'] !== null ? json_decode((string) $row['client_ids'], true) : null;
-        // A limit that can't be read means no clients, never all of them
-        $row['client_list'] = $row['client_ids'] === null ? null : (is_array($ids) ? array_map('intval', $ids) : []);
+        // A limit that can't be read means no clients, never all of them. Only whole numbers count: intval() turned
+        // a nested list such as [[7]] into client 1
+        $row['client_list'] = $row['client_ids'] === null ? null
+            : (is_array($ids) ? array_values(array_map('intval', array_filter($ids, fn($i) => is_int($i) || (is_string($i) && ctype_digit($i))))) : []);
         return $row;
     }
 
-    /** active | expiring (within 14 days) | expired | revoked | owner_inactive */
+    /**
+     * active | expiring (within 14 days) | expired | revoked | owner_inactive, for the admin pages.
+     * Uses creator_active and creator_role when the row was joined with the creator's account. Display only:
+     * authenticate() is what enforces these.
+     */
     public static function state(array $row): string
     {
         if ($row['revoked_at']) {
             return 'revoked';
         }
-        if (isset($row['creator_active']) && $row['created_by'] && !(int) $row['creator_active']) {
+        // The key also stops when its creator is no longer an admin (authenticate()), so say so here too
+        if ($row['created_by'] && ((isset($row['creator_active']) && !(int) $row['creator_active'])
+                || (isset($row['creator_role']) && $row['creator_role'] !== 'admin'))) {
             return 'owner_inactive';
         }
         if ($row['expires_at']) {
@@ -154,6 +179,7 @@ final class Keys
         return 'active';
     }
 
+    /** True when an admin turned the API on. Any error (no database yet) counts as off. */
     public static function enabled(): bool
     {
         try {
@@ -163,7 +189,7 @@ final class Keys
         }
     }
 
-    /** Keys that expire within 14 days and are still active (for the dashboard). */
+    /** Keys that expire within 14 days and aren't revoked (for the admin dashboard). */
     public static function expiringSoon(): array
     {
         try {
@@ -174,6 +200,7 @@ final class Keys
         }
     }
 
+    /** $len characters from an alphabet without look-alikes (0/O, 1/l/I), using the CSPRNG. */
     private static function random(int $len): string
     {
         $abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';

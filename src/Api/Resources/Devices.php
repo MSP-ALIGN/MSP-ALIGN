@@ -10,9 +10,17 @@ use Align\Api\Out;
 use Align\DB;
 use Align\Lifecycle\Lifecycle;
 
-/** Devices with their computed lifecycle; writes change Align's lifecycle overrides (same as the device page). */
+/**
+ * Devices with their computed lifecycle; writes change Align's lifecycle overrides (same as the device page).
+ *
+ * Security: reached through the Kernel with devices:read or devices:write checked. A device's client is worked out by
+ * Lifecycle (its own client or its RMM organization's); devices without a client, removed devices and devices of
+ * archived clients or of clients outside the key's limit all answer 404. A write may be sent on to the PSA
+ * (two-way sync), which devices:write covers, the same as a tech saving the device page.
+ */
 final class Devices
 {
+    /** PATCH rules (also used for the OpenAPI spec). Every field is an Align override; null clears it. */
     public static function rules(): array
     {
         return [
@@ -24,10 +32,14 @@ final class Devices
             'replace_note' => ['string', ['max' => 255, 'desc' => 'Why the replacement was moved (kept only with replace_quarter).']],
             'excluded' => ['bool', ['desc' => 'Leave the device out of planning, budgets and reports.']],
             'notes' => ['string', ['max' => 5000, 'desc' => 'Align notes.']],
-            'device_type' => ['string', ['enum' => array_keys(Lifecycle::TYPES), 'desc' => 'Device type (sets its lifecycle category).']],
+            'device_type' => ['string', ['enum' => array_keys(Lifecycle::TYPES), 'desc' => 'Device type (sets its lifecycle category). null = the type the RMM reports (not for devices added in Align or the PSA, whose type is their own).']],
         ];
     }
 
+    /**
+     * GET /devices: lifecycle is computed in PHP, so filters run on the evaluated rows and the result is sliced into
+     * pages afterwards. The key's client limit and archived clients are filtered here too (not only by client_id).
+     */
     public static function index(): array
     {
         $clientId = Input::queryInt('client_id');
@@ -43,7 +55,26 @@ final class Devices
         $since = Input::querySince();
         $allowed = Context::clients();
         $archived = array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients WHERE is_archived = 1'), 'id')));
-        $rows = array_filter((new Lifecycle())->devices($clientId), function ($d) use ($allowed, $archived, $status, $type, $class, $virtual, $attention, $q, $since) {
+        $lc = new Lifecycle();
+        if ($clientId === null && $allowed !== null) {
+            // A limited key: evaluate only its clients' devices instead of every device of every client (the filter
+            // below still checks each row). Keyed by id, so a device found twice is listed once.
+            $all = [];
+            foreach ($allowed as $cid) {
+                if (!isset($archived[$cid])) {
+                    foreach ($lc->devices($cid) as $d) {
+                        $all[(int) $d['id']] = $d;
+                    }
+                }
+            }
+            // Same order as for an all-clients key (Lifecycle sorts by client, then device name)
+            // (case-insensitive, like the database's collation)
+            $key = fn($d) => array_map('mb_strtolower', [(string) $d['client_name'], (string) ($d['display_name'] ?? ''), (string) ($d['system_name'] ?? '')]);
+            uasort($all, fn($a, $b) => $key($a) <=> $key($b));
+        } else {
+            $all = $lc->devices($clientId);
+        }
+        $rows = array_filter($all, function ($d) use ($allowed, $archived, $status, $type, $class, $virtual, $attention, $q, $since) {
             return ($allowed === null || in_array((int) $d['client_id'], $allowed, true))
                 && $d['client_id'] !== null && !isset($archived[(int) $d['client_id']])
                 && ($status === null || $d['status'] === $status)
@@ -58,11 +89,16 @@ final class Devices
         return Out::slice(array_map([self::class, 'shape'], $rows));
     }
 
+    /** GET /devices/{id}. */
     public static function show(int $id): array
     {
         return Out::one(self::shape(self::load($id)));
     }
 
+    /**
+     * The evaluated device, or 404 when it doesn't exist, was removed, has no client, or its client is archived or
+     * outside the key's limit (one answer for all, so ids can't be probed).
+     */
     private static function load(int $id): array
     {
         $d = (new Lifecycle())->devices(null, false, $id)[0] ?? null;
@@ -73,12 +109,21 @@ final class Devices
         return $d;
     }
 
+    /**
+     * PATCH /devices/{id}: only the fields sent change (PATCH semantics); null clears that override. The change is
+     * recorded for the PSA comparison, audited, and pushed to the PSA when two-way sync is on. The push result is
+     * reported with fixed wording only.
+     */
     public static function update(int $id): array
     {
         $d = self::load($id);
         $in = Input::clean(Context::$body, self::rules());
         if (!$in) {
             throw ApiError::invalid([], 'Send at least one field to change.');
+        }
+        if (array_key_exists('device_type', $in) && $in['device_type'] === null && \Align\Sync\PsaAssetSync::owns($d)) {
+            // Added in Align or the PSA: the type is stored on the device itself, there's no synced type to go back to
+            throw ApiError::invalid(['device_type' => 'This device\'s type is its own (it isn\'t synced from an RMM). Choose a type.']);
         }
         $before = \Align\Sync\PsaAssetSync::snapshot($id);
         DB::transaction(function () use ($d, $id, $in) {
@@ -95,6 +140,9 @@ final class Devices
             }
             if (empty($o['replace_on'])) {
                 $o['replace_note'] = null; // a note only makes sense with a planned quarter
+            }
+            if (array_key_exists('device_type', $in) && $in['device_type'] === null) {
+                $o['device_type'] = null; // back to the type the RMM reports (owned devices were refused above)
             }
             $o['updated_by'] = null;
             unset($o['updated_at']);
@@ -117,6 +165,7 @@ final class Devices
         return Out::one($out + ['psa_sync' => $sync, 'itflow_sync' => $sync]); // itflow_sync: deprecated alias
     }
 
+    /** The API form of an evaluated device (already checked against the key's client limit). No secrets are in it. */
     public static function shape(array $d): array
     {
         $plan = $d['o_replace'] ? \Align\Roadmap\Plan::quarterFor($d['o_replace']) : null;

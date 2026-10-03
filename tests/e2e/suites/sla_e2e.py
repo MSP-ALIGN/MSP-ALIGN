@@ -90,7 +90,7 @@ ok(q("select value from settings where name='sla_target'")[0]["value"]=="95","go
 v=login("viewer@example.com","ViewerPassword123!"); ok(v.get(B+"/clients/1/service-levels").status_code==200 and v.get(B+"/reports/sla").status_code==200,"viewers can see service levels")
 
 # ---- portal: summary only
-sec="JBSWY3DPEHPK3PXP"
+sec="JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 q("delete from portal_users where email='sla@client.example'")
 php('Align\\DB::insert("portal_users",["client_id"=>1,"email"=>"sla@client.example","name"=>"SLA Viewer","password_hash"=>password_hash("Portal-Pass-123!",PASSWORD_DEFAULT),"is_active"=>1,"can_devices"=>1,"totp_enabled"=>1,"totp_secret_enc"=>Align\\Crypto::encrypt("'+sec+'")]);')
 p=requests.Session()

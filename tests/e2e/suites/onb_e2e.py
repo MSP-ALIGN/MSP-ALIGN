@@ -111,7 +111,7 @@ ok(requests.get(B+"/portal/welcome/short").status_code==404 and requests.get(B+"
 q("update client_onboardings set token_hash=%s, token_expires_at=date_add(now(), interval 5 day), sent_at=date_sub(now(), interval 8 day), completed_at=NULL where client_id=1","0"*64)
 t=st.get(B+"/").text; ok("Onboarding" in t and ("steps done" in t or "not opened" in t),"dashboard flags a stalled onboarding")
 # portal requests
-sec="JBSWY3DPEHPK3PXP"; _used={}
+sec="JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"; _used={}
 def totp(secret):
     while True:
         now=int(time.time())//30; step=max(now,_used.get(secret,-1)+1)

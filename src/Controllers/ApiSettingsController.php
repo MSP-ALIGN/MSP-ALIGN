@@ -16,7 +16,7 @@ final class ApiSettingsController
     public static function index(): void
     {
         Auth::requireRole('admin');
-        $keys = array_map([Keys::class, 'decode'], DB::all('SELECT k.*, u.name AS created_by_name, u.is_active AS creator_active,
+        $keys = array_map([Keys::class, 'decode'], DB::all('SELECT k.*, u.name AS created_by_name, u.is_active AS creator_active, u.role AS creator_role,
                 (SELECT COUNT(*) FROM api_requests r WHERE r.key_id = k.id AND r.created_at >= ?) AS requests_24h,
                 (SELECT COUNT(*) FROM api_requests r WHERE r.key_id = k.id AND r.created_at >= ? AND r.status >= 400) AS errors_24h
             FROM api_keys k LEFT JOIN users u ON u.id = k.created_by ORDER BY k.revoked_at IS NOT NULL, k.name', [date('Y-m-d H:i:s', time() - 86400), date('Y-m-d H:i:s', time() - 86400)]));
@@ -101,7 +101,7 @@ final class ApiSettingsController
     public static function edit(int $id): void
     {
         Auth::requireRole('admin');
-        $k = DB::one('SELECT k.*, u.name AS created_by_name, u.is_active AS creator_active FROM api_keys k LEFT JOIN users u ON u.id = k.created_by WHERE k.id = ?', [$id]);
+        $k = DB::one('SELECT k.*, u.name AS created_by_name, u.is_active AS creator_active, u.role AS creator_role FROM api_keys k LEFT JOIN users u ON u.id = k.created_by WHERE k.id = ?', [$id]);
         if (!$k) {
             redirect('/settings/api');
         }

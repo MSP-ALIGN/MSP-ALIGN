@@ -21,6 +21,25 @@ use Align\Controllers\SyncController;
 use Align\Controllers\UserController;
 use Align\Router;
 
+/*
+ * Every route of the web app (the REST API has its own, in src/Api). Returns the Router for public/index.php.
+ *
+ * Security assumptions (reviewed route by route for 2.2.1):
+ * - The Router checks the CSRF token on every POST. It checks nothing else: each handler's first line is its role
+ *   check, Auth::require() (any staff, viewers included), Auth::requireRole('tech'|'admin') or
+ *   PortalAuth::require(permission). A new route must do the same; core_db_e2e.py fails for a controller route
+ *   that doesn't (closure routes aren't covered by that check).
+ * - Paths under /portal use the portal session cookie, every other path the staff one (public/index.php), so a
+ *   portal session can never reach a staff route or the reverse.
+ * - Public on purpose (no sign-in): sign-in, 2FA, sign-out, session ping (answers 401 when signed out), the old
+ *   /settings/email bookmarks (fixed redirects), terms and licenses, the brand logo and sign-in backgrounds, and the
+ *   portal's sign-in, reset and terms pages.
+ * - Public but secret-link only (each handler looks up a random token by its hash: 256-bit, or 192-bit for calendar
+ *   feeds made before 1.45): /ics/{token} (calendar feed),
+ *   /portal/invite/{token}, /portal/welcome/{token}/... (onboarding) and /portal/sign/{token}/... (contracts).
+ * - A literal route must come before a {placeholder} route that could match the same path; {id} is digits only,
+ *   so "/clients/bulk" never reaches "/clients/{id}".
+ */
 $r = new Router();
 
 $r->get('/login', [AuthController::class, 'loginForm']);

@@ -7,6 +7,10 @@ namespace Align\Api;
  * OpenAPI 3.1 description of v1, generated from Routes (paths, parameters, request bodies from the same
  * validation rules the API enforces) plus the response schemas below. Served at /api/v1/openapi.json and
  * rendered as the docs page under Settings -> API.
+ *
+ * Security: /api/v1/openapi.json needs no key while the API is on (rate limited per address), so everything here
+ * must be safe to publish: routes, field names, scopes and the configured base_url only. No settings, client
+ * data, versions of the app or anything from the database.
  */
 final class Spec
 {
@@ -98,6 +102,7 @@ final class Spec
             'missed_tickets' => ['object[]', 'number, opened, priority, subject, missed_response, missed_resolution.'], 'url' => ['string', '']]],
     ];
 
+    /** status => [error codes, description] for the error responses. */
     public const ERRORS = [
         400 => ['invalid_json, invalid_idempotency_key', 'The request body or a header is malformed.'],
         401 => ['missing_key, invalid_key, key_expired, key_revoked, key_owner_inactive', 'No usable API key (a key stops when the staff account that created it is disabled or is no longer an admin).'],
@@ -112,6 +117,7 @@ final class Spec
         500 => ['internal_error', 'Logged on the server with the request_id.'],
     ];
 
+    /** The whole OpenAPI document. */
     public static function build(): array
     {
         $paths = [];
@@ -183,6 +189,7 @@ final class Spec
         ];
     }
 
+    /** $id, or $id2, $id3 ... if already used, so every operationId is unique. */
     private static function uniqueId(string $id, array &$seen): string
     {
         $base = $id;
@@ -193,6 +200,7 @@ final class Spec
         return $id;
     }
 
+    /** The overview text at the top of the spec and the docs page (Markdown). */
     public static function intro(): string
     {
         return "Read and change planning data in " . \Align\Branding::name() . ". JSON in and out.\n\n"
@@ -203,13 +211,14 @@ final class Spec
             . "**Dates**: dates are YYYY-MM-DD; times are ISO 8601 with offset. Quarters accept `2027-Q1` or any date in the quarter and come back as the quarter's first day (Q = calendar quarter).";
     }
 
-    /** Validation rules for a route's body. */
+    /** Validation rules for a route's body (calls the route's rules callable when it has one). */
     public static function rules(array $r): array
     {
         $b = $r['body'];
         return is_callable($b) ? $b() : (array) $b;
     }
 
+    /** JSON Schema for a request body from Input rules: unknown fields refused, required fields only when creating. */
     private static function bodySchema(array $rules, bool $creating): array
     {
         $props = [];
@@ -250,6 +259,7 @@ final class Spec
         return ['type' => 'object', 'additionalProperties' => false, 'properties' => $props] + ($required ? ['required' => $required] : []);
     }
 
+    /** The success response and the common error responses for a route. */
     private static function responses(array $r): array
     {
         $out = [];
@@ -271,6 +281,7 @@ final class Spec
         return $out;
     }
 
+    /** JSON Schema type for a SCHEMAS field type (every field may be null). */
     private static function type(string $t): array
     {
         if (str_ends_with($t, '[]')) {

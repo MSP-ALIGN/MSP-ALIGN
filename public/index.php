@@ -3,6 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 declare(strict_types=1);
 
+// Front controller: every request that isn't a file under public/ comes here (Apache FallbackResource / rewrite,
+// tests/dev-router.php in development). In order: security headers for every response, the REST API (no session),
+// maintenance (no database), the test-server portal block, then the staff or portal session and the router.
+// Security assumptions: the path decides which session cookie is used, and the router dispatches the same parsed
+// path, so a /portal page never runs on a staff session or the other way round. Errors never show details unless
+// config.php sets debug => true.
+
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use Align\Auth;
@@ -56,7 +63,8 @@ if ($reqPath === '/api' || str_starts_with($reqPath, '/api/')) {
     exit;
 }
 
-// Restore or update in progress: nothing else runs until the agent finishes
+// Restore or update in progress: nothing else runs until the agent finishes. The JSON form feeds the progress bar on
+// the maintenance page; it shows only the job's step and progress, nothing about clients.
 if ($maint = Align\System\Agent::maintenance()) {
     http_response_code(503);
     header('Retry-After: 20');
@@ -92,6 +100,7 @@ try {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $router->dispatch($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
 } catch (\Throwable $e) {
+    // Details go to the server log only; the page says "logged" unless debug is on (a development copy)
     error_log('[msp-align] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     if (!headers_sent()) {
         http_response_code(500);
