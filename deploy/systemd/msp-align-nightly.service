@@ -6,3 +6,14 @@ After=mariadb.service
 Type=oneshot
 ExecStart=/usr/bin/php /opt/msp-align/scripts/agent.php nightly
 Nice=10
+# Runs as root (its state folder, git fetch in /opt/msp-align, steps as www-data through runuser) but never changes
+# the system: /usr, /boot and /etc are read-only, home folders too (it only checks whether the backup private key is
+# still in /root). It parses what GitHub returns, so it gets no more than it needs.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes

@@ -13,3 +13,8 @@ compose*.yaml
 Dockerfile
 **/__pycache__
 *.log
+# a local development config or build output must never end up in an image layer
+/config.php
+_site
+.idea
+.vscode

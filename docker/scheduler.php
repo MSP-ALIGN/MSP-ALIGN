@@ -11,8 +11,15 @@
  *   check    10 minutes after start, 6-hourly scripts/agent.php check      (msp-align-update-check.timer)
  *   nightly  02:30 (+ up to 20 min)          scripts/agent.php nightly     (msp-align-nightly.timer)
  *
- * App jobs run as www-data, agent jobs as root (inside the container), each never overlapping itself.
- * Started by docker/entrypoint.sh; its output goes to the container log.
+ * App jobs run as www-data, agent jobs as root (inside the container), each never overlapping itself. Each job
+ * has the same time limit as its systemd unit (TimeoutStartSec): past it, it is stopped, so a job that hangs can't
+ * hold up every later run of itself until the container restarts (2.2.1).
+ * Started by docker/entrypoint.sh; its output goes to the container log. `php scheduler.php --list` prints the job
+ * table as JSON and exits without running anything (for the tests).
+ *
+ * Security assumptions: runs as root, started only by the entrypoint. The commands are fixed here; nothing from
+ * the web app reaches them except the presence of request files, which the agent itself validates. App commands
+ * run as www-data through runuser, never as root. State files go to /run/msp-align, which only root can write.
  */
 declare(strict_types=1);
 
@@ -23,21 +30,39 @@ if (PHP_SAPI !== 'cli') {
 const APP = '/opt/msp-align';
 const REQUESTS = '/run/msp-align/requests';
 
+/** An app command (bin/align) as www-data. The arguments are fixed strings from this file. */
 $align = fn(string ...$args): array => ['runuser', '-u', 'www-data', '--', 'php', APP . '/bin/align', ...$args];
+/** A root agent action (scripts/agent.php). */
 $agent = fn(string $action): array => ['php', APP . '/scripts/agent.php', $action];
 
 $start = time();
+// 'timeout' (seconds) is the systemd unit's TimeoutStartSec (deploy/systemd); nightly has none there either
 $jobs = [
-    'mail' => ['cmd' => $align('mail:run', '--quiet'), 'next' => $start + 60, 'every' => 60],
-    'psa' => ['cmd' => $align('psa:poll', '--quiet'), 'next' => $start + 120, 'every' => 120],
-    'sync' => ['cmd' => $align('sync', '--trigger=schedule', '--quiet'), 'next' => $start + 300, 'hourly' => random_int(0, 300)],
-    'check' => ['cmd' => $agent('check'), 'next' => $start + 600, 'every' => 21600, 'jitter' => 1800],
+    'mail' => ['cmd' => $align('mail:run', '--quiet'), 'next' => $start + 60, 'every' => 60, 'timeout' => 600],
+    'psa' => ['cmd' => $align('psa:poll', '--quiet'), 'next' => $start + 120, 'every' => 120, 'timeout' => 600],
+    'sync' => ['cmd' => $align('sync', '--trigger=schedule', '--quiet'), 'next' => $start + 300, 'hourly' => random_int(0, 300), 'timeout' => 2700],
+    'check' => ['cmd' => $agent('check'), 'next' => $start + 600, 'every' => 21600, 'jitter' => 1800, 'timeout' => 300],
     'nightly' => ['cmd' => $agent('nightly'), 'next' => nightly(), 'daily' => true],
+    // No limit for the agent (as before 2.2.1): stopping a restore mid-import would skip putting the safety copy
+    // back; the agent limits each command itself (Job::run, an hour)
     'agent' => ['cmd' => $agent('run'), 'next' => $start, 'when' => fn() => (bool) glob(REQUESTS . '/*.json')],
 ];
+foreach ($jobs as &$j) {
+    // coreutils timeout runs the job in its own process group and signals all of it (runuser and the php under it):
+    // TERM at the limit, KILL 30 seconds later. (A container stop doesn't go through it: tini stops the scheduler.)
+    if (isset($j['timeout'])) {
+        $j['cmd'] = ['timeout', '--kill-after=30', (string) $j['timeout'], ...$j['cmd']];
+    }
+}
+unset($j);
+if (in_array('--list', $argv, true)) {
+    echo json_encode(array_map(fn(array $j): array => ['cmd' => $j['cmd'], 'timeout' => $j['timeout'] ?? null], $jobs), JSON_PRETTY_PRINT), "\n";
+    exit(0);
+}
 $running = [];
 $last = [];   // name => [started, finished, exit code]: written to /run/msp-align/scheduler.json for troubleshooting
 $stop = false;
+// TERM/INT (container stop) end the loop; running jobs then get the time below to finish
 if (function_exists('pcntl_async_signals')) {
     pcntl_async_signals(true);
     foreach ([SIGTERM, SIGINT] as $sig) {
@@ -55,12 +80,16 @@ function nightly(): int
     return $t + random_int(0, 1200);
 }
 
-/** Which jobs are running now, for the agent: a restore waits until no app job is writing (scripts/agent.php timers()). */
+/**
+ * Which jobs are running now, for the agent: a restore waits until no app job is writing (scripts/agent.php timers()).
+ * Written by root into /run/msp-align (root's own folder), so the web user can't fake it.
+ */
 function saveRunning(array $running): void
 {
     @file_put_contents('/run/msp-align/scheduler-running.json', json_encode(array_keys($running)), LOCK_EX);
 }
 
+/** A line for the container log, with the time. Job output goes here too, so jobs must not print secrets. */
 function say(string $msg): void
 {
     fwrite(STDOUT, '[scheduler] ' . date('Y-m-d H:i:s') . ' ' . $msg . "\n");
@@ -87,7 +116,9 @@ while (!$stop) {
         $last[$name] = ['started' => date('c', $began), 'finished' => date('c'), 'exit' => $code];
         @file_put_contents('/run/msp-align/scheduler.json', json_encode($last, JSON_PRETTY_PRINT), LOCK_EX);
         if ($code !== 0 || $out !== '') {
-            say("$name finished (exit $code) after " . (time() - $began) . 's' . ($out !== '' ? ":\n" . mb_substr($out, 0, 4000) : ''));
+            // timeout exits 124 when it stopped the job at its limit, 137 when the job then had to be killed
+            $why = in_array($code, [124, 137], true) && isset($jobs[$name]['timeout']) ? ', stopped at its ' . intdiv($jobs[$name]['timeout'], 60) . '-minute limit' : '';
+            say("$name finished (exit $code$why) after " . (time() - $began) . 's' . ($out !== '' ? ":\n" . mb_substr($out, 0, 4000) : ''));
         }
     }
     // Start due jobs

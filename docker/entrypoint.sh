@@ -6,6 +6,13 @@
 #   web        (default) Apache + scheduler + agent
 #   align ...  run a command-line task as the web user, e.g.  docker compose exec app align user:reset-password --email=...
 #   anything else runs as given (e.g. bash)
+#
+# Security assumptions: runs as root, started by tini (PID 1). The environment comes from the operator (.env,
+# compose.yaml) and is trusted to be theirs, but every value that ends up in config.php goes through php_str, so a
+# quote or newline in it can't add PHP code. Secrets (database password, app key, admin password) are never
+# printed; the one exception is a generated temporary admin password, shown once like install.sh does. Inside the
+# data volume root only makes things as www-data (see "folders"), because the web user can change anything there.
+# The web server runs as www-data; the scheduler runs as root, and runs the app's jobs as www-data.
 set -euo pipefail
 
 APP=/opt/msp-align
@@ -15,9 +22,12 @@ DATA=/var/lib/msp-align
 AGENT=/var/lib/msp-align-agent
 RUN=/run/msp-align
 
+# A line for the container log. Never pass it a secret.
 log()  { printf '[msp-align] %s\n' "$*"; }
+# Stops the start-up with a message on stderr (Docker restarts the container per its restart policy).
 die()  { printf '[msp-align] ERROR: %s\n' "$*" >&2; exit 1; }
-# VAR or the contents of VAR_FILE (Docker secrets), else the default
+# VAR or the contents of VAR_FILE (Docker secrets), else the default. Prints the value on stdout, so only call it
+# inside $(...). The file is read as root: the operator chose its path. CR and LF are dropped (a file from an editor).
 env_or_file() {
   local name=$1 def=${2:-} file_var="${1}_FILE"
   if [[ -n "${!file_var:-}" ]]; then
@@ -27,7 +37,19 @@ env_or_file() {
     printf '%s' "${!name:-$def}"
   fi
 }
+# A PHP single-quoted string literal for any value (var_export escapes ' and \), for writing config.php.
+# The value is passed as an argument, never put into the PHP code that runs here.
 php_str() { php -r 'echo var_export($argv[1], true);' -- "$1"; }
+# Reads an on/off setting: 1/true/yes/on or 0/false/no/off/empty (any case); prints 1 or 0. Anything else stops the
+# start-up, so a typo can't quietly leave a switch such as ALIGN_STAGING off (2.2.1).
+env_bool() {
+  local name=$1 v=${!1:-}
+  case "${v,,}" in
+    1|true|yes|on) echo 1 ;;
+    0|false|no|off|'') echo 0 ;;
+    *) die "$name must be 1 or 0 (it is '$v')." ;;
+  esac
+}
 
 case "${1:-web}" in
   web) ;;
@@ -58,12 +80,21 @@ TP=${ALIGN_TRUSTED_PROXIES:-}
 for p in ${TP//,/ }; do
   [[ "$p" =~ ^[0-9A-Fa-f:.]+(/([0-9]{1,3}))?$ ]] || die "ALIGN_TRUSTED_PROXIES: '$p' is not an IP address or range."
   bits=${BASH_REMATCH[2]:-}
+  # base 10: a leading zero ("/09") would otherwise be read as octal, fail the test and let a /9 IPv6 range through
+  [[ -n "$bits" ]] && bits=$((10#$bits))
   # a very wide range would let almost anyone fake their address: at least /8 (IPv4) or /16 (IPv6)
   if [[ -n "$bits" ]] && { [[ "$p" == *:* && $bits -lt 16 ]] || [[ "$p" != *:* && $bits -lt 8 ]]; }; then
     die "ALIGN_TRUSTED_PROXIES: '$p' is too wide. List your proxy's own address (or a narrow range)."
   fi
   PROXIES+=("$p")
 done
+# Test server (docs/TEST-SERVER.md): read strictly, since a test server on a copy of production that silently runs
+# in normal mode would email real clients and write to their PSA
+STAGING=$(env_bool ALIGN_STAGING)
+STAGING_MAIL_TO=${ALIGN_STAGING_MAIL_TO:-}
+if [[ $STAGING == 1 && ! "$STAGING_MAIL_TO" =~ ^[^@[:space:]]+@[^@[:space:]]+$ ]]; then
+  log "Test server: ALIGN_STAGING_MAIL_TO isn't an email address, so no email will be sent at all."
+fi
 
 ln -sf "/usr/share/zoneinfo/$TZ_NAME" /etc/localtime && echo "$TZ_NAME" >/etc/timezone
 export TZ=$TZ_NAME
@@ -74,7 +105,16 @@ install -d -m 750 -o www-data -g www-data "$DATA"
 # Inside the data folder only the web user makes or changes things: as root, a folder it had swapped for a
 # symlink would hand the symlink's target to www-data (1.45)
 # chown -h never follows a symlink, so a folder restored or copied in as root is handed back to www-data safely
-for d in sessions uploads downloads restore imports; do chown -h www-data:www-data "$DATA/$d" 2>/dev/null || true; done
+# Only a folder not already owned by www-data, and only where the kernel stops www-data hard-linking other users'
+# files (fs.protected_hardlinks=1; a container shares its host's setting): with 0, a folder swapped for a hard link
+# to a root file would hand that file to www-data (2.2.1, as install.sh)
+HARDLINKS_SAFE=0; [[ "$(cat /proc/sys/fs/protected_hardlinks 2>/dev/null)" == 1 ]] && HARDLINKS_SAFE=1
+for d in sessions uploads downloads restore imports; do
+  p="$DATA/$d"
+  [[ -e "$p" && ! -L "$p" && "$(stat -c %U "$p" 2>/dev/null)" != www-data ]] || continue
+  [[ $HARDLINKS_SAFE == 1 ]] || die "$p isn't owned by www-data, and the host lets www-data hard-link other users' files (fs.protected_hardlinks=0), so it is left alone. Check what it is, then fix its owner."
+  chown -h www-data:www-data "$p" 2>/dev/null || true
+done
 runuser -u www-data -- install -d -m 750 "$DATA/uploads" "$DATA/downloads" "$DATA/restore"
 runuser -u www-data -- install -d -m 700 "$DATA/sessions"
 install -d -m 750 -o root -g www-data "$AGENT" "$AGENT/jobs" "$AGENT/safety"
@@ -85,7 +125,8 @@ install -d -m 700 -o root -g root "$RUN/keys"
 # /run survives a container restart (unlike a server's): drop queued requests, one-time keys and DB login files
 find "$RUN/requests" "$RUN/keys" -mindepth 1 -delete 2>/dev/null || true
 rm -f "$RUN"/db-*.cnf "$RUN/scheduler.json" "$RUN/scheduler-running.json"
-# A job that was running when the container stopped can't finish now: mark it failed and say what to do
+# A job that was running when the container stopped can't finish now: mark it failed and say what to do.
+# Root may write these files: the jobs folder is root's own (750 root:www-data), so the web user can't plant them.
 for f in "$AGENT"/jobs/*.json; do
   [[ -f "$f" ]] || continue
   php -r '$f = $argv[1]; $j = json_decode((string) file_get_contents($f), true);
@@ -112,6 +153,8 @@ fi
 
 # Backup key: backups are encrypted to the public half; the private half is shown once and should be moved off the server
 if [[ ! -s "$CONF_DIR/backup-recipient.txt" ]]; then
+  # A name only: age-keygen creates the file itself with O_EXCL and mode 600, so a file or symlink planted at that
+  # name makes it fail (and the start-up stop) rather than write the key through it
   tmp=$(mktemp -u)
   age-keygen -o "$tmp" 2>/dev/null
   age-keygen -y "$tmp" >"$CONF_DIR/backup-recipient.txt"
@@ -123,6 +166,8 @@ if [[ ! -s "$CONF_DIR/backup-recipient.txt" ]]; then
 fi
 chown root:www-data "$CONF_DIR/backup-recipient.txt" && chmod 640 "$CONF_DIR/backup-recipient.txt"
 
+# config.php: written as a new file (640 root:www-data, umask 027 so it is never readable by others, even for a
+# moment) and moved into place. Every value from the environment goes through php_str; the fixed paths are ours.
 proxies_php="["
 for p in "${PROXIES[@]}"; do proxies_php+="$(php_str "$p"), "; done
 proxies_php="${proxies_php%, }]"
@@ -153,8 +198,8 @@ return [
     'debug' => false,
     'update_branch' => $(php_str "$BRANCH"),
     'install_type' => 'docker',
-    'staging' => $( [[ "${ALIGN_STAGING:-0}" == 1 ]] && echo true || echo false ),
-    'staging_mail_to' => $(php_str "${ALIGN_STAGING_MAIL_TO:-}"),
+    'staging' => $( [[ $STAGING == 1 ]] && echo true || echo false ),
+    'staging_mail_to' => $(php_str "$STAGING_MAIL_TO"),
 ];
 PHP
 )
@@ -196,6 +241,7 @@ log "MSP-ALIGN $(cat "$APP/VERSION") is starting at $ALIGN_URL"
 php "$APP/docker/scheduler.php" &
 SCHED=$!
 STOPPING=0
+# Stops the scheduler and Apache gracefully and waits for them (docker stop, or one of them exiting). Root only.
 stop_all() {
   kill -TERM "$SCHED" 2>/dev/null || true          # the scheduler lets running jobs (a backup, a restore) finish first
   apache2ctl -k graceful-stop 2>/dev/null || true   # in-flight requests get GracefulShutdownTimeout (docker/apache.conf)

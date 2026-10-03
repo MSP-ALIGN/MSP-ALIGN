@@ -121,4 +121,9 @@ staff.post(B + f"/portal-users/{cid}", data={"_csrf": csrf(staff, "/clients/1/po
 a = q("select detail from audit_log where action='portal_user.update' order by id desc limit 1")
 ok(a and 'name "Casey Invitee" to "Casey Renamed"' in a[0]["detail"], "a rename is in the entry too")
 
+# ---- a page opened from a secret link sends no Referer (its token would reach the server logs) (2.2.1)
+r = requests.get(B + "/portal/invite/" + "x" * 43, allow_redirects=False)
+r2 = requests.get(B + "/portal/login", allow_redirects=False)
+ok(r.headers.get("Referrer-Policy") == "no-referrer" and r2.headers.get("Referrer-Policy") == "same-origin",
+   "secret-link pages send Referrer-Policy: no-referrer, other pages same-origin: %s / %s" % (r.headers.get("Referrer-Policy"), r2.headers.get("Referrer-Policy")))
 done()

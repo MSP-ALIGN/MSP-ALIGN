@@ -4,6 +4,12 @@ name: Docker
 #   image    build the image, start it with MariaDB (compose.yaml), run tests/docker/smoke.py
 #   install  install.sh in a Debian 13 VM (fresh, and the previous release updated to this code)
 #   publish  on a release tag (v1.2.3): push ghcr.io/msp-align/msp-align:1.2.3, :1.2 and :latest (amd64 + arm64)
+#
+# Security: the workflow token is read-only except in publish (packages, and an OIDC token for Sigstore), which only
+# runs for a tag. Pull requests (also from forks) build and test their own code with that read-only token and no
+# secrets; pull_request_target isn't used. Actions are pinned to commits (Dependabot updates them). Checkouts that run
+# pull-request code don't keep the token in .git/config (persist-credentials: false); publish keeps it to fetch the
+# release tags, and runs only for a tag pushed to this repository.
 on:
   push:
     branches: [main, develop, docker]
@@ -25,6 +31,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build
         run: docker build -t msp-align:ci .
       - name: Start (compose.yaml)
@@ -61,6 +69,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Fresh install, and the previous release updated to this code
         run: tests/docker/install_test.sh
 
@@ -83,6 +92,7 @@ jobs:
       # mistakes, not an attacker: whoever can push tags or change this workflow can get past it. Dedicated servers
       # check the key themselves; for Docker, see docs/DOCKER.md.
       - name: Check the release tag is signed with the release key
+        id: tag
         run: |
           set -euo pipefail
           sudo apt-get install -y -qq openssh-client >/dev/null
@@ -110,6 +120,16 @@ jobs:
           else
             echo "No release key yet: not checking the tag signature"
           fi
+          # :latest only for the newest full release: a fix to an older line (v2.1.5 after v2.2.0) mustn't move
+          # Docker installs that follow :latest back to it (2.2.1)
+          latest=true
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || latest=false
+          for t in $(git tag -l 'v*'); do
+            [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            [[ "$(printf '%s\n%s\n' "${t#v}" "${GITHUB_REF_NAME#v}" | sort -V | tail -1)" == "${GITHUB_REF_NAME#v}" ]] || latest=false
+          done
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "Also tagged latest: $latest"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -122,8 +142,8 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/msp-align/msp-align
-          # latest only for full releases (v2.0.0, not v2.0.0-beta.1)
-          flavor: latest=auto
+          # latest only for the newest full release (v2.0.0, not v2.0.0-beta.1 or an older line's fix): see the tag step
+          flavor: latest=${{ steps.tag.outputs.latest }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
@@ -137,4 +157,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
       # Keyless signature: proves the image was built by this repository's workflow from this tag (docs/DOCKER.md)
       - name: Sign the image
-        run: cosign sign --yes "ghcr.io/msp-align/msp-align@${{ steps.build.outputs.digest }}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}   # through the environment, never pasted into the script
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Unexpected image digest"; exit 1; }
+          cosign sign --yes "ghcr.io/msp-align/msp-align@$DIGEST"

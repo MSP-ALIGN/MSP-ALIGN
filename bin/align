@@ -2,9 +2,26 @@
 <?php
 // MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
+/**
+ * The command line: `align <command> [--option[=value] ...]`. Run by the timers (mail:run, psa:poll, sync), the
+ * root agent (migrate, system:audit, audit:*), the installer and the Docker entrypoint (migrate, user:create), the
+ * web app (sync, in the background) and admins (user:reset-password and the rest).
+ *
+ * Security assumptions: whoever can run this with the server's config is trusted as a server admin (it reads
+ * config.php, which only root and www-data can). It must run as the web user: `sudo align ...` and
+ * `docker compose exec app align ...` are wrappers that switch to www-data. Run as root it would make files in the
+ * data folder that www-data can't change later, and follow anything www-data planted there, so root is refused
+ * unless ALIGN_CONFIG names another config (the test suites and development copies) (2.2.1). Each command takes
+ * only its own options; anything else (a typo such as --clear-2FA) stops it before it changes anything (2.2.1).
+ * Exit codes: 0 done, 1 refused or failed, 2 sync failed or audit tampering found.
+ */
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+if (function_exists('posix_geteuid') && posix_geteuid() === 0 && getenv('ALIGN_CONFIG') === false) {
+    fwrite(STDERR, 'Error: run this as the web user: sudo align ... (or in Docker: docker compose exec app align ...)' . PHP_EOL);
     exit(1);
 }
 
@@ -20,16 +37,37 @@ use Align\Sync\SyncRunner;
 $args = array_slice($argv, 1);
 $cmd = array_shift($args) ?? 'help';
 $opts = [];
+$bad = [];
 foreach ($args as $a) {
-    if (preg_match('/^--([a-z0-9-]+)(?:=(.*))?$/', $a, $m)) {
+    // /s: a value may hold newlines (the agent's multi-line audit details were dropped before 2.2.1)
+    if (preg_match('/^--([a-z0-9-]+)(?:=(.*))?$/sD', $a, $m)) {
         $opts[$m[1]] = $m[2] ?? true;
+    } else {
+        $bad[] = $a;
     }
 }
+/** Prints a line on stdout. */
 $say = fn(string $s) => fwrite(STDOUT, $s . PHP_EOL);
+/** Prints "Error: ..." on stderr and exits 1. */
 $fail = function (string $s): never {
     fwrite(STDERR, "Error: $s" . PHP_EOL);
     exit(1);
 };
+
+// The options each command takes. A command not listed here is unknown (help, exit 1).
+const COMMAND_OPTIONS = [
+    'migrate' => [], 'sync' => ['trigger', 'user', 'quiet'], 'psa:poll' => ['quiet'], 'itflow:poll' => ['quiet'],
+    'user:create' => ['email', 'name', 'role', 'password-stdin'], 'user:reset-password' => ['email', 'clear-2fa'],
+    'audit:verify' => [], 'audit:head' => [], 'audit:checkpoint' => ['id', 'hash'], 'mail:run' => ['force', 'quiet'],
+    'mail:test' => ['to'], 'audit:prune' => [], 'system:audit' => ['event', 'detail', 'user'], 'check' => [], 'version' => [],
+];
+if (isset(COMMAND_OPTIONS[$cmd])) {
+    $unknown = [...$bad, ...array_map(fn($o) => "--$o", array_diff(array_keys($opts), COMMAND_OPTIONS[$cmd]))];
+    if ($unknown) {
+        $fail("$cmd doesn't take " . implode(' ', array_map(fn($u) => mb_substr(preg_replace('/[\x00-\x1f\x7f]/', '?', $u), 0, 60), $unknown))
+            . (COMMAND_OPTIONS[$cmd] ? ' (it takes: --' . implode(', --', COMMAND_OPTIONS[$cmd]) . ')' : ''));
+    }
+}
 
 // While the agent restores or updates, scheduled jobs wait
 if (in_array($cmd, ['sync', 'psa:poll', 'itflow:poll', 'mail:run'], true) && Align\System\Agent::maintenance()) {
@@ -39,6 +77,7 @@ if (in_array($cmd, ['sync', 'psa:poll', 'itflow:poll', 'mail:run'], true) && Ali
 try {
     switch ($cmd) {
         case 'migrate':
+            // Installer, entrypoint and the agent after an update or restore. Applies only files from db/migrations
             Migrator::run($say);
             break;
 
@@ -65,11 +104,16 @@ try {
             break;
 
         case 'user:create':
+            // First admin (installer, entrypoint) or an admin's own use. The name is kept as typed, less control
+            // characters, and must fit the column (190), like the email
             $email = strtolower((string) ($opts['email'] ?? ''));
-            $name = (string) ($opts['name'] ?? 'Administrator');
+            $name = trim((string) preg_replace('/[\x00-\x1f\x7f]/u', '', (string) ($opts['name'] ?? 'Administrator')));
             $role = (string) ($opts['role'] ?? 'admin');
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $fail('--email is required');
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) {
+                $fail('--email is required (a valid address, at most 190 characters)');
+            }
+            if ($name === '' || mb_strlen($name) > 190) {
+                $fail('--name must be 1 to 190 characters');
             }
             if (!in_array($role, ['admin', 'tech', 'viewer'], true)) {
                 $fail('--role must be admin, tech or viewer');
@@ -92,15 +136,25 @@ try {
             break;
 
         case 'user:reset-password':
+            // Emergency access (docs/SECURITY.md): a one-time password, the account enabled again, every session and
+            // remembered browser ended (session_version), and with --clear-2fa the authenticator removed. Written
+            // to the audit log as all of that, and admins get the same security alert as for a reset on the Users
+            // page, so a reset nobody expected is noticed (2.2.1)
             $email = strtolower((string) ($opts['email'] ?? ''));
-            $u = DB::one('SELECT id FROM users WHERE email = ?', [$email]) ?? $fail("No user $email");
+            $u = DB::one('SELECT id, is_active, totp_enabled FROM users WHERE email = ?', [$email]) ?? $fail("No user $email");
+            $clear2fa = isset($opts['clear-2fa']);
             $password = UserController::randomPassword();
-            DB::run('UPDATE users SET password_hash = ?, is_active = 1, must_change_password = 1, session_version = session_version + 1 WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
-            if (isset($opts['clear-2fa'])) {
-                DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$u['id']]);
-            }
-            Audit::log('user.reset_password', "$email via CLI");
+            DB::transaction(function () use ($u, $password, $clear2fa): void {
+                DB::run('UPDATE users SET password_hash = ?, is_active = 1, must_change_password = 1, session_version = session_version + 1 WHERE id = ?', [\Align\Security::hashPassword($password), $u['id']]);
+                if ($clear2fa) {
+                    DB::run('UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, totp_last_step = NULL WHERE id = ?', [$u['id']]);
+                }
+            });
+            $what = 'one-time password' . ($clear2fa && $u['totp_enabled'] ? ', two-factor removed' : '') . (!$u['is_active'] ? ', account enabled again' : '');
+            Audit::log($clear2fa ? 'user.reset_2fa' : 'user.reset_password', "$email via CLI ($what)");
             $say("New password for $email: $password");
+            // After the password is shown: the alert is sent at once and a slow mail server mustn't hold it up
+            Align\Mail\Notify::security($clear2fa ? 'Staff two-factor reset' : 'Staff password reset', "$email from the command line ($what)");
             break;
 
         case 'audit:verify':
@@ -123,7 +177,8 @@ try {
             break;
 
         case 'audit:checkpoint':
-            // An entry seen at the last check must still be there, unchanged, unless it was pruned for age
+            // An entry seen at the last check must still be there, unchanged, unless it was pruned for age. The id and
+            // hash come from the root agent's own folder; the hash is compared in constant time
             $id = (int) ($opts['id'] ?? 0);
             $hash = (string) ($opts['hash'] ?? '');
             $c = Align\DB::one('SELECT anchor_id, last_id FROM audit_chain WHERE id = 1');
@@ -170,7 +225,9 @@ try {
             break;
 
         case 'system:audit':
-            // Called by the root agent (scripts/agent.php) to record what it did
+            // Called by the root agent (scripts/agent.php) to record what it did. Anyone who can run this (www-data)
+            // can call it too, so an entry from it only says "the server recorded this", like every CLI entry; the
+            // event name is limited to system.* and backup.* so it can't pass for a person's action
             $event = (string) ($opts['event'] ?? '');
             if (!preg_match('/^(system|backup)\.[a-z_]{2,40}$/', $event)) {
                 $fail('Invalid event');
@@ -200,6 +257,11 @@ try {
             break;
 
         default:
+            // help, no command, or an unknown one (exit 1, so a typo in a timer or script doesn't look like success)
+            $known = in_array($cmd, ['help', '--help', '-h'], true);
+            if (!$known) {
+                fwrite(STDERR, 'Error: unknown command ' . mb_substr(preg_replace('/[\x00-\x1f\x7f]/', '?', $cmd), 0, 60) . PHP_EOL);
+            }
             $say(Align\Branding::name() . ' ' . APP_VERSION);
             $say('Usage: align <command> [options]');
             $say('  migrate                         Apply database migrations');
@@ -214,6 +276,7 @@ try {
             $say('  check                           Verify config and database');
             $say('Updates, backups and restores: Settings -> Updates & backups, or sudo msp-align-update / msp-align-restore FILE');
             $say('  version');
+            exit($known ? 0 : 1);
     }
 } catch (Throwable $e) {
     $fail($e->getMessage());

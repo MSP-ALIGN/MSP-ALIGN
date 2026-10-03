@@ -17,6 +17,10 @@
 # names. systemd units are swapped by install.sh itself (the update runs inside the old agent unit).
 #
 # ALIGN_ROOT=/some/dir runs it against a copy of the file tree (tests); it then touches nothing else.
+#
+# Security: runs as root, from the installed code or a trusted copy (install.sh). It never goes inside the folders the
+# web user can write (the data folder, /run/.../requests): those are only renamed as a whole. Every other file it
+# reads, copies or rewrites is root-owned. Nothing is deleted before its new copy is complete.
 set -Eeuo pipefail
 R="${ALIGN_ROOT:-}"
 OLD=mountaineer-align
@@ -39,11 +43,13 @@ if [[ "${1:-}" == "--pending" ]]; then
   exit 1
 fi
 
+# Reports a step that changed something (and counts it, for the closing line); stops the move with a message.
 say() { printf '==> %s\n' "$*"; moved=$((moved + 1)); }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 # Old paths and log names in a text file's contents -> new ones (the database name has an underscore and is kept).
 # A path only changes when the name ends there (/etc/mountaineer-align-extra is someone else's and is left alone).
+# A filter from stdin to stdout; it reads only root-owned config files (never anything in the web user's folders).
 edit() {
   sed -E \
     -e "s#/(opt|etc|run|var/lib)/$OLD(-agent)?([/\"' \t;,>)]|\$)#/\1/$NEW\2\3#g" \
@@ -56,6 +62,10 @@ edit() {
 }
 
 # A folder: move it and leave a link behind. Refuses when both exist (something to sort out by hand).
+# mv renames the folder itself (both names are in the same root-owned parent), so nothing inside it is read or
+# followed, including the data folder the web user owns. When the two are on different file systems, mv copies first
+# and removes the old folder only after the copy is complete, so a stop half way leaves both: the next run then
+# refuses ("Both ... exist") instead of losing anything.
 move_dir() {
   local o="$R$1" n="$R$2"
   if [[ -L "$o" ]]; then
@@ -71,6 +81,10 @@ move_dir() {
 
 # A config file: write it under the new name with paths updated (same owner and mode), then remove the old one.
 # $3 = "raw" keeps the contents as they are (binary or secret files).
+# The new file is built as NEW.tmp and renamed into place, so NEW only ever exists complete: a run stopped half way
+# can't leave a partial copy that the next run would keep (it keeps an existing NEW and puts OLD aside). NEW.tmp
+# starts as a copy of OLD (cp -p), so it has OLD's owner and mode before any edited contents go in: a secret file
+# is never readable by anyone OLD wasn't. Only root-owned files outside the web user's folders come through here.
 move_file() {
   local o="$R$1" n="$R$2"
   [[ -e "$o" || -L "$o" ]] || return 0
@@ -83,18 +97,18 @@ move_file() {
   if [[ -L "$o" ]]; then
     ln -s "$(readlink "$o" | edit)" "$n"
   else
-    cp -p "$o" "$n"
+    rm -f "$n.tmp"
+    cp -p "$o" "$n.tmp"
     if [[ "${3:-}" != raw ]]; then
-      edit <"$o" >"$n.tmp"
-      cat "$n.tmp" >"$n"   # keeps the copy's owner and mode
-      rm -f "$n.tmp"
+      edit <"$o" >"$n.tmp"   # writing over the copy keeps its owner and mode
     fi
+    mv -f "$n.tmp" "$n"
   fi
   rm -f "$o"
   say "Renamed $1 to $2"
 }
 
-# An Apache site or conf: rename it, and its enabled link if there is one.
+# An Apache site or conf: rename it, and its enabled link if there is one (kept relative, as a2ensite makes it).
 move_apache() {
   local kind=$1 name=$2   # kind: sites | conf
   local avail="/etc/apache2/$kind-available" enabled="/etc/apache2/$kind-enabled"
@@ -116,11 +130,14 @@ move_dir "/var/lib/$OLD" "/var/lib/$NEW"
 move_dir "/run/$OLD" "/run/$NEW"
 
 # ---- the server config's own paths (sessions, uploads)
+# Built beside it with its owner and mode (cp -p), then renamed over it: config.php holds app_key, and rewriting it in
+# place could leave it cut short if the move were stopped right then.
 CONF="$R/etc/$NEW/config.php"
 if [[ -f "$CONF" ]] && grep -Eq "/(opt|etc|run|var/lib)/$OLD" "$CONF"; then
-  edit <"$CONF" >"$CONF.tmp"
-  cat "$CONF.tmp" >"$CONF"
   rm -f "$CONF.tmp"
+  cp -p "$CONF" "$CONF.tmp"
+  edit <"$CONF" >"$CONF.tmp"
+  mv -f "$CONF.tmp" "$CONF"
   say "Updated the paths in /etc/$NEW/config.php"
 fi
 
