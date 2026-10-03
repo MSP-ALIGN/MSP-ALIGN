@@ -1,7 +1,10 @@
 <?php
-/** Settings -> Onboarding. @var array $templates; int $days; bool $requestsOn */
-$tab = 'onboarding';
-require __DIR__ . '/_tabs.php';
+/** Onboarding → Welcome email & guide (moved from Settings in 2.2). @var array $templates; int $days; bool $requestsOn */
+echo \Align\View::fetch('partials/page_header', [
+    'icon' => 'fa-envelope-open-text', 'title' => 'Welcome email & guide',
+    'desc' => 'What a new client gets after they sign: the welcome email and the private onboarding page where they add their contacts, read your guides and tell you how to get started.',
+    'help' => 'guide-onboarding',
+]);
 $email = array_values(array_filter($templates, fn($t) => $t['kind'] === 'email'));
 $pages = array_values(array_filter($templates, fn($t) => $t['kind'] === 'page'));
 ?>

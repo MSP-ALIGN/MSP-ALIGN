@@ -516,6 +516,16 @@ Header always unset X-Powered-By
     </IfModule>
 </Location>
 
+# Onboarding -> Contracts: a contract PDF (signed, to check, or a template's own) can be up to 25 MB, and a
+# template export with its PDF inside up to 35 MB (2.2). The same as docker/apache.conf.
+<LocationMatch "^/contracts/(upload|verify|templates|templates/import|templates/[0-9]+/pdf)$">
+    LimitRequestBody 41943040
+    <IfModule php_module>
+        php_value upload_max_filesize 36M
+        php_value post_max_size 38M
+    </IfModule>
+</LocationMatch>
+
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
 <Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"
@@ -529,9 +539,11 @@ Header always unset X-Powered-By
 # HSTS on every HTTPS response
 Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
 
-# Keep secret links (calendar feed tokens, invite links) out of the access log
+# Keep secret links (calendar feeds, portal invites, onboarding and contract signing links) out of the access log
 SetEnvIf Request_URI "^/ics/" align_secret_url
 SetEnvIf Request_URI "^/portal/invite/" align_secret_url
+SetEnvIf Request_URI "^/portal/welcome/" align_secret_url
+SetEnvIf Request_URI "^/portal/sign/" align_secret_url
 
 # REST API: make sure "Authorization: Bearer <key>" reaches PHP (PHP-FPM setups drop it otherwise)
 SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1

@@ -45,9 +45,9 @@ with sync_playwright() as p:
     pg.click("text=Save checklist"); pg.wait_for_timeout(400)
     if n>=10:   # many answers at once: it asks first (2.0.1)
         ok(pg.locator("#align-confirm.show").count() and f"Save {n}" in pg.locator("#align-confirm-title").inner_text(),"saving many filled answers asks first: "+pg.locator("#align-confirm-title").inner_text())
-        pg.click("#align-confirm [data-align-confirm-ok]")
+        with pg.expect_navigation(timeout=60000): pg.click("#align-confirm [data-align-confirm-ok]")  # a big save: wait for the page, not a fixed time
     pg.wait_for_load_state(); pg.wait_for_timeout(500)
-    fl=pg.locator(".alert").first.inner_text()
+    fl=" | ".join(x.inner_text() for x in pg.locator(".alert").all())  # the flash, wherever it is among the page's alerts
     ok(f"Saved {n} change(s)" in fl and "too large" not in fl,"saved only the changed rows: "+fl.strip()[:80])
     got=q("select s.status, s.notes, s.document_id from client_control_status s join compliance_controls c on c.id=s.control_id where s.client_id=1 and c.framework_id=%s",ids[2])
     ok(len(got)==n and any((g["notes"] or "").startswith("MFA enforced") for g in got),"PCI answers reused from CMMC (%d rows)"%len(got))

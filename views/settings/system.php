@@ -69,7 +69,7 @@ $docker = Agent::docker();
       <div class="card-body">
         <dl class="row mb-2">
           <dt class="col-5 fw-normal text-muted">This server</dt><dd class="col-7 mb-1"><b><?= e(APP_VERSION) ?></b></dd>
-          <dt class="col-5 fw-normal text-muted">Latest</dt><dd class="col-7 mb-1"><?= $update && $update['latest'] ? e($update['latest']) . ($newer && ($update['behind'] ?? 0) ? ' <span class="text-muted small">(' . (int) $update['behind'] . ' change' . ((int) $update['behind'] === 1 ? '' : 's') . ')</span>' : '') : '<span class="text-muted">Not checked yet</span>' ?></dd>
+          <dt class="col-5 fw-normal text-muted">Latest</dt><dd class="col-7 mb-1"><?= $update && $update['latest'] ? e($update['latest']) . ($newer && ($update['behind'] ?? 0) && empty($update['notes']) ? ' <span class="text-muted small">(' . (int) $update['behind'] . ' change' . ((int) $update['behind'] === 1 ? '' : 's') . ')</span>' : '') : '<span class="text-muted">Not checked yet</span>' ?></dd>
           <?php $br = (string) (\Align\Config::get('update_branch') ?: 'main'); // this server's own setting (config.php) ?>
           <?php $signedMode = ($update['mode'] ?? '') === 'signed'; $prints = (array) ($update['signers'] ?? []); ?>
           <dt class="col-5 fw-normal text-muted">Updates from</dt><dd class="col-7 mb-1"><?php if ($docker): ?>Docker images (<code>docker compose pull</code>)<?php elseif ($signedMode): ?><i class="fas fa-shield-halved text-success me-1"></i>Signed releases only
@@ -83,12 +83,22 @@ $docker = Agent::docker();
 
         <?php if ($newer): ?>
           <h6 class="mt-3">What's new</h6>
+          <?php if (!empty($newer['notes'])): // the release notes (README), not every change ?>
+          <ul class="list-unstyled small update-changes mb-3">
+            <?php foreach ($newer['notes'] as $n): ?>
+              <li class="mb-2"><b><?= e($n['title']) ?></b> <span class="text-muted"><?= e($n['version']) ?></span>
+                <?php if ($n['text'] !== ''): ?><div class="text-muted"><?= md_inline(mb_strtoupper(mb_substr($n['text'], 0, 1)) . mb_substr($n['text'], 1)) ?></div><?php endif; ?>
+                <?php if ($n['items']): ?><ul class="text-muted ps-3 mb-0"><?php foreach ($n['items'] as $it): ?><li<?= $it['level'] > 1 ? ' class="ms-3"' : '' ?>><?= md_inline($it['text']) ?></li><?php endforeach; ?></ul><?php endif; ?></li>
+            <?php endforeach; ?>
+          </ul>
+          <?php else: ?>
           <ul class="list-unstyled small update-changes mb-3">
             <?php foreach (array_slice($newer['changes'] ?? [], 0, 30) as $c): ?>
               <li class="mb-2"><b><?= e($c['subject']) ?></b> <span class="text-muted"><?= e(\Align\Fmt::date($c['date'] ?: 'now', 'short')) ?></span>
                 <?php if (trim($c['body'] ?? '') !== ''): ?><div class="text-muted text-pre-line"><?= e(mb_strimwidth($c['body'], 0, 600, '…')) ?></div><?php endif; ?></li>
             <?php endforeach; ?>
           </ul>
+          <?php endif; ?>
           <?php if ($docker): ?>
           <div class="border-top pt-3 small">
             <p class="mb-1">This server runs in <b>Docker</b>, so it updates by pulling the new image. On the Docker host, in the MSP-ALIGN folder:</p>

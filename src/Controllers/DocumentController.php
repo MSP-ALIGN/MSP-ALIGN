@@ -87,6 +87,8 @@ final class DocumentController
             'docs' => self::list('d.client_id = ?' . (query('status') === 'all' ? '' : " AND d.status <> 'archived'"), [$id]),
             'templates' => DB::all('SELECT id, name, category, description FROM document_templates ORDER BY is_builtin DESC, name'),
             'status' => query('status'),
+            'contracts' => Auth::can('tech') ? \Align\Contracts\Contracts::forClient($id) : [],
+            'contractTemplates' => Auth::can('tech') ? \Align\Contracts\Template::all(true) : [],
         ]);
     }
 

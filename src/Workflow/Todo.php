@@ -91,7 +91,7 @@ final class Todo
         }
     }
 
-    /** The tabs of the menu items that group several pages (Admin → Integrations, People), by page nav key. */
+    /** The tabs of the menu items that group several pages (Admin → Integrations and People; Onboarding → Contracts and New clients), by page nav key. */
     public static function adminTabs(): array
     {
         $backup = \Align\Backup\Backup::enabled();
@@ -107,6 +107,25 @@ final class Todo
                 'users' => ['label' => 'Staff', 'href' => '/users', 'icon' => 'fa-user-shield', 'role' => 'admin'],
                 'portal-users' => ['label' => 'Client portal users', 'href' => '/portal-users', 'icon' => 'fa-door-open', 'role' => 'tech'],
             ],
+            // 2.2: the Onboarding section of the menu
+            'contracts' => [
+                'contracts' => ['label' => 'Contracts', 'href' => '/contracts', 'icon' => 'fa-file-signature', 'role' => 'tech'],
+                'contract-templates' => ['label' => 'Contract templates', 'href' => '/contracts/templates', 'icon' => 'fa-shapes', 'role' => 'admin'],
+            ],
+            'newclients' => [
+                'newclients' => ['label' => 'New clients', 'href' => '/onboarding', 'icon' => 'fa-mountain-sun', 'role' => 'tech'],
+                'welcome' => ['label' => 'Welcome email & guide', 'href' => '/settings/onboarding', 'icon' => 'fa-envelope-open-text', 'role' => 'admin'],
+            ],
         ];
+    }
+
+    /** Contracts the client signed that wait for your countersignature (menu badge). */
+    public static function contractsWaiting(): int
+    {
+        try {
+            return (int) DB::value("SELECT COUNT(*) FROM contracts WHERE status = 'client_signed'");
+        } catch (\Throwable) {
+            return 0; // before the 2.2 migration
+        }
     }
 }

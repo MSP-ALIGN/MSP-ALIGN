@@ -131,7 +131,7 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
         <div class="doc-card border rounded"><div id="doc-editor" class="doc-editor onb-editor" data-mode="template"></div></div>
         <template id="doc-initial"><?= $body ?></template>
         <p class="small text-muted mt-2 mb-0"><code>{{contact_first_name}}</code>, <code>{{onsite_week}}</code> and <code>{{onboarding_link}}</code> are filled in when you send. The link becomes a <b>Start onboarding</b> button.
-          The onboarding page shows the guides from <?= Auth::can('admin') ? '<a href="/settings/onboarding">Settings → Onboarding</a>' : 'Settings → Onboarding' ?>.</p>
+          The onboarding page shows the guides from <?= Auth::can('admin') ? '<a href="/settings/onboarding">Onboarding → Welcome email &amp; guide</a>' : 'Onboarding → Welcome email &amp; guide' ?>.</p>
       </div>
       <div class="card-footer d-flex flex-wrap align-items-center">
         <div class="form-check me-auto"><input type="checkbox" class="form-check-input" id="cc-me" name="cc_me" value="1" checked><label class="form-check-label small" for="cc-me">Send me a copy</label></div>

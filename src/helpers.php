@@ -8,6 +8,15 @@ function e(mixed $v): string
     return htmlspecialchars((string) ($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/** Escapes a line of README text and shows its **bold** and `code`; a [link](url) shows as its words. */
+function md_inline(string $s): string
+{
+    $s = preg_replace('/\[([^\]]+)\]\([^)\s]+\)/u', '$1', $s) ?? $s;
+    $s = e($s);
+    $s = preg_replace('/\*\*(.+?)\*\*/u', '<b>$1</b>', $s) ?? $s;
+    return preg_replace('/`([^`]+)`/u', '<code>$1</code>', $s) ?? $s;
+}
+
 function url(string $path = '/', array $query = []): string
 {
     $q = $query ? '?' . http_build_query($query) : '';
@@ -48,10 +57,32 @@ function csrf_field(): string
 function csrf_check(): void
 {
     $sent = $_POST['_csrf'] ?? '';
+    // PHP drops the whole form (token included) when it's over post_max_size: say what happened instead
+    if ($sent === '' && !$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > ini_bytes((string) ini_get('post_max_size'))) {
+        http_response_code(413);
+        exit('That file is larger than this server accepts. Go back and choose a smaller one.');
+    }
     if (!is_string($sent) || !hash_equals(csrf_token(), $sent)) {
         http_response_code(419);
         exit('Your session expired or the form was tampered with. Go back, refresh, and try again.');
     }
+}
+
+/** A php.ini size ("8M", "1G", "512K") in bytes; 0 or less means no limit (PHP_INT_MAX). */
+function ini_bytes(string $v): int
+{
+    $v = trim($v);
+    $n = (int) $v;
+    $n *= match (strtoupper(substr($v, -1))) { 'G' => 1 << 30, 'M' => 1 << 20, 'K' => 1 << 10, default => 1 };
+    return $n > 0 ? $n : PHP_INT_MAX;
+}
+
+/** A Content-Disposition file name part: a plain ASCII name for old clients and the exact name (RFC 6266). */
+function content_filename(string $name): string
+{
+    $name = str_replace(["\r", "\n", "\0"], '', $name);
+    $ascii = preg_replace('/[^\x20-\x7e]/', '_', str_replace(['"', '\\'], '', $name)) ?: 'file';
+    return 'filename="' . $ascii . '"; filename*=UTF-8\'\'' . rawurlencode($name);
 }
 
 function post(string $key, string $default = ''): string

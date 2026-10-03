@@ -15,8 +15,8 @@ final class Mailer
 {
     private const BACKOFF_MIN = [1, 5, 15, 60, 240];
     private const MAX_ATTEMPTS = 6;
-    /** Messages with one-time links: the body is wiped as soon as it's sent. */
-    private const SENSITIVE = ['client_portal_invite', 'client_portal_reset'];
+    /** Messages with one-time links, codes, signed contracts or contract notices: the body (and attachments) are wiped once sent. */
+    private const SENSITIVE = ['client_portal_invite', 'client_portal_reset', 'contract_code', 'contract_sign', 'contract_signed', 'contract_staff'];
 
     /** Normalises recipients to a unique list of ['address','name'] with valid addresses. */
     public static function recipients(array $list): array

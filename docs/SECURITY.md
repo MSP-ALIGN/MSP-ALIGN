@@ -18,6 +18,9 @@ is responsible for outside the application.
 - Licensing and budgets
 - Meeting agendas and notes
 - Compliance assessments and policy documents
+- Contracts (2.2): the agreements you upload, the contracts made from them and their signed PDFs, and for each
+  signature the signer's name, title and email, their drawn or typed signature, and the time, IP address and browser
+  they signed from
 
 It isn't designed to hold patient records (PHI). Keep patient information out of notes, meeting
 notes and documents. If ePHI could end up in Align anyway, treat the server as an ePHI system:
@@ -59,6 +62,8 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 
 - Uploaded images (pictures and the brand logo) are checked, re-encoded and served with a sandbox CSP.
 - SVG is refused.
+- Contract PDFs (2.2) are up to 25 MB, must start as a PDF, are never stored under a name from the upload, and are
+  served with a sandbox CSP (see Contracts below).
 
 **Links and tokens**
 
@@ -66,13 +71,50 @@ sign BAAs with the affected clients and include Align in your risk analysis.
 - Invite, reset and calendar tokens are 256-bit, and only their SHA-256 hash is stored. A password change or 2FA reset voids any link still out. A reset link on an account with two-factor asks for the code on the same form before anything changes.
 - Onboarding links stop working 7 days after onboarding is complete. Requests sent from one say the name and email were typed, not verified.
 - Emailed links use the configured address (`base_url`), never the Host header of an unauthenticated request.
-- Secret URLs are kept out of the web server's access log.
+- Secret URLs (calendar feeds, portal invites, onboarding and contract signing links) are kept out of the web
+  server's access log (2.2.0 added the last two).
 
 **Errors**
 
 - With `debug => false`, errors only go to the server log. Database and PHP errors from an integration test, a sync step or an invitation are shown and audited as "an internal error"; the details go to the server log.
 - A saved API key or SMTP password is only sent to the server it was entered for: changing the address to another server (or turning off SMTP encryption or its certificate check) needs it typed again, and raises a security alert.
 - Responses from integrations are limited to 128 MB.
+
+## Contracts and e-signatures (2.2)
+
+- **Who can do what.** Techs and admins make, send, countersign and cancel contracts; only admins change templates,
+  see a template's PDF or delete a signed contract (typing its number; the audit log keeps a note with the PDF's
+  fingerprint). Viewers and client-portal users don't see contracts.
+- **Signing links.** Each link is 256 random bits. It is looked up by its SHA-256 hash, and also kept encrypted with
+  `app_key` so a reminder can send the same link again: someone with both the database and `app_key` could read a
+  live link. Links expire (30 days by default, set per template), stop working when the contract is cancelled, sent
+  again or its client deleted, and after signing open only the signer's copy, for 30 days. Signing links are kept
+  out of the access log.
+- **Emailed code (optional, on by default).** A 6-digit code, valid for 15 minutes, 5 tries per code (counted before
+  checking), at most 10 codes a day, 45 seconds apart. Opening the contract, signing, declining and downloading the
+  signed copy all need it, tied to the current link.
+- **What's signed is fixed.** A contract keeps its own copy of the template. When it's sent, the client's and your
+  company's details are frozen with it, so later changes to the client or to Settings don't change what was signed.
+  Every status change (send, sign, decline, countersign, cancel) happens only from the state it was checked in, so
+  parallel requests can't sign twice or sign a cancelled contract.
+- **Signatures.** A drawn signature must be a PNG of at most 2000 x 1000 pixels with some ink, and is re-encoded; a
+  typed one is plain text. The signer ticks consent to sign electronically; the time, IP address and browser are kept,
+  and printed on the signature certificate with a SHA-256 fingerprint of the content. The signed PDF's own SHA-256 is
+  kept, so **Check a signed PDF** tells whether a copy is exactly the signed one.
+- **Your PDF.** An uploaded agreement is read by Align's own parser, which refuses encrypted files and has limits
+  against malformed or hostile ones (decompressed size, objects, pages, nesting and parsing work). The signed copy is
+  your original file byte for byte with an incremental update added: the values and signatures, drawn so the original
+  page content can't clip or move them, and the certificate pages. Annotations other than plain links, forms,
+  document scripts, automatic actions and attached files are left out of the update, so they can't cover the
+  signatures or run in a reader. In the browser the pages are drawn with PDF.js (no scripts, no forms, no eval).
+- **Audited before release.** Five reviewers read every file of 2.2.0 against the same six areas as the 1.45 audit,
+  and an independent review checked the fixes. Found and fixed before release: a signed contract could be moved to
+  another client, signed details could follow later changes to the client or Settings, the signing link was written
+  to the access log, crafted PDFs could slow the server or hide the stamp (clipping, covering annotations), and
+  a few smaller races and missing audit entries. `tests/e2e/suites/contracts_e2e.py` checks each fix.
+- **Legal.** E-signatures are valid for most business contracts in the US under the ESIGN Act and state UETA laws,
+  and Align records the consent and signing trail they rely on. It isn't legal advice: have your attorney review your
+  contract wording and signing process.
 
 ## REST API (1.27)
 
