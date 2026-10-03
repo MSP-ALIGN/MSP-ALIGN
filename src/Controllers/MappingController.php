@@ -11,8 +11,18 @@ use Align\Providers\Providers;
 use Align\Sync\BackupSync;
 use Align\View;
 
+/**
+ * Client mapping (which RMM organization / backup company each client is linked to) and Hosted backups (which
+ * client each machine and job on your own backup servers belongs to).
+ *
+ * SECURITY: every page and action needs tech or above (turning automatic client creation on or off needs admin);
+ * the router checks CSRF on every POST. Staff aren't limited to clients, so any existing client id may be posted,
+ * but every outside record id and machine/job uid from a form is checked against what Align has stored before it is
+ * used. Names shown come from the RMM/backup product and are escaped in the views. Every change is audited.
+ */
 final class MappingController
 {
+    /** The mapping screen: one column per linking connector, for every active client in planning. */
     public static function index(): void
     {
         Auth::requireRole('tech');
@@ -60,7 +70,11 @@ final class MappingController
         ]);
     }
 
-    /** Without a PSA: make a client for each unlinked organization of an RMM, and optionally keep doing it on sync. */
+    /**
+     * Without a PSA: make a client for each unlinked organization of an RMM, and optionally keep doing it on sync.
+     * Tech or above makes them; only an admin turns the automatic setting on or off. Refused (back to the page) when a
+     * PSA is connected, since clients then come from the PSA, or for a key that isn't an RMM connector.
+     */
     public static function createClients(): void
     {
         Auth::requireRole('tech');
@@ -86,6 +100,9 @@ final class MappingController
      * Receives link[<provider key>][<client id>] = <record id | ''> for every client on the page ('' = not
      * linked, kept that way). Older pages' fields still work: rmm[<key>][<id>] and backup[<key>][<id>]
      * (1.29, 1.30), org[<id>] (the first RMM, before 1.29) and veeam[<id>] (Veeam, before 1.30).
+     * Tech or above. A record id is used only when the provider has it; one record can't go to two clients; a record
+     * held by a client that isn't on the form is refused (naming that client) instead of being taken. Client ids
+     * that don't exist are ignored. Everything changes in one transaction and is audited.
      */
     public static function save(): void
     {
@@ -115,7 +132,8 @@ final class MappingController
                 continue;
             }
             $c = $connectors[$key];
-            $known = array_flip(array_column($c->linkRecords(), 'id'));
+            $records = $c->linkRecords(); // read once: it counts every record's devices or machines
+            $known = array_flip(array_column($records, 'id'));
             $wanted[$key] = [];
             $isRmm = in_array($key, $rmmKeys, true);
             foreach ($rows as $clientId => $id) {
@@ -141,7 +159,7 @@ final class MappingController
                     WHERE l.provider = ? AND l.external_id IS NOT NULL AND c.is_archived = 0 AND c.planning_excluded = 0", [$key]) as $h) {
                 $holders[(string) $h['external_id']] = $h;
             }
-            $names = array_column($c->linkRecords(), 'name', 'id');
+            $names = array_column($records, 'name', 'id');
             foreach ($picked as $cid => $id) {
                 $h = $holders[$id] ?? null;
                 if ($h && (int) $h['client_id'] !== $cid && !array_key_exists((int) $h['client_id'], $wanted[$key])) {
@@ -185,6 +203,7 @@ final class MappingController
         redirect('/mapping' . self::showQuery());
     }
 
+    /** "?show=missing" when the form was posted from the Missing a link tab (a fixed value, never the posted text). */
     private static function showQuery(): string
     {
         return post('show') === 'missing' ? '?show=missing' : '';
@@ -193,6 +212,7 @@ final class MappingController
     /**
      * Backups on your own backup servers: machines and jobs from hosting companies (a backup company linked to
      * no client, or one flagged as hosting), how each was sorted into a client, and manual corrections.
+     * Tech or above. ?show= is checked against the tab names.
      */
     public static function backups(): void
     {
@@ -256,7 +276,12 @@ final class MappingController
         ]);
     }
 
-    /** Saves hosting flags and job / machine assignments, then re-sorts everything. */
+    /**
+     * Saves hosting flags and job / machine assignments, then re-sorts everything. Tech or above. Only stored
+     * company uids are kept as hosting flags and only stored job / machine uids are assigned; a client id must
+     * exist. A value that isn't text (a field posted as an array) leaves that item as it is. Flags that changed
+     * are named in the audit entry: a flag decides whose backups a whole company's machines count for.
+     */
     public static function saveBackups(): void
     {
         Auth::requireRole('tech');
@@ -264,9 +289,19 @@ final class MappingController
         // Hosting flags, kept per backup product ({key}_hosting_companies)
         $postedHosting = array_map('strval', array_filter((array) ($_POST['hosting'] ?? []), 'is_scalar'));
         $hosting = [];
+        $flagLog = [];
         foreach (array_keys(Providers::backupConnectors()) as $key) {
-            $known = array_flip(array_map('strval', array_column(DB::all('SELECT uid FROM backup_companies WHERE provider = ?', [$key]), 'uid')));
-            $mine = array_values(array_filter($postedHosting, fn($u) => isset($known[$u])));
+            $companyNames = array_column(DB::all('SELECT uid, name FROM backup_companies WHERE provider = ?', [$key]), 'name', 'uid');
+            $known = array_flip(array_map('strval', array_keys($companyNames)));
+            $mine = array_values(array_unique(array_filter($postedHosting, fn($u) => isset($known[$u]))));
+            $was = json_decode((string) \Align\Settings::get($key . '_hosting_companies', '[]'), true);
+            $was = is_array($was) ? array_map('strval', $was) : [];
+            foreach (array_diff($mine, $was) as $u) {
+                $flagLog[] = ($companyNames[$u] ?? $u) . ' → hosting';
+            }
+            foreach (array_intersect(array_diff($was, $mine), array_keys($known)) as $u) {
+                $flagLog[] = ($companyNames[$u] ?? $u) . ' → not hosting';
+            }
             \Align\Settings::set($key . '_hosting_companies', json_encode($mine));
             array_push($hosting, ...$mine);
         }
@@ -286,37 +321,44 @@ final class MappingController
             }
             foreach ($posted as $uid => $val) {
                 $uid = (string) $uid;
-                $val = (string) $val;
-                if (!isset($names[$type][$uid])) {
-                    continue;
+                if (!isset($names[$type][$uid]) || !is_string($val)) {
+                    continue; // a uid Align doesn't have, or a malformed value: leave that item alone (not reset to automatic)
                 }
                 $want = $val === 'none' ? 'none' : (ctype_digit($val) && isset($clientIds[(int) $val]) ? $val : 'auto');
                 $have = $current[$uid] ?? 'auto';
                 if ($want === $have) {
                     continue;
                 }
-                DB::run('DELETE FROM backup_assignments WHERE item_type = ? AND item_uid = ?', [$type, $uid]);
-                if ($want !== 'auto') {
-                    DB::insert('backup_assignments', ['item_type' => $type, 'item_uid' => $uid, 'client_id' => $want === 'none' ? null : (int) $want,
-                        'item_name' => mb_substr((string) $names[$type][$uid], 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
-                }
+                // Delete and insert together: two saves at once can't leave a duplicate or a half-made change
+                DB::transaction(function () use ($type, $uid, $want, $names) {
+                    DB::run('DELETE FROM backup_assignments WHERE item_type = ? AND item_uid = ?', [$type, $uid]);
+                    if ($want !== 'auto') {
+                        DB::insert('backup_assignments', ['item_type' => $type, 'item_uid' => $uid, 'client_id' => $want === 'none' ? null : (int) $want,
+                            'item_name' => mb_substr((string) $names[$type][$uid], 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
+                    }
+                });
                 $changes++;
                 $log[] = $names[$type][$uid] . ' → ' . $want;
             }
         }
         $r = BackupSync::assign();
-        Audit::log('backup.assign', $changes . ' change(s)' . ($log ? ': ' . mb_strimwidth(implode('; ', $log), 0, 900, '…') : '') . '; hosting companies: ' . count($hosting));
+        Audit::log('backup.assign', $changes . ' change(s)' . ($log ? ': ' . mb_strimwidth(implode('; ', $log), 0, 900, '…') : '') . '; hosting companies: ' . count($hosting)
+            . ($flagLog ? ' (' . mb_strimwidth(implode('; ', $flagLog), 0, 600, '…') . ')' : ''));
         flash('success', ($changes ? "Saved $changes change(s). " : 'Saved. ') . $r['hosted'] . ' hosted machine' . ($r['hosted'] == 1 ? '' : 's') . ' sorted into clients'
             . ($r['unsorted'] ? ', ' . $r['unsorted'] . ' still not matched.' : '.'));
         $show = preg_replace('/[^a-z]/', '', post('show'));
         redirect('/mapping/backups' . ($show !== '' ? '?show=' . $show : ''));
     }
 
-    /** Assigns several machines at once (the bulk bar on the Hosted backups page). */
+    /**
+     * Assigns several machines at once (the bulk bar on the Hosted backups page). Tech or above. client: a client id
+     * that exists, 'none' (ours) or 'auto'. Only machine uids Align has stored are changed; the names are read in one
+     * query and the changes made in one transaction, however many ids are posted.
+     */
     public static function bulkBackups(): void
     {
         Auth::requireRole('tech');
-        $ids = array_values(array_filter(array_map('strval', (array) ($_POST['ids'] ?? []))));
+        $ids = array_values(array_unique(array_filter((array) ($_POST['ids'] ?? []), fn($v) => is_string($v) && $v !== '')));
         $to = post('client');
         $show = preg_replace('/[^a-z]/', '', post('show'));
         $back = '/mapping/backups' . ($show !== '' ? '?show=' . $show : '');
@@ -329,18 +371,21 @@ final class MappingController
             }
         }
         $n = 0;
-        foreach ($ids as $uid) {
-            $name = DB::value('SELECT name FROM backup_workloads WHERE uid = ?', [$uid]);
-            if ($name === null) {
-                continue;
+        $names = array_column(DB::all('SELECT uid, name FROM backup_workloads'), 'name', 'uid');
+        DB::transaction(function () use ($ids, $names, $to, &$n) {
+            foreach ($ids as $uid) {
+                $name = $names[$uid] ?? null;
+                if ($name === null) {
+                    continue;
+                }
+                DB::run("DELETE FROM backup_assignments WHERE item_type = 'workload' AND item_uid = ?", [$uid]);
+                if ($to !== 'auto') {
+                    DB::insert('backup_assignments', ['item_type' => 'workload', 'item_uid' => $uid, 'client_id' => $to === 'none' ? null : (int) $to,
+                        'item_name' => mb_substr((string) $name, 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
+                }
+                $n++;
             }
-            DB::run("DELETE FROM backup_assignments WHERE item_type = 'workload' AND item_uid = ?", [$uid]);
-            if ($to !== 'auto') {
-                DB::insert('backup_assignments', ['item_type' => 'workload', 'item_uid' => $uid, 'client_id' => $to === 'none' ? null : (int) $to,
-                    'item_name' => mb_substr((string) $name, 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
-            }
-            $n++;
-        }
+        });
         BackupSync::assign();
         $label = $to === 'none' ? 'yours (not a client\'s)' : ($to === 'auto' ? 'back to automatic' : $clientName);
         Audit::log('backup.assign', "$n machine(s) → $label (bulk)");

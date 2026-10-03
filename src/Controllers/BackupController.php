@@ -11,9 +11,17 @@ use Align\Providers\Providers;
 use Align\Reports\ReportData;
 use Align\View;
 
-/** Backup status from the connected backup products. */
+/**
+ * Backup status from the connected backup products.
+ *
+ * SECURITY: staff only (every role sees backup status; techs and admins change assignments and exemptions). The
+ * router checks CSRF on every POST. Client ids come from the URL and are loaded with ClientController::load()
+ * (404 when missing); an item posted for a client must belong to it (checked per kind in exempt()). Every change
+ * is audited.
+ */
 final class BackupController
 {
+    /** The client's Backups page (any staff role, view audited); techs also see unmatched hosted machines to claim. */
     public static function client(int $id): void
     {
         Auth::require();
@@ -39,7 +47,11 @@ final class BackupController
         ]);
     }
 
-    /** "This client's": assigns an unmatched hosted job or machine to this client from its Backups page. */
+    /**
+     * "This client's": assigns an unmatched hosted job or machine to this client from its Backups page. Techs and
+     * admins, who can assign any hosted job or machine on the Hosted backups page anyway; a machine must not already
+     * count for a client, and Microsoft 365 jobs (which follow their company) can't be assigned. Audited.
+     */
     public static function claim(int $id): void
     {
         Auth::requireRole('tech');
@@ -63,6 +75,7 @@ final class BackupController
         redirect("/clients/$id/backups");
     }
 
+    /** The printable backup report for one client (any staff role); details and machines can be left out. */
     public static function report(int $id): void
     {
         Auth::require();
@@ -70,7 +83,10 @@ final class BackupController
         self::renderReport(ClientController::load($id), $opt);
     }
 
-    /** Backup & recovery report for one client; also used by the client portal. */
+    /**
+     * Backup & recovery report for one client; also used by the client portal. The caller has checked the viewer
+     * may see this client (the portal passes its own signed-in client, never one from the URL). Audited.
+     */
     public static function renderReport(array $client, array $opt): void
     {
         $b = ReportData::backup((int) $client['id']);
@@ -98,6 +114,10 @@ final class BackupController
     /**
      * Marks a device, protected machine or Microsoft 365 item as not needing a backup, or undoes it.
      * POST action=add: kind (device|workload|m365), ref (device id or item uid), reason. action=remove: exemption.
+     * Techs and admins. The item must be this client's: one of its devices, a machine sorted to it, or a Microsoft 365
+     * object of its own backup company (404 otherwise); an exemption removed must be this client's too. A reason is
+     * required (it is shown on the client's report). Both directions are audited. An item can be exempt at one
+     * client at a time (unique key), so marking it here replaces a mark left at a client it moved from.
      */
     public static function exempt(int $id): void
     {
@@ -158,7 +178,7 @@ final class BackupController
         redirect($back);
     }
 
-    /** Internal all-clients backup status (every client linked to a backup company). */
+    /** Internal all-clients backup status (every client linked to a backup company). Any staff role; audited. */
     public static function portfolio(): void
     {
         Auth::require();

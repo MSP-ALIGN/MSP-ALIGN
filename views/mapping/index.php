@@ -3,7 +3,11 @@
  * Client mapping: one column group per connector that links clients (each RMM, each backup product, ...).
  * @var array $clients, $providers (key => name, noun, icon, count_label, configured, backup, connector_name, records, unlinked, links, summary, linked);
  *      int $total, $missing; string $show; bool $anyBackupCompanies, $autoCreate
+ * SECURITY: record and client names come from the RMM, the backup product or the PSA: every one goes through e().
+ * $p['summary'][...]['html'] is built by the connector from numbers and fixed text (LinksClients::linkClientSummary
+ * promises it is already escaped). Both forms carry the CSRF field; MappingController checks roles and ids.
  */
+/** The "How" cell: kept unlinked / by name / by hand (fixed HTML, nothing from the link itself). */
 $how = function (?array $link): string {
     if (!$link) {
         return '';
@@ -14,6 +18,7 @@ $how = function (?array $link): string {
         default => '<span class="text-muted" title="Chosen here by hand">by hand</span>',
     };
 };
+/** "organization" / "organizations", "company" / "companies". */
 $plural = fn(string $noun, int $n) => $n === 1 ? $noun : ($noun === 'company' ? 'companies' : $noun . 's');
 $cols = 1 + 3 * count($providers);
 ?>

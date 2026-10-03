@@ -4,6 +4,9 @@
  * Machines first (tabs: not matched / sorted / yours / all, with a bulk bar), then jobs, then which backup
  * companies count as your backup servers.
  * @var array $companies, $jobs, $machines, $shown, $clients, $manual, $counts; string $show; array $pool, $flagged (uid => i); bool $configured, $several
+ * SECURITY: machine, job and company names and uids come from the backup product: each goes through e(), in text
+ * and in attributes (form field names included). Links use (int) ids. Both forms carry the CSRF field;
+ * MappingController checks roles and that every posted uid and client id exists.
  */
 $bn = \Align\Providers\Providers::backupNames();
 $howLabel = [
@@ -12,6 +15,7 @@ $howLabel = [
     'machine' => ['By hand', 'primary', 'Assigned by hand'],
     'company' => ['Company', 'secondary', 'The ' . $bn . ' company this machine is under is linked to this client'],
 ];
+/** A client picker (Automatic / Ours / each client) named $name with $current selected; $extra: raw attributes written by this view only. */
 $select = function (string $name, string $current, string $label, string $extra = '') use ($clients) {
     $h = '<select name="' . e($name) . '" class="form-select form-select-sm" aria-label="' . e($label) . '"' . $extra . '>'
         . '<option value="auto"' . ($current === 'auto' ? ' selected' : '') . '>Automatic</option>'

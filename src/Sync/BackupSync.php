@@ -14,10 +14,24 @@ use Align\Providers\Providers;
  * Microsoft 365), links its companies to clients, and sorts machines and jobs into clients (including
  * machines hosted on your own backup servers). Works for every backup provider; each provider's rows are
  * pruned only by its own sync. Read-only: nothing is ever written back to the backup product.
+ *
+ * SECURITY: the provider's records are untrusted data, normalized by the provider (BackupProvider: fixed keys,
+ * values cut to their columns); here they only ever go in as bound values. Which client sees a job, machine or
+ * Microsoft 365 object is decided by client_links (a company linked to the client), a manual assignment, or a
+ * device name owned by exactly one client, never by a name or id the backup product sends alone.
+ * run() is called by SyncRunner under the sync lock; assign() is also called from web requests and the API and
+ * serializes itself with ASSIGN_LOCK.
  */
 final class BackupSync
 {
-    /** @param callable(string):void $info */
+    /** Named lock for assign(), so two re-sorts never interleave. */
+    public const ASSIGN_LOCK = 'msp_align_backup_assign';
+
+    /**
+     * Stores one provider's snapshot and re-sorts machines and jobs into clients. Returns a short summary for the
+     * sync log. Rows a provider no longer reports are pruned for that provider only (jobs: only the lists it could read).
+     * @param callable(string):void $info
+     */
     public static function run(BackupProvider $p, callable $info): string
     {
         $key = $p->key();
@@ -141,7 +155,10 @@ final class BackupSync
         return "$linked linked to clients" . ($matched ? " ($matched new)" : '');
     }
 
-    /** Backup companies (any provider) whose machines are sorted into clients one by one (hosting servers). */
+    /**
+     * Backup companies (any provider) whose machines are sorted into clients one by one (hosting servers): those
+     * linked to no client, and those an admin or tech flagged as hosting on the Hosted backups page.
+     */
     public static function hostingCompanies(): array
     {
         $flagged = [];
@@ -161,9 +178,10 @@ final class BackupSync
      *   one client, 4. the client the company is linked to (if any).
      * Everything else goes to the client its backup company is linked to, unless the machine was assigned by hand.
      * Jobs count for the client(s) their machines belong to; a job assigned by hand counts for that client only.
+     * Callers hold ASSIGN_LOCK (see assign()).
      * @return array{devices:int, hosted:int, unsorted:int}
      */
-    public static function assign(): array
+    private static function sortIntoClients(): array
     {
         $companyClient = [];
         foreach (DB::all('SELECT l.client_id, l.external_id FROM client_links l JOIN backup_companies b ON b.provider = l.provider AND b.uid = l.external_id') as $c) {
@@ -283,6 +301,29 @@ final class BackupSync
         return ['devices' => $devices, 'hosted' => $hosted, 'unsorted' => $unsorted];
     }
 
+    /**
+     * Works out which client each protected machine and job belongs to (see sortIntoClients()), one caller at a time:
+     * a manual assignment saved while a sync is sorting would otherwise be overwritten by a result worked out from
+     * what was there before it (2.2.1). Everything is read after the lock is taken. Waits up to 30 seconds, then
+     * returns without sorting ('skipped'; the task holding the lock or the next sync sorts). Callers (sync, Hosted
+     * backups, the client's Backups page, the API) check roles and audit the change.
+     * @return array{devices:int, hosted:int, unsorted:int, skipped?:bool}
+     */
+    public static function assign(): array
+    {
+        if ((int) DB::value('SELECT GET_LOCK(?, 30)', [self::ASSIGN_LOCK]) !== 1) {
+            // The caller's change is already saved (and still gets audited): the other task, or the next sync,
+            // sorts with it. Throwing here would show an error and skip the caller's audit entry (2.2.1).
+            error_log('[msp-align] backups not re-sorted now: another task holds ' . self::ASSIGN_LOCK);
+            return ['devices' => 0, 'hosted' => 0, 'unsorted' => 0, 'skipped' => true];
+        }
+        try {
+            return self::sortIntoClients();
+        } finally {
+            DB::value('SELECT RELEASE_LOCK(?)', [self::ASSIGN_LOCK]);
+        }
+    }
+
     /** Re-sorts machines and jobs into clients (after mapping changes). Returns how many machines matched a device. */
     public static function linkDevices(): int
     {
@@ -378,6 +419,7 @@ final class BackupSync
         Settings::set('m365_days_pruned', $today);
     }
 
+    /** Placeholders for a bound IN (...) list; callers pass a non-empty list. */
     private static function in(array $vals): string
     {
         return implode(',', array_fill(0, count($vals), '?'));

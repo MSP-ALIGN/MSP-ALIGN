@@ -10,9 +10,14 @@ use Align\Settings;
  * An integration that supplies the PSA data area. Subclasses give the connection fields and the
  * provider; the behavior settings shared by every PSA (two-way asset sync, asset import, SLAs,
  * warranty write-back) come from here and only show when the provider can do them.
+ *
+ * Security assumptions: as Connector (admin-only form, secrets encrypted). Settings that make Align write into the
+ * PSA are offered only when the provider can do them and Staging doesn't block them; show.php asks before turning
+ * them on.
  */
 abstract class PsaConnector extends Connector
 {
+    /** The provider, ready to call. $interactive: a user waits, so fail fast (no retries). Throws when not set up. */
     abstract public function provider(bool $interactive = false): PsaProvider;
 
     /** What this PSA can do (keys of PsaProvider::CAPABILITIES). */
@@ -21,31 +26,37 @@ abstract class PsaConnector extends Connector
     /** The connection fields (URL, keys). */
     abstract protected function connectionFields(): array;
 
+    /** Group on the Integrations page. */
     public function category(): string
     {
         return 'PSA & documentation';
     }
 
+    /** Data areas this connector supplies. */
     public function areas(): array
     {
         return ['psa'];
     }
 
+    /** Whether this PSA can do $capability and Staging (a test server) doesn't block it. */
     public function can(string $capability): bool
     {
         return in_array($capability, $this->capabilities(), true) && !\Align\Staging::blocks($capability);
     }
 
+    /** "Two-way" when two-way asset sync is possible and on, else "Read only". */
     public function direction(): string
     {
         return $this->can('assets.write') && \Align\Sync\PsaAssetSync::twoWay() ? 'Two-way' : 'Read only';
     }
 
+    /** Sync steps whose results show as this integration's status. */
     public function syncSteps(): array
     {
         return [$this->name(), 'Managed-services', 'Write warranty'];
     }
 
+    /** The connection fields plus the shared behavior settings this PSA can do. Final so every PSA offers the same. */
     final public function fields(): array
     {
         $n = $this->name();
@@ -83,6 +94,7 @@ abstract class PsaConnector extends Connector
         return 'Align copies each ticket\'s number, subject, priority and SLA times and results, never the ticket body, and reports response and resolution SLA performance per client.';
     }
 
+    /** Last 2-minute poll and SLA ticket counts (HTML; the poll result comes from the PSA and is escaped). */
     public function notes(): string
     {
         $n = $this->name();
@@ -113,11 +125,13 @@ abstract class PsaConnector extends Connector
         return 'this ' . $this->name() . ' has no SLA fields';
     }
 
+    /** Every PSA has a connection test. */
     public function hasTest(): bool
     {
         return true;
     }
 
+    /** Runs the provider's own test with the saved settings (see Connector::test). */
     public function test(): string
     {
         return $this->provider()->test();

@@ -9,6 +9,10 @@ if ($provider === 'smtp' && $mode === 'delegated') {
     $mode = 'app'; // SMTP is just on or off
 }
 $smtpSec = \Align\Mail\Smtp::security();
+/**
+ * A secret's field: always empty, with a "saved" placeholder when one is stored, and a "Remove" box. The saved value
+ * is never written into the page (only $secrets[$name], a bool, is known here).
+ */
 $secret = function (string $name, string $label, bool $textarea = false, string $placeholder = '') use ($secrets) {
     $has = $secrets[$name] ?? false;
     $ph = $has ? '•••••••• saved — leave blank to keep' : ($placeholder ?: 'Not set');
@@ -183,7 +187,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
             <div class="mb-3 col-md-6"><label>Reply-to <small class="text-muted">(optional)</small></label><input type="email" name="mail_reply_to" class="form-control" value="<?= e($v['mail_reply_to']) ?>" placeholder="support@yourdomain.com"></div>
             <div class="mb-3 col-md-6"><label>Keep email content for</label>
               <div class="input-group"><input type="number" name="mail_log_days" class="form-control" min="1" max="365" value="<?= e($v['mail_log_days'] ?: '30') ?>"><span class="input-group-text">days</span></div>
-              <small class="text-muted">After this the log keeps who, what and when, but not the message. Invite and password emails are wiped as soon as they're sent.</small></div>
+              <small class="text-muted">After this the log keeps who, what and when, but not the message. Emails with invite, password, onboarding or signing links and codes are wiped as soon as they're sent.</small></div>
           </div>
           <input type="hidden" name="mail_save_sent_present" value="1">
           <div class="form-check form-switch mb-2" data-show-when="mail_provider=microsoft"><input type="checkbox" class="form-check-input" id="mail_save_sent" name="mail_save_sent" value="1" <?= ($v['mail_save_sent'] ?? '1') !== '0' ? 'checked' : '' ?>><label class="form-check-label fw-normal" for="mail_save_sent">Save a copy in the mailbox's Sent Items</label></div>

@@ -8,12 +8,25 @@ use Align\Mail\Notifications as N;
 use Align\Mail\Template as T;
 use Align\Settings;
 
-/** Builds and queues each notification. Called from sync, the mail timer and the app's actions. */
+/**
+ * Builds and queues each notification. Called from sync, the mail timer and the app's actions.
+ * Security: recipients always come from Notifications (staff who cover the client, admins for security) or are
+ * the one person concerned (a portal user). Digests are built per subscriber from their own client ids, so a vCIO
+ * never sees another vCIO's clients. Every value put in an email goes through Template, which escapes it; text
+ * from clients and from synced systems (job names, error text) is untrusted.
+ */
 final class Notify
 {
+    /** Client portal and onboarding-page activity: at most this many staff emails per client in PORTAL_WINDOW seconds. */
+    private const PORTAL_BURST = 10;
+    private const PORTAL_WINDOW = 600;
+
     // ---- Scheduler ------------------------------------------------------------------------------
 
-    /** Every minute (align mail:run): send the queue, meeting reminders, and hourly scheduled digests. */
+    /**
+     * Every minute (align mail:run): send the queue, meeting reminders, and hourly scheduled digests. Returns log
+     * lines for the timer's output (CLI only; they may hold error text). $force runs the hourly work now.
+     */
     public static function tick(bool $force = false): array
     {
         $out = [];
@@ -54,7 +67,7 @@ final class Notify
         return $out;
     }
 
-    /** Digests that are due this hour (each only once per period). */
+    /** Digests that are due this hour (each only once per period). $now: a time for tests. Returns log lines. */
     public static function scheduled(?string $now = null): array
     {
         $t = $now ? strtotime($now) : time();
@@ -82,7 +95,11 @@ final class Notify
         return $out;
     }
 
-    /** Sends one digest to every subscriber (each sees only their clients) and the extra addresses. */
+    /**
+     * Sends one digest to every subscriber (each sees only their clients) and the extra addresses (all clients).
+     * Deduplicated per period and recipient, so a second run in the same period sends nothing new. Returns the
+     * number of emails queued.
+     */
     public static function digest(string $key, string $period): int
     {
         self::$devices = self::$backups = null; // worked out once per digest, shared by every subscriber's copy
@@ -131,11 +148,13 @@ final class Notify
         return self::$devices;
     }
 
+    /** SQL condition for client ids (null = all, [] = none). Ids are cast to int, so the string is safe to append. */
     private static function clientFilter(?array $ids): string
     {
         return $ids === null ? '' : ($ids ? ' AND c.id IN (' . implode(',', array_map('intval', $ids)) . ')' : ' AND 0');
     }
 
+    /** Active, planned clients' names by id, limited to $ids (null = all). */
     private static function clientNames(?array $ids): array
     {
         return array_column(DB::all('SELECT c.id, c.name FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0' . self::clientFilter($ids) . ' ORDER BY c.name'), 'name', 'id');
@@ -159,6 +178,7 @@ final class Notify
         return $out;
     }
 
+    /** The problem lines for one client's backups (job names and error text from the backup system: escaped by Template::items()). */
     private static function backupLines(array $b): array
     {
         $items = [];
@@ -182,6 +202,7 @@ final class Notify
         return $items;
     }
 
+    /** Daily backup summary for $ids (null = all clients); null when everything is healthy. */
     public static function backupDigest(?array $ids): ?array
     {
         $rows = self::backupProblems($ids);
@@ -198,6 +219,7 @@ final class Notify
         return ['Backups needing attention: ' . count($rows) . ' client' . (count($rows) === 1 ? '' : 's'), 'Daily backup summary', $blocks];
     }
 
+    /** Contract and license dates in the next 60 days for $ids (null = all). */
     public static function renewalsDigest(?array $ids): ?array
     {
         $items = array_filter(\Align\Budget\Contracts::upcoming(null, 60, date('Y-m-d')), fn($d) => $ids === null || in_array($d['client_id'], $ids, true));
@@ -212,6 +234,7 @@ final class Notify
         ]];
     }
 
+    /** Clients due for a review and this week's meetings, for $ids (null = all). */
     public static function meetingsDigest(?array $ids): ?array
     {
         $names = self::clientNames($ids);
@@ -241,6 +264,7 @@ final class Notify
         return [($due ? count($due) . ' client' . (count($due) === 1 ? '' : 's') . ' due for a meeting' : 'Meetings this week') . ($week ? ' · ' . count($week) . ' scheduled' : ''), 'Meetings', $blocks];
     }
 
+    /** Devices reaching end of life or warranty end in 90 days, for $ids (null = all); at most 60 rows. */
     public static function lifecycleDigest(?array $ids): ?array
     {
         $today = date('Y-m-d');
@@ -270,6 +294,7 @@ final class Notify
         ]];
     }
 
+    /** One vCIO's week across $ids (null = all): meetings, decisions waiting, renewals, backups, reviews due. */
     public static function weeklyDigest(?array $ids): ?array
     {
         $names = self::clientNames($ids);
@@ -315,7 +340,7 @@ final class Notify
 
     // ---- Events -------------------------------------------------------------------------------
 
-    /** After each sync: sync problems / recovery, and newly failed backup jobs. */
+    /** After each sync: sync problems / recovery, and newly failed backup jobs. Never throws (a mail problem mustn't fail the sync). */
     public static function afterSync(string $status, array $errors): void
     {
         try {
@@ -338,7 +363,11 @@ final class Notify
         }
     }
 
-    /** One email per client listing jobs that failed since we last told anyone. */
+    /**
+     * One email per client listing jobs that failed since we last told anyone. Each failure (job and run time) is
+     * told once; a job shared by several clients is told to each client's people (2.2.1: only the first client
+     * alphabetically got it). Returns the number of emails queued.
+     */
     public static function backupFailures(): int
     {
         $rows = DB::all("SELECT j.*, c.id AS client_id, c.name AS client_name FROM backup_jobs j
@@ -349,11 +378,17 @@ final class Notify
                   WHERE e.client_id = c.id AND (e.item_uid = w2.uid OR e.device_id = w2.device_id))
             ORDER BY c.name, j.name", [date('Y-m-d H:i:s', strtotime('-3 days'))]);
         $byClient = [];
+        $fresh = []; // per failure: new this run? (decided once, then used for every client sharing the job)
         foreach ($rows as $j) {
             $k = 'bf:' . $j['uid'] . ':' . $j['last_run'];
-            if (N::state($k) === null) {
+            if (!isset($fresh[$k])) {
+                $fresh[$k] = N::state($k) === null;
+                if ($fresh[$k]) {
+                    N::setState($k, '1');
+                }
+            }
+            if ($fresh[$k]) {
                 $byClient[(int) $j['client_id']][] = $j;
-                N::setState($k, '1');
             }
         }
         $n = 0;
@@ -372,16 +407,37 @@ final class Notify
         return $n;
     }
 
+    /**
+     * Tells the staff covering $clientId what a client did in the portal or on the onboarding page. $who and $what
+     * hold text the client typed (escaped by Template); $path is one of our pages.
+     * Security: the onboarding page is a shared link without sign-in and can be posted again and again, so the same
+     * message is sent once per 10 minutes and a client causes at most PORTAL_BURST of these emails per 10 minutes
+     * (2.2.1). The count and the insert aren't atomic: parallel posts can pass the limit by a few, not flood.
+     */
     public static function portalActivity(int $clientId, string $clientName, string $who, string $what, string $path): void
     {
         if (!N::enabled('portal_activity')) {
             return;
         }
+        $recent = (int) DB::value("SELECT COUNT(*) FROM mail_queue WHERE kind = 'portal_activity' AND client_id = ? AND created_at >= ?",
+            [$clientId, date('Y-m-d H:i:s', time() - self::PORTAL_WINDOW)]);
+        if ($recent >= self::PORTAL_BURST) {
+            return;
+        }
         Mailer::queue('portal_activity', N::recipientsFor('portal_activity', $clientId), "$clientName: $what",
-            T::render('Client portal: ' . $clientName, [T::p("$who $what."), T::button('Open in Align', N::url($path))], N::footer()), ['client_id' => $clientId, 'created_by' => null]);
+            T::render('Client portal: ' . $clientName, [T::p("$who $what."), T::button('Open in Align', N::url($path))], N::footer()),
+            ['client_id' => $clientId, 'created_by' => null, 'dedupe' => 'portal:' . $clientId . ':' . sha1($who . '|' . $what) . ':' . intdiv(time(), self::PORTAL_WINDOW)]);
     }
 
-    /** Security events go to admins who get security alerts. Identical alerts within 10 minutes are sent once. */
+    /**
+     * Security events go to admins who get security alerts. Identical alerts within 10 minutes are sent once.
+     * Never throws. $event and $detail may hold what someone typed (an email address at sign-in): escaped by Template.
+     * Security: an alert raised by a signed-in staff member (or the command line) is sent at once, so someone using
+     * a borrowed admin session can't cancel it in the email log first. One raised by a request without a staff
+     * session (a sign-in lockout, which only happens for an existing account) waits for the mail timer (within a
+     * minute): sending it in that request made the response slower than for an unknown email, telling an attacker
+     * the account exists (2.2.1).
+     */
     public static function security(string $event, string $detail): void
     {
         try {
@@ -392,13 +448,17 @@ final class Notify
             Mailer::queue('security', N::recipientsFor('security', null), 'Security: ' . $event,
                 T::render('Security alert', [T::facts(['Event' => $event, 'Details' => $detail, 'When' => \Align\Fmt::dateTime(time(), 'day', ' ', true) . ' ' . date('T'), 'From' => $ip]),
                     T::p('If this wasn\'t expected, review the audit log and the staff accounts.', true), T::button('Open audit log', N::url('/audit'))], N::footer()),
-                ['dedupe' => 'sec:' . sha1($event . '|' . $detail) . ':' . intdiv(time(), 600), 'immediate' => true, 'created_by' => null]);
+                ['dedupe' => 'sec:' . sha1($event . '|' . $detail) . ':' . intdiv(time(), 600), 'immediate' => PHP_SAPI === 'cli' || \Align\Auth::id() !== null, 'created_by' => null]);
         } catch (\Throwable $e) {
             error_log('[msp-align] security notification error: ' . $e->getMessage());
         }
     }
 
-    /** Portal invite or password link, straight to the client. Returns true when queued. */
+    /**
+     * Portal invite or password link, straight to the client. Returns true when queued. $u is the portal user (with
+     * client_name); $url holds the one-time token, so the queue wipes this body once it's sent (Mailer::SENSITIVE).
+     * $kind: invite, reset (staff sent it) or self-reset (Forgot password, from the public sign-in page).
+     */
     public static function portalLink(array $u, string $url, string $kind): bool
     {
         if (!N::enabled($kind === 'self-reset' ? 'client_portal_reset' : 'client_portal_invite')) {
@@ -422,7 +482,7 @@ final class Notify
 
     // ---- System ---------------------------------------------------------------------------------
 
-    /** Once per new version found by the agent's 6-hourly check. */
+    /** Once per new version found by the agent's 6-hourly check. Release notes come from the signed update check. Returns 1 when queued. */
     public static function updateAvailable(): int
     {
         $u = \Align\System\Agent::updateAvailable();
@@ -444,6 +504,7 @@ final class Notify
             ['dedupe' => 'update:' . $u['latest'], 'created_by' => null]) ? 1 : 0;
     }
 
+    /** An update finished or failed ($detail: plain text from the update job). */
     public static function updateResult(bool $ok, string $detail): void
     {
         if (!N::enabled('updates')) {

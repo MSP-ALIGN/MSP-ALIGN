@@ -6,7 +6,15 @@ namespace Align\Licensing;
 use Align\DB;
 use Align\Providers\Psa\PsaProvider;
 
-/** Client licensing: cost math, categories and the PSA license sync (read-only from the PSA). */
+/**
+ * Client licensing: cost math, categories and the PSA license sync (read-only from the PSA).
+ *
+ * SECURITY: nothing here checks the user; controllers, the portal and the API decide who sees which client's
+ * licenses. load() returns whole rows, including the PSA's notes (`notes`), which can hold internal details:
+ * callers show them to staff only (the portal and client-facing reports leave them out). syncFromPsa() treats the
+ * PSA's rows as untrusted: ids must map to a linked client, text is cleaned and cut to the column sizes, dates and
+ * seat counts must fit their columns, and an empty answer never retires every license.
+ */
 final class Licenses
 {
     public const CATEGORIES = [
@@ -30,7 +38,7 @@ final class Licenses
     /** Fields the PSA manages for synced licenses (read-only in Align). */
     public const PSA_FIELDS = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date', 'notes'];
 
-    /** Cost per billing period. */
+    /** Cost per billing period (0 when there's no price). */
     public static function cycleCost(array $l): float
     {
         if ($l['unit_price'] === null || $l['unit_price'] === '') {
@@ -47,17 +55,19 @@ final class Licenses
         return $m ? self::cycleCost($l) / $m : 0.0;
     }
 
+    /** Recurring cost for a year. */
     public static function annual(array $l): float
     {
         return self::monthly($l) * 12;
     }
 
+    /** Whether a price has been entered. */
     public static function priced(array $l): bool
     {
         return $l['unit_price'] !== null && $l['unit_price'] !== '';
     }
 
-    /** Adds computed cost fields. */
+    /** Adds computed cost fields and the renewal state (expired, soon = within 90 days, ok). */
     public static function enrich(array $l): array
     {
         $today = date('Y-m-d');
@@ -72,7 +82,10 @@ final class Licenses
         ];
     }
 
-    /** Active (or all) licenses for a client, or every client in planning when $clientId is null. */
+    /**
+     * Active (or all) licenses for a client, or every client in planning when $clientId is null. The caller has
+     * checked the user may see that client (or all clients).
+     */
     public static function load(?int $clientId, bool $includeRetired = false): array
     {
         $where = [];
@@ -127,42 +140,67 @@ final class Licenses
     /**
      * Pulls licenses from the PSA. The PSA owns the license details; price, billing cycle, category
      * and seats in use stay in Align. Licenses archived or deleted in the PSA are retired in Align
-     * (and come back if restored there).
+     * (and come back if restored there). Called by the sync (PsaAssetSync), never from a request.
+     * A license whose PSA client isn't linked to an Align client is skipped. An answer with no licenses while
+     * Align has active ones is refused (as PsaAssetSync does for assets): an API key that lost access to
+     * software reads as "no rows", and would otherwise retire every license and drop it from budgets. Only when the
+     * PSA keeps answering "none" for a day (psa_licenses_empty_since) is that taken as true.
      */
     public static function syncFromPsa(PsaProvider $p): string
     {
-        $rows = $p->licenses();
+        $rows = array_filter($p->licenses(), 'is_array');
         $n = $p->name();
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         $existing = [];
         foreach (DB::all("SELECT id, psa_id, retired_at, retired_reason FROM licenses WHERE psa_id IS NOT NULL") as $r) {
             $existing[(string) $r['psa_id']] = $r;
         }
-        $t = fn($v, int $len = 190) => mb_substr(trim((string) ($v ?? '')), 0, $len) ?: null;
+        // Refused unless the PSA has kept answering "none" for a day (all software really deleted there)
+        if (!$rows && ($active = count(array_filter($existing, fn($r) => !$r['retired_at'])))) {
+            $first = (string) \Align\Settings::get('psa_licenses_empty_since', '');
+            if ($first === '') {
+                \Align\Settings::set('psa_licenses_empty_since', $now0 = date('Y-m-d H:i:s'));
+                $first = $now0;
+            }
+            if (strtotime($first) > time() - 86400) {
+                throw new \RuntimeException("$n returned no licenses (Align has $active). Nothing was changed; check the API key's permissions. "
+                    . 'If every license really was removed there, they are retired after a day of empty answers.');
+            }
+        } elseif ((string) \Align\Settings::get('psa_licenses_empty_since', '') !== '') {
+            \Align\Settings::set('psa_licenses_empty_since', null);
+        }
+        // Text from the PSA: control characters removed (one-line fields also lose line breaks), cut to the column size
+        $t = function ($v, int $len = 190, bool $multiline = false): ?string {
+            if (!is_scalar($v)) {
+                return null;
+            }
+            $v = preg_replace($multiline ? '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/' : '/[\x00-\x1F\x7F]/', $multiline ? '' : ' ', (string) $v) ?? '';
+            return mb_substr(trim($v), 0, $len) ?: null;
+        };
         $now = date('Y-m-d H:i:s');
         $seen = [];
         $added = 0;
         $retired = 0;
         DB::transaction(function () use ($rows, $clients, $existing, $t, $now, $n, &$seen, &$added, &$retired) {
         foreach ($rows as $r) {
-            $sid = ext_id($r['id'] ?? null);
-            $clientId = $clients[ext_id($r['client_id'] ?? null)] ?? null;
-            if ($sid === '' || !$clientId) {
-                continue;
+            $sid = is_scalar($r['id'] ?? null) ? ext_id($r['id']) : '';
+            $clientId = is_scalar($r['client_id'] ?? null) ? ($clients[ext_id($r['client_id'])] ?? null) : null;
+            if ($sid === '' || mb_strlen($sid) > 64 || !$clientId) {
+                continue; // licenses.psa_id is VARCHAR(64)
             }
             $seen[$sid] = true;
-            $lt = strtolower(trim((string) ($r['license_type'] ?? '')));
+            $lt = strtolower((string) $t($r['license_type'] ?? ''));
             $vals = [
                 'client_id' => (int) $clientId,
                 'name' => $t($r['name'] ?? '', 255) ?? "$n software $sid",
                 'version' => $t($r['version'] ?? '', 100),
                 'software_type' => $t($r['software_type'] ?? '', 60),
                 'license_type' => match (true) { str_contains($lt, 'device') => 'device', str_contains($lt, 'user') => 'user', str_contains($lt, 'site'), str_contains($lt, 'tenant') => 'site', default => 'other' },
-                'seats' => isset($r['seats']) && is_numeric($r['seats']) ? max(0, (int) $r['seats']) : null,
+                'seats' => isset($r['seats']) && is_numeric($r['seats']) ? (int) max(0, min(4294967295, (float) $r['seats'])) : null, // INT UNSIGNED
                 'vendor' => $t($r['vendor'] ?? ''),
-                'purchase_date' => $r['purchase_date'] ?? null,
-                'expire_date' => $r['expire_date'] ?? null,
-                'notes' => $t($r['notes'] ?? '', 5000),
+                'purchase_date' => self::ymd($r['purchase_date'] ?? null),
+                'expire_date' => self::ymd($r['expire_date'] ?? null),
+                'notes' => $t($r['notes'] ?? '', 5000, true),
                 'synced_at' => $now,
             ];
             $archived = !empty($r['archived']);
@@ -196,5 +234,11 @@ final class Licenses
         $unpriced = (int) DB::value('SELECT COUNT(*) FROM licenses WHERE retired_at IS NULL AND unit_price IS NULL');
         return count($seen) . ' licenses' . ($added ? ", $added new" : '') . ($retired ? ", $retired retired in $n" : '')
             . ($unpriced ? ", $unpriced need a price" : '');
+    }
+
+    /** A Y-m-d date from the PSA, or null unless it's a real date (a malformed one would fail the whole sync in the database). */
+    private static function ymd(mixed $v): ?string
+    {
+        return is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $v : null;
     }
 }

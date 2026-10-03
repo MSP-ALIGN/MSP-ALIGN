@@ -17,8 +17,10 @@ return [
     'session_path' => null,
     'php_cli' => '/usr/bin/php',
     'debug' => false,         // true only on a development copy: shows error details on the page
-    // Development only: allow an http:// ITFlow URL (e.g. a local mock). Production requires https://.
+    // Development only: allow http:// integration URLs and loopback addresses (e.g. local mocks). Production requires https://.
     'allow_insecure_integrations' => false,
+    // An integration (ITFlow, Veeam...) running on this same machine: allow loopback addresses (https still required).
+    'allow_local_integrations' => false,
     // Where updates come from: 'main' (releases) or, on a test server, 'develop'
     'update_branch' => 'main',
     // Optional: check a small version file before asking GitHub (GitHub is still used to download updates)

@@ -10,23 +10,29 @@ use Align\Settings;
  * Calendar APIs) or any SMTP server (1.37). Microsoft and Google sign in with OAuth, either unattended
  * (Entra app / Google service account with domain-wide delegation) or by an admin signing in as the
  * sending mailbox. SMTP is on or off (stored as mode 'app'), with an optional user name and password.
+ *
+ * Security: every value here comes from admin-only settings. client() is the only way the app gets a
+ * sender, so a test server (Staging) always gets the StagingMail wrapper that sends only to its test mailbox.
  */
 final class Mail
 {
     public const PROVIDERS = ['microsoft' => 'Microsoft 365', 'google' => 'Google Workspace', 'smtp' => 'SMTP server'];
     public const MODES = ['off' => 'Off', 'app' => 'Unattended (app)', 'delegated' => 'Sign in as a mailbox'];
 
+    /** The provider key; an unknown stored value falls back to 'microsoft'. Always a PROVIDERS key. */
     public static function provider(): string
     {
         $p = (string) Settings::get('mail_provider', 'microsoft');
         return isset(self::PROVIDERS[$p]) ? $p : 'microsoft';
     }
 
+    /** The provider's display name. */
     public static function providerName(): string
     {
         return self::PROVIDERS[self::provider()];
     }
 
+    /** The sign-in mode (a MODES key). SMTP has no sign-in page, so any mode other than off is 'app'. */
     public static function mode(): string
     {
         $m = (string) Settings::get('mail_mode', 'off');
@@ -34,6 +40,7 @@ final class Mail
         return $m !== 'off' && self::provider() === 'smtp' ? 'app' : $m; // SMTP has no sign-in page: on is on
     }
 
+    /** Email is switched on (messages are queued), whether or not the credentials are complete. */
     public static function on(): bool
     {
         return self::mode() !== 'off';
@@ -54,7 +61,11 @@ final class Mail
         return self::provider() !== 'smtp';
     }
 
-    /** @return Graph|Google|Smtp|StagingMail */
+    /**
+     * The sender for the configured provider. On a test server it is wrapped in StagingMail, so nothing reaches
+     * a real recipient. Throws when email isn't ready.
+     * @return Graph|Google|Smtp|StagingMail
+     */
     public static function client(): object
     {
         if (!self::ready()) {
@@ -64,6 +75,7 @@ final class Mail
         return \Align\Staging::on() ? new StagingMail($c) : $c; // a test server sends only to its test mailbox
     }
 
+    /** The OAuth redirect URI, built from the configured base URL (never the request's Host header). */
     public static function redirectUri(): string
     {
         return \Align\Portal\PortalAuth::baseUrl() . '/settings/email/callback';

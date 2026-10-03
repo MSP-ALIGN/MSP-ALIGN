@@ -1,6 +1,15 @@
-<?php $sum = json_decode((string) $run['summary'], true) ?: []; ?>
+<?php
+/**
+ * One sync run: its steps and log. Any staff role. Everything shown is plain text from sync_runs (step results and
+ * safe error text), escaped here.
+ * @var array $run; bool $running whether a sync holds the lock now
+ */
+$sum = json_decode((string) $run['summary'], true) ?: [];
+// A run still marked running while no sync holds the lock was cut off (2.2.1: as on the Sync page)
+$status = $run['status'] === 'running' && empty($running) ? 'interrupted' : $run['status'];
+?>
 <div class="small"><a href="/sync">Sync</a> /</div>
-<h1 class="h4">Sync #<?= (int) $run['id'] ?> <small class="text-muted"><?= e(fmt_datetime($run['started_at'])) ?> · <?= e($run['triggered_by']) ?> · <?= e($run['status']) ?></small></h1>
+<h1 class="h4">Sync #<?= (int) $run['id'] ?> <small class="text-muted"><?= e(fmt_datetime($run['started_at'])) ?> · <?= e($run['triggered_by']) ?> · <?= e($status) ?></small></h1>
 <div class="row">
   <div class="col-lg-5">
     <div class="card card-dark">

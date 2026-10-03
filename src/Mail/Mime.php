@@ -3,10 +3,20 @@ declare(strict_types=1);
 
 namespace Align\Mail;
 
-/** Builds the raw email for the Gmail API and SMTP. */
+/**
+ * Builds the raw email for the Gmail API and SMTP.
+ * Security: every header value (names, addresses, subject, attachment names and types) is untrusted. CR, LF and
+ * NUL never reach a header, so nothing can add a header (Bcc) or end the headers early. Bodies and attachments
+ * are base64, so no line in them is longer than 76 characters and none starts with a dot.
+ */
 final class Mime
 {
-    /** RFC 5322 / MIME message: HTML body with inline images (multipart/related) plus attachments. */
+    /**
+     * RFC 5322 / MIME message: HTML body with inline images (multipart/related) plus attachments.
+     * $to/$cc: lists of ['address', 'name'] (addresses already checked by Mailer::recipients()). $attachments:
+     * ['name', 'type', 'content', 'inline_id' (optional)]. $calendarPart adds the first text/calendar attachment as
+     * an alternative to the HTML too (SMTP invitations). A Reply-To that isn't one valid address is left out.
+     */
     public static function build(string $from, string $fromName, array $to, array $cc, ?string $replyTo, string $subject, string $html, array $attachments, bool $calendarPart = false): string
     {
         // No CR/LF may survive into a header (header injection); non-ASCII becomes folded RFC 2047 words
@@ -14,7 +24,9 @@ final class Mime
         $word = fn(string $s) => preg_match('/[^\x20-\x7E]/', $s) ? mb_encode_mimeheader($s, 'UTF-8', 'B', "\r\n ") : $s;
         $addr = function (array $r) use ($clean, $word) {
             $a = $clean((string) $r['address']);
-            $n = $clean((string) ($r['name'] ?? ''));
+            // A display name is at most 120 characters (as Mailer::recipients() keeps them), so a quoted ASCII name
+            // can't push the header line past SMTP's 998-character limit (the From name is a setting of any length)
+            $n = mb_substr($clean((string) ($r['name'] ?? '')), 0, 120);
             return $n !== '' ? (preg_match('/[^\x20-\x7E]/', $n) ? $word($n) : '"' . addcslashes($n, '"\\') . '"') . " <$a>" : $a;
         };
         $host = parse_url(\Align\Portal\PortalAuth::baseUrl(), PHP_URL_HOST) ?: 'align.local';
@@ -23,8 +35,9 @@ final class Mime
         if ($cc) {
             $h[] = 'Cc: ' . implode(",\r\n ", array_map($addr, $cc));
         }
-        if ($replyTo) {
-            $h[] = 'Reply-To: ' . $clean($replyTo);
+        $replyTo = $replyTo !== null ? $clean($replyTo) : '';
+        if ($replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) { // one address, never a list someone slipped in
+            $h[] = 'Reply-To: ' . $replyTo;
         }
         array_push($h, 'Subject: ' . $word($clean($subject)), 'Date: ' . date(DATE_RFC2822), 'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $host . '>', 'MIME-Version: 1.0');
         $b64 = fn(string $s) => rtrim(chunk_split(base64_encode($s), 76, "\r\n"));

@@ -2,6 +2,10 @@
 /**
  * One connector setting as a form field (integration pages and the setup wizard).
  * @var array $f field definition (Connector::fields); array $values saved values (secrets: whether one is saved)
+ *
+ * Security: a secret's input is always empty (the value is never sent to the browser, only "saved" or "not set").
+ * Every saved value, label and help text goes through e() in a quoted attribute or as text. The http:// warning
+ * only shows on a development copy (allow_insecure_integrations); Connector::save refuses http:// otherwise.
  */
 echo (function (array $f) use ($values): string {
     $n = $f['name'];

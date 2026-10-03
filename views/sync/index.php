@@ -1,4 +1,9 @@
-<?php use Align\Auth; ?>
+<?php
+/**
+ * Sync history (any staff role); techs and admins get "Run sync now" (a CSRF-protected POST).
+ * @var array $runs last 50 sync_runs rows; bool $running whether a sync holds the lock now
+ */
+use Align\Auth; ?>
 <div class="card card-dark">
   <div class="card-header py-2">
     <h3 class="card-title mt-2"><i class="fas fa-fw fa-rotate me-2"></i>Sync history</h3>

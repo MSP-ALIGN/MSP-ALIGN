@@ -13,6 +13,10 @@ use Align\Settings;
  * (by role, plus "always the client's vCIO" and extra addresses such as a ticketing inbox).
  * Each staff member can then opt in or out on their Account page and choose all clients or only
  * the clients they're vCIO for. Client emails go to the people concerned (portal user, attendees).
+ *
+ * Security: a staff member only gets a client's event when they cover that client (all clients, or the ones
+ * they're vCIO for); security alerts only go to admins (and the admin-set extra addresses). Extra addresses get
+ * every client's events: they're for the MSP's own inboxes.
  */
 final class Notifications
 {
@@ -39,6 +43,7 @@ final class Notifications
 
     public const TIMING = ['immediate' => 'As it happens', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly (1st)', 'before' => 'Before each meeting', 'overdue' => 'When overdue'];
 
+    /** Keys of the staff notifications (the ones people can opt in or out of). */
     public static function staffKeys(): array
     {
         return array_keys(array_filter(self::CATALOG, fn($c) => $c[2] === 'staff'));
@@ -53,6 +58,7 @@ final class Notifications
         return Settings::get("notif_$key", self::CATALOG[$key][7] ? '1' : '0') === '1';
     }
 
+    /** Roles that get $key by default. Security alerts are admins only, whatever is stored. */
     public static function roles(string $key): array
     {
         if ($key === 'security') {
@@ -62,17 +68,19 @@ final class Notifications
         return $v === null ? self::CATALOG[$key][5] : array_values(array_intersect(['admin', 'tech', 'viewer'], explode(',', $v)));
     }
 
+    /** Whether each client's vCIO gets $key for their clients by default. */
     public static function toVcio(string $key): bool
     {
         return Settings::get("notif_{$key}_vcio", self::CATALOG[$key][6] ? '1' : '0') === '1';
     }
 
+    /** The admin-set extra addresses for $key (validated). */
     public static function extra(string $key): array
     {
         return Mailer::recipients(preg_split('/[\s,;]+/', (string) Settings::get("notif_{$key}_extra", '')) ?: []);
     }
 
-    /** A user's own choice for each staff notification: true/false, or the role default. */
+    /** A user's own choice for each staff notification: true/false, or the role default. Non-admins never get 'security'. */
     public static function prefsFor(array $user): array
     {
         $rows = [];
@@ -89,12 +97,16 @@ final class Notifications
         return $out;
     }
 
+    /** 'all' clients or only 'mine' (the ones they're vCIO for); admins default to all. */
     public static function scope(array $user): string
     {
         return $user['notify_scope'] ?? ($user['role'] === 'admin' ? 'all' : 'mine');
     }
 
-    /** Active staff who want $key, each with the client ids they cover. [['user' => row, 'clients' => ids|null (all)]] */
+    /**
+     * Active staff who want $key, each with the client ids they cover.
+     * [['user' => row, 'clients' => ids|null (all), 'on' => opted in (not only here as a vCIO)]]
+     */
     public static function subscribers(string $key): array
     {
         if (!self::enabled($key)) {
@@ -112,39 +124,48 @@ final class Notifications
                 continue;
             }
             // Opted in: their scope. Only here as vCIO: just their clients.
-            $out[] = ['user' => $u, 'clients' => $p['on'] && self::scope($u) === 'all' ? null : $vcioOf];
+            $out[] = ['user' => $u, 'clients' => $p['on'] && self::scope($u) === 'all' ? null : $vcioOf, 'on' => $p['on']];
         }
         return $out;
     }
 
-    /** Everyone to tell about one client's event (plus extra addresses). */
+    /**
+     * Everyone to tell about one client's event (plus extra addresses). $clientId null: an event about no client
+     * (security, updates, sync, backup reminder), which everyone who opted in gets, whichever clients they chose
+     * (2.2.1: an admin who chose "only my clients" stopped getting security alerts). Someone who is only here as a
+     * vCIO gets client events for their clients only.
+     */
     public static function recipientsFor(string $key, ?int $clientId): array
     {
         $to = [];
         foreach (self::subscribers($key) as $s) {
-            if ($s['clients'] === null || ($clientId !== null && in_array($clientId, $s['clients'], true))) {
+            if ($s['clients'] === null || ($clientId === null ? $s['on'] : in_array($clientId, $s['clients'], true))) {
                 $to[] = ['address' => $s['user']['email'], 'name' => $s['user']['name']];
             }
         }
         return Mailer::recipients(array_merge($to, self::enabled($key) ? self::extra($key) : []));
     }
 
+    /** An absolute link for emails, from the configured base URL (never the request's Host header). */
     public static function url(string $path = ''): string
     {
         return \Align\Portal\PortalAuth::baseUrl() . $path;
     }
 
+    /** The footer line of staff notifications. */
     public static function footer(): string
     {
         return 'You receive this from MSP-ALIGN. Change which emails you get under Account → Email notifications.';
     }
 
+    /** A stored scheduler value ("sent this period", "already told about this failure"), or null. */
     public static function state(string $k): ?string
     {
         $v = DB::value('SELECT v FROM notify_state WHERE k = ?', [$k]);
         return $v === null || $v === false ? null : (string) $v;
     }
 
+    /** Stores a scheduler value. Keys are cut to 190 characters, so callers keep theirs shorter (state() reads the full key). */
     public static function setState(string $k, ?string $v): void
     {
         DB::run('INSERT INTO notify_state (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [mb_substr($k, 0, 190), $v]);

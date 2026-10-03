@@ -10,9 +10,17 @@ use Align\Integrations\Registry;
 use Align\Settings;
 use Align\View;
 
-/** Integrations: one page listing every connected service, and a page per integration (from Registry). */
+/**
+ * Integrations: one page listing every connected service, and a page per integration (from Registry).
+ *
+ * Security assumptions: every action is admin-only (checked first in each); POSTs carry the CSRF token (the router
+ * checks it). Secrets are never put on a page, only whether one is saved. Errors from a test are shown and audited
+ * through safe_error (database and PHP errors become "an internal error"); connector messages never contain a
+ * secret (see Connector::test).
+ */
 final class IntegrationController
 {
+    /** The Integrations page: every connector card by category, the last sync run and unmapped clients. */
     public static function index(): void
     {
         Auth::requireRole('admin');
@@ -31,6 +39,10 @@ final class IntegrationController
         ]);
     }
 
+    /**
+     * The connector for a key from the URL; renders 404 and stops for an unknown one, and sends a connector with its
+     * own page (email) there. The caller checked the role.
+     */
     private static function connector(string $key): Connector
     {
         $c = Registry::get($key);
@@ -45,6 +57,7 @@ final class IntegrationController
         return $c;
     }
 
+    /** One connector's settings form. Secret fields get only true/false (saved or not), never the value. */
     public static function show(string $key): void
     {
         Auth::requireRole('admin');
@@ -62,6 +75,11 @@ final class IntegrationController
         ]);
     }
 
+    /**
+     * Saves one connector's form (Connector::save validates it and enforces the 1.45 address rule). Audits the
+     * changed setting names (never values) and raises a security alert when a secret changed. A PSA, RMM or backup
+     * connector can't be saved while demo data is loaded.
+     */
     public static function save(string $key): void
     {
         Auth::requireRole('admin');
@@ -93,6 +111,7 @@ final class IntegrationController
         redirect(setup_return('/integrations/' . $key));
     }
 
+    /** Runs the connector's connection test with the saved settings; the result is flashed and audited (300 characters). */
     public static function test(string $key): void
     {
         Auth::requireRole('admin');
