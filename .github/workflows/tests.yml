@@ -29,12 +29,12 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd \
             mariadb-server mariadb-client tzdata git openssh-client rsync ca-certificates curl openssl age procps python3 python3-pip python3-markdown \
-            chromium fonts-liberation >/dev/null   # chromium: the libraries Playwright's browser needs; tzdata: the suites run in the app's timezone
+            chromium fonts-liberation nodejs >/dev/null   # chromium: the libraries Playwright's browser needs; tzdata: the suites run in the app's timezone; nodejs: js_q_e2e runs the browser scripts' own checks
           # the suites call the classic client names
           for pair in mysql:mariadb mysqldump:mariadb-dump mysqladmin:mariadb-admin; do
             command -v "${pair%%:*}" >/dev/null || ln -s "$(command -v "${pair#*:}")" "/usr/local/bin/${pair%%:*}"
           done
-          php -v | head -1; mariadb --version
+          php -v | head -1; mariadb --version; node --version
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

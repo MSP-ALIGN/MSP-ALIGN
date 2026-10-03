@@ -8,6 +8,7 @@ with a malformed /help#hash, and a copy button gets its label back; contracts.js
 Playwright (the app server): the real Quill drops pasted pictures in the document editor and the template builder,
 and a 419 on autosave says the session ended.
 """
+import shutil
 from lib import *
 import tempfile
 from playwright.sync_api import sync_playwright
@@ -359,6 +360,10 @@ async function contractsChecks() {
 with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
     f.write(HARNESS)
     hp = f.name
+if not shutil.which("node"):
+    os.unlink(hp)
+    ok(False, "Node.js is needed for the browser-script checks (apt install nodejs)")
+    done(); raise SystemExit(1)
 r = subprocess.run(["node", hp, ASSETS], capture_output=True, text=True, timeout=120)
 os.unlink(hp)
 lines = [x for x in r.stdout.splitlines() if x.startswith(("PASS ", "FAIL "))]
