@@ -16,7 +16,8 @@ namespace Align;
 final class Branding
 {
     public const DEFAULT_NAME = 'MSP-ALIGN';
-    public const DEFAULT_COLOR = '#007bff';
+    /** 2.2.2: the blue of the MSP Align logo (was #007bff); app.css has its CSS values built in. */
+    public const DEFAULT_COLOR = '#1b68b8';
     public const MAX_BYTES = 2 * 1024 * 1024;
     public const TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
 
@@ -55,17 +56,27 @@ final class Branding
         return is_file($path) ? $path : null;
     }
 
-    /** URL of the logo (cache-busted), or the built-in icon. */
+    /** URL of the logo (cache-busted), or the built-in MSP Align mark (2.2.2: a PNG, was icon.svg). */
     public static function logoUrl(): string
     {
         $f = Settings::get('brand_logo');
-        return self::logoFile() ? '/branding/logo?v=' . substr((string) $f, 5, 8) : '/assets/icon.svg';
+        return self::logoFile() ? '/branding/logo?v=' . substr((string) $f, 5, 8) : '/assets/icon.png?v=' . (defined('APP_VERSION') ? APP_VERSION : '1');
     }
 
     /** Whether an uploaded logo exists (the file, not just the setting). */
     public static function hasLogo(): bool
     {
         return self::logoFile() !== null;
+    }
+
+    /**
+     * Whether the sign-in pages show the built-in MSP Align logo with its name (2.2.2): only while nothing of the
+     * product's own branding was replaced, i.e. no uploaded logo and the default name. An MSP with its own name and
+     * no logo keeps the mark next to its name instead.
+     */
+    public static function builtInWordmark(): bool
+    {
+        return !self::hasLogo() && self::name() === self::DEFAULT_NAME;
     }
 
     /** Hide the portal name next to the logo (for logos that already contain the name). */
@@ -251,7 +262,7 @@ final class Branding
         return null;
     }
 
-    /** Deletes the uploaded logo (the built-in icon comes back). Admins only (caller). */
+    /** Deletes the uploaded logo (the built-in MSP Align mark comes back). Admins only (caller). */
     public static function removeLogo(): void
     {
         if ($f = self::logoFile()) {

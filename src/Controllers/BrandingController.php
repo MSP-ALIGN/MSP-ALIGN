@@ -126,7 +126,7 @@ final class BrandingController
     {
         $file = Branding::logoFile();
         if (!$file) {
-            header('Location: /assets/icon.svg', true, 302);
+            header('Location: /assets/icon.png', true, 302); // the built-in mark (2.2.2)
             return;
         }
         $mime = array_search(pathinfo($file, PATHINFO_EXTENSION), Branding::TYPES, true) ?: 'application/octet-stream';

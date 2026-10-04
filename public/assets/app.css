@@ -4,9 +4,10 @@
 
 /* ---- Tokens ---- */
 :root, [data-bs-theme=light] {
-  --align-brand: #007bff; --align-brand-rgb: 0,123,255; --align-brand-dark: #0069d9; --align-brand-text: #fff;
-  --align-link: #0062cc; --align-link-rgb: 0,98,204;
-  --align-brand-subtle: #e0efff; --align-brand-border: #99caff; --align-brand-emphasis: #003773;
+  /* 2.2.2: the MSP Align logo's blue (Branding::DEFAULT_COLOR; Branding::cssVars() gives these values for it) */
+  --align-brand: #1b68b8; --align-brand-rgb: 27,104,184; --align-brand-dark: #17589c; --align-brand-text: #fff;
+  --align-link: #165393; --align-link-rgb: 22,83,147;
+  --align-brand-subtle: #e4edf6; --align-brand-border: #a4c3e3; --align-brand-emphasis: #0c2f53;
   --align-page-bg: #f3f5f8;
   --align-card-border: #e3e7ed;
   --align-shadow: 0 1px 2px rgba(16,24,40,.05);
@@ -21,8 +22,8 @@
   --bs-emphasis-color: #111827;
 }
 [data-bs-theme=dark] {
-  --align-link: #59a9ff; --align-link-rgb: 89,169,255;
-  --align-brand-subtle: #0b2440; --align-brand-border: #00448c; --align-brand-emphasis: #73b6ff;
+  --align-link: #6b9dd1; --align-link-rgb: 107,157,209;
+  --align-brand-subtle: #071a2e; --align-brand-border: #0f3965; --align-brand-emphasis: #82acd8;
   --align-page-bg: #11151b;
   --align-card-border: #262d38;
   --align-shadow: 0 1px 2px rgba(0,0,0,.35);
@@ -339,6 +340,12 @@ a.rm-item:hover { text-decoration: none; background: var(--bs-tertiary-bg); colo
 .sidebar-collapse .brand-link.brand-logo-only .brand-image { max-width: 40px; }
 .brand-link .brand-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .login-logo-img { width: 40px; height: auto; }
+/* 2.2.2: the built-in MSP Align logo (mark and name) on the sign-in pages, light or dark to match the page */
+.login-logo img.login-wordmark { width: 260px; max-width: 100%; height: auto; }
+/* the built-in mark in the menu sits on a small white tile, so its navy stays visible on the dark menu */
+.app-sidebar .brand-image.is-builtin { background: #fff; border-radius: 8px; padding: 3px; width: 34px; height: 34px; max-height: 34px; object-fit: contain; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
+.login-wordmark.is-dark, [data-bs-theme=dark] .login-wordmark.is-light { display: none !important; }
+[data-bs-theme=dark] .login-wordmark.is-dark { display: block !important; }
 .login-logo-img.is-custom { width: auto; max-width: 260px; max-height: 90px; }
 .report-logo { max-height: 56px; max-width: 180px; object-fit: contain; }
 .swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #ced4da; cursor: pointer; padding: 0; }
@@ -856,7 +863,7 @@ body.login-page.has-login-bg .login-box > p.text-center { width: fit-content; ma
 .contract-doc .cd-head { display: flex; align-items: center; margin-bottom: 18px; }
 .contract-doc .cd-logo { max-height: 40px; max-width: 180px; }
 .contract-doc .cd-header-text { margin-left: auto; color: #5c6670; font-size: .82em; }
-.contract-doc .cd-title { color: var(--cd-accent, #007bff); font-size: 1.75em; font-weight: 700; margin: 0; font-family: inherit; }
+.contract-doc .cd-title { color: var(--cd-accent, #1b68b8); font-size: 1.75em; font-weight: 700; margin: 0; font-family: inherit; }
 .contract-doc .cd-meta { color: #5c6670; font-size: .85em; margin: 2px 0 14px; }
 .contract-doc h1, .contract-doc h2, .contract-doc h3, .contract-doc h4 { font-family: inherit; font-weight: 700; color: #1c2128; }
 .contract-doc .cd-text h1 { font-size: 1.5em; margin: 1em 0 .3em; }
@@ -868,11 +875,11 @@ body.login-page.has-login-bg .login-box > p.text-center { width: fit-content; ma
 .contract-doc .cd-text li[data-list="ordered"] { list-style-type: decimal; }
 .contract-doc .cd-text .ql-align-center { text-align: center; } .contract-doc .cd-text .ql-align-right { text-align: right; } .contract-doc .cd-text .ql-align-justify { text-align: justify; }
 .contract-doc .cd-text .ql-indent-1 { margin-left: 2.4em; } .contract-doc .cd-text .ql-indent-2 { margin-left: 4.8em; } .contract-doc .cd-text .ql-indent-3 { margin-left: 7.2em; }
-.contract-doc a { color: var(--cd-accent, #007bff); }
+.contract-doc a { color: var(--cd-accent, #1b68b8); }
 .contract-doc .cd-services, .contract-doc .cd-fields { margin: 1em 0 1.1em; }
 .contract-doc .cd-services h3, .contract-doc .cd-fields h3 { font-size: 1.15em; margin: 0 0 .4em; }
 .contract-doc .cd-services table { width: 100%; border-collapse: collapse; }
-.contract-doc .cd-services th { background: color-mix(in srgb, var(--cd-accent, #007bff) 12%, #fff); font-size: .9em; text-align: left; padding: 6px 8px; }
+.contract-doc .cd-services th { background: color-mix(in srgb, var(--cd-accent, #1b68b8) 12%, #fff); font-size: .9em; text-align: left; padding: 6px 8px; }
 .contract-doc .cd-services td { padding: 6px 8px; border-bottom: 1px solid #e3e6ea; vertical-align: top; }
 .contract-doc .cd-services .num { text-align: right; white-space: nowrap; }
 .contract-doc .cd-services tfoot td { border: 0; font-weight: 700; text-align: right; padding: 4px 8px; }

@@ -168,7 +168,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
   <aside class="app-sidebar shadow<?= \Align\Branding::sidebar() === 'light' ? ' sidebar-light' : '' ?>" data-bs-theme="<?= \Align\Branding::sidebar() === 'light' ? 'light' : 'dark' ?>">
     <div class="sidebar-brand">
       <a href="/" class="brand-link<?= \Align\Branding::logoOnly() ? ' brand-logo-only' : '' ?>" title="<?= e(\Align\Branding::name()) ?>">
-        <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="brand-image">
+        <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="brand-image<?= \Align\Branding::hasLogo() ? '' : ' is-builtin' ?>"><?php // built-in mark: on a white tile (2.2.2) ?>
         <?php if (!\Align\Branding::logoOnly()): ?><span class="brand-text fw-semibold"><?= e(\Align\Branding::name()) ?></span><?php endif; ?>
       </a>
     </div>

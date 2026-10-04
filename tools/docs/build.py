@@ -329,14 +329,18 @@ def main():
             f.write(page(slug, title, body, summary))
 
     # Home: the README's first paragraph, the install command and a card per page
-    intro = next((p for p in sec[""].split("\n\n") if p.strip() and not p.startswith("#") and not p.startswith(">")), None)
+    # (HTML blocks, like the logo at the top of the README, aren't the intro)
+    intro = next((p for p in sec[""].split("\n\n") if p.strip() and not p.startswith(("#", ">", "<"))), None)
     install = re.search(r"```bash\n(curl [^\n]+install\.sh[^\n]*)\n```", sec["Install (fresh Debian 13 VM)"])
     if not intro or not install:
         sys.exit("docs: README.md needs an intro paragraph and a ```bash curl ... install.sh``` block under Install")
     install = install.group(1)
     cards = "".join(
         f'<a class="card" href="{s}.html"><b>{html.escape(t)}</b><span>{html.escape(d)}</span></a>' for s, t, _, d in PAGES)
-    body = (f'<div class="hero"><h1>MSP-ALIGN</h1><p class="lead">{render(rewrite_links(intro, "."))[3:-4]}</p>'
+    # 2.2.2: the logo with its tagline as the page's heading (light lettering in dark mode; the alt text is the name)
+    hero_logo = ('<h1 class="hero-logo"><img class="on-light" src="brand/logo-tagline.png" alt="MSP-ALIGN" width="1036" height="365">'
+                 '<img class="on-dark" src="brand/logo-tagline-dark.png" alt="MSP-ALIGN" width="1036" height="365"></h1>')
+    body = (f'<div class="hero">{hero_logo}<p class="lead">{render(rewrite_links(intro, "."))[3:-4]}</p>'
             f'<p class="free">Free and open source (AGPL-3.0). Self-hosted: your client data stays on your server.</p></div>'
             f'<p><a href="screenshots.html"><img class="shot" src="screenshots/dashboard.png" alt="The MSP-ALIGN dashboard" width="1400" height="900"></a></p>'
             f'<p><a href="screenshots.html">More screenshots →</a></p>'
@@ -354,7 +358,10 @@ def main():
     with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
         f.write(page("index", "MSP-ALIGN", body, "Self-hosted, open-source vCIO toolkit for managed service providers."))
 
-    shutil.copy(os.path.join(ROOT, "public/assets/icon.svg"), os.path.join(OUT, "icon.svg"))
+    # 2.2.2 brand: the app's own icon and logos, plus docs/brand (the logo with its tagline, the link-preview image)
+    for f in ("icon.png", "apple-touch-icon.png", "logo.png", "logo-dark.png"):
+        shutil.copy(os.path.join(ROOT, "public/assets", f), os.path.join(OUT, f))
+    shutil.copytree(os.path.join(ROOT, "docs/brand"), os.path.join(OUT, "brand"))
     if os.path.isdir(os.path.join(ROOT, SHOTS)):
         shutil.copytree(os.path.join(ROOT, SHOTS), os.path.join(OUT, "screenshots"))
     with open(os.path.join(OUT, "404.html"), "w", encoding="utf-8") as f:

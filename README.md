@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-tagline-dark.png">
+    <img src="docs/brand/logo-tagline.png" alt="MSP-ALIGN" width="460">
+  </picture>
+</p>
+
 # MSP-ALIGN
 
 Self-hosted, open-source vCIO toolkit for managed service providers. It brings in clients and assets from **ITFlow** (or works without a PSA: clients come from your RMM, a CSV import or are added by hand), devices from **NinjaOne** and backups from **Veeam Service Provider Console**, looks up Dell and Lenovo warranties, and shows each client's lifecycle position: what's out of warranty, what's past its replacement date, which operating systems are losing support, and what replacements will cost quarter by quarter. On top of that: roadmaps and budgets, licensing and renewals, compliance frameworks, QBR reports, a client portal, email through Microsoft 365, Google Workspace or SMTP, and a [REST API](docs/API.md). Free under the AGPL; your client data stays on your server.
@@ -18,6 +25,7 @@ More in [Screenshots](docs/SCREENSHOTS.md): clients, the roadmap, the budget, co
   - **Making projects:** **Make projects** and **Add project** no longer make a ticket unless you tick **Make the QUOTE- ticket now**. Projects added by hand work exactly like device projects. Projects that already have a ticket keep it.
   - **After updating:** approved or scheduled projects from this quarter or earlier that have no ticket show on To do right away, older hand-added ones too (and, new, the ones of clients not linked to the PSA, or every client's without a PSA). Mark the finished ones **Done** and they leave the list.
   - **Also:** purple and teal category labels (Software / licensing, Cloud / M365, some meeting, license and document kinds) had white text on no background and are readable again.
+- **New logo (2.2.2):** MSP-ALIGN has a new logo, in the app and on [mspalign.org](https://mspalign.org). The menu, the browser tab and the sign-in pages show it (the sign-in pages in light or dark lettering to match), and the default brand color is now the logo's blue. The built-in client portal sign-in background has teal hills to match. Your own logo, name and color from **Settings → Branding** still take its place; the color choices there now include the logo's teal and navy, and the old bright blue.
 - **More device filters (2.2.2):** **Devices & assets** (every client's list and each client's) has a **Filters** button. Its panel narrows the list by make and model, operating system, age, replacement year, warranty, status, backup, location, whether the device is in a project, and whether it has a last user. Each choice shows how many devices it has.
   - Filters work together with the view tabs, **Type**, the client picker and the search. Active filters show as chips above the list; press one to remove it, or **Clear all**.
   - The filters are part of the page address, so a filtered list can be bookmarked or sent to a colleague. **CSV** downloads just the filtered devices, and **Set replacement** comes back to the same filtered list.
