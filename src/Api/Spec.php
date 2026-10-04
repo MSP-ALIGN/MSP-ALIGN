@@ -47,6 +47,7 @@ final class Spec
             'cost' => ['number', 'One-time.'], 'recurring_monthly' => ['number', ''], 'priority' => ['string', 'critical, high, medium, low.'],
             'status' => ['string', 'proposed, approved, scheduled, done, declined.'], 'device_ids' => ['integer[]', 'Devices this project replaces (made from Devices → Make projects); they leave the automatic replacement plan while the project isn\'t declined.'],
             'psa_ticket_id' => ['id', 'The project\'s QUOTE- ticket in the PSA, once someone pressed Ready to start (or asked for it when the project was made); null until then.'],
+            'started_at' => ['date-time', 'When Ready to start was first pressed: the ticket was made, or (with no ticket possible, e.g. no PSA) the project was marked started; a ticket made later keeps this date. Null until then; projects whose ticket was made before 2.2.2 have none.'],
             'decision' => ['object', 'Who approved or declined it (e.g. in the client portal): by, at, comment, via_portal.'],
             'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''], 'url' => ['string', '']]],
         'BudgetSummary' => ['A client\'s three-year technology budget.', [

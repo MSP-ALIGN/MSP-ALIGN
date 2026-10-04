@@ -30,8 +30,8 @@ final class ProjectController
         'all' => 'All',
     ];
 
-    /** The Ticket filter (2.2.2): ?ticket= value => label. */
-    public const TICKET_VIEWS = ['ready' => 'Ready to start', 'waiting' => 'Not yet', 'has' => 'Has a ticket'];
+    /** The Ready to start filter (2.2.2): ?ticket= value => label ("Started" covers a ticket made or marked started). */
+    public const TICKET_VIEWS = ['ready' => 'Ready to start', 'waiting' => 'Not yet', 'has' => 'Started'];
 
     /**
      * The Projects page: totals per plan year and per quarter (declined projects left out of the money), overdue
@@ -67,9 +67,8 @@ final class ProjectController
             WHERE ' . implode(' AND ', $where) . ' ORDER BY r.target_quarter IS NULL, r.target_quarter, c.name, r.title', $params);
         $search = \Align\Paging::q();
         $items = \Align\Paging::search($items, $search, ['title', 'description', 'client_name', 'category']);
-        // 2.2.2: where each project stands with its QUOTE- ticket, and the Ticket filter
-        $ticketsOn = ProjectTickets::enabled();
-        $ticket = $ticketsOn && isset(self::TICKET_VIEWS[query('ticket')]) ? query('ticket') : '';
+        // 2.2.2: where each project stands with Ready to start (its QUOTE- ticket, or marked started), and its filter
+        $ticket = isset(self::TICKET_VIEWS[query('ticket')]) ? query('ticket') : '';
         foreach ($items as &$it) {
             $it['ticket_state'] = ProjectTickets::state($it, (string) $it['client_psa_id']);
         }
@@ -77,7 +76,7 @@ final class ProjectController
         // Each filter covers the states it means: Not yet is everything startable but not due yet (a later quarter,
         // snoozed, not approved, no quarter)
         if ($ticket !== '') {
-            $keys = ['ready' => ['due'], 'waiting' => ['later', 'snoozed', 'proposed', 'unscheduled'], 'has' => ['ticket']][$ticket];
+            $keys = ['ready' => ['due'], 'waiting' => ['later', 'snoozed', 'proposed', 'unscheduled'], 'has' => ['ticket', 'started']][$ticket];
             $items = array_values(array_filter($items, fn($it) => in_array($it['ticket_state']['key'], $keys, true)));
         }
 
@@ -137,7 +136,7 @@ final class ProjectController
             'clientId' => $clientId,
             'category' => $category,
             'year' => $year,
-            'ticketsOn' => $ticketsOn,
+            'ticketsOn' => ProjectTickets::ticketsPossible(), // the column says Ticket, or Started where no tickets can be made
             'ticket' => $ticket,
             'clients' => array_column(DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'), 'name', 'id'),
         ]);

@@ -92,7 +92,7 @@ $hasSync = psa_on() || $sync['history'];
           <?= $row('End of life', e(fmt_date($d['eol_date']))) ?>
           <?php if (!empty($d['project'])): $pj = $d['project']; $pt = $pj['psa_ticket_id'] ? \Align\Providers\Providers::psaLink('ticket', (string) $pj['psa_ticket_id']) : null; ?>
           <?= $row('Project', '<a href="/clients/' . (int) $pj['client_id'] . '/roadmap#modal-roadmap-' . (int) $pj['id'] . '" class="fw-bold">' . e($pj['title']) . '</a> <span class="badge text-bg-' . e(\Align\Roadmap\Roadmap::STATUSES[$pj['status']][1]) . '">' . e(\Align\Roadmap\Roadmap::STATUSES[$pj['status']][0]) . '</span> <span class="small text-muted">' . e($pj['quarter_label'] ?? 'unscheduled') . '</span>'
-              . ($pj['psa_ticket_id'] ? ' <span class="small ms-1">' . ($pt ? '<a href="' . e($pt) . '" target="_blank" rel="noopener">' . e(psa_name()) . ' ticket #' . e($pj['psa_ticket_id']) . '</a>' : e(psa_name()) . ' ticket #' . e($pj['psa_ticket_id'])) . '</span>' : '')) ?>
+              . ($pj['psa_ticket_id'] ? ' <span class="small ms-1">' . ($pt ? '<a href="' . e($pt) . '" target="_blank" rel="noopener">' . e(\Align\Roadmap\ProjectTickets::ticketLabel((string) $pj['psa_ticket_id'])) . '</a>' : e(\Align\Roadmap\ProjectTickets::ticketLabel((string) $pj['psa_ticket_id']))) . '</span>' : '')) ?>
           <?php elseif ($d['is_hardware'] && $d['status'] !== 'excluded'): ?>
           <?= $row('Replace in', ($d['replace_planned']
               ? '<span class="badge text-bg-' . ($d['replace_deferred'] ? 'warning' : 'info') . '">' . e($d['replace_label']) . '</span> <span class="small text-muted">' . ($d['replace_deferred'] ? 'put off from end of life' : 'set by hand') . ($d['replace_note'] ? ': ' . e($d['replace_note']) : '') . '</span>'

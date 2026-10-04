@@ -74,7 +74,8 @@ final class DeviceProjects
         $status = in_array($o['status'] ?? '', ['proposed', 'approved', 'scheduled'], true) ? $o['status'] : 'approved';
         $quarter = !empty($o['quarter']) && isset(Plan::choices(5)[$o['quarter']]) ? $o['quarter'] : null;
         $single = count($groups) === 1;
-        $wantTicket = !empty($o['ticket']) && !empty($client['psa_id']) && ProjectTickets::enabled();
+        // Only where a ticket can be made (pretend on a test server); otherwise Ready to start handles it later
+        $wantTicket = !empty($o['ticket']) && ProjectTickets::makesTicket((string) ($client['psa_id'] ?? ''));
 
         $out = [];
         foreach ($groups as $g) {
@@ -126,7 +127,7 @@ final class DeviceProjects
             $error = null;
             if ($wantTicket) {
                 // "Make the QUOTE- ticket now" (2.2.2: off by default; otherwise Ready to start makes it later)
-                $t = ProjectTickets::start($id, $userId, $g);
+                $t = ProjectTickets::start($id, $userId, $g, true); // a ticket only, never "marked started"
                 [$ticket, $error] = [$t['ticket'], $t['reason']];
             }
             $out[] = ['id' => $id, 'title' => $title, 'ticket' => $ticket, 'ticket_error' => $error];

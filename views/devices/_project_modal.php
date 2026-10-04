@@ -6,12 +6,11 @@
  * @var array $client; ?array $device (one device) ; string $back (where to return)
  * Techs and admins. The confirm texts go into data-confirm-rules as escaped JSON (never an inline script).
  */
-use Align\Providers\Providers;
 use Align\Roadmap\Plan;
 
 $cid = (int) $client['id'];
 $device = $device ?? null;
-$ticketOn = !empty($client['psa_id']) && Providers::psaSupports('tickets.create');
+$ticketOn = \Align\Roadmap\ProjectTickets::makesTicket((string) ($client['psa_id'] ?? '')); // real tickets, or pretend ones on a test server
 $bulkSel = '[name="ids[]"][form="bulk-replace"]';
 $plan = 'leave the automatic replacement plan: the project\'s quarter and cost count on the roadmap and in the budget instead.';
 $rules = $device
@@ -74,8 +73,8 @@ $rules = $device
               <label class="form-check-label fw-bold" for="mp-ticket">Make the QUOTE- ticket now</label>
               <div class="small text-muted">Leave it off to keep the ticket board clear: once the project is approved and its quarter is here, it goes on To do and <b>Ready to start</b> makes the ticket then. Tick it when you need the quote right away (one ticket per project, with the devices and budget, and no client contact).</div>
             </div>
-          <?php elseif (Providers::psaSupports('tickets.create')): ?>
-            <div class="small text-muted"><?= e($client['name']) ?> isn't linked to <?= e(psa_name()) ?>, so no quote ticket is created.</div>
+          <?php elseif (\Align\Roadmap\ProjectTickets::ticketsPossible()): ?>
+            <div class="small text-muted"><?= e($client['name']) ?> isn't linked to <?= e(psa_name()) ?>, so no quote ticket is created: Ready to start marks its projects started instead.</div>
           <?php endif; ?>
         </div>
         <div class="modal-footer">

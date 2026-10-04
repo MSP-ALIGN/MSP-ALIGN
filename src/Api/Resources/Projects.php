@@ -173,6 +173,8 @@ final class Projects
             'status' => $r['status'],
             'device_ids' => array_map(fn($x) => (int) $x['id'], \Align\Roadmap\DeviceProjects::devicesFor((int) $r['id'])),
             'psa_ticket_id' => isset($r['psa_ticket_id']) && $r['psa_ticket_id'] !== null ? (string) $r['psa_ticket_id'] : null,
+            // 2.2.2: when Ready to start was pressed (the ticket made, or marked started without one)
+            'started_at' => !empty($r['started_at']) ? Out::ts($r['started_at']) : null,
             'decision' => $r['decided_at'] ? ['by' => $r['decided_by_name'], 'at' => Out::ts($r['decided_at']), 'comment' => $r['decision_comment'], 'via_portal' => (bool) $r['decided_by_portal_user_id']] : null,
             'created_at' => Out::ts($r['created_at']),
             'updated_at' => Out::ts($r['updated_at'] ?? $r['created_at']),

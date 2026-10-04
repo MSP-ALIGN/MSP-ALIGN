@@ -136,7 +136,7 @@ final class DeviceController
     /**
      * 2.1: the ticked devices (or one device) become projects on the roadmap, with a QUOTE- ticket in the PSA.
      * Techs and admins. DeviceProjects::create keeps only this client's devices and makes the ticket only when the
-     * PSA can (never on a test server). The return path must be this client's device list or a device page.
+     * PSA can and the box is ticked (a pretend one on a test server, see ProjectTickets). The return path must be this client's device list or a device page.
      */
     public static function makeProjects(int $id): void
     {
@@ -168,7 +168,9 @@ final class DeviceController
         $tickets = array_filter(array_column($made, 'ticket'));
         $failed = array_filter($made, fn($p) => $p['ticket_error'] !== null);
         $msg = ($n === 1 ? 'Made the project "' . $made[0]['title'] . '"' : "Made $n projects") . ' on the roadmap.'
-            . ($tickets ? ' ' . psa_name() . ' quote ticket' . (count($tickets) === 1 ? ' ' : 's ') . implode(', ', array_map(fn($t) => "#$t", $tickets)) . ' created.' : '')
+            // "ITFlow quote tickets #123, #124 created", or "Pretend quote ticket TEST-12 created" on a test server
+            . ($tickets ? ' ' . (\Align\Roadmap\ProjectTickets::testTickets() ? 'Pretend quote ticket' : psa_name() . ' quote ticket') . (count($tickets) === 1 ? ' ' : 's ')
+                . implode(', ', array_map(fn($t) => \Align\Roadmap\ProjectTickets::isPretend((string) $t) ? (string) $t : "#$t", $tickets)) . ' created.' : '')
             . ($r['skipped'] ? ' Skipped: ' . implode('; ', $r['skipped']) . '.' : '');
         flash($failed ? 'warning' : 'success', $msg . ($failed ? ' The ' . psa_name() . ' ticket wasn\'t created for ' . count($failed) . ' (' . reset($failed)['ticket_error'] . ').' : ''));
         redirect($n === 1 ? "/clients/$id/roadmap#modal-roadmap-" . $made[0]['id'] : "/clients/$id/roadmap");

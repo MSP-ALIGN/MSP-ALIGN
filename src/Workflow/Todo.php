@@ -49,7 +49,9 @@ final class Todo
                 'overdue' => $r['target_quarter'] < $cur,
                 'error' => $r['ticket_error'] !== null ? 'Last try ' . fmt_date((string) $r['ticket_error_at'], 'short') . ': ' . $r['ticket_error'] : null,
                 'link' => '/clients/' . (int) $r['client_id'] . '/roadmap#modal-roadmap-' . (int) $r['id'], 'action' => 'Ready to start', 'count' => 1,
-                'project' => ['id' => (int) $r['id'], 'client_id' => (int) $r['client_id'], 'title' => $r['title'], 'client' => $r['client_name']]];
+                // ticket: Ready to start makes its ticket; false: it marks the project started (no PSA, or an unlinked client)
+                'project' => ['id' => (int) $r['id'], 'client_id' => (int) $r['client_id'], 'title' => $r['title'], 'client' => $r['client_name'],
+                    'ticket' => \Align\Roadmap\ProjectTickets::makesTicket((string) $r['client_psa_id'])]];
         }
         if ($n = Lifecycle::unassignedCount()) {
             $out[] = ['key' => 'unassigned', 'category' => 'hardware', 'icon' => 'fa-circle-question', 'tone' => 'warning',

@@ -3,6 +3,7 @@
  * The To do list (techs and admins). @var array $items; int $all; array $by (count per category); string $show
  * Projects ready to start (2.2.2) have Not yet (1 month, or 2, 3 or 6 from its menu) and Ready to start, which opens
  * the confirm window (loaded when opened); with two or more, Ready to start: all opens one window for all of them.
+ * Ready to start makes the project's ticket in the PSA, or marks it started where no ticket can be made.
  * Every value is escaped; the forms post to fixed paths (CSRF-checked by the router).
  */
 use Align\Roadmap\ProjectTickets;
@@ -22,6 +23,7 @@ $back = $show !== '' ? '/todo?show=' . $show : '/todo';
 // Projects ready to start get their own group first (with Not yet and Ready to start); every other item links to its fix
 $projects = array_values(array_filter($items, fn($i) => isset($i['project'])));
 $others = array_values(array_filter($items, fn($i) => !isset($i['project'])));
+$withTicket = count(array_filter($projects, fn($i) => $i['project']['ticket'])); // how many get a ticket (the rest are marked started)
 ?>
 <div class="card">
   <?= \Align\View::fetch('partials/toolbar', ['tabs' => $tabs]) ?>
@@ -29,7 +31,8 @@ $others = array_values(array_filter($items, fn($i) => !isset($i['project'])));
     <?php if ($projects): ?>
       <li class="list-group-item d-flex flex-wrap align-items-center gap-2 bg-body-tertiary" data-todo-head="projects">
         <div class="me-auto"><b>Ready to start</b>
-          <div class="small text-muted">Approved and scheduled projects whose quarter is here (or has passed) and that have no ticket yet. Later quarters stay off this list, and no ticket is made until you press Ready to start.</div></div>
+          <div class="small text-muted">Approved and scheduled projects whose quarter is here (or has passed) and that haven't been started. Later quarters stay off this list.
+            <?= $withTicket ? 'No ticket is made until you press Ready to start.' : 'Ready to start marks a project started and takes it off the list.' ?></div></div>
         <?php if (count($projects) > 1): ?><button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#modal-start-all">Ready to start: all <?= count($projects) ?></button><?php endif; ?>
       </li>
       <?php foreach ($projects as $i): $p = $i['project']; ?>
@@ -76,22 +79,28 @@ $others = array_values(array_filter($items, fn($i) => !isset($i['project'])));
       <form method="post" action="/projects/start-all">
         <?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>">
         <div class="modal-header bg-dark">
-          <h5 class="modal-title" id="modal-start-all-title"><i class="fas fa-fw fa-play me-2"></i>Make <?= count($projects) ?> tickets in <?= e(psa_name()) ?>?</h5>
+          <h5 class="modal-title" id="modal-start-all-title"><i class="fas fa-fw fa-play me-2"></i><?= $withTicket === count($projects) ? 'Make ' . count($projects) . ' tickets in ' . e(psa_name()) : 'Start ' . count($projects) . ' projects' ?>?</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p>Each project gets its own <b>QUOTE-</b> ticket, with its devices (or description), quarter and budget, and no client contact. Untick any that should wait.</p>
+          <?php if ($withTicket): ?>
+            <p><?= $withTicket < count($projects) ? 'Each project labeled <b>ticket</b>' : 'Each project' ?> gets its own <b>QUOTE-</b> ticket, with its devices (or description), quarter and budget, and no client contact.<?= $withTicket < count($projects) ? ' Those labeled <b>no ticket</b> are marked started instead.' : '' ?> Untick any that should wait.</p>
+          <?php else: ?>
+            <p>Each project is marked started, with the date and your name, and leaves To do. Untick any that should wait.</p>
+          <?php endif; ?>
           <?php foreach ($projects as $i): $p = $i['project']; ?>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="ids[]" value="<?= (int) $p['id'] ?>" id="sa-<?= (int) $p['id'] ?>" checked>
-              <label class="form-check-label" for="sa-<?= (int) $p['id'] ?>"><b><?= e($p['title']) ?></b> <span class="text-muted">· <?= e($p['client']) ?> · <?= e($i['detail']) ?></span></label>
+              <input type="hidden" name="mode[<?= (int) $p['id'] ?>]" value="<?= $p['ticket'] ? 'ticket' : 'mark' ?>"><?php // as listed; checked again when posted ?>
+              <label class="form-check-label" for="sa-<?= (int) $p['id'] ?>"><b><?= e($p['title']) ?></b> <span class="text-muted">· <?= e($p['client']) ?> · <?= e($i['detail']) ?></span>
+                <?php if ($withTicket && $withTicket < count($projects)): // mixed list: say which way each one goes ?><span class="badge text-bg-light border ms-1"><?= $p['ticket'] ? 'ticket' : 'no ticket' ?></span><?php endif; ?></label>
             </div>
           <?php endforeach; ?>
-          <p class="small text-muted mt-3 mb-0">One that <?= e(psa_name()) ?> refuses stays on To do with the reason.</p>
+          <?php if ($withTicket): ?><p class="small text-muted mt-3 mb-0">One that <?= e(psa_name()) ?> refuses stays on To do with the reason.</p><?php endif; ?>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary" data-default-submit><i class="fas fa-ticket me-1"></i>Create the tickets</button>
+          <button class="btn btn-primary" data-default-submit><?= $withTicket === count($projects) ? '<i class="fas fa-ticket me-1"></i>Create the tickets' : '<i class="fas fa-play me-1"></i>Start them' ?></button>
         </div>
       </form>
     </div>

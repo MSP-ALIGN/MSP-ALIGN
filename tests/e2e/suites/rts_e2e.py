@@ -163,9 +163,64 @@ q("insert into clients (name, source) values ('RTS Manual Example', 'manual')")
 mc = q("select id from clients where name = 'RTS Manual Example'")[0]["id"]
 add("RTS unlinked", quarter=cur, cid=mc)
 pu = proj("RTS unlinked")
-ok(pu and f'data-todo="project-{pu["id"]}"' not in st.get(B + "/todo").text, "a client not linked to the PSA has nothing on To do")
+td = st.get(B + "/todo").text
+ok(pu and f'data-todo="project-{pu["id"]}"' in td, "a client not linked to the PSA still has its project on To do")
+ok('id="modal-start-all"' in td and ">no ticket<" in td and ">ticket<" in td and "Start " in text(td), "Ready to start: all says which ones get a ticket and which are only marked started")
+fw = st.get(B + f"/projects/{pu['id']}/start").text
+ok("Mark as started" in fw and "isn't linked to ITFlow, so no ticket is made" in text(fw) and "Create the ticket" not in fw, "its confirm window marks it started, and says why there's no ticket")
+n4 = len(created())
+started_log = lambda: q("select count(*) n from audit_log where action = 'roadmap.project_started' and detail like %s", "%RTS unlinked%")[0]["n"]
+a0 = started_log()
 r = st.post(B + f"/projects/{pu['id']}/start", data={"_csrf": tok()})
-ok(proj("RTS unlinked")["psa_ticket_id"] is None and "isn't linked" in flash(r.text), "and Ready to start says why it can't")
+pu = proj("RTS unlinked")
+ok(pu["psa_ticket_id"] is None and pu["started_at"] is not None and pu["started_by"] == admin_id and pu["ticket_at"] is None and len(created()) == n4 and "Started" in flash(r.text),
+   "Ready to start marks it started (when and who), no ticket: " + flash(r.text))
+ok(f'data-todo="project-{pu["id"]}"' not in st.get(B + "/todo").text, "and it leaves To do")
+r = st.post(B + f"/projects/{pu['id']}/start", data={"_csrf": tok()})
+ok("already marked started" in flash(r.text), "a second press says it was already started")
+ok(started_log() == a0 + 1, "marked once, audited once")
+fr = st.get(B + f"/projects/{pu['id']}/form").text
+ok('data-ticket-state="started"' in fr and "Started " in text(fr) and "Make the ticket" not in fr, "the project window says when and who; no ticket button while the client isn't linked")
+# Not started undoes it: back on To do
+r = st.post(B + f"/projects/{pu['id']}/unstart", data={"_csrf": tok(), "back": "/todo"})
+ok(proj("RTS unlinked")["started_at"] is None and f'data-todo="project-{pu["id"]}"' in r.text and "not started" in flash(r.text), "Not started undoes it, and it's back on To do")
+ok("wasn't marked started" in flash(st.post(B + f"/projects/{pu['id']}/unstart", data={"_csrf": tok()}).text), "Not started on a project that isn't started does nothing")
+# the window said "mark started", then the client was linked: nothing happens, it says to reload
+q("update clients set psa_id = %s where id = %s", "9" + str(mc), mc)  # a PSA id of its own (unique); the mock takes any
+r = st.post(B + f"/projects/{pu['id']}/start", data={"_csrf": tok(), "mode": "mark"})
+ok(proj("RTS unlinked")["started_at"] is None and len(created()) == n4 and "Something changed" in flash(r.text), "a window that said Mark as started does nothing once a ticket would be made: " + flash(r.text))
+q("update clients set psa_id = NULL where id = %s", mc)
+r = st.post(B + f"/projects/{pu['id']}/start", data={"_csrf": tok(), "mode": "ticket"})
+ok(proj("RTS unlinked")["started_at"] is None and "Something changed" in flash(r.text), "and one that said Create the ticket doesn't mark it started once the client is unlinked")
+r = st.post(B + f"/projects/{pu['id']}/start", data={"_csrf": tok(), "mode": "mark"})
+first = proj("RTS unlinked")
+# linked later: the ticket can follow, and the start keeps its date and name
+q("update clients set psa_id = %s where id = %s", "9" + str(mc), mc)
+q("update roadmap_items set ticket_claimed_at = now() where id = %s", pu["id"])
+fr = st.get(B + f"/projects/{pu['id']}/form").text
+ok('data-ticket-state="working"' in fr and "Make the ticket" not in fr, "while a ticket is being made, the project window offers no second try")
+q("update roadmap_items set ticket_claimed_at = null, ticket_error = 'It may have been made: timeout', ticket_error_at = now() where id = %s", pu["id"])
+fr = st.get(B + f"/projects/{pu['id']}/form").text
+ok("Make the ticket" in fr and "No ticket was made then" in text(fr) and "It may have been made" in text(fr), "once it's linked, the project window offers Make the ticket, with the last try's problem")
+q("update roadmap_items set started_at = '2026-01-10 09:00:00' where id = %s", pu["id"])
+other = q("select id from users where email = 'tech@example.com'")[0]["id"]
+q("update roadmap_items set started_by = %s where id = %s", other, pu["id"])
+r = st.post(B + f"/projects/{pu['id']}/start", data={"_csrf": tok(), "mode": "ticket"})
+pu = proj("RTS unlinked")
+ok(pu["psa_ticket_id"] and len(created()) == n4 + 1 and str(pu["started_at"]) == "2026-01-10 09:00:00" and pu["started_by"] == other and pu["ticket_by"] == admin_id,
+   "and makes it, keeping who started it and when: " + flash(r.text))
+q("update clients set psa_id = NULL where id = %s", mc)
+# a done project that was marked started still shows it
+q("insert into roadmap_items (client_id, title, category, priority, status, target_quarter, cost, started_at, started_by) values (%s, 'RTS done started', 'security', 'high', 'done', %s, 100, now(), %s)", mc, cur, admin_id)
+pds = proj("RTS done started")
+fr = st.get(B + f"/projects/{pds['id']}/form").text
+ok('data-ticket-state="started"' in fr and "Make the ticket" not in fr, "a done project marked started still shows when it was started")
+# a pretend ticket copied off a test server counts as no ticket here
+q("insert into roadmap_items (client_id, title, category, priority, status, target_quarter, cost, psa_ticket_id) values (1, 'RTS pretend copy', 'security', 'high', 'approved', %s, 100, 'TEST-999')", cur)
+ppc = proj("RTS pretend copy")
+ok(f'data-todo="project-{ppc["id"]}"' in st.get(B + "/todo").text, "a pretend TEST- ticket from a test server counts as none off it: the project is on To do")
+r = st.post(B + f"/projects/{ppc['id']}/start", data={"_csrf": tok(), "mode": "ticket"})
+ok(proj("RTS pretend copy")["psa_ticket_id"] not in (None, "TEST-999"), "and gets a real ticket: " + flash(r.text))
 
 # ---- the project window and the Projects page
 fr = st.get(B + f"/projects/{ids['RTS later']}/form").text
@@ -188,7 +243,7 @@ ok('data-ticket-state="ticket"' in pg and 'data-ticket-state="later"' in pg and 
 rd = st.get(B + "/projects?client=1&ticket=ready").text
 ok(f'data-lazy-modal="/projects/{ids["RTS overdue"]}/start' in rd and "RTS later" not in rd and "RTS now" not in rd, "the Ticket filter shows only projects ready to start")
 hs = st.get(B + "/projects?client=1&ticket=has&status=all").text
-ok("RTS now" in hs and "RTS later" not in hs, "and only projects with a ticket")
+ok("RTS now" in hs and "RTS later" not in hs, "and Started shows only projects with a ticket (or marked started)")
 
 # ---- device projects work the same way
 devs = json.loads(php('echo json_encode(array_values(array_map(fn($d) => ["id" => (int) $d["id"], "name" => $d["name"]], array_filter((new Align\\Lifecycle\\Lifecycle())->devices(1), fn($d) => $d["is_hardware"] && $d["status"] !== "excluded" && !$d["project"]))));').stdout)

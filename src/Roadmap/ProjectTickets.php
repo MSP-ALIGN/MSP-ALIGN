@@ -15,13 +15,30 @@ use Align\Providers\Providers;
  * goes on To do on the first day of its quarter (and stays there while overdue); "Not yet" hides it for 1, 2, 3 or 6
  * months. Proposed and unscheduled projects never go on To do, but Ready to start still works on them.
  *
+ * On a test server (config 'staging') whose PSA could create tickets, everything works as it would for real, but
+ * the ticket is pretend: "TEST-<project id>" is saved and nothing is sent to the PSA (testTickets()). Off a test
+ * server (a copy promoted, staging turned off), a pretend number counts as no ticket, so the project isn't stuck.
+ *
+ * Without a ticket (no PSA connected, a PSA that can't create tickets, or a client that isn't linked to the PSA),
+ * it works the same way, but Ready to start marks the project started instead: it leaves To do, and when and who
+ * are saved. A project started that way can still get its ticket later, once one can be made (the project window
+ * and the Projects page offer it; To do doesn't), and "Not started" undoes the mark.
+ *
+ * started_at / started_by: when and by whom Ready to start was first pressed (ticket made or only marked started;
+ * migration 053). ticket_at / ticket_by: when and by whom the ticket was made. A ticket made later keeps the start.
+ *
+ * Ready to start acts the way the person confirmed: callers pass what the window said (a ticket, or only marking
+ * started), and start() refuses when that has changed meanwhile (the client was linked or unlinked, the PSA settings
+ * changed), rather than marking started what was meant to get a ticket, or the other way round.
+ *
  * Security assumptions: callers check the tech role and CSRF (the router). A project is always read with its own
  * client (the ticket goes to that client's PSA id, never one from the request). start() claims the project with a
  * conditional UPDATE before talking to the PSA, so two clicks or two people at once make one ticket; a claim older
  * than CLAIM_MINUTES belongs to a request that died and may be taken again. The ticket body is HTML built from
  * escaped values only (titles, descriptions, device names, serials and users can come from people or the RMM), and
  * links back with the configured base_url, never the Host header. Error text shown or audited goes through
- * safe_error(). Ticket creation follows Providers::psaSupports('tickets.create'), which a test server refuses.
+ * safe_error(). Ticket creation follows Providers::psaSupports('tickets.create'), which a test server refuses (it gets pretend tickets instead, see testTickets()).
+ * Marking started takes the same kind of conditional UPDATE, so it happens once.
  */
 final class ProjectTickets
 {
@@ -31,6 +48,34 @@ final class ProjectTickets
     /** A claim older than this many minutes was left by a request that died. */
     private const CLAIM_MINUTES = 10;
 
+    /** Whether a ticket number is a test server's pretend one (testTickets()). */
+    public static function isPretend(?string $ticketId): bool
+    {
+        return $ticketId !== null && str_starts_with($ticketId, 'TEST-');
+    }
+
+    /**
+     * Whether the project has its ticket. A pretend number counts only on a test server: off one, it is as if there
+     * were none (so a promoted copy's projects can get real tickets).
+     */
+    public static function hasTicket(array $it): bool
+    {
+        $t = (string) ($it['psa_ticket_id'] ?? '');
+        return $t !== '' && (!self::isPretend($t) || \Align\Staging::on());
+    }
+
+    /** SQL for "has no ticket", matching hasTicket(). $col: the psa_ticket_id column (with its table alias). */
+    private static function noTicketSql(string $col = 'r.psa_ticket_id'): string
+    {
+        return \Align\Staging::on() ? "$col IS NULL" : "($col IS NULL OR $col LIKE 'TEST-%')";
+    }
+
+    /** How a ticket is named in messages: "ITFlow ticket #123", or "pretend ticket TEST-12" from a test server. */
+    public static function ticketLabel(string $ticketId): string
+    {
+        return self::isPretend($ticketId) ? 'pretend ticket ' . $ticketId : psa_name() . ' ticket #' . $ticketId;
+    }
+
     /** Whether tickets can be made at all: a PSA is connected and can create tickets (not on a test server). */
     public static function enabled(): bool
     {
@@ -38,17 +83,51 @@ final class ProjectTickets
     }
 
     /**
+     * Whether this is a test server whose PSA could create tickets: Ready to start then saves a pretend ticket number
+     * ("TEST-12") without calling the PSA, so the whole flow can be tried on a copy of real data.
+     */
+    public static function testTickets(): bool
+    {
+        $c = Providers::psaConnector();
+        return \Align\Staging::on() && $c && $c->configured() && in_array('tickets.create', $c->capabilities(), true);
+    }
+
+    /** Whether Ready to start can make tickets here at all: for real, or pretend ones on a test server. */
+    public static function ticketsPossible(): bool
+    {
+        return self::enabled() || self::testTickets();
+    }
+
+    /** Whether Ready to start makes a ticket for a client with this PSA id ('' = not linked), or marks the project started. */
+    public static function makesTicket(string $clientPsaId): bool
+    {
+        return $clientPsaId !== '' && self::ticketsPossible();
+    }
+
+    /**
+     * Why Ready to start makes no ticket for a client with this PSA id, as a sentence ending with a full stop, or ''
+     * when it does make one, or when no PSA is connected (then there is no ticket to explain).
+     */
+    public static function noTicketReason(string $clientPsaId): string
+    {
+        return match (true) {
+            self::makesTicket($clientPsaId), !psa_on() => '',
+            !self::ticketsPossible() => psa_name() . ' isn\'t set up to create tickets, so none is made.',
+            default => 'The client isn\'t linked to ' . psa_name() . ', so no ticket is made.',
+        };
+    }
+
+    /**
      * SQL for "ready to start" (projects alias r joined to clients alias c) and its parameters: approved or scheduled,
-     * no ticket, a quarter that has started (overdue ones too), not hidden by "Not yet", and a client in planning that
-     * is linked to the PSA. "Has started" is compared with the end of the current quarter, so a stored day that isn't
+     * not started (no ticket, not marked started), a quarter that has started (overdue ones too), not hidden by
+     * "Not yet", and a client in planning (linked to the PSA or not). "Has started" is compared with the end of the current quarter, so a stored day that isn't
      * a quarter's first (after the fiscal year's start month changed) still counts in its own quarter.
      * @return array{0:string,1:list<string>}
      */
     public static function dueSql(): array
     {
-        return ["r.status IN ('approved','scheduled') AND r.psa_ticket_id IS NULL AND r.target_quarter IS NOT NULL AND r.target_quarter <= ?
-            AND (r.ticket_snooze_until IS NULL OR r.ticket_snooze_until <= ?) AND c.psa_id IS NOT NULL AND c.psa_id <> ''
-            AND c.is_archived = 0 AND c.planning_excluded = 0", [self::quarterEnd(), date('Y-m-d')]];
+        return ["r.status IN ('approved','scheduled') AND " . self::noTicketSql() . " AND r.started_at IS NULL AND r.target_quarter IS NOT NULL AND r.target_quarter <= ?
+            AND (r.ticket_snooze_until IS NULL OR r.ticket_snooze_until <= ?) AND c.is_archived = 0 AND c.planning_excluded = 0", [self::quarterEnd(), date('Y-m-d')]];
     }
 
     /** The last day of the current plan quarter. */
@@ -58,47 +137,47 @@ final class ProjectTickets
     }
 
     /**
-     * Projects ready to start, oldest quarter first, with client_name, device_count and the last failed try's reason.
-     * Only the columns To do needs (this runs on every page for the menu badge). Empty when tickets can't be made.
+     * Projects ready to start, oldest quarter first, with client_name, client_psa_id, device_count and the last failed
+     * try's reason. Only the columns To do needs (this runs on every page for the menu badge).
      */
     public static function due(): array
     {
-        if (!self::enabled()) {
-            return [];
-        }
         [$w, $p] = self::dueSql();
         return DB::all("SELECT r.id, r.client_id, r.title, r.category, r.status, r.cost, r.target_quarter, r.ticket_error, r.ticket_error_at,
-                c.name AS client_name, COUNT(x.device_id) AS device_count
+                c.name AS client_name, c.psa_id AS client_psa_id, COUNT(x.device_id) AS device_count
             FROM roadmap_items r JOIN clients c ON c.id = r.client_id LEFT JOIN roadmap_item_devices x ON x.roadmap_item_id = r.id
             WHERE $w GROUP BY r.id ORDER BY r.target_quarter, c.name, r.title", $p);
     }
 
     /**
-     * Where a project stands with its ticket, for the project window and the Projects page:
-     * ['key' => ticket|working|due|snoozed|later|proposed|unscheduled|offplan|closed|unlinked|off, 'text' => plain text,
-     *  'startable' => whether Ready to start may be offered]. 'due' matches dueSql() (what To do lists). $clientPsaId
-     * is the project's client's PSA id (looked up with the client's planning flags when null or when the flags aren't
-     * on the row as client_archived / client_excluded).
+     * Where a project stands with Ready to start, for the project window and the Projects page:
+     * ['key' => ticket|working|started|due|snoozed|later|proposed|unscheduled|offplan|closed, 'text' => plain text,
+     *  'startable' => whether Ready to start may be offered, 'ticket' => whether Ready to start makes a ticket (else
+     *  it marks the project started)]. 'due' matches dueSql() (what To do lists). 'started': marked started without a
+     * ticket (done and declined ones too, so the record shows); startable only while open and a ticket can be made
+     * now. 'working' (a ticket being made) comes first, so nobody is offered a second try meanwhile. $clientPsaId is
+     * the project's client's PSA id (looked up, with the client's planning flags, when null).
      */
     public static function state(array $it, ?string $clientPsaId = null): array
     {
-        $out = fn(string $k, string $t, bool $s = false) => ['key' => $k, 'text' => $t, 'startable' => $s];
-        if (!empty($it['psa_ticket_id'])) {
-            return $out('ticket', psa_name() . ' #' . $it['psa_ticket_id']);
-        }
-        if (!self::enabled()) {
-            return $out('off', '');
-        }
-        if (in_array($it['status'], ['done', 'declined'], true)) {
-            return $out('closed', 'No ticket');
-        }
         $c = self::client((int) $it['client_id']);
         $clientPsaId ??= $c['psa_id'];
-        if ($clientPsaId === '') {
-            return $out('unlinked', 'Not linked to ' . psa_name());
+        $ticket = self::makesTicket($clientPsaId);
+        $out = fn(string $k, string $t, bool $s = false) => ['key' => $k, 'text' => $t, 'startable' => $s, 'ticket' => $ticket];
+        if (self::hasTicket($it)) {
+            // A pretend number from a test server (testTickets()) says so rather than looking like a real ticket
+            return $out('ticket', self::isPretend((string) $it['psa_ticket_id']) ? 'Pretend ticket ' . $it['psa_ticket_id'] : psa_name() . ' #' . $it['psa_ticket_id']);
         }
-        if (!empty($it['ticket_claimed_at']) && strtotime((string) $it['ticket_claimed_at']) > time() - self::CLAIM_MINUTES * 60) {
+        $closed = in_array($it['status'], ['done', 'declined'], true);
+        if (!$closed && !empty($it['ticket_claimed_at']) && strtotime((string) $it['ticket_claimed_at']) > time() - self::CLAIM_MINUTES * 60) {
             return $out('working', 'Being made…');
+        }
+        if (!empty($it['started_at'])) {
+            // Marked started without a ticket (no PSA then, or an unlinked client): a ticket can follow while it's open
+            return $out('started', 'Started ' . fmt_date((string) $it['started_at'], 'short'), $ticket && !$closed);
+        }
+        if ($closed) {
+            return $out('closed', $ticket ? 'No ticket' : '');
         }
         $today = date('Y-m-d');
         if ($it['status'] === 'proposed') {
@@ -117,6 +196,13 @@ final class ProjectTickets
             return $out('snoozed', 'Not yet, back on To do ' . fmt_date($it['ticket_snooze_until']), true);
         }
         return $out('due', 'Ready to start', true);
+    }
+
+    /** "Started Oct 4, 2026 by Alex Admin" for a started project, from started_at and started_by. */
+    public static function startedText(array $it): string
+    {
+        $by = self::userName(isset($it['started_by']) ? (int) $it['started_by'] : null);
+        return 'Started ' . fmt_date((string) $it['started_at']) . ($by ? ' by ' . $by : '');
     }
 
     /** The client's PSA id ('' when not linked) and whether it is out of planning (archived or excluded), cached per request. */
@@ -139,41 +225,57 @@ final class ProjectTickets
     }
 
     /**
-     * Makes the project's QUOTE- ticket. Returns ['ok' => bool, 'ticket' => ?string, 'error' => ?string (a sentence),
-     * 'reason' => ?string (the bare reason, for callers that word it themselves), 'title' => string].
-     * Refused (with a message) when tickets can't be made, the project is gone, done or declined, already has one,
-     * its client isn't linked to the PSA, or another request is making it right now. $devices: the project's device
+     * Ready to start: makes the project's QUOTE- ticket, or, when no ticket can be made for it (see makesTicket()),
+     * marks it started. Returns ['ok' => bool, 'ticket' => ?string (null when marked started), 'error' => ?string
+     * (a sentence), 'reason' => ?string (the bare reason, for callers that word it themselves), 'title' => string].
+     * Refused (with a message) when the project is gone, done or declined, already has a ticket (or, without one, was
+     * already marked started), or another request is making its ticket right now. $expectTicket: what the person
+     * confirmed (true: a ticket, false: marking started, null: either); refused when that no longer holds, so a
+     * change meanwhile never turns one into the other. Callers that only want a ticket (the "Make the QUOTE- ticket
+     * now" box) pass true, so they never mark a project started. $devices: the project's device
      * rows when the caller has them (Make projects), else they are read here.
      * When the PSA clearly refused (it answered with an error), the claim is released and the reason kept on the
      * project (ticket_error, shown on To do) so it can be tried again. When it's unclear whether the ticket was made
      * (no answer, a server error, an answer without a ticket number), the claim is kept: nobody can make a second one
      * for CLAIM_MINUTES, and the message says to check the PSA first. Audited either way.
      */
-    public static function start(int $projectId, ?int $userId, ?array $devices = null): array
+    public static function start(int $projectId, ?int $userId, ?array $devices = null, ?bool $expectTicket = null): array
     {
         $it = DB::one('SELECT r.*, c.name AS client_name, c.psa_id AS client_psa_id FROM roadmap_items r JOIN clients c ON c.id = r.client_id WHERE r.id = ?', [$projectId]);
         $fail = fn(string $msg, ?string $reason = null) => ['ok' => false, 'ticket' => null, 'error' => $msg, 'reason' => $reason ?? $msg, 'title' => (string) ($it['title'] ?? '')];
         if (!$it) {
             return $fail('That project no longer exists.');
         }
-        if (!self::enabled()) {
-            return $fail('Tickets can\'t be made here: ' . (psa_on() ? psa_name() . ' isn\'t set up to create them.' : 'no PSA is connected.'));
-        }
-        if (!empty($it['psa_ticket_id'])) {
-            return $fail('It already has ' . psa_name() . ' ticket #' . $it['psa_ticket_id'] . '.');
+        if (self::hasTicket($it)) {
+            return $fail('It already has ' . self::ticketLabel((string) $it['psa_ticket_id']) . '.');
         }
         if (in_array($it['status'], ['done', 'declined'], true)) {
-            return $fail('It is ' . $it['status'] . ', so no ticket is made.');
+            return $fail('It is ' . $it['status'] . ', so it isn\'t started.');
         }
-        if ((string) $it['client_psa_id'] === '') {
-            return $fail($it['client_name'] . ' isn\'t linked to ' . psa_name() . '.');
+        $makes = self::makesTicket((string) $it['client_psa_id']);
+        if ($expectTicket !== null && $expectTicket !== $makes) {
+            // The window said one thing, and now the other applies (client linked/unlinked, PSA settings changed)
+            return $fail('Something changed since the page was opened: ' . ($makes ? 'a ticket can be made for it now.' : (self::noTicketReason((string) $it['client_psa_id']) ?: 'no ticket can be made for it now.'))
+                . ' Reload and check before starting it.', 'changed since the page was opened, reload');
+        }
+        if (!$makes) {
+            return self::markStarted($it, $userId, $fail);
         }
         // The claim: only one request gets past this for a project without a ticket
         $now = date('Y-m-d H:i:s');
-        $claimed = DB::run('UPDATE roadmap_items SET ticket_claimed_at = ? WHERE id = ? AND psa_ticket_id IS NULL
+        $claimed = DB::run('UPDATE roadmap_items SET ticket_claimed_at = ? WHERE id = ? AND ' . self::noTicketSql('psa_ticket_id') . '
             AND (ticket_claimed_at IS NULL OR ticket_claimed_at < ?)', [$now, $projectId, date('Y-m-d H:i:s', time() - self::CLAIM_MINUTES * 60)])->rowCount() === 1;
         if (!$claimed) {
             return $fail('Its ticket is being made right now (or was just made). Reload to see it.');
+        }
+        if (self::testTickets()) {
+            // Test server: a pretend number, nothing sent (Staging blocks PSA writes anyway); views don't link it.
+            // started_at stays as it was: nothing real happened, so a promoted copy's project isn't counted as started.
+            $ticket = 'TEST-' . (int) $it['id'];
+            DB::run('UPDATE roadmap_items SET psa_ticket_id = ?, ticket_at = ?, ticket_by = ?, ticket_claimed_at = NULL, ticket_snooze_until = NULL, ticket_error = NULL, ticket_error_at = NULL WHERE id = ?',
+                [$ticket, date('Y-m-d H:i:s'), $userId, $projectId]);
+            Audit::log('roadmap.quote_ticket', "{$it['client_name']}: {$it['title']} → pretend ticket $ticket (test server, nothing sent to " . psa_name() . ')');
+            return ['ok' => true, 'ticket' => $ticket, 'error' => null, 'reason' => null, 'title' => (string) $it['title']];
         }
         try {
             // No contact: the quote is for your team to work on, not a message to the client
@@ -196,10 +298,41 @@ final class ProjectTickets
             Audit::log('roadmap.quote_ticket', "{$it['client_name']}: {$it['title']}: the " . psa_name() . " ticket wasn't created ($error)");
             return $fail('The ' . psa_name() . " ticket wasn't created ($error).", $error);
         }
-        DB::run('UPDATE roadmap_items SET psa_ticket_id = ?, ticket_at = ?, ticket_by = ?, ticket_claimed_at = NULL, ticket_snooze_until = NULL, ticket_error = NULL, ticket_error_at = NULL WHERE id = ?',
-            [mb_substr($ticket, 0, 40), date('Y-m-d H:i:s'), $userId, $projectId]);
+        // The start keeps who pressed Ready to start first (a project marked started earlier keeps that date and name)
+        DB::run('UPDATE roadmap_items SET psa_ticket_id = ?, ticket_at = ?, ticket_by = ?, started_at = COALESCE(started_at, ?), started_by = COALESCE(started_by, ?),
+            ticket_claimed_at = NULL, ticket_snooze_until = NULL, ticket_error = NULL, ticket_error_at = NULL WHERE id = ?',
+            [mb_substr($ticket, 0, 40), date('Y-m-d H:i:s'), $userId, date('Y-m-d H:i:s'), $userId, $projectId]);
         Audit::log('roadmap.quote_ticket', "{$it['client_name']}: {$it['title']} → " . psa_name() . " ticket $ticket");
         return ['ok' => true, 'ticket' => $ticket, 'error' => null, 'reason' => null, 'title' => (string) $it['title']];
+    }
+
+    /**
+     * Ready to start without a ticket: saves when and who (started_at, started_by) so the project leaves To do. One
+     * conditional UPDATE, so two clicks or two people at once mark it once. $fail builds start()'s refusal.
+     */
+    private static function markStarted(array $it, ?int $userId, \Closure $fail): array
+    {
+        $done = DB::run('UPDATE roadmap_items SET started_at = ?, started_by = ?, ticket_snooze_until = NULL, ticket_error = NULL, ticket_error_at = NULL
+            WHERE id = ? AND ' . self::noTicketSql('psa_ticket_id') . ' AND started_at IS NULL', [date('Y-m-d H:i:s'), $userId, (int) $it['id']])->rowCount() === 1;
+        if (!$done) {
+            return $fail('It was already marked started. Reload to see it.', 'already started');
+        }
+        Audit::log('roadmap.project_started', "{$it['client_name']}: {$it['title']} started (no ticket)");
+        return ['ok' => true, 'ticket' => null, 'error' => null, 'reason' => null, 'title' => (string) $it['title']];
+    }
+
+    /**
+     * "Not started": undoes marking a project started (one without a ticket), so it can go back on To do. Returns
+     * whether anything changed (false: it has a ticket, or wasn't marked started). Audited.
+     */
+    public static function unstart(array $it): bool
+    {
+        $done = DB::run('UPDATE roadmap_items SET started_at = NULL, started_by = NULL WHERE id = ? AND started_at IS NOT NULL AND ' . self::noTicketSql('psa_ticket_id'),
+            [(int) $it['id']])->rowCount() === 1;
+        if ($done) {
+            Audit::log('roadmap.project_unstarted', "{$it['client_name']}: {$it['title']} marked not started");
+        }
+        return $done;
     }
 
     /**

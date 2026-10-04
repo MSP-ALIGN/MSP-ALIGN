@@ -108,10 +108,13 @@ final class RoadmapController
         $pid = DB::insert('roadmap_items', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
         Audit::log('roadmap.create', "{$client['name']}: {$f['title']}");
         $msg = "Added \"{$f['title']}\" to {$client['name']}'s plan.";
-        if (post('ticket') === '1') {
+        if (post('ticket') === '1' && !\Align\Roadmap\ProjectTickets::makesTicket((string) $client['psa_id'])) {
+            // Ticked for a client with no ticket possible (picked from the all-clients form): don't mark it started
+            flash('warning', $msg . ' No ticket: ' . (\Align\Roadmap\ProjectTickets::noTicketReason((string) $client['psa_id']) ?: 'tickets can\'t be made here.'));
+        } elseif (post('ticket') === '1') {
             // "Make the QUOTE- ticket now" (2.2.2; off by default, otherwise Ready to start makes it when it's time)
-            $t = \Align\Roadmap\ProjectTickets::start($pid, Auth::id());
-            flash($t['ok'] ? 'success' : 'warning', $msg . ($t['ok'] ? ' ' . psa_name() . ' ticket #' . $t['ticket'] . ' made.' : ' No ticket: ' . $t['error']));
+            $t = \Align\Roadmap\ProjectTickets::start($pid, Auth::id(), null, true); // a ticket only, never "marked started"
+            flash($t['ok'] ? 'success' : 'warning', $msg . ($t['ok'] ? ' ' . ucfirst(\Align\Roadmap\ProjectTickets::ticketLabel((string) $t['ticket'])) . ' made.' : ' No ticket: ' . $t['error']));
         } else {
             flash('success', $msg);
         }

@@ -5,7 +5,8 @@
  * @var ?array $it project (null = new); int $cid client id; ?array $pickClients [id => name] to choose from; ?string $back
  * Every value from the database is escaped; the PSA ticket link comes from Providers::psaLink (the PSA's own https
  * address). $back is checked again by the controller (Security::safePath). 2.2.2: the ticket strip (Roadmap\ProjectTickets)
- * and, for a new project, "Make the QUOTE- ticket now" (off by default).
+ * (or "Started" for one marked started without a ticket) and, for a new project, "Make the QUOTE- ticket now" (off by
+ * default).
  */
 use Align\Roadmap\Plan;
 use Align\Roadmap\Roadmap;
@@ -80,36 +81,47 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
               <?= implode(', ', array_map(fn($x) => '<a href="/devices/' . (int) $x['id'] . '">' . e($x['name']) . '</a>' . ($x['removed_at'] ? ' <span class="text-muted">(retired)</span>' : ''), $pd)) ?>
             </div>
           <?php endif; ?>
-          <?php if ($it && ($ts = \Align\Roadmap\ProjectTickets::state($it))['key'] !== 'off'):
-              // 2.2.2: where the project stands with its one QUOTE- ticket; Ready to start opens the confirm window
+          <?php if ($it && ($ts = \Align\Roadmap\ProjectTickets::state($it))):
+              // 2.2.2: where the project stands with Ready to start (its one QUOTE- ticket, or marked started where no
+              // ticket can be made); Ready to start opens the confirm window
               $tu = $ts['key'] === 'ticket' ? \Align\Providers\Providers::psaLink('ticket', (string) $it['psa_ticket_id']) : null;
-              $tBy = $ts['key'] === 'ticket' ? \Align\Roadmap\ProjectTickets::userName(isset($it['ticket_by']) ? (int) $it['ticket_by'] : null) : null; ?>
+              $tBy = $ts['key'] === 'ticket' ? \Align\Roadmap\ProjectTickets::userName(isset($it['ticket_by']) ? (int) $it['ticket_by'] : null) : null;
+              $startLink = '/projects/' . (int) $it['id'] . '/start?back=' . rawurlencode($back ?? '/clients/' . (int) $it['client_id'] . '/roadmap'); ?>
             <?php if ($ts['key'] === 'ticket'): ?>
               <div class="mb-3 small border rounded p-2 bg-success-subtle border-success-subtle text-success-emphasis d-flex align-items-center gap-2" data-ticket-state="ticket"><i class="fas fa-ticket"></i>
                 <div><b>Ticket <?= $tu ? '<a href="' . e($tu) . '" target="_blank" rel="noopener">' . e($ts['text']) . '</a>' : e($ts['text']) ?></b>
                   <?php if (!empty($it['ticket_at'])): ?><div>Made <?= e(fmt_date($it['ticket_at'])) ?><?= $tBy ? ' by ' . e((string) $tBy) : '' ?></div><?php endif; ?></div></div>
+            <?php elseif ($ts['key'] === 'started'): // marked started without a ticket; once a ticket can be made, it's offered here ?>
+              <div class="mb-3 small border rounded p-2 bg-success-subtle border-success-subtle text-success-emphasis d-flex flex-wrap align-items-center gap-2" data-ticket-state="started"><i class="fas fa-play"></i>
+                <div class="me-auto"><b><?= e(\Align\Roadmap\ProjectTickets::startedText($it)) ?></b><?= $ts['ticket'] ? '<div>No ticket was made then.</div>' : '' ?>
+                  <?php if (!empty($it['ticket_error'])): // a ticket try since then failed, or may have worked: check the PSA first ?><div class="text-danger" data-ticket-error><i class="fas fa-triangle-exclamation me-1"></i>Last try <?= e(fmt_date((string) $it['ticket_error_at'], 'short')) ?>: <?= e($it['ticket_error']) ?></div><?php endif; ?></div>
+                <?php if ($ts['startable']): ?><a href="#" class="btn btn-sm btn-outline-primary" data-lazy-modal="<?= e($startLink) ?>" data-bs-target="#modal-start-<?= (int) $it['id'] ?>">Make the ticket</a><?php endif; ?>
+                <?php // Undo (its form sits after this one: forms can't nest) ?>
+                <button type="submit" form="unstart-<?= (int) $it['id'] ?>" class="btn btn-sm btn-link text-success-emphasis" data-confirm="Mark this project not started? It goes back on To do when its quarter is here.">Not started</button>
+              </div>
             <?php elseif ($ts['startable']): ?>
-              <div class="mb-3 small border rounded p-2 bg-primary-subtle border-primary-subtle text-primary-emphasis d-flex flex-wrap align-items-center gap-2" data-ticket-state="<?= e($ts['key']) ?>"><i class="fas fa-ticket"></i>
-                <div class="me-auto"><b>Ticket: not yet</b>
+              <div class="mb-3 small border rounded p-2 bg-primary-subtle border-primary-subtle text-primary-emphasis d-flex flex-wrap align-items-center gap-2" data-ticket-state="<?= e($ts['key']) ?>"><i class="fas <?= $ts['ticket'] ? 'fa-ticket' : 'fa-play' ?>"></i>
+                <div class="me-auto"><b><?= $ts['ticket'] ? 'Ticket: not yet' : 'Not started yet' ?></b>
                   <div><?= e(match ($ts['key']) {
                       'due' => 'Its quarter is here: it\'s on To do now.',
                       'later' => 'Goes on To do ' . fmt_date($it['target_quarter']) . ', when its quarter starts. Or start it now.',
                       'snoozed' => 'Back on To do ' . fmt_date($it['ticket_snooze_until']) . ' (Not yet). Or start it now.',
                       'proposed' => 'Goes on To do once it\'s approved and its quarter is here. Or start it now.',
+                      'offplan' => 'Its client is out of planning, so it isn\'t on To do. You can still start it.',
                       default => 'Goes on To do once it has a quarter and that quarter is here. Or start it now.',
                   }) ?></div></div>
-                <a href="#" class="btn btn-sm btn-outline-primary" data-lazy-modal="/projects/<?= (int) $it['id'] ?>/start?back=<?= e(rawurlencode($back ?? '/clients/' . (int) $it['client_id'] . '/roadmap')) ?>" data-bs-target="#modal-start-<?= (int) $it['id'] ?>">Ready to start</a>
+                <a href="#" class="btn btn-sm btn-outline-primary" data-lazy-modal="<?= e($startLink) ?>" data-bs-target="#modal-start-<?= (int) $it['id'] ?>">Ready to start</a>
               </div>
-            <?php elseif ($ts['key'] !== 'closed'): // client not linked, ticket being made, or client out of planning: say why, no button ?>
-              <div class="mb-3 small text-muted" data-ticket-state="<?= e($ts['key']) ?>"><i class="fas fa-ticket me-1"></i>Ticket: <?= e($ts['text']) ?></div>
+            <?php elseif ($ts['key'] === 'working'): // another request is making the ticket right now ?>
+              <div class="mb-3 small text-muted" data-ticket-state="working"><i class="fas fa-ticket me-1"></i>Ticket: <?= e($ts['text']) ?></div>
             <?php endif; ?>
           <?php endif; ?>
           <?php // A new project: the "Make the QUOTE- ticket now" box (off by default), or why it can't have one. With a client
                 // picker the box always shows (the client isn't known yet; an unlinked one simply gets no ticket).
                 $cPsa = $it || $pickClients ? null : (string) \Align\DB::value('SELECT psa_id FROM clients WHERE id = ?', [(int) $cid]);
-          if (!$it && \Align\Roadmap\ProjectTickets::enabled() && $cPsa === ''): ?>
-            <div class="mb-3 small text-muted"><i class="fas fa-ticket me-1"></i>This client isn't linked to <?= e(psa_name()) ?>, so its projects get no ticket.</div>
-          <?php elseif (!$it && \Align\Roadmap\ProjectTickets::enabled()): ?>
+          if (!$it && \Align\Roadmap\ProjectTickets::ticketsPossible() && $cPsa === ''): ?>
+            <div class="mb-3 small text-muted"><i class="fas fa-ticket me-1"></i>This client isn't linked to <?= e(psa_name()) ?>, so its projects get no ticket: Ready to start marks them started instead.</div>
+          <?php elseif (!$it && \Align\Roadmap\ProjectTickets::ticketsPossible()): ?>
             <div class="mb-3 border rounded p-2">
               <div class="form-check mb-0">
                 <input type="checkbox" class="form-check-input" id="<?= e($id) ?>-ticket" name="ticket" value="1">
@@ -126,6 +138,9 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
           <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save</button>
         </div>
       </form>
+      <?php if ($it && !empty($it['started_at']) && !\Align\Roadmap\ProjectTickets::hasTicket($it)): // for the Not started button above ?>
+        <form method="post" action="/projects/<?= (int) $it['id'] ?>/unstart" id="unstart-<?= (int) $it['id'] ?>" class="d-none"><?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back ?? '/clients/' . (int) $it['client_id'] . '/roadmap') ?>"></form>
+      <?php endif; ?>
     </div>
   </div>
 </div>
