@@ -169,6 +169,14 @@ body:not(.report) .badge.text-bg-warning { background-color: var(--bs-warning-bg
 body:not(.report) .badge.text-bg-info { background-color: var(--bs-info-bg-subtle) !important; color: var(--bs-info-text-emphasis) !important; }
 body:not(.report) .badge.text-bg-light { background-color: var(--bs-tertiary-bg) !important; color: var(--bs-body-color) !important; }
 body:not(.report) .badge.text-bg-dark { background-color: var(--bs-emphasis-color) !important; color: var(--bs-body-bg) !important; }
+/* Purple and teal (roadmap, licensing, document and meeting categories): Bootstrap has no text-bg-* for them, so their
+   badges had white text on no background (2.2.2) */
+.text-bg-purple { background-color: #6f42c1 !important; color: #fff !important; }
+.text-bg-teal { background-color: #198a73 !important; color: #fff !important; }
+body:not(.report) .badge.text-bg-purple { background-color: #efe9fb !important; color: #5a32a3 !important; }
+body:not(.report) .badge.text-bg-teal { background-color: #d2f4ea !important; color: #0e5c4c !important; }
+[data-bs-theme=dark] body:not(.report) .badge.text-bg-purple { background-color: #2a2140 !important; color: #c3a8f5 !important; }
+[data-bs-theme=dark] body:not(.report) .badge.text-bg-teal { background-color: #123b33 !important; color: #8fe3cc !important; }
 /* Counters on the menu and on tabs stay solid so they catch the eye */
 body:not(.report) .nav-badge.text-bg-warning, body:not(.report) .nav-link .badge.text-bg-warning { background-color: #f5b301 !important; color: #1f2733 !important; }
 body:not(.report) .sidebar-menu .nav-link.active .nav-badge { background-color: rgba(255,255,255,.9) !important; color: #1f2733 !important; }

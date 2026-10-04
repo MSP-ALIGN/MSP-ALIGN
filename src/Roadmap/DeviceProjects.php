@@ -6,18 +6,15 @@ namespace Align\Roadmap;
 use Align\Audit;
 use Align\DB;
 use Align\Lifecycle\Lifecycle;
-use Align\Providers\Providers;
 
 /**
  * 2.1: turn devices due for replacement into projects, one per device or one for several, each optionally with a
- * "QUOTE-" ticket in the PSA. A project's devices leave the automatic replacement plan while the project isn't
+ * "QUOTE-" ticket in the PSA (2.2.2: made by ProjectTickets, now only when asked for; otherwise Ready to start makes it). A project's devices leave the automatic replacement plan while the project isn't
  * declined (Lifecycle::evaluate), so the roadmap and budget count the project's quarter and cost, never both.
  *
  * Security assumptions: callers check the tech role. create() keeps only devices of the client it is given, so ids
  * from a request can't pull in another client's devices, and locks them so two requests can't put one device in two
- * projects. The QUOTE- ticket is made only when the PSA can (Providers::psaSupports, which is off on a test server),
- * after the project is committed; its HTML is built from escaped values. Error text shown to people goes through
- * safe_error().
+ * projects. The QUOTE- ticket is made by ProjectTickets::start() after the project is committed (see its notes).
  */
 final class DeviceProjects
 {
@@ -77,7 +74,7 @@ final class DeviceProjects
         $status = in_array($o['status'] ?? '', ['proposed', 'approved', 'scheduled'], true) ? $o['status'] : 'approved';
         $quarter = !empty($o['quarter']) && isset(Plan::choices(5)[$o['quarter']]) ? $o['quarter'] : null;
         $single = count($groups) === 1;
-        $wantTicket = !empty($o['ticket']) && !empty($client['psa_id']) && Providers::psaSupports('tickets.create');
+        $wantTicket = !empty($o['ticket']) && !empty($client['psa_id']) && ProjectTickets::enabled();
 
         $out = [];
         foreach ($groups as $g) {
@@ -128,16 +125,9 @@ final class DeviceProjects
             $ticket = null;
             $error = null;
             if ($wantTicket) {
-                try {
-                    // No contact: the quote is for your team to work on, not a message to the client
-                    $ticket = Providers::psa(true)->createTicket((string) $client['psa_id'], mb_substr('QUOTE- ' . $title, 0, 250),
-                        self::ticketHtml($client, $g, $id, $cost, $quarter ?? self::quarterOf($g), (string) ($o['note'] ?? '')), 'Medium', null);
-                    DB::run('UPDATE roadmap_items SET psa_ticket_id = ? WHERE id = ?', [$ticket, $id]);
-                    Audit::log('roadmap.quote_ticket', "{$client['name']}: $title → " . psa_name() . " ticket $ticket");
-                } catch (\Throwable $e) {
-                    $error = mb_substr(safe_error($e), 0, 300); // 2.2.1: no SQL or file paths in the flash or the audit log
-                    Audit::log('roadmap.quote_ticket', "{$client['name']}: $title: the " . psa_name() . " ticket wasn't created ($error)");
-                }
+                // "Make the QUOTE- ticket now" (2.2.2: off by default; otherwise Ready to start makes it later)
+                $t = ProjectTickets::start($id, $userId, $g);
+                [$ticket, $error] = [$t['ticket'], $t['reason']];
             }
             $out[] = ['id' => $id, 'title' => $title, 'ticket' => $ticket, 'ticket_error' => $error];
         }
@@ -193,26 +183,6 @@ final class DeviceProjects
     {
         $lines = array_map(fn($d) => '- ' . self::line($d), $g);
         return mb_substr(trim(($note !== '' ? trim($note) . "\n\n" : '') . 'Replaces:' . "\n" . implode("\n", $lines)), 0, 10000);
-    }
-
-    /**
-     * The QUOTE- ticket's body as HTML for the PSA. Every value is escaped with e() (device names, serials and users
-     * come from the RMM). The link back uses the configured base_url, never the request's Host header.
-     */
-    private static function ticketHtml(array $client, array $g, int $projectId, float $cost, ?string $quarter, string $note): string
-    {
-        $q = $quarter ? Plan::quarterFor($quarter)['label'] : 'not scheduled yet';
-        $rows = '';
-        foreach ($g as $d) {
-            $rows .= '<tr><td>' . e($d['name']) . '</td><td>' . e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) . '</td><td>' . e($d['serial'] ?? '')
-                . '</td><td>' . e($d['last_user'] ? short_user($d['last_user']) : '') . '</td><td>' . e($d['start_date'] ? fmt_date($d['start_date']) : '')
-                . '</td><td>' . e($d['warranty_end'] ? fmt_date($d['warranty_end']) : '') . '</td><td>' . e(money($d['replacement_cost'])) . '</td></tr>';
-        }
-        $url = rtrim((string) \Align\Config::get('base_url', ''), '/');
-        return '<p>Quote the replacement' . (count($g) === 1 ? '' : 's') . ' for <b>' . e($client['name']) . '</b>, planned for <b>' . e($q) . '</b>. Budgeted: <b>'
-            . e(money($cost)) . '</b>.</p>' . ($note !== '' ? '<p>' . nl2br(e(trim($note))) . '</p>' : '')
-            . '<table><tr><th>Device</th><th>Model</th><th>Serial</th><th>User</th><th>In service</th><th>Warranty ends</th><th>Budgeted</th></tr>' . $rows . '</table>'
-            . ($url !== '' ? '<p><a href="' . e($url . '/clients/' . (int) $client['id'] . '/roadmap#modal-roadmap-' . $projectId) . '">The project in MSP-ALIGN</a></p>' : '');
     }
 
     /**

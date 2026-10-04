@@ -10,6 +10,12 @@ More in [Screenshots](docs/SCREENSHOTS.md): clients, the roadmap, the budget, co
 
 ## What's new
 
+- **Ready to start: tickets when the work is due (2.2.2):** approve a whole year of projects without filling your PSA's ticket board. Each project gets one **QUOTE-** ticket, made only when you say so.
+  - **Ready to start:** an approved or scheduled project with no ticket goes on **To do** (new **Projects** tab) on the first day of its quarter, and stays there while it's overdue. **Ready to start** shows what goes into the ticket (subject, devices or description, quarter and budget) before it's made; **Ready to start: all** does every project on the list at once. It also works any time from the project window and the new **Ticket** column on Projects.
+  - **Not yet:** hides a project from To do for a month, or 2, 3 or 6 months from its menu. The project shows when it comes back.
+  - **Making projects:** **Make projects** and **Add project** no longer make a ticket unless you tick **Make the QUOTE- ticket now**. Projects added by hand work exactly like device projects. Projects that already have a ticket keep it.
+  - **After updating:** approved or scheduled projects from this quarter or earlier that have no ticket show on To do right away, older hand-added ones too. Mark the finished ones **Done** and they leave the list.
+  - **Also:** purple and teal category labels (Software / licensing, Cloud / M365, some meeting, license and document kinds) had white text on no background and are readable again.
 - **Security and quality review (2.2.1):** every file of Align was read line by line, then a separate security audit checked the whole program, and everything found was fixed and tested. [Security](docs/SECURITY.md#security-audit-221) has the summary. What you may notice:
   - **Sign-in:** wrong two-factor codes after a correct password alert admins at 5 in a row. After 50, the password is replaced and that person's sessions end, because someone else probably knows it. A password change, 2FA change or *Sign out everywhere* also turns off that person's calendar feed link; make a new one on the Meetings page.
   - **Integrations:** connections use `https://` only, don't follow redirects and never reach the server itself or cloud metadata addresses. Servers on your own network work as before. An integration installed on the same machine needs `'allow_local_integrations' => true` in `config.php`. If Veeam's list of protected machines can't be read, the machines from the last sync are kept.

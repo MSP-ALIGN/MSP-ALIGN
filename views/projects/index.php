@@ -1,8 +1,10 @@
 <?php
 /**
  * Projects across clients by quarter. @var array $quarters, $unscheduled, $beyond, $years, $clients; int $count, $limit,
- * $clientId; ?int $year; string $q, $status, $category
- * Titles, descriptions and client names are escaped; the edit windows load lazily for techs and admins.
+ * $clientId; ?int $year; string $q, $status, $category, $ticket; bool $ticketsOn
+ * Titles, descriptions and client names are escaped; the edit windows load lazily for techs and admins. 2.2.2: the
+ * Ticket column (each row's ticket_state from Roadmap\ProjectTickets) when a PSA can create tickets; Ready to start
+ * opens the confirm window (techs and admins).
  */
 use Align\Auth;
 use Align\Controllers\ProjectController;
@@ -10,13 +12,14 @@ use Align\Roadmap\Roadmap;
 
 $canEdit = Auth::can('tech');
 $qs = fn(array $over) => '/projects?' . http_build_query(array_filter(array_merge(
-    ['status' => $status === 'open' ? '' : $status, 'client' => $clientId ?: '', 'category' => $category, 'year' => $year === null ? '' : (string) $year, 'q' => $q], $over
+    ['status' => $status === 'open' ? '' : $status, 'client' => $clientId ?: '', 'category' => $category, 'year' => $year === null ? '' : (string) $year, 'ticket' => $ticket, 'q' => $q], $over
 ), fn($v) => $v !== '' && $v !== null));
 $back = $_SERVER['REQUEST_URI'] ?? '/projects';
 
 $shown = 0;
 // Draws project rows until the page's limit is reached ($shown counts across every group)
-$renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown) {
+$cols = $ticketsOn ? 8 : 7;
+$renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown, $ticketsOn) {
     foreach ($items as $it) {
         if ($shown >= $limit) {
             return; // paged (1.42): the rest are one "Show more" away
@@ -39,6 +42,18 @@ $renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown) {
           <td><span class="badge text-bg-<?= e($prTone) ?>"><?= e($prLabel) ?></span></td>
           <td class="text-end text-nowrap"><?= $it['cost'] !== null ? money((float) $it['cost']) : '<span class="text-muted">—</span>' ?></td>
           <td class="text-end text-nowrap small"><?= $it['recurring_monthly'] ? money((float) $it['recurring_monthly']) . '/mo' : '' ?></td>
+          <?php if ($ticketsOn): $ts = $it['ticket_state']; ?>
+            <td class="small text-nowrap" data-ticket-state="<?= e($ts['key']) ?>">
+              <?php if ($ts['key'] === 'ticket'): $tu = \Align\Providers\Providers::psaLink('ticket', (string) $it['psa_ticket_id']); ?>
+                <?= $tu ? '<a href="' . e($tu) . '" target="_blank" rel="noopener">' . e($ts['text']) . '</a>' : e($ts['text']) ?><?= !empty($it['ticket_at']) ? ' <span class="text-muted">· ' . e(fmt_date($it['ticket_at'], 'short')) . '</span>' : '' ?>
+              <?php elseif ($ts['startable'] && $canEdit): // due: the solid button; earlier: what it waits for, and the button to start anyway ?>
+                <?php if ($ts['key'] !== 'due'): ?><span class="text-muted d-block"><?= e($ts['text']) ?></span><?php endif; ?>
+                <a href="#" class="btn btn-xs <?= $ts['key'] === 'due' ? 'btn-primary' : 'btn-outline-primary' ?>" data-lazy-modal="/projects/<?= (int) $it['id'] ?>/start?back=<?= e(rawurlencode($back)) ?>" data-bs-target="#modal-start-<?= (int) $it['id'] ?>" aria-label="<?= e('Ready to start: ' . $it['title'] . ' (' . $it['client_name'] . ')') ?>">Ready to start</a>
+              <?php else: ?>
+                <span class="text-muted"><?= e($ts['key'] === 'closed' ? '' : $ts['text']) ?></span>
+              <?php endif; ?>
+            </td>
+          <?php endif; ?>
         </tr>
         <?php
     }
@@ -64,27 +79,28 @@ $cats = array_map(fn($c) => $c[0], Roadmap::CATEGORIES);
 ?>
 <div class="card">
   <?= \Align\View::fetch('partials/toolbar', ['tabs' => $tabs,
-      'search' => ['action' => '/projects', 'value' => $q, 'hidden' => ['status' => $status === 'open' ? '' : $status, 'client' => $clientId ?: '', 'category' => $category, 'year' => $year === null ? '' : (string) $year], 'table' => 'projects-table', 'placeholder' => 'Search project, client'],
-      'menus' => [toolbar_menu('Client', $clients, $clientId ?: '', fn($v) => $qs(['client' => $v]), 'All clients'), toolbar_menu('Category', $cats, $category, fn($v) => $qs(['category' => $v]), 'All categories')]]) ?>
+      'search' => ['action' => '/projects', 'value' => $q, 'hidden' => ['status' => $status === 'open' ? '' : $status, 'client' => $clientId ?: '', 'category' => $category, 'year' => $year === null ? '' : (string) $year, 'ticket' => $ticket], 'table' => 'projects-table', 'placeholder' => 'Search project, client'],
+      'menus' => array_merge([toolbar_menu('Client', $clients, $clientId ?: '', fn($v) => $qs(['client' => $v]), 'All clients'), toolbar_menu('Category', $cats, $category, fn($v) => $qs(['category' => $v]), 'All categories')],
+          $ticketsOn ? [toolbar_menu('Ticket', ProjectController::TICKET_VIEWS, $ticket, fn($v) => $qs(['ticket' => $v]), 'All')] : [])]) ?>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-hover mb-0 projects-table" id="projects-table">
-      <thead><tr><th>Project</th><th>Client</th><th>Category</th><th>Status</th><th>Priority</th><th class="text-end">Budget</th><th class="text-end">Recurring</th></tr></thead>
+      <thead><tr><th>Project</th><th>Client</th><th>Category</th><th>Status</th><th>Priority</th><th class="text-end">Budget</th><th class="text-end">Recurring</th><?= $ticketsOn ? '<th>Ticket</th>' : '' ?></tr></thead>
       <tbody>
       <?php $any = false; foreach ($quarters as $qt): if (!$qt['items']) continue; $any = true; if ($shown >= $limit) break; ?>
         <tr class="proj-quarter"><th colspan="5"><?= e($qt['label']) ?> <small class="text-muted fw-normal"><?= e($qt['months']) ?><?= $qt['current'] ? ' · current quarter' : '' ?></small></th>
-          <th class="text-end text-nowrap"><?= money($qt['cost']) ?></th><th class="text-end small fw-normal text-nowrap"><?= $qt['recurring'] ? '+' . money($qt['recurring']) . '/mo' : '' ?></th></tr>
+          <th class="text-end text-nowrap"><?= money($qt['cost']) ?></th><th class="text-end small fw-normal text-nowrap"><?= $qt['recurring'] ? '+' . money($qt['recurring']) . '/mo' : '' ?></th><?= $ticketsOn ? '<th></th>' : '' ?></tr>
         <?php $renderRows($qt['items']); ?>
       <?php endforeach; ?>
       <?php if ($beyond): $any = true; if ($shown < $limit): ?>
-        <tr class="proj-quarter"><th colspan="7">Beyond the 3-year plan</th></tr>
+        <tr class="proj-quarter"><th colspan="<?= $cols ?>">Beyond the 3-year plan</th></tr>
         <?php $renderRows($beyond); ?>
       <?php endif; endif; ?>
       <?php if ($unscheduled): $any = true; if ($shown < $limit): ?>
-        <tr class="proj-quarter"><th colspan="7">Not scheduled yet <small class="text-muted fw-normal">pick a target quarter to include it in the plan budget</small></th></tr>
+        <tr class="proj-quarter"><th colspan="<?= $cols ?>">Not scheduled yet <small class="text-muted fw-normal">pick a target quarter to include it in the plan budget</small></th></tr>
         <?php $renderRows($unscheduled); ?>
       <?php endif; endif; ?>
       <?php if (!$any): ?>
-        <tr><td colspan="7" class="text-center text-muted py-4">No projects match.<?= $canEdit ? ' Use <b>Add project</b> to plan one.' : '' ?></td></tr>
+        <tr><td colspan="<?= $cols ?>" class="text-center text-muted py-4">No projects match.<?= $canEdit ? ' Use <b>Add project</b> to plan one.' : '' ?></td></tr>
       <?php endif; ?>
       </tbody>
     </table>

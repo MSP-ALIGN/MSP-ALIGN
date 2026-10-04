@@ -95,7 +95,7 @@ final class RoadmapController
         ];
     }
 
-    /** Adds a project to the client in the URL. Techs and admins. */
+    /** Adds a project to the client in the URL, with its QUOTE- ticket when "Make the QUOTE- ticket now" was ticked. Techs and admins. */
     public static function create(int $id): void
     {
         Auth::requireRole('tech');
@@ -105,9 +105,16 @@ final class RoadmapController
             flash('error', 'Give the project a name.');
             redirect(self::back($id));
         }
-        DB::insert('roadmap_items', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
+        $pid = DB::insert('roadmap_items', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
         Audit::log('roadmap.create', "{$client['name']}: {$f['title']}");
-        flash('success', "Added \"{$f['title']}\" to {$client['name']}'s plan.");
+        $msg = "Added \"{$f['title']}\" to {$client['name']}'s plan.";
+        if (post('ticket') === '1') {
+            // "Make the QUOTE- ticket now" (2.2.2; off by default, otherwise Ready to start makes it when it's time)
+            $t = \Align\Roadmap\ProjectTickets::start($pid, Auth::id());
+            flash($t['ok'] ? 'success' : 'warning', $msg . ($t['ok'] ? ' ' . psa_name() . ' ticket #' . $t['ticket'] . ' made.' : ' No ticket: ' . $t['error']));
+        } else {
+            flash('success', $msg);
+        }
         redirect(self::back($id));
     }
 
@@ -143,6 +150,9 @@ final class RoadmapController
             DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
             redirect(self::back($id));
         }
+        if ($f['target_quarter'] !== $row['target_quarter']) {
+            $f['ticket_snooze_until'] = null; // a new quarter: "Not yet" was for the old one (2.2.2)
+        }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
         Audit::log('roadmap.update', "{$client['name']}: {$f['title']}");
@@ -169,7 +179,9 @@ final class RoadmapController
             redirect("/clients/$id/roadmap");
         }
         $label = Plan::quarterFor($start)['label'] ?? $start;
-        DB::run('UPDATE roadmap_items SET target_quarter = ? WHERE id = ?', [$start, $item]);
+        // A new quarter clears "Not yet", which was for the old one (2.2.2). The snooze is set first: assignments
+        // run left to right and would otherwise compare with the new quarter
+        DB::run('UPDATE roadmap_items SET ticket_snooze_until = IF(target_quarter <=> ?, ticket_snooze_until, NULL), target_quarter = ? WHERE id = ?', [$start, $start, $item]);
         Audit::log('roadmap.move', "{$client['name']}: {$row['title']} to $label");
         $msg = "{$row['title']} moved to $label.";
         flash('success', $msg);

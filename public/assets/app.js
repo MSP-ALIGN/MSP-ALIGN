@@ -289,6 +289,17 @@ document.addEventListener('click', (ev) => {
   if (!el) return;
   ev.preventDefault();
   const sel = el.dataset.bsTarget;
+  // Opened from inside another window (Ready to start in the project window, 2.2.2): close that one first, so
+  // the two never stack (Bootstrap shows one modal at a time)
+  const parent = el.closest('.modal.show');
+  if (parent && parent.id) {
+    const go = () => el.click();
+    parent.addEventListener('hidden.bs.modal', go, { once: true });
+    // Closing can be stopped (unsaved changes): then don't open it later, when that window closes for another reason
+    parent.addEventListener('hide.bs.modal', (e) => setTimeout(() => { if (e.defaultPrevented) parent.removeEventListener('hidden.bs.modal', go); }, 0), { once: true });
+    bsModal('#' + parent.id).hide();
+    return;
+  }
   const show = () => bsModal(sel).show();
   if (document.querySelector(sel)) { show(); return; }
   if (el.dataset.loading) return;

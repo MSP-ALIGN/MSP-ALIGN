@@ -1,7 +1,8 @@
 <?php
 /**
  * "Make projects" (2.1): devices due for replacement become projects on the roadmap, one per device or one for
- * several, with a QUOTE- ticket in the PSA. On the Devices page it takes the ticked devices; on a device's page, $device.
+ * several, with a QUOTE- ticket in the PSA only when "Make the QUOTE- ticket now" is ticked (2.2.2: off by default;
+ * otherwise Ready to start makes it when the project's quarter is here). On the Devices page it takes the ticked devices; on a device's page, $device.
  * @var array $client; ?array $device (one device) ; string $back (where to return)
  * Techs and admins. The confirm texts go into data-confirm-rules as escaped JSON (never an inline script).
  */
@@ -69,9 +70,9 @@ $rules = $device
             <textarea id="mp-note" name="note" class="form-control" rows="2" maxlength="2000" placeholder="e.g. Client approved on the call, quote by Friday"></textarea></div>
           <?php if ($ticketOn): ?>
             <div class="form-check">
-              <input type="checkbox" class="form-check-input" id="mp-ticket" name="ticket" value="1" checked>
-              <label class="form-check-label" for="mp-ticket">Create a <b>QUOTE-</b> ticket in <?= e(psa_name()) ?> for each project</label>
-              <div class="small text-muted">With the devices and budget in it, and no client contact, so it's a new ticket for your team to assign.</div>
+              <input type="checkbox" class="form-check-input" id="mp-ticket" name="ticket" value="1">
+              <label class="form-check-label fw-bold" for="mp-ticket">Make the QUOTE- ticket now</label>
+              <div class="small text-muted">Leave it off to keep the ticket board clear: once the project is approved and its quarter is here, it goes on To do and <b>Ready to start</b> makes the ticket then. Tick it when you need the quote right away (one ticket per project, with the devices and budget, and no client contact).</div>
             </div>
           <?php elseif (Providers::psaSupports('tickets.create')): ?>
             <div class="small text-muted"><?= e($client['name']) ?> isn't linked to <?= e(psa_name()) ?>, so no quote ticket is created.</div>

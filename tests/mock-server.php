@@ -38,7 +38,9 @@ if ($path === '/mock/software-edit' || $path === '/mock/software-delete') {
 if ($path === '/mock/tickets-created' || $path === '/mock/ticket-create-fail') {
     $st = $loadState();
     if ($path === '/mock/ticket-create-fail') {
-        $st['ticket_create_fail'] = !empty((json_decode((string) file_get_contents('php://input'), true) ?: [])['on']);
+        $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        // on: refuse with success False; mode "500": answer with a server error instead (the ticket may or may not exist)
+        $st['ticket_create_fail'] = !empty($in['on']) ? (($in['mode'] ?? '') === '500' ? '500' : true) : false;
         $saveState($st);
     }
     $json(['created' => $st['tickets_created'] ?? []]);
@@ -593,6 +595,11 @@ switch (true) {
             break;
         } elseif ($path === '/api/v1/tickets/create.php' && $method === 'POST') {
             $st = $loadState();
+            if (($st['ticket_create_fail'] ?? false) === '500') {
+                http_response_code(500);
+                echo 'Mock: server error';
+                break;
+            }
             if (!empty($st['ticket_create_fail'])) {
                 $json(['success' => 'False', 'message' => 'Mock: ticket create refused']);
                 break;
