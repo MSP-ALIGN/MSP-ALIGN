@@ -143,6 +143,7 @@ final class DeviceController
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         $back = post('back');
+        // Only this client's device list or a device page, with a plain query (+ is a space in a filter or search)
         $back = preg_match('#^/(clients/' . $id . '/devices|devices/\d+)(\?[a-z0-9=&_%.+-]*)?$#i', $back) ? $back : "/clients/$id/devices";
         $ids = array_values(array_unique(array_map('intval', (array) ($_POST['ids'] ?? []))));
         if (!$ids) {
@@ -386,6 +387,8 @@ final class DeviceController
         $bkOn = $cid ? (bool) \Align\Providers\ClientLinks::backupCompanyUids($cid) : \Align\Backup\Backup::enabled();
         $backupMap = $bkOn ? \Align\Backup\Backup::deviceMap(null, $cid ?: null) : [];
         $df = \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $all);
+        // $scope: the filters only, for the tiles and tab counts (they ignore the tab and search, as before).
+        // $base: the tab, Type and search only, which the panel counts from. $rows: both, the list itself.
         $scope = \Align\Lifecycle\DeviceFilters::apply($all, $df, $backupMap);
         $base = \Align\Paging::search(ClientController::filter($all, $filter, $class), $q, ClientController::DEVICE_SEARCH);
         $rows = \Align\Lifecycle\DeviceFilters::apply($base, $df, $backupMap);
@@ -435,6 +438,8 @@ final class DeviceController
             $all = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === $cid));
         }
         $filter = query('filter') === 'itflow' ? 'psa' : query('filter');
+        // 2.2.2: the same Filters panel values as the list. The backup map (every client's backups) is only read
+        // when Backup is one of them, so a plain export costs no more than before.
         $df = \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $all);
         $map = $df && isset($df['backup']) && \Align\Backup\Backup::enabled() ? \Align\Backup\Backup::deviceMap(null, $cid ?: null) : [];
         $rows = \Align\Paging::search(ClientController::filter(\Align\Lifecycle\DeviceFilters::apply($all, $df, $map), $filter, query('class')), \Align\Paging::q(), ClientController::DEVICE_SEARCH);

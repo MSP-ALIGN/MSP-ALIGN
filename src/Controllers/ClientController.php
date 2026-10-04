@@ -402,6 +402,7 @@ final class ClientController
         $bkOn = (bool) \Align\Providers\ClientLinks::backupCompanyUids($id);
         $backupMap = \Align\Backup\Backup::deviceMap(null, $id);
         $f = \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $all);
+        // $base (view, Type, search) is what the panel counts from; $rows adds the panel's filters for the list
         $base = \Align\Paging::search(self::filter($all, $filter, $class), $q, self::DEVICE_SEARCH);
         $rows = \Align\Lifecycle\DeviceFilters::apply($base, $f, $backupMap);
         $limit = \Align\Paging::limit();

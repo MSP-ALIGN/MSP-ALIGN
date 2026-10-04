@@ -56,8 +56,9 @@ final class DeviceFilters
         if (!isset($f['model'])) {
             return $f;
         }
-        $make = $f['make'] === '-' ? '' : $f['make'];
+        $make = $f['make'] === '-' ? '' : $f['make']; // "-" is "(none)": devices with no manufacturer
         foreach ($devices as $d) {
+            // Keep the model as soon as one device has this make and model
             if (self::make($d) === $make && trim((string) ($d['model'] ?? '')) === $f['model']) {
                 return $f;
             }
@@ -78,10 +79,14 @@ final class DeviceFilters
         $n = trim((string) ($d['os_name'] ?? ''));
         return match (true) {
             $n === '' => '',
+            // Server first: "Windows Server 2019" would otherwise never reach its own group. R2 is its own release.
             (bool) preg_match('/Windows Server (\d{4}(?: R2)?)/i', $n, $m) => 'Windows Server ' . strtoupper($m[1]),
+            // Desktop Windows by version, whatever the edition ("Microsoft Windows 10 Enterprise" → Windows 10)
             (bool) preg_match('/Windows (11|10|8\.1|8|7)\b/i', $n, $m) => 'Windows ' . $m[1],
             (bool) preg_match('/mac ?OS|OS X|Darwin/i', $n) => 'macOS',
             (bool) preg_match('/Linux|Ubuntu|Debian|Red ?Hat|CentOS|Rocky|Alma|SUSE|Fedora/i', $n) => 'Linux',
+            // Anything else (firewalls, NAS, printers): the first two words, so "FortiOS 7.2.8" stays one choice
+            // per version family rather than one per build
             default => implode(' ', array_slice(preg_split('/\s+/', $n) ?: [], 0, 2)),
         };
     }
@@ -90,9 +95,10 @@ final class DeviceFilters
     public static function age(array $d): string
     {
         if (empty($d['start_date']) || $d['age_years'] === null) {
-            return 'unknown';
+            return 'unknown'; // no in-service date: Lifecycle can't age it
         }
         $a = (float) $d['age_years'];
+        // Bands match how replacement talks are usually framed: still new, mid-life, due
         return $a < 3 ? '0-3' : ($a < 5 ? '3-5' : '5+');
     }
 
@@ -103,10 +109,12 @@ final class DeviceFilters
      */
     public static function replace(array $d): string
     {
+        // Checked first: a project's device has no automatic date (Lifecycle leaves replace_by empty so the budget
+        // doesn't count it twice), and it shouldn't look overdue while its project is under way
         if (!empty($d['project'])) {
             return 'project';
         }
-        $date = $d['replace_due'] ?? null;
+        $date = $d['replace_due'] ?? null; // null for non-hardware and excluded devices
         if (!$date) {
             return 'none';
         }
@@ -118,10 +126,12 @@ final class DeviceFilters
     {
         $w = $d['warranty_end'] ?? null;
         if (!$w) {
+            // Missing on hardware is worth finding ("None recorded"); on virtual machines it means nothing
             return $d['is_hardware'] ? 'none' : '';
         }
         $today = date('Y-m-d');
         $y = (int) date('Y');
+        // First match wins, so a date in the next 90 days is "90" even when it is also this year or next
         return match (true) {
             $w < $today => 'expired',
             $w <= date('Y-m-d', strtotime('+90 days')) => '90',
@@ -135,6 +145,8 @@ final class DeviceFilters
     public static function backup(array $d, array $map): string
     {
         $b = $map[(int) $d['id']] ?? null;
+        // Not in the map: no backup tool reports this device. Exempt wins over any restore point it still has.
+        // Any tone but ok (warn: past the stale window, bad: twice past it or never) counts as overdue.
         return match (true) {
             $b === null => 'none',
             !empty($b['exempt']) => 'exempt',
@@ -194,13 +206,17 @@ final class DeviceFilters
             if (($k === 'backup' && !$backupOn) || ($k === 'model' && !isset($f['make']))) {
                 continue;
             }
+            // Count within every OTHER active filter, so the list for this key shows its alternatives (with Dell
+            // chosen, the make list still shows Lenovo's count) and each number is what picking it gives
             $others = $f;
             unset($others[$k]);
             if ($k === 'make') {
-                unset($others['model']);
+                unset($others['model']); // another make would drop the model anyway (tidy())
             }
             foreach (self::apply($devices, $others, $backupMap) as $d) {
                 $v = self::value($k, $d, $backupMap);
+                // A blank make, location or OS is worth finding, so it becomes "(none)"; blanks elsewhere (warranty
+                // on virtual machines, no model) aren't a choice
                 if ($v === '' && !in_array($k, ['make', 'location', 'os'], true)) {
                     continue;
                 }
@@ -209,7 +225,7 @@ final class DeviceFilters
             }
         }
         $labels = ['age' => self::AGES, 'warranty' => self::WARRANTY, 'backup' => self::BACKUP, 'project' => self::PROJECT, 'user' => self::USER];
-        $status = array_column($devices, 'status_label', 'status');
+        $status = array_column($devices, 'status_label', 'status'); // Lifecycle's own words for each status
         $out = [];
         foreach (array_keys(self::KEYS) as $k) {
             if (empty($counts[$k])) {
@@ -219,6 +235,8 @@ final class DeviceFilters
                 continue; // nobody records a location
             }
             $c = $counts[$k];
+            // Sort: fixed choices in their natural order (newest to oldest, soonest to latest), replacement overdue
+            // first then by year, everything else A to Z with "(none)" last
             if (isset($labels[$k])) {
                 $order = array_keys($labels[$k]);
                 uksort($c, fn($a, $b) => array_search($a, $order, true) <=> array_search($b, $order, true));

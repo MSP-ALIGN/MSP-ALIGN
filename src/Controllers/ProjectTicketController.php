@@ -80,11 +80,15 @@ final class ProjectTicketController
             flash('error', 'Tickets can\'t be made here: ' . (psa_on() ? psa_name() . ' isn\'t set up to create them.' : 'no PSA is connected.'));
             redirect($back);
         }
+        // Each ticket is a call to the PSA: finish the batch even if the browser stops waiting, so no project is
+        // left with a ticket made but not saved
         ignore_user_abort(true);
         @set_time_limit(0);
         $made = [];
         $failed = [];
         $left = 0;
+        // Walk what is ready to start NOW, not the posted ids: one started, snoozed or moved since the page was
+        // opened is skipped instead of getting a second ticket
         foreach (ProjectTickets::due() as $it) {
             if (!isset($want[(int) $it['id']])) {
                 continue;

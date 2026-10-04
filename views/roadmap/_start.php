@@ -22,7 +22,7 @@ $quarter = $it['target_quarter'] ? (Plan::quarterFor((string) $it['target_quarte
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <?php if (!$state['startable']): ?>
+          <?php if (!$state['startable']): // opened from an old page: it has a ticket now, or can't have one ?>
             <p class="mb-0"><b><?= e($it['title']) ?></b> for <?= e($it['client_name']) ?>:
               <?= e($state['key'] === 'ticket' ? 'it has its ticket already (' . $state['text'] . ').' : ($state['key'] === 'off' ? 'tickets can\'t be made here.' : $state['text'] . '.')) ?></p>
           <?php else: ?>
@@ -36,7 +36,7 @@ $quarter = $it['target_quarter'] ? (Plan::quarterFor((string) $it['target_quarte
                 <?= e($quarter) ?> · budget <?= e(money((float) $it['cost'])) ?> · <?= e(Roadmap::STATUSES[$it['status']][0] ?? $it['status']) ?>
                 <?php if (!empty($it['decided_by_name']) && $it['status'] !== 'declined'): ?> by <?= e($it['decided_by_name']) ?> (client portal)<?php endif; ?>
                 <?php if ($note !== ''): ?><div class="mt-1 text-body-secondary" style="white-space: pre-line"><?= e(mb_strimwidth($note, 0, 600, '…')) ?></div><?php endif; ?>
-                <?php if ($devices): ?>
+                <?php if ($devices): // a device project lists what it replaces; a hand-added one shows its description (the note) ?>
                   <div class="table-responsive mt-2"><table class="table table-sm mb-1 font-monospace small">
                     <thead><tr><th scope="col">Device</th><th scope="col">Serial</th><th scope="col">User</th></tr></thead>
                     <?php foreach ($devices as $d): ?><tr><td><?= e($d['name']) ?></td><td><?= e($d['serial'] ?? '') ?></td><td><?= e(!empty($d['last_user']) ? short_user($d['last_user']) : '') ?></td></tr><?php endforeach; ?>

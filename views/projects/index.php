@@ -18,7 +18,7 @@ $back = $_SERVER['REQUEST_URI'] ?? '/projects';
 
 $shown = 0;
 // Draws project rows until the page's limit is reached ($shown counts across every group)
-$cols = $ticketsOn ? 8 : 7;
+$cols = $ticketsOn ? 8 : 7; // the Ticket column only when a PSA can make tickets (group headers span it)
 $renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown, $ticketsOn) {
     foreach ($items as $it) {
         if ($shown >= $limit) {
@@ -42,7 +42,7 @@ $renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown, $ti
           <td><span class="badge text-bg-<?= e($prTone) ?>"><?= e($prLabel) ?></span></td>
           <td class="text-end text-nowrap"><?= $it['cost'] !== null ? money((float) $it['cost']) : '<span class="text-muted">—</span>' ?></td>
           <td class="text-end text-nowrap small"><?= $it['recurring_monthly'] ? money((float) $it['recurring_monthly']) . '/mo' : '' ?></td>
-          <?php if ($ticketsOn): $ts = $it['ticket_state']; ?>
+          <?php if ($ticketsOn): $ts = $it['ticket_state']; // ticket: link and date; startable: button; otherwise why not ?>
             <td class="small text-nowrap" data-ticket-state="<?= e($ts['key']) ?>">
               <?php if ($ts['key'] === 'ticket'): $tu = \Align\Providers\Providers::psaLink('ticket', (string) $it['psa_ticket_id']); ?>
                 <?= $tu ? '<a href="' . e($tu) . '" target="_blank" rel="noopener">' . e($ts['text']) . '</a>' : e($ts['text']) ?><?= !empty($it['ticket_at']) ? ' <span class="text-muted">· ' . e(fmt_date($it['ticket_at'], 'short')) . '</span>' : '' ?>

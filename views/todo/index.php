@@ -19,6 +19,7 @@ foreach (Todo::CATEGORIES as $k => $label) {
     }
 }
 $back = $show !== '' ? '/todo?show=' . $show : '/todo';
+// Projects ready to start get their own group first (with Not yet and Ready to start); every other item links to its fix
 $projects = array_values(array_filter($items, fn($i) => isset($i['project'])));
 $others = array_values(array_filter($items, fn($i) => !isset($i['project'])));
 ?>
@@ -38,6 +39,7 @@ $others = array_values(array_filter($items, fn($i) => !isset($i['project'])));
             <div class="small <?= !empty($i['overdue']) ? 'text-warning-emphasis' : 'text-muted' ?>"><?= e($i['detail']) ?></div>
             <?php if (!empty($i['error'])): ?><div class="small text-danger" data-ticket-error><i class="fas fa-triangle-exclamation me-1"></i><?= e($i['error']) ?></div><?php endif; ?></div>
           <span class="badge text-bg-light border me-2 d-none d-md-inline"><?= e(Todo::CATEGORIES[$i['category']]) ?></span>
+          <?php // Not yet: the button is a month; the menu offers the other lengths with the date each comes back ?>
           <form method="post" action="/projects/<?= (int) $p['id'] ?>/snooze" class="btn-group">
             <?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>">
             <button class="btn btn-sm btn-default" name="months" value="<?= ProjectTickets::SNOOZE_MONTHS[0] ?>" title="Hide it from To do for a month" aria-label="<?= e('Not yet: ' . $p['title'] . ' (' . $p['client'] . '), for a month') ?>">Not yet</button>
@@ -67,7 +69,7 @@ $others = array_values(array_filter($items, fn($i) => !isset($i['project'])));
   </ul>
 </div>
 
-<?php if (count($projects) > 1): ?>
+<?php if (count($projects) > 1): // Ready to start: all, every project ticked (each one is checked again when posted) ?>
 <div class="modal fade" id="modal-start-all" tabindex="-1" aria-hidden="true" aria-labelledby="modal-start-all-title">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">

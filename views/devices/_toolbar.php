@@ -17,6 +17,8 @@ $counts = $counts ?? [];
 $keep = $keep ?? [];
 $df = $dfilters ?? [];
 $dopts = $dopts ?? [];
+// Every link here (tabs, Type, More, chips) keeps the client, view, Type, search and Filters panel values; $over
+// changes or clears ('' drops a key) just the ones it names
 $link = fn(array $over) => $base . (($qs = http_build_query(array_filter(array_merge($keep, ['filter' => $filter, 'class' => $class, 'q' => $q], DeviceFilters::query($df), $over), fn($v) => $v !== '' && $v !== null))) ? "?$qs" : '');
 $tabs = [];
 foreach ($views as $k => $label) {
@@ -38,6 +40,7 @@ foreach ($optCols as $k => $l) {
     $colsMenu .= '<div class="form-check "><input type="checkbox" class="form-check-input" id="col-' . $k . '" data-col="' . $k . '"><label class="form-check-label fw-normal" for="col-' . $k . '">' . e($l) . '</label></div>';
 }
 $colsMenu .= '</div></div>';
+// The Filters button shows the number of active filters; it is darker while any are on
 $filtersBtn = $dopts || $df ? '<button type="button" class="btn btn-sm ' . ($df ? 'btn-secondary' : 'btn-default') . '" data-bs-toggle="collapse" data-bs-target="#device-filters" aria-expanded="false" aria-controls="device-filters">'
     . '<i class="fas fa-filter me-1"></i>Filters' . ($df ? ' <span class="badge text-bg-light ms-1">' . count($df) . '</span>' : '') . '</button>' : '';
 $menus = [
@@ -57,13 +60,14 @@ echo \Align\View::fetch('partials/toolbar', [
 if ($dopts || $df): ?>
   <div class="collapse border-bottom" id="device-filters">
     <form method="get" action="<?= e($base) ?>" class="card-body py-3" data-device-filters>
+      <?php // The panel's own fields replace the filters; the client, view, Type and search ride along as hidden fields ?>
       <?php foreach (array_filter($keep + ['filter' => $filter, 'class' => $class, 'q' => $q], fn($v) => $v !== '' && $v !== null) as $hk => $hv): ?><input type="hidden" name="<?= e((string) $hk) ?>" value="<?= e((string) $hv) ?>"><?php endforeach; ?>
       <div class="row g-2">
         <?php foreach (DeviceFilters::KEYS as $k => $label):
-            if ($k === 'model' && !isset($df['make'])) continue;
+            if ($k === 'model' && !isset($df['make'])) continue; // models are listed for one make at a time
             $choices = $dopts[$k] ?? [];
             if (isset($df[$k]) && !isset($choices[$df[$k]])) $choices[$df[$k]] = DeviceFilters::label($k, $df[$k]) . ' (0)'; // a value from an old link stays visible
-            if (!$choices) continue; ?>
+            if (!$choices) continue; // nothing to choose (no device has a location, no backup tool) ?>
           <div class="col-sm-6 col-lg-3">
             <label class="form-label small mb-1" for="df-<?= e($k) ?>"><?= e($label) ?></label>
             <select class="form-select form-select-sm" name="<?= e($k) ?>" id="df-<?= e($k) ?>">
@@ -83,6 +87,8 @@ if ($dopts || $df): ?>
   <?php if ($df): ?>
     <div class="card-body py-2 border-bottom d-flex flex-wrap gap-2 align-items-center small" data-filter-chips>
       <span class="text-muted me-1">Filtered by</span>
+      <?php // Each chip reads "Make: Dell" (the choice's words without its count) and links to the same list without it;
+            // removing the make removes the model too ?>
       <?php foreach ($df as $k => $v): $chip = DeviceFilters::KEYS[$k] . ': ' . preg_replace('/ \([\d,]+\)$/', '', $dopts[$k][$v] ?? DeviceFilters::label($k, $v)); ?>
         <a class="badge rounded-pill text-bg-light border text-decoration-none fw-normal" href="<?= e($link([$k => '', ...($k === 'make' ? ['model' => ''] : [])])) ?>" aria-label="<?= e('Remove filter ' . $chip) ?>"><?= e($chip) ?><i class="fas fa-xmark ms-2"></i></a>
       <?php endforeach; ?>

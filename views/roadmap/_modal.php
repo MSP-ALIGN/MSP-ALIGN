@@ -100,11 +100,13 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
                   }) ?></div></div>
                 <a href="#" class="btn btn-sm btn-outline-primary" data-lazy-modal="/projects/<?= (int) $it['id'] ?>/start?back=<?= e(rawurlencode($back ?? '/clients/' . (int) $it['client_id'] . '/roadmap')) ?>" data-bs-target="#modal-start-<?= (int) $it['id'] ?>">Ready to start</a>
               </div>
-            <?php elseif ($ts['key'] !== 'closed'): ?>
+            <?php elseif ($ts['key'] !== 'closed'): // client not linked, ticket being made, or client out of planning: say why, no button ?>
               <div class="mb-3 small text-muted" data-ticket-state="<?= e($ts['key']) ?>"><i class="fas fa-ticket me-1"></i>Ticket: <?= e($ts['text']) ?></div>
             <?php endif; ?>
           <?php endif; ?>
-          <?php $cPsa = $it || $pickClients ? null : (string) \Align\DB::value('SELECT psa_id FROM clients WHERE id = ?', [(int) $cid]);
+          <?php // A new project: the "Make the QUOTE- ticket now" box (off by default), or why it can't have one. With a client
+                // picker the box always shows (the client isn't known yet; an unlinked one simply gets no ticket).
+                $cPsa = $it || $pickClients ? null : (string) \Align\DB::value('SELECT psa_id FROM clients WHERE id = ?', [(int) $cid]);
           if (!$it && \Align\Roadmap\ProjectTickets::enabled() && $cPsa === ''): ?>
             <div class="mb-3 small text-muted"><i class="fas fa-ticket me-1"></i>This client isn't linked to <?= e(psa_name()) ?>, so its projects get no ticket.</div>
           <?php elseif (!$it && \Align\Roadmap\ProjectTickets::enabled()): ?>

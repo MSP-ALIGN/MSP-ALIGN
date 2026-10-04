@@ -463,6 +463,7 @@ final class Backup
     public static function deviceMap(?string $companyUid, ?int $clientId = null): array
     {
         $out = [];
+        // One WHERE for the three queries: one client's rows, or every client's ($clientId is bound, never inlined)
         [$w, $p] = $clientId ? ['client_id = ?', [$clientId]] : ['1=1', []];
         foreach (DB::all("SELECT device_id FROM backup_exemptions WHERE $w AND kind = 'device'", $p) as $e) {
             $out[(int) $e['device_id']] = ['last_point' => null, 'tone' => 'muted', 'exempt' => true];

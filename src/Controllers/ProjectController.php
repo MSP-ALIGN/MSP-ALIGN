@@ -74,6 +74,8 @@ final class ProjectController
             $it['ticket_state'] = ProjectTickets::state($it, (string) $it['client_psa_id']);
         }
         unset($it);
+        // Each filter covers the states it means: Not yet is everything startable but not due yet (a later quarter,
+        // snoozed, not approved, no quarter)
         if ($ticket !== '') {
             $keys = ['ready' => ['due'], 'waiting' => ['later', 'snoozed', 'proposed', 'unscheduled'], 'has' => ['ticket']][$ticket];
             $items = array_values(array_filter($items, fn($it) => in_array($it['ticket_state']['key'], $keys, true)));
