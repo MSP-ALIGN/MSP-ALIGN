@@ -1,8 +1,8 @@
 <?php
 /**
- * A client's Devices & assets list. @var array $client, $devices, $backupMap; int $matched, $total, $limit; string $q, $filter, $class
+ * A client's Devices & assets list. @var array $client, $devices, $backupMap, $dfilters, $dopts (Filters panel); int $matched, $total, $limit; string $q, $filter, $class
  * Bulk replacement, Make projects and Add device are for techs and admins. The return query is kept to
- * [a-z0-9=&_%.-] here and checked again by the controller.
+ * [a-z0-9=&_%.+-] here (+ is a space in a filter or search) and checked again by the controller.
  */
 use Align\Auth;
 
@@ -19,11 +19,12 @@ echo \Align\View::fetch('partials/page_header', [
 ]);
 ?>
 <div class="card">
-  <?= \Align\View::fetch('devices/_toolbar', ['base' => "/clients/$cid/devices", 'filter' => $filter, 'class' => $class, 'q' => $q, 'bkOn' => $bkOn, 'export' => "/clients/$cid/export"]) ?>
+  <?= \Align\View::fetch('devices/_toolbar', ['base' => "/clients/$cid/devices", 'filter' => $filter, 'class' => $class, 'q' => $q, 'bkOn' => $bkOn, 'dfilters' => $dfilters, 'dopts' => $dopts,
+      'export' => "/clients/$cid/export" . (($eq = http_build_query(array_filter(['filter' => $filter, 'class' => $class, 'q' => $q] + \Align\Lifecycle\DeviceFilters::query($dfilters)))) !== '' ? "?$eq" : '')]) ?>
   <?php if ($canBulk): ?>
   <form method="post" action="/clients/<?= $cid ?>/devices/replacement" id="bulk-replace" class="card-body py-2 border-bottom d-flex flex-wrap align-items-center small bulk-replace d-none" data-bulk-bar="device-table"
     data-confirm-rules="<?= e(json_encode([['count' => '[name="ids[]"]:checked', 'title' => 'Change the replacement plan for {n} devices?', 'text' => 'Their place on the roadmap and in the budget moves with it.', 'ok' => 'Set replacement']])) ?>">
-    <?= csrf_field() ?><input type="hidden" name="return_query" value="<?= e(http_build_query(array_filter(['filter' => $filter, 'class' => $class, 'q' => $q, 'limit' => $limit > \Align\Paging::STEP ? $limit : '']))) ?>">
+    <?= csrf_field() ?><input type="hidden" name="return_query" value="<?= e(http_build_query(array_filter(['filter' => $filter, 'class' => $class, 'q' => $q, 'limit' => $limit > \Align\Paging::STEP ? $limit : ''] + \Align\Lifecycle\DeviceFilters::query($dfilters)))) ?>">
     <span class="me-2 mb-1"><b data-bulk-count>0</b> selected · Replace in</span>
     <select name="replace_on" class="form-select form-select-sm me-2 mb-1 w-auto" aria-label="Replace in">
       <option value="">Automatic (end of life)</option>
@@ -41,7 +42,7 @@ echo \Align\View::fetch('partials/page_header', [
   <?= \Align\View::fetch('partials/list_footer', ['shown' => count($devices), 'total' => $matched, 'moreUrl' => \Align\Paging::moreUrl($limit)]) ?>
 </div>
 
-<?php if ($canBulk) echo \Align\View::fetch('devices/_project_modal', ['client' => $client, 'back' => '/clients/' . $cid . '/devices' . ($_SERVER['QUERY_STRING'] ?? '' ? '?' . preg_replace('/[^a-z0-9=&_%.-]/i', '', (string) $_SERVER['QUERY_STRING']) : '')]); ?>
+<?php if ($canBulk) echo \Align\View::fetch('devices/_project_modal', ['client' => $client, 'back' => '/clients/' . $cid . '/devices' . ($_SERVER['QUERY_STRING'] ?? '' ? '?' . preg_replace('/[^a-z0-9=&_%.+-]/i', '', (string) $_SERVER['QUERY_STRING']) : '')]); ?>
 <?php if (Auth::can('tech')): ?>
 <div class="modal fade" id="modal-device" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">

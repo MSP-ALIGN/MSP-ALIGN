@@ -143,7 +143,7 @@ final class DeviceController
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         $back = post('back');
-        $back = preg_match('#^/(clients/' . $id . '/devices|devices/\d+)(\?[a-z0-9=&_%.-]*)?$#i', $back) ? $back : "/clients/$id/devices";
+        $back = preg_match('#^/(clients/' . $id . '/devices|devices/\d+)(\?[a-z0-9=&_%.+-]*)?$#i', $back) ? $back : "/clients/$id/devices";
         $ids = array_values(array_unique(array_map('intval', (array) ($_POST['ids'] ?? []))));
         if (!$ids) {
             flash('error', 'Tick the devices first.');
@@ -185,7 +185,7 @@ final class DeviceController
         $all = (new Lifecycle())->devices($clientId);
         $mine = array_column($all, 'name', 'id');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), fn($i) => isset($mine[$i]))));
-        $back = '/clients/' . $clientId . '/devices' . (post('return_query') !== '' && preg_match('/^[a-z0-9=&_%.-]*$/i', post('return_query')) ? '?' . post('return_query') : '');
+        $back = '/clients/' . $clientId . '/devices' . (post('return_query') !== '' && preg_match('/^[a-z0-9=&_%.+-]*$/i', post('return_query')) ? '?' . post('return_query') : '');
         // The roadmap's drag and drop calls this with fetch() and wants JSON back
         $json = str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
         $fail = function (string $msg) use ($json, $back): never {
@@ -381,9 +381,16 @@ final class DeviceController
         $q = \Align\Paging::q();
         // 2.2.1: audited like a client's device list and the all-clients contacts list (this one shows every client's devices)
         \Align\Audit::access('devices', 'all clients' . ($cid ? " (client #$cid)" : '') . ($q !== '' ? ' (search "' . mb_substr($q, 0, 60) . '")' : ''));
-        $rows = \Align\Paging::search(ClientController::filter($all, $filter, $class), $q, ClientController::DEVICE_SEARCH);
+        // 2.2.2: the Filters panel; the tiles and tab counts follow it too
+        // (one client picked: Backup only when that client has a backup tool linked, as on its own page)
+        $bkOn = $cid ? (bool) \Align\Providers\ClientLinks::backupCompanyUids($cid) : \Align\Backup\Backup::enabled();
+        $backupMap = $bkOn ? \Align\Backup\Backup::deviceMap(null, $cid ?: null) : [];
+        $df = \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $all);
+        $scope = \Align\Lifecycle\DeviceFilters::apply($all, $df, $backupMap);
+        $base = \Align\Paging::search(ClientController::filter($all, $filter, $class), $q, ClientController::DEVICE_SEARCH);
+        $rows = \Align\Lifecycle\DeviceFilters::apply($base, $df, $backupMap);
         $limit = \Align\Paging::limit();
-        $count = fn(string $f) => count(ClientController::filter($all, $f, ''));
+        $count = fn(string $f) => count(ClientController::filter($scope, $f, ''));
         View::render('devices/index', [
             'title' => 'Devices & assets',
             'nav' => 'devices',
@@ -394,11 +401,14 @@ final class DeviceController
             'q' => $q,
             'filter' => $filter,
             'class' => $class,
+            'dfilters' => $df,
+            'dopts' => \Align\Lifecycle\DeviceFilters::options($base, $df, $backupMap, $bkOn),
             'clientId' => $cid,
             'clients' => DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),
             // Each tile counts exactly what its view lists
             'tiles' => ['attention' => $count('attention'), 'replace' => $count('replace'), 'os' => $count('os'), 'warranty' => $count('warranty'), 'stale' => $count('stale')],
-            'counts' => ['attention' => $count('attention'), 'unassigned' => $count('unassigned')],
+            // Unassigned hardware is its own page without the filters, so its badge counts every device
+            'counts' => ['attention' => $count('attention'), 'unassigned' => count(ClientController::filter($all, 'unassigned', ''))],
         ]);
     }
 
@@ -425,7 +435,9 @@ final class DeviceController
             $all = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === $cid));
         }
         $filter = query('filter') === 'itflow' ? 'psa' : query('filter');
-        $rows = \Align\Paging::search(ClientController::filter($all, $filter, query('class')), \Align\Paging::q(), ClientController::DEVICE_SEARCH);
+        $df = \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $all);
+        $map = $df && isset($df['backup']) && \Align\Backup\Backup::enabled() ? \Align\Backup\Backup::deviceMap(null, $cid ?: null) : [];
+        $rows = \Align\Paging::search(ClientController::filter(\Align\Lifecycle\DeviceFilters::apply($all, $df, $map), $filter, query('class')), \Align\Paging::q(), ClientController::DEVICE_SEARCH);
         Audit::log('devices.export', count($rows) . ' devices');
         ClientController::csv($rows, 'devices-' . date('Y-m-d') . '.csv', true);
     }

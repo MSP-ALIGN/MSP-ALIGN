@@ -1667,3 +1667,19 @@ document.addEventListener('change', (ev) => {
     btn.disabled = !n; // nothing ticked that can still become a project
   }
 });
+
+// 2.2.2 Devices & assets Filters panel: "Any" fields stay out of the address, and a new make drops the old model
+// (the model list is for one make; it appears once the make is applied). Without script the form still works.
+document.addEventListener('submit', (ev) => {
+  const form = ev.target;
+  if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-device-filters')) return;
+  form.querySelectorAll('select, input[type=hidden]').forEach((el) => { if (el.value === '') el.disabled = true; });
+  // re-enable once the page is back from the cache (back button), so the fields still work
+  window.addEventListener('pageshow', () => form.querySelectorAll(':disabled').forEach((el) => { el.disabled = false; }), { once: true });
+});
+document.addEventListener('change', (ev) => {
+  const el = ev.target;
+  if (!(el instanceof HTMLSelectElement) || el.id !== 'df-make') return;
+  const model = el.form && el.form.querySelector('#df-model');
+  if (model) { model.value = ''; model.disabled = true; }
+});
