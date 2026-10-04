@@ -1,3 +1,8 @@
+<?php
+/**
+ * Framework list and the new-framework form (admin). @var array $frameworks.
+ */
+?>
 <?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', false], ['/frameworks', 'Frameworks', 'fa-list-check', true, \Align\Auth::can('admin')]]]) ?>
 <div class="card card-dark">
   <div class="card-header py-2">

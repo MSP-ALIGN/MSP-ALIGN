@@ -1,4 +1,8 @@
 <?php
+/**
+ * The schedule/edit meeting form (techs). @var ?array $m (editing when set); array $modalClients, $modalUsers;
+ * ?int $presetClient. Values are escaped; the return path is the current URI, checked by MeetingController::back().
+ */
 use Align\Meetings\Meetings;
 
 $m = $m ?? null; // editing when set

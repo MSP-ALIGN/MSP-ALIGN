@@ -2,7 +2,11 @@
 use Align\Auth;
 use Align\Contacts\Contacts;
 
-/** @var array $contacts; $showClient; $back */
+/**
+ * The contacts table. @var array $contacts; $showClient; $back
+ * Contact data comes from the PSA or the CSV import and is escaped. Links are built only as mailto: (emails are
+ * validated when stored) and tel: (digits and + only); names open the edit window for techs and admins.
+ */
 $showClient = $showClient ?? false;
 $canEdit = Auth::can('tech');
 $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);

@@ -18,27 +18,37 @@ namespace Align\Providers\Backup;
  *   job_lists    which job sources were readable this time (only those are pruned)
  *   workloads    [uid ("vm:…" / "computer:…"), company_uid, kind (vm|computer), name, hostname (host_key()),
  *                 last_point, restore_points, backup_bytes, source_bytes, job_uids: string[]]
+ *   workload_lists which workload kinds (vm, computer) were readable this time (only those are pruned; 2.2.1)
  *   m365         null (not available) | [orgs: [uid, company_uid, name, services, is_backed_up, first_backup, last_backup],
  *                 objects: null | [uid, company_uid, org_uid, name, object_type (user|group|team|site|other),
  *                 restore_points, last_point, licensed]]
+ *
+ * SECURITY: backup product data is untrusted. Every record's keys are fixed by the provider (BackupSync uses
+ * them as column names), never taken from the response. A company uid decides which client a job or machine
+ * belongs to (through client_links), so uids are kept exact; one too long for its column is replaced by a
+ * hash rather than cut, so two different records can't become one.
  */
 interface BackupProvider
 {
+    /** Optional abilities; screens hide what a provider can't do. */
     public const CAPABILITIES = [
         'cloud_storage' => 'Cloud storage used and quota per company',
         'm365' => 'Microsoft 365 backups',
         'agents' => 'Agent (computer) backups',
     ];
 
+    /** The connector key ("veeam"). */
     public function key(): string;
 
+    /** Short display name ("Veeam"). */
     public function name(): string;
 
+    /** Whether the provider offers one of CAPABILITIES. */
     public function supports(string $capability): bool;
 
     /** Checks the connection; returns a short success message or throws. */
     public function test(): string;
 
-    /** @param callable(string):void $info progress notes for the sync log */
+    /** Everything at once, as described above. @param callable(string):void $info progress notes for the sync log */
     public function snapshot(callable $info): array;
 }

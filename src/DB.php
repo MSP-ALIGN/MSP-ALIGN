@@ -5,6 +5,14 @@ namespace Align;
 
 use PDO;
 
+/**
+ * The one database connection (MariaDB through PDO) and small helpers around it.
+ *
+ * Security assumptions: every value goes in as a bound parameter (native prepares, so values never become SQL).
+ * Table and column names can't be bound, so the insert/update/upsert helpers only accept plain names (names()).
+ * Callers that write their own SQL for DB::run/all/one/value must keep it a literal and bind every value. A
+ * PDOException's message can hold SQL fragments and values: show it to people only through safe_error().
+ */
 final class DB
 {
     private static ?PDO $pdo = null;
@@ -13,7 +21,19 @@ final class DB
     public static float $queryTime = 0.0;
     public static array $slow = [];
     public static array $seen = [];
+    /** How many nested DB::transaction() calls (savepoints) are open inside the outer one. */
+    private static int $depth = 0;
+    /** Whether an outer DB::transaction() is open. */
+    private static bool $open = false;
+    /** Work to do once the outer transaction commits: [savepoint depth it was queued at, callable]. */
+    private static array $afterCommit = [];
 
+    /**
+     * Connects on first use and returns the connection. The session's charset is utf8mb4 and its time zone follows
+     * PHP's (Settings → General wins over config.php), so NOW() in SQL and date() in PHP agree.
+     * The time zone is fixed as an offset when connecting: a long-running CLI job that crosses a DST change keeps
+     * the old offset until it reconnects.
+     */
     public static function pdo(): PDO
     {
         if (self::$pdo === null) {
@@ -37,11 +57,16 @@ final class DB
             } catch (\PDOException) {
                 // before the first install step there's no settings table yet
             }
+            // date('P') is always "+HH:MM", so it is safe to put in the SQL
             self::$pdo->exec("SET time_zone = '" . date('P') . "'");
         }
         return self::$pdo;
     }
 
+    /**
+     * Prepares and runs one statement with bound values. $sql must be written by the caller (never built from
+     * input); only $params may hold outside data.
+     */
     public static function run(string $sql, array $params = []): \PDOStatement
     {
         $t = microtime(true);
@@ -60,17 +85,20 @@ final class DB
         return $stmt;
     }
 
+    /** Every row (as associative arrays). Same rules as run(). */
     public static function all(string $sql, array $params = []): array
     {
         return self::run($sql, $params)->fetchAll();
     }
 
+    /** The first row, or null. Same rules as run(). */
     public static function one(string $sql, array $params = []): ?array
     {
         $row = self::run($sql, $params)->fetch();
         return $row === false ? null : $row;
     }
 
+    /** The first column of the first row, or null when there is no row. Same rules as run(). */
     public static function value(string $sql, array $params = []): mixed
     {
         $v = self::run($sql, $params)->fetchColumn();
@@ -90,6 +118,10 @@ final class DB
         }
     }
 
+    /**
+     * INSERT one row (column => value) and return its new id. Column names are checked by names(); the caller
+     * decides which columns may be set (never pass a request's array straight in: that would let it set any column).
+     */
     public static function insert(string $table, array $row): int
     {
         $cols = array_keys($row);
@@ -104,7 +136,10 @@ final class DB
         return (int) self::pdo()->lastInsertId();
     }
 
-    /** UPDATE table SET row... WHERE every $where column equals its value (not null). Returns rows changed (not just matched). */
+    /**
+     * UPDATE table SET row... WHERE every $where column equals its value (not null). Returns rows changed (not just matched).
+     * An empty $row or $where does nothing (so a missing WHERE can never update the whole table).
+     */
     public static function update(string $table, array $row, array $where): int
     {
         if (!$row || !$where) {
@@ -120,7 +155,7 @@ final class DB
         return self::run($sql, [...array_values($row), ...array_values($where)])->rowCount();
     }
 
-    /** INSERT ... ON DUPLICATE KEY UPDATE for every non-key column given. */
+    /** INSERT ... ON DUPLICATE KEY UPDATE for every non-key column given. Same column rules as insert(). */
     public static function upsert(string $table, array $row, array $keyCols): void
     {
         $cols = array_keys($row);
@@ -136,7 +171,10 @@ final class DB
         self::run($sql, array_values($row));
     }
 
-    /** upsert() for many rows with the same columns, a few hundred per statement. */
+    /**
+     * upsert() for many rows with the same columns, a few hundred per statement. The first row's keys are the
+     * columns: a later row's missing column is stored as null and its extra keys are ignored.
+     */
     public static function upsertMany(string $table, array $rows, array $keyCols, int $chunk = 300): void
     {
         if (!$rows) {
@@ -163,17 +201,84 @@ final class DB
         }
     }
 
+    /**
+     * Runs $fn in a transaction: commits when it returns, rolls back and rethrows when it throws.
+     * Called inside another DB::transaction() (2.2.1), it runs in a savepoint of the outer one instead of failing
+     * with "There is already an active transaction": its changes are undone alone if it throws, and are committed
+     * or rolled back with the outer transaction.
+     * Work queued with afterCommit() inside it runs once the outer transaction commits, and is dropped with a
+     * rollback (of the outer transaction, or of the savepoint it was queued in).
+     * No automatic retry on deadlock: $fn may have side effects (mail, files) that must not run twice.
+     */
     public static function transaction(callable $fn): mixed
     {
         $pdo = self::pdo();
+        if (self::$open) {
+            $d = ++self::$depth;
+            $sp = 'align_sp' . $d;
+            $pdo->exec("SAVEPOINT $sp");
+            try {
+                $result = $fn();
+                $pdo->exec("RELEASE SAVEPOINT $sp");
+                // its queued work now belongs to the enclosing level
+                foreach (self::$afterCommit as $i => [$at]) {
+                    if ($at >= $d) {
+                        self::$afterCommit[$i][0] = $d - 1;
+                    }
+                }
+                return $result;
+            } catch (\Throwable $e) {
+                try {
+                    $pdo->exec("ROLLBACK TO SAVEPOINT $sp");
+                } catch (\PDOException) {
+                    // the server already rolled the whole transaction back (deadlock): the outer one sees the error
+                }
+                self::$afterCommit = array_values(array_filter(self::$afterCommit, fn($q) => $q[0] < $d));
+                throw $e;
+            } finally {
+                self::$depth--;
+            }
+        }
         $pdo->beginTransaction();
+        self::$open = true;
         try {
             $result = $fn();
             $pdo->commit();
-            return $result;
         } catch (\Throwable $e) {
-            $pdo->rollBack();
+            self::$open = false;
+            self::$afterCommit = [];
+            try {
+                $pdo->rollBack();
+            } catch (\PDOException) {
+                // nothing left to roll back (an implicit commit or a lost connection): keep the original error
+            }
             throw $e;
         }
+        self::$open = false;
+        $queued = self::$afterCommit;
+        self::$afterCommit = [];
+        foreach ($queued as [, $work]) {
+            try {
+                $work();
+            } catch (\Throwable $e) {
+                // the transaction is already committed: report, don't fail the caller
+                error_log('[msp-align] after-commit work failed: ' . $e->getMessage());
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Runs $work now, or, inside DB::transaction(), right after the outer transaction commits (never if it rolls
+     * back). Used for the audit log (2.2.1): appending to the chain locks its head row, and doing that in the middle
+     * of a longer transaction could make MariaDB 11.8's snapshot isolation roll the whole transaction back.
+     */
+    public static function afterCommit(callable $work): void
+    {
+        if (!self::$open) {
+            $work();
+            return;
+        }
+        self::$afterCommit[] = [self::$depth, $work];
     }
 }

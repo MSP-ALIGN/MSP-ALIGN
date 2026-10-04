@@ -8,7 +8,14 @@ use Align\Providers\ClientLinks;
 use Align\Providers\Providers;
 use Align\Settings;
 
-/** Backup status per client, built from what the backup sync stored (any backup provider). */
+/**
+ * Backup status per client, built from what the backup sync stored (any backup provider).
+ *
+ * SECURITY: read-only. Callers check the viewer may see the client (staff, or the portal for its own client through
+ * ReportData); every query here is limited to that client id: its linked companies, the machines and jobs
+ * BackupSync sorted to it, and its own exemptions. The one exception is claimable(), the unmatched pool shown to
+ * techs. Names and messages come from the backup product: plain text, escaped by the views.
+ */
 final class Backup
 {
     public const STATUS = [
@@ -47,6 +54,7 @@ final class Backup
         return $d ? date('Y-m-d H:i:s', time() - $d * 86400) : '1000-01-01 00:00:00';
     }
 
+    /** Whether backup monitoring is in use: a backup product connected, or companies left from one. */
     public static function enabled(): bool
     {
         return Providers::anyBackup() || (int) DB::value('SELECT COUNT(*) FROM backup_companies') > 0;
@@ -69,6 +77,7 @@ final class Backup
      * Unmatched hosted jobs and machines for one client's Backups page, likeliest first.
      * A name "looks like" the client when it contains the client's initials (Harbor Point Law Group -> HPLG),
      * a distinctive word from its name (Veterinary -> VET…), or the name of one of its servers with no backup.
+     * Lists the unmatched pool from every hosting server, not one client's data: for techs only (the caller checks).
      * @param string[] $serverNames names of the client's servers with no backup
      * @return array{jobs: array, machines: array, suggested: int}
      */
@@ -148,6 +157,7 @@ final class Backup
      * Everything the client page and reports show. Null when the client has no backup data at all.
      * Machines and jobs come from the client's own backup companies and from hosting servers (see BackupSync::assign()).
      * $devices: Lifecycle::devices() for the client (used to find servers with no backup).
+     * The caller has checked the viewer may see this client; nothing here reads another client's rows.
      */
     public static function forClient(array $client, ?array $devices = null): ?array
     {
@@ -307,7 +317,9 @@ final class Backup
 
     /**
      * Microsoft 365 backup for a client's companies: tenants, counts per object type, overdue objects.
-     * Null when the companies have no Microsoft 365 backup data.
+     * Null when the companies have no Microsoft 365 backup data. $uids: the client's own linked companies;
+     * $exempt: the client's own exemptions by item uid. An object with no restore point for m365RetiredDays() is
+     * listed apart as no longer backed up (counted neither way); until then it counts as overdue.
      */
     private static function m365(array $uids, int $stale, array $jobs, array $exempt = []): ?array
     {
@@ -390,7 +402,11 @@ final class Backup
 
     public const EXEMPT_KINDS = ['device' => 'Device', 'workload' => 'Protected machine', 'm365' => 'Microsoft 365 item'];
 
-    /** Exemptions for one client: ['devices' => [id => row], 'items' => [uid => row], 'list' => rows]. */
+    /**
+     * Exemptions for one client: ['devices' => [id => row], 'items' => [uid => row], 'list' => rows].
+     * Only that client's rows: an item exempted at another client doesn't count here. Set by techs and admins
+     * (BackupController::exempt), each with a reason, audited.
+     */
     public static function exemptions(int $clientId): array
     {
         $out = ['devices' => [], 'items' => [], 'list' => []];
@@ -406,7 +422,10 @@ final class Backup
         return $out;
     }
 
-    /** One line per client for the portfolio report and dashboard. [client id => stats] */
+    /**
+     * One line per client for the portfolio report and dashboard. [client id => stats]
+     * Counts the same way as forClient() (exemptions, Microsoft 365 objects no longer backed up), in one query. Staff only.
+     */
     public static function summaries(): array
     {
         $stale = date('Y-m-d H:i:s', time() - self::staleHours() * 3600);
@@ -467,6 +486,7 @@ final class Backup
         return $out;
     }
 
+    /** What kind of job it is, in words ("Agent backup", "Backup copy"), from its source and the product's job type. */
     public static function jobKind(array $j): string
     {
         $t = strtolower((string) $j['job_type']);
@@ -488,6 +508,7 @@ final class Backup
         return $d ? preg_replace('/ ago$/', '', rel_time($d)) : 'never';
     }
 
+    /** "under 1 hr", "5 hr", "3 days" for an age in hours; "never" for null. */
     public static function age(?float $hours): string
     {
         return match (true) {
@@ -498,6 +519,7 @@ final class Backup
         };
     }
 
+    /** Sort order of a tone: problems first. */
     private static function rank(string $tone): int
     {
         return ['bad' => 0, 'warn' => 1, 'info' => 2, 'ok' => 3, 'muted' => 4][$tone] ?? 5;

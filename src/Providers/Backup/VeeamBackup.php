@@ -5,47 +5,82 @@ namespace Align\Providers\Backup;
 
 use Align\Integrations\VeeamSpc as V;
 
-/** Veeam Service Provider Console as a backup provider: turns VSPC API rows into neutral records (see BackupProvider). */
+/**
+ * Veeam Service Provider Console as a backup provider: turns VSPC API rows into neutral records (see BackupProvider).
+ *
+ * SECURITY: VSPC responses are untrusted. The company uid on a job, machine or Microsoft 365 record decides which
+ * client it counts for, so uids are kept exact: one longer than its column (64 characters; 100 for a machine) is
+ * replaced by "sha1:" and its hash instead of being cut, since two cut uids could become one record and mix two
+ * clients' backups. Every record is built with fixed keys (BackupSync uses them as column names). Read-only: nothing
+ * is ever sent to VSPC except reads.
+ */
 final class VeeamBackup implements BackupProvider
 {
+    /** $api is built from the admin's saved VSPC URL and key (https and TLS checks live in VeeamSpc / HttpClient). */
     public function __construct(private V $api)
     {
     }
 
+    /** Throws when Veeam isn't set up. */
     public static function fromSettings(): self
     {
         return new self(V::fromSettings());
     }
 
+    /** A uid as text that fits a $max-character column: null when missing or not text, a hash when too long. */
+    private static function uid(mixed $v, int $max = 64): ?string
+    {
+        if (!is_string($v) && !is_int($v)) {
+            return null;
+        }
+        $s = (string) $v;
+        return $s === '' ? null : (strlen($s) > $max ? 'sha1:' . sha1($s) : $s);
+    }
+
+    /** V::orgOf with the result made to fit (see uid()). */
+    private static function org(array $r): ?string
+    {
+        return self::uid(V::orgOf($r));
+    }
+
+    /** The connector key (fixed; also stored with every record from this provider). */
     public function key(): string
     {
         return 'veeam';
     }
 
+    /** Display name. */
     public function name(): string
     {
         return 'Veeam';
     }
 
+    /** VSPC offers every backup capability (what a key can actually read shows up as null lists). */
     public function supports(string $capability): bool
     {
         return isset(self::CAPABILITIES[$capability]);
     }
 
+    /** Checks the URL and key (admin, Integrations page). */
     public function test(): string
     {
         return $this->api->test();
     }
 
+    /**
+     * Reads everything (see BackupProvider). Called by the sync only; the records are stored by BackupSync, which
+     * prunes only this provider's rows.
+     */
     public function snapshot(callable $info): array
     {
         $api = $this->api;
 
         $companies = [];
         foreach ($api->companies() as $c) {
-            $uid = (string) ($c['instanceUid'] ?? '');
+            $uid = self::uid($c['instanceUid'] ?? null) ?? '';
             if ($uid !== '') {
-                $companies[] = ['uid' => $uid, 'name' => mb_substr((string) ($c['name'] ?? $uid), 0, 255), 'status' => $c['status'] ?? null];
+                $companies[] = ['uid' => $uid, 'name' => mb_substr((string) ($c['name'] ?? $uid), 0, 255),
+                    'status' => is_string($c['status'] ?? null) ? mb_substr($c['status'], 0, 40) : null]; // backup_companies.status is VARCHAR(40)
             }
         }
 
@@ -55,7 +90,7 @@ final class VeeamBackup implements BackupProvider
         if ($usage !== null) {
             $cloud = [];
             foreach ($usage as $u) {
-                $cu = (string) ($u['companyUid'] ?? V::orgOf($u) ?? '');
+                $cu = self::uid($u['companyUid'] ?? null) ?? self::org($u) ?? '';
                 if ($cu === '') {
                     continue;
                 }
@@ -72,7 +107,7 @@ final class VeeamBackup implements BackupProvider
             $au = (string) ($a['instanceUid'] ?? '');
             if ($au !== '') {
                 $agentNames[$au] = (string) V::pick($a, ['name', 'computerName', 'hostName']);
-                $agentOrgs[$au] = V::orgOf($a);
+                $agentOrgs[$au] = self::org($a);
             }
         }
         $jobs = [];
@@ -110,11 +145,16 @@ final class VeeamBackup implements BackupProvider
         // Protected machines: one row per machine, newest restore point wins when it's in several jobs
         $wl = [];
         $wlJobs = [];
-        foreach ($api->protectedVms() ?? [] as $vm) {
+        $vms = $api->protectedVms();
+        $computers = $api->protectedComputers();
+        // Only lists that were readable are pruned by BackupSync (2.2.1): a lost permission or an error page in front
+        // of VSPC used to empty every client's protected machines until a later sync
+        $wlLists = array_keys(array_filter(['vm' => $vms !== null, 'computer' => $computers !== null]));
+        foreach ($vms ?? [] as $vm) {
             // A VM on the provider's own server belongs to the company its job is mapped to (in VSPC)
-            self::addWorkload($wl, $vm, 'vm', $jobCompany[(string) ($vm['jobUid'] ?? '')] ?? null, $wlJobs);
+            self::addWorkload($wl, $vm, 'vm', $jobCompany[self::uid($vm['jobUid'] ?? null) ?? ''] ?? null, $wlJobs);
         }
-        foreach ($api->protectedComputers() as $c) {
+        foreach ($computers ?? [] as $c) {
             self::addWorkload($wl, $c, 'computer', null, $wlJobs);
         }
         // Agent jobs name their computer
@@ -134,18 +174,20 @@ final class VeeamBackup implements BackupProvider
             'jobs' => $jobs,
             'job_lists' => $lists,
             'workloads' => $workloads,
+            'workload_lists' => $wlLists,
             'm365' => $m365 === null ? null : ['orgs' => $m365['orgs'], 'objects' => $m365['objects']],
         ];
     }
 
+    /** A server or agent job as a neutral job row (fixed keys). */
     private static function mapJob(array $j, string $source): array
     {
         $dur = V::int(V::pick($j, ['lastDuration', 'lastRunDurationSec', 'lastSessionDuration']));
         return [
-            'uid' => (string) ($j['instanceUid'] ?? ''),
-            'company_uid' => V::orgOf($j),
+            'uid' => self::uid($j['instanceUid'] ?? null) ?? '',
+            'company_uid' => self::org($j),
             'source' => $source,
-            'agent_uid' => $source === 'agent' && !empty($j['backupAgentUid']) ? mb_substr((string) $j['backupAgentUid'], 0, 64) : null,
+            'agent_uid' => $source === 'agent' ? self::uid($j['backupAgentUid'] ?? null) : null,
             'name' => mb_substr((string) (V::pick($j, ['name']) ?? 'Backup job'), 0, 255),
             'job_type' => ($t = V::pick($j, ['type', 'subtype', 'jobKind'])) !== null ? mb_substr((string) $t, 0, 60) : null,
             'status' => V::status(V::pick($j, ['status', 'lastStatus', 'lastResult'])),
@@ -159,20 +201,25 @@ final class VeeamBackup implements BackupProvider
         ];
     }
 
+    /**
+     * Adds a protected machine to $wl (one row per machine) and notes its job in $wlJobs. $company: the company of
+     * the machine's job when VSPC files the machine under the provider's own server.
+     */
     private static function addWorkload(array &$wl, array $r, string $kind, ?string $company, array &$wlJobs): void
     {
-        $id = (string) V::pick($r, ['instanceUid', 'backupAgentUid', 'uid']);
+        $id = V::pick($r, ['instanceUid', 'backupAgentUid', 'uid']);
+        $id = is_string($id) || is_int($id) ? (string) $id : '';
         $name = trim((string) V::pick($r, ['name', 'hostName', 'computerName', 'guestDnsName']));
         if ($id === '' || $name === '') {
             return;
         }
-        $key = "$kind:$id";
-        if (($ju = (string) ($r['jobUid'] ?? '')) !== '' && $ju !== V::ZERO_UID) {
+        $key = self::uid("$kind:$id", 100);
+        if (($ju = self::uid($r['jobUid'] ?? null) ?? '') !== '' && $ju !== V::ZERO_UID) {
             $wlJobs[$key][$ju] = true;
         }
         $row = [
-            'uid' => mb_substr($key, 0, 100),
-            'company_uid' => $company ?? V::orgOf($r),
+            'uid' => $key,
+            'company_uid' => $company ?? self::org($r),
             'kind' => $kind,
             'name' => mb_substr($name, 0, 255),
             'hostname' => mb_substr(host_key((string) (V::pick($r, ['guestDnsName', 'hostName']) ?? $name)), 0, 190) ?: null,
@@ -206,11 +253,11 @@ final class VeeamBackup implements BackupProvider
         $orgCompany = [];
         $orgs = [];
         foreach ($orgsRaw as $o) {
-            $uid = (string) ($o['instanceUid'] ?? '');
+            $uid = self::uid($o['instanceUid'] ?? null) ?? '';
             if ($uid === '') {
                 continue;
             }
-            $company = V::orgOf(['mappedOrganizationUid' => $o['mappedOrganizationUid'] ?? null]) ?? $map[$uid] ?? null;
+            $company = self::org(['mappedOrganizationUid' => $o['mappedOrganizationUid'] ?? null]) ?? self::uid($map[(string) ($o['instanceUid'] ?? '')] ?? null);
             $orgCompany[$uid] = $company;
             $orgs[] = [
                 'uid' => $uid,
@@ -223,9 +270,10 @@ final class VeeamBackup implements BackupProvider
             ];
         }
         // Jobs name their company (vspcOrganizationUid); objects go by their tenant's company mapping first
-        $companyOf = fn(array $r) => V::orgOf(['organizationUid' => $r['vspcOrganizationUid'] ?? null])
-            ?? $orgCompany[(string) ($r['vb365OrganizationUid'] ?? '')] ?? $map[(string) ($r['vb365OrganizationUid'] ?? '')]
-            ?? V::orgOf(['organizationUid' => $r['organizationUid'] ?? null]);
+        $tenant = fn(array $r) => self::uid($r['vb365OrganizationUid'] ?? null) ?? '';
+        $companyOf = fn(array $r) => self::org(['organizationUid' => $r['vspcOrganizationUid'] ?? null])
+            ?? $orgCompany[$tenant($r)] ?? self::uid($map[is_scalar($r['vb365OrganizationUid'] ?? null) ? (string) $r['vb365OrganizationUid'] : ''] ?? null)
+            ?? self::org(['organizationUid' => $r['organizationUid'] ?? null]);
 
         $jobs = [];
         foreach ($api->m365Jobs() ?? [] as $j) {
@@ -237,7 +285,7 @@ final class VeeamBackup implements BackupProvider
             }
             $msg = trim((string) ($j['lastStatusDetails'] ?? '')) ?: implode(' ', array_slice(array_unique($errors), 0, 3));
             $jobs[] = [
-                'uid' => (string) ($j['instanceUid'] ?? ''),
+                'uid' => self::uid($j['instanceUid'] ?? null) ?? '',
                 'company_uid' => $companyOf($j),
                 'source' => 'm365',
                 'agent_uid' => null,
@@ -269,7 +317,7 @@ final class VeeamBackup implements BackupProvider
                 $rows[] = [
                     'uid' => strlen($id) > 180 ? 'sha1:' . sha1($id) : $id,
                     'company_uid' => $companyOf($o),
-                    'org_uid' => isset($o['vb365OrganizationUid']) ? mb_substr((string) $o['vb365OrganizationUid'], 0, 64) : null,
+                    'org_uid' => $tenant($o) ?: null,
                     'name' => mb_substr($name, 0, 255),
                     'object_type' => $types[strtolower((string) ($o['protectedDataType'] ?? ''))] ?? 'other',
                     'restore_points' => V::int($o['restorePointsCount'] ?? null),

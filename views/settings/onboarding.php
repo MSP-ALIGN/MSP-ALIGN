@@ -1,5 +1,8 @@
 <?php
-/** Onboarding → Welcome email & guide (moved from Settings in 2.2). @var array $templates; int $days; bool $requestsOn */
+/**
+ * Onboarding → Welcome email & guide (moved from Settings in 2.2). @var array $templates; int $days; bool $requestsOn
+ * Security: titles, subjects and file names are escaped; ids are cast to int.
+ */
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-envelope-open-text', 'title' => 'Welcome email & guide',
     'desc' => 'What a new client gets after they sign: the welcome email and the private onboarding page where they add their contacts, read your guides and tell you how to get started.',

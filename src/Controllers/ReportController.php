@@ -13,9 +13,18 @@ use Align\Roadmap\Roadmap;
 use Align\Settings;
 use Align\View;
 
-/** Print-ready reports. Browsers save them as PDF via Print → Save as PDF. */
+/**
+ * Print-ready reports. Browsers save them as PDF via Print → Save as PDF.
+ *
+ * Security assumptions: staff actions start with Auth::require() (any staff role prints any client's reports,
+ * archived ones included; the portfolio is internal). The render*() functions are shared with the client portal,
+ * whose controller has checked its own client and permissions and passes only the sections the portal user may
+ * see ($allowed, $people); everything they show is keyed by that one client id. Report options come from the query
+ * string and are only switches (=== '1'). Every report is audited. Views escape everything synced or typed.
+ */
 final class ReportController
 {
+    /** The reports hub (any staff role): clients in planning with what each has (frameworks, documents, backups, SLA). */
     public static function index(): void
     {
         Auth::require();
@@ -47,6 +56,7 @@ final class ReportController
         ]);
     }
 
+    /** Common report switches from the query string (costs, inventory, users, virtual, notes). */
     private static function options(): array
     {
         return [
@@ -58,6 +68,7 @@ final class ReportController
         ];
     }
 
+    /** Your company details for report headers and footers (Settings); "prepared by" is the signed-in staff member, or the client's vCIO in the portal. */
     public static function branding(?array $client = null): array
     {
         $portal = defined('IS_PORTAL') && IS_PORTAL;
@@ -72,13 +83,14 @@ final class ReportController
         ];
     }
 
+    /** Asset & lifecycle report for a client (any staff role). */
     public static function assets(int $id): void
     {
         Auth::require();
         self::renderAssets(ClientController::load($id), self::options());
     }
 
-    /** Asset & lifecycle report for one client; also used by the client portal. */
+    /** Asset & lifecycle report for one client; also used by the client portal (the caller checked access to $client). Audited. */
     public static function renderAssets(array $client, array $opt): void
     {
         $a = ReportData::assets((int) $client['id'], $opt);
@@ -94,19 +106,23 @@ final class ReportController
         ], 'layout/print');
     }
 
+    /** Roadmap report for a client (any staff role). */
     public static function roadmap(int $id): void
     {
         Auth::require();
         self::renderRoadmap(ClientController::load($id), array_intersect_key(self::options(), ['costs' => 1, 'notes' => 1]));
     }
 
-    /** Roadmap report for one client; also used by the client portal ('position' => false hides devices and compliance). */
+    /**
+     * Roadmap report for one client; also used by the client portal ('position' => false hides devices and
+     * compliance, 'meetings' => false hides meetings in the timeline). The caller checked access to $client. Internal meetings are left out (ReportData::roadmap). Audited.
+     */
     public static function renderRoadmap(array $client, array $opt): void
     {
         $id = (int) $client['id'];
-        $r = ReportData::roadmap($id);
-        $years = $r['plan']['years'];
         $position = $opt['position'] ?? true;
+        $r = ReportData::roadmap($id, $opt['meetings'] ?? true, $position);
+        $years = $r['plan']['years'];
         Audit::log('report.roadmap', $client['name']);
         View::render('reports/roadmap', [
             'title' => $client['name'] . ' — 3-Year Technology Roadmap',
@@ -121,6 +137,7 @@ final class ReportController
         ], 'layout/print');
     }
 
+    /** Business review pack for a client (any staff role); every section allowed, switched by the query string. */
     public static function qbr(int $id): void
     {
         Auth::require();
@@ -145,7 +162,9 @@ final class ReportController
     /**
      * Quarterly business review pack: cover, executive summary, then each section.
      * $allowed limits the sections (the portal passes only what the user may see); $people false leaves out the key
-     * contacts and meetings (a portal user without "Documents, contacts & meetings", 1.45).
+     * contacts and meetings (a portal user without "Documents, contacts & meetings", 1.45). A section switched off
+     * is also left out of the executive summary's tiles and highlights (2.2.1: unticking Compliance still printed
+     * the compliance score and the frameworks below 80% on the first page).
      */
     public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true): void
     {
@@ -153,7 +172,7 @@ final class ReportController
         $on = fn(string $k) => in_array($k, $allowed, true) && !empty($opt[$k]);
         $q = \Align\Roadmap\Plan::quarters()[\Align\Roadmap\Plan::currentIndex()];
         $a = in_array('s_assets', $allowed, true) ? ReportData::assets($id, $opt) : null;
-        $r = in_array('s_roadmap', $allowed, true) ? ReportData::roadmap($id) : null;
+        $r = in_array('s_roadmap', $allowed, true) ? ReportData::roadmap($id, $people, in_array('s_compliance', $allowed, true)) : null;
         $bd = in_array('s_budget', $allowed, true) ? ReportData::budget($id, $q['year']) : null;
         $comp = in_array('s_compliance', $allowed, true) ? ReportData::compliance($id) : null;
         $lic = in_array('s_licensing', $allowed, true) ? ReportData::licensing($id) : null;
@@ -183,22 +202,34 @@ final class ReportController
             'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],
             'provider' => ['company' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],
-            'highlights' => ReportData::highlights($a ?? [], $r ?? [], $bd, $comp, $lic, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null),
+            'highlights' => ReportData::highlights($on('s_assets') ? $a ?? [] : [], $on('s_roadmap') ? $r ?? [] : [], $on('s_budget') ? $bd : null,
+                $on('s_compliance') ? $comp : null, $on('s_licensing') ? $lic : null, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null),
         ], 'layout/print');
     }
 
-    /** All active clients: asset counts and 3-year budget by year. */
+    /**
+     * All clients in planning: asset counts, compliance, last review and 3-year hardware by year (internal; any
+     * staff role). Planned project costs and last meetings come from two grouped queries and devices are grouped
+     * once, instead of two queries and a pass over every device per client (2.2.1).
+     */
     public static function portfolio(): void
     {
         Auth::require();
         $opt = array_intersect_key(self::options(), ['costs' => 1]);
         $lc = new Lifecycle();
         $clients = DB::all('SELECT id, name, industry FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
-        $all = $lc->devices();
+        $byClient = [];
+        foreach ($lc->devices() as $d) {
+            if ($d['client_id'] !== null && $d['status'] !== 'excluded' && !$d['is_virtual']) {
+                $byClient[(int) $d['client_id']][] = $d;
+            }
+        }
+        $planned = array_column(DB::all("SELECT client_id, SUM(cost) AS planned FROM roadmap_items WHERE status NOT IN ('declined','done') GROUP BY client_id"), 'planned', 'client_id');
+        $lastMet = array_column(DB::all("SELECT client_id, MAX(starts_at) AS last FROM meetings WHERE status = 'completed' AND client_id IS NOT NULL GROUP BY client_id"), 'last', 'client_id');
         $scores = Compliance::allScores();
         $rows = [];
         foreach ($clients as $c) {
-            $devs = array_values(array_filter($all, fn($d) => (int) $d['client_id'] === (int) $c['id'] && $d['status'] !== 'excluded' && !$d['is_virtual']));
+            $devs = $byClient[(int) $c['id']] ?? [];
             $f = $lc->forecast($devs);
             $fs = array_map(fn($s) => $s['score'], $scores[$c['id']] ?? []);
             $rows[] = $c + [
@@ -207,9 +238,9 @@ final class ReportController
                 'warn' => count(array_filter($devs, fn($d) => $d['status_tone'] === 'warn')),
                 'bad' => count(array_filter($devs, fn($d) => $d['status_tone'] === 'bad')),
                 'years' => Lifecycle::yearTotals($f),
-                'planned' => (float) DB::value("SELECT COALESCE(SUM(cost),0) FROM roadmap_items WHERE client_id = ? AND status NOT IN ('declined','done')", [$c['id']]),
+                'planned' => (float) ($planned[$c['id']] ?? 0),
                 'compliance' => $fs ? (int) round(array_sum($fs) / count($fs)) : null,
-                'last_meeting' => DB::value("SELECT MAX(starts_at) FROM meetings WHERE client_id = ? AND status = 'completed'", [$c['id']]),
+                'last_meeting' => $lastMet[$c['id']] ?? null,
             ];
         }
         usort($rows, fn($x, $y) => [$y['bad'], $y['warn']] <=> [$x['bad'], $x['warn']]);

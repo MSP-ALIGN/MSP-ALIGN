@@ -3,7 +3,11 @@ declare(strict_types=1);
 
 namespace Align\Integrations;
 
-/** Every integration on the Integrations page, in display order. Add new connectors here. */
+/**
+ * Every integration on the Integrations page, in display order. Add new connectors here.
+ *
+ * Security assumptions: the list is code, so a key from the URL can only ever pick one of these classes.
+ */
 final class Registry
 {
     public const CONNECTORS = [
@@ -17,7 +21,10 @@ final class Registry
 
     public const CATEGORIES = ['PSA & documentation', 'RMM', 'Backup', 'Email & calendar', 'Warranty'];
 
-    /** @return array<string, Connector> */
+    /**
+     * One instance of each connector, keyed by key() (made once per request).
+     * @return array<string, Connector>
+     */
     public static function all(): array
     {
         static $all = null;
@@ -31,6 +38,7 @@ final class Registry
         return $all;
     }
 
+    /** The connector for a key from the URL (untrusted: only an exact match is returned), or null. */
     public static function get(string $key): ?Connector
     {
         return self::all()[$key] ?? null;

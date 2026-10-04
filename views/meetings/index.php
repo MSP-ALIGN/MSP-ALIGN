@@ -1,4 +1,8 @@
-<?php use Align\Auth; ?>
+<?php
+/**
+ * All meetings and the clients due for one. @var array $meetings, $overdue, $cadence; string $view (from the query string: only compared, never printed).
+ */
+use Align\Auth; ?>
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-handshake', 'title' => 'Meetings',
     'desc' => 'Business reviews and other client meetings. Invitations and reminders go out from here; the calendar feed keeps your own calendar in step.',

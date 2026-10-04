@@ -1,4 +1,24 @@
 // Document editor: Quill + autosave + conflict protection + presence.
+//
+// Security assumptions: the page is a staff document page or a template editor (an admin's document or onboarding
+// template, or the onboarding send form). The HTML handed to the editor (<template id="doc-initial">, /content)
+// was cleaned by Docs\Html::clean when saved, and every save is cleaned again by the server, so nothing here is a
+// security boundary for the stored HTML: this file only keeps the editor from producing what the server would drop
+// (and loses no typing). Server text (names, errors) is only ever put on the page with textContent.
+
+// The formats the server's cleaner keeps (Docs\Html::clean): Quill's own minus image, video and formula. A pasted
+// or dropped picture would otherwise become a data: URL in the body, silently dropped when saved, and a large one
+// would push the body past the server's 4 MB cut and lose the rest of the document. Shared with contracts.js.
+// eslint-disable-next-line no-unused-vars
+const alignQuillFormats = ['header', 'bold', 'italic', 'underline', 'strike', 'color', 'background', 'list', 'indent', 'align',
+  'blockquote', 'code-block', 'link', 'code', 'script', 'size', 'font', 'direction'];
+
+/**
+ * Sets up the one editor on the page (#doc-editor). Template mode: the HTML goes into #template-body when the form
+ * is posted. Document mode: autosaves to /documents/{id}/save with the page's CSRF token and the version it
+ * started from (409 = someone saved meanwhile: shown, never overwritten without Keep mine), and polls presence.
+ * Read-only for viewers (data-can-edit="0"); the server checks the role again on every save.
+ */
 document.addEventListener('DOMContentLoaded', () => {
   const host = document.getElementById('doc-editor');
   if (!host || !window.Quill) return;
@@ -11,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     theme: 'snow',
     readOnly: !canEdit,
     placeholder: canEdit ? 'Start writing…' : '',
+    formats: alignQuillFormats,
     modules: {
       toolbar: canEdit ? [
         [{ header: [1, 2, 3, false] }],
@@ -25,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   });
 
+  /** Replaces the editor's content without an undo step or a save (HTML from the server, already cleaned). */
   const setHtml = (html) => {
     const delta = quill.clipboard.convert({ html: html || '' });
     quill.setContents(delta, 'silent');
@@ -63,24 +85,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = $('doc-state');
   const fields = { title: $('doc-title'), category: $('doc-category'), status: $('doc-status'), review_due: $('doc-review') };
 
+  /** The save state next to the title (text only; cls is one of our own text-* classes). */
   const setState = (text, cls) => {
     state.textContent = text;
     state.className = 'doc-save-state small me-3 ' + (cls || '');
   };
   const timeNow = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
+  /**
+   * POSTs to one of this document's own same-site URLs with the page's CSRF token; resolves to {status, json}.
+   * Throws 'signed-out' when the answer is the sign-in page (redirected, or a 200 that isn't JSON) or 419 (the
+   * session that issued the token is gone: the server checks the token before it can redirect), and
+   * 'HTTP <status>' (with .status) for any other answer that isn't JSON.
+   */
   const post = async (url, data) => {
     const body = new URLSearchParams({ _csrf: csrf, ...data });
     const res = await fetch(url, { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
     const type = res.headers.get('Content-Type') || '';
     if (!type.includes('application/json')) {
-      const err = new Error(res.redirected || res.status === 200 ? 'signed-out' : 'HTTP ' + res.status);
+      const err = new Error(res.redirected || res.status === 200 || res.status === 419 ? 'signed-out' : 'HTTP ' + res.status);
       err.status = res.status;
       throw err;
     }
     return { status: res.status, json: await res.json() };
   };
 
+  /** Shows "someone saved a newer version" (info: version, updated_by, updated_ago from the server; text only). */
   const showConflict = (info) => {
     conflictVersion = info.version;
     $('doc-conflict-text').textContent = (info.updated_by || 'Someone') + ' saved a newer version ' + (info.updated_ago || '') +
@@ -89,12 +119,19 @@ document.addEventListener('DOMContentLoaded', () => {
     $('doc-conflict').classList.add('d-flex');
     setState('Not saved — newer version exists', 'text-danger');
   };
+  /** Hides the conflict bar; saves run again. */
   const hideConflict = () => {
     conflictVersion = null;
     $('doc-conflict').classList.add('d-none');
     $('doc-conflict').classList.remove('d-flex');
   };
 
+  /**
+   * Saves the title, fields and body. One save at a time: a save asked for meanwhile runs after it. opts.force
+   * overwrites a newer version (Keep mine), opts.checkpoint keeps a named version and reloads. Network trouble
+   * and server errors (5xx) retry every 5 seconds; an answer that refuses the save (signed out, 4xx such as no
+   * longer allowed, document deleted, too large) stops and says so, because retrying can't succeed.
+   */
   const save = async (opts = {}) => {
     if (!canEdit) return;
     if (saving) { queued = true; return; }
@@ -126,7 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
         setState(opts.checkpoint ? 'Version saved ' + timeNow() : 'Saved ' + timeNow(), 'text-success');
         if (opts.checkpoint) setTimeout(() => window.location.reload(), 600);
       } else {
-        throw new Error(json.error || 'Save failed');
+        const err = new Error(json.error || 'Save failed');
+        err.status = status;
+        err.fromServer = true;
+        throw err;
       }
     } catch (e) {
       dirty = true;
@@ -134,6 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
         $('doc-error').textContent = 'Your session ended, so changes can’t be saved. Copy your text, sign in again in another tab, then paste it back.';
         $('doc-error').classList.remove('d-none');
         setState('Not saved — signed out', 'text-danger');
+      } else if (e.status >= 400 && e.status < 500) {
+        // Refused, not offline (this used to retry every 5 seconds forever under "Offline — will retry")
+        $('doc-error').textContent = 'Not saved: ' + (e.fromServer ? e.message : 'the server refused it (' + e.message + ')')
+          + '. Copy your text, then reload the page.';
+        $('doc-error').classList.remove('d-none');
+        setState('Not saved', 'text-danger');
       } else {
         setState('Offline — will retry', 'text-warning');
         clearTimeout(timer);
@@ -145,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  /** Marks the editor changed and saves after a pause in typing (ms). */
   const schedule = (ms = 1500) => {
     if (!canEdit) return;
     dirty = true;
@@ -170,9 +217,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.bootstrap && document.getElementById('modal-checkpoint')) window.bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-checkpoint')).hide();
   });
 
-  const loadLatest = async () => {
+  /**
+   * Replaces the editor with the saved version (/content). auto (the live refresh) never replaces typing: when
+   * something was typed, or a save started, while it loaded, the conflict bar is shown instead and false returned.
+   * Load theirs (auto false) is the person choosing to drop their changes.
+   */
+  const loadLatest = async (auto = false) => {
     const res = await fetch('/documents/' + id + '/content', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
     const j = await res.json();
+    // The heartbeat checked "nothing unsaved" before this request; keystrokes since then would be wiped otherwise
+    if (auto && (dirty || saving)) {
+      if (conflictVersion === null) showConflict(j);
+      return false;
+    }
     const sel = quill.getSelection();
     setHtml(j.body);
     if (sel) quill.setSelection(Math.min(sel.index, quill.getLength() - 1), 0, 'silent');
@@ -186,12 +243,18 @@ document.addEventListener('DOMContentLoaded', () => {
     dirty = false;
     hideConflict();
     setState('Updated to the latest version', 'text-info');
+    return true;
   };
   $('doc-load-theirs').addEventListener('click', () => loadLatest());
   $('doc-keep-mine').addEventListener('click', () => { save({ force: true }); });
 
   // ---- Presence + live refresh ---------------------------------------------------
   const presence = $('doc-presence');
+  /**
+   * Every 10 s (15 s read-only): says I'm here (and whether I'm typing), shows who else is, and pulls in a newer
+   * saved version when I have nothing unsaved. Names come from the server and are set as text; avatar is the
+   * server's own avatar_url() path, used only as an image source.
+   */
   const heartbeat = async () => {
     try {
       const editing = canEdit && Date.now() - lastTyped < 30000 ? '1' : '0';
@@ -213,8 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (json.version > version) {
         if (!dirty && !saving) {
-          await loadLatest();                                   // someone else saved: pull it in live
-          setState('Updated with ' + (json.updated_by || 'another user') + '’s changes', 'text-info');
+          // someone else saved: pull it in live (unless typing starts while it loads)
+          if (await loadLatest(true)) setState('Updated with ' + (json.updated_by || 'another user') + '’s changes', 'text-info');
         } else if (conflictVersion === null) {
           showConflict(json);
         }

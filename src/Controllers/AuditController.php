@@ -7,9 +7,19 @@ use Align\Auth;
 use Align\DB;
 use Align\View;
 
+/**
+ * Admin → Audit log: the hash-chained log, filtered by person, kind of action and text, and the full tamper check.
+ *
+ * Security assumptions: admins only; the Router has checked CSRF on the check. The log is read-only here: nothing
+ * in this class changes or deletes an entry. Filters are untrusted: the text goes into LIKE as a bound value with
+ * its wildcards escaped, the group must be a GROUPS key, the person an integer, and the page is capped.
+ */
 final class AuditController
 {
-    /** Plain-language label for client portal actions. */
+    /** The furthest page (100 entries each) the list goes back; beyond it, narrow the filters. */
+    private const MAX_PAGE = 100000;
+
+    /** Plain-language label for client portal actions (plain text: escape it in HTML). */
     public static function portalLabel(string $action): string
     {
         return [
@@ -45,17 +55,23 @@ final class AuditController
         'system' => ['Updates & audit', ['system', 'audit']],
     ];
 
+    /**
+     * The log, newest first, 100 entries a page. The page number is capped (2.2.1: a huge ?page= overflowed to a
+     * float, which made the OFFSET invalid SQL and a server error). % and _ in the search text match themselves.
+     */
     public static function index(): void
     {
         Auth::requireRole('admin');
-        $page = max(1, (int) query('page', '1'));
+        $page = max(1, min(self::MAX_PAGE, (int) query('page', '1')));
         $per = 100;
-        $f = ['q' => trim(query('q')), 'user' => (int) query('user', '0'), 'group' => isset(self::GROUPS[query('group')]) ? query('group') : ''];
+        $f = ['q' => mb_substr(trim(query('q')), 0, 200), 'user' => (int) query('user', '0'), 'group' => isset(self::GROUPS[query('group')]) ? query('group') : ''];
         $where = [];
         $params = [];
         if ($f['q'] !== '') {
+            // Searching for "100%" or "a_b" means those characters, not LIKE wildcards (2.2.1)
+            $like = '%' . addcslashes($f['q'], '%_\\') . '%';
             $where[] = '(a.detail LIKE ? OR a.action LIKE ?)';
-            array_push($params, '%' . $f['q'] . '%', '%' . $f['q'] . '%');
+            array_push($params, $like, $like);
         }
         if ($f['user']) {
             $where[] = 'a.user_id = ?';
@@ -84,7 +100,7 @@ final class AuditController
         ]);
     }
 
-    /** Full tamper check of every entry (the nightly job does this too). */
+    /** Full tamper check of every entry (the nightly job does this too). The check and its result are audited. */
     public static function verify(): void
     {
         Auth::requireRole('admin');

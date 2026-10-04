@@ -7,19 +7,33 @@ use Align\Integrations\BackupConnector;
 use Align\Providers\Backup\BackupProvider;
 use Align\Providers\Backup\VeeamBackup;
 
+/**
+ * Veeam Service Provider Console as a backup source (Integrations\VeeamSpc does the calls, Providers\Backup\
+ * VeeamBackup maps the data).
+ *
+ * Security assumptions: as Connector. The console URL is a url field (https, checked on save and on every request)
+ * and moving it to another server needs the API key typed again (1.45).
+ */
 final class Veeam extends BackupConnector
 {
+    /** Slug for the URL and the Registry. */
     public function key(): string { return 'veeam'; }
+    /** Name on the card and page. */
     public function name(): string { return 'Veeam Service Provider Console'; }
+    /** Font Awesome classes for the card. */
     public function icon(): string { return 'fas fa-database'; }
+    /** Short name for sentences and the mapping column. */
     public function shortName(): string { return 'Veeam'; }
+    /** One line: what it brings into Align. */
     public function summary(): string { return 'Backup jobs and results, protected machines, Microsoft 365 backups and Cloud Connect storage for each client.'; }
 
+    /** Set up when the console URL and API key are saved. */
     public function configured(): bool
     {
         return \Align\Integrations\VeeamSpc::configured();
     }
 
+    /** Setup steps (trusted HTML). */
     public function setup(): string
     {
         return '<ol class="ps-3 mb-0"><li>In VSPC open <b>Configuration → Security → REST API Keys</b> and create a key for a <b>read-only</b> portal administrator.</li>'
@@ -28,6 +42,7 @@ final class Veeam extends BackupConnector
             . '<li>Host clients\' servers and back them up on your own Veeam server? Those are matched to clients by device name; review and fix them under <a href="/mapping/backups">Hosted backups</a>.</li></ol>';
     }
 
+    /** Console URL (url), API key (secret) and two thresholds for the backup pages. */
     public function fields(): array
     {
         return [
@@ -38,6 +53,7 @@ final class Veeam extends BackupConnector
         ];
     }
 
+    /** The Veeam provider from the saved settings. Throws when not set up. */
     public function provider(): BackupProvider
     {
         return VeeamBackup::fromSettings();

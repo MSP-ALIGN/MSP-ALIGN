@@ -10,11 +10,16 @@ use Align\Staging;
  * the test mailbox only (staging_mail_to), marked [TEST] and noting who it was meant for. Without a test
  * mailbox nothing is sent. Calendar events that came with the copied data are the real ones, so they are
  * never updated or cancelled from here: an update creates a separate test event instead.
+ *
+ * Security: Mail::client() wraps every sender in this on a test server, so the only recipient is the configured
+ * test mailbox (Cc is dropped, replies go to the test mailbox) and no real calendar event is touched. Methods
+ * not listed here throw, so a new sender method can't slip past it.
  */
 final class StagingMail
 {
     private const PREFIX = 'staging:';
 
+    /** $inner: the real Graph, Google or Smtp sender. */
     public function __construct(private object $inner)
     {
     }
@@ -28,6 +33,7 @@ final class StagingMail
         return $this->inner->$name(...$args);
     }
 
+    /** The test mailbox as the only recipient. */
     private static function to(): array
     {
         return [['address' => (string) Staging::mailTo(), 'name' => 'Test mailbox']];
@@ -42,6 +48,7 @@ final class StagingMail
         return $info;
     }
 
+    /** The banner saying who the message was meant for (names and addresses escaped). */
     private static function note(array $to, array $cc = []): string
     {
         $who = fn(array $l) => implode(', ', array_map(fn($r) => trim(($r['name'] ?? '') . ' <' . ($r['address'] ?? '') . '>'), $l));
@@ -50,6 +57,7 @@ final class StagingMail
             . ($cc ? ' (copy to ' . htmlspecialchars($who($cc), ENT_QUOTES) . ')' : '') . '. It was sent only to the test mailbox.</div>';
     }
 
+    /** Sends to the test mailbox only, marked [TEST]; nothing is sent without a test mailbox. */
     public function sendMail(array $to, string $subject, string $html, array $cc = [], array $attachments = [], ?string $replyTo = null): void
     {
         if (!Staging::mailTo()) {
@@ -58,6 +66,7 @@ final class StagingMail
         $this->inner->sendMail(self::to(), '[TEST] ' . $subject, self::note($to, $cc) . $html, [], $attachments, Staging::mailTo()); // replies stay with the test mailbox
     }
 
+    /** A test event in the sending mailbox, with the test mailbox as the only guest. Its id is prefixed so it can be told apart. */
     public function calendarCreate(?string $organizer, array $info, array $to): array
     {
         if (!Staging::mailTo()) {
@@ -68,6 +77,7 @@ final class StagingMail
         return ['id' => isset($r['id']) ? self::PREFIX . $r['id'] : null] + $r;
     }
 
+    /** Updates a test event; a real event from the copied data gets a new test event instead. */
     public function calendarUpdate(string $mailbox, string $id, array $info, array $to): array
     {
         if (!str_starts_with($id, self::PREFIX)) {
@@ -80,6 +90,7 @@ final class StagingMail
         return ['id' => $id] + $r;
     }
 
+    /** Cancels only test events. */
     public function calendarCancel(string $mailbox, string $id, string $comment): void
     {
         if (str_starts_with($id, self::PREFIX) && Staging::mailTo()) {

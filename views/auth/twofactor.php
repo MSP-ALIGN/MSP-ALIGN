@@ -1,4 +1,6 @@
-<p class="login-box-msg">Enter the 6-digit code from your authenticator app</p>
+<?php
+/** The two-factor code form, shown only while a password step is pending in this session. */
+?><p class="login-box-msg">Enter the 6-digit code from your authenticator app</p>
 <form method="post" action="/login/2fa">
   <?= csrf_field() ?>
   <div class="input-group mb-3">

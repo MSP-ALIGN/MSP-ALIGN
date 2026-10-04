@@ -3,7 +3,7 @@ if needed, or decline with a note), the client sees them as waiting; the new por
 import atexit, html as H
 from lib import *
 
-SEC = "JBSWY3DPEHPK3PXP"
+SEC = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 q("delete from portal_submissions"); q("delete from portal_users where email like '%%@suggest.example'")
 q("delete from licenses where name like 'SG %%'"); q("delete from budget_lines where name like 'SG %%'"); q("delete from mail_queue")
 q("delete from settings where name='portal_submissions'"); setting("notif_client_submission_decided", "1")

@@ -18,6 +18,14 @@
  *
  * Backups are never kept on the server. A backup is built, encrypted to the backup public key,
  * downloaded once through the browser and deleted. Only encrypted data touches the disk.
+ *
+ * SECURITY: the attacker this file defends against is code running as the web user (www-data). It can write the
+ * request folder, the data folder (uploads, downloads, restore, sessions) and the database, and it can read the job
+ * files and state here (group www-data). It can't write this agent's own folder (STATE), the run and keys folders,
+ * the config folder or the code. So: root never opens, follows, extracts or deletes anything in the data folder itself
+ * (webDir/toWeb/fromWeb, and every tar/find/rm there runs as the web user, 1.45); every value from a request is
+ * validated; every value in a command goes through q(); a file a root program reads options from is never one the web
+ * user can change; and what GitHub or a backup file returns is untrusted data.
  */
 declare(strict_types=1);
 
@@ -65,6 +73,11 @@ define('GITHUB_RAW', $gh('ALIGN_GITHUB_RAW', 'https://raw.githubusercontent.com'
  * come only from release tags signed with that key (scripts/release.sh checks them). A test server following another
  * branch (update_branch), a fork or a development copy without a key follows its branch, unsigned, as before.
  * ALIGN_RELEASE_SIGNERS (tests only, with ALIGN_AGENT_TEST=1): another signers file, or "none".
+ *
+ * Returns the signers file when it holds at least one key line, else null.
+ * SECURITY: the file is the installed one (root-owned code), never one from a download, so a release can only add a key
+ * when it is signed by a key trusted now. The test override is ignored unless ALIGN_AGENT_TEST=1 (only root sets the
+ * environment of a root service).
  */
 function releaseSigners(): ?string
 {
@@ -81,12 +94,13 @@ function releaseSigners(): ?string
     return null;
 }
 
+/** Signed releases apply: the main branch and a release key installed (see releaseSigners). */
 function signedMode(): bool
 {
     return BRANCH === 'main' && releaseSigners() !== null;
 }
 
-/** The release keys' fingerprints, for the page ("SHA256:..."). */
+/** The release keys' fingerprints, for the page ("SHA256:..."). Display only: release.sh does the checking. */
 function signerPrints(): array
 {
     $f = releaseSigners();
@@ -103,6 +117,9 @@ function signerPrints(): array
 /**
  * The newest signed release newer than $current ('0': any), as [tag, commit, unsigned newer tags, error].
  * The tag is checked by scripts/release.sh from the installed code, against the installed signers file.
+ * SECURITY: the caller holds the agent lock and fetched the tags. Only a line that is exactly "vX.Y.Z <hex commit>" on
+ * exit 0 is taken; the caller installs that commit, not the tag name (a later fetch could move the tag).
+ * @param callable(string): array{0: int, 1: string} $run runs a command, returns [exit code, output]
  * @return array{0: ?string, 1: ?string, 2: string[], 3: ?string}
  */
 function latestSigned(callable $run, string $current): array
@@ -125,7 +142,10 @@ function latestSigned(callable $run, string $current): array
     return [$tag, $commit, $error ? [] : $unsigned, $error];
 }
 
-/** Is the code here a signed release (HEAD is a checked release tag's commit, with a matching VERSION)? */
+/**
+ * Is the code here a signed release (HEAD is a checked release tag's commit, with a matching VERSION)?
+ * Only call in signed mode: release.sh exits 2 without a signers file, which reads as "not signed".
+ */
 function headSigned(): bool
 {
     exec('bash ' . q(APP . '/scripts/release.sh') . ' ' . q(APP) . ' ' . q((string) releaseSigners()) . ' --head 2>/dev/null', $o, $c);
@@ -153,12 +173,18 @@ require dirname(__DIR__) . '/src/System/Tar.php';
 
 use Align\System\Tar;
 
+/** A job step failed: its message is shown to the admin as is, so it must never carry a secret. */
 final class JobFailed extends RuntimeException
 {
 }
 
 // ------------------------------------------------------------------------------------------ utils
 
+/**
+ * The server config (config.php), loaded once.
+ * SECURITY: config.php is PHP run as root here; it is root-owned and only group-readable by the web user (install.sh,
+ * docker/entrypoint.sh), so the web user can't change what root runs.
+ */
 function conf(): array
 {
     static $c = null;
@@ -168,16 +194,26 @@ function conf(): array
     return $c;
 }
 
+/** Quotes one value for the shell. Every value put in a command string goes through this. */
 function q(string $s): string
 {
     return escapeshellarg($s);
 }
 
+/**
+ * Wraps a command (already quoted with q()) so it runs as the web user. Used for every step that touches the data
+ * folder, the app's database login or bin/align, so nothing the web user planted can act with root's rights.
+ */
 function asUser(string $cmd): string
 {
     return RUNAS === 'root' ? $cmd : 'runuser -u ' . q(RUNAS) . ' -- ' . $cmd;
 }
 
+/**
+ * Sets a mode and hands the group (and with $toRunAs the owner) to the web user.
+ * SECURITY: only for paths in root's own folders (STATE, JOBS, SAFETY, RUN): chmod/chown follow symlinks, so never
+ * call it on anything inside the data folder (see webDir).
+ */
 function owner(string $path, int $mode, bool $toRunAs = false, bool $groupOnly = false): void
 {
     @chmod($path, $mode);
@@ -189,6 +225,10 @@ function owner(string $path, int $mode, bool $toRunAs = false, bool $groupOnly =
     }
 }
 
+/**
+ * Creates the agent's folders with their modes: STATE, JOBS and SAFETY readable by the web user's group, WORK and
+ * KEYS root only. The data folder's downloads and restore folders are made by the web user itself (webDir).
+ */
 function ensureDirs(): void
 {
     foreach ([[STATE, 0750, false], [JOBS, 0750, false], [SAFETY, 0750, false], [WORK, 0700, null], [KEYS, 0700, null]] as [$d, $mode, $asRun]) {
@@ -214,13 +254,20 @@ function webDir(string $d, int $mode): void
     exec(asUser('install -d -m ' . sprintf('%o', $mode) . ' ' . q($d)) . ' 2>/dev/null');
 }
 
-/** Copies a file into the web user's data folder, written by the web user (see webDir). */
+/**
+ * Copies a file into the web user's data folder, written by the web user (see webDir).
+ * SECURITY: root only opens $src (its own WORK folder) for reading; $dest is opened by the web user.
+ */
 function toWeb(Job $job, string $src, string $dest, string $error): void
 {
     $job->must(asUser('sh -c ' . q('umask 027 && cat > "$1.part" && mv -f "$1.part" "$1"') . ' sh ' . q($dest)) . ' < ' . q($src), $error);
 }
 
-/** Copies a file out of the web user's data folder into the agent's own work folder, read as the web user. */
+/**
+ * Copies a file out of the web user's data folder into the agent's own work folder, read as the web user.
+ * SECURITY: $src is opened by the web user, so a symlink there reaches only what that user can read; root writes
+ * $dest in WORK (root only, 0700), created 0600.
+ */
 function fromWeb(Job $job, string $src, string $dest, string $error): void
 {
     $old = umask(077);
@@ -228,30 +275,42 @@ function fromWeb(Job $job, string $src, string $dest, string $error): void
     umask($old);
 }
 
+/** Writes agent state atomically (temp file and rename), group-readable by the web user. Only for root's own folders. */
 function writeJson(string $path, array $data, int $mode = 0640): void
 {
     $tmp = $path . '.tmp' . getmypid();
-    file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    // invalid UTF-8 (from git output, say) is replaced: otherwise json_encode gives false and the file ends up empty
+    file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE));
     owner($tmp, $mode);
     rename($tmp, $path);
 }
 
+/**
+ * Reads a JSON state file, or null.
+ * SECURITY: only for files root wrote in its own folders (STATE, RUN); never for anything the web user writes.
+ */
 function readJson(string $path): ?array
 {
     $d = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
     return is_array($d) ? $d : null;
 }
 
+/** The current time, ISO 8601, in the app's timezone (set from config.php at start). */
 function now(): string
 {
     return date('c');
 }
 
+/** The installed code's version (VERSION), or '0' when unreadable. */
 function version(): string
 {
     return trim((string) @file_get_contents(APP . '/VERSION')) ?: '0';
 }
 
+/**
+ * Deletes a folder tree. $asRunAs: as the web user, for anything in the data folder; root only deletes in its own
+ * folders. A symlink is never followed (checked here, and rm doesn't follow links inside the tree).
+ */
 function rmTree(string $dir, bool $asRunAs = false): void
 {
     if (is_dir($dir) && !is_link($dir)) {
@@ -262,12 +321,21 @@ function rmTree(string $dir, bool $asRunAs = false): void
 
 // ------------------------------------------------------------------------------------------- jobs
 
+/**
+ * One job: its state file (JOBS/<id>.json) and log (JOBS/<id>.log), both readable by the web user's group so the page
+ * can show progress. SECURITY: nothing secret goes into either: the restore key from the request is never copied into
+ * the state, commands carry key file paths, not keys, and messages are written for admins.
+ */
 final class Job
 {
     public array $s;
     public bool $echo = false;
     private $log;
 
+    /**
+     * Starts the state from a request. The caller checked id (ID_RE, not seen before) and action (the fixed list);
+     * the other fields are only displayed (the web page escapes them) or cast.
+     */
     public function __construct(array $req)
     {
         $this->s = [
@@ -281,11 +349,13 @@ final class Job
         $this->save();
     }
 
+    /** Writes the job's state file (atomically, see writeJson). */
     public function save(): void
     {
         writeJson(JOBS . '/' . $this->s['id'] . '.json', $this->s);
     }
 
+    /** Starts a named step: shown on the page and the maintenance page, and used for the progress bar (Agent::STAGES). */
     public function step(string $msg): void
     {
         $this->s['step'] = $msg;
@@ -295,6 +365,7 @@ final class Job
         maintenanceMessage($msg);
     }
 
+    /** Adds a line to the log (terminal colour codes removed; the log stops growing at about 5 MB). */
     public function line(string $l): void
     {
         $l = preg_replace('/\e\[[0-9;?]*[A-Za-z]/', '', $l) ?? $l;
@@ -306,6 +377,7 @@ final class Job
         }
     }
 
+    /** Marks the job done (succeeded or failed) with the message shown to the admin, and closes the log. */
     public function finish(bool $ok, string $message, array $result = []): void
     {
         $this->s['state'] = $ok ? 'succeeded' : 'failed';
@@ -321,7 +393,12 @@ final class Job
         }
     }
 
-    /** Runs a shell command (bash, pipefail), logging its output. Returns [exit code, stdout]. */
+    /**
+     * Runs a shell command (bash, pipefail), logging its output. Returns [exit code, stdout].
+     * $capture: stdout is returned instead of logged (stderr is always logged). $stdin: fed to the command (keeps a
+     * secret such as app_key off the command line). Stopped after $timeout seconds.
+     * SECURITY: $cmd is a shell string: the caller quotes every value in it with q().
+     */
     public function run(string $cmd, bool $capture = false, ?string $stdin = null, int $timeout = 3600): array
     {
         $p = proc_open(['bash', '-o', 'pipefail', '-c', $cmd], [0 => $stdin === null ? ['file', '/dev/null', 'r'] : ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, null);
@@ -379,6 +456,7 @@ final class Job
         return [$code, $out];
     }
 
+    /** run(), failing the job with $error (shown to the admin) when the command fails. Returns the captured stdout. */
     public function must(string $cmd, string $error, bool $capture = false, ?string $stdin = null): string
     {
         [$code, $out] = $this->run($cmd, $capture, $stdin);
@@ -391,11 +469,16 @@ final class Job
 
 // ----------------------------------------------------------------------------------- maintenance
 
+/**
+ * Turns on maintenance mode: the web app shows a "being updated/restored" page to everyone and scheduled app jobs
+ * skip their runs while the file exists (Agent::maintenance). World-readable on purpose: no secrets in it.
+ */
 function maintenanceOn(Job $job, string $message): void
 {
     writeJson(STATE . '/maintenance.json', ['since' => now(), 'pid' => getmypid(), 'job' => $job->s['id'], 'action' => $job->s['action'], 'message' => $message], 0644);
 }
 
+/** Shows the current step on the maintenance page, if this process turned maintenance on. */
 function maintenanceMessage(string $msg): void
 {
     $m = readJson(STATE . '/maintenance.json');
@@ -406,11 +489,13 @@ function maintenanceMessage(string $msg): void
     }
 }
 
+/** Ends maintenance mode. */
 function maintenanceOff(): void
 {
     @unlink(STATE . '/maintenance.json');
 }
 
+/** Removes maintenance mode left by an agent that died (its process is gone). Runs under the agent lock. */
 function clearStaleMaintenance(): void
 {
     $m = readJson(STATE . '/maintenance.json');
@@ -419,6 +504,10 @@ function clearStaleMaintenance(): void
     }
 }
 
+/**
+ * Stops ($start false) or starts the app's scheduled jobs (sync, PSA poll, mail) around a restore, so nothing writes
+ * to the database while it is replaced. Unit names are fixed constants, quoted anyway.
+ */
 function timers(Job $job, bool $start): void
 {
     if (DOCKER && !$start) {
@@ -455,6 +544,11 @@ function timers(Job $job, bool $start): void
 
 // ----------------------------------------------------------------------------------------- backup
 
+/**
+ * The backup public keys (age1...) from the recipient file; lines that aren't one are skipped.
+ * SECURITY: the file is root-owned in the config folder; each key is checked against age's format before it reaches
+ * a command line (and quoted).
+ */
 function recipients(): array
 {
     $keys = [];
@@ -466,7 +560,14 @@ function recipients(): array
     return $keys;
 }
 
-/** A defaults file with the app's database login, readable by the user that runs the client. */
+/**
+ * A defaults file with the app's database login, readable by the user that runs the client. Removed when the agent
+ * exits normally; one left by a killed agent is removed by the next 'run' (sweepLeftovers()).
+ * SECURITY: it stays root's (0640, group of the web user): the web user may read it (it runs the clients, and has the
+ * same login in config.php) but never change it. Before 2.2.1 it was handed to the web user, which could then add client
+ * options (plugin-dir with default-auth loads a library; result-file writes a file) to the mariadb-dump that ran as
+ * root. It is written in RUN, where the web user can't create or swap files.
+ */
 function dbDefaults(): string
 {
     $c = conf()['db'];
@@ -475,11 +576,15 @@ function dbDefaults(): string
     $old = umask(077);
     file_put_contents($f, "[client]\nuser=" . $esc($c['user']) . "\npassword=" . $esc($c['pass']) . "\nhost=" . $esc($c['host'] ?? 'localhost') . "\n");
     umask($old);
-    owner($f, 0600, true);
+    @chmod($f, 0640);
+    if (posix_getuid() === 0 && RUNAS !== 'root' && ($pw = posix_getpwnam(RUNAS))) {
+        @chgrp($f, $pw['gid']);   // the web user's own group, by number (its name can differ from the user's)
+    }
     register_shutdown_function(fn() => @unlink($f));
     return $f;
 }
 
+/** The uploads folder from config.php (inside the data folder, owned by the web user: root only stats it). */
 function uploadDir(): string
 {
     return rtrim((string) (conf()['upload_path'] ?? DATA . '/uploads'), '/');
@@ -488,6 +593,9 @@ function uploadDir(): string
 /**
  * Builds a backup: a tar of manifest.json + age-encrypted parts. $extra = more age recipients
  * (a one-time key for automatic rollback). Returns the manifest.
+ * SECURITY: the database dump, the file count and the uploads tar run as the web user; root only encrypts their
+ * output (age, to the server's public keys) into WORK and writes the tar there. $out must be in root's own folders.
+ * Unencrypted data never touches the disk; app_key goes to age on stdin, never on a command line.
  */
 function makeBackup(Job $job, string $out, string $tag, array $extra = []): array
 {
@@ -502,7 +610,8 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
         $db = (string) conf()['db']['name'];
         $cnf = dbDefaults();
         $job->step('Backing up the database');
-        $job->must('mariadb-dump --defaults-extra-file=' . q($cnf) . ' --single-transaction --quick --no-tablespaces --skip-dump-date ' . q($db)
+        // As the web user, like every other database client here (2.2.1): the dump needs only the app's own login
+        $job->must(asUser('mariadb-dump --defaults-extra-file=' . q($cnf) . ' --single-transaction --quick --no-tablespaces --skip-dump-date ' . q($db))
             . " | gzip -6 | age $R -o " . q("$tmp/db.sql.gz.age"), 'The database backup failed.');
         $files = 0;
         $up = uploadDir();
@@ -532,6 +641,7 @@ function makeBackup(Job $job, string $out, string $tag, array $extra = []): arra
     }
 }
 
+/** The download's file name, from this server's own manifest (host reduced to [a-z0-9.-]). */
 function nameFor(array $m): string
 {
     return 'msp-align-backup-' . preg_replace('/[^a-z0-9.-]+/', '-', strtolower($m['host'] ?: 'server')) . '-' . date('Ymd-His', strtotime($m['created'])) . '.tar';
@@ -539,12 +649,20 @@ function nameFor(array $m): string
 
 // ------------------------------------------------------------------------------------- inspection
 
-/** Shell snippet that outputs one member of the tar (or the whole file for a legacy backup). */
+/**
+ * Shell snippet that outputs one member of the tar (or the whole file for a legacy backup).
+ * $m comes from Tar::members() (offset and size are ints it computed), $file is root's copy in WORK or SAFETY.
+ */
 function slice(string $file, ?array $m): string
 {
-    return $m === null ? 'cat ' . q($file) : 'dd if=' . q($file) . ' iflag=skip_bytes,count_bytes skip=' . $m['offset'] . ' count=' . $m['size'] . ' bs=1M status=none';
+    return $m === null ? 'cat ' . q($file) : 'dd if=' . q($file) . ' iflag=skip_bytes,count_bytes skip=' . (int) $m['offset'] . ' count=' . (int) $m['size'] . ' bs=1M status=none';
 }
 
+/**
+ * Writes a pasted backup private key to a root-only file in KEYS (RAM) for age -i, and returns its path. Deleted at the
+ * end of the job (process()). SECURITY: the key is checked against age's format first, so nothing else is written,
+ * and it never appears on a command line or in the log.
+ */
 function keyFile(string $id, string $key): string
 {
     if (!preg_match(KEY_RE, $key)) {
@@ -558,12 +676,20 @@ function keyFile(string $id, string $key): string
     return $f;
 }
 
+/** The message for a backup the key can't open. $log is unused: age's own text isn't shown. */
 function ageError(string $log): string
 {
     return 'This key can\'t open the backup. It was made with a different backup key (each server has its own; use the key saved when that server was installed).';
 }
 
-/** Opens and checks a backup without changing anything. Returns what's inside. */
+/**
+ * Opens and checks a backup without changing anything. Returns what's inside.
+ * SECURITY: $file is root's own copy in WORK (the upload can't change under it). Everything in the backup is untrusted:
+ * anyone with the server's public key can make one (a restore trusting any backup that opens with the key is an
+ * accepted risk), so the parts are limited to the known names, the manifest is size-limited and only its version is
+ * acted on, the database must look like an MSP-ALIGN one, the uploaded files may only be plain files and folders under
+ * uploads/, and the app key must have app_key's format.
+ */
 function inspect(Job $job, string $file, string $keyFile): array
 {
     $fh = fopen($file, 'rb');
@@ -600,7 +726,8 @@ function inspect(Job $job, string $file, string $keyFile): array
     $k = q($keyFile);
     $db = $info['members']['db.sql.gz.age'];
     $job->step('Checking the database backup');
-    [$code, $out] = $job->run(slice($file, $db) . " | age -d -i $k | gunzip | grep -o '^CREATE TABLE `[a-z0-9_]*`'", true);
+    // Root only decrypts (the key file is root's); the backup's own bytes are decompressed and parsed by the web user
+    [$code, $out] = $job->run(slice($file, $db) . " | age -d -i $k | " . asUser('gunzip') . " | grep -o '^CREATE TABLE `[a-z0-9_]*`'", true);
     if ($code !== 0) {
         [$c2] = $job->run(slice($file, $db) . " | age -d -i $k > /dev/null");
         throw new JobFailed($c2 !== 0 ? ageError('') : 'The database backup is damaged (it did not decompress cleanly).');
@@ -612,18 +739,23 @@ function inspect(Job $job, string $file, string $keyFile): array
     $info['tables'] = count($tables);
     if (isset($info['members']['uploads.tar.gz.age'])) {
         $job->step('Checking uploaded files');
-        [$code, $out] = $job->run(slice($file, $info['members']['uploads.tar.gz.age']) . " | age -d -i $k | tar -tvzf - --quoting-style=escape", true);
+        // --numeric-owner: owner and group print as numbers. With names, an owner name with spaces in it (the archive
+        // sets it) shifted the columns, so a name like ../x was read as "uploads/... ../x" and passed (2.2.1).
+        // Listed by the web user too: tar's parser reads whatever the archive holds (listing alone has had tar CVEs)
+        [$code, $out] = $job->run(slice($file, $info['members']['uploads.tar.gz.age']) . " | age -d -i $k | " . asUser('tar -tvzf - --quoting-style=escape --numeric-owner'), true);
         if ($code !== 0) {
             throw new JobFailed('The uploaded files in this backup are damaged.');
         }
         $n = 0;
         foreach (array_filter(explode("\n", $out)) as $line) {
-            $f = preg_split('/\s+/', $line, 6);
-            $name = $f[5] ?? '';
-            if (!in_array($line[0], ['-', 'd'], true) || !preg_match('#^uploads(/|$)#', $name) || preg_match('#(^|/)\.\.(/|$)#', $name)) {
+            // type and mode, uid/gid, size, date, time, name: only plain files (-) and folders (d); links, devices and
+            // anything unexpected fail, and so does a line that doesn't have exactly this shape
+            $ok = preg_match('#^([-d])\S{9} \d+/\d+ +\d+ -?\d+-\d\d-\d\d \d\d:\d\d(?::\d\d)? (.+)$#', $line, $f) === 1;
+            $name = $ok ? $f[2] : '';
+            if (!$ok || !preg_match('#^uploads(/|$)#', $name) || preg_match('#(^|/)\.\.(/|$)#', $name)) {
                 throw new JobFailed('The uploaded files in this backup contain an unsafe entry and were not restored.');
             }
-            $n += $line[0] === '-' ? 1 : 0;
+            $n += $f[1] === '-' ? 1 : 0;
         }
         $info['uploads_files'] = $n;
     }
@@ -638,6 +770,7 @@ function inspect(Job $job, string $file, string $keyFile): array
     return $info;
 }
 
+/** What the page shows about a checked backup (manifest values are the backup's own claims, displayed escaped). */
 function summary(array $info): array
 {
     $m = $info['manifest'] ?? [];
@@ -650,6 +783,12 @@ function summary(array $info): array
 
 // ---------------------------------------------------------------------------------------- restore
 
+/**
+ * Replaces the app's database with the dump in $member of $file: drops the current tables, then imports.
+ * SECURITY: both the drop and the import run as the web user with the app's own database login, in sandbox mode when
+ * the client supports it, so a hostile dump can't run shell commands, read files or reach other databases. Table
+ * names from the server are backtick-quoted. Root only decrypts (its key file); decompressing runs as the web user too.
+ */
 function importDb(Job $job, string $file, ?array $member, string $keyFile): void
 {
     $cnf = dbDefaults();
@@ -662,15 +801,20 @@ function importDb(Job $job, string $file, ?array $member, string $keyFile): void
     }
     // Import as the app's own database user, in sandbox mode: a backup can't run shell commands,
     // read files or touch anything outside the Align database.
-    $job->must(slice($file, $member) . ' | age -d -i ' . q($keyFile) . ' | gunzip | sed -E ' . q('/^\) ENGINE=/ s/ `?ENCRYPTED`?=YES//') . ' | ' . asUser("$client " . q($db)), 'Importing the database failed.');
+    $job->must(slice($file, $member) . ' | age -d -i ' . q($keyFile) . ' | ' . asUser('gunzip') . ' | sed -E ' . q('/^\) ENGINE=/ s/ `?ENCRYPTED`?=YES//') . ' | ' . asUser("$client " . q($db)), 'Importing the database failed.');
 }
 
+/** The mariadb client has --sandbox (newer MariaDB releases; older ones import without it), checked once. */
 function sandboxSupported(): bool
 {
     static $s = null;
     return $s ??= str_contains((string) shell_exec('mariadb --help 2>/dev/null'), '--sandbox');
 }
 
+/**
+ * Puts a restored app_key into config.php (and, in Docker, the key file the container builds config.php from).
+ * SECURITY: the caller checked $key against app_key's format (inspect()), so it can't break out of the PHP string.
+ */
 function setAppKey(string $key): void
 {
     $txt = (string) file_get_contents(CONFIG);
@@ -685,7 +829,7 @@ function setAppKey(string $key): void
     }
 }
 
-/** Docker: the key file in the config volume that docker/entrypoint.sh builds config.php from. */
+/** Docker: the key file in the config volume that docker/entrypoint.sh builds config.php from (root only, 0600). */
 function saveDockerKey(string $key): void
 {
     $f = dirname(CONFIG) . '/app-key';
@@ -699,11 +843,23 @@ function saveDockerKey(string $key): void
     }
 }
 
+/**
+ * Replaces config.php atomically, keeping its owner, group and mode.
+ * SECURITY: config.php holds app_key and the database password: the temp file is created 0600 (not 0644 under the
+ * agent's umask) and only takes the config's mode once written. A short write (a full disk) fails the job and leaves
+ * config.php as it was, instead of putting a cut-off config (and with it the only copy of app_key) in its place.
+ */
 function writeConfig(string $txt): void
 {
     $st = stat(CONFIG);
     $tmp = CONFIG . '.tmp' . getmypid();
-    file_put_contents($tmp, $txt);
+    $old = umask(077);
+    $written = file_put_contents($tmp, $txt);
+    umask($old);
+    if ($written !== strlen($txt)) {
+        @unlink($tmp);
+        throw new JobFailed('Could not write ' . CONFIG . ' (is the disk full?). It was not changed.');
+    }
     chmod($tmp, $st['mode'] & 0777);
     if (posix_getuid() === 0) {
         chown($tmp, $st['uid']);
@@ -712,12 +868,24 @@ function writeConfig(string $txt): void
     rename($tmp, CONFIG);
 }
 
+/**
+ * Writes an audit log entry through bin/align (as the web user), attributed to the job's user. bin/align checks the
+ * event name and raises the matching alert emails (restore, update result, unsigned release).
+ */
 function audit(Job $job, string $event, string $detail): void
 {
     $u = $job->s['user_id'] ? ' --user=' . (int) $job->s['user_id'] : '';
     $job->run(asUser('php ' . q(APP . '/bin/align') . ' system:audit --event=' . q($event) . ' --detail=' . q($detail) . $u));
 }
 
+/**
+ * Restores the database and/or uploaded files from a checked backup, with a safety copy put back on failure.
+ * Returns what was restored.
+ * SECURITY: the web app checked the admin's role, two-factor code and RESTORE confirmation before queueing; here the
+ * backup is checked again in full (inspect()) before anything changes. In the data folder every step (staging,
+ * extracting, moving folders, deleting) runs as the web user; the tar extraction keeps no owners or modes. The safety
+ * copy is encrypted to the server's key and a one-time key that lives in KEYS only for this job.
+ */
 function doRestore(Job $job, string $file, string $keyFile, bool $withDb, bool $withUploads): array
 {
     $info = inspect($job, $file, $keyFile);
@@ -823,6 +991,7 @@ function doRestore(Job $job, string $file, string $keyFile, bool $withDb, bool $
     }
 }
 
+/** Signs everyone out after a restore: deletes the PHP session files, as the web user (they are in its data folder). */
 function clearSessions(): void
 {
     $dir = conf()['session_path'] ?? null;
@@ -833,6 +1002,13 @@ function clearSessions(): void
 
 // ----------------------------------------------------------------------------------------- update
 
+/**
+ * Checks for an update and writes update.json for the page and the update email. $job: "Check now" from the page
+ * (always asks GitHub, output in its log); null: the timer, the nightly run or the command line.
+ * SECURITY: in signed mode only a release tag that release.sh accepted is looked at (its commit, not the tag name);
+ * on a branch, GitHub is trusted as before. Commit messages and the README are text for display only (the page and
+ * email escape them); they are size-limited here.
+ */
 function check(?Job $job = null): array
 {
     if (DOCKER) {
@@ -901,7 +1077,8 @@ function check(?Job $job = null): array
         foreach (array_filter(explode("\x1e", $log), fn($x) => trim($x) !== '') as $entry) {
             [$sha, $subject, $body, $date] = array_pad(explode("\x1f", trim($entry)), 4, '');
             $body = trim(preg_replace('/^(Co-Authored-By|Claude-Session|Signed-off-by):.*$/mi', '', $body) ?? '');
-            $s['changes'][] = ['sha' => $sha, 'subject' => $subject, 'body' => mb_substr($body, 0, 2000), 'date' => $date];
+            // the subject is limited too: update.json is read on every admin page (the update banner)
+            $s['changes'][] = ['sha' => $sha, 'subject' => mb_substr($subject, 0, 300), 'body' => mb_substr($body, 0, 2000), 'date' => $date];
         }
     }
     // Never offer an older version (e.g. a test server switched from develop back to main): its code could meet newer tables
@@ -925,6 +1102,9 @@ function check(?Job $job = null): array
 /**
  * Docker: no git checkout in the image, so ask GitHub over HTTPS for the VERSION file on the update branch and,
  * when it's newer, the commits since this version's tag (the "What's new" list). Same update.json as check().
+ * SECURITY: a notice only (the image itself is pulled and checked by the operator), but everything GitHub returns is
+ * untrusted: sizes are capped, the version must be X.Y.Z, and a JSON field of the wrong type is skipped (before 2.2.1
+ * a non-list "parents" stopped the check with a TypeError). TLS is verified (PHP's default for https).
  */
 function checkDocker(?Job $job = null): array
 {
@@ -942,8 +1122,9 @@ function checkDocker(?Job $job = null): array
     // (for the notice only: the image itself is checked with cosign, see docs/DOCKER.md). Otherwise the branch.
     $latest = null;
     if (signedMode()) {
-        foreach (json_decode((string) $get(GITHUB_API . '/repos/' . REPO . '/tags?per_page=100', 1 << 20), true) ?: [] as $t) {
-            if (preg_match('/^v(\d+\.\d+\.\d+)$/', (string) ($t['name'] ?? ''), $m) && ($latest === null || version_compare($m[1], $latest, '>'))) {
+        $tags = json_decode((string) $get(GITHUB_API . '/repos/' . REPO . '/tags?per_page=100', 1 << 20), true);
+        foreach (is_array($tags) ? $tags : [] as $t) {
+            if (is_array($t) && is_string($t['name'] ?? null) && preg_match('/^v(\d+\.\d+\.\d+)$/', $t['name'], $m) && ($latest === null || version_compare($m[1], $latest, '>'))) {
                 $latest = $m[1];
             }
         }
@@ -965,17 +1146,24 @@ function checkDocker(?Job $job = null): array
             $s['notes'] = releaseNotes((string) $get(GITHUB_RAW . '/' . REPO . '/' . $ref . '/README.md', 1 << 20), $s['current'], $latest);
             // "What's new": the branch's commits, newest first, back to this version's release commit ("v1.2.3: ...")
             $list = json_decode((string) $get(GITHUB_API . '/repos/' . REPO . '/commits?per_page=100&sha=' . rawurlencode(BRANCH), 2 << 20), true);
+            // Fields of the wrong type count as missing (a string "parents" made count() throw)
+            $str = static fn($v): string => is_string($v) ? $v : '';
             foreach (is_array($list) ? $list : [] as $c) {
-                $msg = (string) ($c['commit']['message'] ?? '');
+                if (!is_array($c)) {
+                    continue;
+                }
+                $commit = is_array($c['commit'] ?? null) ? $c['commit'] : [];
+                $msg = $str($commit['message'] ?? null);
                 [$subject, $body] = array_pad(explode("\n", $msg, 2), 2, '');
                 if (preg_match('/^v' . preg_quote($s['current'], '/') . '\b/', $subject)) {
                     break;
                 }
-                if (count($c['parents'] ?? []) > 1 || $msg === '') {
+                if ((is_array($c['parents'] ?? null) && count($c['parents']) > 1) || $msg === '') {
                     continue;   // merge commits
                 }
                 $body = trim(preg_replace('/^(Co-Authored-By|Claude-Session|Signed-off-by):.*$/mi', '', $body) ?? '');
-                $s['changes'][] = ['sha' => substr((string) ($c['sha'] ?? ''), 0, 7), 'subject' => $subject, 'body' => mb_substr($body, 0, 2000), 'date' => (string) ($c['commit']['committer']['date'] ?? '')];
+                $date = is_array($commit['committer'] ?? null) ? $str($commit['committer']['date'] ?? null) : '';
+                $s['changes'][] = ['sha' => substr($str($c['sha'] ?? null), 0, 7), 'subject' => mb_substr($subject, 0, 300), 'body' => mb_substr($body, 0, 2000), 'date' => mb_substr($date, 0, 40)];
                 if (count($s['changes']) >= 60) {
                     break;
                 }
@@ -994,6 +1182,8 @@ function checkDocker(?Job $job = null): array
  * The release notes for the versions after $from up to $to: the README's "What's new" entries ("- **Title (1.2):** text",
  * with their indented sub-points), newest first. Written for people, unlike the commits in between, which are the
  * "What's new" list only when there are no notes (a test channel's changes within one version).
+ * SECURITY: $readme is untrusted text (in Docker it comes straight from GitHub, unsigned). Output is capped (20 notes,
+ * 40 sub-points, lengths) and only displayed, escaped; parsing takes linear time (see below).
  */
 function releaseNotes(string $readme, string $from, string $to): array
 {
@@ -1012,7 +1202,10 @@ function releaseNotes(string $readme, string $from, string $to): array
         if (!$in) {
             continue;
         }
-        if (preg_match('/^- \*\*(.+?)\s*\((\d+\.\d+(?:\.\d+)?)\)[:.]?\*\*[:.]?\s*(.*)$/u', $line, $m)) {
+        // Matched with runs of white space made single spaces: over a long run the lazy title backtracked at every
+        // position (quadratic: one 1 MB line kept the check busy for over 20 minutes, 2.2.1). Displayed as HTML,
+        // where runs of spaces show as one anyway.
+        if (str_starts_with($line, '- **') && preg_match('/^- \*\*(.+?)\s*\((\d+\.\d+(?:\.\d+)?)\)[:.]?\*\*[:.]?\s*(.*)$/u', preg_replace('/\s+/', ' ', $line) ?? '', $m)) {
             $v = $v3($m[2]);
             $cur = null;
             if (version_compare($v, $from, '>') && version_compare($v, $to, '<=') && count($notes) < 20) {
@@ -1028,7 +1221,11 @@ function releaseNotes(string $readme, string $from, string $to): array
     return $notes;
 }
 
-/** The latest version according to update_check_url ({url}/{branch}.json: {"version": "1.33.0"}), or null (unset, unreachable or unreadable). */
+/**
+ * The latest version according to update_check_url ({url}/{branch}.json: {"version": "1.33.0"}), or null (unset, unreachable or unreadable).
+ * SECURITY: the URL comes from root's config (https, or this machine for tests); no redirects, 4 KB at most, and only an
+ * X.Y.Z answer counts. It can only skip a GitHub check for a day when it names the installed version, never offer one.
+ */
 function listedVersion(): ?string
 {
     if (CHECK_URL === '' || !preg_match('#^(https://|http://127\.0\.0\.1[:/])[^?\#]*$#', CHECK_URL)) {
@@ -1041,6 +1238,7 @@ function listedVersion(): ?string
     return is_string($v) && preg_match('/^\d+\.\d+\.\d+$/', $v) ? $v : null;
 }
 
+/** Writes system.json for the page: backup public keys, whether the private key is still on the server, old backups, free space. */
 function systemInfo(): void
 {
     $legacy = ['count' => 0, 'bytes' => 0];
@@ -1054,6 +1252,15 @@ function systemInfo(): void
     ]);
 }
 
+/**
+ * Updates the code and runs its installer (install.sh --upgrade). Returns [from, to] (and repair/refused for a reinstall).
+ * SECURITY: in signed mode only the commit of the newest release tag release.sh accepted (checked against the signers
+ * file installed now) is installed, by its hash; with none, the installed signed release is reinstalled, and unsigned
+ * code is never installed. An older version is refused in both modes. Git runs as root on the root-owned checkout;
+ * the GitHub token is read by git's credential helper (install.sh), never put in a command or the log. A safety copy
+ * of the data is made first and kept when the installer fails; the previous code is put back when the update had no
+ * database migrations.
+ */
 function doUpdate(Job $job): array
 {
     if (DOCKER) {
@@ -1148,6 +1355,12 @@ function doUpdate(Job $job): array
 
 // ------------------------------------------------------------------------------------ dispatching
 
+/**
+ * Runs one job from a request (the web app's, or the command line's). $echo: also print the log (command line).
+ * SECURITY: the caller checked id and action (main loop); every parameter is checked here before use: the upload token
+ * (32 hex), the key (age's format, in keyFile()), the safety copy's name (fixed pattern), the restore choices (booleans).
+ * Key files are deleted whatever happens.
+ */
 function process(array $req, bool $echo = false): Job
 {
     $job = new Job($req);
@@ -1253,6 +1466,10 @@ function process(array $req, bool $echo = false): Job
  * Outside checkpoint of the audit log (1.45): the head the last night saw is kept here, where the web user and the
  * database can't change it. An entry it saw must still be there with the same hash (or have been pruned for age),
  * so writing back an old copy of the chain's markers after removing newer entries is caught too.
+ * SECURITY: the check runs as the web user against a database the web user can change, so only exit 0 (checked) moves
+ * the checkpoint on. Exit 2 (tampering found, already in the audit log and emailed) alerts and moves on, so it isn't
+ * raised again every night. Anything else (the check failed to run, e.g. its own alert path made to throw) alerts and
+ * keeps the old checkpoint for the next night; before 2.2.1 it was replaced silently, losing the evidence.
  */
 function auditCheckpoint(): void
 {
@@ -1262,12 +1479,19 @@ function auditCheckpoint(): void
         exec(asUser('php ' . q(APP . '/bin/align') . ' audit:checkpoint --id=' . (int) $prev['id'] . ' --hash=' . q((string) $prev['hash'])) . ' 2>&1', $o, $code);
         if ($code === 2) {
             fwrite(STDERR, "ALERT: audit log verification failed: " . implode(' ', $o) . "\n");
+        } elseif ($code !== 0) {
+            fwrite(STDERR, "ALERT: the audit log checkpoint (entry #" . (int) $prev['id'] . ") could not be checked (exit $code); it is kept for the next run: "
+                . mb_substr(implode(' ', $o), 0, 500) . "\n");
+            return;
         }
     }
     auditHeadSave();
 }
 
-/** Keeps the audit log's newest entry as the checkpoint (nightly, and after a restore replaced the log on purpose). */
+/**
+ * Keeps the audit log's newest entry as the checkpoint (nightly, and after a restore replaced the log on purpose).
+ * The answer comes from the web user's side (bin/align), so it is checked: an int id and a 64-hex (or empty) hash.
+ */
 function auditHeadSave(): void
 {
     exec(asUser('php ' . q(APP . '/bin/align') . ' audit:head') . ' 2>/dev/null', $h, $code);
@@ -1277,6 +1501,10 @@ function auditHeadSave(): void
     }
 }
 
+/**
+ * Removes what was left behind: unclaimed downloads (1 hour), uploads and import previews (1 day), as the web user;
+ * WORK leftovers (6 hours), safety copies (14 days) and all but the newest 100 jobs, as root in its own folders.
+ */
 function cleanup(): void
 {
     // Backups never downloaded within an hour, and uploads left for a day, removed as the web user (see webDir)
@@ -1304,11 +1532,66 @@ function cleanup(): void
     }
 }
 
+/** A job id for command-line jobs, in the web app's format (ID_RE). */
 function newId(): string
 {
     return date('Ymd-His') . '-' . bin2hex(random_bytes(3));
 }
 
+/**
+ * Takes one request file out of the request folder and returns its contents ('' when it isn't a usable file); the
+ * file is gone afterwards either way.
+ * SECURITY: the web user can write the request folder, so it could swap a checked file for a symlink (to a root-only
+ * file, or /dev/zero), a FIFO (the agent waits forever) or keep writing to it after the size check. So the file is first
+ * moved into KEYS (root only, same RAM disk): rename never follows a symlink, and once there nothing can be swapped.
+ * Then it must be a regular file with one link (not a hard link to another file) of at most 64 KiB, and no more than
+ * that is read. Requests can carry a restore key, which is why they are moved there and deleted straight away.
+ */
+function takeRequest(string $f): string
+{
+    $own = KEYS . '/request-' . bin2hex(random_bytes(8));
+    // Across filesystems rename() would copy (following a symlink, blocking on a FIFO): only a real rename is safe
+    if ((@stat(REQ)['dev'] ?? -1) !== (@stat(KEYS)['dev'] ?? -2)) {
+        fwrite(STDERR, 'The requests and keys folders are on different filesystems; request ' . basename($f) . " ignored\n");
+        @unlink($f);
+        return '';
+    }
+    if (!@rename($f, $own)) {
+        @unlink($f);
+        return '';
+    }
+    try {
+        $st = @lstat($own);
+        if (!$st || ($st['mode'] & 0170000) !== 0100000 || $st['nlink'] !== 1 || $st['size'] > 65536) {
+            return '';
+        }
+        return (string) @file_get_contents($own, false, null, 0, 65536);
+    } finally {
+        if (is_dir($own) && !is_link($own)) {
+            rmTree($own);   // a folder named like a request: in root's own folder now, so removing it is safe
+        } else {
+            @unlink($own);
+        }
+    }
+}
+
+/**
+ * Removes what a killed agent leaves behind (its shutdown function never ran): request files taken into KEYS (one
+ * can hold a restore key) and database login files in RUN. Only called from 'run', under the agent lock, so no
+ * other agent is using them.
+ */
+function sweepLeftovers(): void
+{
+    foreach ([...(glob(KEYS . '/request-*') ?: []), ...(glob(RUN . '/db-*.cnf') ?: [])] as $f) {
+        if (is_dir($f) && !is_link($f)) {
+            rmTree($f);
+        } else {
+            @unlink($f);
+        }
+    }
+}
+
+/** Reads a line from the terminal without echoing it (the backup key for restore-cli). */
 function readSecret(string $prompt): string
 {
     fwrite(STDOUT, $prompt);
@@ -1337,6 +1620,7 @@ clearStaleMaintenance();
 
 switch ($cmd) {
     case 'run':
+        sweepLeftovers();
         // Web requests. Each file is read and deleted straight away (restore keys never stay on disk).
         for ($i = 0; $i < 50; $i++) {
             $files = glob(REQ . '/*.json') ?: [];
@@ -1345,8 +1629,7 @@ switch ($cmd) {
                 break;
             }
             foreach ($files as $f) {
-                $raw = is_link($f) || !is_file($f) || filesize($f) > 65536 ? '' : (string) @file_get_contents($f);
-                @unlink($f);
+                $raw = takeRequest($f);
                 $req = json_decode($raw, true);
                 if (!is_array($req) || !preg_match(ID_RE, (string) ($req['id'] ?? '')) || basename($f) !== $req['id'] . '.json' || is_file(JOBS . "/{$req['id']}.json")
                     || !in_array($req['action'] ?? '', ['check', 'update', 'backup', 'verify', 'restore', 'keycheck', 'purge_legacy', 'delete_safety'], true)) {

@@ -1,6 +1,11 @@
 # MSP-ALIGN container image (1.44). The same Debian 13 packages as a dedicated install (install.sh):
 # Apache with mod_php, PHP 8.4 from Debian, the MariaDB client and age for backups. One container runs the
 # web app, the scheduled jobs (instead of systemd timers) and the backup agent. See docs/DOCKER.md.
+#
+# Security: no secrets are used or kept at build time (they come from the environment and volumes at run time, see
+# docker/entrypoint.sh). The app's files are root's and read-only to www-data; Apache and the app's jobs run as
+# www-data, while the entrypoint and the backup agent run as root, as on a dedicated server. Only port 80 (plain
+# HTTP for the reverse proxy in front) is exposed.
 ARG BASE=debian:trixie-slim
 FROM ${BASE}
 
@@ -27,7 +32,9 @@ RUN PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;') \
  && sed -i 's/^Listen 443/# Listen 443/' /etc/apache2/ports.conf \
  && ln -sf /dev/stdout /var/log/apache2/msp-align-access.log && ln -sf /dev/stderr /var/log/apache2/msp-align-error.log
 
+# .dockerignore keeps .git, .env and the tests out of the image
 COPY --chown=root:root . /opt/msp-align
+# `align` runs the command line as www-data (bin/align refuses root)
 RUN chmod 755 /opt/msp-align/docker/*.sh \
  && ln -s /opt/msp-align/docker/entrypoint.sh /usr/local/bin/msp-align-entrypoint \
  && printf '#!/bin/sh\nexec runuser -u www-data -- php /opt/msp-align/bin/align "$@"\n' >/usr/local/bin/align && chmod 755 /usr/local/bin/align
@@ -38,6 +45,7 @@ ENV ALIGN_DOCKER=1 \
     ALIGN_PRIVKEY_FILE=/etc/msp-align/backup-key.txt
 EXPOSE 80
 VOLUME ["/etc/msp-align", "/var/lib/msp-align", "/var/lib/msp-align-agent"]
+# The sign-in page answers only when Apache and PHP work (asked from 127.0.0.1, so it stays out of the access log)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD curl -fsS -o /dev/null http://127.0.0.1/login || exit 1
 
 LABEL org.opencontainers.image.title="MSP-ALIGN" \

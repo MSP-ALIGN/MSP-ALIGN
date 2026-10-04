@@ -7,6 +7,12 @@ namespace Align;
  * Uploaded images (client logos, profile pictures). Every upload is validated, then decoded and
  * re-encoded with GD: that resizes it, strips EXIF/metadata and anything hidden inside the file.
  * Files live outside the web root and are served by a controller.
+ *
+ * Security assumptions: callers check who may upload, see and delete an image (signed-in staff for logos and
+ * pictures; the portal only reaches its own client's logo and vCIO photo). The uploaded bytes, the client's file name
+ * and its MIME type are untrusted: the type comes from the content (finfo + getimagesize), the size and pixel count
+ * are checked before GD decodes anything, and stored names are made here (prefix + 64 random bits), never taken
+ * from the upload. SVG is never accepted.
  */
 final class Images
 {
@@ -14,15 +20,20 @@ final class Images
     private const MIME = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
     private const DIRS = ['clients', 'avatars'];
 
+    /** Folder for one kind of image ($sub is one of DIRS; checked by path(), not here). */
     public static function dir(string $sub): string
     {
         return Branding::uploadDir() . '/' . $sub;
     }
 
-    /** Absolute path of a stored image, or null if the name is invalid or the file is gone. */
+    /**
+     * Absolute path of a stored image, or null if the name is invalid or the file is gone.
+     * The name usually comes from the database; the pattern keeps it a plain file name in one of the two folders, so
+     * nothing can point it elsewhere (no slashes, dots or a trailing newline).
+     */
     public static function path(string $sub, ?string $name): ?string
     {
-        if (!$name || !in_array($sub, self::DIRS, true) || !preg_match('/^[a-z0-9-]{8,80}\.(png|jpg)$/', $name)) {
+        if (!$name || !in_array($sub, self::DIRS, true) || !preg_match('/^[a-z0-9-]{8,80}\.(png|jpg)\z/', $name)) {
             return null;
         }
         $p = self::dir($sub) . '/' . $name;
@@ -31,7 +42,12 @@ final class Images
 
     /**
      * Validates, resizes and saves an upload.
+     * $file is one $_FILES entry (a nested array from a name like logo[] fails as "Upload failed").
+     * $prefix must be [a-z0-9-] (e.g. "client12", "user3") so the name matches path().
      * $square = crop to a centered square (profile pictures); otherwise fit inside $maxW x $maxH.
+     * Security: the caller has checked the role and CSRF. Size, type (by content) and pixel count are checked before
+     * decoding, so a small file can't make GD allocate a huge image; only the re-encoded pixels are written, as PNG
+     * (or JPEG for a JPEG), under a random name. The caller stores the name and deletes the old file.
      * @return array{0:?string,1:?string}  [error, stored file name]
      */
     public static function store(array $file, string $sub, string $prefix, int $maxW, int $maxH, bool $square = false): array
@@ -78,7 +94,7 @@ final class Images
         $nw = max(1, (int) round($w * $scale));
         $nh = max(1, (int) round($h * $scale));
         $dst = imagecreatetruecolor($nw, $nh);
-        $alpha = !$jpeg && $mime !== 'image/jpeg'; // $jpeg: always a JPEG (photos such as sign-in backgrounds)
+        $alpha = $mime !== 'image/jpeg'; // PNG keeps transparency; a JPEG stays a JPEG
         if ($alpha) {
             imagealphablending($dst, false);
             imagesavealpha($dst, true);
@@ -105,6 +121,9 @@ final class Images
     /**
      * Re-encodes an uploaded image as PNG (or JPEG for a JPEG) at most $max pixels a side, so only pixels are kept:
      * no metadata, comments or bytes hidden after the image (1.45, the brand logo). False when it can't be read.
+     * $jpeg: the caller writes a .jpg whatever the input (sign-in backgrounds), so a lower quality is used for size.
+     * Security: the caller has already checked the size, the type by content and the dimensions (getimagesize), and
+     * chose $out (a random name in the upload folder). Nothing here limits the pixel count.
      */
     public static function reencode(string $tmp, string $mime, string $out, int $max = 2000, bool $jpeg = false): bool
     {
@@ -118,7 +137,8 @@ final class Images
         $nw = max(1, (int) round($w * $scale));
         $nh = max(1, (int) round($h * $scale));
         $dst = imagecreatetruecolor($nw, $nh);
-        $alpha = $mime !== 'image/jpeg';
+        // $jpeg: always written as a JPEG (2.2.1: a PNG or WebP background was written as PNG bytes into the .jpg)
+        $alpha = !$jpeg && $mime !== 'image/jpeg';
         if ($alpha) {
             imagealphablending($dst, false);
             imagesavealpha($dst, true);
@@ -131,7 +151,7 @@ final class Images
         return $ok;
     }
 
-    /** Applies the EXIF rotation phones write into JPEG photos. */
+    /** Applies the EXIF rotation phones write into JPEG photos. Other EXIF data is dropped by the re-encode. */
     private static function orient(\GdImage $img, string $file, string $mime): \GdImage
     {
         if ($mime !== 'image/jpeg' || !function_exists('exif_read_data')) {
@@ -142,6 +162,7 @@ final class Images
         return $r ?: $img;
     }
 
+    /** Deletes a stored image; an invalid or unknown name does nothing (path() keeps it inside the folder). */
     public static function delete(string $sub, ?string $name): void
     {
         if ($p = self::path($sub, $name)) {
@@ -149,7 +170,12 @@ final class Images
         }
     }
 
-    /** Sends a stored image (login is checked by the caller). */
+    /**
+     * Sends a stored image, or a 404.
+     * Security: the caller checks sign-in and which client's image this is (the portal looks the name up from its own
+     * client only). Only files written by store() are reachable. The type comes from the extension store() chose,
+     * nosniff and a sandbox CSP stop a browser treating it as anything but an image, and caching is private.
+     */
     public static function serve(string $sub, ?string $name): void
     {
         $p = self::path($sub, $name);

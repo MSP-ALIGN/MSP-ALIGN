@@ -10,6 +10,13 @@ use Align\DB;
  * Integrations\LinksClients). One link per client per provider, and each outside record belongs to at most one client.
  * A row with external_id NULL and match_method 'manual' means "deliberately not linked": auto-match
  * leaves that client alone.
+ *
+ * SECURITY: a link decides which client gets an outside record's devices, backups and Microsoft 365 data, so
+ * the database keeps one link per client per provider and one client per outside record (unique keys), and
+ * set() takes a record away from its old client before giving it to a new one. None of these methods check the
+ * user: MappingController (tech or above) and the sync call them. Outside ids passed in must already be known
+ * records of that provider (the mapping page checks them against linkRecords()). Auto-match links by name only,
+ * and only to records and clients nobody has decided about, so it never moves an existing link.
  */
 final class ClientLinks
 {
@@ -20,7 +27,7 @@ final class ClientLinks
         return $v === null || $v === false ? null : (string) $v;
     }
 
-    /** @return array<string, array{external_id:?string, match_method:?string}> provider => link */
+    /** Every link (and "kept unlinked" row) a client has. @return array<string, array{external_id:?string, match_method:?string}> provider => link */
     public static function forClient(int $clientId): array
     {
         $out = [];
@@ -30,7 +37,7 @@ final class ClientLinks
         return $out;
     }
 
-    /** @return array<int, array{external_id:?string, match_method:?string}> client id => link, for one provider */
+    /** Every client's link for one provider. @return array<int, array{external_id:?string, match_method:?string}> client id => link */
     public static function forProvider(string $provider): array
     {
         $out = [];
@@ -43,6 +50,8 @@ final class ClientLinks
     /**
      * Links (or, with null, unlinks) a client. The outside record is taken away from any other client first.
      * $method: 'auto' (matched by name) or 'manual' (someone chose it; a manual null link stops auto-matching).
+     * Null id and null method delete the row (the client is undecided again). Run inside the caller's transaction
+     * when several links change together (MappingController::save does).
      */
     public static function set(int $clientId, string $provider, ?string $externalId, ?string $method): void
     {
@@ -59,19 +68,30 @@ final class ClientLinks
             ON DUPLICATE KEY UPDATE external_id = VALUES(external_id), match_method = VALUES(match_method)', [$clientId, $provider, $externalId, $method]);
     }
 
-    /** A company name reduced for matching: lower case, "&" as "and", no punctuation or Inc/LLC/Corp. */
+    /**
+     * A company name reduced for matching: lower case, accents dropped ("Café" as "cafe"), "&" as "and", no
+     * punctuation or Inc/LLC/Corp. Letters of every script are kept (2.2.1): before, anything outside a-z was
+     * dropped, so "Bäcker" and "Böcker" both became "b cker" and an organization could be linked to a different
+     * client by name, and a name in another script reduced to its Latin letters alone. Also used to adopt
+     * hand-added clients by PSA name (SyncRunner) and to skip names already taken (createClientsFromOrgs).
+     */
     public static function normalizeName(string $name): string
     {
-        $n = strtolower($name);
+        $n = mb_strtolower(mb_scrub($name, 'UTF-8'), 'UTF-8');
+        if (class_exists(\Normalizer::class) && ($d = \Normalizer::normalize($n, \Normalizer::FORM_D)) !== false) {
+            $n = preg_replace('/\p{Mn}+/u', '', $d) ?? $n; // the accent marks split off by FORM_D
+        }
         $n = str_replace('&', ' and ', $n);
-        $n = preg_replace('/[^a-z0-9 ]+/', ' ', $n) ?? '';
-        $n = preg_replace('/\b(the|inc|incorporated|llc|l l c|ltd|limited|co|corp|corporation|company|pllc|pc|lp|llp)\b/', ' ', $n) ?? '';
-        return trim(preg_replace('/\s+/', ' ', $n) ?? '');
+        $n = preg_replace('/[^\p{L}\p{N} ]+/u', ' ', $n) ?? '';
+        $n = preg_replace('/\b(the|inc|incorporated|llc|l l c|ltd|limited|co|corp|corporation|company|pllc|pc|lp|llp)\b/u', ' ', $n) ?? '';
+        return trim(preg_replace('/\s+/u', ' ', $n) ?? '');
     }
 
     /**
      * Links clients that have no link (and no "deliberately not linked" decision) for $provider to the
-     * provider's unlinked record with the same name. A name shared by two records matches neither.
+     * provider's unlinked record with the same name. A name shared by two records matches neither, and (2.2.1) a
+     * name shared by two clients matches neither client: before, the first of "Acme Inc" and "ACME LLC" took the
+     * record, so one client's devices or backups could land on the other.
      * $alsoRmmNames: a client's RMM organization names count as its names too.
      * Only active clients that are planned for. Returns how many were linked.
      */
@@ -87,6 +107,19 @@ final class ClientLinks
                 WHERE r.provider = ? AND l.client_id IS NULL", [$provider]) as $r) {
             $byName[self::normalizeName((string) $r['name'])][] = (string) $r['id'];
         }
+        // How many clients go by each name (their own, plus their RMM organization's when those count): a name two
+        // clients share matches neither
+        $clientNames = [];
+        foreach (DB::all('SELECT c.name' . ($alsoRmmNames ? ', ' . self::rmmOrgNamesSql() . ' AS org_name' : '') . ' FROM clients c
+                WHERE c.is_archived = 0 AND c.planning_excluded = 0 AND c.is_demo = 0') as $c) {
+            $keys = [self::normalizeName((string) $c['name'])];
+            if ($alsoRmmNames) {
+                $keys[] = self::normalizeName((string) $c['org_name']);
+            }
+            foreach (array_unique(array_filter($keys, fn($k) => $k !== '')) as $k) {
+                $clientNames[$k] = ($clientNames[$k] ?? 0) + 1;
+            }
+        }
         $matched = 0;
         foreach (DB::all('SELECT c.id, c.name' . ($alsoRmmNames ? ', ' . self::rmmOrgNamesSql() . ' AS org_name' : '') . ' FROM clients c
                 LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
@@ -97,7 +130,7 @@ final class ClientLinks
             }
             // (the backup match has always skipped names that reduce to "0" as well as empty ones)
             foreach (array_unique($alsoRmmNames ? array_filter($names) : array_filter($names, fn($k) => $k !== '')) as $k) {
-                if (isset($byName[$k]) && count($byName[$k]) === 1) {
+                if (isset($byName[$k]) && count($byName[$k]) === 1 && ($clientNames[$k] ?? 0) <= 1) {
                     self::set((int) $c['id'], $provider, $byName[$k][0], 'auto');
                     unset($byName[$k]);
                     $matched++;
@@ -112,7 +145,9 @@ final class ClientLinks
      * Makes a client for each of an RMM's organizations that no client is linked to, named after it and linked to
      * it (source 'manual', so a PSA connected later adopts it by name). Organizations a client was already made
      * from are skipped, so deleting that client keeps it gone. $orgIds limits it to those organizations.
-     * Returns the names of the clients made.
+     * Returns the names of the clients made. Callers: the mapping page (tech or above, no PSA connected) and the
+     * sync (ClientLinks::autoCreates()). The organization's name comes from the RMM: it is stored on one line
+     * without control characters (a client name reaches email subjects and PDFs).
      */
     public static function createClientsFromOrgs(string $provider, ?array $orgIds = null): array
     {
@@ -120,6 +155,7 @@ final class ClientLinks
             return [];
         }
         self::autoMatch($provider); // an existing client with the same name gets linked instead
+        $only = $orgIds === null ? null : array_flip(array_map('strval', $orgIds));
         $made = [];
         $taken = [];
         foreach (DB::all('SELECT name FROM clients WHERE is_archived = 0') as $c) {
@@ -128,10 +164,10 @@ final class ClientLinks
         $rows = DB::all('SELECT o.org_id, o.name FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
             WHERE o.provider = ? AND l.client_id IS NULL AND o.client_created_at IS NULL ORDER BY o.name', [$provider]);
         foreach ($rows as $o) {
-            if ($orgIds !== null && !in_array((string) $o['org_id'], array_map('strval', $orgIds), true)) {
+            if ($only !== null && !isset($only[(string) $o['org_id']])) {
                 continue;
             }
-            $name = mb_substr(trim((string) $o['name']), 0, 255);
+            $name = mb_substr(trim(preg_replace(['/[\t\r\n]+/', '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/'], [' ', ''], (string) $o['name']) ?? ''), 0, 255);
             if ($name === '' || isset($taken[self::normalizeName($name)])) {
                 continue; // same name as a client that is linked elsewhere or kept unlinked: leave it for a person
             }
@@ -158,7 +194,7 @@ final class ClientLinks
         return \Align\Settings::get('rmm_create_clients', '0') === '1' && !Providers::psaConfigured();
     }
 
-    /** Where a provider's linkable records live: [table, id column]. */
+    /** Where a provider's linkable records live: [table, id column] (fixed names, safe to put in SQL). */
     private static function recordTable(string $provider): ?array
     {
         return match (true) {
@@ -168,7 +204,10 @@ final class ClientLinks
         };
     }
 
-    /** Removes links to outside records that no longer exist (keeps "deliberately not linked" rows). */
+    /**
+     * Removes links to outside records that no longer exist (keeps "deliberately not linked" rows). $existingIds is
+     * the provider's full list from this sync; an empty list does nothing, so a failed or empty read never unlinks everyone.
+     */
     public static function prune(string $provider, array $existingIds): void
     {
         if (!$existingIds) {
@@ -184,15 +223,20 @@ final class ClientLinks
         return $keys ? implode(',', array_map(fn($k) => "'" . preg_replace('/[^a-z0-9_-]/', '', (string) $k) . "'", $keys)) : "''";
     }
 
+    /** SQL IN list of every RMM connector key. */
     private static function rmmKeys(): string
     {
         return self::sqlKeys(array_keys(Providers::rmmConnectors()));
     }
 
+    /** SQL IN list of every backup connector key. */
     private static function backupKeys(): string
     {
         return self::sqlKeys(array_keys(Providers::backupConnectors()));
     }
+
+    // The SQL builders below put $c into the query as a table alias: callers pass a fixed alias written in the
+    // code ('c', 'cl'), never anything from a request.
 
     /** SQL condition: the client (alias $c) is linked to a company in some backup product. */
     public static function backupLinkedSql(string $c = 'c'): string

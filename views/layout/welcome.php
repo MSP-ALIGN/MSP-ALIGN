@@ -1,5 +1,9 @@
 <?php
-/** Client-facing layout for the onboarding page (no sign-in). Vars: $title, $company */
+/**
+ * Client-facing layout for the onboarding page (no sign-in, opened from a secret link). Vars: $title, $company.
+ * Security: no Referer is sent (meta and the server's header), so the link's token doesn't leak; the company's
+ * details are escaped, and the website is shown as text, never as a link.
+ */
 $company = $company ?? \Align\Controllers\WelcomeController::company();
 $v = e(APP_VERSION);
 ?><!doctype html>

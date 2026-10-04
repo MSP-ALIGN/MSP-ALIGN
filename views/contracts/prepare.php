@@ -5,6 +5,8 @@ use Align\Contracts\Template;
 /**
  * A draft contract: fill in what you know, see it as the client will, then send it.
  * @var array $c, $clients, $problems, $counts, $providerFields, $clientFields, $me; string $preview; bool $mailReady, $templateNewer
+ * Every value is escaped with e() (field keys too: they're only [a-z0-9_] after Template::normalize, but escaped
+ * anyway); $preview is HTML from Render (values escaped there). $input builds one field's form control.
  */
 $id = (int) $c['id'];
 $def = $c['def'];

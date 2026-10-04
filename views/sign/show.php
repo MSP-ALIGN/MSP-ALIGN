@@ -4,6 +4,8 @@ use Align\Contracts\Contracts;
 /**
  * The contract to read, fill in and sign. Inputs in the document belong to #sign-form (form="sign-form").
  * @var array $c, $company, $clientFields, $kept; string $token, $doc; bool $initials
+ * Security: $doc is Render::html output (escaped there); $kept is what the signer typed before an error (escaped
+ * here and in contracts/_sigpad). The server checks every value again (SignController::sign).
  */
 ?>
 <div class="sign-intro mx-auto mb-3">

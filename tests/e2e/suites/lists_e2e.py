@@ -173,7 +173,7 @@ with sync_playwright() as p:
     br.close()
 
 # ---- client portal: six tabs, sub-tabs in a group
-SEC = "JBSWY3DPEHPK3PXP"
+SEC = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 q("delete from portal_users where email='tabs@lists.example'")
 php(f'Align\\DB::insert("portal_users", ["client_id"=>1,"email"=>"tabs@lists.example","name"=>"Tab Tester","password_hash"=>password_hash("Lists-Pass-123", PASSWORD_DEFAULT),"is_active"=>1,"can_roadmap"=>1,"can_budget"=>1,"can_devices"=>1,"can_documents"=>1,"can_contacts"=>1,"totp_enabled"=>1,"totp_secret_enc"=>Align\\Crypto::encrypt("{SEC}"),"password_changed_at"=>date("Y-m-d H:i:s")]);')
 ps = requests.Session()

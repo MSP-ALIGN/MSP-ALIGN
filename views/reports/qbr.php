@@ -17,6 +17,8 @@ use Align\View;
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
  * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla
  * @var callable $on  fn(section key): bool
+ * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
+ * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
  */
 $costs = (bool) $opt['costs'];
 $users = (bool) ($opt['users'] ?? true);
@@ -29,7 +31,12 @@ if ($bk) $sections['backup'] = 'Backup & recovery';
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
 if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
 if ($on('s_budget') && $bd && $costs) $sections['budget'] = 'Technology budget';
-$sections['people'] = !empty($r['pending']) ? 'Decisions & next steps' : 'Your team & next steps';
+$sumA = $on('s_assets') ? $a : null;
+$sumBd = $on('s_budget') ? $bd : null;
+$sumComp = $on('s_compliance') ? $comp : null;
+$sumR = $on('s_roadmap') ? $r : null;
+// Pending projects follow the Roadmap switch too (2.2.1): unticking it left their titles and prices in "Decisions"
+$sections['people'] = !empty($sumR['pending']) ? 'Decisions & next steps' : 'Your team & next steps';
 $n = 1;
 $numOf = [];
 foreach ($sections as $k => $_) {
@@ -70,13 +77,13 @@ foreach ($sections as $k => $_) {
   <?= Ui::head('Executive summary', '01', $client['name']) ?>
   <p class="lede">Where your technology stands today, what's coming up, and the decisions we recommend for the next few quarters.</p>
   <div class="kpi-row">
-    <?php if ($a): $s = $a['summary']; $hp = $s['total'] ? (int) round($a['healthy'] / $s['total'] * 100) : 0; ?>
-      <?= Ui::kpi($hp . '%', 'Devices healthy', $a['healthy'] . ' of ' . $s['total'] . ' within policy', $hp >= 80 ? 'ok' : ($hp >= 50 ? 'warn' : 'bad')) ?>
-      <?= Ui::kpi((string) $a['actNow'], 'Need action now', $s['replace'] . ' past end of life · ' . $s['os_eos'] . ' old OS', $a['actNow'] ? 'bad' : 'ok') ?>
+    <?php if ($sumA): $s = $sumA['summary']; $hp = $s['total'] ? (int) round($sumA['healthy'] / $s['total'] * 100) : 0; ?>
+      <?= Ui::kpi($hp . '%', 'Devices healthy', $sumA['healthy'] . ' of ' . $s['total'] . ' within policy', $hp >= 80 ? 'ok' : ($hp >= 50 ? 'warn' : 'bad')) ?>
+      <?= Ui::kpi((string) $sumA['actNow'], 'Need action now', $s['replace'] . ' past end of life · ' . $s['os_eos'] . ' old OS', $sumA['actNow'] ? 'bad' : 'ok') ?>
     <?php endif; ?>
-    <?php if ($bd && $costs): ?><?= Ui::kpi(money($bd['yr']['total']), $bd['yr']['label'] . ' budget', money($bd['b']['runRate']) . '/mo recurring today', 'muted') ?><?php endif; ?>
-    <?php if ($comp && $comp['avg'] !== null): ?><?= Ui::kpi($comp['avg'] . '%', 'Compliance', count($comp['frameworks']) . ' framework' . (count($comp['frameworks']) == 1 ? '' : 's'), $comp['avg'] >= 80 ? 'ok' : ($comp['avg'] >= 50 ? 'warn' : 'bad')) ?><?php endif; ?>
-    <?php if ($r && (!$bd || !$costs || !$comp || $comp['avg'] === null)): ?><?= Ui::kpi((string) count($r['active']), 'Active projects', count($r['pending']) . ' awaiting a decision', 'muted') ?><?php endif; ?>
+    <?php if ($sumBd && $costs): ?><?= Ui::kpi(money($sumBd['yr']['total']), $sumBd['yr']['label'] . ' budget', money($sumBd['b']['runRate']) . '/mo recurring today', 'muted') ?><?php endif; ?>
+    <?php if ($sumComp && $sumComp['avg'] !== null): ?><?= Ui::kpi($sumComp['avg'] . '%', 'Compliance', count($sumComp['frameworks']) . ' framework' . (count($sumComp['frameworks']) == 1 ? '' : 's'), $sumComp['avg'] >= 80 ? 'ok' : ($sumComp['avg'] >= 50 ? 'warn' : 'bad')) ?><?php endif; ?>
+    <?php if ($sumR && (!$sumBd || !$costs || !$sumComp || $sumComp['avg'] === null)): ?><?= Ui::kpi((string) count($sumR['active']), 'Active projects', count($sumR['pending']) . ' awaiting a decision', 'muted') ?><?php endif; ?>
   </div>
 
   <h3>Highlights</h3>
@@ -86,8 +93,8 @@ foreach ($sections as $k => $_) {
     <?php endforeach; ?>
   </div>
 
-  <?php if ($r):
-      $next = array_slice($r['plan']['quarters'], $r['currentIndex'], 2);
+  <?php if ($sumR):
+      $next = array_slice($sumR['plan']['quarters'], $sumR['currentIndex'], 2);
       $rows = [];
       foreach ($next as $q) {
           foreach ($q['items'] as $it) if ($it['status'] !== 'declined') $rows[] = [$q['label'], 'project', $it['title'] . ($it['status'] === 'proposed' ? ' (proposed)' : ''), (float) $it['cost']];
@@ -151,7 +158,7 @@ foreach ($sections as $k => $_) {
 <?php endif; ?>
 
 <div class="page-break"></div>
-<?= View::fetch('reports/sections/people', ['p' => $people, 'provider' => $provider, 'num' => $numOf['people'], 'pending' => $r['pending'] ?? [], 'costs' => $costs, 'notes' => (bool) $opt['notes']]) ?>
+<?= View::fetch('reports/sections/people', ['p' => $people, 'provider' => $provider, 'num' => $numOf['people'], 'pending' => $sumR['pending'] ?? [], 'costs' => $costs, 'notes' => (bool) $opt['notes']]) ?>
 
 <?php if (isset($sections['assets']) && $opt['inventory']): ?>
 <?= View::fetch('reports/sections/assets_inventory', ['a' => $a, 'costs' => $costs, 'users' => $users, 'num' => 'A']) ?>

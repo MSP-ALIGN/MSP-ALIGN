@@ -29,6 +29,14 @@ namespace Align\Providers\Psa;
  * Asset writes use the asset record's names: name, type, make, model, serial, os, purchase_date,
  * warranty_expire, status (the value from assetStatus()).
  * Contact writes use: name, title, department, email, phone, extension, mobile, important, billing, technical.
+ *
+ * SECURITY: everything a provider returns came from another system and is untrusted. A provider must return
+ * ids only as exact strings of the PSA's own ids (never a loose cast: the client_id of a contact, asset, license or
+ * ticket decides which client it is stored under), text as strings cut to a sane size (non-text as null), and
+ * dates only when they are real dates. Write methods may assume the caller checked the user's role, the
+ * psa_two_way setting and the capability (Providers::psaSupports, which also switches writes off on a test
+ * server); Providers::psa() wraps the provider in StagingPsa on a test server so writes are refused there too.
+ * A write must send only the fields named above and never let a field replace the client or record id.
  */
 interface PsaProvider
 {
@@ -49,21 +57,28 @@ interface PsaProvider
         'tickets.create' => 'Create tickets',
     ];
 
+    /** The connector key ("itflow"). */
     public function key(): string;
 
+    /** Display name ("ITFlow"). */
     public function name(): string;
 
+    /** Whether the provider can do one of CAPABILITIES (not whether it's allowed: see Providers::psaSupports). */
     public function supports(string $capability): bool;
 
     /** Checks the connection; returns a short success message or throws. */
     public function test(): string;
 
+    /** Every client (neutral client records). */
     public function clients(): array;
 
+    /** Every contact, archived ones included (neutral contact records). */
     public function contacts(): array;
 
+    /** Every location (neutral location records). */
     public function locations(): array;
 
+    /** Every asset (neutral asset records). */
     public function assets(): array;
 
     /** One asset fresh from the PSA, or null when it no longer exists. */
@@ -90,6 +105,7 @@ interface PsaProvider
     /** Whether a PSA asset status means retired. */
     public function statusRetired(?string $status): bool;
 
+    /** Updates only the given contact fields. True when the PSA accepted the change. */
     public function updateContact(string $clientId, string $contactId, array $fields): bool;
 
     /** Creates a contact from contact fields; returns its PSA id. */
@@ -98,8 +114,10 @@ interface PsaProvider
     /** Archives (or, with false, restores) a contact. True when the PSA made the change. */
     public function archiveContact(string $clientId, string $contactId, bool $archived = true): bool;
 
+    /** Every software license (neutral license records). Never includes license keys. */
     public function licenses(): array;
 
+    /** Invoices for the managed-services estimate (neutral invoice records). */
     public function invoices(): array;
 
     /**
@@ -116,12 +134,18 @@ interface PsaProvider
     /** One ticket, or null when it no longer exists. */
     public function ticket(string $ticketId): ?array;
 
+    /**
+     * Opens a ticket; returns its PSA id. $detailsHtml is already escaped by the caller; $subject may hold text a
+     * visitor typed, so the provider sends it as one cleaned line. $priority: Low, Medium, High or Urgent.
+     */
     public function createTicket(string $clientId, string $subject, string $detailsHtml, string $priority = 'Medium', ?string $contactId = null): string;
 
     /** Links into the PSA's own screens (null = no link). */
     public function clientUrl(string $clientId): ?string;
 
+    /** Link to an asset in the PSA (null = no link). */
     public function assetUrl(string $clientId, string $assetId): ?string;
 
+    /** Link to a ticket in the PSA (null = no link). */
     public function ticketUrl(string $ticketId): ?string;
 }

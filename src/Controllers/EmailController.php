@@ -18,7 +18,13 @@ use Align\Mail\Template as T;
 use Align\Settings;
 use Align\View;
 
-/** Integrations → Email: Microsoft 365, Google Workspace or SMTP (connection), and Settings → Notifications (options, email log). */
+/**
+ * Integrations → Email: Microsoft 365, Google Workspace or SMTP (connection), and Settings → Notifications (options, email log).
+ * Security: every action is admin only (each checks it first); POST routes are CSRF-checked by the router. Saved
+ * secrets are never sent back to the page (only whether one is saved), and a saved SMTP password is only sent to
+ * the server and in the way it was entered for. Changes are audited; changes to who and where mail is sent as
+ * raise a security alert. Error text shown or audited goes through safe_error() (no PHP or database details).
+ */
 final class EmailController
 {
     private const TEXT = ['m365_tenant', 'm365_client_id', 'g_client_id', 'mail_from', 'mail_from_name', 'mail_reply_to', 'smtp_host', 'smtp_user'];
@@ -27,6 +33,7 @@ final class EmailController
     private const SENSITIVE = ['mail_provider', 'mail_mode', 'm365_tenant', 'm365_client_id', 'g_client_id', 'mail_from', 'm365_client_secret', 'm365_cert_pem', 'm365_key_pem', 'g_client_secret', 'g_sa_json',
         'smtp_host', 'smtp_port', 'smtp_security', 'smtp_verify', 'smtp_user', 'smtp_pass'];
 
+    /** The mail connection page. Passes setting values and, for secrets, only whether each is saved. */
     public static function index(): void
     {
         Auth::requireRole('admin');
@@ -54,6 +61,7 @@ final class EmailController
         ]);
     }
 
+    /** Subject, expiry and thumbprint of the saved Microsoft certificate (public details only), or null. */
     private static function certInfo(): ?array
     {
         $pem = Settings::secret('m365_cert_pem');
@@ -65,125 +73,151 @@ final class EmailController
         return ['subject' => $c['subject']['CN'] ?? '', 'expires' => date('Y-m-d', (int) $c['validTo_time_t']), 'thumbprint' => strtoupper(sha1($der))];
     }
 
+    /**
+     * Saves the mail connection (also posted by the setup wizard's SMTP form, which has only some of the fields:
+     * a field that isn't posted is left alone). A changed setting clears the cached access tokens, so the next send
+     * signs in with the new details.
+     *
+     * Order (2.2.1): 1) validate the whole form into $set (plain settings), $secrets and $clear, refusing with a
+     * message before anything is written; 2) run the "SMTP password follows its server" check on the values the
+     * save would leave behind; 3) raise the security alert for sensitive changes while the current, trusted mail
+     * settings are still in place (an alert sent through settings an attacker just chose could be swallowed);
+     * 4) write everything, audit. Before 2.2.1 fields were written as they passed, so a refused certificate later
+     * in the form left an earlier SMTP host change saved, unaudited, with the old password still attached to it.
+     * Security: admin only; the router checks CSRF.
+     */
     public static function save(): void
     {
         Auth::requireRole('admin');
-        // Checked before anything is saved, so a refused form changes nothing
+        $back = setup_return('/integrations/email');
+        $fail = static function (string $msg) use ($back): never {
+            flash('error', $msg);
+            redirect($back);
+        };
         if (isset($_POST['smtp_port']) && post('smtp_port') !== '' && (!ctype_digit(post('smtp_port')) || (int) post('smtp_port') < 1 || (int) post('smtp_port') > 65535)) {
-            flash('error', 'The SMTP port is a number from 1 to 65535.');
-            redirect(setup_return('/integrations/email'));
+            $fail('The SMTP port is a number from 1 to 65535.');
         }
         if (post('mail_provider') === 'smtp' && post('mail_mode') === 'delegated') {
             $_POST['mail_mode'] = 'app'; // SMTP is on or off (the sign-in choice was hidden)
         }
-        // The saved SMTP password is only sent to the server it was entered for, the way it was entered for: another
-        // server, no encryption or no certificate check needs it typed again, so a borrowed admin session can't
-        // send it somewhere and read it (1.45)
-        if (Settings::hasSecret('smtp_pass') && trim((string) ($_POST['smtp_pass'] ?? '')) === '' && !isset($_POST['clear_smtp_pass'])) {
-            $moved = (isset($_POST['smtp_host']) && strtolower(trim(post('smtp_host'))) !== strtolower((string) Settings::get('smtp_host', '')))
-                || (isset($_POST['smtp_security']) && post('smtp_security') === 'none' && Settings::get('smtp_security', 'starttls') !== 'none')
-                || (isset($_POST['smtp_verify_present']) && !isset($_POST['smtp_verify']) && Settings::get('smtp_verify', '1') !== '0');
-            if ($moved) {
-                flash('error', 'You changed the SMTP server, or turned off its encryption or certificate check. Enter the SMTP password again too: a saved password is only sent where and how it was entered for.');
-                redirect(setup_return('/integrations/email'));
-            }
-        }
-        $changed = [];
+
+        // 1) Validate everything; collect only real changes
+        $set = [];
         foreach (self::TEXT as $k) {
             if (!isset($_POST[$k])) {
                 continue; // not on this form (the setup wizard's SMTP form only has its own fields)
             }
             $val = trim(post($k));
-            if (in_array($k, ['mail_from', 'mail_reply_to'], true) && $val !== '' && !filter_var($val, FILTER_VALIDATE_EMAIL)) {
-                flash('error', ($k === 'mail_from' ? 'From mailbox' : 'Reply-to') . ' must be an email address.');
-                redirect(setup_return('/integrations/email'));
-            }
-            if ($k === 'm365_tenant' && $val !== '' && !preg_match('/^[A-Za-z0-9.-]{3,100}$/', $val)) {
-                flash('error', 'Tenant must be the Directory (tenant) ID or a domain such as contoso.onmicrosoft.com.');
-                redirect(setup_return('/integrations/email'));
-            }
-            if ($k === 'g_client_id' && $val !== '' && !preg_match('/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/', $val)) {
-                flash('error', 'The Google OAuth client ID looks like 1234567890-abc123.apps.googleusercontent.com.');
-                redirect(setup_return('/integrations/email'));
-            }
-            if ($k === 'smtp_host' && $val !== '' && !Smtp::validHost($val)) {
-                flash('error', 'The SMTP server is a name such as smtp.example.com or an IP address (no https:// and no port).');
-                redirect(setup_return('/integrations/email'));
-            }
-            if ($k === 'smtp_user' && preg_match('/[\x00-\x1F\x7F]/', $val)) {
-                flash('error', 'The SMTP user name can\'t contain control characters.');
-                redirect(setup_return('/integrations/email'));
-            }
-            if ($k === 'm365_client_id' && $val !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $val)) {
-                flash('error', 'The Application (client) ID is a GUID like 11111111-2222-3333-4444-555555555555.');
-                redirect(setup_return('/integrations/email'));
+            $err = match (true) {
+                in_array($k, ['mail_from', 'mail_reply_to'], true) && $val !== '' && !filter_var($val, FILTER_VALIDATE_EMAIL)
+                    => ($k === 'mail_from' ? 'From mailbox' : 'Reply-to') . ' must be an email address.',
+                $k === 'm365_tenant' && $val !== '' && !preg_match('/^[A-Za-z0-9.-]{3,100}$/', $val)
+                    => 'Tenant must be the Directory (tenant) ID or a domain such as contoso.onmicrosoft.com.',
+                $k === 'g_client_id' && $val !== '' && !preg_match('/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/', $val)
+                    => 'The Google OAuth client ID looks like 1234567890-abc123.apps.googleusercontent.com.',
+                $k === 'smtp_host' && $val !== '' && !Smtp::validHost($val)
+                    => 'The SMTP server is a name such as smtp.example.com or an IP address (no https:// and no port).',
+                $k === 'smtp_user' && (bool) preg_match('/[\x00-\x1F\x7F]/', $val)
+                    => 'The SMTP user name can\'t contain control characters.',
+                $k === 'm365_client_id' && $val !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $val)
+                    => 'The Application (client) ID is a GUID like 11111111-2222-3333-4444-555555555555.',
+                default => null,
+            };
+            if ($err !== null) {
+                $fail($err);
             }
             if ($val !== (string) Settings::get($k)) {
-                Settings::set($k, $val);
-                $changed[] = $k;
+                $set[$k] = $val;
             }
         }
-        self::saveOptions($changed);
         $choices = ['mail_provider' => array_keys(Mail::PROVIDERS), 'mail_mode' => array_keys(Mail::MODES), 'm365_auth' => ['secret', 'certificate'], 'smtp_security' => array_keys(Smtp::SECURITY)];
         foreach ($choices as $k => $allowed) {
             if (isset($_POST[$k]) && in_array(post($k), $allowed, true) && post($k) !== (string) Settings::get($k)) {
-                Settings::set($k, post($k));
-                $changed[] = $k;
+                $set[$k] = post($k);
             }
         }
         foreach (['mail_save_sent', 'smtp_verify'] as $k) {
             if (isset($_POST[$k . '_present'])) {
                 $val = isset($_POST[$k]) ? '1' : '0';
                 if ($val !== (string) Settings::get($k, '1')) {
-                    Settings::set($k, $val);
-                    $changed[] = $k;
+                    $set[$k] = $val;
                 }
             }
         }
         if (isset($_POST['smtp_port']) && post('smtp_port') === '' && (string) Settings::get('smtp_port') !== '') {
-            Settings::set('smtp_port', ''); // back to the usual port for the security choice
-            $changed[] = 'smtp_port';
+            $set['smtp_port'] = ''; // back to the usual port for the security choice
         }
         foreach (['mail_log_days' => [1, 365], 'smtp_port' => [1, 65535]] as $k => [$min, $max]) {
             if (isset($_POST[$k]) && is_numeric(post($k))) {
                 $val = (string) max($min, min($max, (int) post($k)));
                 if ($val !== (string) Settings::get($k)) {
-                    Settings::set($k, $val);
-                    $changed[] = $k;
+                    $set[$k] = $val;
                 }
             }
         }
+        $secrets = [];
+        $clear = [];
         foreach (self::SECRETS as $k) {
             if (isset($_POST["clear_$k"])) {
-                Settings::clearSecret($k);
-                $changed[] = "$k (cleared)";
-            } elseif (($val = trim((string) ($_POST[$k] ?? ''))) !== '') {
-                if ($k === 'm365_cert_pem' && !@openssl_x509_read($val)) {
-                    flash('error', 'The certificate must be PEM text starting with -----BEGIN CERTIFICATE-----.');
-                    redirect(setup_return('/integrations/email'));
-                }
-                if ($k === 'g_sa_json' && ($err = Google::validateServiceAccount($val))) {
-                    flash('error', $err);
-                    redirect(setup_return('/integrations/email'));
-                }
-                if ($k === 'm365_key_pem' && !@openssl_pkey_get_private($val)) {
-                    flash('error', 'The private key must be an unencrypted PEM key starting with -----BEGIN PRIVATE KEY-----.');
-                    redirect(setup_return('/integrations/email'));
-                }
-                Settings::setSecret($k, $val);
-                $changed[] = $k;
+                $clear[] = $k;
+                continue;
+            }
+            $val = trim((string) ($_POST[$k] ?? ''));
+            if ($val === '') {
+                continue;
+            }
+            if ($k === 'm365_cert_pem' && !@openssl_x509_read($val)) {
+                $fail('The certificate must be PEM text starting with -----BEGIN CERTIFICATE-----.');
+            }
+            if ($k === 'g_sa_json' && ($err = Google::validateServiceAccount($val))) {
+                $fail($err);
+            }
+            if ($k === 'm365_key_pem' && !@openssl_pkey_get_private($val)) {
+                $fail('The private key must be an unencrypted PEM key starting with -----BEGIN PRIVATE KEY-----.');
+            }
+            $secrets[$k] = $val;
+        }
+
+        // 2) The saved SMTP password is only sent to the server it was entered for, the way it was entered for:
+        // another server, no encryption or no certificate check needs it typed again, so a borrowed admin session
+        // can't send it somewhere and read it (1.45). Judged on the values this save leaves behind (2.2.1).
+        if (Settings::hasSecret('smtp_pass') && !isset($secrets['smtp_pass']) && !in_array('smtp_pass', $clear, true)) {
+            $now = fn(string $k, string $d = '') => (string) Settings::get($k, $d);
+            $after = fn(string $k, string $d = '') => array_key_exists($k, $set) ? $set[$k] : $now($k, $d);
+            $moved = strtolower($after('smtp_host')) !== strtolower($now('smtp_host'))
+                || ($after('smtp_security', 'starttls') === 'none' && $now('smtp_security', 'starttls') !== 'none')
+                || ($after('smtp_verify', '1') === '0' && $now('smtp_verify', '1') !== '0');
+            if ($moved) {
+                $fail('You changed the SMTP server, or turned off its encryption or certificate check. Enter the SMTP password again too: a saved password is only sent where and how it was entered for.');
             }
         }
+
+        // 3) Alert first, through the mail settings trusted until now
+        $changed = array_merge(array_keys($set), array_keys($secrets), array_map(fn($k) => "$k (cleared)", $clear));
+        $sensitive = array_values(array_intersect(array_merge(array_keys($set), array_keys($secrets), $clear), self::SENSITIVE));
+        if ($sensitive) {
+            Notify::security('Email settings changed', implode(', ', array_map(fn($c) => str_replace(' (cleared)', ' removed', $c),
+                array_filter($changed, fn($c) => in_array(str_replace(' (cleared)', '', $c), $sensitive, true)))) . ' by ' . (Auth::user()['email'] ?? ''));
+        }
+
+        // 4) Write (nothing below refuses)
+        foreach ($set as $k => $val) {
+            Settings::set($k, $val);
+        }
+        foreach ($secrets as $k => $val) {
+            Settings::setSecret($k, $val);
+        }
+        foreach ($clear as $k) {
+            Settings::clearSecret($k);
+        }
+        self::saveOptions($changed);
         if ($changed) {
             Settings::clearSecret('m365_token_cache');
             Settings::clearSecret('g_token_cache');
             Audit::log('settings.email', implode(', ', $changed));
-            if (array_intersect(array_map(fn($c) => str_replace(' (cleared)', '', $c), $changed), self::SENSITIVE)) {
-                Notify::security('Email settings changed', implode(', ', array_map(fn($c) => str_replace(' (cleared)', ' removed', $c), $changed)) . ' by ' . (Auth::user()['email'] ?? ''));
-            }
         }
         flash('success', $changed ? 'Email settings saved.' : 'No changes.');
-        redirect(setup_return('/integrations/email'));
+        redirect($back);
     }
 
     /** Schedule and meeting-invitation options (Settings → Notifications). */
@@ -213,6 +247,7 @@ final class EmailController
         }
     }
 
+    /** Settings → Notifications. */
     public static function notificationsPage(): void
     {
         Auth::requireRole('admin');
@@ -230,6 +265,11 @@ final class EmailController
         ]);
     }
 
+    /**
+     * Saves which notifications are on, their default roles, vCIO choice and extra addresses (validated; invalid
+     * ones are reported and left out). Security alerts always go to admins: their roles can't be changed here, and
+     * switching them off sends one last alert first (2.2.1).
+     */
     public static function notifications(): void
     {
         Auth::requireRole('admin');
@@ -238,6 +278,10 @@ final class EmailController
         foreach (N::CATALOG as $key => $c) {
             $on = isset($_POST['on'][$key]) ? '1' : '0';
             if ($on !== Settings::get("notif_$key", $c[7] ? '1' : '0')) {
+                if ($key === 'security' && $on === '0') {
+                    // The last alert, sent while alerts are still on: a borrowed admin session can't silence them quietly (2.2.1)
+                    Notify::security('Security alerts turned off', 'Security alerts were switched off on Settings → Notifications by ' . (Auth::user()['email'] ?? ''));
+                }
                 Settings::set("notif_$key", $on);
                 $changed[] = $key;
             }
@@ -256,7 +300,7 @@ final class EmailController
                     $changed[] = "$key vCIO";
                 }
             }
-            $raw = trim((string) ($_POST['extra'][$key] ?? ''));
+            $raw = is_string($_POST['extra'][$key] ?? null) ? trim($_POST['extra'][$key]) : '';
             $valid = Mailer::recipients(preg_split('/[\s,;]+/', $raw) ?: []);
             $bad = array_filter(preg_split('/[\s,;]+/', $raw) ?: [], fn($x) => $x !== '' && !filter_var($x, FILTER_VALIDATE_EMAIL));
             if ($bad) {
@@ -275,7 +319,10 @@ final class EmailController
         redirect('/settings/notifications');
     }
 
-    /** Sends a test email right away and reports exactly what Microsoft said. */
+    /**
+     * Sends a test email right away and reports what the provider said. The admin chooses the address (any valid
+     * one). The provider's message is shown; PHP and database errors only as "an internal error" (safe_error).
+     */
     public static function test(): void
     {
         Auth::requireRole('admin');
@@ -301,13 +348,17 @@ final class EmailController
             Audit::log('email.test', $to);
             flash('success', "Test email sent to $to. If it doesn't arrive in a minute, check junk mail" . (Mail::provider() === 'smtp' ? ' and the SMTP server\'s log' : ' and the mailbox\'s Sent Items') . '.');
         } catch (\Throwable $e) {
-            Audit::log('email.test_failed', "$to: " . $e->getMessage());
-            flash('error', 'Test failed: ' . $e->getMessage());
+            $msg = safe_error($e);
+            Audit::log('email.test_failed', "$to: " . $msg);
+            flash('error', 'Test failed: ' . $msg);
         }
         redirect(setup_return('/integrations/email'));
     }
 
-    /** Starts "Connect with Microsoft" / "Connect with Google" (authorization code + PKCE). */
+    /**
+     * Starts "Connect with Microsoft" / "Connect with Google" (authorization code + PKCE). The state and verifier
+     * are kept in this admin's session for 15 minutes; a GET only replaces this session's own pending sign-in.
+     */
     public static function connect(): void
     {
         Auth::requireRole('admin');
@@ -327,16 +378,25 @@ final class EmailController
         exit;
     }
 
+    /**
+     * The OAuth redirect. Security: the state must match the one kept in this session (single use, 15 minutes, same
+     * provider), so another site can't connect its own mailbox here or replay a response. Query values are
+     * untrusted: the provider's error text is shown only for a response to this session's own sign-in (anyone can
+     * link here with ?error_description=, 2.2.1). Errors are shown through safe_error().
+     */
     public static function callback(): void
     {
         Auth::requireRole('admin');
         $saved = $_SESSION['mail_oauth'] ?? null;
         unset($_SESSION['mail_oauth']);
+        $matches = is_array($saved) && time() - (int) ($saved['at'] ?? 0) <= 900 && hash_equals((string) ($saved['state'] ?? ''), query('state'))
+            && ($saved['provider'] ?? '') === Mail::provider();
         if (query('error') !== '') {
-            flash('error', 'Sign-in was not completed: ' . mb_strimwidth(query('error_description') ?: query('error'), 0, 300, '…'));
+            flash('error', $matches ? 'Sign-in was not completed: ' . mb_strimwidth(query('error_description') ?: query('error'), 0, 300, '…')
+                : 'Sign-in was not completed. Click Connect again.');
             redirect('/integrations/email');
         }
-        if (!$saved || time() - (int) $saved['at'] > 900 || !hash_equals((string) $saved['state'], query('state')) || $saved['provider'] !== Mail::provider()) {
+        if (!$matches) {
             flash('error', 'That sign-in response did not match this browser session. Click Connect again.');
             redirect('/integrations/email');
         }
@@ -352,11 +412,12 @@ final class EmailController
             $note = $google && Settings::get('g_calendar_granted') === '0' ? ' Calendar access wasn\'t granted, so meeting invitations will be sent as .ics emails.' : '';
             flash('success', "Connected to $name as " . $me['address'] . '. Send a test email to check.' . $note);
         } catch (\Throwable $e) {
-            flash('error', 'Could not connect: ' . $e->getMessage());
+            flash('error', 'Could not connect: ' . safe_error($e)); // Microsoft's and Google's messages are kept; internal errors aren't shown
         }
         redirect('/integrations/email');
     }
 
+    /** Forgets the connected mailbox's tokens (Google's are also revoked). */
     public static function disconnect(): void
     {
         Auth::requireRole('admin');
@@ -370,6 +431,7 @@ final class EmailController
         redirect('/integrations/email');
     }
 
+    /** The email log: the last 300 messages (who, what, status; never the body). */
     public static function log(): void
     {
         Auth::requireRole('admin');
@@ -384,10 +446,21 @@ final class EmailController
         ]);
     }
 
+    /**
+     * Retry a failed message (only while its body is kept) or cancel a queued one. A security alert can't be
+     * cancelled, so someone using a borrowed admin session can't hide the alert about what they did (2.2.1).
+     */
     public static function logAction(int $id): void
     {
         Auth::requireRole('admin');
         $action = post('action');
+        if (!in_array($action, ['retry', 'cancel'], true)) {
+            redirect('/settings/notifications/log');
+        }
+        if ($action === 'cancel' && DB::value('SELECT kind FROM mail_queue WHERE id = ?', [$id]) === 'security') {
+            flash('warning', 'Security alerts can\'t be cancelled.');
+            redirect('/settings/notifications/log');
+        }
         if ($action === 'retry') {
             $n = DB::run("UPDATE mail_queue SET status = 'queued', send_after = NOW(), attempts = 0 WHERE id = ? AND status = 'failed' AND purged = 0", [$id])->rowCount();
             if ($n) {
@@ -403,7 +476,7 @@ final class EmailController
         redirect('/settings/notifications/log');
     }
 
-    /** Sends everything that's due now (and optionally the digests) instead of waiting for the timer. */
+    /** Sends everything that's due now instead of waiting for the timer. */
     public static function run(): void
     {
         Auth::requireRole('admin');
@@ -412,7 +485,10 @@ final class EmailController
         redirect('/settings/notifications/log');
     }
 
-    /** Preview of a digest as it would look for all clients (nothing is sent). */
+    /**
+     * Preview of a digest as it would look for all clients (nothing is sent). The HTML is served with a CSP that
+     * runs nothing and loads nothing from outside; $key must be one of the digests (404 otherwise).
+     */
     public static function preview(string $key): void
     {
         Auth::requireRole('admin');

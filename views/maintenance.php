@@ -11,7 +11,11 @@
 </head>
 <body class="hold-transition login-page">
 <?php
-/** Shown to everyone while the agent updates or restores. @var string $message, $step, $action; int $percent, $elapsed */
+/**
+ * Shown to everyone while the agent updates or restores. @var string $message, $step, $action; int $percent, $elapsed
+ * Security: public and rendered without the database, so it shows only the job's step (written by the agent,
+ * escaped) and progress, nothing about clients or the server.
+ */
 $percent = max(1, min(99, (int) ($percent ?? 5)));
 $elapsed = (int) ($elapsed ?? 0);
 $took = $elapsed >= 60 ? intdiv($elapsed, 60) . ' min ' . ($elapsed % 60) . ' s' : $elapsed . ' s';

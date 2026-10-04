@@ -5,6 +5,8 @@ use Align\Branding;
  * Branding (1.45.2): the 1.43 look. Name and logo, the sign-in page, the brand color and the sidebar on the left;
  * on the right a live preview of the app, the sign-in page and the client portal as they look now, in light or dark.
  * @var array $v; bool $hasLogo; string $logoUrl; array $backgrounds [staff|portal => [url, dim]] (2.1.1)
+ * Security: $v['brand_primary'] is Branding::color() (always #rrggbb), so it is safe in the style attributes; the
+ * background URLs are built by Branding from fixed parts and the dims are integers. Text values are escaped.
  */
 $swatches = ['#007bff' => 'Default blue', '#2f7a55' => 'Mountain green', '#1d4e89' => 'Navy', '#0f766e' => 'Teal', '#6f42c1' => 'Purple', '#b3261e' => 'Red', '#e67e22' => 'Orange', '#343a40' => 'Charcoal'];
 $company = (string) ($v['company_name'] ?: 'Your company');

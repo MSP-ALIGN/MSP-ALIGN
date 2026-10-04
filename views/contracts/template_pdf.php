@@ -5,6 +5,7 @@ use Align\Contracts\Template;
  * The builder for a template printed on the MSP's own PDF: the pages with boxes on them (pdfview.js) and, on the
  * right, the selected box (and, for a blank, what it asks for), the services and the signing settings. A blank exists
  * only as boxes: there's no separate list of fields here. @var array $t, $unknown; int $uses
+ * JSON for the scripts goes in <script type="application/json"> with the JSON_HEX_* flags (see template.php).
  */
 $id = (int) $t['id'];
 $def = $t['def'];

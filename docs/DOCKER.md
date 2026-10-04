@@ -59,7 +59,7 @@ docker compose exec app cat /etc/msp-align/app-key           # decrypts saved pa
 | `ALIGN_SUBNET` | The compose network, `172.30.57.0/24`. Change it only if it clashes with one of your networks (then also set `ALIGN_CADDY_IP` to an address in it when using the Caddy add-on) |
 | `ALIGN_APP_KEY` | Optional: the encryption key (`base64:…`). Normally made on the first start and kept in the config volume; set it only to reuse a key you already have. `ALIGN_DB_PASSWORD_FILE`, `ALIGN_ADMIN_PASSWORD_FILE` and `ALIGN_APP_KEY_FILE` read the value from a file instead (Docker secrets); the shipped `compose.yaml` doesn't pass them, so add them, and `MARIADB_PASSWORD_FILE` for the database, in a `compose.override.yaml` |
 | `ALIGN_UPDATE_BRANCH` | The branch the Updates page compares against. Leave it on `main`: images are published for releases only |
-| `ALIGN_STAGING`, `ALIGN_STAGING_MAIL_TO` | `1` and a mailbox you read make this a [test server](TEST-SERVER.md) for a copy of production |
+| `ALIGN_STAGING`, `ALIGN_STAGING_MAIL_TO` | `1` (or `true`, `yes`, `on`) and a mailbox you read make this a [test server](TEST-SERVER.md) for a copy of production. Any value other than these or `0`/`false`/`no`/`off` stops the container at start-up, so a typo can't leave a test server emailing real clients |
 
 Change a setting by editing `.env` and running `docker compose up -d`. The container writes its `config.php` from these
 settings on every start, so don't edit that file by hand. The exception is the database settings (`ALIGN_DB_NAME`,
@@ -94,7 +94,10 @@ one LAN address with `ALIGN_BIND`, or filter it in Docker's `DOCKER-USER` chain;
 | `msp-align_agent` | Backup and update job history | No |
 
 The scheduler writes what it ran last to `/run/msp-align/scheduler.json`:
-`docker compose exec app cat /run/msp-align/scheduler.json`.
+`docker compose exec app cat /run/msp-align/scheduler.json`. Each job has the same time limit as on a dedicated
+install (email and the PSA check 10 minutes, the sync 45 minutes, the update check 5 minutes; backups and restores
+none), so a stuck connection can't hold it forever. `docker compose exec app php /opt/msp-align/docker/scheduler.php --list`
+shows the jobs and their limits.
 
 ## Backups and restore
 

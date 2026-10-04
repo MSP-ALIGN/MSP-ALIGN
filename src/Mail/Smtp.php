@@ -10,6 +10,12 @@ use Align\Settings;
  * Amazon SES, or the Microsoft 365 / Google SMTP relay. Sends the same messages as the other connections;
  * meeting invitations always go out as .ics emails (SMTP has no calendar to put them in).
  *
+ * Security: the server is admin-configured. With STARTTLS the connection must be encrypted before anything else
+ * is said (no fallback to plain text, and nothing the server sent before the handshake is trusted after it); TLS
+ * 1.2+ with the certificate checked unless the admin switched that off. The password is only sent encrypted (or
+ * to this server itself), and a changed server or weaker setting needs it typed again (EmailController::save()).
+ * Error text quotes the server's reply, never the password.
+ *
  * Settings: smtp_host, smtp_port, smtp_security (starttls | tls | none), smtp_user, smtp_pass (secret),
  * smtp_verify ('0' accepts a certificate that isn't trusted, for an internal relay), mail_from.
  * Errors are GraphException (the mail queue's error type):
@@ -32,23 +38,27 @@ final class Smtp
     private $sock = null;
     private array $ext = [];
 
+    /** A server and From address are set, and a user name has its password. */
     public static function ready(): bool
     {
         return self::host() !== '' && trim((string) Settings::get('mail_from')) !== ''
             && (trim((string) Settings::get('smtp_user')) === '' || Settings::hasSecret('smtp_pass')); // a user name needs its password
     }
 
+    /** The configured server name or IP address (checked again with validHost() before connecting). */
     public static function host(): string
     {
         return trim((string) Settings::get('smtp_host'));
     }
 
+    /** starttls, tls or none; anything else stored is treated as starttls (the safe default). */
     public static function security(): string
     {
         $s = (string) Settings::get('smtp_security', 'starttls');
         return isset(self::SECURITY[$s]) ? $s : 'starttls';
     }
 
+    /** The configured port, or the usual one for the security choice. Always 1-65535. */
     public static function port(): int
     {
         $p = (int) Settings::get('smtp_port');
@@ -62,22 +72,29 @@ final class Smtp
             || filter_var(trim($h, '[]'), FILTER_VALIDATE_IP) !== false;
     }
 
+    /** This server itself, where a password can't be read on the network even without encryption. */
     private static function loopback(string $h): bool
     {
         return in_array(strtolower(trim($h, '[]')), ['localhost', '127.0.0.1', '::1'], true);
     }
 
+    /** Where invitations go, for messages ("email": there's no calendar). */
     public function calendarLabel(): string
     {
         return 'email';
     }
 
+    /** No online-meeting service with SMTP. */
     public function meetingLabel(): string
     {
         return '';
     }
 
-    /** Same signature as Graph::sendMail. */
+    /**
+     * Same signature as Graph::sendMail. Recipients are To plus Cc, each checked again (no CR, LF or angle brackets
+     * can reach an SMTP command). Throws GraphException with the queue codes above; sets lastWarning when some
+     * recipients were refused but the message went to the others.
+     */
     public function sendMail(array $to, string $subject, string $html, array $cc = [], array $attachments = [], ?string $replyTo = null): void
     {
         $this->lastWarning = null;
@@ -141,7 +158,10 @@ final class Smtp
         }
     }
 
-    /** Connects, says hello, starts TLS and signs in. */
+    /**
+     * Connects, says hello, starts TLS and signs in. Refuses (403) a server that doesn't offer STARTTLS when it was
+     * chosen, and a password over an unencrypted connection to another machine.
+     */
     private function open(): void
     {
         $host = self::host();
@@ -179,6 +199,11 @@ final class Smtp
                 throw new GraphException("The SMTP server $host doesn't offer STARTTLS. Choose \"TLS from the start\" (port 465), or \"None\" only for a relay on your own network.", 403);
             }
             $this->cmd('STARTTLS', [220]);
+            // Anything already waiting was sent before encryption, so someone in the middle could have written it to
+            // pass as the encrypted server's answers (STARTTLS response injection): refuse instead of reading it later
+            if ((int) (stream_get_meta_data($s)['unread_bytes'] ?? 0) > 0) {
+                throw new GraphException("The SMTP server $host sent data before the encrypted connection started, so it can't be trusted. Check nothing between Align and the server is changing the connection.", 503);
+            }
             if (@stream_socket_enable_crypto($s, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT) !== true) {
                 throw new GraphException(self::tlsError($host), 503);
             }
@@ -211,11 +236,13 @@ final class Smtp
         }
     }
 
+    /** The admin-facing message for a TLS handshake that failed. */
     private static function tlsError(string $host): string
     {
         return "Couldn't start an encrypted connection to $host. If the server's certificate isn't trusted (an internal relay with its own certificate), switch off \"Check the server's certificate\"; otherwise check the security setting matches the port.";
     }
 
+    /** EHLO (HELO as a fallback) and records the extensions offered. Called again after STARTTLS, so only what the encrypted server offers counts. */
     private function ehlo(): void
     {
         // This server's name as the relay should see it: the address people use, an IP as [a.b.c.d]
@@ -255,13 +282,17 @@ final class Smtp
         return $text;
     }
 
-    /** @return array{0:int,1:string} */
+    /**
+     * Writes one command line and reads the reply. $secret marks a sign-in line (kept for callers; nothing here logs).
+     * @return array{0:int,1:string}
+     */
     private function send(string $line, bool $secret = false): array
     {
         $this->write($line . "\r\n");
         return $this->read();
     }
 
+    /** Writes everything, in chunks; a closed connection is a retryable error. */
     private function write(string $s): void
     {
         for ($off = 0, $len = strlen($s); $off < $len; $off += $n) {
@@ -272,7 +303,11 @@ final class Smtp
         }
     }
 
-    /** Reads a (possibly multi-line) reply. @return array{0:int,1:string} */
+    /**
+     * Reads a (possibly multi-line) reply: at most 200 lines of 4 KB, so a hostile server can't make it grow without
+     * end. Each read waits at most the stream timeout.
+     * @return array{0:int,1:string}
+     */
     private function read(): array
     {
         $lines = [];
@@ -289,6 +324,7 @@ final class Smtp
         }
     }
 
+    /** Closes the connection (safe to call twice). */
     private function close(): void
     {
         if ($this->sock) {
@@ -297,6 +333,7 @@ final class Smtp
         $this->sock = null;
     }
 
+    /** A server reply on one line, at most 300 characters, for error messages. */
     private static function short(string $t): string
     {
         return mb_strimwidth(trim(preg_replace('/\s+/', ' ', $t) ?? ''), 0, 300, '…');

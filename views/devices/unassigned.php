@@ -1,4 +1,8 @@
 <?php
+/**
+ * Unassigned hardware, to categorize. @var array $rows, $psaTypes
+ * Names, types and serials from the PSA are escaped; the type picker and checkboxes are for techs and admins.
+ */
 use Align\Auth;
 use Align\Lifecycle\Lifecycle;
 

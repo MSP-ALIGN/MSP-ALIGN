@@ -14,17 +14,26 @@ use Align\Settings;
  *    invitations, updates and cancellations, attendees can accept, and a Teams link can be added.
  *  - ics mode: an email with an .ics invitation attached (works with any mail system). Always used with
  *    SMTP, where the invitation is also sent as a text/calendar part so mail apps show Accept / Decline.
+ *
+ * Security: callers (meeting pages, the API) have checked the user may change the meeting and send invitations
+ * (client-limited API keys can't). Attendees are whatever staff typed, reduced to valid addresses; the organizer
+ * is the From mailbox or the meeting owner (a staff member), never an address from the attendee list. Meeting text
+ * is escaped for HTML in emails and for iCalendar in .ics files.
  */
 final class Invites
 {
     public const MODES = ['calendar' => 'Calendar invitations: Outlook or Google Calendar (recommended)', 'ics' => 'Email with .ics attachment'];
 
+    /** Invitations are switched on and email can be sent. */
     public static function enabled(): bool
     {
         return N::enabled('client_meeting_invite') && Mail::ready();
     }
 
-    /** Email addresses found in the attendees field ("Name <a@b.com>, c@d.com, Jane"). */
+    /**
+     * Email addresses found in the attendees field ("Name <a@b.com>, c@d.com, Jane"). Untrusted text; the address
+     * pattern allows no quotes, colons or semicolons, so an address is also safe in an iCalendar mailto: value.
+     */
     public static function attendees(?string $text): array
     {
         $out = [];
@@ -37,6 +46,7 @@ final class Invites
         return Mailer::recipients($out);
     }
 
+    /** The meeting with its client name and owner's email and name. */
     private static function load(int $id): ?array
     {
         return DB::one('SELECT m.*, c.name AS client_name, u.email AS owner_email, u.name AS owner_name FROM meetings m
@@ -45,7 +55,8 @@ final class Invites
 
     /**
      * Sends (or updates / cancels) the invitation for a meeting. $action: save | cancel.
-     * Returns a short result for the flash message, or null when nothing was sent.
+     * Returns a short result for the flash message, or null when nothing was sent. Errors are returned (and
+     * audited) as admin-safe text: PHP and database errors become "an internal error".
      */
     public static function send(int $meetingId, string $action = 'save'): ?string
     {
@@ -74,11 +85,13 @@ final class Invites
         }
     }
 
+    /** "Client — Title" (plain text). */
     private static function subject(array $m): string
     {
         return ($m['client_name'] ? $m['client_name'] . ' — ' : '') . $m['title'];
     }
 
+    /** The calendar event's HTML description: agenda and join link (escaped; the link only when it's http(s)). */
     private static function bodyHtml(array $m): string
     {
         $h = '';
@@ -86,7 +99,9 @@ final class Invites
             $h .= '<p><b>Agenda</b></p><p>' . nl2br(e($m['agenda'])) . '</p>';
         }
         if ($m['video_url']) {
-            $h .= '<p><b>Join:</b> <a href="' . e($m['video_url']) . '">' . e($m['video_url']) . '</a></p>';
+            // Pages and the API only save http(s) links, but a value from elsewhere is shown as text, not linked
+            $h .= '<p><b>Join:</b> ' . (preg_match('#^https?://#i', (string) $m['video_url'])
+                ? '<a href="' . e($m['video_url']) . '">' . e($m['video_url']) . '</a>' : e($m['video_url'])) . '</p>';
         }
         return $h . '<p style="color:#7b8594">' . e(Settings::get('company_name') ?: 'Your company') . '</p>';
     }
@@ -98,6 +113,10 @@ final class Invites
         return str_starts_with($mb, 'google:') ? ['google', substr($mb, 7)] : ['microsoft', $mb];
     }
 
+    /**
+     * Creates, updates or cancels the real calendar event (Outlook or Google). In unattended mode the owner's own
+     * calendar is tried first, then the sending mailbox. An event made with the other provider is left alone.
+     */
     private static function viaCalendar(array $m, array $to, string $action): string
     {
         $c = Mail::client();
@@ -149,11 +168,12 @@ final class Invites
         $join = $r['join'] ?? null;
         DB::run('UPDATE meetings SET graph_event_id = ?, graph_mailbox = ?, online_join_url = COALESCE(?, online_join_url),
             video_url = COALESCE(video_url, ?), invites_sent_at = NOW(), invite_sequence = invite_sequence + 1 WHERE id = ?',
-            [$r['id'] ?? $eventId, $r['mailbox'] ?? $m['graph_mailbox'], $join, $join, $m['id']]);
+            [$r['id'] ?? $eventId, $r['mailbox'] ?? $m['graph_mailbox'], $join, $join !== null && mb_strlen($join) <= 500 ? $join : null, $m['id']]); // video_url holds 500
         \Align\Audit::log('meeting.invite', self::subject($m) . ' → ' . implode(', ', array_column($to, 'address')));
         return $verb . ' to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . ' through ' . $c->calendarLabel() . ($join ? ' with a ' . $c->meetingLabel() . ' link' : '') . '.';
     }
 
+    /** Emails the invitation (or cancellation) with an .ics attachment, from the From address as organizer. */
     private static function viaIcs(array $m, array $to, string $action): string
     {
         $cancel = $action === 'cancel';
@@ -177,21 +197,28 @@ final class Invites
         return ($cancel ? 'Cancellation' : 'Invitation') . ' emailed to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . '.';
     }
 
-    /** iTIP invitation (RFC 5546): METHOD REQUEST or CANCEL with organizer, attendees and sequence. */
+    /**
+     * iTIP invitation (RFC 5546): METHOD REQUEST or CANCEL with organizer, attendees and sequence.
+     * $organizer is the From address (a setting); $to comes from attendees(). Text values are escaped (backslash,
+     * semicolon, comma, line breaks; other control characters dropped). A name (CN) is a parameter value, where
+     * backslash escapes don't exist: it is always quoted, without double quotes or control characters, so a name
+     * with a colon can't change the address that follows it (2.2.1).
+     */
     public static function ics(array $m, string $method, string $organizer, array $to, int $seq): string
     {
         $host = (string) (\Align\Config::get('fqdn') ?: parse_url((string) \Align\Config::get('base_url', ''), PHP_URL_HOST) ?: 'align.local');
-        $esc = fn(string $s) => str_replace(["\\", ';', ',', "\r\n", "\n", "\r"], ['\\\\', '\;', '\,', '\n', '\n', '\n'], $s);
+        $esc = fn(string $s) => str_replace(["\\", ';', ',', "\r\n", "\n", "\r"], ['\\\\', '\;', '\,', '\n', '\n', '\n'], preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $s) ?? '');
+        $cn = fn(string $s) => '"' . trim(preg_replace('/[\x00-\x1F\x7F"]+/', ' ', $s) ?? '') . '"';
         $utc = fn(string $t) => gmdate('Ymd\THis\Z', (int) strtotime($t));
         $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MSP-ALIGN//MSP-ALIGN//EN', 'METHOD:' . $method, 'BEGIN:VEVENT',
             'UID:' . $m['uid'] . '@' . $host, 'SEQUENCE:' . $seq, 'DTSTAMP:' . gmdate('Ymd\THis\Z'),
             'DTSTART:' . $utc($m['starts_at']), 'DTEND:' . $utc($m['ends_at']), 'SUMMARY:' . $esc(self::subject($m)),
             'STATUS:' . ($method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED')];
         if ($organizer !== '') {
-            $lines[] = 'ORGANIZER;CN=' . $esc((string) (Settings::get('mail_from_name') ?: Settings::get('company_name') ?: 'Your company')) . ':mailto:' . $organizer;
+            $lines[] = 'ORGANIZER;CN=' . $cn((string) (Settings::get('mail_from_name') ?: Settings::get('company_name') ?: 'Your company')) . ':mailto:' . $organizer;
         }
         foreach ($to as $r) {
-            $lines[] = 'ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE' . ($r['name'] ? ';CN=' . $esc($r['name']) : '') . ':mailto:' . $r['address'];
+            $lines[] = 'ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE' . ($r['name'] ? ';CN=' . $cn($r['name']) : '') . ':mailto:' . $r['address'];
         }
         if ($m['location'] || $m['video_url']) {
             $lines[] = 'LOCATION:' . $esc((string) ($m['location'] ?: $m['video_url']));
@@ -216,7 +243,11 @@ final class Invites
         return implode("\r\n", array_map($fold, $lines)) . "\r\n";
     }
 
-    /** Reminders before meetings: to the owner (staff) and, if switched on, to external attendees. */
+    /**
+     * Reminders before meetings: to the owner (staff) and, if switched on, to external attendees. Each meeting is
+     * reminded once (reminder_sent_at, plus dedupe keys if two runs overlap). Owners get the agenda and attendees;
+     * attendees only get the meeting's own details. Returns the number of emails queued.
+     */
     public static function reminders(): int
     {
         $staff = N::enabled('meeting_reminder');
@@ -231,6 +262,9 @@ final class Invites
         foreach ($rows as $r) {
             DB::run('UPDATE meetings SET reminder_sent_at = NOW() WHERE id = ?', [$r['id']]);
             $m = self::load((int) $r['id']);
+            if (!$m) {
+                continue; // deleted in the meantime
+            }
             $when = \Align\Fmt::dateTime($m['starts_at'], 'weekday') . ' – ' . \Align\Fmt::time($m['ends_at']) . ' ' . date('T', strtotime($m['ends_at']));
             if ($staff && $m['owner_email']) {
                 $owner = DB::one('SELECT id, email, name, role, notify_scope FROM users WHERE id = ? AND is_active = 1', [$m['owner_id']]);

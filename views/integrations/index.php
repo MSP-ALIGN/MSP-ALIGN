@@ -1,5 +1,10 @@
 <?php
-/** @var array<string, \Align\Integrations\Connector[]> $groups; ?array $lastRun; int $unmapped */
+/**
+ * The Integrations page (admin only): one card per connector.
+ * @var array<string, \Align\Integrations\Connector[]> $groups; ?array $lastRun; int $unmapped
+ * Security: card text, including a status detail that can hold a remote error, is escaped; card links are the
+ * connectors' own internal paths.
+ */
 $runTone = ['success' => 'success', 'partial' => 'warning', 'failed' => 'danger', 'running' => 'info'];
 ?>
 <div class="d-flex flex-wrap align-items-center mb-3">

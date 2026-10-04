@@ -1,7 +1,11 @@
 <?php
 use Align\Roadmap\Roadmap;
 
-/** @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary; array $pending, $dates, $frameworks */
+/**
+ * Portal home: a card per section the controller filled in (each checked its own permission). Values are escaped;
+ * the provider's website is only ever an https:// or http:// link and the phone link keeps digits and + only.
+ * @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary; array $pending, $dates, $frameworks
+ */
 $logo = client_logo_url($client);
 $vcio = $provider['vcio'] ?? null;
 ?>

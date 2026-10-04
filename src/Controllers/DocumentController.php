@@ -11,8 +11,16 @@ use Align\Docs\Html;
 use Align\Settings;
 use Align\View;
 
+/**
+ * Documents (policies, plans, procedures) with autosave, version history and portal sharing, and their templates.
+ * Security assumptions: the router checks CSRF on every POST. Any signed-in staff user (viewer and up) may read every
+ * document; techs and admins edit, share and restore; only admins delete documents (the whole history goes) and manage
+ * templates. Bodies are untrusted HTML from the editor: every write goes through Docs\Html::clean, and the views
+ * print the stored (cleaned) HTML as is. The client portal reads documents through PortalController, never here.
+ */
 final class DocumentController
 {
+    /** Sends a JSON response (never cached) and stops. */
     private static function json(array $data, int $status = 200): never
     {
         http_response_code($status);
@@ -22,6 +30,7 @@ final class DocumentController
         exit;
     }
 
+    /** The document with its client and editor names, or a 404 page (stops). */
     private static function find(int $id): array
     {
         $doc = Documents::load($id);
@@ -33,6 +42,7 @@ final class DocumentController
         return $doc;
     }
 
+    /** Documents for a list. $where is built by the caller from fixed SQL only; values go in $params. */
     private static function list(string $where, array $params): array
     {
         return DB::all("SELECT d.id, d.client_id, d.title, d.category, d.status, d.version, d.review_due, d.updated_at, d.body_html,
@@ -42,6 +52,7 @@ final class DocumentController
             WHERE $where ORDER BY d.status = 'archived', d.updated_at DESC", $params);
     }
 
+    /** All documents, filtered by client/internal, category and status. Any signed-in staff user; the view is audited. */
     public static function index(): void
     {
         Auth::require();
@@ -63,6 +74,7 @@ final class DocumentController
         if (query('status') !== 'all') {
             $where[] = "d.status <> 'archived'";
         }
+        Audit::access('documents', 'list' . ($scope === 'internal' ? ' (internal)' : (ctype_digit($scope) ? " (client #$scope)" : ' (all)'))); // titles and excerpts (2.2.1)
         View::render('documents/index', [
             'title' => 'Documents',
             'nav' => 'documents',
@@ -75,10 +87,12 @@ final class DocumentController
         ]);
     }
 
+    /** One client's documents (and, for techs and admins, its contracts). Any signed-in staff user; the view is audited. */
     public static function clientIndex(int $id): void
     {
         Auth::require();
         $client = ClientController::load($id);
+        Audit::access('documents', "list ({$client['name']})"); // its documents and contracts (2.2.1)
         View::render('documents/client', [
             'title' => $client['name'] . ' · Documents',
             'nav' => 'clients',
@@ -92,6 +106,10 @@ final class DocumentController
         ]);
     }
 
+    /**
+     * New document, blank or from a template filled with the client's details. Techs and admins.
+     * Placeholder values are escaped by Documents::fill and the result is cleaned like any other body.
+     */
     public static function create(): void
     {
         Auth::requireRole('tech');
@@ -120,6 +138,7 @@ final class DocumentController
         redirect("/documents/$id");
     }
 
+    /** The editor (read-only for viewers). Any signed-in staff user; the view is audited. */
     public static function show(int $id): void
     {
         $u = Auth::require();
@@ -143,7 +162,10 @@ final class DocumentController
         ]);
     }
 
-    /** Share or hide a client document in the client portal. */
+    /**
+     * Share or hide a client document in the client portal. Techs and admins; internal documents can't be shared.
+     * The portal shows a shared document only while it is Active, and only to its own client's users with document access.
+     */
     public static function portalShare(int $id): void
     {
         Auth::requireRole('tech');
@@ -158,14 +180,21 @@ final class DocumentController
         redirect("/documents/$id");
     }
 
-    /** JSON autosave with optimistic concurrency (base_version must match unless force=1). */
+    /**
+     * JSON autosave with optimistic concurrency (base_version must match unless force=1). Techs and admins.
+     * The row is locked while it is compared and written, so two editors can't both save on the same version.
+     * Every field is checked: the body is cleaned, category and status must be known, the review date a real date.
+     */
     public static function save(int $id): void
     {
         Auth::requireRole('tech');
         $base = (int) post('base_version');
         $force = post('force') === '1';
         $checkpoint = post('checkpoint') === '1';
-        $result = DB::transaction(function () use ($id, $base, $force, $checkpoint) {
+        // Cleaned before the row is locked: parsing a large body shouldn't hold up other editors' saves.
+        // body[]=… (not a string) is ignored; it used to save the word "Array"
+        $body = isset($_POST['body']) && is_string($_POST['body']) ? Html::clean($_POST['body']) : null;
+        $result = DB::transaction(function () use ($id, $base, $force, $checkpoint, $body) {
             $doc = DB::one('SELECT * FROM documents WHERE id = ? FOR UPDATE', [$id]);
             if (!$doc) {
                 return ['status' => 404, 'body' => ['error' => 'Document not found']];
@@ -178,8 +207,8 @@ final class DocumentController
                 ]];
             }
             $fields = [];
-            if (isset($_POST['body'])) {
-                $fields['body_html'] = Html::clean((string) $_POST['body']);
+            if ($body !== null) {
+                $fields['body_html'] = $body;
             }
             if (isset($_POST['title'])) {
                 $fields['title'] = mb_substr(post('title'), 0, 255) ?: 'Untitled document';
@@ -191,7 +220,9 @@ final class DocumentController
                 $fields['status'] = post('status');
             }
             if (isset($_POST['review_due'])) {
-                $fields['review_due'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', post('review_due')) ? post('review_due') : null;
+                // A real calendar date: 2026-02-30 used to reach the database, which refused it (error 500, nothing saved)
+                $fields['review_due'] = preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', post('review_due'), $d) && checkdate((int) $d[2], (int) $d[3], (int) $d[1])
+                    ? post('review_due') : null;
             }
             $changed = false;
             $meta = [];
@@ -236,7 +267,7 @@ final class DocumentController
         self::json($result['body'], $result['status']);
     }
 
-    /** Presence heartbeat: records that I'm here, returns who else is and the latest version. */
+    /** Presence heartbeat: records that I'm here, returns who else is and the latest version. Any signed-in staff user. */
     public static function presence(int $id): void
     {
         $u = Auth::require();
@@ -256,6 +287,7 @@ final class DocumentController
         ]);
     }
 
+    /** The current content as JSON (to load another editor's version). Any signed-in staff user. */
     public static function content(int $id): void
     {
         Auth::require();
@@ -268,6 +300,7 @@ final class DocumentController
             'updated_by' => $doc['updated_by_name'], 'updated_ago' => rel_time($doc['updated_at'])]);
     }
 
+    /** One saved version, read-only. Any signed-in staff user; $vid must belong to $id. The view is audited. */
     public static function version(int $id, int $vid): void
     {
         Auth::require();
@@ -289,18 +322,29 @@ final class DocumentController
         ]);
     }
 
+    /**
+     * Puts an old version back, after saving the current content in the history. Techs and admins; $vid must
+     * belong to $id. The stored version was cleaned when it was saved.
+     */
     public static function restore(int $id, int $vid): void
     {
         Auth::requireRole('tech');
-        $doc = self::find($id);
+        self::find($id);
         $v = DB::one('SELECT * FROM document_versions WHERE id = ? AND document_id = ?', [$vid, $id]);
         if (!$v) {
             redirect("/documents/$id");
         }
-        DB::transaction(function () use ($doc, $v, $id) {
+        DB::transaction(function () use ($v, $id) {
+            // The content kept is read under the lock: an autosave between loading the page and restoring would
+            // otherwise be overwritten without being in the history
+            $doc = DB::one('SELECT * FROM documents WHERE id = ? FOR UPDATE', [$id]);
+            if (!$doc) {
+                return; // deleted meanwhile: nothing to restore into
+            }
             Documents::snapshot($doc, 'auto', 'Before restoring version ' . $v['version']);
+            // Cleaned again (2.2.1): a version saved before a sanitizer fix would otherwise come back as it was
             DB::run('UPDATE documents SET title = ?, body_html = ?, version = version + 1, updated_by = ?, updated_at = NOW() WHERE id = ?', [
-                $v['title'], $v['body_html'], Auth::id(), $id,
+                $v['title'], Html::clean((string) $v['body_html']), Auth::id(), $id,
             ]);
             Documents::snapshot(Documents::load($id), 'restore', 'Restored version ' . $v['version'] . ' from ' . \Align\Fmt::dateTime($v['saved_at'], 'date', ' '));
         });
@@ -309,6 +353,7 @@ final class DocumentController
         redirect("/documents/$id");
     }
 
+    /** Deletes a document and its history after typing DELETE. Admins only. Evidence links are cleared, not deleted. */
     public static function delete(int $id): void
     {
         // Deleting removes the whole version history (policies are kept 6 years for HIPAA): admins only (1.45)
@@ -318,13 +363,16 @@ final class DocumentController
             flash('error', 'Type DELETE to confirm. Or set the status to Archived to keep it but hide it.');
             redirect("/documents/$id");
         }
-        DB::run('UPDATE client_control_status SET document_id = NULL WHERE document_id = ?', [$id]);
-        DB::run('DELETE FROM documents WHERE id = ?', [$id]);
+        DB::transaction(function () use ($id) { // both or neither: evidence never points at a deleted document
+            DB::run('UPDATE client_control_status SET document_id = NULL WHERE document_id = ?', [$id]);
+            DB::run('DELETE FROM documents WHERE id = ?', [$id]);
+        });
         Audit::log('document.delete', ($doc['client_name'] ? $doc['client_name'] . ': ' : '') . $doc['title']);
         flash('success', "Deleted \"{$doc['title']}\".");
         redirect($doc['client_id'] ? "/clients/{$doc['client_id']}/documents" : '/documents');
     }
 
+    /** Printable copy (the browser saves it as PDF). Any signed-in staff user; audited. */
     public static function print(int $id): void
     {
         Auth::require();
@@ -350,6 +398,7 @@ final class DocumentController
 
     // ---- Templates (admin) ----------------------------------------------------
 
+    /** Template list. Admins only. */
     public static function templates(): void
     {
         Auth::requireRole('admin');
@@ -361,6 +410,7 @@ final class DocumentController
         ]);
     }
 
+    /** New template, blank or copied from a document (whose body is already clean). Admins only. */
     public static function templateCreate(): void
     {
         Auth::requireRole('admin');
@@ -376,6 +426,7 @@ final class DocumentController
         redirect("/documents/templates/$id");
     }
 
+    /** Template editor. Admins only. */
     public static function templateShow(int $id): void
     {
         Auth::requireRole('admin');
@@ -392,6 +443,7 @@ final class DocumentController
         ]);
     }
 
+    /** Saves or deletes a template. Admins only. The body is cleaned like a document's. */
     public static function templateSave(int $id): void
     {
         Auth::requireRole('admin');
@@ -410,7 +462,7 @@ final class DocumentController
             mb_substr(post('name'), 0, 190) ?: $t['name'],
             isset(Documents::CATEGORIES[post('category')]) ? post('category') : $t['category'],
             mb_substr(post('description'), 0, 1000) ?: null,
-            Html::clean((string) ($_POST['body'] ?? '')),
+            is_string($_POST['body'] ?? null) ? Html::clean($_POST['body']) : $t['body_html'], // not a string: keep the text
             $id,
         ]);
         Audit::log('template.save', $t['name']);

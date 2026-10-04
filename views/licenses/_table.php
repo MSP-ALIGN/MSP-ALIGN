@@ -2,7 +2,7 @@
 use Align\Auth;
 use Align\Licensing\Licenses;
 
-/** @var array $licenses enriched; $showClient bool; $back string */
+/** The licenses table. @var array $licenses enriched; $showClient bool; $back string. Names, vendors and notes are escaped. */
 $showClient = $showClient ?? false;
 $canEdit = Auth::can('tech');
 $groups = [];

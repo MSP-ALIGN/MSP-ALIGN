@@ -1,4 +1,9 @@
-<?php /** @var array $company */ ?>
+<?php
+/**
+ * A link that doesn't open anything (unknown, expired, replaced or cancelled): the same page for all of them, so it
+ * never says which. @var array $company
+ */
+?>
 <div class="card card-body text-center py-5">
   <i class="fas fa-link-slash fa-2x text-muted mb-3"></i>
   <h1 class="h4">This signing link has expired or was replaced</h1>

@@ -1,7 +1,14 @@
 <?php
 use Align\System\Agent;
 
-/** @var bool $available; ?array $update, $newer, $sys, $active, $upload; array $jobs, $safety; ?string $watch, $lastDownload, $lastDownloadBy; int $reminderDays, $maxUpload */
+/**
+ * Settings → Updates & backups (admins).
+ * @var bool $available; ?array $update, $newer, $sys, $active, $upload; array $jobs, $safety; ?string $watch, $lastDownload, $lastDownloadBy; int $reminderDays, $maxUpload
+ * Security: job, update and system files are written by the agent and treated as data here: every field is escaped,
+ * release notes go through md_inline() (escaped first, never links). The uploaded backup's manifest (host, version,
+ * dates) can be crafted by whoever made the file and is escaped like the rest. The backup key fields are password
+ * inputs that are never filled in.
+ */
 $stateBadge = fn(string $s) => ['succeeded' => 'success', 'failed' => 'danger', 'running' => 'primary', 'queued' => 'secondary'][$s] ?? 'secondary';
 $stateText = fn(string $s) => ['succeeded' => 'Done', 'failed' => 'Failed', 'running' => 'Running', 'queued' => 'Queued'][$s] ?? $s;
 $watchId = $watch ?? ($active['id'] ?? null);

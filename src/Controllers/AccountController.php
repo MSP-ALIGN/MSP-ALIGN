@@ -10,8 +10,19 @@ use Align\DB;
 use Align\Totp;
 use Align\View;
 
+/**
+ * Your account (/account): password, two-factor, remembered browsers, sign out everywhere, picture, theme, calendar
+ * feed and email choices. Every staff role, viewers included.
+ *
+ * Security assumptions: each action works on the signed-in user's own row only (the id always comes from
+ * Auth::require(), never from the request), and the Router has checked CSRF on every POST. These pages stay open
+ * while a temporary password or 2FA set-up is pending (Auth::require() lets /account through), so nothing here may
+ * show client data. Anything that weakens sign-in for the account needs a re-check: the current password to change
+ * it, a code from the current authenticator to replace it.
+ */
 final class AccountController
 {
+    /** The account page. The pending 2FA secret (if set-up was started) is shown to its own user only. */
     public static function show(): void
     {
         $u = Auth::require();
@@ -31,7 +42,10 @@ final class AccountController
         ]);
     }
 
-    /** Your own email notification choices. */
+    /**
+     * Your own email notification choices. Only keys from the catalog are written (the posted notif[] array is only
+     * looked up, never stored as is); a notification switched off for everyone keeps the user's old choice.
+     */
     public static function notifications(): void
     {
         $u = Auth::require();
@@ -53,7 +67,10 @@ final class AccountController
         redirect('/account#notifications');
     }
 
-    /** Forget one remembered browser, or all of them (1.45.1). */
+    /**
+     * Forget one remembered browser, or all of them (1.45.1). Remember::forget() limits the delete to this user's
+     * rows, so an id belonging to someone else matches nothing.
+     */
     public static function remembered(): void
     {
         $u = Auth::require();
@@ -64,7 +81,7 @@ final class AccountController
         redirect('/account');
     }
 
-    /** Light, dark or match the computer (1.43). Printed reports always stay light. */
+    /** Light, dark or match the computer (1.43), from a fixed list. Printed reports always stay light. */
     public static function appearance(): void
     {
         $u = Auth::require();
@@ -75,7 +92,11 @@ final class AccountController
         redirect('/account#appearance');
     }
 
-    /** Upload or remove your profile picture. */
+    /**
+     * Upload or remove your profile picture. Any signed-in staff user, for their own account only (the id comes
+     * from the session, CSRF from the router). Images::store checks and re-encodes the upload (EXIF dropped) and
+     * picks the file name; staff see it through /users/{id}/avatar, the portal only its own vCIO's.
+     */
     public static function avatar(): void
     {
         $u = Auth::require();
@@ -98,6 +119,12 @@ final class AccountController
         redirect('/account');
     }
 
+    /**
+     * Changes your password. The current one is checked first, counted against the sign-in lockout (Auth::
+     * checkPassword), so a borrowed session can't be used to guess it. The new one must pass the password rules and
+     * differ from the old. Clears a temporary password and ends every other session (and with them any pending
+     * code step and remembered browser).
+     */
     public static function password(): void
     {
         $u = Auth::require();
@@ -126,6 +153,12 @@ final class AccountController
         redirect('/account');
     }
 
+    /**
+     * Two-factor set-up and "sign out everywhere else". Actions: begin (new secret, kept in this session only until
+     * confirmed), confirm (a code from the new secret, plus one from the current authenticator when replacing it),
+     * cancel, disable (refused: staff always need 2FA) and signout_all. Turning 2FA on or moving it ends every other
+     * session. The new secret is stored encrypted, with the confirming code's step so that code can't sign in again.
+     */
     public static function twoFactor(): void
     {
         $u = Auth::require();

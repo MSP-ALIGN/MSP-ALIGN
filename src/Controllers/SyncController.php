@@ -10,8 +10,16 @@ use Align\DB;
 use Align\Sync\SyncRunner;
 use Align\View;
 
+/**
+ * The Sync page: run history, a run's log, and "Run sync now".
+ *
+ * SECURITY: any staff role sees the history and logs (they hold step results and safe error text only, never
+ * secrets); only techs and admins start a sync. The router checks CSRF on the POST. The sync runs as a background
+ * CLI process; the command line is built from config and the signed-in user's id only, nothing from the request.
+ */
 final class SyncController
 {
+    /** The last 50 runs; refreshes itself while one is running (or just after starting one). */
     public static function index(): void
     {
         Auth::require();
@@ -25,6 +33,10 @@ final class SyncController
         ]);
     }
 
+    /**
+     * Starts a full sync in the background (techs and admins), audited as sync.manual. Refused while one is running;
+     * two starts at the same moment are safe: the second process finds the lock taken and stops before writing.
+     */
     public static function run(): void
     {
         Auth::requireRole('tech');
@@ -50,6 +62,7 @@ final class SyncController
         redirect('/sync', ['started' => '1']);
     }
 
+    /** One run's steps and log (any staff role). */
     public static function show(int $id): void
     {
         Auth::require();
@@ -59,11 +72,13 @@ final class SyncController
             View::render('error', ['title' => 'Not found', 'message' => 'No such sync run.']);
             return;
         }
+        $running = SyncRunner::isRunning();
         View::render('sync/show', [
             'title' => 'Sync #' . $id,
             'nav' => 'sync',
             'run' => $run,
-            'refresh' => $run['status'] === 'running' && SyncRunner::isRunning(),
+            'running' => $running,
+            'refresh' => $run['status'] === 'running' && $running,
         ]);
     }
 }

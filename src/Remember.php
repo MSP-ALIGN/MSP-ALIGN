@@ -10,18 +10,27 @@ namespace Align;
  * browser stops working when it expires, is forgotten on the Account page, or the person's session_version moves
  * on: a password change, a new or reset authenticator, "sign out everywhere", being disabled.
  * Re-checks before a destructive action (a restore) always ask for the code.
+ *
+ * Security assumptions: valid() is only called after the person's password was checked in this request, and
+ * issue() only after their code was. The token is looked up by its hash in the database (a 256-bit secret, so the
+ * lookup leaks nothing useful); rows are always scoped to kind + user, so a staff token never counts for the portal
+ * or for another person.
  */
 final class Remember
 {
     public const MAX_DAYS = 30;
     public const DEFAULT_DAYS = 14;
 
+    /** How many days a browser stays remembered (0-30, 0 = off), from Settings. */
     public static function days(): int
     {
         return max(0, min(self::MAX_DAYS, Settings::int('remember_2fa_days', self::DEFAULT_DAYS)));
     }
 
-    /** @param 'staff'|'portal' $kind */
+    /**
+     * The cookie's name and path for this kind: [name, path]. __Host-/__Secure- prefixed over HTTPS.
+     * @param 'staff'|'portal' $kind
+     */
     private static function cookie(string $kind): array
     {
         return $kind === 'portal'
@@ -29,12 +38,17 @@ final class Remember
             : [Security::cookieName('ALIGNTRUST', true), '/'];
     }
 
+    /** The user table for this kind (a fixed name, safe to put in SQL). */
     private static function table(string $kind): string
     {
         return $kind === 'portal' ? 'portal_users' : 'users';
     }
 
-    /** The id of this browser's remembered row when it was remembered by this person and still counts, else null. */
+    /**
+     * The id of this browser's remembered row when it was remembered by this person and still counts, else null.
+     * Still counts: not expired, not older than the days set now, and the person's session_version is unchanged
+     * since it was remembered. Records the last use and IP. Call only after the password matched for $userId.
+     */
     public static function valid(string $kind, int $userId): ?int
     {
         if (self::days() === 0) {
@@ -54,7 +68,7 @@ final class Remember
         return (int) $row['id'];
     }
 
-    /** This browser's cookie value, when it looks like one of ours. */
+    /** This browser's cookie value, when it looks like one of ours (64 hex characters); untrusted otherwise. */
     private static function token(string $kind): ?string
     {
         [$name] = self::cookie($kind);
@@ -62,7 +76,10 @@ final class Remember
         return is_string($t) && preg_match('/^[a-f0-9]{64}$/', $t) ? $t : null;
     }
 
-    /** Everything remembered, for everyone (when an admin turns the feature off) or for one person (their account is deleted). */
+    /**
+     * Everything remembered, for everyone (when an admin turns the feature off) or for one person (their account is
+     * deleted or disabled). Returns how many rows went. Callers are admin/staff actions that checked their own rights.
+     */
     public static function forgetEveryone(?string $kind = null, ?int $userId = null): int
     {
         return $kind === null
@@ -70,7 +87,11 @@ final class Remember
             : DB::run('DELETE FROM remembered_browsers WHERE kind = ? AND user_id = ?', [$kind, (int) $userId])->rowCount();
     }
 
-    /** Remembers this browser for the person who just entered their code. */
+    /**
+     * Remembers this browser for the person who just entered their code: a new random 256-bit token in an HttpOnly,
+     * SameSite=Strict cookie; only its SHA-256 and the current session_version are stored. Replaces this browser's
+     * earlier entry. Must be called before output starts (it sets a cookie).
+     */
     public static function issue(string $kind, int $userId): void
     {
         $days = self::days();
@@ -92,7 +113,7 @@ final class Remember
         setcookie($name, $token, ['expires' => time() + $days * 86400, 'path' => $path, 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Strict']);
     }
 
-    /** This person's remembered browsers that still count, newest first. */
+    /** This person's remembered browsers that still count, newest first; 'this' marks the current browser. For their own Account page. */
     public static function list(string $kind, int $userId): array
     {
         $mine = ($t = self::token($kind)) ? hash('sha256', $t) : '';
@@ -101,7 +122,10 @@ final class Remember
             [$kind, $userId, self::days()]));
     }
 
-    /** Forgets one remembered browser (by id), or all of them. Returns how many. */
+    /**
+     * Forgets one remembered browser (by id), or all of them, for $userId only (an id belonging to someone else
+     * matches nothing). Clears this browser's cookie when its entry is gone. Returns how many.
+     */
     public static function forget(string $kind, int $userId, ?int $id = null): int
     {
         $n = $id === null
@@ -115,7 +139,7 @@ final class Remember
         return $n;
     }
 
-    /** "Chrome on Windows"-style label for the Account page. */
+    /** "Chrome on Windows"-style label for the Account page. Built only from fixed words: nothing of the untrusted $ua is returned. */
     public static function label(?string $ua): string
     {
         $ua = (string) $ua;

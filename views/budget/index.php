@@ -1,4 +1,8 @@
 <?php
+/**
+ * Budgets of every client in planning. @var array $rows, $years; int $year. Client names are escaped; amounts are
+ * formatted numbers with a fixed currency symbol.
+ */
 use Align\Budget\Budget;
 
 $cats = array_keys(Budget::CATEGORIES);

@@ -10,10 +10,17 @@ use Align\Api\Out;
 use Align\Backup\Backup;
 use Align\DB;
 
-/** Backup status (from the backup products), "not required" exemptions and hosted backup assignments. */
+/**
+ * Backup status (from the backup products), "not required" exemptions and hosted backup assignments.
+ *
+ * Security: reached through the Kernel with backups:read or backups:write checked. Per-client endpoints go through
+ * Clients::load() (the key's client limit, archived clients 404). A job shared by several clients is hidden from a
+ * client-limited key, since its details can name other clients' machines (1.45). Hosted backups span every client,
+ * so those endpoints need a key for all clients (403 otherwise). Writes are audited with the key's name.
+ */
 final class Backups
 {
-    /** One line per client with backup data. */
+    /** GET /backups: one line per client with backup data, limited to the key's clients, worst health first. */
     public static function index(): array
     {
         $names = array_column(DB::all('SELECT id, name FROM clients WHERE is_archived = 0'), 'name', 'id');
@@ -29,7 +36,11 @@ final class Backups
         return Out::slice($rows);
     }
 
-    /** Everything for one client: stats, 30-day history, jobs, machines, Microsoft 365, servers with no backup. */
+    /**
+     * GET /clients/{id}/backups: everything for one client: stats, 30-day history, jobs, machines, Microsoft 365 and
+     * servers with no backup. Server names need devices:read too; shared jobs are left out for a limited key (their
+     * results still count in stats). 404 no_backup_data when nothing is linked or matched to the client.
+     */
     public static function client(int $id): array
     {
         $client = Clients::load($id);
@@ -79,6 +90,7 @@ final class Backups
 
     // ---- Exemptions ("backup not required") ----
 
+    /** GET /clients/{id}/backup-exemptions: the client's "not required" marks. */
     public static function exemptions(int $id): array
     {
         Clients::load($id);
@@ -86,12 +98,19 @@ final class Backups
         return Out::slice(array_map([self::class, 'exemptionShape'], $rows));
     }
 
+    /** The API form of an exemption row (already checked against the key's client limit). */
     public static function exemptionShape(array $e): array
     {
         return ['id' => (int) $e['id'], 'client_id' => (int) $e['client_id'], 'kind' => $e['kind'], 'device_id' => Out::int($e['device_id']),
             'item_uid' => $e['item_uid'], 'name' => $e['item_name'], 'reason' => $e['reason'], 'created_at' => Out::ts($e['created_at'])];
     }
 
+    /**
+     * POST /clients/{id}/backup-exemptions: marks a device (server with no backup), protected machine or Microsoft 365
+     * object as not needing a backup. The item must be this client's: the device is looked up among the client's own
+     * devices, the machine by its client, the Microsoft 365 object by the client's backup companies; anything else is
+     * 422. An earlier mark on the same item is replaced.
+     */
     public static function exempt(int $id): array
     {
         $client = Clients::load($id);
@@ -126,6 +145,7 @@ final class Backups
         return Out::one(self::exemptionShape(DB::one('SELECT * FROM backup_exemptions WHERE id = ?', [$eid])), 201);
     }
 
+    /** DELETE /clients/{id}/backup-exemptions/{exemption}: 404 unless the exemption belongs to that client. */
     public static function unexempt(int $id, int $exemption): array
     {
         $client = Clients::load($id);
@@ -140,6 +160,7 @@ final class Backups
 
     // ---- Hosted backups (machines and jobs on your own backup server) ----
 
+    /** Hosted backups list and move machines between clients, so a client-limited key gets 403. */
     private static function requireAllClients(): void
     {
         if (Context::clients() !== null) {
@@ -147,6 +168,10 @@ final class Backups
         }
     }
 
+    /**
+     * GET /backups/hosted: machines on your own backup server (paginated, filter show) with every hosted job and the
+     * unmatched count in meta. Keys for all clients only.
+     */
     public static function hosted(): array
     {
         self::requireAllClients();
@@ -189,6 +214,10 @@ final class Backups
         ], $jobs), 'unmatched' => Backup::hostedUnmatched()]);
     }
 
+    /**
+     * The validated {"assign": ...} body: a client id (an existing, non-archived client), "ours" or "auto". 422 for
+     * anything else, including extra fields.
+     */
     private static function assignment(): int|string|null
     {
         $v = Context::$body['assign'] ?? null;
@@ -201,6 +230,10 @@ final class Backups
         return $v;
     }
 
+    /**
+     * Stores (or with "auto" removes) the manual assignment of a hosted machine or job, re-runs the matching and audits
+     * it. The caller has checked the key is for all clients and that the item exists.
+     */
     private static function setAssignment(string $type, string $uid, string $name, int|string $v): void
     {
         DB::run('DELETE FROM backup_assignments WHERE item_type = ? AND item_uid = ?', [$type, $uid]);
@@ -211,6 +244,7 @@ final class Backups
         \Align\Audit::log('backup.assign', "$name → " . ($v === 'ours' ? 'ours' : ($v === 'auto' ? 'automatic' : "client #$v")));
     }
 
+    /** PUT /backups/hosted/machines/{uid}: assigns a hosted machine. Keys for all clients only. */
     public static function assignMachine(string $uid): array
     {
         self::requireAllClients();
@@ -224,6 +258,7 @@ final class Backups
             'state' => $r['client_id'] !== null ? 'sorted' : ($r['client_how'] !== null ? 'ours' : 'unmatched')]);
     }
 
+    /** PUT /backups/hosted/jobs/{uid}: assigns a hosted job and, through it, its machines. Keys for all clients only. */
     public static function assignJob(string $uid): array
     {
         self::requireAllClients();

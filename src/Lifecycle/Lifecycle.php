@@ -9,10 +9,16 @@ use Align\Settings;
 /**
  * Computes lifecycle status for devices from synced data + policy settings.
  * Nothing here is stored; it's recalculated on each page view so policy changes apply instantly.
+ *
+ * Security assumptions: read only. Callers check the staff role (or portal permission / API scope) and pass ids
+ * already checked; every query binds them (RMM keys put into SQL text are stripped to [a-z0-9_-] first). Device
+ * fields come from RMMs and the PSA and are returned as they are: views escape them. Dates come from DATE/DATETIME
+ * columns and the settings are clamped where they are saved (lifespans 1-20 years and so on), so the date
+ * arithmetic here never sees text it can't read.
  */
 final class Lifecycle
 {
-    /** Lifecycle policy buckets (each has a lifespan + replacement cost in Settings). */
+    /** Lifecycle policy buckets (each has a lifespan + replacement cost in Settings): class => label. */
     public const CLASSES = [
         'desktop' => 'Desktops',
         'laptop' => 'Laptops',
@@ -23,6 +29,7 @@ final class Lifecycle
         'power' => 'UPS / power',
         'other' => 'Other hardware',
     ];
+    /** Classes that have hardware (end of life, warranty, replacement cost); virtual devices never do. */
     public const HARDWARE_CLASSES = ['desktop', 'laptop', 'server', 'network', 'printer', 'storage', 'power', 'other'];
 
     /**
@@ -53,6 +60,7 @@ final class Lifecycle
     /** Type given to PSA assets whose type doesn't map to anything in Align yet. */
     public const UNASSIGNED = 'Unassigned';
 
+    /** The type a device gets from its class when it has none of its own. */
     public const DEFAULT_TYPE = [
         'desktop' => 'Desktop', 'laptop' => 'Laptop', 'server' => 'Server', 'network' => 'Switch',
         'printer' => 'Printer', 'storage' => 'NAS / Storage', 'power' => 'UPS', 'other' => 'Other',
@@ -79,6 +87,7 @@ final class Lifecycle
         return preg_match('/\bups\b|smart-ups|back-ups|symmetra|cyberpower|\beaton\b|tripp[ -]?lite|liebert|vertiv|\bapc\b|powerwalker|battery backup/', $s) === 1;
     }
 
+    /** Statuses, most urgent first (evaluate() picks the first flag found): key => [label, tone]. */
     public const STATUS = [
         'replace' => ['Replace now', 'bad'],
         'os_eos' => ['OS unsupported', 'bad'],
@@ -92,9 +101,12 @@ final class Lifecycle
         'virtual' => ['Virtual (OS only)', 'muted'],
     ];
 
+    /** Lifespans, costs and warning windows from Settings (see __construct). */
     private array $policy;
+    /** OS support rules (os_support), longest name match first. */
     private array $osRules;
 
+    /** Reads the policy settings and OS rules once, so evaluate() can run for thousands of devices cheaply. */
     public function __construct()
     {
         $defaults = [
@@ -129,11 +141,13 @@ final class Lifecycle
         usort($this->osRules, fn($a, $b) => strlen($b['name_contains']) <=> strlen($a['name_contains']));
     }
 
+    /** The policy in use: lifespan and cost per class, warranty_warn_days, eol_plan_months, stale_days. */
     public function policy(): array
     {
         return $this->policy;
     }
 
+    /** The Font Awesome icon class of a type (fa-tag for an unknown one). */
     public static function icon(?string $type): string
     {
         return self::TYPES[$type ?? ''][1] ?? 'fa-tag';
@@ -162,7 +176,11 @@ final class Lifecycle
               WHERE o.device_type = 'Unassigned' AND d.removed_at IS NULL$ex)");
     }
 
-    /** Loads devices joined with everything lifecycle needs. $clientId null = all clients. */
+    /**
+     * Loads devices joined with everything lifecycle needs, evaluated (see evaluate()). $clientId null = all
+     * clients (and devices of no client); $deviceId one device; removed devices only with $includeRemoved;
+     * $unassignedOnly the Unassigned hardware list. Ordered by client and device name.
+     */
     public function devices(?int $clientId = null, bool $includeRemoved = false, ?int $deviceId = null, bool $unassignedOnly = false): array
     {
         $where = ['1=1'];
@@ -213,10 +231,10 @@ final class Lifecycle
         return $out;
     }
 
-    /** @var array<int, array>|null device id => the project replacing it (not declined), loaded on first use */
+    /** @var array<int, array>|null device id => the project replacing it (live, see DeviceProjects::liveSql), loaded on first use */
     private ?array $projects = null;
 
-    /** The project (not declined) that replaces each device, with its quarter's label: [device id => project]. */
+    /** The live project that replaces each device, with its quarter's label: [device id => project]. One query for every device. */
     public static function deviceProjects(): array
     {
         $out = [];
@@ -231,9 +249,11 @@ final class Lifecycle
         return $out;
     }
 
+    /** Today, and the "plan replacement" and "warranty expiring" cutoffs, as YYYY-MM-DD (worked out once). */
     private string $today;
     private string $planCutoff;
     private string $warnCutoff;
+    /** [column, label] pairs in order of trust for the in-service date and the warranty end. */
     private array $startSources;
     private array $warrantySources;
     /** @var array<string, string> "First seen in <RMM> (estimate)" by RMM key */
@@ -241,6 +261,12 @@ final class Lifecycle
     /** @var array<string, ?array> OS support rule by name + build */
     private array $osCache = [];
 
+    /**
+     * Adds the lifecycle view of one device row (from devices()): its type, whether it is hardware, in-service date
+     * and its source, age, end of life, warranty, OS support rule, flags and status, the replacement date and cost
+     * the plan uses, and the project replacing it. A device a project replaces gets no replace_by, so the budget
+     * counts the project instead; a project of another client (the device moved) doesn't count.
+     */
     public function evaluate(array $d): array
     {
         $today = $this->today;
@@ -376,6 +402,7 @@ final class Lifecycle
         ];
     }
 
+    /** The OS support rule for an OS name and build (exact build, name contains the rule's text), or null. */
     public function osSupport(string $name, string $build): ?array
     {
         if ($build === '' || $name === '') {
@@ -481,7 +508,7 @@ final class Lifecycle
             : 'Counted in ' . $q['label'] . ' (' . $q['months'] . '), the quarter it reaches end of life');
     }
 
-    /** Hardware that should be budgeted but can't be placed in the plan (no in-service date). */
+    /** Hardware that should be budgeted but can't be placed in the plan (no in-service date, no planned quarter, no project). */
     public static function unplanned(array $devices): array
     {
         return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'] && empty($d['replace_planned']) && empty($d['project'])));
@@ -509,6 +536,7 @@ final class Lifecycle
         return $years;
     }
 
+    /** Counts for the overview tiles (excluded devices left out) and the cost of what is overdue for replacement. */
     public static function summarize(array $devices): array
     {
         $s = ['total' => 0, 'hardware' => 0, 'replace' => 0, 'plan' => 0, 'deferred' => 0, 'os_eos' => 0, 'os_soon' => 0,

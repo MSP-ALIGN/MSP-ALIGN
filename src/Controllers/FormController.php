@@ -11,9 +11,16 @@ use Align\View;
 /**
  * Edit forms for rows of long lists, loaded when someone opens one (app.js, data-lazy-modal).
  * Rendering a form per row made /licenses 13 MB at 1,400 licenses; now the list carries only links.
+ *
+ * Security assumptions: read-only GETs returning an HTML fragment, for techs and admins only (the forms edit, and
+ * viewers aren't offered them); staff may edit any client's rows, so the row is looked up by id alone (404 when
+ * missing). The fragment is the same escaped modal view the pages render; its form posts to the row's own
+ * controller, which checks role and CSRF again. ?back= becomes the form's return path only when it is a same-site
+ * path. Opening a contact's form is audited as a view of the client's contacts.
  */
 final class FormController
 {
+    /** A license's edit form (tech). */
     public static function license(int $id): void
     {
         Auth::requireRole('tech');
@@ -21,6 +28,7 @@ final class FormController
         self::send($l ? View::fetch('licenses/_modal', ['l' => \Align\Licensing\Licenses::enrich($l), 'back' => self::back("/clients/{$l['client_id']}/licenses")]) : null);
     }
 
+    /** A contact's edit form (tech); audited as a contacts view. */
     public static function contact(int $id): void
     {
         Auth::requireRole('tech');
@@ -31,6 +39,7 @@ final class FormController
         self::send($k ? View::fetch('contacts/_modal', ['k' => $k, 'back' => self::back("/clients/{$k['client_id']}/contacts")]) : null);
     }
 
+    /** A roadmap item's edit form (tech). */
     public static function project(int $id): void
     {
         Auth::requireRole('tech');
@@ -38,11 +47,13 @@ final class FormController
         self::send($it ? View::fetch('roadmap/_modal', ['it' => $it, 'cid' => (int) $it['client_id'], 'back' => self::back('/projects')]) : null);
     }
 
+    /** ?back= when it is a same-site path, else $default. */
     private static function back(string $default): string
     {
         return Security::safePath(query('back'), $default);
     }
 
+    /** Sends the fragment uncached, or a 404 for an unknown row. */
     private static function send(?string $html): void
     {
         header('Content-Type: text/html; charset=utf-8');

@@ -3,6 +3,9 @@
  * Setup wizard (1.40). One step at a time; every step can be skipped. The forms post to the usual
  * settings / integration / email / user pages with `return`, which brings the admin back here.
  * @var string $step, $next, $return; array $steps; bool $pending
+ * Security: values are escaped; secrets are never put in a field (only "saved"). Connector set-up help and notes
+ * ($c->setup(), $c->notes()) are HTML written in the connector classes, printed as is. `return` is always a /setup
+ * path, and the receiving pages accept nothing else (setup_return()).
  */
 use Align\Controllers\SetupController;
 

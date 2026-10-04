@@ -1,9 +1,19 @@
 // Contracts on the MSP's own PDF (2.2): draws the pages with PDF.js and the boxes over them.
 // <div data-pv data-mode="build|preview|sign|view" data-src="/…/source"> with a <script class="pv-data"> of {items, pages}.
 // Boxes are placed in points from the page's top-left as shown, and scale with the page.
+//
+// Security assumptions: used on staff contract pages and on the public signing page. data-src is a same-site URL
+// the server wrote (the template's or contract's PDF); the PDF itself is untrusted (an uploaded file), so PDF.js
+// only paints it: no eval, no scripts, no forms, no annotation or text layer; the standard fonts come from this
+// server (fonts embedded in the PDF are read from its own data, never fetched). The items in
+// <script class="pv-data"> are the server's (labels and values typed by staff or the signer), JSON-encoded with
+// the JSON_HEX_* flags; every value built into markup here goes through esc() in element text or a quoted
+// attribute, and img sources are data: URLs the server made from re-encoded images.
 (() => {
+  /** HTML-escapes for element text and quoted attributes (not URLs, CSS or JS). */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let lib = null;
+  /** PDF.js, loaded once (as a module, from /vendor on this server) with its worker from the same place. */
   const pdfjs = (v) => lib || (lib = import('/vendor/pdfjs/pdf.min.js?v=' + encodeURIComponent(v || '')).then((m) => {
     m.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js?v=' + encodeURIComponent(v || '');
     return m;
@@ -23,6 +33,7 @@
     return docs.get(src);
   };
 
+  /** v as a percentage of of, for CSS. */
   const pct = (v, of) => (v / of * 100) + '%';
 
   // One resize handler for every viewer on the page (a preview that's replaced drops its old viewer)
@@ -97,7 +108,12 @@
     return el;
   };
 
+  /**
+   * One viewer: the pages of the PDF in data-src drawn into canvases as they scroll into view, with a layer for the
+   * boxes. Modes: build (the builder draws its own boxes), preview, sign (inputs and steps for the signer), view.
+   */
   class Viewer {
+    /** Reads the items and page sizes, starts loading (this.ready resolves when the pages are laid out). */
     constructor(el) {
       this.el = el;
       this.mode = el.dataset.mode || 'view';
@@ -110,6 +126,7 @@
       el.alignPdf = this;
     }
 
+    /** Opens the PDF and lays out one placeholder per page; a PDF that can't be opened shows the reason (escaped). */
     async load() {
       let doc;
       try {
@@ -152,6 +169,7 @@
       this.pages.forEach((p) => p.el.style.setProperty('--k', (p.el.clientWidth || 600) / p.W));
     }
 
+    /** Paints page i at the page's current width (sharper on high-density screens, at most 2x). */
     async draw(i) {
       const p = this.pages[i];
       const width = p.el.clientWidth;
@@ -171,11 +189,13 @@
       try { await p.task.promise; } catch (e) { /* cancelled by a newer draw */ }
     }
 
+    /** New boxes for the same PDF (the prepare page's live preview), without loading the pages again. */
     setItems(items) {
       this.items = items;
       if (this.pages.length) this.render();
     }
 
+    /** Draws the boxes over the pages and tells listeners (pv:rendered: the guide fills in what was typed before). */
     render() {
       if (this.mode === 'build') return; // the builder draws its boxes
       this.pages.forEach((p) => { p.layer.innerHTML = ''; });
@@ -212,6 +232,8 @@
     }
   }
 
+  // AlignPdf.mount(el): the viewer for el (one per element). Every viewer on the page starts once it's loaded,
+  // except the builder's, which contracts.js mounts itself.
   window.AlignPdf = { mount: (el) => el.alignPdf || new Viewer(el), esc };
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-pv]').forEach((el) => { if (el.dataset.mode !== 'build') window.AlignPdf.mount(el); });

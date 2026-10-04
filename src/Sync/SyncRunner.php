@@ -16,6 +16,13 @@ use Align\Settings;
 /**
  * Pulls PSA clients/assets and RMM organizations/devices into the local database,
  * links them together, looks up warranties, and optionally writes dates back to the PSA.
+ *
+ * SECURITY: runs from the CLI only (`align sync`: the hourly timer, or the "Run sync now" button, which starts it in
+ * the background after its own role check). Everything read from the PSA, RMM, backup and warranty systems is
+ * untrusted: it is stored with bound parameters, cut to its column and escaped by the views. Error text that reaches
+ * the sync log, the summary or the audit log goes through safe_error(), so database and PHP errors never show there.
+ * One run at a time: a MariaDB named lock, held by this connection, so it is freed when the process ends however it
+ * ends (no stale lock to clear by hand).
  */
 final class SyncRunner
 {
@@ -26,23 +33,60 @@ final class SyncRunner
     /** @var callable|null */
     private $echo;
 
+    /**
+     * $trigger: schedule, manual or cli (bin/align checks it); $userId: who pressed the button (trusted, from the
+     * session of the request that started it); $echo: receives each log line (the CLI prints them).
+     */
     public function __construct(private string $trigger = 'schedule', private ?int $userId = null, ?callable $echo = null)
     {
         $this->echo = $echo;
     }
 
+    /** Whether a full sync holds the lock right now (any process, any server sharing the database). */
     public static function isRunning(): bool
     {
         return (int) DB::value("SELECT IS_USED_LOCK('mountaineer_align_sync') IS NOT NULL") === 1;
     }
 
-    /** @return array{id:int,status:string,summary:array} */
+    /**
+     * Runs every step, records the run in sync_runs and the audit log, and sends the sync notification.
+     * A step that fails is logged and the rest go on; status is success, partial or failed.
+     * Throws when another sync holds the lock (nothing is recorded then).
+     * @return array{id:int,status:string,summary:array}
+     */
     public function run(): array
     {
         if ((int) DB::value("SELECT GET_LOCK('mountaineer_align_sync', 0)") !== 1) {
             throw new \RuntimeException('A sync is already running.');
         }
+        try {
+            return $this->runLocked();
+        } catch (\Throwable $e) {
+            // Something outside a step failed: the run is recorded as failed, not left "running" (2.2.1)
+            if ($this->runId) {
+                $msg = safe_error($e);
+                $this->errors['Sync'] = $msg;
+                $this->info('Sync stopped: ' . $msg);
+                try {
+                    $this->save('failed', true);
+                } catch (\Throwable) {
+                    // the database itself is gone: the next run marks this one as interrupted
+                }
+            }
+            throw $e;
+        } finally {
+            DB::value("SELECT RELEASE_LOCK('mountaineer_align_sync')");
+        }
+    }
+
+    /** run() once the lock is held. */
+    private function runLocked(): array
+    {
         @set_time_limit(0);
+        // The lock is ours, so a run still marked running was cut off (killed, out of memory, server restart):
+        // say so instead of showing it as running for ever (2.2.1)
+        DB::run("UPDATE sync_runs SET status = 'failed', log = CONCAT(COALESCE(log, ''), ?) WHERE status = 'running'",
+            ["\n[interrupted] The sync stopped before it finished."]);
         $this->runId = DB::insert('sync_runs', [
             'started_at' => date('Y-m-d H:i:s'),
             'status' => 'running',
@@ -105,21 +149,25 @@ final class SyncRunner
         // Every run in the audit log, scheduled ones included (the manual button also logs who pressed it) (1.45)
         \Align\Audit::log('sync.run', "#{$this->runId} {$this->trigger}: $status" . ($this->errors ? ' (' . count($this->errors) . ' step' . (count($this->errors) === 1 ? '' : 's') . ' failed)' : ''), $this->userId);
         \Align\Mail\Notify::afterSync($status, $this->errors);
-        DB::value("SELECT RELEASE_LOCK('mountaineer_align_sync')");
         return ['id' => $this->runId, 'status' => $status, 'summary' => $this->summary];
     }
 
+    /** Builds a provider client; null (and a "not configured" line) when that fails. */
     private function client(callable $make, string $name): mixed
     {
         try {
             return $make();
         } catch (\Throwable $e) {
-            $this->info("Skipping $name: " . $e->getMessage());
+            $this->info("Skipping $name: " . safe_error($e));
             $this->summary[$name] = 'not configured';
             return null;
         }
     }
 
+    /**
+     * Runs one step and records its result (a short text for people) or its error, then saves progress so the
+     * Sync page shows it while the run goes on. True when the step worked.
+     */
     private function step(string $name, callable $fn): bool
     {
         $t = microtime(true);
@@ -139,6 +187,7 @@ final class SyncRunner
         }
     }
 
+    /** Adds a time-stamped line to the run's log (shown to every staff user: plain text, no secrets or raw errors). */
     private function info(string $msg): void
     {
         $line = '[' . date('H:i:s') . '] ' . $msg;
@@ -148,6 +197,7 @@ final class SyncRunner
         }
     }
 
+    /** Writes the run's status, summary and log so far; $final also sets finished_at. */
     private function save(string $status, bool $final = false): void
     {
         DB::run('UPDATE sync_runs SET status = ?, finished_at = ?, summary = ?, log = ? WHERE id = ?', [
@@ -161,6 +211,10 @@ final class SyncRunner
 
     // ---- Steps -------------------------------------------------------------
 
+    /**
+     * Adds and updates clients from the PSA (matched by PSA id; a hand-added client with the same name is adopted)
+     * and archives PSA clients the PSA no longer lists. An empty read archives nothing.
+     */
     private function syncPsaClients(PsaProvider $psa): string
     {
         $rows = $psa->clients();
@@ -187,7 +241,8 @@ final class SyncRunner
                 }
             }
             $data = [
-                'name' => (string) ($r['name'] ?? "Client $id"),
+                // Untrusted: one name too long for the column (or not text) would stop the whole PSA read (2.2.1)
+                'name' => PsaAssetSync::text($r['name'] ?? null, 255) ?? "Client $id",
                 'is_archived' => !empty($r['archived']) ? 1 : 0,
                 'synced_at' => $now,
             ];
@@ -203,7 +258,7 @@ final class SyncRunner
         try {
             $details = self::syncClientDetails($psa, $rows);
         } catch (\Throwable $e) {
-            $details = 'contact details not updated (' . $e->getMessage() . ')';
+            $details = 'contact details not updated (' . safe_error($e) . ')';
         }
         return count($ids) . ' clients; ' . $details;
     }
@@ -215,14 +270,20 @@ final class SyncRunner
         'address' => 'Address', 'website' => 'Website',
     ];
 
+    /** Clients updated plus contacts added or archived by the last syncClientDetails() (for the PSA poll's audit entry; 2.2.1). */
+    public static int $detailChanges = 0;
+
     /**
      * Fills client details from the PSA: address + main phone from the primary location, name /
      * title / email / phones from the primary contact, and the website. PSA values replace
      * Align's; a field that's empty in the PSA keeps whatever Align has and stays editable.
      * Address, phone, email and contact on the client record are used when there's no location or contact.
+     * Only clients already linked by PSA id are touched (a contact or location goes to the client its client_id
+     * names, never by name). Also called by PsaAssetSync::run() under its own lock.
      */
     public static function syncClientDetails(PsaProvider $psa, ?array $clientRows = null): string
     {
+        self::$detailChanges = 0;
         $clientRows ??= $psa->clients();
         $pick = function (array $rows): array {
             $by = [];
@@ -311,9 +372,11 @@ final class SyncRunner
             $locNames[ext_id($l['id'] ?? null)] = (string) ($l['name'] ?? '');
         }
         $people = $psa->supports('contacts') ? '; ' . \Align\Contacts\Contacts::syncFromPsa($rawContacts, $locNames, $psa->name()) : '';
+        self::$detailChanges = $updated + ($psa->supports('contacts') ? \Align\Contacts\Contacts::$changes : 0);
         return ($updated ? "contact details updated for $updated" : 'contact details up to date') . $people;
     }
 
+    /** Stores the RMM's organizations and drops (and unlinks) the ones it no longer lists. An empty read drops nothing. */
     private function syncRmmOrgs(RmmProvider $rmm): string
     {
         $key = $rmm->key();
@@ -321,12 +384,17 @@ final class SyncRunner
         $now = date('Y-m-d H:i:s');
         $ids = [];
         foreach ($orgs as $o) {
-            $ids[] = (string) $o['id'];
+            // Untrusted (2.2.1): an id that isn't a plain id is skipped, never cut; text is cut to its column
+            $oid = PsaAssetSync::id($o['id'] ?? null);
+            if ($oid === '') {
+                continue;
+            }
+            $ids[] = $oid;
             DB::upsert('rmm_orgs', [
                 'provider' => $key,
-                'org_id' => (string) $o['id'],
-                'name' => (string) ($o['name'] ?? 'Org ' . $o['id']),
-                'description' => $o['description'] ?? null,
+                'org_id' => $oid,
+                'name' => PsaAssetSync::text($o['name'] ?? null, 255) ?? 'Org ' . $oid,
+                'description' => PsaAssetSync::text($o['description'] ?? null, 16000, true),
                 'synced_at' => $now,
             ], ['provider', 'org_id']);
         }
@@ -354,6 +422,10 @@ final class SyncRunner
         return "$matched newly matched, $unmatched clients without an organization";
     }
 
+    /**
+     * Stores the RMM's devices (one transaction) and marks the ones it no longer returns as removed, by id.
+     * Which client a device belongs to comes from its organization's link, worked out when it is read (CLIENT_JOIN).
+     */
     private function syncRmmDevices(RmmProvider $rmm): string
     {
         $key = $rmm->key();
@@ -363,37 +435,42 @@ final class SyncRunner
         DB::transaction(function () use ($devices, $now, $key) {
             $ids = [];
             $rows = [];
+            // Untrusted (2.2.1): one device with a value too long for its column, or a date the column refuses,
+            // used to fail the whole upsert and with it every device of this RMM. Ids are never cut (an org id cut
+            // could name another organization, and so another client): one that doesn't fit is dropped.
             foreach ($devices as $d) {
-                if (!isset($d['id']) || $d['id'] === '') {
+                $did = is_array($d) ? PsaAssetSync::id($d['id'] ?? null) : '';
+                if ($did === '') {
                     continue;
                 }
-                $type = $d['device_type'] ?? 'Other';
+                $t = fn(string $k, int $len) => PsaAssetSync::text($d[$k] ?? null, $len);
+                $type = $t('device_type', 40) ?? 'Other';
                 $rows[] = [
                     'source' => 'rmm',
                     'rmm_provider' => $key,
-                    'rmm_device_id' => (string) $d['id'],
-                    'rmm_org_id' => isset($d['org_id']) && $d['org_id'] !== '' ? (string) $d['org_id'] : null,
-                    'display_name' => $d['display_name'] ?? null,
-                    'system_name' => $d['system_name'] ?? null,
-                    'node_class' => $d['node_class'] ?? null,
+                    'rmm_device_id' => $did,
+                    'rmm_org_id' => PsaAssetSync::id($d['org_id'] ?? null) ?: null,
+                    'display_name' => $t('display_name', 255),
+                    'system_name' => $t('system_name', 255),
+                    'node_class' => $t('node_class', 60),
                     'device_type' => $type,
                     'device_class' => \Align\Lifecycle\Lifecycle::TYPES[$type][0] ?? 'other',
-                    'manufacturer' => $d['manufacturer'] ?? null,
-                    'model' => $d['model'] ?? null,
-                    'serial' => normalize_serial($d['serial'] ?? null),
-                    'chassis' => $d['chassis'] ?? null,
+                    'manufacturer' => $t('manufacturer', 190),
+                    'model' => $t('model', 190),
+                    'serial' => normalize_serial($t('serial', 190)),
+                    'chassis' => $t('chassis', 60),
                     'is_virtual' => !empty($d['is_virtual']) ? 1 : 0,
-                    'os_name' => $d['os_name'] ?? null,
-                    'os_build' => $d['os_build'] ?? null,
-                    'os_release_id' => $d['os_release_id'] ?? null,
-                    'last_contact' => $d['last_contact'] ?? null,
-                    'last_user' => $d['last_user'] ?? null,
-                    'rmm_created' => $d['created_at'] ?? null,
+                    'os_name' => $t('os_name', 255),
+                    'os_build' => $t('os_build', 60),
+                    'os_release_id' => $t('os_release_id', 30),
+                    'last_contact' => PsaAssetSync::when($d['last_contact'] ?? null, true),
+                    'last_user' => $t('last_user', 190),
+                    'rmm_created' => PsaAssetSync::when($d['created_at'] ?? null, true),
                     'offline' => !empty($d['offline']) ? 1 : 0,
                     'synced_at' => $now,
                     'removed_at' => null,
                 ];
-                $ids[] = (string) $d['id'];
+                $ids[] = $did;
             }
             DB::upsertMany('devices', $rows, ['rmm_provider', 'rmm_device_id']);
             // Devices the RMM no longer returns (matched by id, not timestamp)
@@ -406,6 +483,7 @@ final class SyncRunner
         return count($devices) . ' devices' . ($removed ? ", $removed no longer in $n" : '');
     }
 
+    /** The warranty lookup for a manufacturer name: dell, lenovo or null. */
     public static function vendorFor(?string $manufacturer): ?string
     {
         $m = strtolower((string) $manufacturer);
@@ -416,6 +494,10 @@ final class SyncRunner
         };
     }
 
+    /**
+     * Looks up warranties for physical devices whose last lookup is due (an error is retried after a day), up to
+     * 500 serials per vendor per run. A vendor error is stored per serial (shown on device pages) as safe text.
+     */
     private function lookupWarranties(): string
     {
         $vendors = [];
@@ -464,10 +546,11 @@ final class SyncRunner
                 $results = $vendors[$vendor]->lookup($serials);
             } catch (\Throwable $e) {
                 $results = [];
+                $msg = safe_error($e);
                 foreach ($serials as $s) {
-                    $results[$s] = new WarrantyResult($s, 'error', message: $e->getMessage());
+                    $results[$s] = new WarrantyResult($s, 'error', message: $msg);
                 }
-                $this->info("$vendor warranty lookup failed: " . $e->getMessage());
+                $this->info("$vendor warranty lookup failed: " . $msg);
             }
             foreach ($results as $res) {
                 DB::upsert('warranty_lookups', [
@@ -494,6 +577,11 @@ final class SyncRunner
         return implode('; ', $parts);
     }
 
+    /**
+     * Writes warranty end and purchase dates (an override first, then the vendor lookup) to linked PSA assets:
+     * psa_writeback 'fill_empty' only fills empty dates, any other value replaces them. The caller has checked the
+     * provider supports assets.write, so a test server (StagingPsa) never gets here.
+     */
     private function writeBack(PsaProvider $psa): string
     {
         $mode = Settings::get('psa_writeback', 'off');
@@ -540,7 +628,7 @@ final class SyncRunner
                 }
             } catch (\Throwable $e) {
                 $failed++;
-                $this->info($psa->name() . " asset {$r['psa_asset_id']} update failed: " . $e->getMessage());
+                $this->info($psa->name() . " asset {$r['psa_asset_id']} update failed: " . safe_error($e));
             }
         }
         if ($failed && !$updated) {

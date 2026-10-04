@@ -1,7 +1,11 @@
 <?php
 use Align\Licensing\Licenses;
 
-/** @var ?array $l  license (null = new; without an id = a new one filled in from a client's suggestion); $cid client id for new; $back return path */
+/**
+ * The license window, for techs and admins.
+ * @var ?array $l  license (null = new; without an id = a new one filled in from a client's suggestion); $cid client id for new; $back return path
+ * Every value is escaped (a suggestion's text comes from a portal user); $back is checked again by the controller.
+ */
 $l = $l ?? null;
 $edit = $l && !empty($l['id']);
 $sub = !$edit && !empty($l['submission_id']) ? (int) $l['submission_id'] : 0;

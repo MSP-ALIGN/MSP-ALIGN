@@ -3,7 +3,11 @@ declare(strict_types=1);
 
 namespace Align\Reports;
 
-/** Small HTML builders shared by the report templates. All text is escaped here. */
+/**
+ * Small HTML builders shared by the report templates. All text is escaped here; numbers are rounded before they go
+ * into attributes, and a colour from a caller is used only when it is a hex colour or a var(--name).
+ * Returns HTML: echo it without e().
+ */
 final class Ui
 {
     /** Section header. $num is shown in the QBR pack ("01") and left out elsewhere. */
@@ -20,6 +24,7 @@ final class Ui
             . ($sub !== '' ? '<div class="kpi-sub">' . e($sub) . '</div>' : '') . '</div>';
     }
 
+    /** A status pill. $tone is a CSS suffix (escaped). */
     public static function pill(string $label, string $tone = 'muted'): string
     {
         return '<span class="pill pill-' . e($tone) . '">' . e($label) . '</span>';
@@ -166,6 +171,7 @@ final class Ui
         return $svg . '</svg>';
     }
 
+    /** 97.5% */
     private static function pctText(float $p): string
     {
         return \Align\Fmt::trim($p, 1) . '%';

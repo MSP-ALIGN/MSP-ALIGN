@@ -1,5 +1,10 @@
 <?php
-/** Edit one onboarding template. @var array $t; bool $hasFile; array $placeholders */
+/**
+ * Edit one onboarding template (admins). @var array $t; bool $hasFile; array $placeholders
+ * Security: the body is printed as HTML into an inert <template> for the editor; it is safe because every way of
+ * saving it from the form or an import stores it through Html::clean(), and the built-in templates (migration 028)
+ * are fixed plain markup in the code. Everything else is escaped.
+ */
 $isEmail = $t['kind'] === 'email';
 ?>
 <div class="small"><a href="/settings/onboarding">Onboarding → Welcome email &amp; guide</a> /</div>

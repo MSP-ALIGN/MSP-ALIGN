@@ -14,12 +14,20 @@ use Align\DB;
 use Align\Settings;
 use Align\View;
 
-/** Onboarding → Contract templates (2.2): the builder, its preview with sample values, import/export, contract settings. Admins. */
+/**
+ * Onboarding → Contract templates (2.2): the builder, its preview with sample values, import/export, contract settings. Admins.
+ *
+ * Security assumptions: every handler starts with Auth::requireRole('admin') (techs and viewers get 403); the router
+ * has checked the CSRF token of every POST. Template ids come from the URL and are loaded with load() (404). The
+ * builder's JSON is untrusted and goes through Template::normalize; a template's PDF only changes through an
+ * upload, which PdfStamp checks with Align's own parser and keeps under a random name.
+ */
 final class ContractTemplateController
 {
     /** A template export, with its PDF (up to 25 MB) inside as base64. */
     private const MAX_IMPORT = 35 * 1024 * 1024;
 
+    /** The template, or a 404 page and the request ends. */
     private static function load(int $id): array
     {
         $t = Template::load($id);
@@ -31,6 +39,7 @@ final class ContractTemplateController
         return $t;
     }
 
+    /** The templates and the contract settings (company address, automatic reminders). */
     public static function index(): void
     {
         Auth::requireRole('admin');
@@ -44,7 +53,10 @@ final class ContractTemplateController
         ]);
     }
 
-    /** A new template: from the MSP's own PDF (the boxes are placed next), or written in Align. Nothing comes pre-filled. */
+    /**
+     * A new template: from the MSP's own PDF (the boxes are placed next), or written in Align. Nothing comes pre-filled.
+     * The PDF must be a real upload of at most 25 MB that Align's parser can read (PdfStamp::storeSource).
+     */
     public static function create(): void
     {
         Auth::requireRole('admin');
@@ -72,7 +84,10 @@ final class ContractTemplateController
         redirect('/contracts/templates/' . $id);
     }
 
-    /** A new version of the template's PDF. The boxes stay where they were (check them); contracts already made keep theirs. */
+    /**
+     * A new version of the template's PDF. The boxes stay where they were (check them); contracts already made keep theirs.
+     * The old file is deleted only when no other template or contract uses it.
+     */
     public static function replacePdf(int $id): void
     {
         Auth::requireRole('admin');
@@ -114,7 +129,7 @@ final class ContractTemplateController
         redirect($back);
     }
 
-    /** The template's PDF, for the page viewer in the builder. */
+    /** The template's PDF, for the page viewer in the builder (sandbox CSP, see PdfStamp::serve). Audited. */
     public static function source(int $id): void
     {
         Auth::requireRole('admin');
@@ -123,6 +138,7 @@ final class ContractTemplateController
         PdfStamp::serve($t['def']['pdf'] ?? null);
     }
 
+    /** The builder: the PDF builder for a template on the MSP's PDF, else the written one. Data for contracts.js is JSON-encoded with the JSON_HEX_* flags in the view. */
     public static function show(int $id): void
     {
         Auth::requireRole('admin');
@@ -153,6 +169,7 @@ final class ContractTemplateController
         return Template::normalize($d, true);
     }
 
+    /** Saves the builder (name, description, def, active). Template::save validates; a refused def saves nothing. */
     public static function save(int $id): void
     {
         Auth::requireRole('admin');
@@ -173,7 +190,7 @@ final class ContractTemplateController
         redirect('/contracts/templates/' . $id);
     }
 
-    /** Live preview: the posted (unsaved) def with sample values, as HTML. */
+    /** Live preview: the posted (unsaved) def with sample values, as HTML (Render escapes every value). Nothing is saved. */
     public static function preview(int $id): void
     {
         Auth::requireRole('admin');
@@ -186,7 +203,7 @@ final class ContractTemplateController
         }
     }
 
-    /** A sample PDF of the saved template. */
+    /** A sample PDF of the saved template, shown inline. Built by Align (no uploaded bytes beyond the template's own PDF). */
     public static function pdf(int $id): void
     {
         Auth::requireRole('admin');
@@ -199,6 +216,7 @@ final class ContractTemplateController
         echo $pdf;
     }
 
+    /** A copy of the template (it shares the PDF file, which is never changed in place). */
     public static function duplicate(int $id): void
     {
         Auth::requireRole('admin');
@@ -209,16 +227,21 @@ final class ContractTemplateController
         redirect('/contracts/templates/' . $new);
     }
 
+    /**
+     * Deletes a template no contract was made from; one that was used is hidden instead, so its contracts keep
+     * their link to it. The delete itself checks again that no contract uses it, so a contract made a moment ago
+     * isn't left without its template (2.2.1).
+     */
     public static function delete(int $id): void
     {
         Auth::requireRole('admin');
         $t = self::load($id);
-        if ((int) DB::value('SELECT COUNT(*) FROM contracts WHERE template_id = ?', [$id])) {
+        if ((int) DB::value('SELECT COUNT(*) FROM contracts WHERE template_id = ?', [$id])
+            || !DB::run('DELETE FROM contract_templates WHERE id = ? AND NOT EXISTS (SELECT 1 FROM contracts WHERE template_id = ?)', [$id, $id])->rowCount()) {
             DB::run('UPDATE contract_templates SET is_active = 0 WHERE id = ?', [$id]);
             Audit::log('contract_template.hidden', $t['name']);
             flash('success', 'Template hidden. It\'s kept because contracts were made from it; it no longer shows when you make a new contract.');
         } else {
-            DB::run('DELETE FROM contract_templates WHERE id = ?', [$id]);
             if (!empty($t['def']['pdf'])) {
                 PdfStamp::removeIfUnused($t['def']['pdf']['file']);
             }
@@ -228,6 +251,10 @@ final class ContractTemplateController
         redirect('/contracts/templates');
     }
 
+    /**
+     * Downloads the template as JSON (with its PDF as base64). No client data. The file name keeps only ASCII
+     * letters, digits, "_" and "-", so it can't break the header.
+     */
     public static function export(int $id): void
     {
         Auth::requireRole('admin');
@@ -238,6 +265,10 @@ final class ContractTemplateController
         echo json_encode(Template::export($t), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+    /**
+     * Imports a template export as a new template. The file must be a real upload of at most 35 MB; Template::import
+     * validates the JSON and checks the PDF inside like an upload.
+     */
     public static function import(): void
     {
         Auth::requireRole('admin');
@@ -259,6 +290,7 @@ final class ContractTemplateController
         redirect('/contracts/templates/' . $id);
     }
 
+    /** Saves the company address (for {{company_address}}) and the reminder options, clamped to their ranges. */
     public static function settings(): void
     {
         Auth::requireRole('admin');

@@ -5,6 +5,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     depends_on: [app]
     ports:
       - "80:80"
@@ -22,7 +23,7 @@ services:
 
   app:
     # Only Caddy talks to the app: no port on the host, and only Caddy's address is trusted as the proxy
-    ports: !reset []
+    ports: !reset []   # Caddy reaches it over the align network
     environment:
       ALIGN_TRUSTED_PROXIES: ${ALIGN_CADDY_IP:-172.30.57.10}
 

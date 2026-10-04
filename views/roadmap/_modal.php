@@ -1,4 +1,11 @@
 <?php
+/**
+ * The project window (add or edit), on the roadmap, the client overview and the Projects page (loaded by
+ * FormController::project for one project). Shown to techs and admins only.
+ * @var ?array $it project (null = new); int $cid client id; ?array $pickClients [id => name] to choose from; ?string $back
+ * Every value from the database is escaped; the PSA ticket link comes from Providers::psaLink (the PSA's own https
+ * address). $back is checked again by the controller (Security::safePath).
+ */
 use Align\Roadmap\Plan;
 use Align\Roadmap\Roadmap;
 
@@ -49,8 +56,9 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
                   <?php if ($curYear !== $q['year_label']): if ($curYear !== null) echo '</optgroup>'; $curYear = $q['year_label']; echo '<optgroup label="' . e($q['year_label']) . '">'; endif; ?>
                   <option value="<?= e($q['start']) ?>" <?= $sel($q['start'], $it['target_quarter'] ?? '') ?>><?= e($q['label']) ?> (<?= e($q['months']) ?>)</option>
                 <?php endforeach; if ($curYear !== null) echo '</optgroup>'; ?>
-                <?php if ($it && $it['target_quarter'] && Plan::indexFor($it['target_quarter'], false) === null && $it['target_quarter'] > $planEnd): ?>
-                  <option value="<?= e($it['target_quarter']) ?>" selected><?= e(fmt_date($it['target_quarter'])) ?> (beyond plan)</option>
+                <?php // 2.2.1: a quarter the list doesn't have (beyond the plan, or before it began) stays chosen; saving the window used to unschedule an overdue project from last year
+                if ($it && $it['target_quarter'] && !in_array($it['target_quarter'], array_column($planQs, 'start'), true)): ?>
+                  <option value="<?= e($it['target_quarter']) ?>" selected><?= e(fmt_date($it['target_quarter'])) ?> (<?= $it['target_quarter'] > $planEnd ? 'beyond plan' : 'passed' ?>)</option>
                 <?php endif; ?>
               </select></div>
             <div class="mb-3 col-md-4"><label>Priority</label>

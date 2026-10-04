@@ -1,4 +1,8 @@
 <?php
+/**
+ * The client add/edit form (techs; the controller checks the role). @var ?array $c; array $users. Values are
+ * escaped; fields synced from the PSA are shown read-only.
+ */
 use Align\Controllers\ClientController;
 use Align\Meetings\Meetings;
 

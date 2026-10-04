@@ -9,11 +9,21 @@ use Align\Api\Input;
 use Align\Api\Out;
 use Align\DB;
 
-/** Clients (read-only: details come from the PSA) and their contacts. */
+/**
+ * Clients (read-only: details come from the PSA) and their contacts.
+ *
+ * Security: handlers are reached through the Kernel with clients:read or contacts:read checked. load() is the gate
+ * every resource uses for a client id: it applies the key's client limit before touching the database and treats
+ * archived clients as missing. Lists add Context::clientSql() to their WHERE clause.
+ */
 final class Clients
 {
     private const SELECT = 'SELECT c.*, u.name AS vcio_name FROM clients c LEFT JOIN users u ON u.id = c.vcio_user_id';
 
+    /**
+     * GET /clients: paginated; search (name contains), include_excluded, updated_since. Archived clients never show,
+     * and a client-limited key sees only its clients.
+     */
     public static function index(): array
     {
         [$page, $per, $off] = Input::page();
@@ -22,7 +32,8 @@ final class Clients
         if (!Input::queryBool('include_excluded')) {
             $where .= ' AND c.planning_excluded = 0';
         }
-        if ($q = Input::queryStr('search')) {
+        // !== null: a search for "0" is a search, not "no filter"
+        if (($q = Input::queryStr('search')) !== null) {
             $where .= ' AND c.name LIKE ?';
             $args[] = '%' . addcslashes($q, '%_\\') . '%';
         }
@@ -38,13 +49,18 @@ final class Clients
         return Out::list(array_map([self::class, 'shape'], $rows), $total, $page, $per);
     }
 
+    /** GET /clients/{id}: the client plus a health summary limited to the areas the key can read. */
     public static function show(int $id): array
     {
         $c = self::load($id);
         return Out::one(self::shape($c) + ['summary' => self::summary($c)]);
     }
 
-    /** Loads a client the key may see, or 404. */
+    /**
+     * Loads a client the key may see, or 404 ("Client not found") for an unknown id, an archived client or a client
+     * outside the key's limit, so a limited key can't tell them apart. Every resource uses it before reading or
+     * writing anything that belongs to a client.
+     */
     public static function load(int $id): array
     {
         Context::requireClient($id, 'Client');
@@ -55,6 +71,7 @@ final class Clients
         return $c;
     }
 
+    /** The API form of a client row (already checked against the key's client limit). */
     public static function shape(array $c): array
     {
         return [
@@ -78,7 +95,10 @@ final class Clients
         ];
     }
 
-    /** Health at a glance for one client (only the parts the key has scopes for). */
+    /**
+     * Health at a glance for one client: one block per area the key can read (devices, projects, next meeting,
+     * backups, compliance, service levels), so the summary never shows more than the key's scopes. $c comes from load().
+     */
     private static function summary(array $c): array
     {
         $id = (int) $c['id'];
@@ -119,16 +139,23 @@ final class Clients
     private const ROLE_COLS = ['primary' => 'is_primary', 'billing' => 'is_billing', 'technical' => 'is_technical', 'important' => 'is_important',
         'decision_maker' => 'decision_maker', 'meeting_invitee' => 'qbr'];
 
+    /** GET /contacts: every contact the key may see (optionally one client's). */
     public static function contacts(): array
     {
         return self::listContacts(Input::queryInt('client_id'));
     }
 
+    /** GET /clients/{id}/contacts. */
     public static function clientContacts(int $id): array
     {
         return self::listContacts($id);
     }
 
+    /**
+     * Contacts list behind both endpoints. A client id is checked with load() (404 outside the key's limit); the key's
+     * limit is also added to the WHERE clause, so a list without a client id only holds the key's clients. Archived
+     * contacts need include_archived; contacts of archived clients never show. The role filter maps to a fixed column.
+     */
     private static function listContacts(?int $clientId): array
     {
         [$page, $per, $off] = Input::page();
@@ -145,7 +172,7 @@ final class Clients
         if ($role = Input::queryStr('role', array_keys(self::ROLE_COLS))) {
             $where .= ' AND k.' . self::ROLE_COLS[$role] . ' = 1';
         }
-        if ($q = Input::queryStr('search')) {
+        if (($q = Input::queryStr('search')) !== null) {
             $where .= ' AND (k.name LIKE ? OR k.email LIKE ?)';
             $like = '%' . addcslashes($q, '%_\\') . '%';
             array_push($args, $like, $like);
@@ -163,6 +190,7 @@ final class Clients
         return Out::list(array_map([self::class, 'contactShape'], $rows), $total, $page, $per);
     }
 
+    /** GET /contacts/{id}: 404 for a contact of an archived client or of a client outside the key's limit. */
     public static function contact(int $id): array
     {
         $k = DB::one('SELECT k.* FROM contacts k JOIN clients c ON c.id = k.client_id AND c.is_archived = 0 WHERE k.id = ?', [$id]);
@@ -172,6 +200,7 @@ final class Clients
         return Out::one(self::contactShape($k));
     }
 
+    /** The API form of a contact row (already checked against the key's client limit). */
     public static function contactShape(array $k): array
     {
         return [

@@ -1,4 +1,7 @@
 <?php
+/**
+ * One client's meetings. @var array $client, $meetings; ?array $cadence.
+ */
 use Align\Auth;
 use Align\Meetings\Meetings;
 

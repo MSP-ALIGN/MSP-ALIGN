@@ -1,4 +1,8 @@
 <?php
+/**
+ * Settings → General (admins). @var array $v saved values (plain settings only; no secrets).
+ * Security: every value is escaped; the confirm rules go into a data attribute as escaped JSON.
+ */
 use Align\Lifecycle\Lifecycle;
 
 $num = fn(string $name, string $label, string $prefix = '', string $suffix = '') => '<div class="mb-3"><label class="small">' . e($label) . '</label><div class="input-group input-group-sm">'

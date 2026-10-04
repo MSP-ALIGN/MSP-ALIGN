@@ -13,12 +13,17 @@ use Align\Licensing\Licenses as L;
 /**
  * Licenses. Those synced from the PSA keep their name, seats, vendor and dates in the PSA (read-only here);
  * prices, billing, contract dates and notes are Align's and writable for every license.
+ *
+ * Security: reached through the Kernel with licenses:read or licenses:write checked. Clients::load() / load() apply
+ * the key's client limit (404 otherwise, archived clients included); client_id is fixed at create. PSA licenses can't
+ * be deleted here (the sync would bring them back). Writes are audited with the key's name.
  */
 final class Licenses
 {
     /** Fields the PSA manages for synced licenses (API names). */
     private const PSA_OWNED = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date'];
 
+    /** Validation rules for POST (client_id required, no retired) and PATCH. Also feeds the OpenAPI spec. */
     public static function rules(bool $creating = false): array
     {
         return array_filter([
@@ -47,6 +52,10 @@ final class Licenses
         ]);
     }
 
+    /**
+     * GET /licenses: paginated; client_id, category, unpriced, renewing_within_days (0-3650), include_retired and
+     * updated_since, always within the key's clients and never for archived clients.
+     */
     public static function index(): array
     {
         $where = ' WHERE c.is_archived = 0';
@@ -88,11 +97,13 @@ final class Licenses
         return Out::list(array_map([self::class, 'shape'], $rows), $total, $page, $per);
     }
 
+    /** GET /licenses/{id}. */
     public static function show(int $id): array
     {
         return Out::one(self::shape(self::load($id)));
     }
 
+    /** The license with its client's name, or 404 (unknown id, archived client, or a client outside the key's limit). */
     private static function load(int $id): array
     {
         $l = DB::one('SELECT l.*, c.name AS client_name FROM licenses l JOIN clients c ON c.id = l.client_id AND c.is_archived = 0 WHERE l.id = ?', [$id]);
@@ -102,7 +113,11 @@ final class Licenses
         return $l;
     }
 
-    /** API field names -> columns, plus derived contract dates. */
+    /**
+     * API field names -> columns, plus derived contract dates. $in is cleaned input (only rule fields), $current the
+     * stored row (or empty defaults when creating). Returns only the columns to write; 422 when a worked-out date falls
+     * outside 1970-9998.
+     */
     private static function columns(array $in, array $current): array
     {
         $cols = $in;
@@ -127,6 +142,7 @@ final class Licenses
         return $cols;
     }
 
+    /** POST /licenses: a manual license for a client the key may see. */
     public static function create(): array
     {
         $in = Input::clean(Context::$body, self::rules(true), true);
@@ -141,6 +157,11 @@ final class Licenses
         return Out::one(self::shape(self::load($id)), 201);
     }
 
+    /**
+     * PATCH /licenses/{id}: only the fields sent change; null resets category, pricing, billing_cycle and license_type
+     * to their defaults and clears the rest. Fields the PSA manages are refused for PSA licenses. retired: true/false
+     * retires or restores it.
+     */
     public static function update(int $id): array
     {
         $l = self::load($id);
@@ -173,6 +194,7 @@ final class Licenses
         return Out::one(self::shape(self::load($id)));
     }
 
+    /** DELETE /licenses/{id}: manual licenses only (409 for PSA ones; retire them instead). */
     public static function delete(int $id): array
     {
         $l = self::load($id);
@@ -185,6 +207,7 @@ final class Licenses
         return Out::none();
     }
 
+    /** The API form of a license row (already checked against the key's client limit). */
     public static function shape(array $l): array
     {
         $e = L::enrich($l);

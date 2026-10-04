@@ -41,13 +41,17 @@ final class PdfRender
         return $r->render();
     }
 
-    /** The signature certificate as new pages at the end of $pdf (its default page size). */
     /** The mark on every page of a copy that isn't signed by everyone yet. */
     public static function draftLabel(string $status): string
     {
         return $status === 'draft' ? 'DRAFT - not signed' : 'NOT YET SIGNED BY EVERYONE';
     }
 
+    /**
+     * The signature certificate as new pages at the end of $pdf (its default page size).
+     * PdfStamp uses it for contracts printed on the MSP's own PDF. Header and footer go on the new pages only, so
+     * the MSP's own pages are left as they are.
+     */
     public static function certificateInto(Pdf $pdf, array $c): void
     {
         $r = new self($c, true, $pdf);
@@ -56,6 +60,11 @@ final class PdfRender
         $r->decorate($from, $from);
     }
 
+    /**
+     * Sets up a renderer for $c (as Contracts::load() returns it: the def normalized by Template::normalize). With
+     * $into it draws into that Pdf, at its page size, instead of a new one. Sets the document info and loads the
+     * logo; Branding::logoFile() only returns a file whose name matches its own pattern, never a path from input.
+     */
     private function __construct(array $c, bool $final, ?Pdf $into = null)
     {
         $this->c = $c;
@@ -76,6 +85,7 @@ final class PdfRender
         $this->bottom = $ph - 64;
     }
 
+    /** The core font for the contract's family (Helvetica or Times), bold and/or italic. */
     private function font(bool $b = false, bool $i = false): string
     {
         if ($this->family === 'Times') {
@@ -84,6 +94,7 @@ final class PdfRender
         return $b && $i ? 'Helvetica-BoldOblique' : ($b ? 'Helvetica-Bold' : ($i ? 'Helvetica-Oblique' : 'Helvetica'));
     }
 
+    /** Starts a page, with the cursor at the top margin. */
     private function newPage(): void
     {
         $this->pdf->addPage();
@@ -98,6 +109,13 @@ final class PdfRender
         }
     }
 
+    /**
+     * Lays out the whole contract (title, number and start date, the blocks that print, and the certificate on the
+     * signed copy), then adds headers and footers. Returns the PDF bytes. The style comes from fixed lists and the
+     * text blocks are Html::clean output capped in size (Template::normalize). Every piece of text, values filled in
+     * by the client included, reaches the page through Pdf::text() or textRaw(), which write it as a hex string,
+     * so it can't add PDF operators.
+     */
     private function render(): string
     {
         $c = $this->c;
@@ -348,6 +366,13 @@ final class PdfRender
         }, $text) ?? $text;
     }
 
+    /**
+     * One text block from the editor: Quill's HTML (paragraphs, h1-h4, lists, blockquote, pre, hr, and the
+     * ql-align-* and ql-indent-N classes). The HTML is expected to be Html::clean output, capped in size by Template.
+     * libxml parses it only to read its structure (LIBXML_NONET, errors suppressed and the previous error mode put
+     * back); nothing is fetched, <img> prints nothing and a link prints as underlined text. Placeholders are filled
+     * in the parsed text nodes (runs()), so a filled-in value can't add markup.
+     */
     private function htmlBlock(string $html): void
     {
         if (trim($html) === '') {
@@ -454,6 +479,7 @@ final class PdfRender
         }
     }
 
+    /** List marker letters: 1 is "a", 26 "z", 27 "aa". */
     private static function alpha(int $n): string
     {
         $s = '';
@@ -465,6 +491,7 @@ final class PdfRender
         return $s;
     }
 
+    /** Lower-case Roman numerals for list markers ('' for 0 or less). */
     private static function roman(int $n): string
     {
         $map = ['m' => 1000, 'cm' => 900, 'd' => 500, 'cd' => 400, 'c' => 100, 'xc' => 90, 'l' => 50, 'xl' => 40, 'x' => 10, 'ix' => 9, 'v' => 5, 'iv' => 4, 'i' => 1];
@@ -516,6 +543,11 @@ final class PdfRender
 
     // ---- Services, fields, signatures -----------------------------------------------------------------------
 
+    /**
+     * The services table: one row per line from Contracts::totals() (name and description, quantity and unit,
+     * price and period, total), then the totals. A row is never split across pages, and the header row repeats on
+     * each new page. Totals of zero are left out, except the monthly one when every total is zero.
+     */
     private function services(): void
     {
         $def = $this->c['def'];
@@ -592,6 +624,11 @@ final class PdfRender
         $this->y += $s * 0.8;
     }
 
+    /**
+     * A fields block: a label and value row per key. An empty value prints as [Label] on a draft (with "client
+     * fills in" for the client's fields) and as a dash on the signed copy. A value can be long text the client typed
+     * (up to 4,000 characters), so it may run over a page break; the label stays with its first line.
+     */
     private function fieldList(array $b): void
     {
         if (!$b['keys']) {
@@ -627,6 +664,12 @@ final class PdfRender
         $this->y += $s * 0.8;
     }
 
+    /**
+     * The signature boxes side by side (the provider first when the template countersigns): the drawn signature or
+     * the typed one in a script font, the signer's photo when the signature has one, then name, title and when it
+     * was signed (in the server's time zone). The pictures come from the stored contract, checked when it was signed;
+     * Pdf::addImage() checks their size again, and a drawn signature it can't read prints as the typed name.
+     */
     private function signatures(): void
     {
         $s = $this->size;
@@ -676,6 +719,14 @@ final class PdfRender
 
     // ---- Signature certificate ------------------------------------------------------------------------------
 
+    /**
+     * The signature certificate, from a new page: the contract and its dates, the SHA-256 fingerprint, each signer's
+     * identity check, IP address, browser and consent, and the history of events (downloads, emails and PDF
+     * failures left out). The fingerprint is content_hash as stored, not recomputed here: the caller sets it before
+     * it builds the signed copy. Names, titles, browser strings and event details come from signers and their
+     * requests; they print as recorded, through Pdf::text(), so they can't add PDF operators. The identity-check
+     * wording describes Align's signing flow; only the one-time code is taken from the events (the first code_ok).
+     */
     private function certificate(): void
     {
         $c = $this->c;
@@ -685,7 +736,8 @@ final class PdfRender
         $this->paragraph([['t' => 'This page records how and when this contract was signed. It is part of the signed document.', 'color' => self::GRAY]], $s);
         $this->y += 8;
         $events = Contracts::events((int) $c['id']);
-        $codeOk = array_values(array_filter($events, fn($e) => $e['event'] === 'code_ok'));
+        $lastLink = (string) array_reduce($events, fn($m, $e) => in_array($e['event'], ['sent', 'resent', 'link'], true) ? max((string) $m, (string) $e['created_at']) : $m, '');
+        $codeOk = array_values(array_filter($events, fn($e) => $e['event'] === 'code_ok' && (string) $e['created_at'] >= $lastLink));
         $row = function (string $label, string $value) use ($s) {
             $lw = 130;
             $h = $this->measure([['t' => $value]], $s, $this->w - $lw, 1.35) + 4;
@@ -724,7 +776,10 @@ final class PdfRender
             }
             if ($sg['side'] === 'client') {
                 $row('Email', (string) $c['signer_email']);
-                $row('Identity check', $codeOk ? 'Opened the private link sent to ' . $c['signer_email'] . ' and entered the one-time code emailed to that address (' . $dt($codeOk[0]['created_at']) . ').'
+                // The code claim follows the signature's own record (2.2.1). Signatures from before 2.2.1 have no
+                // flag: for those, a code entered after the last link was made, while codes were still required.
+                $verified = array_key_exists('code_verified', $sig) ? (bool) $sig['code_verified'] : ($codeOk && (bool) $c['verify_code'] && $codeOk[0]['created_at'] >= $lastLink);
+                $row('Identity check', $verified ? 'Opened the private link sent to ' . $c['signer_email'] . ' and entered the one-time code emailed to that address (' . $dt($codeOk[0]['created_at']) . ').'
                     : 'Opened the private signing link sent to ' . $c['signer_email'] . '.');
             } else {
                 $row('Email', (string) ($c['provider_email'] ?? ''));

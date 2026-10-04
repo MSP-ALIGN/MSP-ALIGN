@@ -8,11 +8,33 @@ use Align\DB;
 /**
  * Contract terms for licenses and budget lines: purchase/start date, term, contract end and the
  * date to renegotiate by (end date minus the notice period, unless set explicitly).
+ *
+ * Security assumptions: fromPost() and postDate() read untrusted form fields and return only checked values
+ * (real dates, bounded numbers); the caller has done the role check and decides the row. upcoming() reads every
+ * client in planning (or one client): staff data, callers filter it for narrower audiences (the portal maps
+ * links to its own pages and passes its own client id).
  */
 final class Contracts
 {
     public const TERMS = [0 => 'Month-to-month', 12 => '1 year', 24 => '2 years', 36 => '3 years', 60 => '5 years'];
 
+    /**
+     * $v when it is a real Y-m-d date (checkdate; years 1000-9999, what a DATE column stores), else null.
+     * A bare pattern let "2026-02-31" through: strict MariaDB refused it and the save failed with a 500 (2.2.1).
+     */
+    public static function date(?string $v): ?string
+    {
+        return $v !== null && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $v, $m) && (int) $m[1] >= 1000
+            && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $v : null;
+    }
+
+    /** The posted field $key as a real date (see date()), or null. */
+    public static function postDate(string $key): ?string
+    {
+        return self::date(post($key));
+    }
+
+    /** "3 years", "18 months", "Month-to-month"; '' for no term. */
     public static function termLabel(?int $months): string
     {
         if ($months === null) {
@@ -23,11 +45,13 @@ final class Contracts
 
     /**
      * Reads the contract fields from the form and fills in what can be derived:
-     * end = start + term (minus a day), renegotiate-by = end - notice days.
+     * end = start + term (minus a day), renegotiate-by = end - notice days. $start is the caller's start or purchase
+     * date; it is checked again here, so a bad one derives nothing. Term up to 240 months, notice up to 730 days.
      */
     public static function fromPost(?string $start): array
     {
-        $date = fn(string $k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', post($k)) ? post($k) : null;
+        $date = fn(string $k) => self::postDate($k);
+        $start = self::date($start);
         $termIn = post('contract_term_months') === 'custom' ? post('contract_term_custom') : post('contract_term_months');
         $term = ctype_digit($termIn) && (int) $termIn <= 240 ? (int) $termIn : null;
         $notice = ctype_digit(post('notice_days')) && (int) post('notice_days') <= 730 ? (int) post('notice_days') : null;
@@ -42,7 +66,7 @@ final class Contracts
         return ['contract_term_months' => $term, 'contract_end' => $end, 'notice_days' => $notice, 'renegotiate_date' => $reneg];
     }
 
-    /** Status of a date: past / soon (<= 90 days) / later. */
+    /** Status of a date: past / soon (<= 90 days) / later; null for no date. */
     public static function urgency(?string $d): ?string
     {
         if (!$d) {
@@ -52,7 +76,7 @@ final class Contracts
         return $d < $today ? 'past' : ($d <= date('Y-m-d', strtotime('+90 days')) ? 'soon' : 'later');
     }
 
-    /** One-line contract summary, e.g. "3 years · ends Mar 31, 2027 · renegotiate by Jan 30, 2027". */
+    /** One-line contract summary, e.g. "3 years · ends Mar 31, 2027 · renegotiate by Jan 30, 2027". Plain text: escape it in HTML. */
     public static function summary(array $r): string
     {
         return implode(' · ', array_filter([
@@ -65,6 +89,7 @@ final class Contracts
     /**
      * Upcoming contract dates (renegotiate-by, contract end, license expiry) for one client or all
      * clients in planning, from $from (default: 30 days ago, so recently missed dates still show) to $days ahead.
+     * Two queries whatever the number of clients (licenses, then budget lines). $from must be a Y-m-d date.
      * @return array<int, array{date:string,kind:string,label:string,name:string,client_id:int,client_name:string,link:string,annual:float,urgency:string}>
      */
     public static function upcoming(?int $clientId = null, int $days = 365, ?string $from = null): array

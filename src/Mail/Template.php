@@ -8,10 +8,17 @@ use Align\Settings;
 /**
  * Branded HTML email built from simple blocks. Everything passed in as text is escaped;
  * only the builders here produce markup. Inline styles only (email clients ignore <style>).
+ * Security: callers pass plain text (client names, titles, what a client typed) and get HTML back; a block is
+ * only ever the output of these helpers (or markup the caller built with e()). Link targets must be http(s) or
+ * mailto, anything else becomes "#". The brand colour is validated by Branding::color().
  */
 final class Template
 {
-    /** @param list<string> $blocks built with the helpers below */
+    /**
+     * The whole email: logo or company name, heading, blocks, and a footer with $footerNote and the company's
+     * contact details (all escaped).
+     * @param list<string> $blocks built with the helpers below
+     */
     public static function render(string $heading, array $blocks, string $footerNote = ''): string
     {
         $brand = \Align\Branding::color();
@@ -29,7 +36,7 @@ final class Template
             . '</table></td></tr></table></body></html>';
     }
 
-    /** The brand logo as an inline attachment (PNG/JPG/GIF under 300 KB; Outlook can't show WebP). */
+    /** The brand logo as an inline attachment (PNG/JPG/GIF under 300 KB; Outlook can't show WebP). The file was re-encoded on upload. */
     public static function logo(): ?array
     {
         $f = \Align\Branding::logoFile();
@@ -39,23 +46,26 @@ final class Template
         return ['name' => 'logo.' . $m[1], 'type' => ['png' => 'image/png', 'jpg' => 'image/jpeg', 'gif' => 'image/gif'][$m[1]], 'path' => $f, 'inline_id' => 'brandlogo'];
     }
 
+    /** A paragraph of plain text (line breaks kept). */
     public static function p(string $text, bool $muted = false): string
     {
         return '<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:' . ($muted ? '#5b6573' : '#1f2d3d') . '">' . nl2br(e($text)) . '</p>';
     }
 
+    /** A button link. $url is normally one of ours (Notifications::url()); see safeUrl(). */
     public static function button(string $label, string $url): string
     {
         $brand = \Align\Branding::color();
-        return '<p style="margin:16px 0 18px"><a href="' . e($url) . '" style="background:' . e($brand) . ';color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:5px;font-weight:600;font-size:14px;display:inline-block">' . e($label) . '</a></p>';
+        return '<p style="margin:16px 0 18px"><a href="' . e(self::safeUrl($url)) . '" style="background:' . e($brand) . ';color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:5px;font-weight:600;font-size:14px;display:inline-block">' . e($label) . '</a></p>';
     }
 
+    /** A small section heading. */
     public static function h2(string $text): string
     {
         return '<h2 style="margin:18px 0 8px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#5b6573">' . e($text) . '</h2>';
     }
 
-    /** Key/value rows. */
+    /** Key/value rows (plain text; empty values are left out). */
     public static function facts(array $rows): string
     {
         $h = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 14px;font-size:14px">';
@@ -68,7 +78,7 @@ final class Template
         return $h . '</table>';
     }
 
-    /** Bulleted list; each item [text, tone] where tone is bad|warn|ok|'' (a coloured dot). */
+    /** Bulleted list; each item [text, tone] where tone is bad|warn|ok|'' (a coloured dot; unknown tones are grey). */
     public static function items(array $items): string
     {
         $c = ['bad' => '#e5534b', 'warn' => '#f0b429', 'ok' => '#3fb67a', '' => '#9aa4b2'];
@@ -80,7 +90,7 @@ final class Template
         return $h . '</table>';
     }
 
-    /** Simple table: $head list of labels, $rows list of lists (text). */
+    /** Simple table: $head list of labels, $rows list of lists (text, escaped). */
     public static function table(array $head, array $rows): string
     {
         $h = '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px;font-size:13px;border-collapse:collapse">';
@@ -91,8 +101,19 @@ final class Template
         return $h . '</table>';
     }
 
+    /** A text link. See safeUrl(). */
     public static function link(string $label, string $url): string
     {
-        return '<p style="margin:0 0 12px;font-size:14px"><a href="' . e($url) . '" style="color:' . e(\Align\Branding::color()) . '">' . e($label) . '</a></p>';
+        return '<p style="margin:0 0 12px;font-size:14px"><a href="' . e(self::safeUrl($url)) . '" style="color:' . e(\Align\Branding::color()) . '">' . e($label) . '</a></p>';
+    }
+
+    /**
+     * $url when it is an http(s) or mailto link, else "#". e() alone would keep a javascript: or data: link working
+     * in mail apps and webmail that run it (2.2.1).
+     */
+    private static function safeUrl(string $url): string
+    {
+        $url = trim($url);
+        return preg_match('#^(https?://|mailto:)#i', $url) ? $url : '#';
     }
 }

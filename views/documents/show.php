@@ -66,6 +66,7 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
           </div>
         </div>
         <div id="doc-editor" class="doc-editor"></div>
+        <?php /* Cleaned by Docs\Html::clean when saved; docs.js hands it to the editor */ ?>
         <template id="doc-initial"><?= $doc['body_html'] ?></template>
       </div>
     </div>

@@ -3,12 +3,21 @@ declare(strict_types=1);
 
 use Align\Config;
 
+/**
+ * HTML-escapes a value for text and for quoted attribute values ("..." or '...'): & < > " ' are all escaped and
+ * invalid UTF-8 is replaced. Not enough for unquoted attributes, inline scripts, CSS or URLs' schemes: a link
+ * built from outside data must also be checked to be http(s) or a same-site path.
+ */
 function e(mixed $v): string
 {
     return htmlspecialchars((string) ($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** Escapes a line of README text and shows its **bold** and `code`; a [link](url) shows as its words. */
+/**
+ * Escapes a line of README text and shows its **bold** and `code`; a [link](url) shows as its words.
+ * The text is escaped before the two tags are added, and the tags wrap already-escaped text, so no markup from
+ * the input survives and links never become <a> (no javascript: URLs).
+ */
 function md_inline(string $s): string
 {
     $s = preg_replace('/\[([^\]]+)\]\([^)\s]+\)/u', '$1', $s) ?? $s;
@@ -17,23 +26,35 @@ function md_inline(string $s): string
     return preg_replace('/`([^`]+)`/u', '<code>$1</code>', $s) ?? $s;
 }
 
+/**
+ * A same-site URL: "/" + $path + an optional query string. Leading slashes, backslashes and control characters
+ * or spaces are dropped before the single "/" is added (2.2.1), so the result never starts with "//", "/\" or
+ * "/<tab>/", which browsers read as another host. The result still needs e() in HTML.
+ */
 function url(string $path = '/', array $query = []): string
 {
     $q = $query ? '?' . http_build_query($query) : '';
-    return '/' . ltrim($path, '/') . $q;
+    return '/' . ltrim($path, "/\\\x00..\x20") . $q;
 }
 
+/**
+ * Redirects (302) to a same-site path built by url() and stops. Callers that take the target from the request
+ * must still check it with Security::safePath() or a fixed list: url() keeps it on this site, not on the page
+ * the caller meant.
+ */
 function redirect(string $path, array $query = []): never
 {
     header('Location: ' . url($path, $query), true, 302);
     exit;
 }
 
+/** Queues a message for the next page (type: success, error, warning, info). The view escapes it. */
 function flash(string $type, string $message): void
 {
     $_SESSION['_flash'][] = ['type' => $type, 'message' => $message];
 }
 
+/** Returns and clears the queued flash messages. */
 function take_flashes(): array
 {
     $f = $_SESSION['_flash'] ?? [];
@@ -41,6 +62,10 @@ function take_flashes(): array
     return $f;
 }
 
+/**
+ * The session's CSRF token (256 random bits, made on first use). Signing in replaces it (Auth::completeLogin),
+ * so a token seen before sign-in is useless after.
+ */
 function csrf_token(): string
 {
     if (empty($_SESSION['_csrf'])) {
@@ -49,11 +74,16 @@ function csrf_token(): string
     return $_SESSION['_csrf'];
 }
 
+/** The hidden form field carrying the CSRF token. */
 function csrf_field(): string
 {
     return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
 }
 
+/**
+ * Stops the request (419) unless the posted _csrf matches the session's token. The Router calls it for every
+ * POST before the handler. Compared in constant time; a missing, empty or array value fails.
+ */
 function csrf_check(): void
 {
     $sent = $_POST['_csrf'] ?? '';
@@ -68,7 +98,7 @@ function csrf_check(): void
     }
 }
 
-/** A php.ini size ("8M", "1G", "512K") in bytes; 0 or less means no limit (PHP_INT_MAX). */
+/** A php.ini size ("8M", "1G", "512K") in bytes; 0 or less means no limit (PHP_INT_MAX). Reads trusted ini values only. */
 function ini_bytes(string $v): int
 {
     $v = trim($v);
@@ -77,7 +107,11 @@ function ini_bytes(string $v): int
     return $n > 0 ? $n : PHP_INT_MAX;
 }
 
-/** A Content-Disposition file name part: a plain ASCII name for old clients and the exact name (RFC 6266). */
+/**
+ * A Content-Disposition file name part: a plain ASCII name for old clients and the exact name (RFC 6266).
+ * Safe for any name: new lines and NUL are dropped (no header injection), quotes and backslashes can't end the
+ * quoted part, and the exact name is percent-encoded.
+ */
 function content_filename(string $name): string
 {
     $name = str_replace(["\r", "\n", "\0"], '', $name);
@@ -85,18 +119,25 @@ function content_filename(string $name): string
     return 'filename="' . $ascii . '"; filename*=UTF-8\'\'' . rawurlencode($name);
 }
 
+/** A posted field, trimmed; $default when it's missing or not a string (an array from name[]). Untrusted. */
 function post(string $key, string $default = ''): string
 {
     $v = $_POST[$key] ?? $default;
     return is_string($v) ? trim($v) : $default;
 }
 
+/** A query-string field, trimmed; $default when it's missing or not a string. Untrusted. */
 function query(string $key, string $default = ''): string
 {
     $v = $_GET[$key] ?? $default;
     return is_string($v) ? trim($v) : $default;
 }
 
+/**
+ * The client's IP address. X-Forwarded-For is only believed when the connection comes from a trusted proxy
+ * (config.php), and then only its last entry, the one that proxy added: earlier entries are whatever the client
+ * sent. Used for lockouts, rate limits and the audit log.
+ */
 function client_ip(): string
 {
     $remote = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
@@ -110,6 +151,22 @@ function client_ip(): string
     return $remote;
 }
 
+/**
+ * The address rate limits and lockouts count against: IPv4 (and IPv4-mapped IPv6) as is, other IPv6 addresses as
+ * their /64, which is what one host or customer is normally given. Counting single IPv6 addresses let a client
+ * rotate through its /64 and never reach a per-address limit (2.2.1). Logs and the audit keep client_ip().
+ */
+function rate_ip(): string
+{
+    $ip = client_ip();
+    $bin = @inet_pton($ip);
+    if ($bin !== false && strlen($bin) === 16 && !str_starts_with($bin, str_repeat("\0", 10) . "\xff\xff")) {
+        return inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+    return $ip;
+}
+
+/** Whether the request came over HTTPS (directly, or through a trusted proxy that says so). */
 function is_https(): bool
 {
     if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
@@ -122,6 +179,7 @@ function is_https(): bool
 /**
  * The address is one of config.php's trusted_proxies: an exact address (as always), or, in the Docker image only
  * (1.44), a range such as 172.30.57.10/32 or 10.0.0.0/8, since a proxy's address on a Docker network can vary.
+ * An IPv4 address never matches an IPv6 range (or the reverse), and a malformed range matches nothing.
  */
 function trusted_proxy(string $ip): bool
 {
@@ -184,7 +242,7 @@ function psa_on(): bool
     return $on ??= \Align\Providers\Providers::psaConfigured();
 }
 
-/** Whole amounts in the chosen currency ($1,234), see Align\Fmt. */
+/** Whole amounts in the chosen currency ($1,234), see Align\Fmt. Plain text: escape with e() in HTML. */
 function money(float|int|string|null $v): string
 {
     return \Align\Fmt::money($v);
@@ -202,11 +260,16 @@ function num(float|int|string|null $v, int $decimals = 0): string
     return \Align\Fmt::number($v, $decimals);
 }
 
+/** A date in the chosen format, or "—" when empty or not a date. */
 function fmt_date(?string $d, string $style = 'date'): string
 {
     return \Align\Fmt::date($d, $style) ?: '—';
 }
 
+/**
+ * "just now", "5 min ago", "3 days ago", then the date after 60 days; "never" for empty.
+ * A time in the future also says "just now" (the email log relies on that for "next try now").
+ */
 function rel_time(?string $d): string
 {
     if (!$d) {
@@ -223,6 +286,7 @@ function rel_time(?string $d): string
     };
 }
 
+/** "Q3 2026" for a date. $date must be a valid date (callers pass database DATE values). */
 function quarter_label(string $date): string
 {
     $ts = strtotime($date);
@@ -242,17 +306,19 @@ function normalize_serial(?string $s): ?string
     return $s;
 }
 
-/** Maps lifecycle tones to Bootstrap contextual classes. */
+/** Maps lifecycle tones to Bootstrap contextual classes. An unknown tone is returned as is: escape it in HTML. */
 function tone_class(string $tone): string
 {
     return ['bad' => 'danger', 'warn' => 'warning', 'ok' => 'success', 'muted' => 'secondary'][$tone] ?? $tone;
 }
 
+/** A date and time in the chosen format, or "—". */
 function fmt_datetime(?string $d): string
 {
     return \Align\Fmt::dateTime($d) ?: '—';
 }
 
+/** A time of day in the chosen format. */
 function fmt_time(?string $d): string
 {
     return \Align\Fmt::time($d);
@@ -307,7 +373,7 @@ function avatar_url(array $u): ?string
     return (defined('IS_PORTAL') && IS_PORTAL ? '/portal/vcio-photo' : '/users/' . (int) $u['id'] . '/avatar') . '?v=' . substr($m[1], 0, 8);
 }
 
-/** Profile picture, or initials when there isn't one. $class sets size/style (e.g. user-initials). */
+/** Profile picture, or initials when there isn't one. $class sets size/style (e.g. user-initials). Returns escaped HTML. */
 function user_avatar(array $u, string $class = 'user-initials', string $extra = ''): string
 {
     $name = (string) ($u['name'] ?? $u['user_name'] ?? '');
@@ -406,6 +472,7 @@ function short_make(?string $make): string
 
 /**
  * A filter menu for list toolbars (1.42): a small dropdown button showing the current choice.
+ * Labels and URLs are escaped here; $href must return a same-site URL.
  * @param array<string|int,string> $items value => label; callable $href fn(value) => URL ('' = the "all" choice)
  */
 function toolbar_menu(string $label, array $items, string|int $current, callable $href, string $allLabel): string
@@ -423,7 +490,7 @@ function toolbar_menu(string $label, array $items, string|int $current, callable
 /**
  * An error's message when it's one the app wrote for people (a connector, the mail provider, a validation), or a
  * plain "internal error" when it's a database or PHP error, whose text can hold SQL or file paths: that goes to the
- * server log only (1.45). For flash messages and the audit log.
+ * server log only (1.45). For flash messages and the audit log. Plain text: escape it in HTML.
  */
 function safe_error(\Throwable $e): string
 {

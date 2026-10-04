@@ -3,43 +3,54 @@ declare(strict_types=1);
 
 namespace Align\Api;
 
-/** Response shapes: {"data": ...} for one item, {"data": [...], "meta": {...}} for lists, 204 for deletes. */
+/**
+ * Response shapes: {"data": ...} for one item, {"data": [...], "meta": {...}} for lists, 204 for deletes.
+ *
+ * Security: these only shape data. The resource must already have limited it to what the key may read (scope and
+ * clients); nothing here filters.
+ */
 final class Out
 {
+    /** [status, {"data": $data}] for a handler to return. */
     public static function one(array $data, int $status = 200): array
     {
         return [$status, ['data' => $data]];
     }
 
+    /** [200, {"data": [...], "meta": {page, per_page, total, has_more}}]. $total is the count before paging. */
     public static function list(array $rows, int $total, int $page, int $per, array $extraMeta = []): array
     {
         return [200, ['data' => array_values($rows), 'meta' => ['page' => $page, 'per_page' => $per, 'total' => $total,
             'has_more' => $page * $per < $total] + $extraMeta]];
     }
 
-    /** Paginates an array already filtered in PHP. */
+    /** Paginates an array already filtered in PHP (including by the key's clients) using ?page and ?per_page. */
     public static function slice(array $rows): array
     {
         [$page, $per, $off] = Input::page();
         return self::list(array_slice($rows, $off, $per), count($rows), $page, $per);
     }
 
+    /** [204, null]: no body. */
     public static function none(): array
     {
         return [204, null];
     }
 
-    /** ISO 8601 with the server's offset, or null. */
+    /** ISO 8601 with the server's offset, or null (also for a value that isn't a date, instead of a TypeError). */
     public static function ts(?string $dt): ?string
     {
-        return $dt ? date('c', strtotime($dt)) : null;
+        $t = $dt ? strtotime($dt) : false;
+        return $t !== false ? date('c', $t) : null;
     }
 
+    /** A money or decimal value rounded to 2 places, or null. */
     public static function num(mixed $v): ?float
     {
         return $v === null || $v === '' ? null : round((float) $v, 2);
     }
 
+    /** An integer, or null for null or ''. */
     public static function int(mixed $v): ?int
     {
         return $v === null || $v === '' ? null : (int) $v;
@@ -76,7 +87,7 @@ final class Out
         };
     }
 
-    /** Link into the web app for a person to open. */
+    /** Link into the web app for a person to open: the configured base_url, never the request's Host header. */
     public static function url(string $path): string
     {
         return rtrim((string) \Align\Config::get('base_url', ''), '/') . $path;

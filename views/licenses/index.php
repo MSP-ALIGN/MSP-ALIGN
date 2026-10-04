@@ -1,4 +1,8 @@
 <?php
+/**
+ * Licensing across clients. @var array $licenses, $totals, $byClient, $clients; int $matched, $limit, $clientId; string $q, $filter, $category, $back
+ * Query values only go into escaped, URL-encoded links; names are escaped.
+ */
 use Align\Licensing\Licenses;
 
 $t = $totals;

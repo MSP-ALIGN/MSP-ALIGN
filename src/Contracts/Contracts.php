@@ -21,6 +21,14 @@ use Align\Settings;
  * vals (JSON): f (field values), svc (service rows: qty, price, on), extra (added lines), sec (optional sections on/off),
  * and once sent, print (the client's and your company's details as they were sent, so later changes to the client or
  * Settings never change what was signed).
+ *
+ * Security assumptions: staff methods (create, applyPrepare, send, remind, providerSign, void, storeUpload,
+ * createClient) trust their caller (ContractController / ContractTemplateController) to have checked the role
+ * (tech or admin) and loaded the contract. The signer's methods (byToken, sendCode, checkCode, signature, clientSign,
+ * decline) are reached from the public signing page and treat everything from the request as untrusted. Every
+ * status change is one conditional UPDATE from the status (and, for the signer, the link) it was checked in, so
+ * parallel requests can't both win. Text is stored as typed and escaped where it's shown (Render, the views, the
+ * email builders, PdfRender).
  */
 final class Contracts
 {
@@ -49,11 +57,13 @@ final class Contracts
     /** Days the signer can still download their signed copy from the link. */
     public const DOWNLOAD_DAYS = 30;
 
+    /** The contract's number as people see it: C-0042. */
     public static function number(array $c): string
     {
         return 'C-' . str_pad((string) (int) $c['id'], 4, '0', STR_PAD_LEFT);
     }
 
+    /** [label, Bootstrap colour] for the contract's status badge (the label is plain text; views escape it). */
     public static function status(array $c): array
     {
         if ($c['source'] === 'uploaded') {
@@ -65,6 +75,11 @@ final class Contracts
         return self::STATUSES[$c['status']] ?? ['Unknown', 'secondary'];
     }
 
+    /**
+     * One contract with its client, template and staff names, def/vals/signatures decoded; or null. No access check:
+     * the caller has checked the role (staff) or found the id by a signing link (byToken). The row includes the
+     * token and code hashes, so it must never be passed whole to a view or an API response.
+     */
     public static function load(int $id): ?array
     {
         $c = DB::one('SELECT k.*, cl.name AS client_name, cl.is_archived AS client_archived, t.name AS template_name, t.version AS template_current_version,
@@ -75,6 +90,10 @@ final class Contracts
         return $c ? self::decode($c) : null;
     }
 
+    /**
+     * Decodes the JSON columns. The def goes through Template::normalize again (it was saved normalized, so this
+     * only guards against a row changed outside Align); vals always has its four lists.
+     */
     private static function decode(array $c): array
     {
         $c['def'] = $c['def'] ? Template::normalize(json_decode((string) $c['def'], true) ?: []) : null;
@@ -91,7 +110,7 @@ final class Contracts
         return (string) ($c['vals']['print']['client_name'] ?? '') ?: (string) ($c['client_name'] ?? '') ?: (string) ($c['lead_company'] ?? '') ?: 'New client';
     }
 
-    /** A real calendar date (YYYY-MM-DD, years 1900-2199), or null. */
+    /** A real calendar date (YYYY-MM-DD, years 1900-2199), or null. Anything else (relative words included) is null. */
     public static function date(mixed $v): ?string
     {
         $v = is_string($v) ? trim($v) : '';
@@ -114,16 +133,23 @@ final class Contracts
         return mb_substr(preg_replace('/[^\p{L}\p{N}.\- ]/u', '', trim($v)) ?? '', 0, 6);
     }
 
+    /** The contract's client row as it is now (null for a lead). Printed details use vals.print once sent. */
     public static function client(array $c): ?array
     {
         return $c['client_id'] ? DB::one('SELECT * FROM clients WHERE id = ?', [$c['client_id']]) : null;
     }
 
+    /** Where contract PDFs (signed copies, uploads, template sources) are kept, inside the upload folder. */
     public static function dir(): string
     {
         return \Align\Branding::uploadDir() . '/contracts';
     }
 
+    /**
+     * The path of the contract's stored PDF, or null. The file name must match the pattern storePdf() makes, so a
+     * value in the row ("pending:..." while a PDF is being made, or anything changed outside Align) can never point
+     * outside the folder.
+     */
     public static function pdfPath(array $c): ?string
     {
         if (!$c['pdf_file'] || !preg_match('/^contract-[a-f0-9]{16}\.pdf$/', (string) $c['pdf_file'])) {
@@ -133,6 +159,7 @@ final class Contracts
         return is_file($p) ? $p : null;
     }
 
+    /** Saves PDF bytes under a new random name (never one from a request) and returns the name. Throws if it can't. */
     private static function storePdf(string $bytes): string
     {
         if (!is_dir(self::dir())) {
@@ -147,7 +174,10 @@ final class Contracts
 
     // ---- Quantities Align can count ---------------------------------------------------------------------------
 
-    /** Counts for Template::AUTO for an existing client. */
+    /**
+     * Counts for Template::AUTO for an existing client (staff only; the caller checked the client exists). A failing
+     * source counts 0 and is logged, so a broken integration never stops a contract being made.
+     */
     public static function autoCounts(int $clientId): array
     {
         $n = array_fill_keys(array_keys(Template::AUTO), 0);
@@ -209,7 +239,11 @@ final class Contracts
         return $vals;
     }
 
-    /** A new draft from a template, for a client (counts and contact filled in) or a lead. Returns its id. */
+    /**
+     * A new draft from a template, for a client (counts and contact filled in) or a lead. Returns its id. The draft
+     * keeps its own copy of the template's def, so later template changes never reach it. Staff only (the caller
+     * checked the role and that the template and client exist).
+     */
     public static function create(array $template, ?array $client, string $leadCompany = ''): int
     {
         $def = $template['def'];
@@ -234,14 +268,18 @@ final class Contracts
         return $id;
     }
 
-    /** Cleans one field value for its type. */
+    /**
+     * Cleans one field value for its type: '' when it isn't one (a date that isn't a real date, a choice not
+     * offered, an amount out of range). Lengths are capped. Used for staff values, the signer's values and template
+     * defaults alike; the result is plain text, escaped where it's shown.
+     */
     public static function cleanValue(array $f, mixed $v): string
     {
         $v = is_scalar($v) ? trim((string) $v) : '';
         return match ($f['type']) {
             'longtext' => mb_substr(str_replace("\r", '', $v), 0, 4000),
             'number', 'money' => ($n = self::amount($v)) !== null ? (string) $n : '',
-            'date' => self::date($v) ?? '',
+            'date' => self::fixedDate($v) ?? '', // a fixed date in any common form, stored as Y-m-d
             'email' => filter_var($v, FILTER_VALIDATE_EMAIL) ? mb_substr($v, 0, 190) : '',
             'choice' => in_array($v, $f['options'], true) ? $v : '',
             'checkbox' => $v !== '' && $v !== '0' ? '1' : '',
@@ -250,7 +288,11 @@ final class Contracts
         };
     }
 
-    /** Applies the staff "prepare" form to a draft's values (doesn't save). */
+    /**
+     * Applies the staff "prepare" form to a draft's values (doesn't save). Only your fields, the def's own service
+     * rows and sections are taken; numbers are clamped, added lines capped at 30. The caller saves it only while the
+     * contract is a draft.
+     */
     public static function applyPrepare(array $c, array $in): array
     {
         $def = $c['def'];
@@ -319,7 +361,10 @@ final class Contracts
         return ['lines' => $lines, 'sum' => $sum];
     }
 
-    /** Display values for every placeholder (built-in and custom), as plain text. */
+    /**
+     * Display values for every placeholder (built-in and custom), as plain text (callers escape them). Once sent, the
+     * client's and your company's details come from vals.print, so they read as they were sent.
+     */
     public static function values(array $c): array
     {
         $def = $c['def'];
@@ -356,12 +401,29 @@ final class Contracts
             $out[$f['key']] = match ($f['type']) {
                 'money' => $v !== '' ? Fmt::money($v, true) : '',
                 'number' => $v !== '' ? Fmt::number($v, fmod((float) $v, 1.0) ? 2 : 0) : '',
-                'date' => $date($v ?: null),
+                // only a fixed date: a value strtotime() reads relative to today ("+1 month", "next friday") would print
+                // a different date each time the contract is shown, after it was sent and signed (2.2.1)
+                'date' => $date(self::fixedDate($v)),
                 'checkbox' => $v === '1' ? 'Yes' : ($c['client_signed_at'] || $f['by'] === 'provider' ? 'No' : ''),
                 default => $v,
             };
         }
         return $out;
+    }
+
+    /**
+     * A field's date as Y-m-d, or null. Y-m-d is taken as it is; any other text (a default typed as "01/15/2027" in
+     * 2.2.0) counts only when strtotime() reads it as the same day whatever "today" is, so a relative value never
+     * prints (it would change after the contract was sent and signed).
+     */
+    private static function fixedDate(string $v): ?string
+    {
+        if (($d = self::date($v)) !== null || trim($v) === '') {
+            return $d;
+        }
+        $a = strtotime($v, 86400 * 365 * 30);
+        $b = strtotime($v, 86400 * 365 * 40);
+        return $a !== false && $a === $b ? self::date(date('Y-m-d', $a)) : null;
     }
 
     /** An address on one line, for the middle of a sentence ("100 Main St, Suite 1, Springfield"). */
@@ -397,7 +459,7 @@ final class Contracts
         return array_values(array_filter($def['fields'], fn($f) => in_array($f['key'], $used, true) && ($by === null || $f['by'] === $by)));
     }
 
-    /** What still has to be filled in before sending: list of messages. */
+    /** What still has to be filled in before sending: list of messages (plain text; labels are the template's). */
     public static function readyProblems(array $c): array
     {
         $p = [];
@@ -423,6 +485,11 @@ final class Contracts
 
     // ---- Events (the signing trail) ---------------------------------------------------------------------------
 
+    /**
+     * Adds a line to the contract's signing trail (who, when, IP, browser), which the certificate prints. On the
+     * signing page (portal) the actor is the name passed in, never the staff session; values are capped to the
+     * columns. $detail is plain text. Inside a transaction it's rolled back with it.
+     */
     public static function event(int $contractId, string $event, string $detail = '', ?string $actor = null): void
     {
         $portal = defined('IS_PORTAL') && IS_PORTAL;
@@ -437,6 +504,7 @@ final class Contracts
         ]);
     }
 
+    /** The signing trail, oldest first (staff pages and the certificate). */
     public static function events(int $contractId): array
     {
         return DB::all('SELECT * FROM contract_events WHERE contract_id = ? ORDER BY id', [$contractId]);
@@ -453,22 +521,47 @@ final class Contracts
 
     // ---- Links and codes -------------------------------------------------------------------------------------
 
-    /** A new signing link (any earlier one stops working). Codes start over. */
-    public static function newToken(int $id, int $days): string
+    /** A random signing token: 256 bits, base64url without padding (43 characters, what byToken() accepts). */
+    private static function token(): string
     {
-        $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        DB::run('UPDATE contracts SET token_hash = ?, token_enc = ?, token_expires_at = ?, code_hash = NULL, code_attempts = 0, code_sent_count = 0 WHERE id = ?',
-            [hash('sha256', $token), \Align\Crypto::encrypt($token), date('Y-m-d H:i:s', strtotime("+$days days")), $id]);
-        return $token;
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
     }
 
-    /** The current signing link (for reminders: the same link again), or null. */
+    /**
+     * The columns that put a new signing link on a contract: [SQL "SET" part, its values]. Any earlier link stops
+     * working and the emailed codes start over. Only the hash (for lookups) and the app-key encrypted token (for
+     * reminders) are stored, never the token itself.
+     */
+    private static function tokenSet(string $token, int $days): array
+    {
+        return ['token_hash = ?, token_enc = ?, token_expires_at = ?, code_hash = NULL, code_attempts = 0, code_sent_count = 0',
+            [hash('sha256', $token), \Align\Crypto::encrypt($token), date('Y-m-d H:i:s', strtotime("+$days days"))]];
+    }
+
+    /**
+     * A new signing link for a contract that is still waiting for the client (any earlier one stops working; codes
+     * start over). Returns the token, or null when the contract isn't out for signature any more (signed, declined or
+     * cancelled a moment ago), so a signed contract never gets a fresh "please sign" link.
+     * Security: staff or the hourly job only; the caller emails the token to the signer and must not log it.
+     */
+    public static function newToken(int $id, int $days): ?string
+    {
+        $token = self::token();
+        [$set, $args] = self::tokenSet($token, $days);
+        return DB::run("UPDATE contracts SET $set WHERE id = ? AND status = 'sent'", [...$args, $id])->rowCount() ? $token : null;
+    }
+
+    /**
+     * The current signing link (for reminders: the same link again), or null when it can't be read back or no longer
+     * matches the stored hash. Staff/timer only; the result is a live secret for the signer's email.
+     */
     public static function currentToken(array $c): ?string
     {
         $t = $c['token_enc'] ? \Align\Crypto::decrypt((string) $c['token_enc']) : null;
         return $t !== null && $c['token_hash'] && hash_equals((string) $c['token_hash'], hash('sha256', $t)) ? $t : null;
     }
 
+    /** The full signing URL, from the configured base_url (never the request's Host header). */
     public static function url(string $token): string
     {
         return \Align\Mail\Notifications::url('/portal/sign/' . $token);
@@ -476,7 +569,12 @@ final class Contracts
 
     /**
      * The contract for a signing link. A link works while the contract waits for the client; once signed it
-     * still opens (to download the copy) for DOWNLOAD_DAYS after it's complete. Expired links mark the contract expired.
+     * still opens (to download the copy) for DOWNLOAD_DAYS after the client signed, and again after it is complete.
+     * Expired links mark the contract expired.
+     * Security: $token is untrusted (from the URL). Only a well-formed token is looked up, by its SHA-256 (the token
+     * itself isn't stored, so a lookup by hash leaks nothing useful through timing). Drafts, cancelled and expired
+     * contracts never open; a cancelled or resent contract has no row with the old hash. The caller still has to
+     * ask for the emailed code before showing anything private.
      */
     public static function byToken(string $token): ?array
     {
@@ -494,13 +592,16 @@ final class Contracts
         }
         if (in_array($c['status'], ['client_signed', 'completed', 'declined'], true)) {
             $since = strtotime((string) ($c['status'] === 'declined' ? $c['declined_at'] : ($c['completed_at'] ?: $c['client_signed_at']))) ?: 0;
-            if ($c['status'] !== 'client_signed' && $since < time() - self::DOWNLOAD_DAYS * 86400) {
+            // The same window while waiting for your countersignature (2.2.1; it had no end): once you countersign,
+            // the window starts again from completion
+            if ($since < time() - self::DOWNLOAD_DAYS * 86400) {
                 return null;
             }
         }
         return $c;
     }
 
+    /** Marks a contract whose link has passed its date as expired (only from "sent"; recorded once). */
     private static function expire(array $c): void
     {
         if (DB::run("UPDATE contracts SET status = 'expired' WHERE id = ? AND status = 'sent'", [$c['id']])->rowCount()) {
@@ -508,7 +609,11 @@ final class Contracts
         }
     }
 
-    /** Emails a 6-digit code to the signer. Returns an error message or null. */
+    /**
+     * Emails a 6-digit code to the signer. Returns an error message or null. Security: reached from the public
+     * signing page; the address is the contract's signer, never one from the request. Only a hash of the code is
+     * kept; it lasts CODE_MINUTES and a new code replaces the old one (and its tries).
+     */
     public static function sendCode(array $c): ?string
     {
         $company = Settings::get('company_name') ?: 'us';
@@ -539,7 +644,12 @@ final class Contracts
         return null;
     }
 
-    /** Checks a code: CODE_ATTEMPTS tries per code, counted before checking so parallel guesses can't add more. */
+    /**
+     * Checks a code: CODE_ATTEMPTS tries per code, counted before checking so parallel guesses can't add more. A right
+     * code is used up (cleared with a conditional UPDATE, so two parallel requests with it pass once). $code is
+     * untrusted; password_verify compares in constant time. A new link clears the code, so a code only ever confirms
+     * the link it was sent for.
+     */
     public static function checkCode(array $c, string $code): bool
     {
         $code = preg_replace('/\D/', '', $code) ?? '';
@@ -557,6 +667,7 @@ final class Contracts
         return false;
     }
 
+    /** An address shown on the public code page without giving it away: j••••••@example.com. */
     public static function maskEmail(string $e): string
     {
         [$u, $d] = array_pad(explode('@', $e, 2), 2, '');
@@ -568,6 +679,10 @@ final class Contracts
     /**
      * A signature from the signing form: typed (a name) or drawn (a PNG data URL from the pad, re-encoded here).
      * Returns ['kind','name','text'|'png'] or an error string.
+     * Security: every argument is untrusted (the signer's or a staff member's form). A drawn one must be a PNG (by
+     * its bytes, not its claim) of at most 2000 x 1000 pixels, checked before it's decoded so a small file can't
+     * claim a huge image; it's decoded by GD and saved again, so nothing from the upload (text chunks, other data)
+     * survives. Names and typed signatures are single-line text, capped at 120 characters.
      */
     public static function signature(string $kind, string $typed, string $dataUrl, string $name): array|string
     {
@@ -589,7 +704,8 @@ final class Contracts
                 return 'Please draw your signature in the box.';
             }
             // Ink check: an empty box isn't a signature (a palette image is read as true colour first, so imagecolorat
-            // gives the alpha rather than a palette index)
+            // gives the alpha rather than a palette index). Ink is mostly opaque AND dark enough to see on white
+            // paper: an all-white (or near-white) picture is as blank as a transparent one (2.2.1).
             if (!imageistruecolor($img)) {
                 imagepalettetotruecolor($img);
             }
@@ -598,8 +714,9 @@ final class Contracts
             $ink = 0;
             for ($y = 0; $y < $h; $y += 3) {
                 for ($x = 0; $x < $w; $x += 3) {
-                    $a = (imagecolorat($img, $x, $y) >> 24) & 0x7F;
-                    $ink += $a < 100 ? 1 : 0;
+                    $px = imagecolorat($img, $x, $y);
+                    $light = ((($px >> 16) & 0xFF) * 299 + (($px >> 8) & 0xFF) * 587 + ($px & 0xFF) * 114) / 1000;
+                    $ink += (($px >> 24) & 0x7F) < 100 && $light < 200 ? 1 : 0;
                 }
             }
             if ($ink < 25) {
@@ -621,12 +738,16 @@ final class Contracts
 
     // ---- Sending ---------------------------------------------------------------------------------------------
 
+    /**
+     * Fills {{key}} placeholders in plain text (subject, message, header, footer) with values(); unknown keys become
+     * ''. The result is plain text: callers escape it for HTML.
+     */
     public static function fillText(string $s, array $vals): string
     {
         return preg_replace_callback('/\{\{\s*([a-z][a-z0-9_]{0,39})\s*\}\}/', fn($m) => $vals[$m[1]] ?? '', $s) ?? $s;
     }
 
-    /** Signing email: the message, a button and the link. */
+    /** Signing email: the message, a button and the link. $message is plain text (escaped paragraph by paragraph). */
     public static function emailHtml(array $c, string $message, string $url, string $heading, string $button = 'Review and sign'): string
     {
         $paras = array_map(fn($p) => MailTemplate::p(trim($p)), array_filter(preg_split('/\n\s*\n/', str_replace("\r", '', $message)) ?: [], fn($p) => trim($p) !== ''));
@@ -641,6 +762,8 @@ final class Contracts
      * Sends a draft (or sends again): a new link, emailed to the signer, or only made when $linkOnly. Returns
      * ['url' => the link, 'mail' => the queued email's id or null], or null when the contract changed meanwhile
      * (signed, cancelled, or sent by someone else a moment ago).
+     * Security: staff only (the caller checked the role, readyProblems and, for "sign first", the staff signature).
+     * The link goes only to the contract's signer; the returned URL is shown once to the sender and never logged.
      */
     public static function send(array $c, string $subject, string $message, bool $linkOnly, bool $ccMe): ?array
     {
@@ -650,13 +773,16 @@ final class Contracts
             return null;
         }
         // From this status only, so a double click or a signature at the same moment can't send it twice or reopen it
-        // (and with the link it was loaded with, so two resends at once make one new link)
-        $moved = DB::run("UPDATE contracts SET status = 'sent', sent_at = COALESCE(sent_at, NOW()), sent_by = COALESCE(sent_by, ?), reminder_count = 0, last_reminder_at = NOW(), vals = ?
-            WHERE id = ? AND status = ? AND token_hash <=> ?", [$u['id'], json_encode(self::freeze($c), JSON_UNESCAPED_UNICODE), $c['id'], $from, $c['token_hash'] ?? null])->rowCount();
+        // (and with the link it was loaded with, so two resends at once make one new link). The new link goes on in
+        // the same UPDATE: done separately, a client signing with the old link in between would have their signed
+        // contract's link replaced and be emailed "please sign" for it (2.2.1).
+        $token = self::token();
+        [$set, $args] = self::tokenSet($token, (int) $c['def']['signing']['link_days']);
+        $moved = DB::run("UPDATE contracts SET status = 'sent', sent_at = COALESCE(sent_at, NOW()), sent_by = COALESCE(sent_by, ?), reminder_count = 0, last_reminder_at = NOW(), vals = ?, $set
+            WHERE id = ? AND status = ? AND token_hash <=> ?", [$u['id'], json_encode(self::freeze($c), JSON_UNESCAPED_UNICODE), ...$args, $c['id'], $from, $c['token_hash'] ?? null])->rowCount();
         if (!$moved) {
             return null;
         }
-        $token = self::newToken((int) $c['id'], (int) $c['def']['signing']['link_days']);
         $url = self::url($token);
         if ($linkOnly && $c['verify_code'] && !Mail::ready()) {
             // No email to send the code with: the link alone is used, and the history says so
@@ -681,9 +807,16 @@ final class Contracts
         return ['url' => $url, 'mail' => $mailId];
     }
 
-    /** The values with the client's and your company's details as they are now, kept as what was sent. */
+    /**
+     * The values with the client's and your company's details as they are now, kept as what was sent.
+     * Sent again after you signed first (2.2.1), the details frozen at the first send stay: your signature
+     * stands under those.
+     */
     private static function freeze(array $c): array
     {
+        if (!empty($c['provider_signed_at']) && is_array($c['vals']['print'] ?? null)) {
+            return $c['vals'];
+        }
         $vals = $c['vals'];
         unset($vals['print']);
         $now = self::values(['vals' => $vals] + $c);
@@ -703,6 +836,9 @@ final class Contracts
             return false;
         }
         $token = self::currentToken($c) ?? self::newToken((int) $c['id'], max(3, (int) ceil((strtotime((string) $c['token_expires_at']) - time()) / 86400)));
+        if ($token === null) {
+            return false; // signed, declined or cancelled since it was loaded
+        }
         $company = Settings::get('company_name') ?: 'us';
         $first = explode(' ', trim((string) $c['signer_name']))[0] ?: 'there';
         Mailer::queue('contract_sign', [['address' => $c['signer_email'], 'name' => $c['signer_name']]], 'Reminder: please sign ' . $c['title'],
@@ -762,6 +898,11 @@ final class Contracts
     /**
      * The client signs: fields they fill in, their signature, the consent. Returns an error message or null.
      * Afterwards the contract waits for the countersignature, or is completed.
+     * Security: $in, $sig and $title come from the public signing page (untrusted); the caller checked the code and
+     * the consent. Only the client's own fields that the contract prints are written, each cleaned for its type;
+     * your values, services, sections and vals.print are kept as sent. $in['_initials'], $in['_initialed'] and
+     * $in['_code_verified'] (this session entered the emailed code for this link) are set by the caller (not from f[]). The status moves only from "sent", with the link this request used, while
+     * it's live, so a second submit, a decline, a cancel or a new link at the same moment wins at most once.
      */
     public static function clientSign(array $c, array $in, array|string $sig, string $title): ?string
     {
@@ -795,7 +936,7 @@ final class Contracts
         }
         $initials = self::cleanInitials((string) ($in['_initials'] ?? '')) ?: initials($sig['name']);
         $sig += ['initials' => $initials, 'title' => mb_substr(trim($title), 0, 190), 'at' => date('Y-m-d H:i:s'), 'ip' => client_ip(),
-            'agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), 'consent' => true];
+            'agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), 'consent' => true, 'code_verified' => !empty($in['_code_verified'])];
         $next = $c['def']['signing']['countersign'] === 'after' && !$c['provider_signed_at'] ? 'client_signed' : 'completed';
         // Only through the link it was opened with, while that link is live (not one replaced or expired a moment ago)
         $done = DB::run("UPDATE contracts SET status = ?, vals = ?, client_signature = ?, client_signed_at = NOW(), signer_name = ?, signer_title = ?
@@ -819,7 +960,10 @@ final class Contracts
         return null;
     }
 
-    /** The client declines. Returns false when there was nothing to decline (signed, cancelled or replaced meanwhile). */
+    /**
+     * The client declines. Returns false when there was nothing to decline (signed, cancelled or replaced meanwhile).
+     * $reason is untrusted plain text (capped at 1000); the caller checked the code.
+     */
     public static function decline(array $c, string $reason): bool
     {
         $reason = mb_substr(trim($reason), 0, 1000);
@@ -836,6 +980,7 @@ final class Contracts
     /**
      * Staff signature: before sending ('before', on a draft) or after the client ('after'). Only from the status it was
      * loaded in, so a double click or a cancel at the same moment can't sign twice or complete a cancelled contract.
+     * Security: the caller checked the role (tech or admin) and the consent; $sig comes from signature().
      */
     public static function providerSign(array $c, array $sig, string $title): bool
     {
@@ -865,7 +1010,7 @@ final class Contracts
         return true;
     }
 
-    /** A staff member's profile picture as a small JPEG (base64), or null. */
+    /** A staff member's profile picture as a small JPEG (base64), or null. Re-drawn by GD, so only pixels are kept. */
     public static function photo(array $u): ?string
     {
         $p = \Align\Images::path('avatars', $u['avatar_file'] ?? null);
@@ -898,7 +1043,10 @@ final class Contracts
         return in_array('start_date', Template::usedKeys(['blocks' => self::blocks($c['def'], $c['vals'])] + $c['def']), true);
     }
 
-    /** The contract's start for Starts and renewals: the start date, else a date field like "Effective date". */
+    /**
+     * The contract's start for Starts and renewals (contracts.starts_on, set once when it completes): the start date,
+     * else a date field like "Effective date" (yours or the client's: either way it's what was signed).
+     */
     public static function startDate(array $c): ?string
     {
         if ($start = self::start($c)) {
@@ -913,7 +1061,11 @@ final class Contracts
         return null;
     }
 
-    /** Fingerprint of what was signed: the contract's content, the values as printed, and both signatures. */
+    /**
+     * Fingerprint of what was signed: the contract's content, the values as printed, and both signatures (with their
+     * times, IPs, browsers and consent). A PDF contract's def includes its source PDF's SHA-256, so the pages are
+     * covered too. Computed once, when the contract completes, and kept in content_hash.
+     */
     public static function contentHash(array $c): string
     {
         $canon = [
@@ -980,7 +1132,10 @@ final class Contracts
         return true;
     }
 
-    /** Emails the person who sent the contract (or who made it) about the client's action. */
+    /**
+     * Emails the person who sent the contract (or who made it) about the client's action. $what is plain text that
+     * may hold the signer's words (a decline reason): MailTemplate escapes it. Deduplicated per action.
+     */
     private static function notifyStaff(?array $c, string $kind, string $what, string $button, bool $attach = false): void
     {
         if (!$c || !Mail::ready()) {
@@ -1006,13 +1161,18 @@ final class Contracts
             ['attachments' => $att, 'client_id' => $c['client_id'], 'dedupe' => "contract-$kind-" . $c['id'] . '-' . ($c['client_signed_at'] ?? $c['declined_at'] ?? '')]);
     }
 
+    /** A download name for the signed PDF: party, title and number, with only safe characters (no path or quotes). */
     public static function fileName(array $c): string
     {
         $base = preg_replace('/[^\w .()-]+/u', '', self::party($c) . ' - ' . $c['title']) ?: 'Contract';
         return mb_substr(trim($base), 0, 150) . ' (' . self::number($c) . ').pdf';
     }
 
-    /** Cancels a contract that's out for signature. Returns false when it couldn't be (signed or cancelled meanwhile). */
+    /**
+     * Cancels a contract that's out for signature (or waiting for your countersignature, expired or declined).
+     * Returns false when it couldn't be (completed or cancelled meanwhile). The link's hash and encrypted copy are
+     * removed in the same UPDATE, so the link stops working at once. Staff only.
+     */
     public static function void(array $c, string $reason): bool
     {
         if (!DB::run("UPDATE contracts SET status = 'void', voided_at = NOW(), void_reason = ?, token_hash = NULL, token_enc = NULL WHERE id = ? AND status IN ('sent','client_signed','expired','declined')",
@@ -1026,7 +1186,11 @@ final class Contracts
 
     // ---- Uploaded (signed elsewhere) ------------------------------------------------------------------------
 
-    /** Stores an uploaded signed PDF. Returns the file name or throws. */
+    /**
+     * Stores an uploaded signed PDF: ['file' => stored name, 'name' => cleaned original name, 'hash' => SHA-256].
+     * Throws InvalidArgumentException with a message for the person. Staff only; the upload must be a real PHP upload,
+     * at most MAX_UPLOAD, starting as a PDF, and is stored under a random name (served sandboxed, never parsed here).
+     */
     public static function storeUpload(array $file): array
     {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
@@ -1049,6 +1213,8 @@ final class Contracts
     /**
      * Makes a lead's contract a client's: a new client (with the signer as its main contact), or the active client that
      * already has that exact name. Returns [client id, true if it already existed]. A second click finds it done.
+     * Security: staff only; the caller checked the role and that the contract is signed and has no client. Must not
+     * be called inside a transaction: the named lock is released when this returns, which must be after the commit.
      */
     public static function createClient(array $c): array
     {
@@ -1065,6 +1231,12 @@ final class Contracts
         }
     }
 
+    /**
+     * createClient()'s work, under its lock: the contract row is locked (FOR UPDATE) and read again, so the details
+     * used are the stored ones and a contract linked meanwhile is left as it is. The trail line is rolled back with
+     * the transaction; Audit::log inside it is written after the commit (and dropped on a rollback), so the audit log
+     * never records a client that wasn't made.
+     */
     private static function createClientLocked(array $c): array
     {
         return DB::transaction(function () use ($c) {
@@ -1095,7 +1267,7 @@ final class Contracts
         });
     }
 
-    /** Contracts for a client's pages. */
+    /** Contracts for a client's pages (not cancelled ones), newest signed first. Staff only; no secrets selected. */
     public static function forClient(int $clientId): array
     {
         return array_map(fn($r) => $r + ['number' => self::number($r)], DB::all("SELECT id, source, status, title, sent_at, viewed_at, completed_at, signed_on, ends_on, pdf_file, signer_name, created_at

@@ -1,4 +1,11 @@
-<!doctype html>
+<?php
+/**
+ * The sign-in layout (staff and portal sign-in, 2FA, password set-up): logo, flash messages and $content.
+ * Vars: $title, $content. Security: the app name, title and messages are escaped; flash types are fixed words from
+ * code. The background URL is built by Branding from fixed parts (kind, hex, version) and the dim is an integer,
+ * so neither can break out of the CSS (e() would not be enough inside <style>). No user data is shown here.
+ */
+?><!doctype html>
 <html lang="en" data-bs-theme="light" data-theme-pref="<?= defined('IS_PORTAL') && IS_PORTAL ? 'light' : 'auto' ?>">
 <head>
 <meta charset="utf-8">

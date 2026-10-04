@@ -4,6 +4,7 @@
  * default; Type, Backup, Serial, Warranty and Est. cost are in the Columns menu (views/devices/_columns.php).
  * @var array $devices  the rows to draw (already filtered and cut to the page)
  * @var bool $showClient; bool $canBulk (select for bulk replacement); bool $bkOn (backup column); array $backupMap
+ * Names, serials, users, models and OS names come from the RMM or PSA and are escaped; classes come from fixed lists.
  */
 use Align\Lifecycle\Lifecycle;
 

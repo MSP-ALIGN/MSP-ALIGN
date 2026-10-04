@@ -8,6 +8,7 @@ on:
     paths: [README.md, CONTRIBUTING.md, VERSION, 'docs/**', 'tools/docs/**', 'src/Api/**', src/helpers.php, public/assets/icon.svg, .github/workflows/docs.yml]
   workflow_dispatch:
 
+# Read-only for the build; only the deploy job can write to Pages (and only on pushes to main)
 permissions:
   contents: read
 
@@ -24,6 +25,8 @@ jobs:
       - name: Tools
         run: apt-get update -qq && apt-get install -y -qq --no-install-recommends python3-markdown php-cli ca-certificates tar zstd >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build
         run: python3 tools/docs/build.py _site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

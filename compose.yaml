@@ -3,12 +3,18 @@
 #   2. docker compose up -d        (or, with automatic HTTPS:  docker compose -f compose.yaml -f compose.caddy.yaml up -d)
 #   3. docker compose logs app     shows the first admin's temporary password
 # Update: download a backup in Settings -> Updates & backups, then  docker compose pull && docker compose up -d
+#
+# Security: the database has no port on the host (only the app reaches it, on the align network); the app's plain
+# HTTP port is on 127.0.0.1 unless ALIGN_BIND says otherwise. Secrets come from .env (keep it 600) or *_FILE
+# variables (Docker secrets); the app copies them into config.php and drops them from its processes' environment.
+# no-new-privileges: a program started inside a container can't gain rights through a setuid file (2.2.1).
 name: msp-align
 
 services:
   db:
     image: mariadb:11.8
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     environment:
       MARIADB_DATABASE: ${ALIGN_DB_NAME:-msp_align}
       MARIADB_USER: ${ALIGN_DB_USER:-msp_align}
@@ -58,6 +64,9 @@ services:
     build: .
     restart: unless-stopped
     stop_grace_period: 2m   # lets a backup or restore that's running finish
+    # The entrypoint starts as root (folders, config, the backup agent) and runs Apache and the app's jobs as
+    # www-data; with no-new-privileges www-data can't become root again through a setuid program in the image
+    security_opt: [no-new-privileges:true]
     depends_on:
       db:
         condition: service_healthy

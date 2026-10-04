@@ -8,6 +8,16 @@ use Align\Auth;
 use Align\DB;
 use Align\View;
 
+/**
+ * Admin → People → Staff: staff accounts, roles, disabling, one-time passwords and 2FA resets.
+ *
+ * Security assumptions: admins only (every action starts with requireRole('admin')); the Router has checked CSRF.
+ * Changes are serialized with a database lock so the last active admin can never be demoted or disabled, even by two
+ * admins at once. Anything that changes how someone signs in (role, disable, password, 2FA) is audited, raises a
+ * security alert and, except a role change, ends that person's sessions (and with them their remembered browsers).
+ * A role change applies on the person's next request (Auth::user() reloads the row); API keys created by someone who
+ * is disabled or no longer an admin stop working (Api\Keys).
+ */
 final class UserController
 {
     public const ROLES = [
@@ -16,26 +26,35 @@ final class UserController
         'viewer' => 'Viewer — read-only',
     ];
 
+    /** The staff list. A one-time password made by create() or a reset is shown once, then dropped from the session. */
     public static function index(): void
     {
         Auth::requireRole('admin');
         View::render('users/index', [
             'title' => 'Users',
             'nav' => 'users',
-            'users' => DB::all('SELECT * FROM users ORDER BY is_active DESC, name'),
+            // Only what the list shows: password hashes and 2FA secrets never reach the template
+            'users' => DB::all('SELECT id, name, email, role, is_active, totp_enabled, last_login_at, avatar_file FROM users ORDER BY is_active DESC, name'),
             'roles' => self::ROLES,
             'newPassword' => $_SESSION['new_password'] ?? null,
         ]);
         unset($_SESSION['new_password']);
     }
 
+    /**
+     * Adds a staff account with a one-time password (shown once; it must be changed, and 2FA set up, at the first
+     * sign-in). Name, email and role are untrusted form input: the role must be one of ROLES, and the name and
+     * email must fit their 190-character columns with no control characters (2.2.1: longer ones were a server
+     * error). Goes back to the setup wizard when it posted from there.
+     */
     public static function create(): void
     {
         Auth::requireRole('admin');
         $email = strtolower(post('email'));
         $name = post('name');
         $role = post('role');
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $name === '' || !isset(self::ROLES[$role])) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $name === '' || !isset(self::ROLES[$role])
+            || mb_strlen($email) > 190 || mb_strlen($name) > 190 || preg_match('/[\x00-\x1F\x7F]/', $name)) {
             flash('error', 'Enter a name, a valid email, and a role.');
             redirect(setup_return('/users'));
         }
@@ -44,19 +63,35 @@ final class UserController
             redirect(setup_return('/users'));
         }
         $password = self::randomPassword();
-        DB::insert('users', [
-            'email' => $email,
-            'name' => $name,
-            'role' => $role,
-            'password_hash' => \Align\Security::hashPassword($password),
-            'must_change_password' => 1,
-        ]);
+        try {
+            DB::insert('users', [
+                'email' => $email,
+                'name' => $name,
+                'role' => $role,
+                'password_hash' => \Align\Security::hashPassword($password),
+                'must_change_password' => 1,
+            ]);
+        } catch (\PDOException $e) {
+            // Two admins adding the same email at once: the unique key refuses the second
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+            flash('error', 'A user with that email already exists.');
+            redirect(setup_return('/users'));
+        }
         Audit::log('user.create', "$email ($role)");
         \Align\Mail\Notify::security('Staff account created', "$email ($role) by " . (Auth::user()['email'] ?? ''));
         $_SESSION['new_password'] = ['email' => $email, 'password' => $password];
         redirect(setup_return('/users'));
     }
 
+    /**
+     * One change to staff account $id (from the URL; an unknown id does nothing). Actions: role, toggle (disable or
+     * enable), reset (one-time password) and reset_2fa (2FA removed plus a one-time password). Refused: demoting or
+     * disabling the last active admin, disabling yourself, and resetting your own password or 2FA here (that would
+     * end your session before the password is shown; the Account page does it with a re-check). Demoting yourself
+     * is allowed while another admin remains (the page asks first).
+     */
     public static function update(int $id): void
     {
         $me = Auth::requireRole('admin');
@@ -127,13 +162,20 @@ final class UserController
         redirect('/users');
     }
 
-    /** Serves a user's profile picture (signed-in users only). */
+    /**
+     * Serves a user's profile picture (any signed-in staff user: pictures are shown next to names everywhere). The
+     * file name comes from the database, never the request; Images::serve() checks it and sends it with a sandbox CSP.
+     */
     public static function avatar(int $id): void
     {
         Auth::require();
         \Align\Images::serve('avatars', DB::value('SELECT avatar_file FROM users WHERE id = ?', [$id]) ?: null);
     }
 
+    /**
+     * A one-time password: 20 characters from a 57-character alphabet without look-alikes (about 116 bits, from
+     * random_int), in groups of five. Also used by `align user:create` and `align user:reset-password`.
+     */
     public static function randomPassword(): string
     {
         $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';

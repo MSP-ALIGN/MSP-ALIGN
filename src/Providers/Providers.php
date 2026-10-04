@@ -18,10 +18,15 @@ use Align\Settings;
  * clients): the one named in the psa_provider setting, or else the only PSA connector set up. It can
  * have any number of RMMs; each device records the RMM it came from (devices.rmm_provider). It can
  * also have any number of backup products; every stored backup record notes its provider.
+ *
+ * SECURITY: psa() is the only way to get a PSA provider. On a test server it always returns the provider
+ * wrapped in StagingPsa, so nothing is ever written to the PSA there; psaSupports() also reports every
+ * writing capability as off there, so screens hide those actions. None of these methods check the user's
+ * role: callers do. Links built here point at the admin's saved PSA/RMM address and are null on any error.
  */
 final class Providers
 {
-    /** @return array<string, PsaConnector> */
+    /** Every PSA connector Align has, set up or not. @return array<string, PsaConnector> */
     public static function psaConnectors(): array
     {
         return array_filter(Registry::all(), fn($c) => $c instanceof PsaConnector);
@@ -49,7 +54,10 @@ final class Providers
         return (bool) self::psaConnector()?->configured();
     }
 
-    /** The PSA provider, ready to call. Throws when no PSA is set up. */
+    /**
+     * The PSA provider, ready to call. Throws when no PSA is set up. $interactive: a person is waiting (short
+     * timeouts). Callers that write must also check psaSupports() for the capability and the user's role.
+     */
     public static function psa(bool $interactive = false): PsaProvider
     {
         $c = self::psaConnector();
@@ -66,6 +74,7 @@ final class Providers
         return self::psaConnector()?->name() ?? 'PSA';
     }
 
+    /** The PSA connector's key ("itflow"), or null when there's none. */
     public static function psaKey(): ?string
     {
         return self::psaConnector()?->key();
@@ -78,10 +87,13 @@ final class Providers
         return $c && $c->configured() && in_array($capability, $c->capabilities(), true) && !\Align\Staging::blocks($capability);
     }
 
-    /** A link into the PSA's own screens, or null. $kind: client, asset (client id, asset id), ticket. Ids as stored (text). */
+    /**
+     * A link into the PSA's own screens, or null. $kind: client, asset (client id, asset id), ticket. Ids as stored (text).
+     * The provider checks the ids (a non-PSA id gives null). Escape the link where it's shown.
+     */
     public static function psaLink(string $kind, int|string|null ...$ids): ?string
     {
-        static $p = false;
+        static $p = false; // built once per request: a page can show hundreds of links
         try {
             if ($p === false) {
                 $p = self::psaConfigured() ? self::psa(true) : null;
@@ -113,7 +125,7 @@ final class Providers
 
     // ---- RMM ----
 
-    /** @return array<string, RmmConnector> */
+    /** Every RMM connector Align has, set up or not. @return array<string, RmmConnector> */
     public static function rmmConnectors(): array
     {
         return array_filter(Registry::all(), fn($c) => $c instanceof RmmConnector);
@@ -125,6 +137,7 @@ final class Providers
         return array_filter(self::rmmConnectors(), fn(RmmConnector $c) => $c->configured());
     }
 
+    /** Whether any RMM is set up. */
     public static function anyRmm(): bool
     {
         return (bool) self::rmmConfigured();
@@ -162,7 +175,7 @@ final class Providers
         return $n ? implode($join, $n) : 'your RMM';
     }
 
-    /** Link to a device in its RMM's console, or null. */
+    /** Link to a device in its RMM's console, or null (no credentials needed; built from the saved instance). */
     public static function rmmDeviceLink(?string $provider, ?string $deviceId): ?string
     {
         $c = $provider !== null && $deviceId !== null && $deviceId !== '' ? (self::rmmConnectors()[$provider] ?? null) : null;
@@ -178,7 +191,7 @@ final class Providers
 
     // ---- Backup ----
 
-    /** @return array<string, BackupConnector> */
+    /** Every backup connector Align has, set up or not. @return array<string, BackupConnector> */
     public static function backupConnectors(): array
     {
         return array_filter(Registry::all(), fn($c) => $c instanceof BackupConnector);
@@ -190,6 +203,7 @@ final class Providers
         return array_filter(self::backupConnectors(), fn(BackupConnector $c) => $c->configured());
     }
 
+    /** Whether any backup product is set up. */
     public static function anyBackup(): bool
     {
         return (bool) self::backupConfigured();

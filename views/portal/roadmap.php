@@ -1,7 +1,7 @@
 <?php
 use Align\Roadmap\Roadmap;
 
-/** @var array $pu, $plan, $items; bool $showCosts */
+/** @var array $pu, $plan, $items; bool $showCosts, $showDevices (device names only with the devices permission) */
 $pending = array_values(array_filter($items, fn($i) => $i['status'] === 'proposed'));
 $others = array_values(array_filter($items, fn($i) => $i['status'] !== 'proposed'));
 $qLabel = fn($it) => $it['target_quarter'] ? quarter_label($it['target_quarter']) : 'Not scheduled';
@@ -67,9 +67,11 @@ $qLabel = fn($it) => $it['target_quarter'] ? quarter_label($it['target_quarter']
               <details class="rm-item rm-auto border-primary">
                 <summary><i class="fas fa-fw fa-recycle text-primary me-1"></i><b>Replace <?= count($q['hardware']) ?> device<?= count($q['hardware']) > 1 ? 's' : '' ?></b><?= $showCosts ? '<span class="float-end">' . money($q['hw_cost']) . '</span>' : '' ?>
                   <div class="small text-muted ms-4"><?= e(implode(', ', array_map(fn($t, $ds) => count($ds) . ' ' . strtolower($t) . (count($ds) > 1 ? 's' : ''), array_keys($groups), $groups))) ?></div></summary>
+                <?php if (!empty($showDevices)): // device names need the devices permission (2.2.1) ?>
                 <ul class="list-unstyled small mb-0 mt-1 ms-4">
                   <?php foreach ($q['hardware'] as $d): ?><li><?= e($d['name']) ?> <span class="text-muted"><?= e($d['model'] ?? '') ?></span></li><?php endforeach; ?>
                 </ul>
+                <?php endif; ?>
               </details>
             <?php endif; ?>
             <?php foreach ($q['os'] as $g): ?>

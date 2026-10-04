@@ -247,7 +247,7 @@ os.chmod(WORK, 0o755); os.chmod(AT, 0o755); os.chmod(AT + "/data", 0o777)
 os.makedirs(AT + "/agent/safety"); open(AT + "/agent/safety/20260101-000000-abcdef.tar", "w").write("x"); os.utime(AT + "/agent/safety/20260101-000000-abcdef.tar", (time.time() - 20 * 86400,) * 2)
 open(AT + "/target/old-file", "w").write("keep"); os.utime(AT + "/target/old-file", (time.time() - 3 * 86400,) * 2); os.chmod(AT + "/target", 0o700)
 os.symlink(AT + "/target", AT + "/data/downloads"); os.symlink(AT + "/target", AT + "/data/restore")
-env = dict(ENV, ALIGN_APP_DIR=ROOT, ALIGN_DATA_DIR=AT + "/data", ALIGN_AGENT_DIR=AT + "/agent", ALIGN_RUN_DIR=AT + "/run", ALIGN_RUNAS="nobody", ALIGN_SYSTEMCTL="none",
+env = dict(ENV, PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", ALIGN_APP_DIR=ROOT, ALIGN_DATA_DIR=AT + "/data", ALIGN_AGENT_DIR=AT + "/agent", ALIGN_RUN_DIR=AT + "/run", ALIGN_RUNAS="nobody", ALIGN_SYSTEMCTL="none",
            ALIGN_RECIPIENT=AT + "/none.txt")
 r = subprocess.run(["php", ROOT + "/scripts/agent.php", "run"], env=env, capture_output=True, text=True, timeout=120)
 ok(r.returncode == 0 and "Error" not in r.stderr and not os.path.exists(AT + "/agent/safety/20260101-000000-abcdef.tar"), "the agent's clean-up runs (an old safety copy removed): " + r.stderr[-150:])

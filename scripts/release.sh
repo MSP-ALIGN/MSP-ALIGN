@@ -19,6 +19,8 @@ set -uo pipefail
 APP=$1 SIGNERS=$2 ARG=${3:-0}
 grep -qvE '^[[:space:]]*(#|$)' "$SIGNERS" 2>/dev/null || { echo "No release key in $SIGNERS" >&2; exit 2; }
 command -v ssh-keygen >/dev/null || { echo "ssh-keygen is missing (install openssh-client)" >&2; exit 4; }
+# git with signature checking pinned to SSH and to SIGNERS: OpenPGP and X.509 checks run "false", so only an SSH
+# signature by a key in SIGNERS can pass. Runs as root on the root-owned checkout.
 git_v() { git -C "$APP" -c gpg.ssh.program=ssh-keygen -c gpg.program=false -c gpg.x509.program=false -c gpg.ssh.allowedSignersFile="$SIGNERS" "$@"; }
 
 # A before B? (X.Y.Z; a pre-release X.Y.Z-anything comes before X.Y.Z, as PHP's version_compare says)
@@ -27,7 +29,8 @@ older() {
   if [[ "$a" == "$b" ]]; then [[ "$1" == *-* && "$2" != *-* ]]; return; fi
   [[ "$(printf '%s\n%s\n' "$a" "$b" | sort -V | head -1)" == "$a" ]]
 }
-# The commit of a tag that passes the checks, or nothing
+# Prints the commit of a tag that passes the checks (returns 0), or nothing (returns 1). The caller installs that commit
+# by its hash, so a tag moved after this check can't change what is installed.
 passes() {
   local tag=$1 ver=${1#v} oid body
   oid=$(git -C "$APP" rev-parse -q --verify "refs/tags/$tag" 2>/dev/null) || return 1

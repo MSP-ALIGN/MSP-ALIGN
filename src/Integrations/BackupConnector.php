@@ -6,16 +6,24 @@ namespace Align\Integrations;
 use Align\DB;
 use Align\Providers\Backup\BackupProvider;
 
-/** An integration that supplies the backup data area. An install can have several. */
+/**
+ * An integration that supplies the backup data area. An install can have several.
+ *
+ * Security assumptions: as Connector. Company ids and names come from the backup product (untrusted); the queries
+ * here are bound and scoped to this provider's key, and the summary HTML holds only numbers and fixed text.
+ */
 abstract class BackupConnector extends Connector implements LinksClients
 {
+    /** The provider, ready to call. Throws when not set up. */
     abstract public function provider(): BackupProvider;
 
+    /** Group on the Integrations page. */
     public function category(): string
     {
         return 'Backup';
     }
 
+    /** Data areas this connector supplies. */
     public function areas(): array
     {
         return ['backup'];
@@ -27,16 +35,19 @@ abstract class BackupConnector extends Connector implements LinksClients
         return $this->name();
     }
 
+    /** Sync steps whose results show as this integration's status. */
     public function syncSteps(): array
     {
         return [$this->shortName()];
     }
 
+    /** Every backup product has a connection test. */
     public function hasTest(): bool
     {
         return true;
     }
 
+    /** Runs the provider's own test with the saved settings (see Connector::test). */
     public function test(): string
     {
         return $this->provider()->test();
@@ -44,16 +55,19 @@ abstract class BackupConnector extends Connector implements LinksClients
 
     // ---- Client links: each client links to one of this product's companies
 
+    /** See LinksClients::linkName(). */
     public function linkName(): string
     {
         return $this->shortName();
     }
 
+    /** See LinksClients::linkNoun(). */
     public function linkNoun(): string
     {
         return 'company';
     }
 
+    /** This product's companies with their machine counts and linked client (see LinksClients::linkRecords()). */
     public function linkRecords(): array
     {
         return array_map(fn($r) => ['id' => (string) $r['id'], 'name' => (string) $r['name'], 'count' => (int) $r['n'], 'client_id' => $r['client_id'] !== null ? (int) $r['client_id'] : null],
@@ -62,6 +76,7 @@ abstract class BackupConnector extends Connector implements LinksClients
                 FROM backup_companies b LEFT JOIN client_links l ON l.provider = b.provider AND l.external_id = b.uid WHERE b.provider = ? ORDER BY b.name', [$this->key()]));
     }
 
+    /** See LinksClients::linkCountLabel(). */
     public function linkCountLabel(): string
     {
         return 'machines';

@@ -1,7 +1,7 @@
 <?php
 use Align\Onboarding\Onboarding;
 
-/** Onboarding → New clients. @var array $rows, $signed, $leads, $clients; string $show */
+/** Onboarding → New clients. @var array $rows, $signed, $leads, $clients; string $show. Every value is escaped with e(). */
 ?>
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-mountain-sun', 'title' => 'New clients',

@@ -9,8 +9,15 @@ use Align\Branding;
 use Align\Settings;
 use Align\View;
 
+/**
+ * Settings → Branding (admins), and the public brand images.
+ * Security assumptions: the router checks CSRF on every POST; show() and save() check the admin role themselves.
+ * logo() and background() are public on purpose (sign-in pages, emails, printed reports) and serve only the files
+ * Branding wrote, re-encoded, with nosniff and a sandbox CSP.
+ */
 final class BrandingController
 {
+    /** The Branding page with its live preview. Admins only. */
     public static function show(): void
     {
         Auth::requireRole('admin');
@@ -31,6 +38,11 @@ final class BrandingController
         ]);
     }
 
+    /**
+     * Saves name, colors, message and uploads, or one of the remove/reset actions. Admins only.
+     * Inputs are untrusted: the color must be #rrggbb, lengths are capped, uploads go through Branding (type by
+     * content, size and pixel checks, re-encoded). Every change is audited.
+     */
     public static function save(): void
     {
         Auth::requireRole('admin');

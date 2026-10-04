@@ -9,8 +9,9 @@ namespace Align\Pdf;
  * which stay exactly as they were. That's how a contract's own PDF gets the filled-in values, signatures and the
  * signature certificate page on top, without re-creating the document.
  *
- * Not supported: encrypted (password-protected) PDFs, and filters other than Flate in cross-reference and object
- * streams (page content is never decoded).
+ * Not supported: encrypted (password-protected) PDFs, and stream filters other than Flate (with PNG predictors),
+ * ASCIIHex and ASCII85. Page content is decoded only to be read (pageContent(), which PdfStamp uses to balance the
+ * page's q/Q); it is never rewritten.
  */
 final class PdfDoc
 {
@@ -29,6 +30,8 @@ final class PdfDoc
     private int $inflated = 0;
     private int $predicted = 0;
     private int $parsed = 0;
+    /** Page content bytes materialised by pageContent() (see the cap there). */
+    private int $contentBytes = 0;
 
     public const MAX_PAGES = 500;
     /** Decompressed bytes allowed for one stream, and for the whole file (stops "zip bombs"). */
@@ -40,6 +43,13 @@ final class PdfDoc
     private const MAX_OBJECT = 8_388_607;
     private const MAX_ENTRIES = 500_000;
 
+    /**
+     * Reads $bytes far enough to resolve objects and list pages. $bytes is fully untrusted (an uploaded contract
+     * template): the cross-reference is read with a bounded number of sections and entries, a damaged file falls back
+     * to a single scan (recover()), and an encrypted file or one with no catalog is refused. Nothing is decoded or
+     * materialised here beyond the cross-reference; page content and streams are read lazily, each under its own
+     * limit, so construction stays cheap.
+     */
     public function __construct(string $bytes)
     {
         if (!str_contains(substr($bytes, 0, 1024), '%PDF-')) {
@@ -67,6 +77,11 @@ final class PdfDoc
 
     // ---- Cross-reference ---------------------------------------------------------------------------------------
 
+    /**
+     * Walks the startxref chain (tables, streams and Word's hybrid files), newest first. Bounded against hostile
+     * input: at most 50 sections, offsets must land inside the file, and a repeated offset stops the walk, so a
+     * self-referential or looping /Prev can't spin. Throws when there is nothing usable (caller then recovers).
+     */
     private function readXref(): void
     {
         $tail = substr($this->b, max(0, $this->len - 2048));
@@ -93,7 +108,9 @@ final class PdfDoc
                     $this->readXrefStream((int) $trailer['XRefStm']);
                 }
                 foreach ($free as $num) {
-                    $this->xref[$num] ??= [0, 0];
+                    if (!isset($this->xref[$num])) {
+                        $this->addEntry($num, [0, 0]); // free entries count toward MAX_ENTRIES too (2.2.1)
+                    }
                 }
             } else {
                 if ($first) {
@@ -114,6 +131,11 @@ final class PdfDoc
         }
     }
 
+    /**
+     * A classic "xref" table from $p: fills in-use entries and collects freed object numbers in $free, then returns
+     * the trailer dictionary. Entry offsets and object numbers are range-checked; an existing entry is never
+     * overwritten (the newest section, read first, wins).
+     */
     private function readTable(int &$p, array &$free): array
     {
         while (true) {
@@ -148,6 +170,12 @@ final class PdfDoc
         }
     }
 
+    /**
+     * A compressed cross-reference stream (PDF 1.5+) at $off: decodes it under the stream limits and reads its W-wide
+     * entries. The W widths are validated (three fields, each 0..8 bytes, positive total), object numbers are
+     * range-checked, and entries that run past the decoded data stop the read, so a crafted /W, /Index or /Size can't
+     * over-read or allocate without bound. Returns the stream's dictionary (used as a trailer).
+     */
     private function readXrefStream(int $off): array
     {
         $obj = $this->objectAt($off);
@@ -184,8 +212,9 @@ final class PdfDoc
                 }
                 if ($type === 1 || $type === 2) {
                     $this->addEntry($num, [$type, $f2, $f3]);
-                } else {
-                    $this->xref[$num] ??= [0, 0];
+                } elseif (!isset($this->xref[$num])) {
+                    // free entries count too: an 8 KB xref stream listing 8 million free objects used ~500 MB (2.2.1)
+                    $this->addEntry($num, [0, 0]);
                 }
             }
         }
@@ -272,6 +301,12 @@ final class PdfDoc
 
     // ---- Objects ----------------------------------------------------------------------------------------------
 
+    /**
+     * The object numbered $num (direct, or unpacked from an object stream), or null when it is missing or can't be
+     * read. Cached, and the cache is primed with null before reading so a reference that points back at the same
+     * object while it is being read resolves to null instead of recursing. Object streams may not nest (the container
+     * must be a plain in-file object), which also stops a stream that lists itself.
+     */
     public function get(int $num): mixed
     {
         if (array_key_exists($num, $this->cache)) {
@@ -290,8 +325,11 @@ final class PdfDoc
                 if (isset($idx[$e[2]]) && $idx[$e[2]][0] === $num) {
                     $p = self::int($stm->dict->d['First'] ?? 0) + $idx[$e[2]][1];
                     $start = $p;
-                    $v = $this->parse($data, $p);
-                    $this->spend($p - $start);
+                    try {
+                        $v = $this->parse($data, $p);
+                    } finally {
+                        $this->spend($p - $start); // failed work is charged too (2.2.1)
+                    }
                 }
             }
         }
@@ -355,8 +393,13 @@ final class PdfDoc
             throw new \RuntimeException('too deep');
         }
         try {
-            $v = $this->parse($this->b, $p);
-            $this->spend($p - $off);
+            try {
+                $v = $this->parse($this->b, $p);
+            } finally {
+                // failed work is charged too (2.2.1): a file of objects that each scan far and then fail held a
+                // worker for the whole time limit without ever reaching the budget
+                $this->spend($p - $off);
+            }
             $q = $p;
             $this->ws($q);
             if ($v instanceof PdfDict && substr($this->b, $q, 6) === 'stream') {
@@ -409,7 +452,14 @@ final class PdfDoc
                 continue;
             }
             if (in_array($name->n, ['ASCII85Decode', 'A85'], true)) {
+                // Each "z" becomes four bytes, so ASCII85 can grow data fourfold: it shares Flate's budget (2.2.1),
+                // checked before decoding against the worst case
+                $cap = min(self::MAX_STREAM, self::MAX_TOTAL - $this->inflated);
+                if (strlen($data) > intdiv(max(0, $cap), 4) && substr_count($data, 'z') * 4 + strlen($data) > $cap) {
+                    throw new \InvalidArgumentException('This PDF is too large to read.');
+                }
                 $data = self::ascii85($data);
+                $this->inflated += strlen($data);
                 continue;
             }
             if ($name->n !== 'FlateDecode' && $name->n !== 'Fl') {
@@ -440,6 +490,10 @@ final class PdfDoc
         return $data;
     }
 
+    /**
+     * ASCIIHexDecode: the hex digits up to the first ">", anything else skipped, an odd last digit padded with 0. The
+     * output is at most half the input, so it needs no budget of its own.
+     */
     private static function asciiHex(string $data): string
     {
         $end = strpos($data, '>');
@@ -447,6 +501,13 @@ final class PdfDoc
         return (string) hex2bin(strlen($hex) % 2 ? $hex . '0' : $hex);
     }
 
+    /**
+     * ASCII85Decode, up to "~>" (white space ignored, a leading "<~" allowed). Throws on a character outside the
+     * alphabet.
+     *
+     * SECURITY: "z" turns one byte into four. decode() checks the worst case against the same MAX_STREAM/MAX_TOTAL
+     * budget as Flate before calling this, and counts what it produced (2.2.1).
+     */
     private static function ascii85(string $data): string
     {
         $end = strpos($data, '~>');
@@ -522,6 +583,7 @@ final class PdfDoc
 
     // ---- Parsing ----------------------------------------------------------------------------------------------
 
+    /** Moves $p past white space (NUL included) and % comments in $buf (default: the file). */
     private function ws(int &$p, ?string $buf = null): void
     {
         $b = $buf ?? $this->b;
@@ -540,6 +602,11 @@ final class PdfDoc
 
     private const DELIM = "()<>[]{}/% \n\r\t\f\0";
 
+    /**
+     * One PDF object (dict, array, string, name, number, reference, boolean or null) from $b at $p, advancing $p.
+     * Recursion is capped at depth 60, so a deeply nested array or dictionary is refused rather than overflowing the
+     * stack. Input is untrusted; callers bound total work through spend().
+     */
     private function parse(string $b, int &$p, int $depth = 0): mixed
     {
         if ($depth > 60) {
@@ -569,6 +636,7 @@ final class PdfDoc
         if ($c === '<') {
             $end = strpos($b, '>', $p);
             if ($end === false) {
+                $p = strlen($b); // the scan to the end is charged to the parse budget (2.2.1)
                 throw new \RuntimeException('hex string');
             }
             $hex = preg_replace('/[^0-9A-Fa-f]/', '', substr($b, $p + 1, $end - $p - 1)) ?? '';
@@ -661,6 +729,11 @@ final class PdfDoc
 
     // ---- Pages ------------------------------------------------------------------------------------------------
 
+    /**
+     * The document catalog (the trailer's /Root, resolved). Throws InvalidArgumentException when it isn't a
+     * dictionary. Its entries are the file's, unchecked: anything written back must be filtered first (as
+     * PdfStamp::safeCatalog() does).
+     */
     public function catalog(): PdfDict
     {
         $c = $this->resolve($this->trailer['Root']);
@@ -683,6 +756,12 @@ final class PdfDoc
     /**
      * A page's content: its content streams decoded and joined (as a viewer reads them), or null when one uses a
      * compression Align can't decode.
+     *
+     * SECURITY: a page's /Contents array may list the same stream object any number of times, and each listing costs
+     * only a few bytes in the file. Decoding joins them all, so a small uncompressed stream repeated enough times
+     * expands far past the file's size (decode()'s budget covers only what Flate and ASCII85 produce). The materialised bytes are bounded
+     * here, per page (MAX_STREAM) and across the whole file (MAX_TOTAL), so a crafted file can't exhaust memory
+     * when the page is read at upload, stamped or isolated. Throws InvalidArgumentException when that limit is hit.
      */
     public function pageContent(PdfDict $page): ?string
     {
@@ -697,12 +776,17 @@ final class PdfDoc
                 return null;
             }
             try {
-                $out .= $this->decode($st) . "\n";
+                $part = $this->decode($st);
             } catch (\InvalidArgumentException $e) {
                 throw $e;
             } catch (\Throwable) {
                 return null;
             }
+            $this->contentBytes += strlen($part);
+            if (strlen($out) + strlen($part) > self::MAX_STREAM || $this->contentBytes > self::MAX_TOTAL) {
+                throw new \InvalidArgumentException('This PDF is too large to read. Save it again as a PDF (for example "Save as PDF" in Word) and upload that.');
+            }
+            $out .= $part . "\n";
         }
         return $out;
     }
@@ -809,6 +893,12 @@ final class PdfDoc
 
     // ---- Writing ----------------------------------------------------------------------------------------------
 
+    /**
+     * A parsed value back to PDF source for the incremental update. Strings and names are written in forms that can't
+     * break out of their delimiters (hex string, every delimiter in a name escaped), non-finite floats become 0 so a
+     * tampered /MediaBox can't emit "INF"/"NAN", and a stream's /Length is always recomputed from its bytes (any
+     * /Length the dictionary carried is ignored). Used only on values Align builds or re-serialises, not raw input.
+     */
     public static function ser(mixed $v): string
     {
         return match (true) {

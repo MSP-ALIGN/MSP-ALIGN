@@ -9,8 +9,18 @@ use Align\Contacts\Contacts;
 use Align\DB;
 use Align\View;
 
+/**
+ * Client contacts: one client's list, the all-clients list, the meeting form's attendee list, and adding, editing,
+ * archiving, restoring and deleting contacts. With two-way sync on, changes to a PSA contact are made in the PSA too
+ * (Contacts::canPush/canPushArchive decide; a test server never writes to the PSA).
+ *
+ * Security assumptions: any staff role reads; techs and admins change (the router checks CSRF). A contact is found
+ * by its own id and its client comes from the database, never from the request. Contacts from the PSA keep the
+ * details the PSA owns (fields() leaves them out) and can't be deleted. Every change is audited.
+ */
 final class ContactController
 {
+    /** One client's contacts (?archived=1 adds the archived ones). Any staff role; the view is audited. */
     public static function clientIndex(int $id): void
     {
         Auth::require();
@@ -30,7 +40,7 @@ final class ContactController
         ]);
     }
 
-    /** Every contact across clients in planning. */
+    /** Every contact across clients in planning, with role tabs and search. Any staff role; the view is audited. */
     public static function index(): void
     {
         Auth::require();
@@ -59,7 +69,10 @@ final class ContactController
         ]);
     }
 
-    /** Contacts for the meeting form's attendee picker. */
+    /**
+     * Contacts for the meeting form's attendee picker, as JSON (name, email, title, key contact). Any staff role,
+     * like the contacts page; an unknown client id gives []. Audited as a view of the client's contacts.
+     */
     public static function json(int $id): void
     {
         Auth::require();
@@ -71,12 +84,18 @@ final class ContactController
         ], Contacts::load($id)));
     }
 
+    /** Where to go after saving: the posted same-site path (Security::safePath), else the client's contacts. */
     private static function back(int $clientId): string
     {
         $b = post('back');
         return \Align\Security::safePath($b, "/clients/$clientId/contacts");
     }
 
+    /**
+     * The form's values for a contact, cut to the column sizes. Always the Align-only roles and notes; the details
+     * too for a contact added in Align, or for a PSA contact when they are pushed to the PSA ($details). A PSA
+     * contact's location and PSA flags are never taken from the form. The keys are fixed column names.
+     */
     private static function fields(bool $fromPsa, bool $details = false): array
     {
         $f = [
@@ -103,6 +122,11 @@ final class ContactController
         return $f;
     }
 
+    /**
+     * Adds a contact to the client in the URL. Techs and admins. With two-way sync it is created in the PSA first
+     * and stored as that PSA contact, so the next sync doesn't add it twice; if the PSA refuses, it is kept in
+     * Align only and the person is told why.
+     */
     public static function create(int $id): void
     {
         Auth::requireRole('tech');
@@ -120,11 +144,16 @@ final class ContactController
             $note = $itId ? ' Created in ' . psa_name() . ' too.' : " Saved in Align only; " . psa_name() . " refused it ($err).";
         }
         DB::insert('contacts', $row);
-        Audit::log('contact.create', "{$client['name']}: {$f['name']}");
+        Audit::log('contact.create', "{$client['name']}: {$f['name']}" . (isset($row['psa_id']) ? ' (also in ' . psa_name() . ')' : ''));
         flash($note && !str_contains($note, 'refused') || !$note ? 'success' : 'warning', "Added {$f['name']}.$note");
         redirect(self::back($id));
     }
 
+    /**
+     * Saves, archives, restores or deletes a contact (post action). Techs and admins. A PSA contact is archived or
+     * restored in the PSA too when two-way sync allows; it is restored here only once the PSA has restored it (or
+     * the next sync would archive it again). Only contacts added in Align can be deleted.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');
@@ -177,7 +206,7 @@ final class ContactController
                 flash('success', "Deleted {$k['name']}.");
                 redirect($back);
         }
-        $push = $fromPsa && \Align\Contacts\Contacts::canPush($client);
+        $push = $fromPsa && $k['psa_id'] !== null && \Align\Contacts\Contacts::canPush($client);
         $f = self::fields($fromPsa, $push);
         if (array_key_exists('name', $f) && $f['name'] === '') {
             $f['name'] = $k['name'];
@@ -188,7 +217,7 @@ final class ContactController
         }
         $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));
         DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($f), $id]);
-        Audit::log('contact.update', "{$k['client_name']}: {$k['name']}");
+        Audit::log('contact.update', "{$k['client_name']}: {$k['name']}" . ($push ? ' (also in ' . psa_name() . ')' : ''));
         flash('success', 'Contact saved.');
         redirect($back);
     }

@@ -10,6 +10,9 @@ use Align\Settings;
 /**
  * The vCIO workflow as a checklist: what's in place for a client (and for the whole system),
  * what's missing, and the page to fix it. Steps that don't apply return ok = null.
+ *
+ * Security assumptions: staff pages only (dashboard, client overview, meeting prep). Counts are by client id;
+ * ids put into SQL are cast to int first. Step texts are plain text with same-site links.
  */
 final class Readiness
 {
@@ -21,6 +24,7 @@ final class Readiness
         self::$pre = self::counts($ids) + self::$pre;
     }
 
+    /** The counts behind each step for these clients, in eight grouped queries (ids cast to int). */
     private static function counts(array $ids): array
     {
         $ids = array_values(array_unique(array_map('intval', $ids)));
@@ -57,7 +61,11 @@ final class Readiness
         return $out;
     }
 
-    /** @return array{steps: array<int, array{key:string,label:string,ok:?bool,detail:string,link:string,action:string}>, done:int, total:int} */
+    /**
+     * A client's planning checklist. $client is a clients row; $devices its evaluated devices when the caller has
+     * them (else loaded). Uses prefetch() counts when there are any.
+     * @return array{steps: array<int, array{key:string,label:string,ok:?bool,detail:string,link:string,action:string}>, done:int, total:int}
+     */
     public static function client(array $client, ?array $devices = null): array
     {
         $id = (int) $client['id'];

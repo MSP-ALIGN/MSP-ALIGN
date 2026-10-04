@@ -10,6 +10,9 @@ use Align\Lifecycle\Lifecycle;
 /**
  * The To do list (1.42): one place for everything waiting on the team, from every client. Each item is a
  * count worked out from live data, so it leaves the list by itself once the work is done.
+ *
+ * Security assumptions: everything here is work for techs and admins; viewers get an empty list (the To do page
+ * also requires tech). Provider keys put into SQL are reduced to [a-z0-9_-]. Texts are plain text with same-site links.
  */
 final class Todo
 {
@@ -91,7 +94,10 @@ final class Todo
         }
     }
 
-    /** The tabs of the menu items that group several pages (Admin → Integrations and People; Onboarding → Contracts and New clients), by page nav key. */
+    /**
+     * The tabs of the menu items that group several pages (Admin → Integrations and People; Onboarding → Contracts and
+     * New clients), by page nav key. 'role' only hides a tab; each page checks the role again.
+     */
     public static function adminTabs(): array
     {
         $backup = \Align\Backup\Backup::enabled();

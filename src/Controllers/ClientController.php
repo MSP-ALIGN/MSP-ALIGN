@@ -12,11 +12,25 @@ use Align\Meetings\Meetings;
 use Align\Settings;
 use Align\View;
 
+/**
+ * Clients: the list, the overview page, the edit form, planning in/out, deletion and the lifecycle CSV, plus the
+ * device list and filters shared with the all-clients Devices page.
+ *
+ * Security assumptions: every action starts with its role check (any staff role reads; techs and admins change;
+ * only admins delete a client). The router checks CSRF on every POST. Every staff role sees every client, so a
+ * client id from the URL only has to exist. Values from the forms are cut to their column sizes and checked against
+ * fixed lists before they reach SQL (column names come from fields(), never from the request).
+ */
 final class ClientController
 {
+    /** The industries a client can have (the edit form and the CSV import accept only these). */
     public const INDUSTRIES = ['Healthcare', 'Dental', 'Veterinary', 'Legal', 'Accounting / Finance', 'Construction',
         'Manufacturing', 'Retail', 'Hospitality', 'Nonprofit', 'Government', 'Education', 'Real estate', 'Agriculture', 'Other'];
 
+    /**
+     * The client list with device counts, the next 12 months' replacement cost, compliance scores and meetings.
+     * Any staff role. ?view= is checked against a fixed list before it picks one of four fixed WHERE clauses.
+     */
     public static function index(): void
     {
         Auth::require();
@@ -72,6 +86,7 @@ final class ClientController
         ]);
     }
 
+    /** Active admins and techs, the people who can be a client's vCIO (id and name only). */
     public static function users(): array
     {
         return DB::all("SELECT id, name FROM users WHERE is_active = 1 AND role IN ('admin','tech') ORDER BY name");
@@ -85,6 +100,7 @@ final class ClientController
             LEFT JOIN users u ON u.id = c.vcio_user_id WHERE c.id = ?', [$id]);
     }
 
+    /** The client row (see loadRow()), or a 404 page and exit. The caller has checked the role. */
     public static function load(int $id): array
     {
         $client = self::loadRow($id);
@@ -96,6 +112,11 @@ final class ClientController
         return $client;
     }
 
+    /**
+     * The edit form's values, each cut to its column size or checked against its list. The name is only taken for
+     * a client added by hand ($manual); the PSA owns a synced client's name. The keys are fixed column names, so
+     * callers can build SQL from them.
+     */
     private static function fields(bool $manual): array
     {
         $cadence = post('meeting_cadence');
@@ -112,7 +133,9 @@ final class ClientController
             'industry' => in_array(post('industry'), self::INDUSTRIES, true) ? post('industry') : null,
             'notes' => mb_substr(post('notes'), 0, 10000) ?: null,
             'meeting_cadence' => isset(Meetings::CADENCES[$cadence]) ? $cadence : 'annual',
-            'vcio_user_id' => $vcio && DB::value('SELECT id FROM users WHERE id = ?', [$vcio]) ? $vcio : null,
+            // 2.2.1: only an active admin or tech, as the form offers: the portal shows the vCIO's name and email to
+            // the client, so a disabled account or any other user id must not be picked by posting its id
+            'vcio_user_id' => $vcio && DB::value("SELECT id FROM users WHERE id = ? AND is_active = 1 AND role IN ('admin','tech')", [$vcio]) ? $vcio : null,
         ];
         if ($manual) {
             $f['name'] = mb_substr(post('name'), 0, 255);
@@ -120,12 +143,19 @@ final class ClientController
         return $f;
     }
 
-    /** Saves or removes the client logo from the edit form. Returns an error message or null. */
+    /**
+     * Saves or removes the client logo from the edit form. Returns an error message or null.
+     * Security: called only from create()/update(), which check the tech role (CSRF by the router). $current is the
+     * stored name from the database. Images::store checks and re-encodes the upload and picks the file name.
+     */
     private static function handleLogo(int $id, ?string $current): ?string
     {
         if (isset($_POST['remove_logo'])) {
             \Align\Images::delete('clients', $current);
             DB::run('UPDATE clients SET logo_file = NULL WHERE id = ?', [$id]);
+            if ($current) {
+                Audit::log('client.logo_removed', "Logo removed for client #$id"); // every change is audited (uploads were)
+            }
             return null;
         }
         if (empty($_FILES['logo']) || ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
@@ -141,13 +171,20 @@ final class ClientController
         return null;
     }
 
-    /** Serves a client's logo (signed-in users only). */
+    /**
+     * Serves a client's logo (signed-in staff only; every staff role sees every client). The portal has its own
+     * route for its own client's logo, so a portal session can't fetch another client's logo by id.
+     */
     public static function logo(int $id): void
     {
         Auth::require();
         \Align\Images::serve('clients', DB::value('SELECT logo_file FROM clients WHERE id = ?', [$id]) ?: null);
     }
 
+    /**
+     * Adds a client by hand (source manual). Techs and admins. The name must be new among clients not archived;
+     * two people adding the same name at the same moment can still both succeed (there is no unique key on name).
+     */
     public static function create(): void
     {
         Auth::requireRole('tech');
@@ -170,6 +207,10 @@ final class ClientController
         redirect("/clients/$id");
     }
 
+    /**
+     * Saves the edit form. Techs and admins. Fields the PSA fills (clients.psa_fields, written by the sync, so
+     * trusted column names) are left out, so the next sync doesn't overwrite them back and forth.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');
@@ -195,23 +236,26 @@ final class ClientController
         redirect("/clients/$id");
     }
 
-    /** Remove a client from (or restore it to) IT planning. Works for synced and manual clients. */
+    /** Remove a client from (or restore it to) IT planning. Works for synced and manual clients. Techs and admins. */
     public static function planning(int $id): void
     {
         Auth::requireRole('tech');
         $client = self::load($id);
         $exclude = post('action') !== 'restore';
-        DB::run('UPDATE clients SET planning_excluded = ?, excluded_reason = ? WHERE id = ?', [
-            $exclude ? 1 : 0, $exclude ? (mb_substr(post('reason'), 0, 255) ?: null) : null, $id,
-        ]);
-        Audit::log($exclude ? 'client.remove_from_planning' : 'client.restore_to_planning', $client['name'] . ($exclude && post('reason') ? ' — ' . post('reason') : ''));
+        $reason = $exclude ? (mb_substr(post('reason'), 0, 255) ?: null) : null;
+        DB::run('UPDATE clients SET planning_excluded = ?, excluded_reason = ? WHERE id = ?', [$exclude ? 1 : 0, $reason, $id]);
+        Audit::log($exclude ? 'client.remove_from_planning' : 'client.restore_to_planning', $client['name'] . ($reason !== null ? ' — ' . $reason : ''));
         flash('success', $exclude
             ? "{$client['name']} was removed from planning. It's hidden from the dashboard, meetings, compliance and reports, and sync won't bring it back."
             : "{$client['name']} is back in planning.");
         redirect($exclude ? '/clients' : "/clients/$id");
     }
 
-    /** Permanently delete a client that was added by hand (with its devices, meetings, roadmap and compliance answers). */
+    /**
+     * Permanently delete a client that was added by hand (with its devices, meetings, roadmap and compliance answers).
+     * Admins only, and only after the exact name is typed. Synced clients would come back, so they are refused.
+     * Signed contracts are kept with the client's name; ones still out for signature are cancelled.
+     */
     public static function delete(int $id): void
     {
         Auth::requireRole('admin');
@@ -224,7 +268,6 @@ final class ClientController
             flash('error', 'Type the client name exactly to confirm deletion.');
             redirect("/clients/$id");
         }
-        \Align\Images::delete('clients', $client['logo_file'] ?? null);
         DB::transaction(function () use ($id, $client) {
             DB::run('DELETE FROM meetings WHERE client_id = ?', [$id]);
             DB::run('DELETE FROM devices WHERE client_id = ?', [$id]);
@@ -241,29 +284,39 @@ final class ClientController
             DB::run('UPDATE contracts k JOIN clients c ON c.id = k.client_id SET k.lead_company = COALESCE(k.lead_company, c.name) WHERE k.client_id = ?', [$id]);
             DB::run('DELETE FROM clients WHERE id = ?', [$id]); // compliance + roadmap cascade
         });
+        // The logo goes once the client is gone (2.2.1: before, a failed delete left the client without its logo file)
+        \Align\Images::delete('clients', $client['logo_file'] ?? null);
         Audit::log('client.delete', $client['name']);
         flash('success', "Deleted {$client['name']}.");
         redirect('/clients');
     }
 
+    /**
+     * Removes the ticked clients from planning, or restores them (the list's bulk bar). Techs and admins, as for
+     * one client (planning()). Every staff role sees every client, so any existing id may be ticked. The ids are
+     * cast to int before they are bound (one placeholder each); PHP's max_input_vars limits how many arrive.
+     */
     public static function bulk(): void
     {
         Auth::requireRole('tech');
-        $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? []))));
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), fn($i) => $i > 0)));
         $action = post('action');
         if (!$ids || !in_array($action, ['exclude', 'restore'], true)) {
             flash('error', 'Select one or more clients first.');
             redirect('/clients');
         }
-        $in = implode(',', $ids);
+        $in = implode(',', array_fill(0, count($ids), '?'));
         $n = DB::run("UPDATE clients SET planning_excluded = ?, excluded_reason = ? WHERE id IN ($in)", [
-            $action === 'exclude' ? 1 : 0, $action === 'exclude' ? (mb_substr(post('reason'), 0, 255) ?: null) : null,
+            $action === 'exclude' ? 1 : 0, $action === 'exclude' ? (mb_substr(post('reason'), 0, 255) ?: null) : null, ...$ids,
         ])->rowCount();
-        Audit::log('client.bulk_' . $action, "$n client(s): " . implode(',', $ids));
+        // 2.2.1: the entry names the clients (it listed only their ids, which mean nothing once a client is deleted)
+        $names = array_column(DB::all("SELECT name FROM clients WHERE id IN ($in) ORDER BY name", $ids), 'name');
+        Audit::log('client.bulk_' . $action, "$n client(s): " . mb_strimwidth(implode(', ', $names), 0, 1000, '…'));
         flash('success', $action === 'exclude' ? "Removed $n client(s) from planning." : "Restored $n client(s) to planning.");
         redirect('/clients' . ($action === 'restore' ? '?view=removed' : ''));
     }
 
+    /** The client overview: lifecycle summary, forecast, compliance, meetings, backups, contacts. Any staff role; the view is audited. */
     public static function show(int $id): void
     {
         Auth::require();
@@ -309,6 +362,10 @@ final class ClientController
     /** What the device search box looks in. */
     public const DEVICE_SEARCH = ['name', 'display_name', 'system_name', 'serial', 'last_user', 'manufacturer', 'model', 'os_name', 'ip_address', 'type', 'client_name', 'location'];
 
+    /**
+     * The devices one list view shows. $filter and $class come from the query string: an unknown value matches
+     * nothing special (every device for $filter, no device for $class) and is never used in SQL.
+     */
     public static function filter(array $devices, string $filter, string $class): array
     {
         return array_values(array_filter($devices, function ($d) use ($filter, $class) {
@@ -331,6 +388,7 @@ final class ClientController
         }));
     }
 
+    /** A client's Devices & assets list (search, filters, 100 rows at a time). Any staff role; the view is audited. */
     public static function devices(int $id): void
     {
         Auth::require();
@@ -358,6 +416,10 @@ final class ClientController
         ]);
     }
 
+    /**
+     * A client's devices as a lifecycle CSV. Any staff role (it is what the Devices page shows); every export is
+     * audited. The file name keeps only letters and digits of the client name.
+     */
     public static function export(int $id): void
     {
         Auth::require();
@@ -367,7 +429,11 @@ final class ClientController
         self::csv($devices, preg_replace('/[^A-Za-z0-9]+/', '-', $client['name']) . '-lifecycle-' . date('Y-m-d') . '.csv');
     }
 
-    /** Sends devices as a lifecycle CSV; $withClient adds a Client column first (the all-clients list). */
+    /**
+     * Sends devices as a lifecycle CSV; $withClient adds a Client column first (the all-clients list).
+     * Every cell goes through Security::csvCell (names, serials and notes come from synced systems and could start a
+     * spreadsheet formula). $fname must already be a safe file name (callers build it from letters, digits and dates).
+     */
     public static function csv(array $devices, string $fname, bool $withClient = false): void
     {
         header('Content-Type: text/csv; charset=utf-8');

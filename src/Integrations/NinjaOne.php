@@ -11,6 +11,13 @@ use Align\Settings;
  * Auth: OAuth2 client credentials, scope "monitoring".
  * Create the app in NinjaOne: Administration > Apps > API > Client App IDs,
  * platform "API Services (machine-to-machine)", grant type "Client Credentials", scope "Monitoring".
+ *
+ * Security assumptions: the instance is one of INSTANCES (Connector::save only takes a listed option or the value
+ * already saved; a full URL can only come from the database, as the tests do) and HttpClient checks it on every
+ * request. The client secret goes only to the token endpoint, the token only in the Authorization header. Every
+ * reply is untrusted: the token must be text, list rows must be arrays with a whole-number id, paging stops on a
+ * repeat or after 1000 pages, and a reply that isn't a list is an error, never an empty list (NinjaOneRmm cleans
+ * the mapped fields before they are stored).
  */
 final class NinjaOne
 {
@@ -26,6 +33,7 @@ final class NinjaOne
     private int $tokenExpires = 0;
     private HttpClient $http;
 
+    /** $instance: a host from INSTANCES (or a base URL from the database). */
     public function __construct(
         private string $instance,
         private string $clientId,
@@ -34,6 +42,7 @@ final class NinjaOne
         $this->http = new HttpClient(90);
     }
 
+    /** From the saved instance, client ID and secret. Throws when the ID or secret is missing. */
     public static function fromSettings(): self
     {
         $id = Settings::get('ninja_client_id');
@@ -44,11 +53,13 @@ final class NinjaOne
         return new self(Settings::get('ninja_instance', 'app.ninjarmm.com'), $id, $secret);
     }
 
+    /** https://{instance}, or the instance as is when it is already a URL. */
     private function base(): string
     {
         return str_contains($this->instance, '://') ? rtrim($this->instance, '/') : 'https://' . $this->instance;
     }
 
+    /** An access token (client credentials), reused until a minute before it expires. Throws when none is issued. */
     private function token(): string
     {
         if ($this->token && time() < $this->tokenExpires - 60) {
@@ -59,16 +70,18 @@ final class NinjaOne
             'client_id' => $this->clientId,
             'client_secret' => $this->clientSecret,
             'scope' => 'monitoring',
-        ]);
+        ], true); // a client-credentials token request is safe to repeat after a 5xx
         $tok = $r['json']['access_token'] ?? null;
-        if (!$tok) {
+        if (!is_string($tok) || $tok === '') {
             throw new \RuntimeException('NinjaOne did not return an access token.');
         }
         $this->token = $tok;
-        $this->tokenExpires = time() + (int) ($r['json']['expires_in'] ?? 3600);
+        $ttl = $r['json']['expires_in'] ?? 3600;
+        $this->tokenExpires = time() + (is_int($ttl) || (is_string($ttl) && ctype_digit($ttl)) ? min((int) $ttl, 86400) : 3600);
         return $tok;
     }
 
+    /** GET an API path with the token; returns the decoded JSON (untrusted). */
     private function get(string $path, array $query = []): mixed
     {
         $url = $this->base() . $path . ($query ? '?' . http_build_query($query) : '');
@@ -89,7 +102,8 @@ final class NinjaOne
 
     /**
      * NinjaOne list endpoints page with pageSize + after (= last id of the previous page).
-     * Guards against a server that ignores "after" so we never loop forever.
+     * Guards against a server that ignores "after" so we never loop forever. Rows without a whole-number id are
+     * dropped (an id that is a list or an object would otherwise stop the sync, a float would be rounded).
      */
     private function paginate(string $path, int $pageSize): array
     {
@@ -102,13 +116,23 @@ final class NinjaOne
                 $q['after'] = $after;
             }
             $rows = $this->get($path, $q);
-            if (!is_array($rows) || !$rows) {
+            // Not a list (an HTML page, an error object): fail, so the sync doesn't take it as "no records"
+            if (!is_array($rows) || !array_is_list($rows)) {
+                throw new \RuntimeException('NinjaOne sent something other than a list for ' . $path . '. Check the instance.');
+            }
+            if (!$rows) {
                 break;
             }
             $new = 0;
+            $ids = [];
             foreach ($rows as $row) {
-                $id = $row['id'] ?? null;
-                if ($id === null || isset($seen[$id])) {
+                $id = is_array($row) ? ($row['id'] ?? null) : null;
+                if (!is_int($id) && !(is_string($id) && preg_match('/^\d{1,18}$/', $id) === 1)) {
+                    continue;
+                }
+                $id = (int) $id;
+                $ids[] = $id;
+                if (isset($seen[$id])) {
                     continue;
                 }
                 $seen[$id] = true;
@@ -118,30 +142,34 @@ final class NinjaOne
             if ($new === 0 || count($rows) < $pageSize) {
                 break;
             }
-            $after = max(array_column($rows, 'id'));
+            $after = max($ids);
         }
         return $all;
     }
 
+    /** Gets a token and reads one organization. Returns a short message for the admin. */
     public function test(): string
     {
         $orgs = $this->get('/v2/organizations', ['pageSize' => 1]);
         return 'Connected. Token issued' . (is_array($orgs) ? ' and organizations are readable.' : '.');
     }
 
-    /** Maps a NinjaOne device record to our device columns. */
+    /**
+     * Maps a NinjaOne device record (untrusted) to our device columns. Text fields are passed on as found; the
+     * caller (NinjaOneRmm) checks their type and length before storing. Never throws on odd field types.
+     */
     public static function mapDevice(array $d): array
     {
-        $sys = $d['system'] ?? [];
-        $os = $d['os'] ?? [];
-        $nodeClass = (string) ($d['nodeClass'] ?? '');
-        $manufacturer = trim((string) ($sys['manufacturer'] ?? ''));
-        $model = trim((string) ($sys['model'] ?? ''));
+        $sys = is_array($d['system'] ?? null) ? $d['system'] : [];
+        $os = is_array($d['os'] ?? null) ? $d['os'] : [];
+        $nodeClass = self::str($d['nodeClass'] ?? null);
+        $manufacturer = trim(self::str($sys['manufacturer'] ?? null));
+        $model = trim(self::str($sys['model'] ?? null));
         $isVirtual = !empty($sys['virtualMachine'])
             || preg_match('/vmware|virtualbox|kvm|qemu|xen|virtual machine|hvm domu/i', "$manufacturer $model") === 1;
-        $chassis = strtoupper((string) ($sys['chassisType'] ?? ''));
+        $chassis = strtoupper(self::str($sys['chassisType'] ?? null));
 
-        $build = (string) ($os['buildNumber'] ?? '');
+        $build = self::str($os['buildNumber'] ?? null);
         if (preg_match('/^\d+\.\d+\.(\d+)/', $build, $m)) {
             $build = $m[1];
         }
@@ -152,11 +180,12 @@ final class NinjaOne
             'display_name' => $d['displayName'] ?? null,
             'system_name' => $d['systemName'] ?? ($d['dnsName'] ?? null),
             'node_class' => $nodeClass ?: null,
-            'device_type' => $type = self::type($nodeClass, $chassis, $manufacturer, $model, (string) ($d['displayName'] ?? ''), $isVirtual, (string) ($os['name'] ?? '')),
+            'device_type' => $type = self::type($nodeClass, $chassis, $manufacturer, $model, self::str($d['displayName'] ?? null), $isVirtual, self::str($os['name'] ?? null)),
             'device_class' => \Align\Lifecycle\Lifecycle::TYPES[$type][0],
             'manufacturer' => $manufacturer ?: null,
             'model' => $model ?: null,
-            'serial' => normalize_serial($sys['serialNumber'] ?? null) ?? normalize_serial($sys['biosSerialNumber'] ?? null),
+            // A serial sent as a JSON number is still a serial (and a TypeError here would stop the whole sync)
+            'serial' => normalize_serial(self::str($sys['serialNumber'] ?? null)) ?? normalize_serial(self::str($sys['biosSerialNumber'] ?? null)),
             'chassis' => $chassis ?: null,
             'is_virtual' => $isVirtual ? 1 : 0,
             'os_name' => $os['name'] ?? null,
@@ -169,6 +198,7 @@ final class NinjaOne
         ];
     }
 
+    /** Broad class (server, laptop, desktop, printer, network, other) from the node class, chassis and model. */
     public static function classify(string $nodeClass, string $chassis, string $model, bool $isVirtual): string
     {
         $nc = strtoupper($nodeClass);
@@ -237,9 +267,13 @@ final class NinjaOne
         return $u;
     }
 
+    /**
+     * A NinjaOne time (epoch seconds, epoch milliseconds or a date string) as Y-m-d H:i:s, or null when it is
+     * missing or outside years 1970-9999 (what a DATETIME column takes).
+     */
     private static function ts(mixed $v): ?string
     {
-        if ($v === null || $v === '') {
+        if ($v === null || $v === '' || (!is_string($v) && !is_int($v) && !is_float($v))) {
             return null;
         }
         if (is_numeric($v)) {
@@ -247,9 +281,15 @@ final class NinjaOne
             if ($n > 1e11) {
                 $n /= 1000; // milliseconds
             }
-            return date('Y-m-d H:i:s', (int) $n);
+            return $n > 0 && $n < 253402300800 ? date('Y-m-d H:i:s', (int) $n) : null;
         }
-        $t = strtotime((string) $v);
-        return $t ? date('Y-m-d H:i:s', $t) : null;
+        $t = strtotime($v);
+        return $t && $t > 0 && $t < 253402300800 ? date('Y-m-d H:i:s', $t) : null;
+    }
+
+    /** A remote scalar as text ('' for null, lists, objects and booleans). */
+    private static function str(mixed $v): string
+    {
+        return is_string($v) || is_int($v) || is_float($v) ? (string) $v : '';
     }
 }

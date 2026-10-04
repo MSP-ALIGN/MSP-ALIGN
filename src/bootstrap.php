@@ -3,9 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 declare(strict_types=1);
 
+// Loaded first by every entry point (web, CLI, agent jobs): constants, the class autoloader, helpers, config, the
+// timezone and the database session. Nothing here reads request input.
+
 define('APP_ROOT', dirname(__DIR__));
 define('APP_NAME', 'MSP-ALIGN');
 
+// Align\Foo\Bar -> src/Foo/Bar.php. A class name can't hold "." or "/", so it can't reach outside src/.
 spl_autoload_register(function (string $class): void {
     if (!str_starts_with($class, 'Align\\')) {
         return;

@@ -2,7 +2,12 @@
 use Align\Auth;
 use Align\Backup\Backup;
 
-/** @var array $client; ?array $b Backup::forClient(); ?array $claim Backup::claimable() (techs, when anything is unmatched); bool $configured */
+/**
+ * A client's Backups page (any staff role; techs and admins also get "Not required" and "This client's").
+ * Names, messages and targets come from the backup product: every one is escaped with e(); the exemption dialog
+ * is filled with textContent (app.js), never as HTML.
+ * @var array $client; ?array $b Backup::forClient(); ?array $claim Backup::claimable() (techs, when anything is unmatched); bool $configured
+ */
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 $canEx = Auth::can('tech');
@@ -88,7 +93,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
             <?php if ($j['note']): ?><div class="small text-warning"><?= e($j['note']) ?></div><?php endif; ?></td>
           <td class="small"><?= e($j['kind']) ?></td>
           <td class="small text-nowrap"><?= $j['last_run'] ? e(rel_time($j['last_run'])) . '<div class="text-muted">' . e(fmt_datetime($j['last_run'])) . '</div>' : '<span class="text-muted">never</span>' ?></td>
-          <td class="small text-nowrap"><?= $j['duration_sec'] ? e(gmdate($j['duration_sec'] >= 3600 ? 'G\h i\m' : 'i\m s\s', (int) $j['duration_sec'])) : '—' ?></td>
+          <td class="small text-nowrap"><?php $sec = (int) $j['duration_sec']; // hours counted on past 24 (gmdate's G starts again at 0) ?><?= $sec ? e($sec >= 3600 ? sprintf('%dh %02dm', intdiv($sec, 3600), intdiv($sec % 3600, 60)) : sprintf('%02dm %02ds', intdiv($sec, 60), $sec % 60)) : '—' ?></td>
           <td class="small"><?= e($j['target'] ?? '—') ?></td>
           <td class="small text-end text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
         </tr>

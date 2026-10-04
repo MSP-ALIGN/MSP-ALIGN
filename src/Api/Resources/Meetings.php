@@ -10,9 +10,17 @@ use Align\Api\Out;
 use Align\DB;
 use Align\Meetings\Meetings as M;
 
-/** Meetings. Invitations go out only when send_invites is true (and email is connected), like the meeting form. */
+/**
+ * Meetings. Invitations go out only when send_invites is true (and email is connected), like the meeting form.
+ *
+ * Security: reached through the Kernel with meetings:read or meetings:write checked. Internal meetings (no client)
+ * are for keys for all clients only; other meetings follow the key's client limit, and meetings of archived clients
+ * answer 404. Invitations and cancellations go out from a staff mailbox, so a client-limited key can't send them, pick
+ * the owner, or change what attendees were already sent (guardInvites, guardSent, columns). Writes are audited.
+ */
 final class Meetings
 {
+    /** Validation rules for POST (no status or notes) and PATCH. Also feeds the OpenAPI spec. */
     public static function rules(bool $creating = false): array
     {
         return array_filter([
@@ -25,13 +33,18 @@ final class Meetings
             'video_url' => ['url', ['max' => 500, 'desc' => 'Teams / Meet / Zoom link.']],
             'attendees' => ['email_list', ['desc' => 'List of "email" or "Name <email>".']],
             'agenda' => ['string', ['max' => 20000]],
-            'owner_id' => ['int', ['min' => 1, 'desc' => 'Staff user who owns / organizes it (default: the key\'s creator). Invitations can go out from this person\'s mailbox, so only keys for all clients may set it.']],
+            'owner_id' => ['int', ['min' => 1, 'desc' => 'Staff user (tech or admin) who owns / organizes it (default: the key\'s creator). Invitations can go out from this person\'s mailbox, so only keys for all clients may set it.']],
             'status' => $creating ? null : ['string', ['enum' => ['scheduled', 'completed', 'cancelled'], 'desc' => 'Mark completed or cancelled (cancelling sends cancellations if invitations went out), or scheduled to reopen.']],
             'notes' => $creating ? null : ['string', ['max' => 50000, 'desc' => 'Meeting notes.']],
             'send_invites' => ['bool', ['desc' => 'Email calendar invitations (or updates) to the attendees. Default false. Needs a key for all clients.']],
         ]);
     }
 
+    /**
+     * GET /meetings: paginated; client_id, from / to (date or date-time; a date-only "to" covers that whole day),
+     * status, type, updated_since. The key's limit is added with clientSql, which also leaves internal meetings out
+     * for a limited key.
+     */
     public static function index(): array
     {
         $where = ' WHERE (m.client_id IS NULL OR m.client_id IN (SELECT id FROM clients WHERE is_archived = 0))';
@@ -44,7 +57,9 @@ final class Meetings
         foreach (['from' => '>=', 'to' => '<='] as $k => $op) {
             if (($v = Input::queryStr($k)) !== null) {
                 $t = strtotime($v);
-                if (!$t || !preg_match('/^\d{4}-\d{2}-\d{2}/', $v) || !Input::yearOk(date('Y-m-d', $t))) {
+                // checkdate: strtotime() quietly turns 2026-02-30 into March 2, which would move the window
+                if (!$t || !preg_match('/^\d{4}-\d{2}-\d{2}/', $v) || !checkdate((int) substr($v, 5, 2), (int) substr($v, 8, 2), (int) substr($v, 0, 4))
+                    || !Input::yearOk(date('Y-m-d', $t))) {
                     throw ApiError::invalid([$k => 'Must be a date or date and time (YYYY-MM-DD…).'], 'Invalid query parameter.');
                 }
                 $where .= " AND m.starts_at $op ?";
@@ -72,11 +87,16 @@ final class Meetings
         return Out::list(array_map([self::class, 'shape'], $rows), $total, $page, $per);
     }
 
+    /** GET /meetings/{id}. */
     public static function show(int $id): array
     {
         return Out::one(self::shape(self::load($id)));
     }
 
+    /**
+     * The meeting with its owner's name, or 404 when it doesn't exist, its client is archived, or the key may not see
+     * it (an internal meeting needs a key for all clients).
+     */
     private static function load(int $id): array
     {
         $m = DB::one('SELECT m.*, u.name AS owner_name FROM meetings m LEFT JOIN users u ON u.id = m.owner_id
@@ -87,7 +107,12 @@ final class Meetings
         return $m;
     }
 
-    /** Validated columns for insert/update from cleaned input. */
+    /**
+     * Validated columns for insert/update from cleaned input ($current is the stored meeting, or null when creating).
+     * Checks what the rules can't: the client is one the key may see (null only for keys for all clients), the
+     * worked-out end time is storable, each attendee entry is exactly the one address that was validated, a limited
+     * key doesn't change who was invited, and the owner is an active tech or admin chosen by a key for all clients.
+     */
     private static function columns(array $in, ?array $current): array
     {
         $cols = [];
@@ -122,6 +147,16 @@ final class Meetings
             if (count($in['attendees'] ?? []) > 100 || mb_strlen($joined) > 4000) {
                 throw ApiError::invalid(['attendees' => 'At most 100 attendees (4000 characters).']); // never cut an address short
             }
+            foreach ($in['attendees'] ?? [] as $e) {
+                // The stored list is parsed again (Invites::attendees) when invitations go out. Each entry must give back
+                // the one address that was validated, so a name can't carry other recipients (commas, a second address)
+                // past the checks or the 100-attendee limit, and no control character reaches the stored text.
+                $addr = preg_match('/<([^>]+)>\s*$/', $e, $mm) ? $mm[1] : $e;
+                $parsed = \Align\Mail\Invites::attendees($e);
+                if (preg_match('/[\x00-\x1F\x7F]/', $e) || count($parsed) !== 1 || $parsed[0]['address'] !== strtolower(trim($addr))) {
+                    throw ApiError::invalid(['attendees' => 'One address per entry ("email" or "Name <email>"): ' . preg_replace('/[\x00-\x1F\x7F]/', ' ', $e)]);
+                }
+            }
             // Invitations go out from a staff mailbox: a key limited to certain clients can't redirect them
             if ($current && $current['invites_sent_at'] && Context::clients() !== null && $joined !== (string) $current['attendees']) {
                 throw ApiError::invalid(['attendees' => 'Invitations already went out for this meeting; only a key for all clients can change who is invited.']);
@@ -132,14 +167,19 @@ final class Meetings
             if (Context::clients() !== null) {
                 throw ApiError::invalid(['owner_id' => 'Only a key for all clients can choose the owner (invitations may be sent from their mailbox).']);
             }
-            if (!DB::value('SELECT 1 FROM users WHERE id = ? AND is_active = 1', [$in['owner_id']])) {
-                throw ApiError::invalid(['owner_id' => 'No active staff user with that id.']);
+            // Same rule as the meeting form (1.45): the organizer runs meetings, so a viewer's mailbox is never used
+            if (!DB::value("SELECT 1 FROM users WHERE id = ? AND is_active = 1 AND role IN ('tech','admin')", [$in['owner_id']])) {
+                throw ApiError::invalid(['owner_id' => 'No active tech or admin user with that id.']);
             }
             $cols['owner_id'] = $in['owner_id'];
         }
         return $cols;
     }
 
+    /**
+     * POST /meetings. A limited key must name one of its clients and can't send invitations. Invitations go out only
+     * when send_invites is true; the owner defaults to the key's creator (an admin, or the key wouldn't work).
+     */
     public static function create(): array
     {
         $in = Input::clean(Context::$body, self::rules(true), true);
@@ -158,6 +198,10 @@ final class Meetings
         return Out::one(self::shape(self::load($id)) + ['invitations' => self::inviteResult($invite, !empty($in['send_invites']))], 201);
     }
 
+    /**
+     * PATCH /meetings/{id}: only the fields sent change. status cancelled sends cancellations when invitations had
+     * gone out; send_invites sends (updated) invitations for a scheduled meeting; nothing is sent implicitly otherwise.
+     */
     public static function update(int $id): array
     {
         $m = self::load($id);
@@ -192,7 +236,10 @@ final class Meetings
         return Out::one(self::shape(self::load($id)) + ['invitations' => self::inviteResult($invite, $invite !== null)]);
     }
 
-    /** What happened to invitations, without passing on the mail provider's error text (that goes to the audit log). */
+    /**
+     * What happened to invitations, without passing on the mail provider's error text (that goes to the audit log).
+     * $r is Invites::send()'s result (null = nothing sent); null is returned when invitations weren't asked for.
+     */
     private static function inviteResult(?string $r, bool $asked): ?array
     {
         if (!$asked) {
@@ -229,7 +276,7 @@ final class Meetings
         }
     }
 
-    /** Sending invitations uses a staff mailbox, so it needs a key for all clients. */
+    /** Sending invitations uses a staff mailbox, so it needs a key for all clients (422 for a limited key). */
     private static function guardInvites(array $in): void
     {
         if (!empty($in['send_invites']) && Context::clients() !== null) {
@@ -237,6 +284,10 @@ final class Meetings
         }
     }
 
+    /**
+     * DELETE /meetings/{id}: just this meeting (not the rest of a series). Attendees get a cancellation first when
+     * invitations went out and it was still scheduled; a limited key can't delete such a meeting at all.
+     */
     public static function delete(int $id): array
     {
         $m = self::load($id);
@@ -249,6 +300,10 @@ final class Meetings
         return Out::none();
     }
 
+    /**
+     * The API form of a meeting (already checked against the key's client limit). Calendar ids and the sending mailbox
+     * stay internal.
+     */
     public static function shape(array $m): array
     {
         return [

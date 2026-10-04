@@ -23,6 +23,6 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
 <div class="card doc-card">
   <div class="card-body">
     <h2 class="h4"><?= e($v['title']) ?></h2>
-    <div class="ql-snow"><div class="ql-editor doc-readonly"><?= $v['body_html'] ?></div></div>
+    <div class="ql-snow"><div class="ql-editor doc-readonly"><?= $v['body_html'] /* cleaned when saved */ ?></div></div>
   </div>
 </div>

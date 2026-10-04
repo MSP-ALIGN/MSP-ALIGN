@@ -1,4 +1,9 @@
 <?php
+/**
+ * Projects across clients by quarter. @var array $quarters, $unscheduled, $beyond, $years, $clients; int $count, $limit,
+ * $clientId; ?int $year; string $q, $status, $category
+ * Titles, descriptions and client names are escaped; the edit windows load lazily for techs and admins.
+ */
 use Align\Auth;
 use Align\Controllers\ProjectController;
 use Align\Roadmap\Roadmap;
@@ -10,6 +15,7 @@ $qs = fn(array $over) => '/projects?' . http_build_query(array_filter(array_merg
 $back = $_SERVER['REQUEST_URI'] ?? '/projects';
 
 $shown = 0;
+// Draws project rows until the page's limit is reached ($shown counts across every group)
 $renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown) {
     foreach ($items as $it) {
         if ($shown >= $limit) {

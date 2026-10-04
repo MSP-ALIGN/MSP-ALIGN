@@ -12,8 +12,20 @@ use Align\Lifecycle\Lifecycle;
 use Align\Roadmap\Plan;
 use Align\View;
 
+/**
+ * Staff budget pages: the all-clients budget list, a client's budget, its manual budget lines (add, edit, remove,
+ * and accepting a line the client suggested in the portal) and the printable budget report.
+ *
+ * Security assumptions: every action starts with its role check. Any staff role reads budgets and prints the
+ * report; techs and admins change budget lines. The Router has checked CSRF on every POST. Form fields are
+ * untrusted: each column is set from a checked value (never the request array), amounts are bounded to the column,
+ * dates must be real dates. Changes are audited. Staff see every client, archived ones included.
+ */
 final class BudgetController
 {
+    /** Largest amount a budget line holds (DECIMAL(12,2)); more failed with a database error (2.2.1). */
+    private const MAX_AMOUNT = 9999999999.99;
+
     /** Plan year from ?year= (0-2), defaulting to the year that contains today. */
     private static function year(): int
     {
@@ -21,6 +33,7 @@ final class BudgetController
         return ctype_digit($y) && (int) $y < 3 ? (int) $y : Plan::quarters()[Plan::currentIndex()]['year'];
     }
 
+    /** A client's budget (any staff role). ?year= picks the plan year. */
     public static function show(int $id): void
     {
         Auth::require();
@@ -40,7 +53,10 @@ final class BudgetController
         ]);
     }
 
-    /** Budget totals for every client in planning. */
+    /**
+     * Budget totals for every client in planning (any staff role). Devices are loaded once for all clients; each
+     * client's budget still runs its own few queries (budget lines, billing, licenses, projects).
+     */
     public static function index(): void
     {
         Auth::require();
@@ -66,10 +82,19 @@ final class BudgetController
         ]);
     }
 
-    private static function fields(): array
+    /**
+     * The budget line columns from the form. Untrusted: category and frequency must be known keys; the amount is a
+     * number from 0 up to MAX_AMOUNT, rounded to cents (a negative or non-number amount saves as 0, as before);
+     * dates must be real dates (2.2.1, they were only pattern-checked); text is cut to the column sizes. Returns
+     * null when the amount is too large, so the caller can say so instead of the database failing.
+     */
+    private static function fields(): ?array
     {
         $amt = post('amount');
-        $date = fn(string $k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', post($k)) ? post($k) : null;
+        $date = fn(string $k) => \Align\Budget\Contracts::postDate($k);
+        if (is_numeric($amt) && (float) $amt > self::MAX_AMOUNT) {
+            return null;
+        }
         return [
             'name' => mb_substr(post('name'), 0, 255),
             'category' => isset(Budget::CATEGORIES[post('category')]) ? post('category') : 'other',
@@ -83,17 +108,27 @@ final class BudgetController
         ] + \Align\Budget\Contracts::fromPost($date('start_date'));
     }
 
+    /** Where to go after a form: the posted same-site path, else the client's budget. */
     private static function back(int $clientId): string
     {
         $b = post('back');
         return \Align\Security::safePath($b, "/clients/$clientId/budget");
     }
 
+    /**
+     * Adds a manual budget line to the client (tech). With submission_id it accepts the client's portal suggestion
+     * in the same transaction: Submissions::accept() checks the suggestion is this client's, a budget item and
+     * still pending, so it is added once.
+     */
     public static function create(int $id): void
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         $f = self::fields();
+        if ($f === null) {
+            flash('error', 'That amount is too large. Enter up to ' . money_exact(self::MAX_AMOUNT) . '.');
+            redirect(self::back($id));
+        }
         if ($f['name'] === '') {
             flash('error', 'Give the budget line a name.');
             redirect(self::back($id));
@@ -116,6 +151,10 @@ final class BudgetController
         redirect(self::back($id));
     }
 
+    /**
+     * Saves or removes (action=delete) a manual budget line (tech). The line keeps its client: client_id is never
+     * taken from the form. An unknown id goes back to the budget list.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');
@@ -126,29 +165,36 @@ final class BudgetController
         $back = self::back((int) $row['client_id']);
         if (post('action') === 'delete') {
             DB::run('DELETE FROM budget_lines WHERE id = ?', [$id]);
-            Audit::log('budget.delete', $row['name']);
+            Audit::log('budget.delete', $row['name'] . ' (client #' . (int) $row['client_id'] . ')');
             flash('success', "Removed {$row['name']} from the budget.");
             redirect($back);
         }
         $f = self::fields();
+        if ($f === null) {
+            flash('error', 'That amount is too large. Enter up to ' . money_exact(self::MAX_AMOUNT) . '.');
+            redirect($back);
+        }
         if ($f['name'] === '') {
             $f['name'] = $row['name'];
         }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE budget_lines SET $sets WHERE id = ?", [...array_values($f), $id]);
-        Audit::log('budget.update', $f['name']);
+        Audit::log('budget.update', $f['name'] . ' (client #' . (int) $row['client_id'] . ')');
         flash('success', 'Budget line saved.');
         redirect($back);
     }
 
-    /** Printable, client-facing budget. */
+    /** Printable, client-facing budget (any staff role). details=0 / notes=0 leave out the line items and notes. */
     public static function report(int $id): void
     {
         Auth::require();
         self::renderReport(ClientController::load($id), self::year(), ['details' => query('details', '1') === '1', 'notes' => query('notes', '1') === '1']);
     }
 
-    /** Budget report for one client; also used by the client portal. */
+    /**
+     * Budget report for one client; also used by the client portal. The caller has checked access to $client (the
+     * portal passes its own client and checks the budget permission) and $year is 0-2. Audited.
+     */
     public static function renderReport(array $client, int $year, array $opt): void
     {
         $bd = \Align\Reports\ReportData::budget((int) $client['id'], $year);

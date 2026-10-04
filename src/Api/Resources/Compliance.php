@@ -10,9 +10,18 @@ use Align\Api\Out;
 use Align\Compliance\Compliance as C;
 use Align\DB;
 
-/** Frameworks, a client's assessments and each control's status. */
+/**
+ * Frameworks, a client's assessments and each control's status.
+ *
+ * Security: reached through the Kernel with compliance:read or compliance:write checked. Frameworks and their controls
+ * are shared by every client (no client data). Everything under /clients/{id}/compliance goes through
+ * Clients::load() (the key's client limit, archived clients 404) and, past the list, assigned() (the framework must be
+ * assigned to that client). Answers are stored per client, so one client's answers can't be read or written through
+ * another's URL. A control id must belong to the framework in the URL, and a linked document to the client.
+ */
 final class Compliance
 {
+    /** PATCH rules for one control's answer (also used for each item of the bulk update and the OpenAPI spec). */
     public static function controlRules(): array
     {
         return [
@@ -25,6 +34,7 @@ final class Compliance
         ];
     }
 
+    /** GET /compliance/frameworks: active frameworks with their control counts (shared, no client data). */
     public static function frameworks(): array
     {
         $rows = DB::all('SELECT f.*, (SELECT COUNT(*) FROM compliance_controls c WHERE c.framework_id = f.id) AS controls FROM compliance_frameworks f WHERE f.is_active = 1 ORDER BY f.name');
@@ -32,7 +42,7 @@ final class Compliance
             'built_in' => (bool) $f['is_builtin'], 'controls' => (int) $f['controls']], $rows));
     }
 
-    /** Frameworks assigned to a client, with scores. */
+    /** GET /clients/{id}/compliance: frameworks assigned to a client, with scores. */
     public static function client(int $id): array
     {
         Clients::load($id);
@@ -40,6 +50,7 @@ final class Compliance
         return Out::slice(array_map(fn($r) => self::assessment($id, $r), $rows));
     }
 
+    /** One assignment ($r: client_frameworks row with the framework's name and slug) with its current score. */
     private static function assessment(int $clientId, array $r): array
     {
         $s = C::score($clientId, (int) $r['framework_id']);
@@ -57,6 +68,10 @@ final class Compliance
         ];
     }
 
+    /**
+     * The client's assignment of a framework, after Clients::load() (key's client limit, archived clients). 404 when
+     * the framework isn't assigned to the client, so the control endpoints only work for assigned frameworks.
+     */
     private static function assigned(int $clientId, int $fw): array
     {
         Clients::load($clientId);
@@ -67,6 +82,10 @@ final class Compliance
         return $r;
     }
 
+    /**
+     * POST /clients/{id}/compliance: assigns an active framework (next review defaults to a year from today). 201 when
+     * newly assigned, 200 when it already was (nothing changes and nothing is audited). Earlier answers come back.
+     */
     public static function assign(int $id): array
     {
         $client = Clients::load($id);
@@ -83,6 +102,7 @@ final class Compliance
         return Out::one(self::assessment($id, self::assigned($id, (int) $f['id'])), $new ? 201 : 200);
     }
 
+    /** PATCH /clients/{id}/compliance/{framework}: sets next_review and/or last_reviewed (null clears). */
     public static function review(int $id, int $framework): array
     {
         $fw = $framework;
@@ -97,6 +117,7 @@ final class Compliance
         return Out::one(self::assessment($id, self::assigned($id, $fw)));
     }
 
+    /** DELETE /clients/{id}/compliance/{framework}: removes the assignment; the answers are kept. */
     public static function unassign(int $id, int $framework): array
     {
         $fw = $framework;
@@ -106,6 +127,10 @@ final class Compliance
         return Out::none();
     }
 
+    /**
+     * GET /clients/{id}/compliance/{framework}/controls: every control of the framework with this client's answer
+     * (never another client's: the join is on the client id). Optional status filter; paginated after filtering.
+     */
     public static function controls(int $id, int $framework): array
     {
         $fw = $framework;
@@ -118,6 +143,7 @@ final class Compliance
         return Out::slice(array_map([self::class, 'controlShape'], $rows));
     }
 
+    /** The API form of a control with the client's answer (not_assessed when there is none). */
     public static function controlShape(array $r): array
     {
         return [
@@ -138,7 +164,11 @@ final class Compliance
         ];
     }
 
-    /** Saves one control; returns [changed?, error fields]. */
+    /**
+     * Saves one control's answer for the client; returns whether anything changed. 404 when the control isn't in this
+     * framework, 422 when the document isn't the client's. The caller has checked the client and the assignment
+     * (assigned()) and cleaned $in with controlRules(); only the fields sent change.
+     */
     private static function saveControl(int $clientId, int $fw, int $controlId, array $in): bool
     {
         $valid = DB::value('SELECT 1 FROM compliance_controls WHERE id = ? AND framework_id = ?', [$controlId, $fw]);
@@ -154,13 +184,17 @@ final class Compliance
             $in['status'] = 'not_assessed';
         }
         $new = array_merge(array_intersect_key($old, array_flip(['status', 'notes', 'evidence', 'owner', 'due_date', 'document_id'])), $in);
-        if (array_intersect_key($old, $new) == $new) {
+        // Compared as text, strictly: a loose == treats numeric strings as numbers ("10" == "1e1"), so such a change
+        // to notes or owner was reported as unchanged and never saved. Database values come back as strings.
+        $text = fn(mixed $v) => $v === null ? null : (string) $v;
+        if (!array_any($new, fn($v, $k) => $text($old[$k] ?? null) !== $text($v))) {
             return false;
         }
         DB::upsert('client_control_status', $new + ['client_id' => $clientId, 'control_id' => $controlId, 'updated_by' => null], ['client_id', 'control_id']);
         return true;
     }
 
+    /** PATCH /clients/{id}/compliance/{framework}/controls/{control}: one control; audited only when it changed. */
     public static function updateControl(int $id, int $framework, int $control): array
     {
         $fw = $framework;
@@ -177,7 +211,12 @@ final class Compliance
         return Out::one(self::controlShape($row));
     }
 
-    /** Several controls in one request: {"controls": [{"id": 12, "status": "met"}, ...]} (up to 500; all or nothing). */
+    /**
+     * PATCH /clients/{id}/compliance/{framework}/controls: several controls in one request,
+     * {"controls": [{"id": 12, "status": "met"}, ...]} (up to 500; all or nothing). Every item is validated before
+     * anything is written, and the writes share one transaction, so an unknown control or a foreign document rolls
+     * back the whole request. A repeated id: the last item wins.
+     */
     public static function updateControls(int $id, int $framework): array
     {
         $fw = $framework;

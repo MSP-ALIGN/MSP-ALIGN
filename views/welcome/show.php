@@ -4,6 +4,8 @@ use Align\Onboarding\Requests;
 
 /**
  * Client onboarding page. @var string $token; array $o, $client, $company, $pages, $contacts, $requests; ?array $intro, $vcio; bool $requestsOn
+ * Public (no sign-in). Every value is escaped with e(); the guide pages' html comes from Onboarding::fill()
+ * (values escaped, then Html::clean). $token passed WelcomeController::load(), so it's only [A-Za-z0-9_-].
  */
 $base = '/portal/welcome/' . $token;
 $t = $o['transition'];

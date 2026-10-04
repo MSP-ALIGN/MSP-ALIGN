@@ -1,4 +1,10 @@
 <?php
+/**
+ * A client's overview. @var array $client, $readiness, $summary, $forecast, $unplanned, $licensing, $keyContacts,
+ * $byType, $frameworks, $indicators, $upcoming, $recent, $users; ?array $cadence, $backup, $sla; int $contactCount
+ * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
+ * classes come from fixed tone lists.
+ */
 use Align\Compliance\Compliance;
 use Align\Lifecycle\Lifecycle;
 use Align\Meetings\Meetings;

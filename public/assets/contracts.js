@@ -1,6 +1,15 @@
 // Contracts (2.2): the template builder, the prepare page's live preview, and the signature pad.
+//
+// Security assumptions: runs on staff pages (builder: admins; prepare and countersign: techs and admins) and on the
+// public signing page (anyone with a live signing link and, if on, the emailed code). Everything read from the page
+// (the def/meta JSON, the PDF viewer's items, data-* attributes, preview HTML) was made and escaped by the server;
+// data the builder edits (labels, keys, services) can hold any text an admin typed, so every value built into
+// markup goes through esc() inside a quoted attribute or element text. Nothing here decides what is signed or
+// saved: the server checks the def, the values and the signature again (Template::normalize, Contracts::signature).
 (() => {
+  /** HTML-escapes for element text and double- or single-quoted attributes (not URLs, CSS or JS). */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  /** A placeholder key from a label: a-z, 0-9 and _, starting with a letter, at most 34 characters, not in taken. */
   const slug = (label, taken) => {
     let base = String(label).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
     if (!/^[a-z]/.test(base)) base = 'field_' + base;
@@ -9,11 +18,19 @@
     for (let i = 2; taken.includes(k); i++) k = base + '_' + i;
     return k;
   };
+  /** fn runs once, ms after the last call. */
   const debounce = (fn, ms) => { let t = null; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  /** The form's own CSRF token (sent with every POST made from here). */
   const csrfOf = (form) => (form.querySelector('[name="_csrf"]') || {}).value || '';
+  /** The form counts as unchanged from now on (app.js's unsaved-changes check). */
   const restart = (form) => { if (typeof formState === 'function') form.alignStart = formState(form); }; // eslint-disable-line no-undef
 
   // ---- Signature pad ---------------------------------------------------------------------------------------
+  /**
+   * A [data-sigpad] block (countersigning, the plain signing page): Type or Draw tabs, the typed signature following
+   * the name until it's edited, and on submit the drawing (cropped PNG data: URL) in [data-sig-png]. The server
+   * re-checks and re-encodes the PNG (size, ink) and the typed text.
+   */
   const sigpad = (pad) => {
     const kind = pad.querySelector('[data-sig-kind]');
     const png = pad.querySelector('[data-sig-png]');
@@ -39,10 +56,15 @@
     pad.closest('form').addEventListener('submit', () => { png.value = kind.value === 'draw' ? ink.png() : ''; });
   };
 
-  /** Drawing on a canvas with the mouse, a pen or a finger: clear(), and png() (cropped to the ink, '' if none). */
+  /**
+   * Drawing on a canvas with the mouse, a pen or a finger: clear(), and png() (cropped to the ink, '' if none).
+   * The PNG is never larger than the canvas (900 x 240 in the views), inside the server's 2000 x 1000 limit, and at
+   * least 60 x 30, above its 50 x 20 minimum.
+   */
   const inkPad = (canvas) => {
     const ctx = canvas.getContext('2d');
     let drawing = false, drawn = false, last = null;
+    /** Pointer position in canvas pixels (the canvas is drawn smaller than its pixel size). */
     const pos = (ev) => {
       const r = canvas.getBoundingClientRect();
       return { x: (ev.clientX - r.left) * (canvas.width / r.width), y: (ev.clientY - r.top) * (canvas.height / r.height) };
@@ -84,6 +106,7 @@
   // Start / Next go to each box still to do (in page order); a Sign box opens "Your signature", the first Initial box
   // "Your initials" and each Initial box is then clicked; Finish asks for the consent and submits. The boxes write
   // into the hidden inputs of #sign-form (the server checks everything again).
+  // Security: runs for the public signer; the values it writes are a request the server validates, never trusted.
   const guide = (form) => {
     const pv = document.querySelector('.sign-pdf [data-pv]');
     const bar = document.querySelector('[data-guide]');
@@ -98,17 +121,21 @@
     let initials = '';
     let pendingIni = null;
     let finishAfterSig = false;
+    /** The boxes and inputs to visit, in reading order (page, then line, then left to right). */
     const steps = () => {
       const items = (pv.alignPdf && pv.alignPdf.items) || [];
       const at = (el) => items.find((it) => it.id === (el.closest('.pv-item') || {}).dataset?.id) || { page: 0, y: 0, x: 0 };
       return Array.from(pv.querySelectorAll('[data-step], .pv-in')).map((el) => ({ el, at: at(el) }))
         .sort((a, b) => a.at.page - b.at.page || Math.round(a.at.y / 6) - Math.round(b.at.y / 6) || a.at.x - b.at.x).map((x) => x.el);
     };
+    /** Must be done before Finish: Sign and Initial boxes, and required inputs. */
     const required = (el) => el.dataset.step === 'sign' || el.dataset.step === 'initials' || el.required;
+    /** Whether a box or input is filled in. */
     const done = (el) => {
       if (el.dataset.step) return el.classList.contains('done');
       return el.type === 'checkbox' ? el.checked : String(el.value).trim() !== '';
     };
+    /** The status line and the Start / Next / Finish button. */
     const update = () => {
       const req = steps().filter(required);
       const left = req.filter((el) => !done(el)).length;
@@ -117,6 +144,7 @@
       label.textContent = !left ? 'Finish' : (started ? 'Next' : 'Start');
       nextBtn.querySelector('i').className = 'fas ' + (!left ? 'fa-check' : (started ? 'fa-arrow-down' : 'fa-play')) + ' me-1';
     };
+    /** Scrolls to a box and marks it current (inputs get the focus). */
     const go = (el) => {
       pv.querySelectorAll('.pv-current').forEach((x) => x.classList.remove('pv-current'));
       current = el;
@@ -164,6 +192,7 @@
     ad('name').addEventListener('input', () => { if (!typedTouched) ad('typed').value = ad('name').value; });
     ad('typed').addEventListener('input', () => { typedTouched = ad('typed').value !== ''; });
     const nameBox = () => pv.querySelector('[data-role="sig_name"]');
+    /** Opens Your signature, with the name typed on the page so far. */
     const openSig = () => {
       const typedName = (nameBox() && nameBox().value) || out('sig_name').value;
       if (typedName && !ad('name').value) ad('name').value = typedName;
@@ -197,6 +226,11 @@
     const iniBody = document.getElementById('adopt-ini');
     const ai = (k) => iniBody.querySelector('[data-ai="' + k + '"]');
     const initialed = out('initialed');
+    /**
+     * Puts the adopted initials into an Initial box (on) or takes them off, and keeps the hidden initialed[] list and
+     * the box's own client blank in step. b.dataset.place/field come from the server's items; esc() keeps them inside
+     * the attribute even so.
+     */
     const apply = (b, on) => {
       b.classList.toggle('done', on);
       b.innerHTML = on ? '<span class="pv-script">' + esc(initials) + '</span>' : 'Initial';
@@ -257,12 +291,14 @@
   };
 
   // ---- Signing page extras: initials from the name, fields left to fill ----------------------------------
+  /** The plain signing page: initials follow the name until edited, the same blank in two places stays in step, and a counter says what's left. */
   const signPage = (form) => {
     const name = form.querySelector('[data-sig-name]');
     const initials = form.querySelector('[data-initials-main]');
     const inline = document.querySelectorAll('[data-initials]');
     let touched = initials && initials.value !== '';
     const ini = (n) => n.trim().split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase()).join('').slice(0, 4);
+    /** Initials from the name, into the boxes not edited by hand. */
     const fillInitials = () => {
       if (!name) return;
       const v = ini(name.value);
@@ -273,6 +309,7 @@
     inline.forEach((i) => i.addEventListener('input', () => { i.dataset.touched = '1'; }));
     if (name) { name.addEventListener('input', fillInitials); fillInitials(); }
     const left = document.querySelector('[data-cf-left]');
+    /** The "fields left" counter. */
     const update = () => {
       if (!left) return;
       const req = Array.from(document.querySelectorAll('[data-cf][required]'));
@@ -301,15 +338,25 @@
   };
 
   // ---- Prepare page: live preview -------------------------------------------------------------------------
+  /**
+   * The prepare page: a live preview of the contract (POSTed with the form, its CSRF token included) and the extra
+   * services rows. The preview HTML is the server's own escaped rendering of these values.
+   */
   const prepare = (form) => {
     const out = document.querySelector('[data-ct-preview]');
     const state = document.querySelector('[data-ct-preview-state]');
+    let latest = 0;
+    /** The preview for the form as it is now (POSTed with its CSRF token); only the newest answer is shown. */
     const refresh = debounce(async () => {
       if (state) state.textContent = 'Updating…';
+      const mine = ++latest;
       try {
         const res = await fetch(form.dataset.preview, { method: 'POST', body: new FormData(form), credentials: 'same-origin' });
+        // A slower answer to an older request must not replace a newer preview
+        if (mine !== latest) return;
         if (res.ok && (res.headers.get('Content-Type') || '').includes('text/html')) {
           const html = await res.text();
+          if (mine !== latest) return;
           const cur = out.querySelector('[data-pv]');
           const tmp = document.createElement('div');
           tmp.innerHTML = html;
@@ -324,7 +371,7 @@
           }
         }
         if (state) state.textContent = '';
-      } catch (e) { if (state) state.textContent = 'Preview not updated'; }
+      } catch (e) { if (state && mine === latest) state.textContent = 'Preview not updated'; }
     }, 500);
     form.addEventListener('input', refresh);
     form.addEventListener('change', refresh);
@@ -353,6 +400,11 @@
   // box itself defines: its name, kind and who fills it in. Blanks live in def.fields (so several boxes can share
   // one), but there's no separate list of them: a blank no box uses is dropped.
   const NEW_BLANK = '__new';
+  /**
+   * The PDF template builder (admins): boxes placed, moved and resized on the pages, the inspector for the selected
+   * box and its blank, and Find the blanks. Edits def.places and def.fields in place (h.changed() saves them into the
+   * hidden field); positions are kept inside the page, and the server's Template::normalize checks them again.
+   */
   const pdfBoxes = (form, def, meta, h) => {
     const pvEl = form.querySelector('[data-pv]');
     const viewer = window.AlignPdf.mount(pvEl);
@@ -370,7 +422,9 @@
     let selected = null;
     let placing = null;
     let suggestions = [];
+    /** A new box id (the server keeps or replaces it). */
     const uid = () => 'p' + Math.random().toString(36).slice(2, 10);
+    /** Who a key belongs to, for its color: client, provider, services or auto. */
     const groupOf = (k) => {
       if (meta.special[k]) return meta.special[k].side;
       if (/^svc\./.test(k) || /_total$/.test(k)) return 'services';
@@ -378,6 +432,7 @@
       const f = def.fields.find((x) => x.key === k);
       return f ? f.by : 'auto';
     };
+    /** The <option>s of the key pickers, grouped; every key and label escaped. */
     const options = (current) => {
       const opt = (k) => '<option value="' + esc(k) + '"' + (k === current ? ' selected' : '') + '>' + esc(h.labelOf(k)) + '</option>';
       const special = (side) => Object.keys(meta.special).filter((k) => meta.special[k].side === side);
@@ -392,6 +447,7 @@
         + '<optgroup label="Filled in by Align">' + auto.map(opt).join('') + '</optgroup>'
         + '<optgroup label="Something Align doesn’t know"><option value="' + NEW_BLANK + '">New blank…</option></optgroup>';
     };
+    /** The blank (def.fields entry) a key names, or null for something Align knows. */
     const blankOf = (k) => def.fields.find((f) => f.key === k) || null;
     /** A new blank (you fill it in, text): the box's settings name it. Returns its key. */
     const newBlank = () => {
@@ -401,6 +457,7 @@
     };
     /** Blanks no box uses any more go. */
     const prune = () => { def.fields = def.fields.filter((f) => def.places.some((pl) => pl.key === f.key)); };
+    /** A new box's size in points, [w, h]. */
     const sizeFor = (k) => {
       if (k === 'sig.client' || k === 'sig.provider') return meta.sizes.sig;
       if (k === 'initials.client') return meta.sizes.initials;
@@ -408,12 +465,15 @@
       if (/^date\.|^svc\.|_total$/.test(k)) return [90, 16];
       return meta.sizes.default;
     };
+    /** The viewer's page i (W, H in points; layer for the boxes). */
     const page = (i) => viewer.pages[i];
+    /** Positions a box element in percent of its page, so it scales with the page. */
     const boxStyle = (el, pl) => {
       const p = page(pl.page);
       Object.assign(el.style, { left: (pl.x / p.W * 100) + '%', top: (pl.y / p.H * 100) + '%', width: (pl.w / p.W * 100) + '%', height: (pl.h / p.H * 100) + '%' });
       el.style.setProperty('--fs', pl.size);
     };
+    /** Draws every box and found blank on the pages again, then the inspector. Labels are escaped. */
     const render = () => {
       if (!viewer.pages.length) return;
       viewer.pages.forEach((p) => { p.layer.innerHTML = ''; });
@@ -441,6 +501,7 @@
       });
       panel();
     };
+    /** The inspector and the list of boxes, and the warnings (missing signature boxes, narrow dates). */
     const panel = () => {
       const pl = def.places.find((x) => x.id === selected);
       ins.none.classList.toggle('d-none', !!pl);
@@ -490,6 +551,7 @@
       ins.also.textContent = others.length ? 'Also in ' + others.length + ' other box' + (others.length === 1 ? '' : 'es') + ' (page '
         + [...new Set(others.map((x) => x.page + 1))].join(', ') + '): changes here apply to all of them.' : '';
     };
+    /** An edit in the blank's settings, written into the blank (all its boxes follow). */
     const blankEdit = (ev) => {
       const el = ev.target.closest('[data-b]');
       const pl = def.places.find((x) => x.id === selected);
@@ -510,6 +572,7 @@
     };
     ins.blank.addEventListener('input', blankEdit);
     ins.blank.addEventListener('change', blankEdit);
+    /** Selects a box (null: none) and opens the Box tab. */
     const select = (id, scroll) => {
       selected = id;
       render();
@@ -518,6 +581,7 @@
       if (el) el.focus({ preventScroll: true });
       if (id) { const tab = document.querySelector('[data-bs-target="#ct-tab-box"]'); if (tab && window.bootstrap) window.bootstrap.Tab.getOrCreateInstance(tab).show(); }
     };
+    /** Keeps a box on its page: at least 6 points, never wider or taller than the page, rounded to 0.1 pt. */
     const clamp = (pl) => {
       const p = page(pl.page);
       pl.w = Math.max(6, Math.min(pl.w, p.W));
@@ -526,6 +590,7 @@
       pl.y = Math.max(0, Math.min(pl.y, p.H - pl.h));
       ['x', 'y', 'w', 'h'].forEach((k) => { pl[k] = Math.round(pl[k] * 10) / 10; });
     };
+    /** Adds a box (NEW_BLANK makes a new blank for it), selects it and returns it. */
     const add = (key, pg, x, y, w, hh) => {
       const fresh = key === NEW_BLANK;
       if (fresh) key = newBlank();
@@ -544,6 +609,7 @@
       pvEl.classList.add('pv-placing');
       ins.hint.innerHTML = '<b>Click on the page</b> where ' + (key === NEW_BLANK ? 'the new blank' : '"' + esc(h.labelOf(key)) + '"') + ' goes. <a href="#" data-cancel-place>Cancel</a>';
     };
+    /** Back to the normal hint. */
     const stopPlacing = () => {
       placing = null;
       pvEl.classList.remove('pv-placing');
@@ -591,6 +657,7 @@
       boxStyle(drag.el, drag.pl);
       drag.moved = true;
     });
+    /** A finished drag saves the box's new place. */
     const endDrag = () => { if (drag && drag.moved) { h.changed(); panel(); } drag = null; };
     pvEl.addEventListener('pointerup', endDrag);
     pvEl.addEventListener('pointercancel', endDrag);
@@ -634,6 +701,7 @@
       if (/between .* and\s*$|client name|company name|\band\s*$/.test(t)) return { key: 'client_name' };
       return {};
     };
+    /** Blanks in the PDF's text: ____ lines, [   ] brackets and a $ with nothing after it, not where a box is already. */
     const findBlanks = async () => {
       const found = [];
       for (let i = 0; i < viewer.pages.length; i++) {
@@ -719,6 +787,13 @@
   };
 
   // ---- Template builder -----------------------------------------------------------------------------------
+  /**
+   * The template builder (admins): blocks (Quill text, services, field lists, signatures, page breaks), fields,
+   * services, optional sections, look and signing, kept in one def object posted as JSON in #tpl-def. The def and
+   * meta come from <script type="application/json"> blocks the server encoded with the JSON_HEX_* flags; labels
+   * in them are an admin's text, so they are escaped as they're built into markup. The preview is POSTed with the
+   * form's CSRF token and is the server's escaped rendering.
+   */
   const builder = (form) => {
     const def = JSON.parse(document.getElementById('ct-def-json').textContent);
     const meta = JSON.parse(document.getElementById('ct-meta-json').textContent);
@@ -731,30 +806,43 @@
     let lastRange = null;
     const uid = () => 'b' + Math.random().toString(36).slice(2, 10);
 
+    /** An editor's HTML (empty editor: ''), with spaces instead of the non-breaking spaces getSemanticHTML writes. */
     const htmlOf = (q) => (q.getLength() <= 1 ? '' : q.getSemanticHTML().replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' '));
+    /** Copies the editors into the def, and the def into the hidden field. */
     const sync = () => {
       def.blocks.forEach((b) => { if (b.type === 'text' && quills.has(b.id)) b.html = htmlOf(quills.get(b.id)); });
       hidden.value = JSON.stringify(def);
     };
     const pdfMode = 'pdfBuilder' in form.dataset;
     let pdfApi = null;
+    let latest = 0;
+    /** The preview of the def as it is now (the server's escaped rendering); only the newest answer is shown. */
     const refresh = debounce(async () => {
       sync();
       if (!form.dataset.preview || !preview) return;
       const body = new FormData();
       body.append('_csrf', csrfOf(form));
       body.append('def', hidden.value);
+      const mine = ++latest;
       try {
         const res = await fetch(form.dataset.preview, { method: 'POST', body, credentials: 'same-origin' });
-        if (res.ok && (res.headers.get('Content-Type') || '').includes('text/html')) preview.innerHTML = await res.text();
+        if (res.ok && (res.headers.get('Content-Type') || '').includes('text/html')) {
+          const html = await res.text();
+          if (mine === latest) preview.innerHTML = html; // an older, slower answer doesn't replace a newer one
+        }
       } catch (e) { /* the next change tries again */ }
     }, 600);
     const fieldHooks = [];
+    /** Something changed: save into the field, refresh the preview, update the key lists. */
     const changed = () => { sync(); refresh(); fieldHooks.forEach((fn) => fn()); if (stateEl) stateEl.textContent = 'Not saved yet'; };
+    /** "Are you sure?" in app.js's dialog (the browser's box if it isn't there). */
     const ask = (o) => (typeof alignConfirm === 'function' ? alignConfirm(o) : Promise.resolve(window.confirm(o.title))); // eslint-disable-line no-undef
+    /** A short message next to the save state. */
     const note = (t) => { if (stateEl) { stateEl.textContent = t; stateEl.classList.add('text-danger'); setTimeout(() => stateEl.classList.remove('text-danger'), 4000); } };
 
+    /** Every key in use: built-in ones and this template's fields. */
     const allKeys = () => [...Object.keys(meta.builtIn), ...def.fields.map((f) => f.key)];
+    /** A key's label for people (Removed service for a services key whose row is gone). */
     const labelOf = (k) => {
       if (meta.special && meta.special[k]) return meta.special[k].label;
       const m = /^svc\.([a-z][a-z0-9_]*)\.(qty|price|total)$/.exec(k);
@@ -764,6 +852,7 @@
       }
       return meta.builtIn[k] ? meta.builtIn[k].label : ((def.fields.find((f) => f.key === k) || {}).label || k);
     };
+    /** Puts {{key}} at the cursor (or, on a PDF template, starts placing a box for it). */
     const insert = (key) => {
       if (pdfApi) { pdfApi.place(key); return; }
       const q = lastQuill && quills.has(lastQuill) ? quills.get(lastQuill) : quills.values().next().value;
@@ -775,6 +864,7 @@
     };
 
     // Blocks
+    /** A block's header: its type, the section it shows with, and the move / remove / split buttons. */
     const blockHead = (b, i) => {
       const t = { text: ['fa-paragraph', 'Text'], services: ['fa-list-ol', 'Services table'], fields: ['fa-table-list', 'Field list'], signatures: ['fa-signature', 'Signatures'], page_break: ['fa-scissors', 'Page break'] }[b.type];
       const secs = def.sections.length ? '<select class="form-select form-select-sm ct-sec-select" data-act="section" aria-label="When this block shows"><option value="">Shows: always</option>'
@@ -786,6 +876,7 @@
         + '<button type="button" class="btn btn-light" data-act="down" title="Move down"' + (i === def.blocks.length - 1 ? ' disabled' : '') + '><i class="fas fa-arrow-down"></i><span class="visually-hidden">Move down</span></button>'
         + '<button type="button" class="btn btn-light text-danger" data-act="remove" title="Remove"><i class="fas fa-trash"></i><span class="visually-hidden">Remove</span></button></span></div>';
     };
+    /** Draws the blocks again from the def (text blocks get a fresh Quill each time). */
     const renderBlocks = () => {
       if (!blocksEl) return;
       sync();
@@ -804,7 +895,8 @@
           body.appendChild(host);
           el.appendChild(body);
           blocksEl.appendChild(el);
-          const q = new Quill(host, { theme: 'snow', placeholder: 'Type or paste your contract wording…', modules: { toolbar: [
+          // Only what Docs\Html::clean keeps (alignQuillFormats, docs.js): a pasted picture isn't kept as a data: URL
+          const q = new Quill(host, { theme: 'snow', placeholder: 'Type or paste your contract wording…', ...(typeof alignQuillFormats !== 'undefined' ? { formats: alignQuillFormats } : {}), modules: { toolbar: [ // eslint-disable-line no-undef
             [{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], [{ indent: '-1' }, { indent: '+1' }, { align: [] }], ['link', 'clean'],
           ], history: { delay: 1000, maxStack: 200, userOnly: true } } });
           q.setContents(q.clipboard.convert({ html: b.html || '' }), 'silent');
@@ -886,6 +978,7 @@
 
     // Fields (written templates; a PDF template's blanks are edited on their boxes)
     const fieldsEl = document.getElementById('ct-fields');
+    /** The fields list (written templates). */
     const renderFields = () => {
       if (!fieldsEl) return;
       fieldsEl.innerHTML = def.fields.length ? '' : '<p class="small text-muted">No fields yet.</p>';
@@ -925,6 +1018,7 @@
         renderFields(); renderBlocks(); changed();
       }
     });
+    /** An edit in the fields list, written into the def. */
     const fieldEdit = (ev) => {
       const el = ev.target.closest('[data-f]');
       if (!el || el.tagName === 'BUTTON') return;
@@ -964,6 +1058,7 @@
     const svcTitle = form.querySelector('[data-ct-svc-title]');
     svcTitle.value = def.services.title || '';
     svcTitle.addEventListener('input', () => { def.services.title = svcTitle.value; changed(); });
+    /** The services list. */
     const renderServices = () => {
       svcEl.innerHTML = def.services.rows.length ? '' : '<p class="small text-muted">No services yet.</p>';
       def.services.rows.forEach((r, i) => {
@@ -1000,6 +1095,7 @@
       }
       renderServices(); changed();
     });
+    /** An edit in the services list (price and quantity as numbers). */
     const svcEdit = (ev) => {
       const el = ev.target.closest('[data-s]');
       if (!el || el.tagName === 'BUTTON') return;
@@ -1018,6 +1114,7 @@
 
     // Sections
     const secEl = document.getElementById('ct-sections');
+    /** The optional sections list. */
     const renderSections = () => {
       if (!secEl) return;
       secEl.innerHTML = def.sections.length ? '' : '<p class="small text-muted">No optional sections.</p>';
@@ -1040,6 +1137,7 @@
       def.blocks.forEach((x) => { if (x.section === s.key) x.section = ''; });
       renderSections(); renderBlocks(); changed();
     });
+    /** An edit in the sections list. */
     const secEdit = (ev) => {
       const el = ev.target.closest('[data-x]');
       if (!el || el.tagName === 'BUTTON') return;
@@ -1070,6 +1168,7 @@
     });
     const color = form.querySelector('[data-ct-color]');
     const brand = form.querySelector('[data-ct-brand]');
+    /** The accent color, or the brand's when "Use the brand color" is ticked. */
     const setColor = () => { def.style.color = brand.checked ? '' : color.value; changed(); };
     if (color && brand) {
       color.addEventListener('input', () => { brand.checked = false; setColor(); });
@@ -1099,6 +1198,8 @@
     refresh();
   };
 
+  // Starts whatever this page has. A window marked data-open-on-hash opens when the address ends in #its-name (the
+  // hash is only compared, never used as a selector or put on the page).
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-sigpad]').forEach(sigpad);
     const sign = document.getElementById('sign-form');

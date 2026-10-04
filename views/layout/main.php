@@ -1,4 +1,15 @@
 <?php
+/**
+ * The staff layout: top bar, menu, flash messages, banners and $content (the page, already rendered and escaped).
+ * Vars: $title, $content; optional $nav, $client (sets the client menu), $clientNav, $refresh, $calendar, $editor,
+ * $contractsJs, $modalClients, $noMeetingModal.
+ *
+ * Security: everything printed from data is escaped with e(): the app and company names, user names and emails,
+ * client names, flash messages and badges (badge counts are cast to int). The brand colour CSS comes from
+ * Branding::css(), which only prints a validated #rrggbb. The source link is http(s) only (LegalController::
+ * sourceUrl). Hrefs are fixed paths or built from integer ids. Menu items are filtered by role here only for
+ * display: every route checks its own role.
+ */
 use Align\Auth;
 
 $u = Auth::user();
@@ -121,11 +132,11 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
       <form class="d-none d-md-flex ms-2 app-search" action="/search" method="get" role="search">
         <div class="input-group input-group-sm navbar-search-wide">
           <span class="input-group-text"><i class="fas fa-search"></i></span>
-          <input class="form-control" type="search" name="q" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" value="<?= e(($nav === 'search' || $nav === 'clients') ? ($_GET['q'] ?? '') : '') ?>">
+          <input class="form-control" type="search" name="q" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" value="<?= e(($nav === 'search' || $nav === 'clients') ? query('q') : '') ?>">
         </div>
       </form>
       <ul class="navbar-nav ms-auto align-items-center">
-        <?php if (Auth::can('tech')): ?>
+        <?php if ($ready && Auth::can('tech')): // (the meeting form it opens is only on the page once sign-in is complete) ?>
           <li class="nav-item dropdown">
             <a class="nav-link" data-bs-toggle="dropdown" href="#" title="Create" aria-label="Create"><i class="fas fa-plus"></i></a>
             <div class="dropdown-menu dropdown-menu-end">
@@ -210,7 +221,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         <?php endforeach; ?>
-        <?php if (!str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings') && Auth::can('admin') && ($upd = \Align\System\Agent::updateAvailable())): ?>
+        <?php if (!str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings') && $isAdmin && ($upd = \Align\System\Agent::updateAvailable())): // not before 2FA is set up, like the menu badge ?>
           <div class="alert alert-info py-2 d-flex align-items-center flex-wrap" role="status">
             <i class="fas fa-circle-arrow-up me-2"></i>
             <span class="me-3">MSP-ALIGN <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>

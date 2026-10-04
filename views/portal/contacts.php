@@ -4,6 +4,7 @@ use Align\Contacts\Contacts;
 /**
  * The client's contacts, view-only (1.39). Changes go through a new user / termination request, or to the IT
  * team directly, so the contact list the IT provider works from stays theirs to keep.
+ * Contact details come from the PSA sync: they are escaped, and phone links keep digits and + only.
  * @var array $pu, $contacts, $provider; bool $canRequest
  */
 $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);

@@ -1,8 +1,9 @@
 <?php
 /**
  * Portal: suggest a license or budget item (1.39), and see what was suggested. Everything waits for the IT
- * provider to review it; nothing changes the budget until they add it.
- * @var string $kind license|budget; array $subs; bool $canSubmit
+ * provider to review it; nothing changes the budget until they add it. Everything shown was typed by the client
+ * (or the staff note) and is escaped; a missing data field (an older row) shows as empty.
+ * @var string $kind license|budget; array $subs; bool $canSubmit; array $pu
  */
 use Align\Budget\Budget;
 use Align\Licensing\Licenses;
@@ -22,8 +23,8 @@ $sym = e(\Align\Fmt::symbol());
           <b><?= e($s['title']) ?></b> <span class="badge text-bg-<?= $tone ?> portal-status align-middle"><?= e($label) ?></span>
           <div class="small text-muted">
             <?= e($isLic
-                ? implode(' · ', array_filter([$d['vendor'] ?? null, $d['seats'] !== null ? $d['seats'] . ' ' . ($d['seats'] === 1 ? 'license' : 'licenses') : null, $d['unit_price'] !== null ? money_exact($d['unit_price']) . ' ' . strtolower(Licenses::CYCLES[$d['billing_cycle']][0] ?? '') : null]))
-                : implode(' · ', array_filter([Budget::CATEGORIES[$d['category']][0] ?? null, money_exact($d['amount'] ?? 0) . ' ' . strtolower(Budget::FREQUENCIES[$d['frequency']][0] ?? '')]))) ?>
+                ? implode(' · ', array_filter([$d['vendor'] ?? null, ($d['seats'] ?? null) !== null ? $d['seats'] . ' ' . ($d['seats'] === 1 ? 'license' : 'licenses') : null, ($d['unit_price'] ?? null) !== null ? money_exact($d['unit_price']) . ' ' . strtolower(Licenses::CYCLES[$d['billing_cycle'] ?? ''][0] ?? '') : null]))
+                : implode(' · ', array_filter([Budget::CATEGORIES[$d['category'] ?? ''][0] ?? null, money_exact($d['amount'] ?? 0) . ' ' . strtolower(Budget::FREQUENCIES[$d['frequency'] ?? ''][0] ?? '')]))) ?>
             · sent by <?= e($s['submitted_by_name']) ?> <?= e(rel_time($s['created_at'])) ?>
           </div>
           <?php if ($s['status'] === 'declined' && $s['decision_note']): ?><div class="small mt-1"><i class="fas fa-comment text-muted me-1"></i><?= e($s['decision_note']) ?></div><?php endif; ?>

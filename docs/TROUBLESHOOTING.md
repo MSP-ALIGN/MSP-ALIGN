@@ -27,6 +27,8 @@ Useful everywhere: `sudo align check` (health check), the app's error log `/var/
 | The page doesn't load at all after many failures | fail2ban banned the address for an hour (dedicated installs, not proxy mode): `sudo fail2ban-client set msp-align unbanip <IP>`. |
 | *That code is not valid.* | Check the time on the phone and on the server (`timedatectl`; the installer turns on time sync). Each code works once. |
 | Lost phone or authenticator | Another admin can use **Remove 2FA** on the user list (Admin → People), or on the server: `sudo align user:reset-password --email=you@example.com --clear-2fa`. It prints a one-time password; you set up a new authenticator at the next sign-in. |
+| A password stopped working, with a *Password replaced after wrong two-factor codes* alert | After 50 wrong codes in a row following the correct password, Align replaces the password and ends that person's sessions (2.2.1): someone else probably knows it. An admin sets a new one (**Reset password**, or `sudo align user:reset-password`); a portal user uses **Forgot password**. |
+| Calendar feed stopped updating | A password change, 2FA change or "sign out everywhere" turns off the feed link (2.2.1). Make a new one on the Meetings page and subscribe again. |
 | No admin can sign in | `sudo align user:create --email=you@example.com --role=admin` |
 | A client can't sign in to the portal | On the client's **Client portal** page, use **Reset 2FA** (they get a link to choose a new password and set up two-factor), or invite them again. |
 
@@ -40,6 +42,8 @@ system answered.
 | You see | What to do |
 |---|---|
 | *Connection failed: …* | The server can't reach the address: DNS, firewall, or a typo in the URL. Try `curl -I <address>` on the server. |
+| *Align won't connect to …: it is this server (loopback)* (or *a link-local or cloud metadata address*) | Since 2.2.1 integrations never reach the server itself or cloud metadata addresses. For an integration installed on the same machine, set `'allow_local_integrations' => true` in `/etc/msp-align/config.php`. Addresses on your network (10.x, 172.16-31.x, 192.168.x) work as before. |
+| *HTTP 301/302 … (a redirect: check the address)* | Redirects aren't followed (2.2.1). Enter the final address, usually with `https://` and without a trailing page. |
 | *SSL certificate problem* / *unable to get local issuer certificate* | Addresses must be `https://` with a certificate this server trusts. For an internal certificate authority, copy its certificate to `/usr/local/share/ca-certificates/` as a `.crt` file and run `sudo update-ca-certificates`. |
 | *HTTP 401* or *HTTP 403 from …* | The key or credentials are wrong, expired or missing a permission. The integration's page lists what it needs. |
 | *…returned a non-JSON response. Check the ITFlow URL.* | Use ITFlow's base address (`https://itflow.example.com`), not a page inside it. |

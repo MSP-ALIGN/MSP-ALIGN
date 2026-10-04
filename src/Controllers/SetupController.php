@@ -20,6 +20,12 @@ use Align\View;
  *
  * Settings: setup_state (pending = open it for the first admin; done), setup_seen / setup_skipped
  * (comma lists of step keys).
+ *
+ * Security assumptions: admins only, at any time (finishing it only stops it opening by itself; any admin can come
+ * back to it from Settings → General). The Router has checked CSRF. Step names from the URL are only used when they
+ * are STEPS keys. The forms post to the normal pages, which do their own role checks and validation, and come back
+ * through setup_return(), which only accepts /setup paths. Secrets are never put into the forms (only whether one
+ * is saved).
  */
 final class SetupController
 {
@@ -34,11 +40,13 @@ final class SetupController
         'team' => ['Your team', 'fa-user-plus'],
     ];
 
+    /** Whether the wizard should still open by itself (a new install that hasn't finished or skipped it). */
     public static function pending(): bool
     {
         return Settings::get('setup_state', 'done') === 'pending';
     }
 
+    /** The step keys in a comma-list setting (setup_seen or setup_skipped). */
     private static function list(string $key): array
     {
         return array_values(array_filter(explode(',', (string) Settings::get($key, ''))));
@@ -52,6 +60,7 @@ final class SetupController
         }
     }
 
+    /** Adds $step (callers pass STEPS keys only) to the comma-list setting $key, once. */
     private static function mark(string $key, string $step): void
     {
         $l = self::list($key);
@@ -83,6 +92,7 @@ final class SetupController
         return $out;
     }
 
+    /** The page after $step: the next step, or /setup/finish after the last (and for anything unknown). */
     private static function next(string $step): string
     {
         $keys = array_keys(self::STEPS);
@@ -90,6 +100,7 @@ final class SetupController
         return $i === false || $i === count($keys) - 1 ? '/setup/finish' : '/setup/' . $keys[$i + 1];
     }
 
+    /** /setup: goes to the first step that is neither done nor skipped, or to Finish. */
     public static function index(): void
     {
         Auth::requireRole('admin');
@@ -102,6 +113,11 @@ final class SetupController
         redirect('/setup/finish');
     }
 
+    /**
+     * One step's page. $step comes from the URL: anything but a STEPS key or "finish" goes back to /setup. Integration
+     * secrets and the SMTP password are passed as "is one saved" only. The one-time password of a user just added
+     * on the Team step is shown once, as on the Users page.
+     */
     public static function show(string $step): void
     {
         Auth::requireRole('admin');
@@ -145,7 +161,11 @@ final class SetupController
         return $out;
     }
 
-    /** Step 1 is the wizard's own form: company details, logo and colour in one go. */
+    /**
+     * Step 1 is the wizard's own form: company details, logo and colour in one go. The name is required and the
+     * email checked before anything is saved; each text value is cut to its length. The colour is only saved as
+     * #rrggbb (it is printed into CSS), and the logo goes through Branding::saveLogo (checked and re-encoded).
+     */
     public static function saveCompany(): void
     {
         Auth::requireRole('admin');
@@ -154,7 +174,7 @@ final class SetupController
             flash('error', 'Enter your company name (or skip this step for now).');
             redirect('/setup/company');
         }
-        if (trim(post('company_email')) !== '' && !filter_var(trim(post('company_email')), FILTER_VALIDATE_EMAIL)) {
+        if (trim(post('company_email')) !== '' && (!filter_var(trim(post('company_email')), FILTER_VALIDATE_EMAIL) || strlen(post('company_email')) > 190)) {
             flash('error', 'The company email must be an email address.'); // checked first, so nothing is half saved
             redirect('/setup/company');
         }

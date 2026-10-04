@@ -1,5 +1,9 @@
 <?php
-/** Confirm it's the signer: a code emailed to them. @var array $c, $company; string $token, $masked; bool $codeSent, $mailReady; int $triesLeft */
+/**
+ * Confirm it's the signer: a code emailed to them. @var array $c, $company; string $token, $masked; bool $codeSent, $mailReady; int $triesLeft
+ * Shown to anyone with the link, so it shows only the title, your company and the masked address, never the
+ * contract. The tries left are a hint: Contracts::checkCode counts them on the server.
+ */
 ?>
 <div class="card sign-card mx-auto">
   <div class="card-body p-4">

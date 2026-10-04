@@ -6,6 +6,9 @@ use Align\Contracts\Contracts;
  * signer to each box to fill in, initial or sign, and Finish asks for the consent and signs. The boxes on the page
  * are the form; contracts.js (guide) runs the steps and the adopt-signature and adopt-initials dialogs.
  * @var array $c, $company, $kept; string $token, $doc
+ * Security: $doc is Render::html output (escaped there, its data JSON with HTML characters escaped); $kept is what
+ * the signer typed before an error (escaped here). The hidden inputs are filled by contracts.js and checked again on
+ * the server (SignController::sign, Contracts::clientSign).
  */
 $kept = $kept ?? [];
 ?>

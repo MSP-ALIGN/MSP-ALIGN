@@ -1,5 +1,10 @@
 <?php
-/** @var \Align\Integrations\Connector $c; array $values, $status */
+/**
+ * One connector's settings page (admin only): the form, the Test button (POST with CSRF) and the setup steps.
+ * @var \Align\Integrations\Connector $c; array $values, $status
+ * Security: setup() and notes() are trusted HTML from code (notes() escapes what it shows from the PSA); everything
+ * else is escaped. The confirm rules are JSON in an escaped attribute, read with JSON.parse by the page script.
+ */
 [$tone, $label, $detail] = $status;
 $field = fn(array $f): string => \Align\View::fetch('integrations/_field', ['f' => $f, 'values' => $values]);
 // Settings that start writing into the PSA ask first (2.0.1)

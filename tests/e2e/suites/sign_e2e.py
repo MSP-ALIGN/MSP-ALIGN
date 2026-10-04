@@ -191,12 +191,12 @@ ok(rc != 0 and "DIE" in out and "LOCKED" not in out, "one run by anything else w
 
 # ---- the Docker publish workflow's check (same script, against the previous release's keys)
 wf = open(ROOT + "/.github/workflows/docker.yml").read()
-m = re.search(r"- name: Check the release tag is signed with the release key\n        run: \|\n((?:          .*\n|\s*\n)+)", wf)
+m = re.search(r"- name: Check the release tag is signed with the release key\n(?:        (?!run:)\S.*\n)*        run: \|\n((?:          .*\n|\s*\n)+)", wf)
 step = "\n".join(l[10:] for l in m.group(1).splitlines()).replace("sudo apt-get install", "true || sudo apt-get install")
 open(W + "/wf.sh", "w").write(step)
 def publish(tag):
     sh(f"rm -rf {W}/ci && git clone -q -b main {W}/remote.git {W}/ci && git -C {W}/ci checkout -q {tag}")
-    return sh(f"bash {W}/wf.sh", cwd=W + "/ci", env=dict(os.environ, GITHUB_REF_NAME=tag, GITHUB_SHA=commit_of(tag, "work"), RUNNER_TEMP=W))
+    return sh(f"bash {W}/wf.sh", cwd=W + "/ci", env=dict(os.environ, GITHUB_REF_NAME=tag, GITHUB_SHA=commit_of(tag, "work"), RUNNER_TEMP=W, GITHUB_OUTPUT=W + "/gh_output"))
 rc, out = publish("v2.1.1")
 ok(rc == 0 and "keys of v2.1.0" in out, "Docker publish: v2.1.1 is checked against v2.1.0's keys, and passes: " + out[-200:])
 rc, out = publish("v2.1.2")

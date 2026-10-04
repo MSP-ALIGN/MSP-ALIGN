@@ -18,6 +18,12 @@ use Align\Settings;
  * Sync: the provider reads tickets in full or incrementally (see PsaProvider::tickets). After an
  * incremental read, open tickets it didn't return are re-read one by one so status changes and
  * breaches show up within the hour.
+ *
+ * SECURITY: sync() runs inside the full sync (CLI, under the sync lock). Ticket records are untrusted: store() keeps
+ * text cut to its column without control characters, real dates only and numbers in range, so one odd ticket can't
+ * stop the read. A ticket counts for the Align client linked to its PSA client id only (re-linked every sync).
+ * The reporting methods take a client id the caller has checked the viewer may see (staff, or the portal for its
+ * own client); null means all clients (staff only). Subjects are plain text: escape them in HTML.
  */
 final class Sla
 {
@@ -27,6 +33,7 @@ final class Sla
     public const PERIODS = ['30' => 'Last 30 days', '90' => 'Last 90 days', '180' => 'Last 6 months', '365' => 'Last 12 months'];
     public const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low'];
 
+    /** Whether SLA reporting is on: the setting, and a PSA that reports ticket SLAs. */
     public static function enabled(): bool
     {
         return Settings::get('psa_sla_sync', '1') === '1' && Providers::psaSupports('sla');
@@ -39,6 +46,7 @@ final class Sla
         return $v === null ? null : $v === '1';
     }
 
+    /** The met-percentage goal, 50 to 100 (Settings). */
     public static function target(): int
     {
         return max(50, min(100, (int) Settings::get('sla_target', '90')));
@@ -53,6 +61,7 @@ final class Sla
         return $pct >= self::target() ? 'success' : ($pct >= self::target() - 10 ? 'warning' : 'danger');
     }
 
+    /** A link to the ticket in the PSA, or null. */
     public static function ticketUrl(int|string $id): ?string
     {
         return Providers::psaLink('ticket', $id);
@@ -60,6 +69,10 @@ final class Sla
 
     // ---- Sync -------------------------------------------------------------------
 
+    /**
+     * Reads tickets from the PSA (full or incremental, see the class comment), removes the ones gone from it and the
+     * ones older than KEEP_MONTHS, and re-links tickets to clients. Returns a short summary for the sync log.
+     */
     public static function sync(PsaProvider $p): string
     {
         $state = json_decode((string) Settings::get('psa_tickets_state', ''), true) ?: [];
@@ -120,16 +133,34 @@ final class Sla
         return $msg;
     }
 
-    /** Stores neutral ticket records (see PsaProvider). */
+    /**
+     * Stores neutral ticket records (see PsaProvider), a page at a time, and notes their ids in $seen.
+     * $clients: PSA client id => Align client id. Rows without an id, a client or a real created date are skipped.
+     */
     private static function store(array $rows, array $clients, string $cutoff, string $now, array &$seen): void
     {
-        $cut = fn($v, int $len) => mb_substr((string) ($v ?? ''), 0, $len) ?: null;
+        // Untrusted values (2.2.1): one ticket with a date the column refuses, a subject too long or a number out of
+        // range used to fail the whole page, and with it the SLA step. Text loses control characters and is cut.
+        $cut = function (mixed $v, int $len): ?string {
+            if (!is_string($v) && !is_int($v) && !is_float($v)) {
+                return null;
+            }
+            $s = trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', (string) $v) ?? '');
+            return $s === '' ? null : mb_substr($s, 0, $len);
+        };
+        $ts = fn(mixed $v): ?string => is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2}) (?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/D', $v, $m)
+            && (int) $m[1] >= 1000 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $v : null;
+        $int = fn(mixed $v, int $max): int => is_numeric($v) ? max(0, min($max, (int) $v)) : 0;
+        $key = fn(mixed $v): string => (is_string($v) || is_int($v)) && strlen($k = ext_id($v)) <= 64 ? $k : ''; // never cut an id
         $flag = fn($v) => $v === null ? null : ($v ? 1 : 0);
         $batch = [];
         foreach ($rows as $r) {
-            $id = ext_id($r['id'] ?? null);
-            $pc = ext_id($r['client_id'] ?? null);
-            $created = $r['created_at'] ?? null;
+            if (!is_array($r)) {
+                continue;
+            }
+            $id = $key($r['id'] ?? null);
+            $pc = $key($r['client_id'] ?? null);
+            $created = $ts($r['created_at'] ?? null);
             if ($id === '' || $pc === '' || !$created || $created < $cutoff) {
                 continue;
             }
@@ -137,11 +168,11 @@ final class Sla
             $batch[] = [
                 $id, $pc, $clients[$pc] ?? null, $cut($r['number'] ?? null, 60), $cut($r['subject'] ?? null, 500),
                 $cut($r['category'] ?? null, 200), $cut($r['source'] ?? null, 100), $cut($r['priority'] ?? null, 40),
-                (int) ($r['status_id'] ?? 0), (int) ($r['sla_id'] ?? 0), $created,
-                $r['first_response_at'] ?? null, $r['response_due_at'] ?? null, $r['resolution_due_at'] ?? null,
-                $r['resolved_at'] ?? null, $r['closed_at'] ?? null, $r['archived_at'] ?? null,
+                $int($r['status_id'] ?? 0, 2147483647), $int($r['sla_id'] ?? 0, 2147483647), $created,
+                $ts($r['first_response_at'] ?? null), $ts($r['response_due_at'] ?? null), $ts($r['resolution_due_at'] ?? null),
+                $ts($r['resolved_at'] ?? null), $ts($r['closed_at'] ?? null), $ts($r['archived_at'] ?? null),
                 $flag($r['response_met'] ?? null), $flag($r['resolution_met'] ?? null),
-                (int) ($r['response_stage'] ?? 0), (int) ($r['resolution_stage'] ?? 0), $now,
+                $int($r['response_stage'] ?? 0, 127), $int($r['resolution_stage'] ?? 0, 127), $now,
             ];
         }
         if (!$batch) {
@@ -155,6 +186,7 @@ final class Sla
             . ' ON DUPLICATE KEY UPDATE ' . implode(',', array_map(fn($c) => "$c = VALUES($c)", array_slice($cols, 1))), array_merge(...$batch));
     }
 
+    /** Deletes stored tickets a complete read didn't return (deleted in the PSA, or aged out); returns how many. */
     private static function removeMissing(array $seen): int
     {
         $local = array_map('strval', array_column(DB::all('SELECT id FROM psa_tickets'), 'id'));
@@ -180,11 +212,24 @@ final class Sla
         return [date('Y-m-d 00:00:00', strtotime('-' . ($days - 1) . ' days')), date('Y-m-d 23:59:59'), self::PERIODS[(string) $days]];
     }
 
+    /**
+     * [from, to] of the period before one that starts at $from: the quarter before, or as many days before.
+     * By the calendar (2.2.1): counting back the period's length in seconds made the quarter before Q3 start on
+     * March 31 (Q3 is a day longer than Q2), and a range across a daylight-saving change start an hour off.
+     */
+    public static function priorRange(string $period, string $from): array
+    {
+        $back = $period === 'quarter' ? '-3 months' : '-' . (isset(self::PERIODS[$period]) ? (int) $period : 90) . ' days';
+        return [date('Y-m-d H:i:s', strtotime("$from $back")), date('Y-m-d H:i:s', strtotime($from) - 1)];
+    }
+
+    /** The client filter: one client, or (null) every ticket linked to a client. */
     private static function where(?int $clientId, string $alias = 't'): array
     {
         return $clientId ? ["$alias.client_id = ?", [$clientId]] : ["$alias.client_id IS NOT NULL", []];
     }
 
+    /** The aggregate columns every report shares (counts, met and missed, average minutes). */
     private static function statSelect(): string
     {
         return "COUNT(*) AS tickets,
@@ -196,6 +241,7 @@ final class Sla
             SUM(t.closed_at IS NULL AND t.resolved_at IS NULL) AS still_open";
     }
 
+    /** Turns a statSelect() row into numbers and percentages (null when nothing was judged: no division by zero). */
     private static function finish(array $r): array
     {
         foreach (['tickets', 'with_sla', 'resp_met', 'resp_missed', 'res_met', 'res_missed', 'still_open'] as $k) {
@@ -218,6 +264,7 @@ final class Sla
         return self::finish(DB::one('SELECT ' . self::statSelect() . " FROM psa_tickets t WHERE $w AND t.archived_at IS NULL AND t.created_at BETWEEN ? AND ?", [...$p, $from, $to]) ?? []);
     }
 
+    /** Totals per priority for tickets opened in the range, Urgent first. */
     public static function byPriority(?int $clientId, string $from, string $to): array
     {
         [$w, $p] = self::where($clientId);
@@ -272,6 +319,7 @@ final class Sla
         return $t;
     }
 
+    /** Open tickets: total, with an SLA, past target (breached) and close to it (warning). */
     public static function openCounts(?int $clientId): array
     {
         [$w, $p] = self::where($clientId);
@@ -325,9 +373,7 @@ final class Sla
             return null;
         }
         [$from, $to, $label] = self::range($period);
-        $len = strtotime($to) - strtotime($from);
-        $pFrom = date('Y-m-d H:i:s', strtotime($from) - $len - 1);
-        $pTo = date('Y-m-d H:i:s', strtotime($from) - 1);
+        [$pFrom, $pTo] = self::priorRange($period, $from);
         $stats = self::stats($clientId, $from, $to);
         return [
             'period' => $period, 'label' => $label, 'from' => $from, 'to' => $to,
@@ -381,6 +427,7 @@ final class Sla
         return (bool) DB::value('SELECT 1 FROM psa_tickets WHERE client_id = ? LIMIT 1', [$clientId]);
     }
 
+    /** When tickets were last read, or null. */
     public static function lastSync(): ?string
     {
         return (json_decode((string) Settings::get('psa_tickets_state', ''), true) ?: [])['last_at'] ?? null;
@@ -413,6 +460,7 @@ final class Sla
         return intdiv($m, 1440) . 'd' . ($h ? " {$h}h" : '');
     }
 
+    /** "92.5%", or "—" for null. */
     public static function pct(?float $p): string
     {
         return $p === null ? '—' : \Align\Fmt::trim($p, 1) . '%';

@@ -6,6 +6,12 @@ namespace Align;
 /**
  * Portal name, logo and colors (Settings → Branding).
  * Uploaded logos live outside the web root and are served by /branding/logo.
+ *
+ * Security assumptions: only admins save branding (BrandingController checks the role and CSRF). The logo and the
+ * sign-in backgrounds are public on purpose (sign-in pages, emails, printed reports), so they are re-encoded and
+ * only their pixels are published. File names are made here and checked against a strict pattern whenever they are
+ * read back from Settings, so a setting can't point outside the upload folder. The color is checked before it is
+ * printed into CSS; the name and message are plain text the views escape.
  */
 final class Branding
 {
@@ -14,6 +20,7 @@ final class Branding
     public const MAX_BYTES = 2 * 1024 * 1024;
     public const TYPES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif'];
 
+    /** Portal name; the default when unset or when the database isn't reachable yet (setup, errors). */
     public static function name(): string
     {
         try {
@@ -23,6 +30,10 @@ final class Branding
         }
     }
 
+    /**
+     * Folder for uploaded files (outside the web root): config upload_path, else next to the sessions folder, else
+     * the install's data folder. Comes from config only, never from a request.
+     */
     public static function uploadDir(): string
     {
         $dir = Config::get('upload_path');
@@ -33,10 +44,11 @@ final class Branding
         return rtrim((string) $dir, '/');
     }
 
+    /** Path of the uploaded logo, or null. webp/gif are logos stored before 1.45 re-encoded them. */
     public static function logoFile(): ?string
     {
         $f = Settings::get('brand_logo');
-        if (!$f || !preg_match('/^logo-[a-f0-9]{16}\.(png|jpg|webp|gif)$/', $f)) {
+        if (!$f || !preg_match('/^logo-[a-f0-9]{16}\.(png|jpg|webp|gif)\z/', $f)) {
             return null;
         }
         $path = self::uploadDir() . '/' . $f;
@@ -50,6 +62,7 @@ final class Branding
         return self::logoFile() ? '/branding/logo?v=' . substr((string) $f, 5, 8) : '/assets/icon.svg';
     }
 
+    /** Whether an uploaded logo exists (the file, not just the setting). */
     public static function hasLogo(): bool
     {
         return self::logoFile() !== null;
@@ -61,12 +74,14 @@ final class Branding
         return self::hasLogo() && Settings::get('brand_logo_only') === '1';
     }
 
+    /** Brand color as #rrggbb; anything else in the setting gives the default, so it is safe to print into CSS. */
     public static function color(): string
     {
         $c = (string) Settings::get('brand_primary');
         return preg_match('/^#[0-9a-fA-F]{6}$/', $c) ? strtolower($c) : self::DEFAULT_COLOR;
     }
 
+    /** Menu style: 'light' or 'dark' (never anything else). */
     public static function sidebar(): string
     {
         return Settings::get('brand_sidebar') === 'light' ? 'light' : 'dark';
@@ -78,6 +93,7 @@ final class Branding
     /** How much the background is darkened behind the sign-in box, in percent. */
     public const BG_DIMS = [0 => 'None', 25 => 'A little', 45 => 'Medium', 65 => 'A lot'];
 
+    /** Path of the uploaded background for $kind (a BG_KINDS key), or null. $kind may come from the URL. */
     public static function backgroundFile(string $kind): ?string
     {
         if (!isset(self::BG_KINDS[$kind])) {
@@ -116,6 +132,7 @@ final class Branding
         };
     }
 
+    /** How much the background is darkened, in percent: one of BG_DIMS. */
     public static function backgroundDim(string $kind): int
     {
         $d = Settings::get("brand_bg_{$kind}_dim");
@@ -123,7 +140,11 @@ final class Branding
         return $d !== null && isset(self::BG_DIMS[(int) $d]) ? (int) $d : ($kind === 'portal' ? 0 : 25);
     }
 
-    /** Stores an uploaded sign-in background as a JPEG (re-encoded, at most 2560 px); returns an error or null. */
+    /**
+     * Stores an uploaded sign-in background as a JPEG (re-encoded, at most 2560 px); returns an error or null.
+     * Security: the caller is an admin (role and CSRF checked). Size, type by content and dimensions are checked
+     * before decoding; the image is public, so only its re-encoded pixels are kept (no EXIF location).
+     */
     public static function saveBackground(string $kind, array $file): ?string
     {
         if (!isset(self::BG_KINDS[$kind])) {
@@ -170,7 +191,7 @@ final class Branding
         return null;
     }
 
-    /** Removes an uploaded background: the built-in one comes back ($plain: the plain page instead). */
+    /** Removes an uploaded background: the built-in one comes back ($plain: the plain page instead). Admins only (caller). */
     public static function removeBackground(string $kind, bool $plain = false): void
     {
         if ($f = self::backgroundFile($kind)) {
@@ -179,12 +200,17 @@ final class Branding
         Settings::set("brand_bg_$kind", $plain ? 'none' : null);
     }
 
+    /** Sign-in page message (plain text; the view escapes it). */
     public static function loginMessage(): string
     {
         return (string) (Settings::get('brand_login_message') ?: 'Sign in to continue');
     }
 
-    /** Stores an uploaded image; returns an error message or null on success. */
+    /**
+     * Stores an uploaded logo; returns an error message or null on success.
+     * Security: the caller is an admin (role and CSRF checked). Size, type by content and dimensions are checked
+     * before decoding, SVG is refused, and only the re-encoded pixels are kept under a random name.
+     */
     public static function saveLogo(array $file): ?string
     {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -225,6 +251,7 @@ final class Branding
         return null;
     }
 
+    /** Deletes the uploaded logo (the built-in icon comes back). Admins only (caller). */
     public static function removeLogo(): void
     {
         if ($f = self::logoFile()) {
@@ -233,7 +260,6 @@ final class Branding
         Settings::set('brand_logo', null);
     }
 
-    /** Inline CSS that recolors AdminLTE's primary color. */
     /**
      * Brand color as CSS variables (1.43). app.css builds buttons, links, the active menu item, focus rings,
      * charts and the portal from these, in light and dark mode. The defaults in app.css match DEFAULT_COLOR,
@@ -245,6 +271,7 @@ final class Branding
         return $c === self::DEFAULT_COLOR ? '' : self::cssVars($c);
     }
 
+    /** CSS variables for color $c, which must already be a valid #rrggbb (it is printed into a style element). */
     public static function cssVars(string $c): string
     {
         $rgb = implode(',', self::rgb($c));
@@ -260,21 +287,25 @@ final class Branding
             . ';--align-brand-emphasis:' . self::mix($c, '#ffffff', 0.45) . '}';
     }
 
+    /** [r, g, b] 0-255 from #rrggbb. */
     private static function rgb(string $hex): array
     {
         return [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
     }
 
+    /** #rrggbb from [r, g, b], clamped to 0-255. */
     private static function hex(array $rgb): string
     {
         return '#' . implode('', array_map(fn($v) => str_pad(dechex(max(0, min(255, (int) round($v)))), 2, '0', STR_PAD_LEFT), $rgb));
     }
 
+    /** Lighter ($amt > 0) or darker ($amt < 0) by a fraction of each channel. */
     private static function shade(string $hex, float $amt): string
     {
         return self::hex(array_map(fn($v) => $v * (1 + $amt), self::rgb($hex)));
     }
 
+    /** $a blended toward $b by $t (0 = $a, 1 = $b). */
     private static function mix(string $a, string $b, float $t): string
     {
         $x = self::rgb($a);

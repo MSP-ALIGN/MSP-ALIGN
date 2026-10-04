@@ -1,4 +1,6 @@
-<p class="login-box-msg"><?= e(\Align\Branding::loginMessage()) ?></p>
+<?php
+/** Staff sign-in form. Vars: $next (already a safe same-site path, escaped again here). */
+?><p class="login-box-msg"><?= e(\Align\Branding::loginMessage()) ?></p>
 <form method="post" action="/login">
   <?= csrf_field() ?>
   <input type="hidden" name="next" value="<?= e($next) ?>">

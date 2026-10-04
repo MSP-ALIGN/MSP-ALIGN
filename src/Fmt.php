@@ -8,6 +8,10 @@ namespace Align;
  * for the whole install, so reports and client emails look the same whoever sends them. It only changes
  * how values are written: amounts are never converted, and stored dates are unchanged. The defaults are
  * the US style MSP-ALIGN always used ($1,234 · Sep 29, 2026 · 2:30 pm).
+ *
+ * Security assumptions: the choices come from Settings but only values in the lists below are used (anything else
+ * falls back to the default), so the formats are always these literals. Results are plain text: escape them in
+ * HTML. Dates that can't be read give '' rather than a wrong date.
  */
 final class Fmt
 {
@@ -42,7 +46,7 @@ final class Fmt
 
     private static ?array $cfg = null;
 
-    /** The current choices (read once per request). */
+    /** The current choices (read once per request), each checked against its list. */
     public static function cfg(): array
     {
         if (self::$cfg !== null) {
@@ -76,6 +80,7 @@ final class Fmt
         return ['$' => 'fa-dollar-sign', '£' => 'fa-sterling-sign', '€' => 'fa-euro-sign', '¥' => 'fa-yen-sign', '₹' => 'fa-indian-rupee-sign'][self::symbol()] ?? 'fa-coins';
     }
 
+    /** The chosen currency's symbol ($, €, CHF...). */
     public static function symbol(): string
     {
         return self::cfg()['symbol'];
@@ -87,6 +92,7 @@ final class Fmt
         return self::cfg()['position'] === 'after';
     }
 
+    /** A number with the chosen separators; anything not numeric counts as 0. */
     public static function number(float|int|string|null $v, int $decimals = 0): string
     {
         [, $th, $dec] = self::NUMBERS[self::cfg()['number']];
@@ -180,7 +186,7 @@ final class Fmt
         return $date === '' ? '' : $date . $sep . self::time($d, $seconds);
     }
 
-    /** What the browser needs (license cost preview, contract dates, the calendar). */
+    /** What the browser needs (license cost preview, contract dates, the calendar). Put it in a data attribute with e(json_encode()). */
     public static function forJs(): array
     {
         $c = self::cfg();
@@ -201,6 +207,7 @@ final class Fmt
         return $out;
     }
 
+    /** Whether $z (untrusted) is one of PHP's timezone names. */
     public static function validZone(string $z): bool
     {
         return in_array($z, \DateTimeZone::listIdentifiers(), true) || $z === 'UTC';

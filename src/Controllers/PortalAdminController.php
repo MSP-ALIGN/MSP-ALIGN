@@ -9,15 +9,24 @@ use Align\DB;
 use Align\Portal\PortalAuth;
 use Align\View;
 
-/** Staff side of the client portal: invite client users, set what they can see and do, reset access. */
+/**
+ * Staff side of the client portal: invite client users, set what they can see and do, reset access.
+ *
+ * Security assumptions: the router checked CSRF on every POST. Techs and admins manage portal users (viewers can't);
+ * only admins change the portal-wide setting. Staff aren't limited to clients, so any client id is theirs to manage.
+ * Invite/reset links are shown once (kept in the staff session until the next page) and never logged. Every change
+ * is audited with what changed.
+ */
 final class PortalAdminController
 {
+    /** The permission columns, in the order the form and the UPDATE use them. */
     private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts'];
 
-    /** Every portal user across clients. */
+    /** Every portal user across clients (tech). The view is audited (once per 15 minutes per session). */
     public static function index(): void
     {
         Auth::requireRole('tech');
+        Audit::access('portal_users', 'all clients'); // names and emails of every client's portal users (2.2.1)
         View::render('portal_admin/index', [
             'title' => 'Client portal users',
             'nav' => 'portal-users',
@@ -26,7 +35,7 @@ final class PortalAdminController
         ]);
     }
 
-    /** Portal-wide options (admins): whether clients can suggest licenses and budget items. */
+    /** Portal-wide options (admin): whether clients can suggest licenses and budget items. Audited when it changes. */
     public static function settings(): void
     {
         Auth::requireRole('admin');
@@ -39,10 +48,15 @@ final class PortalAdminController
         redirect('/portal-users');
     }
 
+    /**
+     * A client's portal page (tech): its users, their recent portal activity, and a link issued on the previous
+     * request (shown once, and only on the page of the client it belongs to). The view is audited.
+     */
     public static function show(int $id): void
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        Audit::access('portal_users', $client['name']); // its portal users and contact emails (2.2.1)
         $link = $_SESSION['portal_link'] ?? null;
         unset($_SESSION['portal_link']);
         View::render('portal_admin/client', [
@@ -60,7 +74,10 @@ final class PortalAdminController
         ]);
     }
 
-    /** Staff decline a client's suggested license or budget item, with an optional note the client sees. */
+    /**
+     * Staff (tech) decline a client's suggested license or budget item, with an optional note the client sees. The
+     * suggestion must belong to client $id; ?back is checked to be a same-site path.
+     */
     public static function declineSuggestion(int $id, int $sid): void
     {
         Auth::requireRole('tech');
@@ -76,6 +93,7 @@ final class PortalAdminController
         redirect($back);
     }
 
+    /** The posted permission checkboxes as 0/1; an action is dropped without the section it acts on. */
     private static function perms(): array
     {
         $p = [];
@@ -101,6 +119,25 @@ final class PortalAdminController
         $_SESSION['portal_link'] = ['client_id' => (int) $u['client_id'], 'user_id' => (int) $u['id'], 'name' => $u['name'], 'email' => $u['email'], 'url' => $url, 'kind' => $kind];
     }
 
+    /**
+     * Permissions for the audit log, as "can_budget on, can_approve off": all of $new, or only those that differ
+     * from $old (2.2.1: the entry used to say only that access was saved, not what was granted).
+     */
+    private static function permsText(array $new, ?array $old = null): string
+    {
+        $bits = [];
+        foreach ($new as $k => $v) {
+            if ($old === null || (int) $old[$k] !== (int) $v) {
+                $bits[] = $k . ($v ? ' on' : ' off');
+            }
+        }
+        return implode(', ', $bits);
+    }
+
+    /**
+     * Invites a new portal user to client $id (tech): one email per portal account, never a staff email. A one-time
+     * link (7 days) is shown once and, if asked, emailed.
+     */
     public static function create(int $id): void
     {
         Auth::requireRole('tech');
@@ -122,16 +159,22 @@ final class PortalAdminController
             flash('error', "$email is a staff account. Use a different email for the client portal.");
             redirect($back);
         }
-        $uid = DB::insert('portal_users', ['client_id' => $id, 'email' => $email, 'name' => $name, 'invited_by' => Auth::id()] + self::perms());
+        $perms = self::perms();
+        $uid = DB::insert('portal_users', ['client_id' => $id, 'email' => $email, 'name' => $name, 'invited_by' => Auth::id()] + $perms);
         $u = DB::one('SELECT * FROM portal_users WHERE id = ?', [$uid]);
         $url = PortalAuth::issueLink($uid);
         self::showLink($u, $url, 'invite');
-        Audit::log('portal_user.invite', "{$client['name']}: $email");
+        Audit::log('portal_user.invite', "{$client['name']}: $email — " . (self::permsText(array_filter($perms)) ?: 'no access'));
         $emailed = post('send_email', '1') === '1' && \Align\Mail\Notify::portalLink($u + ['client_name' => $client['name']], $url, 'invite');
         flash('success', $emailed ? "Invited $name and emailed them the link. You can also copy it below." : "Invited $name. Send them the link below.");
         redirect($back);
     }
 
+    /**
+     * Changes portal user $id (tech): a new invite/reset link, disable (ends sessions, voids links), enable, reset 2FA
+     * (clears the password too and issues a new link), delete, or save name and permissions. $id is from the URL;
+     * staff may manage any client's users.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');
@@ -181,9 +224,11 @@ final class PortalAdminController
                 redirect($back);
         }
         $name = mb_substr(trim(post('name')), 0, 190) ?: $u['name'];
+        $perms = self::perms();
         DB::run('UPDATE portal_users SET name = ?, ' . implode(', ', array_map(fn($k) => "$k = ?", self::PERMS)) . ' WHERE id = ?',
-            [$name, ...array_values(self::perms()), $id]);
-        Audit::log('portal_user.update', $label);
+            [$name, ...array_values($perms), $id]);
+        $changed = array_filter([$name !== $u['name'] ? 'name "' . $u['name'] . '" to "' . $name . '"' : '', self::permsText($perms, $u)]);
+        Audit::log('portal_user.update', $label . ($changed ? ' — ' . implode(', ', $changed) : ' — no change'));
         flash('success', "Saved access for $name.");
         redirect($back);
     }

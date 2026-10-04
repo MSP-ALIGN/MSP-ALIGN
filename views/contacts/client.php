@@ -1,4 +1,5 @@
 <?php
+/** One client's contacts. @var array $client, $contacts; int $archivedCount; bool $showArchived; string $back */
 use Align\Auth;
 
 require __DIR__ . '/../partials/client_header.php';

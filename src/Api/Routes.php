@@ -16,16 +16,24 @@ use Align\Api\Resources\ServiceLevels;
 /**
  * Every v1 endpoint, with what the OpenAPI spec and the docs page need. Paths are relative to /api/v1.
  * {id} is a number; {name:str} is any path segment (URL-encode it).
+ *
+ * Security: 'scope' is the permission Kernel checks before the handler runs; every route except GET / (which
+ * only describes the key itself) has one, and a write route always needs the area's :write scope. Client limits
+ * are not declared here: every handler that takes a client, or a record belonging to one, must check it
+ * (Clients::load, Context::requireClient or Context::clientSql). Handler parameter names must match the
+ * placeholders (api_e2e checks).
  */
 final class Routes
 {
     private static ?array $all = null;
 
+    /** Every route (built once per request). */
     public static function all(): array
     {
         return self::$all ??= self::define();
     }
 
+    /** One route with defaults for the optional spec fields ($o: query, body, creating, list, returns, status, description). */
     private static function r(string $method, string $path, ?string $scope, callable $handler, string $tag, string $summary, array $o = []): array
     {
         return ['method' => $method, 'path' => $path, 'scope' => $scope, 'handler' => $handler, 'tag' => $tag, 'summary' => $summary] + $o + [
@@ -33,6 +41,7 @@ final class Routes
         ];
     }
 
+    /** The route table. Body rules are closures so the spec reads the same rules the handlers enforce. */
     private static function define(): array
     {
         $page = ['page' => ['int', 'Page number (default 1).'], 'per_page' => ['int', 'Items per page, 1-200 (default 50).']];
@@ -137,7 +146,7 @@ final class Routes
         ];
     }
 
-    /** GET /api/v1: what this key is. */
+    /** GET /api/v1: what this key is. Needs only a valid key; shows nothing about other keys or the creator. */
     public static function me(): array
     {
         $k = Context::$key;

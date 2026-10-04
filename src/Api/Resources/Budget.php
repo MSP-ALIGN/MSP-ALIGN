@@ -10,10 +10,21 @@ use Align\Api\Out;
 use Align\Budget\Budget as B;
 use Align\DB;
 
-/** The computed technology budget (read) and the budget lines you add (read / write). */
+/**
+ * The computed technology budget (read) and the budget lines you add (read / write).
+ *
+ * Security: reached through the Kernel with budget:read or budget:write checked. Clients::load() / load() apply the
+ * key's client limit (404 otherwise, archived clients included). A budget line's client is set at create and can't be
+ * changed. Writes are audited with the key's name.
+ */
 final class Budget
 {
-    /** Three-year budget for a client, by quarter and category, with every line and upcoming contract dates. */
+    /**
+     * GET /clients/{id}/budget: three-year budget for a client, by quarter and category, with every line and upcoming
+     * contract dates. Query: year 0-2 for the selected_year block.
+     * Lines from licensing or projects show their amounts to any budget:read key, but their names, details and
+     * contract dates only with licenses:read / projects:read; otherwise the name is the category and the key a hash.
+     */
     public static function summary(int $id): array
     {
         Clients::load($id);
@@ -56,6 +67,7 @@ final class Budget
 
     // ---- Budget lines ----
 
+    /** Validation rules for POST (client_id required) and PATCH (no client_id). Also feeds the OpenAPI spec. */
     public static function rules(bool $creating = false): array
     {
         return array_filter([
@@ -76,6 +88,7 @@ final class Budget
         ]);
     }
 
+    /** GET /budget-lines: paginated, filtered by client_id, category and updated_since, always within the key's clients. */
     public static function lines(): array
     {
         [$page, $per, $off] = Input::page();
@@ -103,11 +116,13 @@ final class Budget
         return Out::list(array_map([self::class, 'shape'], $rows), $total, $page, $per);
     }
 
+    /** GET /budget-lines/{id}. */
     public static function line(int $id): array
     {
         return Out::one(self::shape(self::load($id)));
     }
 
+    /** The line with its client's name, or 404 (unknown id, archived client, or a client outside the key's limit). */
     private static function load(int $id): array
     {
         $l = DB::one('SELECT l.*, c.name AS client_name FROM budget_lines l JOIN clients c ON c.id = l.client_id AND c.is_archived = 0 WHERE l.id = ?', [$id]);
@@ -117,7 +132,11 @@ final class Budget
         return $l;
     }
 
-    /** Fills contract_end / renegotiate_date the way the budget form does when they weren't sent. */
+    /**
+     * Fills contract_end / renegotiate_date the way the budget form does when they weren't sent, and checks the dates.
+     * $row is the whole line after the change, $in only what was sent. 422 when a worked-out date falls outside
+     * 1970-9998 or the line would end before it starts.
+     */
     public static function contractDates(array $row, array $in): array
     {
         $start = $row['start_date'] ?? null;
@@ -131,9 +150,16 @@ final class Budget
         }
         Input::requireYear($row['contract_end'] ?? null, 'contract_term_months');
         Input::requireYear($row['renegotiate_date'] ?? null, 'notice_days');
+        // A line that stops before it starts is never billed, so it would silently drop out of every total. Checked only
+        // when one of the two is sent, so a line saved that way on the web page can still get its other fields changed.
+        if ((array_key_exists('start_date', $in) || array_key_exists('end_date', $in))
+            && !empty($row['start_date']) && !empty($row['end_date']) && $row['end_date'] < $row['start_date']) {
+            throw ApiError::invalid([array_key_exists('end_date', $in) ? 'end_date' : 'start_date' => 'The end date is before the start date.']);
+        }
         return $row;
     }
 
+    /** POST /budget-lines, for a client the key may see. */
     public static function create(): array
     {
         $in = Input::clean(Context::$body, self::rules(true), true);
@@ -148,6 +174,10 @@ final class Budget
         return Out::one(self::shape(self::load($id)), 201);
     }
 
+    /**
+     * PATCH /budget-lines/{id}: only the fields sent change (null resets category, frequency and amount to their
+     * defaults and clears the rest); contract_end and renegotiate_date are worked out again from what changed.
+     */
     public static function update(int $id): array
     {
         $l = self::load($id);
@@ -167,6 +197,7 @@ final class Budget
             $in['auto_renew'] = $in['auto_renew'] ? 1 : 0;
         }
         $merged = self::contractDates(array_merge($l, $in), $in);
+        // Only columns from the rules (plus the two worked-out dates) are written; client_name from load() is not one
         $changes = array_intersect_key($merged, $in + ['contract_end' => 1, 'renegotiate_date' => 1]);
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($changes)));
         DB::run("UPDATE budget_lines SET $sets WHERE id = ?", [...array_values($changes), $id]);
@@ -174,6 +205,7 @@ final class Budget
         return Out::one(self::shape(self::load($id)));
     }
 
+    /** DELETE /budget-lines/{id}. */
     public static function delete(int $id): array
     {
         $l = self::load($id);
@@ -182,6 +214,7 @@ final class Budget
         return Out::none();
     }
 
+    /** The API form of a budget line (already checked against the key's client limit). */
     public static function shape(array $l): array
     {
         return [

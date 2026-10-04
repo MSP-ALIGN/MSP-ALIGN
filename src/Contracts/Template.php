@@ -22,6 +22,12 @@ use Align\Docs\Html;
  *
  * Text blocks are Quill HTML (cleaned with Docs\Html) with {{field_key}} placeholders. Every def that comes in
  * (the builder, an import) goes through normalize(), which keeps only known keys, types and sizes.
+ *
+ * Security assumptions: templates are changed only by admins (ContractTemplateController checks the role), but a
+ * def is still treated as untrusted, because an import can come from anywhere. normalize() is the one gate: what
+ * comes out has only known keys, types from fixed lists, capped lengths and counts, cleaned HTML, field keys that
+ * match KEY, a PDF file name that matches its pattern (never a path) and boxes inside their page. Everything it
+ * returns is still text to escape where it's shown (Render, PdfRender, the builder).
  */
 final class Template
 {
@@ -86,6 +92,7 @@ final class Template
     /** Cleaned HTML wording of a contract written in Align, in all. */
     private const MAX_WORDING = 2 * 1024 * 1024;
 
+    /** One template with its def normalized, or null. No access check: the caller checked the role. */
     public static function load(int $id): ?array
     {
         $t = DB::one('SELECT * FROM contract_templates WHERE id = ?', [$id]);
@@ -95,7 +102,6 @@ final class Template
         return $t;
     }
 
-    /** @return list<array> templates with uses (contracts made from each) */
     /** Every template (or the active ones), with how many contracts use it and, for PDF ones, the PDF's name, pages and boxes. */
     public static function all(bool $activeOnly = false): array
     {
@@ -111,6 +117,10 @@ final class Template
         return $rows;
     }
 
+    /**
+     * Saves a new template (def normalized, wording over the limit refused) and returns its id. Admins only (the
+     * caller checked); $def may be an import.
+     */
     public static function create(string $name, array $def, ?string $description = null): int
     {
         return (int) DB::insert('contract_templates', [
@@ -121,6 +131,11 @@ final class Template
         ]);
     }
 
+    /**
+     * Saves a template from the builder (def normalized, wording over the limit refused). The version goes up only
+     * when the def changed, so drafts can say "the template is newer". Contracts already made keep their own copy.
+     * Admins only; the caller keeps the template's PDF from the server, not from the form.
+     */
     public static function save(int $id, string $name, ?string $description, array $def, bool $active): void
     {
         $old = DB::one('SELECT def FROM contract_templates WHERE id = ?', [$id]);
@@ -169,17 +184,20 @@ final class Template
 
     // ---- Normalizing --------------------------------------------------------------------------------------
 
+    /** Text from untrusted input: scalars only, trimmed, at most $max characters; anything else is ''. */
     private static function str(mixed $v, int $max): string
     {
         return is_scalar($v) ? mb_substr(trim((string) $v), 0, $max) : '';
     }
 
+    /** A key ([a-z][a-z0-9_], up to 40) from untrusted input, else ''. Keys go into placeholders and form names. */
     private static function key(mixed $v): string
     {
         $k = strtolower(self::str($v, 40));
         return preg_match(self::KEY, $k) ? $k : '';
     }
 
+    /** A number from untrusted input, rounded to 2 decimals and clamped to [$min, $max]; $default when not numeric. */
     private static function num(mixed $v, float $min, float $max, float $default): float
     {
         return is_numeric($v) ? max($min, min($max, round((float) $v, 2))) : $default;
@@ -244,6 +262,10 @@ final class Template
         ];
     }
 
+    /**
+     * The fields (blanks): at most 100, each with a label, a unique key that isn't a built-in, a known type and side
+     * (initials are always the client's), up to 30 choice options and a default cleaned for its type.
+     */
     private static function normFields(mixed $in): array
     {
         $taken = [];
@@ -280,7 +302,9 @@ final class Template
                 'by' => $type === 'initials' ? 'client' : (($f['by'] ?? '') === 'client' ? 'client' : 'provider'),
                 'required' => !empty($f['required']),
                 'options' => $options,
-                'default' => self::str($f['default'] ?? '', 500),
+                // cleaned for its type like a typed value, so a sent contract never holds (and prints) a default that
+                // isn't one: "+1 month" for a date, a choice that isn't offered (2.2.1)
+                'default' => Contracts::cleanValue(['type' => $type, 'options' => $options], self::str($f['default'] ?? '', 500)),
                 'help' => self::str($f['help'] ?? '', 200),
             ];
         }
@@ -306,6 +330,7 @@ final class Template
         return [$sections, $keys];
     }
 
+    /** The services table: at most 50 rows with unique keys, prices and quantities clamped, periods and counts from fixed lists. */
     private static function normServices(mixed $in): array
     {
         $svc = is_array($in) ? $in : [];
@@ -334,7 +359,10 @@ final class Template
         return ['title' => self::str($svc['title'] ?? '', 120) ?: 'Services', 'rows' => $rows];
     }
 
-    /** The wording of a contract written in Align, at most MAX_WORDING bytes of cleaned HTML in all. */
+    /**
+     * The wording of a contract written in Align, at most MAX_WORDING bytes of cleaned HTML in all, in at most 200
+     * blocks. Text goes through Html::clean (allowlist); a fields block lists only keys that exist; one services table.
+     */
     private static function normBlocks(mixed $in, array $fieldKeys, array $secKeys, bool $saving): array
     {
         $blocks = [];
@@ -348,8 +376,15 @@ final class Template
             $o = ['id' => self::id($b['id'] ?? null, $ids, 'b'), 'type' => $type, 'section' => self::pick($b['section'] ?? null, $secKeys, '')];
             switch ($type) {
                 case 'text':
-                    // cleaned first, then measured: cleaning can make text longer (& becomes &amp;)
-                    $o['html'] = Html::clean(is_string($b['html'] ?? null) ? substr($b['html'], 0, self::MAX_WORDING) : '');
+                    // cleaned first, then measured: cleaning can make text longer (& becomes &amp;) or shorter (Quill's
+                    // markup dropped). When saving, the wording is never cut before cleaning (that silently lost the
+                    // end of a long contract whose cleaned text was within the limit): a block too big to clean is
+                    // refused instead. Html::clean itself stops at 2 x MAX_WORDING.
+                    $raw = is_string($b['html'] ?? null) ? $b['html'] : '';
+                    if ($saving && strlen($raw) > 2 * self::MAX_WORDING) {
+                        throw new \InvalidArgumentException('The contract\'s wording is too long (more than ' . (self::MAX_WORDING >> 20) . ' MB). Split it, or upload it as a PDF instead.');
+                    }
+                    $o['html'] = Html::clean($saving ? $raw : substr($raw, 0, self::MAX_WORDING));
                     $o['html'] = preg_replace('/\{\{\s*contract_date\s*\}\}/', '{{start_date}}', $o['html']) ?? $o['html']; // renamed in 2.2.0
                     $size += strlen($o['html']);
                     if ($size > self::MAX_WORDING && !$saving) {
@@ -376,6 +411,10 @@ final class Template
         return $blocks;
     }
 
+    /**
+     * The look: every value from a fixed list or range. The colour goes into a CSS custom property (Render), so only
+     * #rrggbb is kept; the font and paper are fixed words, the size an integer.
+     */
     private static function normStyle(array $st): array
     {
         $color = strtolower(self::str($st['color'] ?? '', 7));
@@ -394,6 +433,7 @@ final class Template
         ];
     }
 
+    /** How it's signed: countersigning from a fixed list, links valid 1-365 days, the code on unless turned off, email text capped. */
     private static function normSigning(array $sg): array
     {
         return [
@@ -488,6 +528,10 @@ final class Template
 
     // ---- Export / import ----------------------------------------------------------------------------------
 
+    /**
+     * A template as an export file (with its PDF as base64, so it works on another server). Admins only. Holds the
+     * template's wording and PDF, nothing about clients.
+     */
     public static function export(array $t): array
     {
         $out = ['format' => 'msp-align-contract-template', 'version' => 1, 'exported_at' => date('c'),
@@ -500,7 +544,11 @@ final class Template
         return $out;
     }
 
-    /** Imports a template as a new one. Returns its id, or throws. */
+    /**
+     * Imports a template as a new one. Returns its id, or throws. Admins only. The file is untrusted: the def goes
+     * through normalize(), and a PDF in it is checked by PdfStamp::storeBytes (size, Align's own parser) and kept
+     * under a new name, with its pages and fingerprint measured here (never the file name, pages or hash it claims).
+     */
     public static function import(array $data): int
     {
         if (($data['format'] ?? '') !== 'msp-align-contract-template' || !is_array($data['template']['def'] ?? null)) {

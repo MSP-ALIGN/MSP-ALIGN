@@ -16,6 +16,11 @@ use Align\Roadmap\Plan;
  *   - managed services (a manual line, or the estimate from PSA invoices),
  *   - manual budget lines (internet, phones, cloud, contracts...).
  * Nothing is stored: it's recalculated on every view so it always matches the source data.
+ *
+ * Security assumptions: reads one client's rows only (every query is by $clientId); the caller has checked the
+ * user may see that client (staff: any; portal: its own client and the budget permission). Amounts are floats,
+ * summed per quarter and shown rounded by Fmt::money; manual amounts are stored to the cent. Names and details
+ * are plain text (some from the PSA): views escape them. Links are same-site paths built from the client id.
  */
 final class Budget
 {
@@ -32,18 +37,20 @@ final class Budget
     ];
     public const FREQUENCIES = ['monthly' => ['Monthly', 1], 'quarterly' => ['Quarterly', 3], 'annual' => ['Annual', 12], 'one_time' => ['One-time', 0]];
 
-    /** 'Y-m' of the three months in a plan quarter. */
+    /** 'Y-m' of the three months in a plan quarter (a quarter starts on the 1st, so +1 month never rolls over). */
     private static function months(array $q): array
     {
         $t = strtotime($q['start']);
         return [date('Y-m', $t), date('Y-m', strtotime('+1 month', $t)), date('Y-m', strtotime('+2 months', $t))];
     }
 
+    /** 'Y-m' of a date, or null. */
     private static function ym(?string $d): ?string
     {
         return $d ? substr($d, 0, 7) : null;
     }
 
+    /** An empty budget line: q = amount per plan quarter, oq = the one-time part of it. */
     private static function newLine(string $key, string $cat, string $name, string $source, array $extra = []): array
     {
         return $extra + ['key' => $key, 'category' => $cat, 'name' => $name, 'source' => $source, 'q' => array_fill(0, count(Plan::quarters()), 0.0), 'oq' => array_fill(0, count(Plan::quarters()), 0.0),
@@ -70,6 +77,11 @@ final class Budget
         }
     }
 
+    /**
+     * The client's 3-year budget: lines, totals per category and quarter, per plan year, and the monthly run rate.
+     * $devices: the client's evaluated devices when the caller has them already (saves a query per client on the
+     * all-clients pages), else loaded here.
+     */
     public static function build(int $clientId, ?array $devices = null): array
     {
         $qs = Plan::quarters();
@@ -243,7 +255,7 @@ final class Budget
         ];
     }
 
-    /** Line total for one plan year. */
+    /** Line total for one plan year (0-2). */
     public static function lineYear(array $line, int $year): float
     {
         $sum = 0.0;

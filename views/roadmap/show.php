@@ -1,4 +1,9 @@
 <?php
+/**
+ * A client's roadmap. @var array $client, $plan, $lanes
+ * Titles, device names and meeting titles are escaped; drag and drop, the move window and the project windows are
+ * for techs and admins (the CSRF token for the drag and drop's fetch() is in a data attribute, escaped).
+ */
 use Align\Auth;
 use Align\Meetings\Meetings;
 use Align\Roadmap\Plan;

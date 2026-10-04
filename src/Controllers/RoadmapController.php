@@ -11,15 +11,29 @@ use Align\Roadmap\Plan;
 use Align\Roadmap\Roadmap;
 use Align\View;
 
+/**
+ * A client's roadmap (planned projects plus what the data says will happen) and adding, editing, moving and deleting
+ * its projects, from the roadmap or the global Projects page.
+ *
+ * Security assumptions: any staff role reads; techs and admins change (the router checks CSRF). A project is always
+ * looked up together with the client in the URL (id AND client_id), so one client's URL can't change another's
+ * project. Form values are checked (real quarter days, amounts that fit their columns, fixed lists) and column names
+ * are fixed in code. Every change is audited.
+ */
 final class RoadmapController
 {
-    /** Local path to return to after saving (projects page or the client roadmap). */
+    /** Largest amounts roadmap_items.cost (DECIMAL(12,2)) and recurring_monthly (DECIMAL(10,2)) hold. */
+    private const MAX_COST = 9999999999.99;
+    private const MAX_RECURRING = 99999999.99;
+
+    /** Local path to return to after saving (projects page or the client roadmap), checked by Security::safePath. */
     private static function back(int $clientId): string
     {
         $b = post('back');
         return \Align\Security::safePath($b, "/clients/$clientId/roadmap");
     }
 
+    /** The roadmap page. Any staff role. ?lanes[] is intersected with the fixed lane list. */
     public static function show(int $id): void
     {
         Auth::require();
@@ -39,7 +53,7 @@ final class RoadmapController
         ]);
     }
 
-    /** Add a project from the global Projects page (client picked in the form). */
+    /** Add a project from the global Projects page (client picked in the form, and checked to exist). Techs and admins. */
     public static function createGlobal(): void
     {
         Auth::requireRole('tech');
@@ -52,26 +66,36 @@ final class RoadmapController
         self::create($cid);
     }
 
+    /** A posted amount from 0 to $max (its column's limit), to the cent, or null (2.2.1: a larger one failed the save). */
+    private static function amount(string $v, float $max): ?float
+    {
+        $f = is_numeric($v) ? round((float) $v, 2) : -1.0;
+        return $f >= 0 && $f <= $max ? $f : null;
+    }
+
+    /**
+     * The project form's values, each checked; the keys are fixed column names. The target quarter is stored as
+     * its quarter's first day (Plan::quarterStart refuses a day that doesn't exist).
+     */
     private static function fields(): array
     {
         $cat = post('category');
         $status = post('status');
         $prio = post('priority');
         $q = post('target_quarter');
-        $cost = post('cost');
-        $rec = post('recurring_monthly');
         return [
             'title' => mb_substr(post('title'), 0, 255),
             'category' => isset(Roadmap::CATEGORIES[$cat]) ? $cat : 'project',
             'description' => mb_substr(post('description'), 0, 10000) ?: null,
             'target_quarter' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $q) ? Plan::quarterStart($q) : null,
-            'cost' => is_numeric($cost) && (float) $cost >= 0 ? round((float) $cost, 2) : null,
-            'recurring_monthly' => is_numeric($rec) && (float) $rec >= 0 ? round((float) $rec, 2) : null,
+            'cost' => self::amount(post('cost'), self::MAX_COST),
+            'recurring_monthly' => self::amount(post('recurring_monthly'), self::MAX_RECURRING),
             'priority' => isset(Roadmap::PRIORITIES[$prio]) ? $prio : 'medium',
             'status' => isset(Roadmap::STATUSES[$status]) ? $status : 'proposed',
         ];
     }
 
+    /** Adds a project to the client in the URL. Techs and admins. */
     public static function create(int $id): void
     {
         Auth::requireRole('tech');
@@ -87,6 +111,10 @@ final class RoadmapController
         redirect(self::back($id));
     }
 
+    /**
+     * Saves or deletes a project of the client in the URL. Techs and admins. A project whose devices went into another
+     * live project meanwhile keeps its status (see DeviceProjects::conflicts), so no device is budgeted twice.
+     */
     public static function update(int $id, int $item): void
     {
         Auth::requireRole('tech');
@@ -122,7 +150,7 @@ final class RoadmapController
         redirect(self::back($id));
     }
 
-    /** Moves a project to another quarter (roadmap drag and drop). */
+    /** Moves a project of the client in the URL to another quarter (roadmap drag and drop; JSON when asked). Techs and admins. */
     public static function move(int $id, int $item): void
     {
         Auth::requireRole('tech');

@@ -17,9 +17,18 @@ use Align\Providers\Psa\PsaProvider;
  *
  * Clients with no recurring invoices (or whose recurring invoices all stopped): their other invoices dated in the
  * last three full months (not draft or cancelled) are averaged per month, as before.
+ *
+ * Security assumptions: invoice rows come from the PSA and are untrusted: a client id is only used when it maps
+ * to one of our clients (ext_id), dates must look like Y-m-d and not be in the future, amounts are cast to float,
+ * and the estimate is never negative. The sync job calls syncFromPsa(); forClient() is a read for pages that
+ * already checked access to the client.
  */
 final class Billing
 {
+    /**
+     * Recomputes every client's managed-services estimate from the PSA's invoices and replaces psa_billing in one
+     * transaction. Returns a summary line for the sync log.
+     */
     public static function syncFromPsa(PsaProvider $p): string
     {
         $rows = $p->invoices();
@@ -119,6 +128,7 @@ final class Billing
         return ['amount' => $last[1], 'months' => $months, 'label' => $label];
     }
 
+    /** The client's stored estimate (monthly, method, months, invoices, detail), or null. */
     public static function forClient(int $clientId): ?array
     {
         return DB::one('SELECT * FROM psa_billing WHERE client_id = ?', [$clientId]);

@@ -11,3 +11,5 @@ TimeoutStartSec=45min
 # Don't let an update's apache/mariadb restarts take this job down with them
 KillMode=process
 Nice=5
+# No ProtectSystem/NoNewPrivileges here on purpose: an update runs install.sh, which installs packages, writes /etc,
+# loads firewall modules and restarts services. The web app can only ask for the fixed jobs in scripts/agent.php.

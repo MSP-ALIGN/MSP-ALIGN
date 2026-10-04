@@ -1,5 +1,9 @@
 <?php
-/** @var array $company; string $updated, $source */
+/**
+ * Staff terms of use (public). @var array $company; string $updated, $source
+ * Security: the company's name, email and phone come from Settings and are escaped once here ($c, $contact) and
+ * printed as built; the email only ever goes after "mailto:", so it can't become another kind of link.
+ */
 $c = e($company['name']);
 $contact = $company['email'] !== '' ? '<a href="mailto:' . e($company['email']) . '">' . e($company['email']) . '</a>' : 'your administrator';
 ?>

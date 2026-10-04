@@ -8,3 +8,12 @@ Type=oneshot
 ExecStart=/usr/bin/php /opt/msp-align/scripts/agent.php check
 TimeoutStartSec=5min
 Nice=10
+# Root for git fetch in /opt/msp-align and its state folder, but it never changes the system (see the nightly service)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes

@@ -4,6 +4,8 @@ use Align\Api\Keys;
 /**
  * Settings -> API.
  * @var bool $enabled; array $keys, $clients, $requests, $stats; ?array $new ['id','name','token']; string $baseUrl
+ * Security: a new key's token is shown here once (the controller drops it from the session); afterwards only its
+ * prefix. Request log fields (path, IP, request id) come from API callers and are escaped.
  */
 $tab = 'api';
 require __DIR__ . '/_tabs.php';

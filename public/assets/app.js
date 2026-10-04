@@ -1,11 +1,25 @@
 // MSP-ALIGN - page behaviour on top of AdminLTE / Bootstrap 4.
+//
+// Security assumptions: loaded on every staff page, the client portal and the public welcome/signing pages, with a
+// CSP of script-src 'self' (no inline scripts or handlers, no eval). The behaviours below are driven by data-*
+// attributes and JSON that the server's views write, escaped (e() / json_encode with the JSON_HEX_* flags). The
+// delegated handlers on document (data-confirm, data-lazy-modal, data-fill, data-confirm-rules…) act on any element
+// with that attribute, which is safe because user-written HTML (documents, templates) passes Docs\Html::clean,
+// which keeps no data-* attribute except data-list on <li>. Text from fetch responses or the page goes in with
+// textContent; the HTML put in with innerHTML is either fixed markup here or a same-site page the server rendered
+// (lazy edit forms). Every POST made from here carries the page's CSRF token.
+
+/** Whether u is a path on this site: starts with one "/" (not "//" or "/\", which browsers read as another host). */
+const sitePath = (u) => typeof u === 'string' && /^\/(?![/\\])/.test(u) && !/[\u0000-\u001f]/.test(u);
 
 // Currency and date style from Settings → General (1.38), put on <body data-fmt> by the layout
 const alignFmt = (() => {
   let c = {};
   try { c = JSON.parse((document.body && document.body.dataset.fmt) || '{}'); } catch (e) { c = {}; }
   const f = { symbol: '$', after: false, thousands: ',', decimal: '.', date: 'mdy', hour24: false, weekStart: 0, ...c };
+  /** Thousands separators into a string of digits. */
   const group = (s) => s.replace(/\B(?=(\d{3})+(?!\d))/g, f.thousands);
+  /** n with dec decimals and the chosen separators. */
   const number = (n, dec) => { const [i, d] = Math.abs(n).toFixed(dec).split('.'); return (n < 0 ? '-' : '') + group(i) + (d ? f.decimal + d : ''); };
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return {
@@ -46,6 +60,7 @@ const alignConfirm = (() => {
   let showing = false, wantHide = false;
   // Bootstrap ignores hide() while the dialog is still fading in: a quick click waits for the fade instead of being lost
   const close = (yes) => { answer = yes; if (showing) { wantHide = true; return; } bsModal(el).hide(); };
+  /** Makes the dialog once (fixed markup; every text is set later with textContent). */
   const build = () => {
     el = document.createElement('div');
     el.className = 'modal fade align-confirm';
@@ -117,11 +132,13 @@ const confirmParts = (msg) => {
   const m = String(msg || '').match(/^([\s\S]+?\?)(?:\s+([A-Z\u201C"][\s\S]*))?$/);
   return m ? { title: m[1], text: m[2] ? m[2].trim() : '' } : { title: 'Are you sure?', text: msg };
 };
+/** Whether a confirm should get a red button: a red button, or a message starting with a destructive verb. */
 const looksDangerous = (el, msg) => /btn(-outline)?-danger/.test(el.className || '')
   || /^(delete|remove|revoke|disable|retire|archive|reset|turn off|cancel|disconnect|forget|replace|skip)\b/i.test(String(msg || '').trim());
 
 // <button data-confirm="Delete this project?" [data-confirm-ok="Delete"] [data-confirm-danger="0|1"]>
 // The click waits for the dialog; Continue clicks it again for real (so the form's own handlers still run).
+// The question is shown as text. It only ever asks before a click the page already allows: it adds no action.
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest && ev.target.closest('[data-confirm]');
   if (!el) return;
@@ -150,10 +167,12 @@ const formState = (form) => {
   });
   return st;
 };
+/** Whether two formState() values are the same. */
 const sameField = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
 alignInit.add((root) => root.querySelectorAll('form[data-confirm-rules], form[data-unsaved]').forEach((f) => {
   if (!f.alignStart) f.alignStart = formState(f);
 }));
+/** Whether a form's fields differ from when it opened (forms with data-unsaved or data-confirm-rules). */
 const formDirty = (f) => {
   if (!f.alignStart) return false;
   const now = formState(f);
@@ -174,6 +193,7 @@ const confirmRules = (form, submitter) => {
   let rules = [];
   try { rules = JSON.parse(form.dataset.confirmRules || '[]'); } catch (e) { rules = []; }
   const start = form.alignStart || {}, now = formState(form);
+  /** A field's first value as a number (currency signs and separators dropped). */
   const num = (v) => parseFloat(String((v || [])[0] || '').replace(/[^0-9.\-]/g, ''));
   // fields that belong to the form from elsewhere on the page (form="id") count too
   const matches = (sel) => new Set([...Array.from(form.elements).filter((e) => e.matches(sel)), ...form.querySelectorAll(sel)]).size;
@@ -252,6 +272,7 @@ document.addEventListener('keydown', (ev) => {
   const form = t.form;
   if (t.hasAttribute('data-enter-nosubmit')) { ev.preventDefault(); return; }
   const buttons = Array.from(form.elements).filter((b) => b.type === 'submit');
+  /** A button Enter shouldn't press: it asks first, is red, or is marked data-enter-skip. */
   const risky = (b) => b.hasAttribute('data-confirm') || /btn(-outline)?-danger/.test(b.className) || b.hasAttribute('data-enter-skip');
   const first = buttons.find((b) => !b.disabled);
   if (!first || !risky(first)) return;
@@ -261,6 +282,8 @@ document.addEventListener('keydown', (ev) => {
 }, true);
 
 // Edit forms on long lists load when opened: <a data-lazy-modal="/licenses/5/form?back=…" data-bs-target="#modal-license-5">
+// The form is a page of this site (the CSP's connect-src 'self' refuses any other), rendered and escaped by the
+// server, so it is added as HTML; its scripts don't run (innerHTML never runs them, and the CSP has no inline).
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest && ev.target.closest('[data-lazy-modal]');
   if (!el) return;
@@ -539,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (rc && metaEl) {
     let meta = {};
     try { meta = JSON.parse(metaEl.textContent) || {}; } catch (e) { meta = {}; }
+    /** Replaces a select's options (ids and names from the page's JSON; names set as text). */
     const fill = (sel, items) => {
       sel.textContent = '';
       items.forEach((it) => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.name; sel.appendChild(o); });
@@ -591,8 +615,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!preview) return;
   const color = document.getElementById('brand_primary');
   const picker = document.querySelector('[data-color-for="brand_primary"]');
+  /** Whether hex is #rrggbb. */
   const hexOk = (hex) => /^#[0-9a-fA-F]{6}$/.test(hex);
   const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.substr(i, 2), 16));
+  /** Dark or white text for a background color (WCAG relative luminance). */
   const textFor = (hex) => {
     const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
     const [r, g, b] = rgb(hex).map(lin);
@@ -603,6 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const linkFor = (hex, dark) => dark ? toHex(rgb(hex).map((v) => v + (255 - v) * 0.35)) : toHex(rgb(hex).map((v) => v * 0.8));
   const textLabel = document.getElementById('brand-text-label');
   let current = color.value;
+  /** Shows a color in the preview (only #rrggbb, so it can't carry other CSS). */
   const applyColor = (hex) => {
     if (!hexOk(hex)) return;
     current = hex;
@@ -618,6 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-swatch]').forEach((b) => b.addEventListener('click', () => {
     color.value = b.dataset.swatch; picker.value = b.dataset.swatch; applyColor(b.dataset.swatch);
   }));
+  /** Text into every preview element matching sel. */
   const setText = (sel, value) => preview.querySelectorAll(sel).forEach((el) => { el.textContent = value; });
   const nameIn = document.querySelector('[data-preview="name"]');
   nameIn.addEventListener('input', () => setText('.bp-name', nameIn.value || preview.dataset.defaultName));
@@ -695,6 +723,7 @@ document.addEventListener('change', (e) => {
 alignInit.add((root) => {
   const fmt = (n) => alignFmt.money(n);
   const months = { monthly: 1, quarterly: 3, annual: 12, one_time: 0 };
+  /** The cost line under the price: per period, and per month and year for recurring ones. */
   const calc = (form) => {
     const q = (k) => form.querySelector('[data-lic="' + k + '"]');
     const out = q('out');
@@ -704,8 +733,16 @@ alignInit.add((root) => {
     const qty = q('pricing').value === 'per_seat' ? (parseInt(q('seats').value, 10) || 0) : 1;
     const per = price * qty;
     const m = months[q('cycle').value];
-    out.innerHTML = '<b>' + fmt(per) + '</b> ' + q('cycle').selectedOptions[0].text.toLowerCase()
-      + (m ? '<br><span class="text-muted">' + fmt(per / m) + '/mo · ' + fmt(per / m * 12) + '/yr</span>' : '');
+    // Built as nodes: the currency symbol (body[data-fmt]) and the option's text are page data, never markup
+    const b = document.createElement('b');
+    b.textContent = fmt(per);
+    out.replaceChildren(b, ' ' + q('cycle').selectedOptions[0].text.toLowerCase());
+    if (m) {
+      const s = document.createElement('span');
+      s.className = 'text-muted';
+      s.textContent = fmt(per / m) + '/mo · ' + fmt(per / m * 12) + '/yr';
+      out.append(document.createElement('br'), s);
+    }
   };
   root.querySelectorAll('[data-lic="out"]').forEach((o) => {
     const form = o.closest('form');
@@ -720,8 +757,10 @@ alignInit.add((root) => {
   root.querySelectorAll('[data-contract]').forEach((box) => {
     const form = box.closest('form');
     const q = (k) => box.querySelector('[data-c="' + k + '"]');
+    /** The start date field: this box's own, or the form field named in data-start-field. */
     const startIn = () => q('start') && q('start').value ? q('start') : form.querySelector('[name="' + box.dataset.startField + '"]');
     const fmt = (d) => alignFmt.date(d);
+    /** The derived end and renegotiate dates under the fields. */
     const update = () => {
       const t = q('term').value;
       q('custom').classList.toggle('d-none', t !== 'custom');
@@ -752,12 +791,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = box.closest('form');
     const input = form.querySelector('[data-attendees]');
     const clientSel = form.querySelector('[name="client_id"]');
+    /** Adds a contact as "Name <email>" unless already there. */
     const add = (c) => {
       const entry = c.email ? c.name + ' <' + c.email + '>' : c.name;
       const cur = input.value.trim();
       if (cur.toLowerCase().includes((c.email || c.name).toLowerCase())) return;
       input.value = cur ? cur.replace(/,\s*$/, '') + ', ' + entry : entry;
     };
+    /** The client's contacts (same-site JSON), as links that add them; names are set as text. */
     const load = () => {
       box.innerHTML = '';
       const id = clientSel ? clientSel.value : '';
@@ -798,7 +839,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.querySelector(btn.dataset.copy);
     if (!el) return;
     el.select();
-    const done = () => { const t = btn.innerHTML; btn.textContent = 'Copied'; setTimeout(() => { btn.innerHTML = t; }, 1500); };
+    // The button's own markup is kept once: a second click within 1.5 s used to keep "Copied" as its label for good
+    const done = () => {
+      if (btn.alignLabel === undefined) btn.alignLabel = btn.innerHTML;
+      btn.textContent = 'Copied';
+      clearTimeout(btn.alignCopied);
+      btn.alignCopied = setTimeout(() => { btn.innerHTML = btn.alignLabel; btn.alignLabel = undefined; }, 1500);
+    };
     if (navigator.clipboard) navigator.clipboard.writeText(el.value).then(done, () => { document.execCommand('copy'); done(); });
     else { document.execCommand('copy'); done(); }
   }));
@@ -823,16 +870,19 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastPing = Date.now();
   let banner = null;
   let done = false;
+  /** Activity: restart the idle clock (and tell the server, if the warning was showing). */
   const mark = () => { lastActive = Date.now(); if (banner) { banner.remove(); banner = null; ping(true); } };
   ['keydown', 'mousedown', 'wheel', 'touchstart', 'scroll'].forEach((ev) => document.addEventListener(ev, mark, { passive: true, capture: true }));
   let lastMove = 0;
   document.addEventListener('mousemove', () => { const n = Date.now(); if (n - lastMove > 5000) { lastMove = n; mark(); } }, { passive: true });
+  /** Keeps the server session in step (active=1: the person did something); 401 means already signed out. */
   const ping = (active) => {
     lastPing = Date.now();
     fetch(meta.dataset.ping + (active ? '?active=1' : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then((r) => { if (r.status === 401) signOut(false); })
       .catch(() => {});
   };
+  /** Signs out once: POSTs /logout with the CSRF token (post) and goes to the sign-in page from the layout's meta tag. */
   const signOut = (post) => {
     if (done) return;
     done = true;
@@ -862,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Fill a modal from the button that opens it: <button data-bs-toggle="modal" data-bs-target="#m" data-fill data-f-kind="device">
-// sets [name="kind"] inputs and [data-fill-text="kind"] text inside #m.
+// sets [name="kind"] inputs and [data-fill-text="kind"] text inside #m (as values and text, never markup).
 document.addEventListener('click', (ev) => {
   const btn = ev.target.closest('[data-fill]');
   if (!btn) return;
@@ -880,6 +930,7 @@ document.addEventListener('click', (ev) => {
 (() => {
   const blocks = document.querySelectorAll('[data-show-when]');
   if (!blocks.length) return;
+  /** The current value of a radio group or select named name (a name from our own data-show-when). */
   const val = (name) => {
     const el = document.querySelector('[name="' + name + '"]:checked') || document.querySelector('select[name="' + name + '"]');
     return el ? el.value : '';
@@ -903,8 +954,10 @@ const jobOverlay = (() => {
   const q = (s) => ov.querySelector(s);
   let t0 = Date.now(), timer = null, shown = 0;
   const fmt = (s) => (s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' s' : s + ' s');
+  /** The elapsed time on the panel. */
   const clock = () => { q('[data-ov-time]').textContent = fmt(Math.round((Date.now() - t0) / 1000)); };
   const api = {
+    /** Shows the panel with a title, a step and the time already spent (seconds). */
     show(title, step, elapsed) {
       if (title) q('[data-ov-title]').textContent = title;
       if (step) q('[data-ov-step]').textContent = step + '…';
@@ -912,6 +965,7 @@ const jobOverlay = (() => {
       ov.hidden = false;
       if (!timer) { clock(); timer = setInterval(clock, 1000); }
     },
+    /** Progress (never goes backwards, stops at 99 until done), the current step and the time so far. */
     update(pct, step, elapsed) {
       if (ov.hidden) return;
       if (typeof pct === 'number') {
@@ -922,7 +976,9 @@ const jobOverlay = (() => {
       if (step) q('[data-ov-step]').textContent = step + '…';
       if (typeof elapsed === 'number' && elapsed > 0) t0 = Date.now() - elapsed * 1000;
     },
+    /** A line of reassurance under the bar. */
     note(text) { q('[data-ov-note]').textContent = text; },
+    /** Finished: full bar, check mark, "Reloading…". */
     done(title) {
       shown = 100;
       q('[data-ov-bar]').style.width = '100%';
@@ -935,6 +991,7 @@ const jobOverlay = (() => {
       q('[data-ov-note]').textContent = 'Reloading…';
       clearInterval(timer);
     },
+    /** Failed: the message from the job, as text. */
     fail(message) {
       q('[data-ov-bar]').classList.remove('progress-bar-animated');
       q('[data-ov-bar]').classList.add('bg-danger');
@@ -945,6 +1002,7 @@ const jobOverlay = (() => {
       q('[data-ov-actions]').hidden = false;
       clearInterval(timer);
     },
+    /** Hides the panel. */
     hide() { ov.hidden = true; clearInterval(timer); timer = null; },
   };
   q('[data-ov-close]').addEventListener('click', () => api.hide());
@@ -970,6 +1028,7 @@ const jobOverlay = (() => {
     const badges = { succeeded: ['success', 'Done'], failed: ['danger', 'Failed'], running: ['primary', 'Running'], queued: ['secondary', 'Queued'] };
     const dl = box.querySelector('[data-job-download]');
     let done = false, sawMaintenance = false, started = false, downloaded = false, fails = 0;
+    /** The job's badge and card color (a fixed set of classes; an unknown state is shown as its text). */
     const setState = (s) => {
       const [c, t] = badges[s] || ['secondary', s];
       const b = $('[data-job-state]');
@@ -978,6 +1037,7 @@ const jobOverlay = (() => {
       box.className = box.className.replace(/card-(success|danger|primary|secondary)/, 'card-' + c);
       $('[data-job-spinner]').classList.toggle('d-none', s === 'succeeded' || s === 'failed');
     };
+    /** The facts about a backup or restore, as a list (text only). */
     const result = (j) => {
       const r = j.result || {}, el = $('[data-job-result]');
       const b = r.backup;
@@ -1003,6 +1063,7 @@ const jobOverlay = (() => {
       });
       el.appendChild(dlist);
     };
+    /** Shows the job's state, step, message and log (all text from the server, set with textContent). */
     const render = (j) => {
       if (jobOverlay) {
         jobOverlay.update(j.percent, j.step, j.elapsed);
@@ -1022,6 +1083,7 @@ const jobOverlay = (() => {
       result(j);
       if (j.state === 'failed') box.querySelector('details').open = true;
     };
+    /** A job ended: the overlay's result, the backup download (once), and a reload when the page's facts changed. */
     const finish = (j) => {
       done = true;
       if (jobOverlay && ['update', 'restore'].includes(j.action)) {
@@ -1035,6 +1097,7 @@ const jobOverlay = (() => {
       // Version or backup info changed: refresh the page (not for downloads, which would cancel them)
       if (started && ['update', 'check', 'purge_legacy', 'delete_safety'].includes(j.action)) setTimeout(() => location.replace('/settings/system?job=' + id), 1500);
     };
+    /** Polls the job every 1.5 s until it ends. A page that isn't JSON means maintenance mode or, after a restore, signed out. */
     const tick = () => {
       fetch('/settings/system/jobs/' + id, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' })
         .then(async (r) => {
@@ -1101,7 +1164,8 @@ const jobOverlay = (() => {
       xhr.addEventListener('load', () => {
         let j = null;
         try { j = JSON.parse(xhr.responseText); } catch (x) { j = null; }
-        if (j && j.ok) { location.href = j.redirect; return; }
+        // Only a path on this site (never //host or a scheme): anything else just reloads the page
+        if (j && j.ok) { if (sitePath(j.redirect)) location.href = j.redirect; else location.reload(); return; }
         btn.disabled = false;
         bar.classList.add('d-none');
         err.textContent = j && j.error ? j.error : (xhr.status === 413 || xhr.status === 419 ? 'The file is too large for this server. Copy it to the server and run: sudo msp-align-restore FILE' : 'The upload failed. Try again.');
@@ -1132,8 +1196,10 @@ const jobOverlay = (() => {
     const h = document.querySelectorAll('#tab-howto h6');
     h.forEach((el) => { el.classList.toggle('d-none', words.length > 0); });
   });
+  // The hash is only looked up as an element id (never a selector or markup); a malformed %-escape is ignored
   const open = () => {
-    const id = decodeURIComponent(location.hash.slice(1));
+    let id = '';
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
     if (!id) return;
     const target = document.getElementById(id);
     if (!target) return;
@@ -1153,6 +1219,7 @@ const jobOverlay = (() => {
     if (!table) return;
     const items = () => Array.from(table.querySelectorAll('[data-bulk-item]'));
     const all = document.querySelector('[data-bulk-all="' + bar.dataset.bulkBar + '"]');
+    /** Shows the bar with the count of ticked rows; "all" is ticked when every visible row is. */
     const update = () => {
       const n = items().filter((i) => i.checked).length;
       bar.classList.toggle('d-none', n === 0);
@@ -1185,17 +1252,20 @@ const jobOverlay = (() => {
       window.addEventListener('load', () => window.scrollTo(0, saved.y));
     }
   } catch (e) { /* storage unavailable */ }
+  /** Keeps scroll position and open lists for the reload after a move (this tab only). */
   const remember = () => {
     const open = Array.from(document.querySelectorAll('[data-hw-group]')).filter((d) => d.open).map((d) => d.dataset.hwGroup);
     if (target) open.push(target.start); // show the devices where they landed
     try { sessionStorage.setItem(KEY, JSON.stringify({ y: window.scrollY, open })); } catch (e) { /* ignore */ }
   };
+  /** POSTs a move with the page's CSRF token; a reply that isn't JSON becomes {ok: false, error}. */
   const post = (url, data) => {
     const body = new URLSearchParams(data);
     body.append('_csrf', csrf);
     return fetch(url, { method: 'POST', headers: { Accept: 'application/json' }, body, credentials: 'same-origin' })
       .then((r) => r.json().catch(() => ({ ok: false, error: 'The server did not answer. Refresh and try again.' })));
   };
+  /** After a move: reload, or show the server's error as text. */
   const done = (j, errEl) => {
     if (j && j.ok) { remember(); location.reload(); return; }
     const msg = (j && j.error) || 'Could not move it.';
@@ -1245,6 +1315,7 @@ const jobOverlay = (() => {
       bsModal(modalEl).show();
     });
   });
+  /** Moves the dragged devices' replacement to quarter ('' puts the planned date back). */
   const send = (quarter) => {
     const m = modalEl._move;
     if (!m) return;
@@ -1299,6 +1370,7 @@ const jobOverlay = (() => {
   if (!dash || !btn || !bar) return;
   const layout = JSON.parse(dash.dataset.layout || '{}');
   const zones = [...dash.querySelectorAll('.dash-zone')];
+  /** The layout as it is on the page now (hidden cards kept at the end of their zone). */
   const collect = () => {
     const order = {};
     zones.forEach((z) => { order[z.dataset.zone] = [...z.querySelectorAll(':scope > .dash-card')].map((c) => c.dataset.card); });
@@ -1309,12 +1381,14 @@ const jobOverlay = (() => {
     });
     return { order, hidden: layout.hidden || [] };
   };
+  /** Saves the layout (null resets it) with the CSRF token. */
   const save = (data, reload) => {
     const body = new URLSearchParams({ _csrf: bar.dataset.csrf });
     if (data === null) body.append('reset', '1'); else body.append('layout', JSON.stringify(data));
     return fetch('/dashboard/layout', { method: 'POST', credentials: 'same-origin', body, headers: { Accept: 'application/json' } })
       .then((r) => r.json()).then((j) => { if (j.ok && reload) location.reload(); return j; });
   };
+  /** Turns Customize on or off. */
   const setEditing = (on) => {
     document.body.classList.toggle('dash-editing', on);
     bar.hidden = !on;
@@ -1384,6 +1458,7 @@ const jobOverlay = (() => {
   if (form) {
     const body = form.querySelector('[data-contacts-body]');
     const tpl = document.getElementById('contact-row-template');
+    /** A new contact row from the <template>, filled with vals (as field values, never markup). */
     const addRow = (vals) => {
       const row = tpl.content.firstElementChild.cloneNode(true);
       Object.entries(vals || {}).forEach(([k, v]) => { const el = row.querySelector('[data-f="' + k + '"]'); if (el) el.value = v; });
@@ -1485,6 +1560,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const cur = JSON.parse(out.dataset.currencies || '{}');
   const val = (id) => (document.getElementById(id) || {}).value || '';
   const seps = { comma: [',', '.'], dot: ['.', ','], space: [' ', ','], apostrophe: ["'", '.'] };
+  /** The sample line: money, a negative amount, a date and a time in the chosen style (text only). */
   const update = () => {
     const [symbol, usual, decimals] = cur[val('locale_currency')] || ['$', 'before', 2];
     const after = (val('locale_currency_position') || usual) === 'after';
