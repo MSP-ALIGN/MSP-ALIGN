@@ -56,10 +56,11 @@ No. There's no telemetry or analytics, and the interface's scripts and fonts are
 The server contacts only the tools you connect, GitHub (to check for and download updates), and your Debian mirror for
 security updates.
 
-**Is it HIPAA compliant?**
-No software can be "HIPAA certified". MSP Align isn't designed to hold patient information, but it provides the
-technical safeguards your risk analysis will look for: required two-factor sign-in, automatic sign-out, a tamper-evident
-audit log kept six years, and encryption. See [Security](SECURITY.md).
+**How is client information protected?**
+Two-factor sign-in is required for every account, people see only what their role (or, in the client portal, their
+own client) allows, sessions sign out when idle, everything that matters goes into a tamper-evident audit log, and
+stored secrets and backups are encrypted. MSP Align isn't meant to hold regulated personal data such as health records
+or card numbers. See [Security](SECURITY.md).
 
 **How are updates kept safe?**
 Since 2.0, a server installs only releases signed with the project's release key, which is never stored on GitHub or a build machine, and refuses

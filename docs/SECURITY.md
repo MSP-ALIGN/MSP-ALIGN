@@ -1,15 +1,13 @@
 # MSP Align security
 
-This document describes how MSP Align protects client information, how its controls map to
-the HIPAA Security Rule technical safeguards (45 CFR 164.312), and what the operator (the MSP running it)
-is responsible for outside the application.
+This document describes how MSP Align protects the client information it holds, how the app and its server are
+hardened, what the security audits found, and what the operator (the MSP running it) is responsible for outside the
+application.
 
-> **HIPAA status.** Software can't be "HIPAA certified". Compliance belongs to the covered entity
-> and its business associates, and covers administrative and physical safeguards as well as
-> technical ones. Align is built to support compliance. Its controls follow the current Security Rule and the
-> stricter requirements in HHS's proposed update (published January 2025): MFA for every
-> user, encryption at rest and in transit, and audit logging. As of September 2026 that update is
-> still a proposal and is widely reported as delayed.
+MSP Align holds a lot about your clients: who they are, what they run, what it costs and what's planned. It is
+built on a few principles: every account signs in with two-factor, each person sees only what their role or client
+allows, everything that matters is in a tamper-evident audit log, secrets and backups are encrypted, and updates
+are installed only when they're signed with the project's release key.
 
 ## What Align stores
 
@@ -22,23 +20,22 @@ is responsible for outside the application.
   signature the signer's name, title and email, their drawn or typed signature, and the time, IP address and browser
   they signed from
 
-It isn't designed to hold patient records (PHI). Keep patient information out of notes, meeting
-notes and documents. If ePHI could end up in Align anyway, treat the server as an ePHI system:
-sign BAAs with the affected clients and include Align in your risk analysis.
+It isn't designed to hold regulated personal data such as health records, payment card numbers or government
+IDs. Keep that kind of information out of notes, meeting notes and documents.
 
-## Technical safeguards (164.312)
+## Core controls
 
-| Safeguard | How Align meets it |
+| Area | How Align handles it |
 |---|---|
-| **Unique user identification** (a)(2)(i) | Every staff and client-portal user has an individual account. There are no shared logins. |
-| **Access control** (a)(1) | Staff roles: viewer < tech < admin. Client-portal users are scoped to one client and to the sections ticked for them. They have a separate session cookie and user table, and every portal query uses the signed-in user's own client ID, never an ID from the URL. |
-| **Emergency access procedure** (a)(2)(ii) | `sudo align user:reset-password --email=… --clear-2fa` on the server. It issues a one-time password that must be changed at next sign-in, is written to the audit log and raises a security alert (2.2.1). |
-| **Automatic logoff** (a)(2)(iii) | Idle timeout defaults to 15 minutes (Settings → General, 5–60 minutes). Absolute session limit defaults to 12 hours. The browser warns one minute before sign-out and signs the page out itself, so nothing stays on screen. The server enforces both limits independently. |
-| **Encryption and decryption** (a)(2)(iv) | **At rest:** MariaDB tables, the redo log, temp files and Aria tables are encrypted with a key file readable only by `mysql`. API keys (NinjaOne, ITFlow, Veeam, Dell, Lenovo), the Microsoft 365 client secret, certificate key and refresh token, the Google service-account key, OAuth client secret and refresh token, the SMTP password, and 2FA secrets are also encrypted in the application with libsodium, using `app_key`. **Backups:** encrypted with age to a public key; the private key is kept offline. |
-| **Audit controls** (b) | Everything is logged: sign-ins, failures and timeouts; every change; exports and reports; client-portal actions. So are views of client records: overview, contacts, devices (including unassigned hardware), documents and document lists, contracts, meetings, compliance, client-portal users and portal pages, and every view of an onboarding page, each logged once per 15 minutes per session. An audit entry for a change made inside a database transaction is kept only if the change is kept (2.2.1). Each entry is sealed with an HMAC over its contents and the previous entry's hash, and the log's start and end markers have a seal of their own (1.45), so edits, insertions and deletions are detected, including entries cut off either end (Admin → Audit log, `align audit:verify`, and the nightly job). The nightly job also keeps the newest entry it saw outside the database, in the root agent's own folder, and checks it is still there the next night, so an old copy of the log written back is caught too. Entries are kept 6 years. The audit page checks every entry added since the last full check each time it opens; the whole chain is checked nightly and on demand (**Check the whole log**). Entries can be filtered by person, kind of action and text. |
-| **Integrity** (c)(1) | The hash-chained audit log, CSRF tokens on every form, and a strict allowlist HTML sanitizer for documents. Document versions are kept with full history. |
-| **Person or entity authentication** (d) | Two-factor sign-in (TOTP) is **required** for every staff and portal account; no data is shown until it's set up. Each code works only once. Passwords must be at least 12 characters (counted as characters, not bytes) and aren't allowed to be common passwords or contain the user's name, any part of it, or their email. Authenticator keys are at least 128 bits. They're hashed with Argon2id. After 5 failed attempts an account is locked for 15 minutes (10 from one IP address, across accounts; an IPv6 client counts per /64, since 2.2.1), and fail2ban bans repeat offenders at the firewall. Wrong codes after a correct password are counted per account (2.2.1): admins get a security alert at 5 in a row and every 25 after, and at 50 the password is replaced with a random one and every session ended, since someone is guessing codes with a known password. Attempts are counted before the password is checked, so parallel guesses can't get past the limit, and the password check when changing your password is counted the same way. Changing a password or resetting 2FA ends every other session. Moving 2FA to a new phone needs a code from the current one. After the code, a browser can be remembered for up to 30 days (14 by default; Settings → General → Security, 0 turns it off): on it the password is still asked for, only the code is skipped. Only a hash of its random 256-bit cookie (`HttpOnly`, `Secure`, `SameSite=Strict`) is stored, and it stops working when the person changes their password or authenticator, signs out everywhere, has 2FA reset or is disabled. Each person sees and can forget their remembered browsers on their Account page; sign-ins that skipped the code say so in the audit log (with the browser's number from that list). Setting the days to 0 forgets every remembered browser at once. Confirming a restore always asks for the code. For HIPAA, note it in your risk analysis: on a remembered browser a sign-in is the password plus that browser's cookie until the days run out; if your policy or cyber insurance requires a code at every sign-in, set it to 0. When an admin removes someone's 2FA, their password is replaced by a one-time password too, so whoever knew the old password can't set up their own authenticator. For client-portal users the password is cleared and a new link issued. |
-| **Transmission security** (e)(1) | TLS 1.2 or 1.3 only, with forward-secret AEAD ciphers. HSTS is on. Cookies are `Secure`, `HttpOnly` and `SameSite=Lax`, and carry the `__Host-`/`__Secure-` prefix. The ITFlow and Veeam connections must use `https://`. Email goes to Microsoft 365 over HTTPS through Microsoft Graph with OAuth 2.0 (client credentials with a secret or certificate, or authorization code with PKCE); With Google Workspace, mail goes over HTTPS through the Gmail API and invitations through the Google Calendar API, using a service account with domain-wide delegation (signed JWT) or authorization code with PKCE. With an SMTP server, mail goes over STARTTLS or TLS; its password, if any, is encrypted with `app_key` and never sent without encryption. Email bodies are cleared after the retention period set on Integrations → Email (30 days by default) and one-time invite/reset links are wiped as soon as they are sent. In proxy mode Apache and the firewall accept connections only from the proxy. |
+| **Individual accounts** | Every staff and client-portal user has an individual account. There are no shared logins. |
+| **Access control** | Staff roles: viewer < tech < admin. Client-portal users are scoped to one client and to the sections ticked for them. They have a separate session cookie and user table, and every portal query uses the signed-in user's own client ID, never an ID from the URL. |
+| **Emergency access** | `sudo align user:reset-password --email=… --clear-2fa` on the server. It issues a one-time password that must be changed at next sign-in, is written to the audit log and raises a security alert (2.2.1). |
+| **Automatic sign-out** | Idle timeout defaults to 15 minutes (Settings → General, 5–60 minutes). Absolute session limit defaults to 12 hours. The browser warns one minute before sign-out and signs the page out itself, so nothing stays on screen. The server enforces both limits independently. |
+| **Encryption** | **At rest:** MariaDB tables, the redo log, temp files and Aria tables are encrypted with a key file readable only by `mysql`. API keys (NinjaOne, ITFlow, Veeam, Dell, Lenovo), the Microsoft 365 client secret, certificate key and refresh token, the Google service-account key, OAuth client secret and refresh token, the SMTP password, and 2FA secrets are also encrypted in the application with libsodium, using `app_key`. **Backups:** encrypted with age to a public key; the private key is kept offline. |
+| **Audit log** | Everything is logged: sign-ins, failures and timeouts; every change; exports and reports; client-portal actions. So are views of client records: overview, contacts, devices (including unassigned hardware), documents and document lists, contracts, meetings, compliance, client-portal users and portal pages, and every view of an onboarding page, each logged once per 15 minutes per session. An audit entry for a change made inside a database transaction is kept only if the change is kept (2.2.1). Each entry is sealed with an HMAC over its contents and the previous entry's hash, and the log's start and end markers have a seal of their own (1.45), so edits, insertions and deletions are detected, including entries cut off either end (Admin → Audit log, `align audit:verify`, and the nightly job). The nightly job also keeps the newest entry it saw outside the database, in the root agent's own folder, and checks it is still there the next night, so an old copy of the log written back is caught too. Entries are kept 6 years. The audit page checks every entry added since the last full check each time it opens; the whole chain is checked nightly and on demand (**Check the whole log**). Entries can be filtered by person, kind of action and text. |
+| **Integrity** | The hash-chained audit log, CSRF tokens on every form, and a strict allowlist HTML sanitizer for documents. Document versions are kept with full history. |
+| **Sign-in and two-factor** | Two-factor sign-in (TOTP) is **required** for every staff and portal account; no data is shown until it's set up. Each code works only once. Passwords must be at least 12 characters (counted as characters, not bytes) and aren't allowed to be common passwords or contain the user's name, any part of it, or their email. Authenticator keys are at least 128 bits. They're hashed with Argon2id. After 5 failed attempts an account is locked for 15 minutes (10 from one IP address, across accounts; an IPv6 client counts per /64, since 2.2.1), and fail2ban bans repeat offenders at the firewall. Wrong codes after a correct password are counted per account (2.2.1): admins get a security alert at 5 in a row and every 25 after, and at 50 the password is replaced with a random one and every session ended, since someone is guessing codes with a known password. Attempts are counted before the password is checked, so parallel guesses can't get past the limit, and the password check when changing your password is counted the same way. Changing a password or resetting 2FA ends every other session. Moving 2FA to a new phone needs a code from the current one. After the code, a browser can be remembered for up to 30 days (14 by default; Settings → General → Security, 0 turns it off): on it the password is still asked for, only the code is skipped. Only a hash of its random 256-bit cookie (`HttpOnly`, `Secure`, `SameSite=Strict`) is stored, and it stops working when the person changes their password or authenticator, signs out everywhere, has 2FA reset or is disabled. Each person sees and can forget their remembered browsers on their Account page; sign-ins that skipped the code say so in the audit log (with the browser's number from that list). Setting the days to 0 forgets every remembered browser at once. Confirming a restore always asks for the code. On a remembered browser a sign-in is the password plus that browser's cookie until the days run out; if your own policy or your cyber insurance requires a code at every sign-in, set it to 0. When an admin removes someone's 2FA, their password is replaced by a one-time password too, so whoever knew the old password can't set up their own authenticator. For client-portal users the password is cleared and a new link issued. |
+| **Connections** | TLS 1.2 or 1.3 only, with forward-secret AEAD ciphers. HSTS is on. Cookies are `Secure`, `HttpOnly` and `SameSite=Lax`, and carry the `__Host-`/`__Secure-` prefix. The ITFlow and Veeam connections must use `https://`. Email goes to Microsoft 365 over HTTPS through Microsoft Graph with OAuth 2.0 (client credentials with a secret or certificate, or authorization code with PKCE); With Google Workspace, mail goes over HTTPS through the Gmail API and invitations through the Google Calendar API, using a service account with domain-wide delegation (signed JWT) or authorization code with PKCE. With an SMTP server, mail goes over STARTTLS or TLS; its password, if any, is encrypted with `app_key` and never sent without encryption. Email bodies are cleared after the retention period set on Integrations → Email (30 days by default) and one-time invite/reset links are wiped as soon as they are sent. In proxy mode Apache and the firewall accept connections only from the proxy. |
 
 ## Application hardening
 
@@ -159,7 +156,7 @@ Docker installs (1.44) get the app's own controls, the database encrypted at res
 - `local-infile` off.
 - Encryption at rest.
 
-**Backups** (Data backup plan 164.308(a)(7)(ii)(A), disaster recovery (B))
+**Backups**
 
 - Downloaded through the browser by an admin and never kept on the server. Each backup is built on request and encrypted with age to the server's public key. Only encrypted data is written to disk. It is deleted after one download, or after an hour.
 - Contains the database, uploaded files and `app_key`, so it restores on new hardware.
@@ -283,9 +280,9 @@ and their fixes:
 5. **Review regularly.**
    - Review the audit log and user list (staff and portal) at least quarterly.
    - Disable accounts promptly when someone leaves.
-6. **Paperwork.**
-   - Risk analysis, BAAs with covered-entity clients, workforce training, and an incident response plan.
-   - Align's own WISP and IR templates can document these.
+6. **Your own security program.**
+   - Include the Align server in your risk assessment, staff security training and incident response plan.
+   - Align's own policy, WISP and incident response templates can document these for your company too.
 7. **Watch for alerts.** Watch for `ALERT: audit log verification failed` in `journalctl -u msp-align-nightly`, and keep the Updates and Security alerts email notifications on.
 
 ## Reporting a vulnerability

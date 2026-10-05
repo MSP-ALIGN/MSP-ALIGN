@@ -1,3 +1,4 @@
+-- (Already applied on every install; comments only may change here.)
 -- 0.2.0: manual clients and devices, meetings/calendar, compliance
 
 -- Clients can now be created in Align (source = manual) as well as synced from ITFlow
