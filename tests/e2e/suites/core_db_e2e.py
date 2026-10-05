@@ -94,7 +94,7 @@ GUARD = r"""
 $r = require APP_ROOT . '/src/routes.php';
 $public = ['AuthController::loginForm', 'AuthController::login', 'AuthController::twoFactorForm', 'AuthController::twoFactor', 'AuthController::logout',
   'AuthController::ping', 'LegalController::terms', 'LegalController::license', 'LegalController::licenseText', 'LegalController::thirdParty',
-  'BrandingController::logo', 'BrandingController::background', 'MeetingController::feed', 'PortalController::terms', 'PortalController::loginForm',
+  'BrandingController::logo', 'BrandingController::lightLogo', 'BrandingController::background', 'MeetingController::feed', 'PortalController::terms', 'PortalController::loginForm',
   'PortalController::login', 'PortalController::forgotForm', 'PortalController::forgot', 'PortalController::twoFactorForm', 'PortalController::twoFactor',
   'PortalController::logout', 'PortalController::ping', 'PortalController::inviteForm', 'PortalController::invite'];
 $bad = [];

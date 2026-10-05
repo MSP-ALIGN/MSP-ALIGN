@@ -34,6 +34,8 @@ final class BrandingController
             ],
             'hasLogo' => Branding::hasLogo(),
             'logoUrl' => Branding::logoUrl(),
+            'hasLightLogo' => Branding::hasLogo('light'),
+            'lightLogoUrl' => Branding::logoUrl('light'),
             'backgrounds' => array_map(fn($k) => ['url' => Branding::backgroundUrl($k), 'dim' => Branding::backgroundDim($k), 'mode' => Branding::backgroundMode($k)], array_combine(array_keys(Branding::BG_KINDS), array_keys(Branding::BG_KINDS))),
         ]);
     }
@@ -47,10 +49,13 @@ final class BrandingController
     {
         Auth::requireRole('admin');
         $action = post('action', 'save');
-        if ($action === 'remove_logo') {
-            Branding::removeLogo();
-            Audit::log('branding.logo_removed');
-            flash('success', 'Logo removed. The default icon is back.');
+        // 2.2.4: remove_logo is the dark mode logo (the one Align always had), remove_logo_light the light mode one
+        if ($action === 'remove_logo' || $action === 'remove_logo_light') {
+            $kind = $action === 'remove_logo' ? 'dark' : 'light';
+            $other = $kind === 'dark' ? 'light' : 'dark';
+            Branding::removeLogo($kind);
+            Audit::log($kind === 'dark' ? 'branding.logo_removed' : 'branding.light_logo_removed');
+            flash('success', ucfirst($kind) . ' mode logo removed. ' . (Branding::hasLogo($other) ? "The $other mode logo is used everywhere now." : 'The default icon is back.'));
             redirect('/settings/branding');
         }
         if (preg_match('/^(remove|plain|default)_bg_(staff|portal)$/', $action, $m)) {
@@ -64,7 +69,7 @@ final class BrandingController
                 Settings::set($k, null);
             }
             Audit::log('branding.reset');
-            flash('success', 'Name and colors reset to the defaults. Your logo and sign-in backgrounds were kept.');
+            flash('success', 'Name and colors reset to the defaults. Your logos and sign-in backgrounds were kept.');
             redirect('/settings/branding');
         }
 
@@ -94,12 +99,15 @@ final class BrandingController
                 Audit::log('branding.background_uploaded', Branding::BG_KINDS[$k]);
             }
         }
-        if (!empty($_FILES['logo']) && ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-            if ($err = Branding::saveLogo($_FILES['logo'])) {
-                flash('error', $err);
-                redirect('/settings/branding');
+        // The dark mode logo (field logo, the one Align always had) and, since 2.2.4, the light mode logo (field logo_light)
+        foreach (['logo' => ['dark', 'Dark mode logo', 'branding.logo_uploaded'], 'logo_light' => ['light', 'Light mode logo', 'branding.light_logo_uploaded']] as $field => [$kind, $label, $event]) {
+            if (!empty($_FILES[$field]) && ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                if ($err = Branding::saveLogo($_FILES[$field], $kind)) {
+                    flash('error', "$label: $err");
+                    redirect('/settings/branding');
+                }
+                Audit::log($event);
             }
-            Audit::log('branding.logo_uploaded');
         }
         Audit::log('branding.save', Branding::name() . ' / ' . Branding::color());
         flash('success', 'Branding saved.');
@@ -122,10 +130,22 @@ final class BrandingController
         readfile($file);
     }
 
-    /** Serves the uploaded logo. Public, so the sign-in page and printed reports can show it. */
+    /** Serves the uploaded dark mode logo (the menu's). Public, so the sign-in page can show it. */
     public static function logo(): void
     {
-        $file = Branding::logoFile();
+        self::sendLogo('dark');
+    }
+
+    /** Serves the uploaded light mode logo (2.2.4). Public: reports, the client portal and the sign-in pages show it. */
+    public static function lightLogo(): void
+    {
+        self::sendLogo('light');
+    }
+
+    /** Sends an uploaded logo ($kind: a Branding::LOGOS key), or redirects to the built-in mark when there is none. */
+    private static function sendLogo(string $kind): void
+    {
+        $file = Branding::logoFile($kind);
         if (!$file) {
             header('Location: /assets/icon.png', true, 302); // the built-in mark (2.2.2)
             return;

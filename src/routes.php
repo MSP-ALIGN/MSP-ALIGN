@@ -256,6 +256,8 @@ $r->get('/sync/{id}', [SyncController::class, 'show']);
 
 // Admin
 $S = \Align\Controllers\SystemController::class;
+$r->get('/settings/diagnostics', [\Align\Controllers\DiagnosticsController::class, 'index']); // 2.2.3
+$r->get('/settings/diagnostics/report', [\Align\Controllers\DiagnosticsController::class, 'report']);
 $r->get('/settings/system', [$S, 'index']);
 $r->post('/settings/system/check', [$S, 'check']);
 $r->post('/settings/system/update', [$S, 'update']);
@@ -300,6 +302,7 @@ $r->get('/settings/os', [SettingsController::class, 'os']);
 $r->get('/settings/branding', [BrandingController::class, 'show']);
 $r->post('/settings/branding', [BrandingController::class, 'save']);
 $r->get('/branding/logo', [BrandingController::class, 'logo']);
+$r->get('/branding/logo-light', [BrandingController::class, 'lightLogo']); // 2.2.4: the light mode logo
 $r->get('/branding/background/{kind:str}', [BrandingController::class, 'background']);
 $r->post('/settings/os', [SettingsController::class, 'osSave']);
 // Demo data (1.41)

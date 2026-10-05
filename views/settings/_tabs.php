@@ -8,6 +8,7 @@ $tabs = [
     'branding' => ['/settings/branding', 'Branding', 'fa-palette'],
     'api' => ['/settings/api', 'API', 'fa-code'],
     'system' => ['/settings/system', 'Updates & backups', 'fa-arrows-rotate'],
+    'diagnostics' => ['/settings/diagnostics', 'Diagnostics', 'fa-stethoscope'], // 2.2.3: server, database and job health
 ];
 $newer = \Align\System\Agent::updateAvailable();
 ?>
@@ -17,5 +18,5 @@ $newer = \Align\System\Agent::updateAvailable();
     <li class="nav-item"><a class="nav-link<?= $tab === $k ? ' active' : '' ?>" href="<?= $href ?>"<?= $tab === $k ? ' aria-current="page"' : '' ?>><i class="<?= str_contains($icon, 'fab') ? $icon : 'fas ' . $icon ?> fa-fw me-1"></i><?= e($label) ?><?= $k === 'system' && $newer ? ' <span class="badge text-bg-info">new</span>' : '' ?></a></li>
   <?php endforeach; ?>
   <li class="nav-item ms-auto"><a class="nav-link" href="/integrations" title="Integrations"><i class="fas fa-plug fa-fw"></i><span class="d-none d-xxl-inline ms-1">Integrations</span><span class="visually-hidden">Integrations</span></a></li>
-  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'api' => 'api'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="visually-hidden">Help</span></a></li>
+  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'api' => 'api', 'diagnostics' => 'diagnostics'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="visually-hidden">Help</span></a></li>
 </ul>

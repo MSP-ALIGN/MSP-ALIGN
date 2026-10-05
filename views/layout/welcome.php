@@ -14,7 +14,7 @@ $v = e(APP_VERSION);
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title><?= e($title ?? 'Welcome') ?> | <?= e($company['name']) ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
+<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">
@@ -26,7 +26,7 @@ $v = e(APP_VERSION);
 <body class="welcome-page" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
 <header class="welcome-top">
   <div class="welcome-wrap d-flex align-items-center">
-    <?php if (\Align\Branding::hasLogo()): ?><img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e($company['name']) ?>" class="welcome-logo"><?php else: ?><b class="h5 mb-0"><?= e($company['name']) ?></b><?php endif; ?>
+    <?php if (\Align\Branding::anyLogo()): // 2.2.4: a white page, so the light mode logo when there is one ?><img src="<?= e(\Align\Branding::lightLogoUrl()) ?>" alt="<?= e($company['name']) ?>" class="welcome-logo"><?php else: ?><b class="h5 mb-0"><?= e($company['name']) ?></b><?php endif; ?>
     <div class="ms-auto small text-end welcome-top-contact">
       <?php if ($company['phone']): ?><div><i class="fas fa-phone fa-fw me-1"></i><?= e($company['phone']) ?></div><?php endif; ?>
       <?php if ($company['email']): ?><div><i class="fas fa-envelope fa-fw me-1"></i><?= e($company['email']) ?></div><?php endif; ?>

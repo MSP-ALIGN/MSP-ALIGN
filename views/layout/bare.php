@@ -12,7 +12,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="/assets/theme.js?v=<?= e(APP_VERSION) ?>"></script>
 <title><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
+<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">
@@ -28,7 +28,12 @@
       <img src="/assets/logo.png?v=<?= e(APP_VERSION) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-wordmark is-light d-block mx-auto" width="1032" height="277">
       <img src="/assets/logo-dark.png?v=<?= e(APP_VERSION) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-wordmark is-dark mx-auto" width="1032" height="277">
     <?php else: ?>
-      <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-logo-img mb-2 d-block mx-auto<?= \Align\Branding::hasLogo() ? ' is-custom' : '' ?>">
+      <?php // 2.2.4: the light mode logo on a light page, the dark mode logo in dark mode (the portal's sign-in is always light)
+      $lightLogo = \Align\Branding::lightLogoUrl();
+      $darkLogo = defined('IS_PORTAL') && IS_PORTAL ? $lightLogo : \Align\Branding::darkLogoUrl();
+      $custom = \Align\Branding::anyLogo() ? ' is-custom' : ''; ?>
+      <img src="<?= e($lightLogo) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-logo-img mb-2 d-block mx-auto<?= $custom ?><?= $darkLogo !== $lightLogo ? ' on-light' : '' ?>">
+      <?php if ($darkLogo !== $lightLogo): ?><img src="<?= e($darkLogo) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-logo-img mb-2 mx-auto<?= $custom ?> on-dark"><?php endif; ?>
       <?php if (!\Align\Branding::logoOnly()): ?><b><?= e(\Align\Branding::name()) ?></b><?php endif; ?>
     <?php endif; ?>
   </div>

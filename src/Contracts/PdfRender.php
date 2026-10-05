@@ -63,7 +63,7 @@ final class PdfRender
     /**
      * Sets up a renderer for $c (as Contracts::load() returns it: the def normalized by Template::normalize). With
      * $into it draws into that Pdf, at its page size, instead of a new one. Sets the document info and loads the
-     * logo; Branding::logoFile() only returns a file whose name matches its own pattern, never a path from input.
+     * logo; Branding::lightLogoFile() only returns a file whose name matches Branding's own pattern, never a path from input.
      */
     private function __construct(array $c, bool $final, ?Pdf $into = null)
     {
@@ -78,7 +78,7 @@ final class PdfRender
         $this->accent = Pdf::hex($st['color'] ?: \Align\Branding::color());
         $this->vals = Contracts::values($c);
         $this->w = $pw - $this->ml - $this->mr;
-        if ($st['logo'] && ($f = \Align\Branding::logoFile())) {
+        if ($st['logo'] && ($f = \Align\Branding::lightLogoFile())) { // the light mode logo, else the dark mode one (2.2.4)
             $this->logo = $this->pdf->addImage((string) file_get_contents($f));
         }
         $this->top = ($this->logo !== null || $st['header'] !== '' || !$final) ? 92 : 60;

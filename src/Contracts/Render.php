@@ -50,8 +50,9 @@ final class Render
         $accent = $st['color'] ?: \Align\Branding::color();
         $out = '<div class="contract-doc cd-' . $st['font'] . '" style="--cd-accent: ' . e($accent) . '; --cd-size: ' . (int) $st['size'] . 'pt">';
         $head = '';
-        if ($st['logo'] && \Align\Branding::hasLogo()) {
-            $head .= '<img class="cd-logo" src="' . e(\Align\Branding::logoUrl()) . '" alt="">';
+        // A contract is a white page: the light mode logo, else the dark mode one (2.2.4)
+        if ($st['logo'] && \Align\Branding::anyLogo()) {
+            $head .= '<img class="cd-logo" src="' . e(\Align\Branding::lightLogoUrl()) . '" alt="">';
         }
         if ($st['header'] !== '') {
             $head .= '<div class="cd-header-text">' . e(Contracts::fillText($st['header'], $vals)) . '</div>';
