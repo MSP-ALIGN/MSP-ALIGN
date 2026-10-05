@@ -288,12 +288,95 @@ def page(slug, title, body, description):
                .replace("{{description}}", html.escape(description))
                .replace("{{nav}}", nav)
                .replace("{{home_current}}", ' aria-current="page"' if slug == "index" else "")
+               .replace("{{body_class}}", "home" if slug == "index" else "doc")
                .replace("{{version}}", html.escape(version()))
                .replace("{{repo}}", REPO)
                .replace("{{suggest}}", SUGGEST)
                .replace("{{edit}}", html.escape(edit_url(slug)))
                .replace("{{base}}", '<base href="/">\n' if slug == "404" else "")
                .replace("{{body}}", body))  # last, so text in a page can't fill the other placeholders
+
+
+# ---- the home page (2.2.2): a short landing page; the details live on the other pages
+# Small line icons (24x24, stroke = currentColor), drawn for this page
+ICONS = {
+    "lifecycle": '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/><path d="M12 7v5l3 2"/>',
+    "roadmap": '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h4M7 17h8"/>',
+    "report": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 18v-3M12 18v-6M16 18v-4"/>',
+    "portal": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5"/>',
+    "shield": '<path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    "pen": '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    "key": '<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M17 6l3 3M14.5 8.5l2 2"/>',
+    "plug": '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/>',
+    "server": '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
+    "lock": '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    "check": '<path d="M12 2l2.4 2.2 3.2-.4.9 3.1 2.8 1.6-1.2 3 1.2 3-2.8 1.6-.9 3.1-3.2-.4L12 22l-2.4-2.2-3.2.4-.9-3.1-2.8-1.6 1.2-3-1.2-3 2.8-1.6.9-3.1 3.2.4z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+}
+
+
+def icon(name):
+    return (f'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+            f'stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>')
+
+
+# What it does: (icon, title, one line). Plain claims only, each one true of the current release.
+FEATURES = [
+    ("lifecycle", "Lifecycle at a glance", "Warranty, end of life and OS support for every device, with Dell and Lenovo warranty lookups."),
+    ("roadmap", "Roadmaps and budgets", "Projects by quarter and a three-year budget that fills itself from hardware, licenses and services."),
+    ("report", "QBRs in one click", "A polished pack: lifecycle, backups, compliance, roadmap and budget, ready to print or send."),
+    ("portal", "Client portal", "Clients see their plan, approve projects and send requests, with two-factor sign-in."),
+    ("shield", "Compliance and policies", "CIS, NIST CSF, CMMC, PCI DSS, SOC 2, ISO 27001 and more, plus 27 policy templates."),
+    ("pen", "Contracts and e-signatures", "Upload your agreement, send it to sign online, countersign and keep the certificate."),
+    ("key", "Licensing and renewals", "Every license and contract with its cost and renewal date, so nothing renews unnoticed."),
+    ("plug", "To do and automation", "One list of what's waiting on your team, and a REST API for n8n, Zapier and scripts."),
+]
+TOOLS = ["ITFlow", "NinjaOne", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "SMTP", "Dell warranties",
+         "Lenovo warranties", "CSV import"]
+TRUST = [
+    ("server", "Your server, your data", "Self-hosted on a Debian VM or Docker. No telemetry, no cloud account."),
+    ("lock", "Locked down", "Two-factor for every account, a tamper-evident audit log, encrypted secrets and backups."),
+    ("check", "Safe updates", "One click to update, and only releases signed with the project's key are installed."),
+]
+
+
+def home_body(install):
+    esc = html.escape
+    features = "".join(f'<div class="feat">{icon(i)}<h3>{esc(t)}</h3><p>{esc(d)}</p></div>' for i, t, d in FEATURES)
+    tools = "".join(f"<li>{esc(t)}</li>" for t in TOOLS)
+    trust = "".join(f'<div class="trust-item">{icon(i)}<div><h3>{esc(t)}</h3><p>{esc(d)}</p></div></div>' for i, t, d in TRUST)
+    docs = "".join(f'<a href="{s}.html"><b>{esc(t)}</b><span>{esc(d)}</span></a>' for s, t, _, d in PAGES if s != "license")
+    return (
+        '<section class="h-hero">'
+        '<p class="h-eyebrow">Free and open source · Self-hosted · Built by MSPs, for MSPs</p>'
+        '<h1>Every client\'s IT plan, <span>in one place.</span></h1>'
+        '<p class="h-sub">MSP Align pulls in your clients, devices and backups, shows what needs replacing and what it will '
+        'cost, and turns it into roadmaps, budgets and QBRs your clients understand.</p>'
+        '<p class="h-cta"><a class="button" href="install.html">Install it free</a>'
+        '<a class="button secondary" href="screenshots.html">See screenshots</a>'
+        f'<a class="button ghost" href="{REPO}">View on GitHub</a></p>'
+        '<a class="h-shot" href="screenshots.html"><img class="on-light" src="screenshots/dashboard.png" alt="The MSP Align dashboard" width="1400" height="900">'
+        '<img class="on-dark" src="screenshots/dashboard-dark.png" alt="The MSP Align dashboard in dark mode" width="1400" height="900" loading="lazy"></a>'
+        '</section>'
+        '<section class="h-sec"><h2>What it does</h2>'
+        '<p class="h-lead">The vCIO work, without the spreadsheets.</p>'
+        f'<div class="feats">{features}</div></section>'
+        '<section class="h-sec h-tools"><h2>Works with your tools</h2>'
+        '<p class="h-lead">Or without them: clients can also come from your RMM, a CSV file or be added by hand.</p>'
+        f'<ul class="pills">{tools}</ul></section>'
+        f'<section class="h-sec"><h2>Secure by default</h2><div class="trust">{trust}</div>'
+        '<p class="h-more"><a href="security.html">How client data is protected →</a></p></section>'
+        '<section class="h-sec h-install"><h2>Up and running in minutes</h2>'
+        f'<p class="h-lead">On a fresh Debian 13 VM, run:</p><pre><code>{esc(install)}</code></pre>'
+        '<p class="h-more"><a href="install.html">Install guide</a> · <a href="docker.html">Docker</a> · '
+        '<a href="test-server.html">Test server</a></p></section>'
+        f'<section class="h-sec"><h2>Documentation</h2><div class="h-docs">{docs}</div></section>'
+        '<section class="h-sec h-ideas" id="ideas"><h2>Have an idea?</h2>'
+        '<p class="h-lead">Tell us what you\'re trying to do and how you do it today.</p>'
+        f'<p class="h-cta"><a class="button" href="{SUGGEST}">Suggest a feature</a>'
+        f'<a class="button secondary" href="{REPO}/discussions">Talk it through first</a></p>'
+        f'<p class="free">Needs a free GitHub account; leave out client names and data. Found a bug? '
+        f'<a href="{REPO}/issues/new/choose">Report it</a>. A security problem? Report it '
+        f'<a href="{REPO}/security/advisories/new">privately</a>.</p></section>')
 
 
 def edit_url(slug):
@@ -328,35 +411,16 @@ def main():
         with open(os.path.join(OUT, slug + ".html"), "w", encoding="utf-8") as f:
             f.write(page(slug, title, body, summary))
 
-    # Home: the README's first paragraph, the install command and a card per page
+    # Home (2.2.2: its own landing page, home_body); the README must still have an intro and the install command
     # (HTML blocks, like the logo at the top of the README, aren't the intro)
     intro = next((p for p in sec[""].split("\n\n") if p.strip() and not p.startswith(("#", ">", "<"))), None)
     install = re.search(r"```bash\n(curl [^\n]+install\.sh[^\n]*)\n```", sec["Install (fresh Debian 13 VM)"])
     if not intro or not install:
         sys.exit("docs: README.md needs an intro paragraph and a ```bash curl ... install.sh``` block under Install")
     install = install.group(1)
-    cards = "".join(
-        f'<a class="card" href="{s}.html"><b>{html.escape(t)}</b><span>{html.escape(d)}</span></a>' for s, t, _, d in PAGES)
-    # 2.2.2: the logo with its tagline as the page's heading (light lettering in dark mode; the alt text is the name)
-    hero_logo = ('<h1 class="hero-logo"><img class="on-light" src="brand/logo-tagline.png" alt="MSP Align" width="1036" height="365">'
-                 '<img class="on-dark" src="brand/logo-tagline-dark.png" alt="MSP Align" width="1036" height="365"></h1>')
-    body = (f'<div class="hero">{hero_logo}<p class="lead">{render(rewrite_links(intro, "."))[3:-4]}</p>'
-            f'<p class="free">Free and open source (AGPL-3.0). Self-hosted: your client data stays on your server.</p></div>'
-            f'<p><a href="screenshots.html"><img class="shot" src="screenshots/dashboard.png" alt="The MSP Align dashboard" width="1400" height="900"></a></p>'
-            f'<p><a href="screenshots.html">More screenshots →</a></p>'
-            f'<h2>Install</h2><p>On a fresh Debian 13 VM:</p><pre><code>{html.escape(install)}</code></pre>'
-            f'<p><a href="install.html">Full install and setup guide →</a></p>'
-            f'<h2>Documentation</h2><div class="cards">{cards}</div>'
-            f'<h2 id="ideas">Ideas and feature requests</h2>'
-            f'<p>MSP Align is built by MSPs for MSPs. Missing something, or have an idea that would save you time? Tell us what '
-            f'you\'re trying to do and how you do it today.</p>'
-            f'<p class="actions"><a class="button" href="{SUGGEST}">Suggest a feature</a>'
-            f'<a class="button secondary" href="{REPO}/discussions">Talk an idea through first</a></p>'
-            f'<p class="free">Both need a free GitHub account. Please leave out client names and data. '
-            f'Found a bug? <a href="{REPO}/issues/new/choose">Report it here</a>; a security problem goes '
-            f'<a href="{REPO}/security/advisories/new">privately</a>.</p>')
+    body = home_body(install)
     with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
-        f.write(page("index", "MSP Align", body, "Self-hosted, open-source vCIO toolkit for managed service providers."))
+        f.write(page("index", "MSP Align", body, "The free, self-hosted vCIO toolkit for MSPs: lifecycle, roadmaps, budgets, QBRs and a client portal."))
 
     # 2.2.2 brand: the app's own icon and logos, plus docs/brand (the logo with its tagline, the link-preview image)
     for f in ("icon.png", "apple-touch-icon.png", "logo.png", "logo-dark.png"):
