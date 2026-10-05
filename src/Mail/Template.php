@@ -36,10 +36,13 @@ final class Template
             . '</table></td></tr></table></body></html>';
     }
 
-    /** The brand logo as an inline attachment (PNG/JPG/GIF under 300 KB; Outlook can't show WebP). The file was re-encoded on upload. */
+    /**
+     * The brand logo as an inline attachment (PNG/JPG/GIF under 300 KB; Outlook can't show WebP). The file was
+     * re-encoded on upload. Emails are white, so it's the report logo when there is one (2.2.4).
+     */
     public static function logo(): ?array
     {
-        $f = \Align\Branding::logoFile();
+        $f = \Align\Branding::lightLogoFile();
         if (!$f || filesize($f) > 300 * 1024 || !preg_match('/\.(png|jpg|gif)$/', $f, $m)) {
             return null;
         }

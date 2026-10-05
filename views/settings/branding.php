@@ -4,13 +4,18 @@ use Align\Branding;
 /**
  * Branding (1.45.2): the 1.43 look. Name and logo, the sign-in page, the brand color and the sidebar on the left;
  * on the right a live preview of the app, the sign-in page and the client portal as they look now, in light or dark.
- * @var array $v; bool $hasLogo; string $logoUrl; array $backgrounds [staff|portal => [url, dim]] (2.1.1)
+ * @var array $v; bool $hasLogo; string $logoUrl; array $backgrounds [staff|portal => [url, dim]] (2.1.1);
+ *      bool $hasReportLogo; string $reportLogoUrl (2.2.4: a second logo for reports and other white pages)
  * Security: $v['brand_primary'] is Branding::color() (always #rrggbb), so it is safe in the style attributes; the
  * background URLs are built by Branding from fixed parts and the dims are integers. Text values are escaped.
  */
 // 2.2.2: the default is the MSP Align logo's blue; its teal and navy, and the old default, are choices too
 $swatches = ['#1b68b8' => 'Default blue', '#0b7d88' => 'MSP Align teal', '#0f2a4f' => 'MSP Align navy', '#007bff' => 'Bright blue', '#2f7a55' => 'Mountain green', '#6f42c1' => 'Purple', '#b3261e' => 'Red', '#e67e22' => 'Orange', '#343a40' => 'Charcoal'];
 $company = (string) ($v['company_name'] ?: 'Your company');
+// 2.2.4: which logo each place uses: white pages take the report logo, dark ones the app logo (either stands in for the other)
+$lightUrl = $hasReportLogo ? $reportLogoUrl : $logoUrl;
+$darkUrl = $hasLogo || !$hasReportLogo ? $logoUrl : $reportLogoUrl;
+$menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'branding']) ?>
 
@@ -34,19 +39,31 @@ $company = (string) ($v['company_name'] ?: 'Your company');
             </div>
           </div>
           <hr class="my-3">
-          <label class="d-block">Logo</label>
-          <div class="d-flex flex-wrap align-items-center gap-3">
-            <div class="brand-logo-drop"><img src="<?= e($logoUrl) ?>" alt="Current logo" id="logo-img"></div>
-            <div class="flex-grow-1" style="min-width: 220px">
-              <input type="file" class="form-control" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
-              <div class="form-text">PNG, JPG, WebP or GIF up to 2 MB. A square icon or a wide wordmark both work; a transparent PNG looks best on the dark menu. Also the browser icon and on printed reports.</div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="d-block" for="logo">App logo</label>
+              <div class="brand-logo-drop is-dark"><img src="<?= e($logoUrl) ?>" alt="Current app logo" id="logo-img"></div>
+              <input type="file" class="form-control mt-2" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
+              <div class="form-text">In the menu and on your team's sign-in page in dark mode. A light or white logo suits the dark menu.</div>
               <?php if ($hasLogo): ?>
-                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_logo" formnovalidate data-confirm="Remove the uploaded logo? The default icon comes back."><i class="fas fa-trash me-1"></i>Remove logo</button>
+                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_logo" formnovalidate data-confirm="Remove the app logo?<?= $hasReportLogo ? ' The report logo is used everywhere then.' : ' The default icon comes back.' ?>"><i class="fas fa-trash me-1"></i>Remove app logo</button>
               <?php else: ?>
-                <div class="form-text"><i class="fas fa-circle-info me-1"></i>Showing the default icon.</div>
+                <div class="form-text"><i class="fas fa-circle-info me-1"></i><?= $hasReportLogo ? 'Using the report logo.' : 'Showing the default icon.' ?></div>
+              <?php endif; ?>
+            </div>
+            <div class="col-md-6">
+              <label class="d-block" for="report_logo">Report logo <span class="badge text-bg-light border fw-normal">white pages</span></label>
+              <div class="brand-logo-drop is-light"><img src="<?= e($reportLogoUrl) ?>" alt="Current report logo" id="report-logo-img"<?= $hasReportLogo ? '' : ' class="opacity-50"' ?>></div>
+              <input type="file" class="form-control mt-2" id="report_logo" name="report_logo" accept="image/png,image/jpeg,image/webp,image/gif">
+              <div class="form-text">On printed reports, contracts and their PDFs, emails, the client portal, onboarding pages, the light sign-in page and the browser tab. Use a dark or colored logo that reads on white.</div>
+              <?php if ($hasReportLogo): ?>
+                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_report_logo" formnovalidate data-confirm="Remove the report logo?<?= $hasLogo ? ' Reports use the app logo again.' : '' ?>"><i class="fas fa-trash me-1"></i>Remove report logo</button>
+              <?php else: ?>
+                <div class="form-text"><i class="fas fa-circle-info me-1"></i><?= $hasLogo ? 'Empty: reports use the app logo.' : 'Empty: showing the default icon.' ?></div>
               <?php endif; ?>
             </div>
           </div>
+          <div class="form-text mt-2">PNG, JPG, WebP or GIF up to 2 MB each. A square icon or a wide wordmark both work. Upload just one and it's used everywhere.</div>
           <div class="form-check form-switch mt-3 mb-0">
             <input type="checkbox" class="form-check-input" role="switch" id="logo-only" name="brand_logo_only" value="1" <?= $v['brand_logo_only'] ? 'checked' : '' ?> data-preview="logo-only">
             <label class="form-check-label fw-normal" for="logo-only">My logo already includes our name: hide the app name next to it</label>
@@ -126,7 +143,7 @@ $company = (string) ($v['company_name'] ?: 'Your company');
 
       <div class="d-flex flex-wrap gap-2 mb-3">
         <button class="btn btn-primary" name="action" value="save"><i class="fas fa-check me-1"></i>Save branding</button>
-        <button class="btn btn-default" name="action" value="reset" formnovalidate data-confirm="Reset the name and colors to the defaults? Your logo and sign-in backgrounds are kept.">Reset to defaults</button>
+        <button class="btn btn-default" name="action" value="reset" formnovalidate data-confirm="Reset the name and colors to the defaults? Your logos and sign-in backgrounds are kept.">Reset to defaults</button>
       </div>
     </div>
 
@@ -145,13 +162,13 @@ $company = (string) ($v['company_name'] ?: 'Your company');
             <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#bp-tab-login" role="tab" aria-selected="false">Sign-in page</button></li>
             <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#bp-tab-portal" role="tab" aria-selected="false">Client portal</button></li>
           </ul>
-          <div class="bp-frame" id="brand-preview" data-bs-theme="light" data-default-name="<?= e(Branding::DEFAULT_NAME) ?>" data-default-company="Your company"
+          <div class="bp-frame" id="brand-preview" data-bs-theme="light" data-has-app="<?= $hasLogo ? '1' : '0' ?>" data-has-report="<?= $hasReportLogo ? '1' : '0' ?>" data-builtin="/assets/icon.png" data-default-name="<?= e(Branding::DEFAULT_NAME) ?>" data-default-company="Your company"
             style="--bp-color: <?= e($v['brand_primary']) ?>; --bp-text: <?= e(Branding::contrastText($v['brand_primary'])) ?>">
             <div class="tab-content">
               <div class="tab-pane fade show active" id="bp-tab-app" role="tabpanel">
                 <div class="bp-app">
                   <div class="bp-side<?= $v['brand_sidebar'] === 'light' ? ' is-light' : '' ?>" id="bp-side">
-                    <div class="bp-brand"><img src="<?= e($logoUrl) ?>" alt="" class="bp-logo"><span class="bp-name<?= $v['brand_logo_only'] ? ' d-none' : '' ?>"><?= e($v['brand_name']) ?></span></div>
+                    <div class="bp-brand"><img src="<?= e($menuUrl) ?>" alt="" class="bp-logo" data-logo="menu"><span class="bp-name<?= $v['brand_logo_only'] ? ' d-none' : '' ?>"><?= e($v['brand_name']) ?></span></div>
                     <div class="bp-item is-active"><i class="fas fa-fw fa-gauge-high"></i>Dashboard</div>
                     <div class="bp-item"><i class="fas fa-fw fa-list-check"></i>To do <span class="bp-count">4</span></div>
                     <div class="bp-head">Clients</div>
@@ -179,7 +196,7 @@ $company = (string) ($v['company_name'] ?: 'Your company');
               <div class="tab-pane fade" id="bp-tab-login" role="tabpanel">
                 <?php $sb = $backgrounds['staff']; ?>
                 <div class="bp-login<?= $sb['url'] ? ' has-bg' : '' ?>"<?= $sb['url'] ? ' style="background-image: linear-gradient(rgba(0,0,0,' . ($sb['dim'] / 100) . '), rgba(0,0,0,' . ($sb['dim'] / 100) . ')), url(&quot;' . e($sb['url']) . '&quot;)"' : '' ?>>
-                  <div class="bp-login-logo"><img src="<?= e($logoUrl) ?>" alt="" class="bp-logo"><b class="bp-name<?= $v['brand_logo_only'] ? ' d-none' : '' ?>"><?= e($v['brand_name']) ?></b></div>
+                  <div class="bp-login-logo"><img src="<?= e($lightUrl) ?>" alt="" class="bp-logo bp-on-light" data-logo="light"><img src="<?= e($darkUrl) ?>" alt="" class="bp-logo bp-on-dark" data-logo="dark"><b class="bp-name<?= $v['brand_logo_only'] ? ' d-none' : '' ?>"><?= e($v['brand_name']) ?></b></div>
                   <div class="bp-login-card">
                     <div class="bp-login-msg" id="bp-message"><?= e($v['brand_login_message'] ?: 'Sign in to continue') ?></div>
                     <div class="bp-field">Email</div><div class="bp-field">Password</div>

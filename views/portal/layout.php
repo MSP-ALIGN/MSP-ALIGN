@@ -50,7 +50,7 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php if ($pu): ?><meta name="align-idle" content="<?= \Align\Security::idleSeconds() ?>" data-ping="/portal/session/ping" data-logout="/portal/logout" data-login="/portal/login" data-csrf="<?= e(csrf_token()) ?>"><?php endif; ?>
 <title><?= e($title ?? '') ?> | <?= e($pu['client_name'] ?? \Align\Branding::name()) ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::logoUrl()) ?>">
+<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">
@@ -66,7 +66,7 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
       <?php if ($clientLogo): ?>
         <span class="portal-brand-logo"><img src="<?= e($clientLogo) ?>" alt="<?= e($pu['client_name'] ?? '') ?>" class="portal-brand-img"></span>
       <?php else: ?>
-        <img src="<?= e(\Align\Branding::logoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="portal-brand-img portal-provider-img">
+        <img src="<?= e(\Align\Branding::lightLogoUrl()) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="portal-brand-img portal-provider-img"><?php // the portal's top bar is white (2.2.4) ?>
       <?php endif; ?>
       <span class="portal-brand-text min-w-0">
         <span class="portal-brand-name"><?= e($pu['client_name'] ?? 'Client portal') ?></span>

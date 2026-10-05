@@ -676,22 +676,42 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   // Start the preview in the theme the page is shown in
   if (document.documentElement.dataset.bsTheme === 'dark') document.querySelector('[data-preview-theme="dark"]').click();
-  // The logo preview listens on the document, like the image pickers below
+  // The logo previews (2.2.4: two logos). Each place shows the logo it will use: white pages the report logo, dark
+  // ones the app logo, either standing in for the other; the menu follows the menu color. Listens on the document,
+  // like the image pickers below.
+  const logos = {
+    app: preview.dataset.hasApp === '1' ? document.getElementById('logo-img').getAttribute('src') : null,
+    report: preview.dataset.hasReport === '1' ? document.getElementById('report-logo-img').getAttribute('src') : null,
+  };
+  const swap = (old, url) => {
+    if (!old) return;
+    const img = document.createElement('img');
+    ['id', 'alt', 'class'].forEach((a) => { if (old.hasAttribute(a)) img.setAttribute(a, old.getAttribute(a)); });
+    if (old.dataset.logo) img.dataset.logo = old.dataset.logo;
+    img.classList.remove('opacity-50');
+    img.src = url;
+    old.replaceWith(img);
+  };
+  const refresh = () => {
+    const builtin = preview.dataset.builtin;
+    const light = logos.report || logos.app || builtin;
+    const dark = logos.app || logos.report || builtin;
+    const menuLight = (document.querySelector('[data-preview="sidebar"]:checked') || {}).value === 'light';
+    preview.querySelectorAll('[data-logo="light"]').forEach((el) => swap(el, light));
+    preview.querySelectorAll('[data-logo="dark"]').forEach((el) => swap(el, dark));
+    preview.querySelectorAll('[data-logo="menu"]').forEach((el) => swap(el, menuLight ? light : dark));
+  };
   document.addEventListener('change', (e) => {
     const input = e.target;
-    if (input.id !== 'logo' || !input.files || !input.files[0]) return;
+    if (input.matches && input.matches('[data-preview="sidebar"]')) { refresh(); return; }
+    if ((input.id !== 'logo' && input.id !== 'report_logo') || !input.files || !input.files[0]) return;
     const f = input.files[0];
     if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) return;
     const url = URL.createObjectURL(f);   // a blob: address for the chosen file, only ever used as an image
-    [document.getElementById('logo-img'), ...preview.querySelectorAll('.bp-logo')].forEach((old) => {
-      if (!old) return;
-      const img = document.createElement('img');
-      if (old.id) img.id = old.id;
-      img.alt = old.alt;
-      img.className = old.className;
-      img.src = url;
-      old.replaceWith(img);
-    });
+    const kind = input.id === 'logo' ? 'app' : 'report';
+    logos[kind] = url;
+    swap(document.getElementById(kind === 'app' ? 'logo-img' : 'report-logo-img'), url);
+    refresh();
   });
 });
 

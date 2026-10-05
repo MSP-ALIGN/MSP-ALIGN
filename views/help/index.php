@@ -74,6 +74,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.2.4', 'fa-image', 'A second logo for reports', 'Settings → Branding has a <b>Report logo</b> next to the app logo: a dark or colored one for printed reports, contracts and PDFs, emails, the client portal and onboarding pages, so a white logo can stay in the dark menu without disappearing on white paper.', 'branding', 'admin'],
         ['2.2.3', 'fa-stethoscope', 'Diagnostics', 'Settings → <b>Diagnostics</b> shows the server, the database, storage and the background jobs at a glance, marks anything that needs a look, lists the last week\'s problems, and gives you a report to paste into a support request.', 'diagnostics', 'admin'],
         ['2.2.2', 'fa-palette', 'A new logo and name', 'The app is called MSP Align now (it was MSP-ALIGN), with a new logo in the menu, the browser tab and on the sign-in pages, and the default brand color is now its blue. Your own logo, name and color from Settings → Branding still take its place.', 'branding', 'admin'],
         ['2.2.2', 'fa-filter', 'More device filters', 'The <b>Filters</b> button on Devices &amp; assets narrows the list by make and model, operating system, age, replacement year, warranty, status, backup, location, project and last user, with a count beside each choice. Active filters show as chips (press one to remove it), stay in the page address so you can bookmark or share the list, and the CSV follows them.', 'search', 'viewer'],
@@ -165,7 +166,8 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Printed reports, PDFs and the client portal always use the light colors, so what clients see doesn\'t change. Your brand color (Settings → Branding) is used in both modes.',
   ], ['Account' => '/account#appearance']) ?>
   <?= $guide('branding', 'fa-image', 'Brand the app and the sign-in pages', 'admin', [
-      'Open <b>Settings → Branding</b>: the app\'s name, your logo, the brand color and the menu color. The preview on the right shows the app, the sign-in page and the client portal as you change them.',
+      'Open <b>Settings → Branding</b>: the app\'s name, your logos, the brand color and the menu color. The preview on the right shows the app, the sign-in page and the client portal as you change them.',
+      'There are two logos. The <b>App logo</b> goes in the menu (and on your team\'s sign-in in dark mode), so a light or white one suits the dark menu. The <b>Report logo</b> goes on white pages: printed reports, contracts and their PDFs, emails, the client portal, onboarding pages, the light sign-in page and the browser tab. Upload just one and it\'s used everywhere.',
       'Under <b>Sign-in page</b>, set the message above the form, and upload a background for your team\'s sign-in and a separate one for the client portal\'s (JPG, PNG or WebP, 1920 × 1080 or larger). Use <b>Darken it</b> so the logo and form stay easy to read on a busy photo; something calm and neutral suits the client side.',
       'Press <b>Save branding</b>. Until you upload your own, each page uses a built-in image. <b>Remove my image</b> brings the built-in one back; <b>No image</b> gives the plain page.',
   ], ['Branding' => '/settings/branding']) ?>

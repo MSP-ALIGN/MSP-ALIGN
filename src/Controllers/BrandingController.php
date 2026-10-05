@@ -34,6 +34,8 @@ final class BrandingController
             ],
             'hasLogo' => Branding::hasLogo(),
             'logoUrl' => Branding::logoUrl(),
+            'hasReportLogo' => Branding::hasLogo('report'),
+            'reportLogoUrl' => Branding::logoUrl('report'),
             'backgrounds' => array_map(fn($k) => ['url' => Branding::backgroundUrl($k), 'dim' => Branding::backgroundDim($k), 'mode' => Branding::backgroundMode($k)], array_combine(array_keys(Branding::BG_KINDS), array_keys(Branding::BG_KINDS))),
         ]);
     }
@@ -47,10 +49,15 @@ final class BrandingController
     {
         Auth::requireRole('admin');
         $action = post('action', 'save');
-        if ($action === 'remove_logo') {
-            Branding::removeLogo();
-            Audit::log('branding.logo_removed');
-            flash('success', 'Logo removed. The default icon is back.');
+        if ($action === 'remove_logo' || $action === 'remove_report_logo') {
+            $kind = $action === 'remove_logo' ? 'app' : 'report';
+            Branding::removeLogo($kind);
+            Audit::log($kind === 'app' ? 'branding.logo_removed' : 'branding.report_logo_removed');
+            flash('success', match (true) {
+                $kind === 'report' => 'Report logo removed.' . (Branding::hasLogo('app') ? ' Reports use the app logo again.' : ''),
+                Branding::hasLogo('report') => 'App logo removed. The report logo is used everywhere now.',
+                default => 'Logo removed. The default icon is back.',
+            });
             redirect('/settings/branding');
         }
         if (preg_match('/^(remove|plain|default)_bg_(staff|portal)$/', $action, $m)) {
@@ -64,7 +71,7 @@ final class BrandingController
                 Settings::set($k, null);
             }
             Audit::log('branding.reset');
-            flash('success', 'Name and colors reset to the defaults. Your logo and sign-in backgrounds were kept.');
+            flash('success', 'Name and colors reset to the defaults. Your logos and sign-in backgrounds were kept.');
             redirect('/settings/branding');
         }
 
@@ -94,12 +101,15 @@ final class BrandingController
                 Audit::log('branding.background_uploaded', Branding::BG_KINDS[$k]);
             }
         }
-        if (!empty($_FILES['logo']) && ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-            if ($err = Branding::saveLogo($_FILES['logo'])) {
-                flash('error', $err);
-                redirect('/settings/branding');
+        // The app logo (field logo) and, since 2.2.4, the report logo (field report_logo)
+        foreach (['logo' => ['app', 'App logo', 'branding.logo_uploaded'], 'report_logo' => ['report', 'Report logo', 'branding.report_logo_uploaded']] as $field => [$kind, $label, $event]) {
+            if (!empty($_FILES[$field]) && ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                if ($err = Branding::saveLogo($_FILES[$field], $kind)) {
+                    flash('error', "$label: $err");
+                    redirect('/settings/branding');
+                }
+                Audit::log($event);
             }
-            Audit::log('branding.logo_uploaded');
         }
         Audit::log('branding.save', Branding::name() . ' / ' . Branding::color());
         flash('success', 'Branding saved.');
@@ -122,10 +132,22 @@ final class BrandingController
         readfile($file);
     }
 
-    /** Serves the uploaded logo. Public, so the sign-in page and printed reports can show it. */
+    /** Serves the uploaded app logo. Public, so the sign-in page and printed reports can show it. */
     public static function logo(): void
     {
-        $file = Branding::logoFile();
+        self::sendLogo('app');
+    }
+
+    /** Serves the uploaded report logo (2.2.4). Public: reports, the client portal and its sign-in page show it. */
+    public static function reportLogo(): void
+    {
+        self::sendLogo('report');
+    }
+
+    /** Sends an uploaded logo ($kind: a Branding::LOGOS key), or redirects to the built-in mark when there is none. */
+    private static function sendLogo(string $kind): void
+    {
+        $file = Branding::logoFile($kind);
         if (!$file) {
             header('Location: /assets/icon.png', true, 302); // the built-in mark (2.2.2)
             return;
