@@ -715,6 +715,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// Setup wizard: show the chosen logo before saving (2.2.5). blob: address only, used as an image.
+document.addEventListener('change', (e) => {
+  const input = e.target;
+  if (!input.matches || !input.matches('[data-setup-logo]') || !input.files || !input.files[0]) return;
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(input.files[0].type)) return;
+  const img = document.getElementById('logo-img');
+  if (img) img.src = URL.createObjectURL(input.files[0]);
+});
+
 // Bulk categorize (Unassigned hardware)
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('bulk-type-form');
