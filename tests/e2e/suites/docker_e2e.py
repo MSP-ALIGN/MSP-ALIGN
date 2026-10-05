@@ -66,7 +66,7 @@ open(fake + "/router.php", "w").write('<?php $u = parse_url($_SERVER["REQUEST_UR
     ' if (str_contains($u, "/commits")) { header("Content-Type: application/json"); readfile(__DIR__ . "/commits.json"); return true; }'
     ' http_response_code(404); return true;')
 json.dump(commits, open(fake + "/commits.json", "w"))
-open(fake + "/README.md", "w").write("# MSP-ALIGN\n\n## What's new\n\n- **Later (9.9.10):** not yet.\n- **Big thing (9.9.9):** it does more.\n  - **One:** a part.\n"
+open(fake + "/README.md", "w").write("# MSP Align\n\n## What's new\n\n- **Later (9.9.10):** not yet.\n- **Big thing (9.9.9):** it does more.\n  - **One:** a part.\n"
                                      "- **Old (%s):** installed already.\n- **A feature:** no version.\n\n## Install\n\n- **Step (9.9.9):** not notes.\n" % CUR)
 srv = subprocess.Popen(["php", "-S", "127.0.0.1:8094", fake + "/router.php"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1)

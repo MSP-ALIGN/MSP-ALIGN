@@ -1,6 +1,6 @@
 # Troubleshooting
 
-The messages below are the ones MSP-ALIGN shows, so you can search this page for the words on your screen. Commands are
+The messages below are the ones MSP Align shows, so you can search this page for the words on your screen. Commands are
 for a dedicated server; in Docker, run `align` commands as `docker compose exec app align …` and read the log with
 `docker compose logs app`.
 
@@ -14,7 +14,7 @@ Useful everywhere: `sudo align check` (health check), the app's error log `/var/
 | *This installer targets Debian 13* | Use a Debian 13 VM. `ALIGN_FORCE=1` tries anyway, unsupported. |
 | *Run as root* | Run it with `sudo -E bash` as shown, or as root. A minimal Debian may need `apt install -y curl sudo` first. |
 | *git clone failed. Check the token has Contents: Read…* | Only for a private fork: the token in `GH_TOKEN` needs **Contents: Read-only** on that repository, and `ALIGN_REPO=owner/name` must match it. |
-| *No release signed with the MSP-ALIGN release key was found* | The download couldn't find a signed release. Check the server can reach github.com. A fork needs its own key in `deploy/release-signers`, or none (see [Signed releases](RELEASING.md)). |
+| *No release signed with the MSP Align release key was found* | The download couldn't find a signed release. Check the server can reach github.com. A fork needs its own key in `deploy/release-signers`, or none (see [Signed releases](RELEASING.md)). |
 | *certbot failed - the site is on plain HTTP* | Let's Encrypt needs public DNS pointing at the server and port 80 open from the internet. Fix that, then run the `certbot --apache -d …` command it prints. |
 | *Proxy IP '…' is not valid* | Proxy mode takes one IP address, not a range or a list. |
 | *Install stopped at line …* | The command it names failed; the lines above it say why. Fix it and run the installer again: it's safe to repeat. |
@@ -73,7 +73,7 @@ system answered.
 | You see | What to do |
 |---|---|
 | *Could not reach GitHub to check for updates* | The server needs HTTPS access to github.com (and, for a private fork, a valid token in `/etc/msp-align/github-token`). |
-| *There is no newer release signed with the MSP-ALIGN release key* | The code on this server isn't a signed release, and there's no signed release to move to yet (for example right after upgrading from 1.x, before the release is published). Check the server can reach github.com and try again later; a fork needs its own key in `deploy/release-signers`. |
+| *There is no newer release signed with the MSP Align release key* | The code on this server isn't a signed release, and there's no signed release to move to yet (for example right after upgrading from 1.x, before the release is published). Check the server can reach github.com and try again later; a fork needs its own key in `deploy/release-signers`. |
 | *Not signed with the release key, so not installed* | A release tag on GitHub isn't signed with the project's key, so it was refused and a security alert was sent. Don't install it by hand; check [mspalign.org](https://mspalign.org) for news first. |
 | *The installer reported an error… A safety copy of the data was kept* | The update log on the page shows the failing step. If the update had no database changes, the previous version was put back. Download the safety copy before trying again. |
 | *The update and backup service is not installed on this server yet* | Run `sudo msp-align-update` once on the server. |

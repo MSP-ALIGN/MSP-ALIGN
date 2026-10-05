@@ -1,6 +1,6 @@
 # Data providers
 
-MSP-ALIGN fills a few **data areas** from the tools an MSP already runs. Screens, reports, the client
+MSP Align fills a few **data areas** from the tools an MSP already runs. Screens, reports, the client
 portal and the REST API read only neutral tables, so they don't know or care which product supplied the data.
 
 | Area | Provider today | Neutral tables |

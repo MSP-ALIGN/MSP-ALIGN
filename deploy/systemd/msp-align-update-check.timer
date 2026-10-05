@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for MSP-ALIGN updates every 6 hours
+Description=Check for MSP Align updates every 6 hours
 
 [Timer]
 OnBootSec=10min

@@ -1,6 +1,6 @@
 # Screenshots
 
-A tour of MSP-ALIGN 2.0 with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
+A tour of MSP Align 2.0 with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
 can try all of this before connecting anything).
 
 ## Dashboard
@@ -44,7 +44,7 @@ Every computer, server and network device with its age, end of life and status, 
 
 ### Licensing
 
-Licenses from your PSA with prices, billing cycles and renewal dates kept in MSP-ALIGN.
+Licenses from your PSA with prices, billing cycles and renewal dates kept in MSP Align.
 
 ![A client's licensing](screenshots/licensing.png)
 

@@ -108,7 +108,7 @@ $docker = Agent::docker();
           <?php endif; ?>
           <?php if ($docker): ?>
           <div class="border-top pt-3 small">
-            <p class="mb-1">This server runs in <b>Docker</b>, so it updates by pulling the new image. On the Docker host, in the MSP-ALIGN folder:</p>
+            <p class="mb-1">This server runs in <b>Docker</b>, so it updates by pulling the new image. On the Docker host, in the MSP Align folder:</p>
             <code class="d-block select-all mb-1">docker compose pull &amp;&amp; docker compose up -d</code>
             <p class="text-muted mb-0">Download a backup first. The database is updated automatically when the new version starts.</p>
           </div>

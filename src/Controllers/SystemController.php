@@ -193,7 +193,7 @@ final class SystemController
     /**
      * Takes a backup file for a later test or restore. It must be a real upload of at least 100 bytes within PHP's
      * limits; it is saved under a random name (never the uploaded one) in the restore folder, and kept only when
-     * describeUpload() finds an MSP-ALIGN backup (an age file from before 1.14, or a tar of the expected parts with a
+     * describeUpload() finds an MSP Align backup (an age file from before 1.14, or a tar of the expected parts with a
      * readable manifest) from this version or older. Nothing is decrypted or run here. One upload per session:
      * a new one replaces the last. Answers JSON for the page's upload script, else redirects.
      */

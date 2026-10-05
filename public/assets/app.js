@@ -1,4 +1,4 @@
-// MSP-ALIGN - page behaviour on top of AdminLTE / Bootstrap 4.
+// MSP Align - page behaviour on top of AdminLTE / Bootstrap 4.
 //
 // Security assumptions: loaded on every staff page, the client portal and the public welcome/signing pages, with a
 // CSP of script-src 'self' (no inline scripts or handlers, no eval). The behaviours below are driven by data-*
@@ -1023,7 +1023,7 @@ const jobOverlay = (() => {
     if (confirm && !confirm.checked) return; // the server explains what's missing
     const restore = f.action.endsWith('/restore');
     t0 = Date.now();
-    api.show(restore ? 'Restoring from the backup' : 'Updating MSP-ALIGN', 'Starting', 0);
+    api.show(restore ? 'Restoring from the backup' : 'Updating MSP Align', 'Starting', 0);
     api.update(1);
   }));
   if (!ov.hidden) api.show();

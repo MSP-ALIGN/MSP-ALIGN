@@ -15,7 +15,7 @@ namespace Align;
  */
 final class Branding
 {
-    public const DEFAULT_NAME = 'MSP-ALIGN';
+    public const DEFAULT_NAME = 'MSP Align';
     /** 2.2.2: the blue of the MSP Align logo (was #007bff); app.css has its CSS values built in. */
     public const DEFAULT_COLOR = '#1b68b8';
     public const MAX_BYTES = 2 * 1024 * 1024;

@@ -783,7 +783,7 @@ final class PdfRender
                     : 'Opened the private signing link sent to ' . $c['signer_email'] . '.');
             } else {
                 $row('Email', (string) ($c['provider_email'] ?? ''));
-                $row('Identity check', 'Signed in to their account in ' . ($this->vals['company_name'] ?: 'the provider') . '\'s MSP-ALIGN. Accounts there need a password and two-factor authentication to sign in.');
+                $row('Identity check', 'Signed in to their account in ' . ($this->vals['company_name'] ?: 'the provider') . '\'s MSP Align. Accounts there need a password and two-factor authentication to sign in.');
             }
             $row('Signature', ($sig['kind'] === 'drawn' ? 'Drawn' : 'Typed') . ' signature' . (($sig['initials'] ?? '') !== '' && $sg['side'] === 'client' && $c['def']['style']['initials_footer'] ? '; initials "' . $sig['initials'] . '"' : ''));
             $row('Signed', $dt($sig['at'] ?? $sg['at']));

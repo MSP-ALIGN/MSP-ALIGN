@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - check the PSA for asset changes every 2 minutes
+Description=MSP Align - check the PSA for asset changes every 2 minutes
 
 [Timer]
 OnBootSec=2min

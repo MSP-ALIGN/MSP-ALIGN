@@ -1,6 +1,6 @@
 # Tests
 
-End-to-end suites that drive MSP-ALIGN the way people and tools use it: through the web pages (with
+End-to-end suites that drive MSP Align the way people and tools use it: through the web pages (with
 `requests` and a real browser via Playwright), the client portal, the REST API, the command line and
 the updates & backups agent. Outside services (ITFlow, NinjaOne, Veeam, Microsoft Graph, Google, Dell,
 Lenovo) are played by `mock-server.php`. All data is fictional.

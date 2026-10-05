@@ -1,6 +1,6 @@
 # Code of conduct
 
-MSP-ALIGN is a project for people who look after other people's IT. We want working on it to feel the way good client
+MSP Align is a project for people who look after other people's IT. We want working on it to feel the way good client
 work feels: respectful, patient and focused on the problem.
 
 ## What we expect

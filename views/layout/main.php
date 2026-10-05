@@ -224,7 +224,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
         <?php if (!str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings') && $isAdmin && ($upd = \Align\System\Agent::updateAvailable())): // not before 2FA is set up, like the menu badge ?>
           <div class="alert alert-info py-2 d-flex align-items-center flex-wrap" role="status">
             <i class="fas fa-circle-arrow-up me-2"></i>
-            <span class="me-3">MSP-ALIGN <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
+            <span class="me-3">MSP Align <b><?= e($upd['latest']) ?></b> is available. You have <?= $v ?>.</span>
             <a class="btn btn-sm btn-light ms-auto" href="/settings/system">See what's new and update</a>
           </div>
         <?php endif; ?>

@@ -53,7 +53,7 @@ final class Tar
                     $sum += ($i >= 148 && $i < 156) ? 32 : ord($h[$i]);
                 }
                 if ($sum !== self::octal(substr($h, 148, 8))) {
-                    throw new \RuntimeException('This is not an MSP-ALIGN backup (bad tar header).');
+                    throw new \RuntimeException('This is not an MSP Align backup (bad tar header).');
                 }
                 $name = rtrim(substr($h, 0, 100), "\0");
                 $prefix = rtrim(substr($h, 345, 155), "\0");
@@ -62,7 +62,7 @@ final class Tar
                 }
                 $size = self::octal(substr($h, 124, 12));
                 if ($size === null) {
-                    throw new \RuntimeException('This is not an MSP-ALIGN backup (bad tar header).');
+                    throw new \RuntimeException('This is not an MSP Align backup (bad tar header).');
                 }
                 $type = substr($h, 156, 1);
                 if ($type === "\0") {

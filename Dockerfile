@@ -1,4 +1,4 @@
-# MSP-ALIGN container image (1.44). The same Debian 13 packages as a dedicated install (install.sh):
+# MSP Align container image (1.44). The same Debian 13 packages as a dedicated install (install.sh):
 # Apache with mod_php, PHP 8.4 from Debian, the MariaDB client and age for backups. One container runs the
 # web app, the scheduled jobs (instead of systemd timers) and the backup agent. See docs/DOCKER.md.
 #
@@ -48,7 +48,7 @@ VOLUME ["/etc/msp-align", "/var/lib/msp-align", "/var/lib/msp-align-agent"]
 # The sign-in page answers only when Apache and PHP work (asked from 127.0.0.1, so it stays out of the access log)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD curl -fsS -o /dev/null http://127.0.0.1/login || exit 1
 
-LABEL org.opencontainers.image.title="MSP-ALIGN" \
+LABEL org.opencontainers.image.title="MSP Align" \
       org.opencontainers.image.description="Self-hosted vCIO tool for managed service providers" \
       org.opencontainers.image.source="https://github.com/MSP-ALIGN/MSP-ALIGN" \
       org.opencontainers.image.url="https://mspalign.org" \

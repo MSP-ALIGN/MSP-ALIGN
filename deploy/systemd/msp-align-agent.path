@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - watch for update, backup and restore requests from the web app
+Description=MSP Align - watch for update, backup and restore requests from the web app
 
 [Path]
 PathExistsGlob=/run/msp-align/requests/*.json

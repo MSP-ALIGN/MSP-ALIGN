@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MSP-ALIGN end-to-end tests. Builds a throwaway install (see seed.py), starts the app, a second "fresh"
+# MSP Align end-to-end tests. Builds a throwaway install (see seed.py), starts the app, a second "fresh"
 # app and the mock ITFlow / NinjaOne / Veeam / Microsoft / Google / Dell / Lenovo server, then runs every
 # suite in order and prints a summary. Exits 1 if anything failed.
 #

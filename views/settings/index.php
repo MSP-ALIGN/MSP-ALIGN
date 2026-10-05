@@ -70,7 +70,7 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
       <?php elseif ($demoBlocked): ?>
         <span class="text-muted">Four made-up clients to try every page with. It can only be added while there are no clients, so it never mixes with real data.</span>
       <?php else: ?>
-        Try MSP-ALIGN with four made-up clients: devices of every age, licenses, budgets, projects, meetings, compliance, documents, backups and a client portal user. Remove it with one click when you're ready to start for real.
+        Try MSP Align with four made-up clients: devices of every age, licenses, budgets, projects, meetings, compliance, documents, backups and a client portal user. Remove it with one click when you're ready to start for real.
       <?php endif; ?>
     </div>
     <?php if ($demo): ?>

@@ -552,7 +552,7 @@ final class Template
     public static function import(array $data): int
     {
         if (($data['format'] ?? '') !== 'msp-align-contract-template' || !is_array($data['template']['def'] ?? null)) {
-            throw new \InvalidArgumentException('That file isn\'t an MSP-ALIGN contract template export.');
+            throw new \InvalidArgumentException('That file isn\'t an MSP Align contract template export.');
         }
         $t = $data['template'];
         if (!empty($t['def']['pdf'])) {

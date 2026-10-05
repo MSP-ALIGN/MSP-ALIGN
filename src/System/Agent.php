@@ -288,11 +288,11 @@ final class Agent
         }
         $m = Tar::members($path);
         if (!isset($m['manifest.json'], $m['db.sql.gz.age'])) {
-            throw new \RuntimeException("This isn't an MSP-ALIGN backup.");
+            throw new \RuntimeException("This isn't an MSP Align backup.");
         }
         foreach (array_keys($m) as $n) {
             if (!in_array($n, ['manifest.json', 'db.sql.gz.age', 'uploads.tar.gz.age', 'app-key.age'], true)) {
-                throw new \RuntimeException("This isn't an MSP-ALIGN backup (unexpected part: $n).");
+                throw new \RuntimeException("This isn't an MSP Align backup (unexpected part: $n).");
             }
         }
         $man = json_decode(Tar::read($path, $m['manifest.json'], 65536), true);

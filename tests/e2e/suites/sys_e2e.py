@@ -37,7 +37,7 @@ ok("Update to 9.99.0" in t and "<b>Shiny new thing</b>" in t and "Adds a <b>thin
 ok("Fix a typo" not in t and "Not yet" not in t and "Co-Authored" not in t and "2 changes" not in t and [n["version"] for n in u["notes"]]==["9.99.0"] and len(u["changes"])==2,
    "the notes, not every commit; a later release's entry left out")
 d=st.get(B+"/").text
-ok("MSP-ALIGN <b>9.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
+ok("MSP Align <b>9.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
 tech=login("viewer@example.com","ViewerPassword123!"); ok(tech.get(B+"/settings/system").status_code==403 and "is available" not in tech.get(B+"/").text,"non-admins can't see it")
 
 # ---- backup for download
@@ -59,7 +59,7 @@ t=st.get(B+"/settings/system").text; ok("Last " in t and "never downloaded" not 
 
 # ---- upload, test, restore
 r=st.post(B+"/settings/system/upload",data={"_csrf":csrf(st,"/settings/system")},files={"backup":("junk.tar",b"x"*2000)},headers={"Accept":"application/json"})
-ok(r.status_code==422 and "not an MSP-ALIGN backup" in r.json()["error"],"junk upload refused: "+r.text[:80])
+ok(r.status_code==422 and "not an MSP Align backup" in r.json()["error"],"junk upload refused: "+r.text[:80])
 r=st.post(B+"/settings/system/upload",data={"_csrf":csrf(st,"/settings/system")},files={"backup":("mybackup.tar",bk)},headers={"Accept":"application/json"})
 ok(r.json().get("ok") and "uploaded=1" in r.json()["redirect"],"upload accepted: "+r.text[:200])
 t=st.get(B+"/settings/system").text
@@ -203,7 +203,7 @@ q("delete from mail_queue"); q("delete from notify_state where k='update_notifie
 json.dump({**json.load(open(T+"/agent/update.json")),"notes":[{"version":"9.99.0","title":"Big feature","text":"","items":[]}]},open(T+"/agent/update.json","w"))
 subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; Align\\Mail\\Notify::updateAvailable();'],env=ENV)
 ok(any("Big feature (9.99.0)" in m["body_html"] and "Shiny new thing" not in m["body_html"] for m in q("select body_html from mail_queue where kind='updates'")),"the update email lists the release notes when there are some")
-ok(any(m["kind"]=="backup_reminder" and "No backup of MSP-ALIGN has been downloaded yet" in m["body_html"] for m in mq),"backup reminder email")
+ok(any(m["kind"]=="backup_reminder" and "No backup of MSP Align has been downloaded yet" in m["body_html"] for m in mq),"backup reminder email")
 out=subprocess.run(["php","-r",'require "'+APP+'/src/bootstrap.php"; var_dump(Align\\Mail\\Notify::backupReminder(time()));'],env=ENV,capture_output=True,text=True).stdout
 ok("NULL" in out,"reminder not repeated within the period")
 r=post(st,"/settings/system/settings",{"backup_reminder_days":"0"}); ok(q("select value from settings where name='backup_reminder_days'")[0]["value"]=="0","reminder can be turned off")

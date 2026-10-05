@@ -414,6 +414,6 @@ final class ProjectTickets
         return '<p>Quote ' . $what . ' for <b>' . e($it['client_name']) . '</b>, planned for <b>' . e($q) . '</b>. Budgeted: <b>' . e(money((float) $it['cost'])) . '</b>.</p>'
             . ($note !== '' ? '<p>' . nl2br(e($note)) . '</p>' : '')
             . ($rows !== '' ? '<table><tr><th>Device</th><th>Model</th><th>Serial</th><th>User</th><th>In service</th><th>Warranty ends</th><th>Budgeted</th></tr>' . $rows . '</table>' : '')
-            . ($url !== '' ? '<p><a href="' . e($url . '/clients/' . (int) $it['client_id'] . '/roadmap#modal-roadmap-' . (int) $it['id']) . '">The project in MSP-ALIGN</a></p>' : '');
+            . ($url !== '' ? '<p><a href="' . e($url . '/clients/' . (int) $it['client_id'] . '/roadmap#modal-roadmap-' . (int) $it['id']) . '">The project in MSP Align</a></p>' : '');
     }
 }

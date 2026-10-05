@@ -1,5 +1,5 @@
 [Unit]
-Description=Send MSP-ALIGN email and notifications every minute
+Description=Send MSP Align email and notifications every minute
 
 [Timer]
 OnBootSec=1min

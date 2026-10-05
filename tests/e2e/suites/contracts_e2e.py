@@ -117,7 +117,7 @@ r = a.post(B + "/contracts/templates/import", data={"_csrf": csrf(a, "/contracts
 tid2 = int(re.search(r"/contracts/templates/(\d+)$", r.url).group(1))
 ok(tid2 != tid and "Template imported" in flash(r.text) and json.loads(q("select def from contract_templates where id=%s", tid2)[0]["def"]) == json.loads(q("select def from contract_templates where id=%s", tid)[0]["def"]), "import makes an identical copy")
 r = a.post(B + "/contracts/templates/import", data={"_csrf": csrf(a, "/contracts/templates")}, files={"file": ("t.json", b'{"format":"other"}', "application/json")})
-ok("isn't an MSP-ALIGN contract template" in flash(r.text), "a wrong file is refused")
+ok("isn't an MSP Align contract template" in flash(r.text), "a wrong file is refused")
 # the imported copy: only the client signs, no emailed code
 d2 = json.loads(q("select def from contract_templates where id=%s", tid2)[0]["def"]); d2["signing"]["countersign"] = "none"; d2["signing"]["verify_code"] = False
 a.post(B + f"/contracts/templates/{tid2}", data={"_csrf": csrf(a, f"/contracts/templates/{tid2}"), "name": "Simple agreement", "is_active": "1", "def": json.dumps(d2)})

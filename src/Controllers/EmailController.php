@@ -334,7 +334,7 @@ final class EmailController
         try {
             $g = Mail::client();
             $html = T::render('Email is working', [
-                T::p('This test message was sent by MSP-ALIGN through ' . Mail::providerName() . '.'),
+                T::p('This test message was sent by MSP Align through ' . Mail::providerName() . '.'),
                 T::facts(['Provider' => Mail::providerName() . (Mail::provider() === 'smtp' ? ' ' . Smtp::host() . ':' . Smtp::port() : ''),
                     'Sign-in' => match (true) { Mail::provider() === 'smtp' => Settings::get('smtp_user') ? 'User name and password' : 'None (relay)', Mail::mode() === 'app' => Mail::provider() === 'google' ? 'Service account' : 'App-only', default => 'Connected account' },
                     'Sent from' => Mail::fromAddress(),
@@ -342,8 +342,8 @@ final class EmailController
                 T::button('Open Align', N::url('/')),
             ], 'Test message.');
             $logo = T::logo();
-            $g->sendMail([['address' => $to]], 'MSP-ALIGN test email', $html, [], $logo ? [['name' => $logo['name'], 'type' => $logo['type'], 'content' => (string) file_get_contents($logo['path']), 'inline_id' => 'brandlogo']] : []);
-            DB::insert('mail_queue', ['kind' => 'test', 'recipients' => json_encode([['address' => $to, 'name' => '']]), 'subject' => 'MSP-ALIGN test email',
+            $g->sendMail([['address' => $to]], 'MSP Align test email', $html, [], $logo ? [['name' => $logo['name'], 'type' => $logo['type'], 'content' => (string) file_get_contents($logo['path']), 'inline_id' => 'brandlogo']] : []);
+            DB::insert('mail_queue', ['kind' => 'test', 'recipients' => json_encode([['address' => $to, 'name' => '']]), 'subject' => 'MSP Align test email',
                 'status' => 'sent', 'attempts' => 1, 'send_after' => date('Y-m-d H:i:s'), 'sent_at' => date('Y-m-d H:i:s'), 'created_by' => Auth::id(), 'purged' => 1]);
             Audit::log('email.test', $to);
             flash('success', "Test email sent to $to. If it doesn't arrive in a minute, check junk mail" . (Mail::provider() === 'smtp' ? ' and the SMTP server\'s log' : ' and the mailbox\'s Sent Items') . '.');

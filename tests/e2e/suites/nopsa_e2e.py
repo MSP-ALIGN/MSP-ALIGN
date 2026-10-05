@@ -93,7 +93,7 @@ ok(not said, "no page mentions a PSA when there isn't one: " + str(said)[:600])
 t = st.get(FB + "/").text
 ok("Connect PSA" not in text(st.get(FB + "/")) or "Optional" in text(st.get(FB + "/")), "setup checklist treats the PSA as optional")
 t = text(st.get(FB + "/help"))
-ok("Run MSP-ALIGN without a PSA" in t and "No PSA needed" in t, "Help explains running without a PSA")
+ok("Run MSP Align without a PSA" in t and "No PSA needed" in t, "Help explains running without a PSA")
 
 # ---- CSV import: clients
 before = fq("select count(*) n from clients")[0]["n"]

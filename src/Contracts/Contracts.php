@@ -1157,7 +1157,7 @@ final class Contracts
         Mailer::queue('contract_staff', [['address' => $to, 'name' => '']], $subject, MailTemplate::render($c['title'], [
             MailTemplate::p($who . ' (' . self::party($c) . ') ' . $what),
             MailTemplate::button($button, \Align\Mail\Notifications::url('/contracts/' . (int) $c['id'])),
-        ], 'You get this because you sent this contract (or made it) in ' . (Settings::get('company_name') ?: 'MSP-ALIGN') . '\'s MSP-ALIGN.'),
+        ], 'You get this because you sent this contract (or made it) in ' . (Settings::get('company_name') ?: 'MSP Align') . '\'s MSP Align.'),
             ['attachments' => $att, 'client_id' => $c['client_id'], 'dedupe' => "contract-$kind-" . $c['id'] . '-' . ($c['client_signed_at'] ?? $c['declined_at'] ?? '')]);
     }
 

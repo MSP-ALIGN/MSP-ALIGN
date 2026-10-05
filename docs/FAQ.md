@@ -2,7 +2,7 @@
 
 ## The basics
 
-**What is MSP-ALIGN?**
+**What is MSP Align?**
 A vCIO toolkit for managed service providers. It brings together what your PSA, RMM and backup tools know about each
 client and turns it into plans: hardware lifecycle and warranties, operating system support, replacement forecasts and
 budgets, licensing and renewals, compliance frameworks, QBR reports and a client portal.
@@ -38,7 +38,7 @@ Yes: each product is a provider behind a common interface, so adding one is a co
 [Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN/discussions).
 
 **Does it change anything in my PSA or RMM?**
-It only reads from NinjaOne and Veeam. With ITFlow it writes back the things you change in MSP-ALIGN on purpose:
+It only reads from NinjaOne and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
 device lifecycle details and warranty dates, contacts (including archiving), and tickets for client requests.
 
 **Is there an API?**
@@ -57,7 +57,7 @@ The server contacts only the tools you connect, GitHub (to check for and downloa
 security updates.
 
 **Is it HIPAA compliant?**
-No software can be "HIPAA certified". MSP-ALIGN isn't designed to hold patient information, but it provides the
+No software can be "HIPAA certified". MSP Align isn't designed to hold patient information, but it provides the
 technical safeguards your risk analysis will look for: required two-factor sign-in, automatic sign-out, a tamper-evident
 audit log kept six years, and encryption. See [Security](SECURITY.md).
 
@@ -73,7 +73,7 @@ Privately, through GitHub: see [Reporting a vulnerability](SECURITY.md#reporting
 **How do backups work?**
 **Settings → Updates & backups → Download backup** builds an encrypted file with the database, uploaded files and the
 encryption key for saved passwords, and deletes it from the server once your browser has it. Nothing is kept on the
-server, so store the file somewhere safe, and the backup key (in your password manager) somewhere else. MSP-ALIGN
+server, so store the file somewhere safe, and the backup key (in your password manager) somewhere else. MSP Align
 reminds you by email.
 
 **How do I update?**
@@ -81,7 +81,7 @@ reminds you by email.
 Docker: `docker compose pull && docker compose up -d`. See [Updating](../README.md#updating).
 
 **How do I move to a new server?**
-Download a backup, install MSP-ALIGN on the new server (dedicated or Docker, either way round), and **Restore** the
+Download a backup, install MSP Align on the new server (dedicated or Docker, either way round), and **Restore** the
 backup there with the old server's backup key. Saved passwords and API keys come with it.
 
 **Can I try a new version on my real data first?**
@@ -110,6 +110,6 @@ Ask and answer questions in [Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN
 features, or send a change: see [Contributing](../CONTRIBUTING.md).
 
 **What does the AGPL mean for me?**
-You can use MSP-ALIGN for your business and change it freely. If you change it and let other people use your changed
+You can use MSP Align for your business and change it freely. If you change it and let other people use your changed
 version over a network (your clients in the portal, for example), you must offer them its source code under the same
 license; the footer has a source link for that (Settings → General). Using it unchanged needs nothing from you.

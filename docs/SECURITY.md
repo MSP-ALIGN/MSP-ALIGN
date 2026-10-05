@@ -1,6 +1,6 @@
-# MSP-ALIGN security
+# MSP Align security
 
-This document describes how MSP-ALIGN protects client information, how its controls map to
+This document describes how MSP Align protects client information, how its controls map to
 the HIPAA Security Rule technical safeguards (45 CFR 164.312), and what the operator (the MSP running it)
 is responsible for outside the application.
 
@@ -164,7 +164,7 @@ Docker installs (1.44) get the app's own controls, the database encrypted at res
 - Downloaded through the browser by an admin and never kept on the server. Each backup is built on request and encrypted with age to the server's public key. Only encrypted data is written to disk. It is deleted after one download, or after an hour.
 - Contains the database, uploaded files and `app_key`, so it restores on new hardware.
 - Restoring needs the offline private key (pasted once, held in RAM, never saved or logged), the admin's current two-factor code and typing RESTORE. A safety copy is made first and put back automatically on failure. Everyone is signed out afterwards. Every download, upload, test and restore is in the audit log, and a restore also raises a security alert.
-- **Signed releases (2.0).** A dedicated server updates only to a release tag signed with the MSP-ALIGN release key, checked against the key file it already has (`deploy/release-signers`); the private key is never stored on GitHub or a build machine. A tag that isn't signed with it is refused and raises a security alert, so a stolen GitHub account alone can't reach a dedicated server on 2.x. This protects a server from its first update to 2.x on (the update from 1.x itself still trusts GitHub, as 1.x did), and a new install trusts the key file it downloads. Docker images are built on GitHub: the publish workflow checks the tag's signature (which catches mistakes, not an attacker: someone who controls the repository could change the workflow) and signs the image (Sigstore), which proves the image came from this repository's workflow. For the strongest guarantee, use the dedicated install. See [Signed releases](RELEASING.md).
+- **Signed releases (2.0).** A dedicated server updates only to a release tag signed with the MSP Align release key, checked against the key file it already has (`deploy/release-signers`); the private key is never stored on GitHub or a build machine. A tag that isn't signed with it is refused and raises a security alert, so a stolen GitHub account alone can't reach a dedicated server on 2.x. This protects a server from its first update to 2.x on (the update from 1.x itself still trusts GitHub, as 1.x did), and a new install trusts the key file it downloads. Docker images are built on GitHub: the publish workflow checks the tag's signature (which catches mistakes, not an attacker: someone who controls the repository could change the workflow) and signs the image (Sigstore), which proves the image came from this repository's workflow. For the strongest guarantee, use the dedicated install. See [Signed releases](RELEASING.md).
 - The web server can't run programs. A root service runs a fixed set of jobs from validated requests. Imports use the app's database user in sandbox mode, and files are extracted as `www-data`. Since 1.45 the root service never creates, changes, reads or deletes anything inside the web server's data folder itself: those steps run as `www-data`, so nothing the web server could plant there (such as a symlink) can reach root. Since 2.2.1 the database dump also runs as `www-data`, backup contents are listed as `www-data` (root only decrypts), and requests are moved into a folder only root can write before they're read.
 - Admins are reminded by email when no backup has been downloaded for 7 days (adjustable).
 - Nightly: the audit chain is verified and its head hash recorded in the system journal, then retention pruning runs.
@@ -197,7 +197,7 @@ Each finding was then checked against a test server, including attempts to break
   - The portal and client-limited API keys are isolated to their own client.
   - Secrets are encrypted with libsodium, and TLS is verified.
   - The HTML sanitizer survived about 80 bypass attempts.
-- **Dependencies:** MSP-ALIGN has no Composer (PHP) dependencies. The browser libraries (AdminLTE, Bootstrap, Quill, FullCalendar, Font Awesome) are included in the repository. GitHub Actions are pinned to exact commits, and Dependabot proposes updates for them and the Docker images.
+- **Dependencies:** MSP Align has no Composer (PHP) dependencies. The browser libraries (AdminLTE, Bootstrap, Quill, FullCalendar, Font Awesome) are included in the repository. GitHub Actions are pinned to exact commits, and Dependabot proposes updates for them and the Docker images.
 - **Known and accepted:**
   - A restore trusts any backup that opens with your key, so only restore backups you made.
   - The 2 GB upload limit for restores applies before sign-in can be checked; put a body limit at your proxy or WAF on a public server.

@@ -1,6 +1,6 @@
-# Contributing to MSP-ALIGN
+# Contributing to MSP Align
 
-Thanks for helping. MSP-ALIGN is built by MSPs for MSPs, and bug reports, ideas, docs fixes and code are all welcome.
+Thanks for helping. MSP Align is built by MSPs for MSPs, and bug reports, ideas, docs fixes and code are all welcome.
 
 ## Where things go
 
@@ -36,7 +36,7 @@ fine once client names are blurred.
 
 ## Sign-off (Developer Certificate of Origin)
 
-MSP-ALIGN uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO) instead of a contributor
+MSP Align uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO) instead of a contributor
 license agreement. By adding a `Signed-off-by` line to a commit you state that you wrote the change, or otherwise have
 the right to submit it, under the project's license. There is nothing to sign or send.
 
@@ -50,9 +50,9 @@ A check on each pull request from a fork looks for the line.
 
 ## License
 
-MSP-ALIGN is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). Contributions are accepted
+MSP Align is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). Contributions are accepted
 under the same license (inbound = outbound): the copyright in your change stays yours, shared as part of
-"Mountaineer IT Inc. and MSP-ALIGN contributors". Code you didn't write must come with a compatible license
+"Mountaineer IT Inc. and MSP Align contributors". Code you didn't write must come with a compatible license
 (MIT, BSD, Apache-2.0, LGPL, GPL-3.0 or AGPL-3.0) and keep its notices.
 
 ## Conduct

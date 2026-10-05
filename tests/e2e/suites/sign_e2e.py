@@ -73,7 +73,7 @@ ok(rc == 2, "no signers file: exit 2 (never 'no key, so anything goes')")
 u = check()
 ok(u.get("mode") == "signed" and u.get("latest") == "2.0.1" and u.get("release_tag") == "v2.0.1" and u.get("available") is True and u.get("head_signed") is True,
    "the check offers the signed v2.0.1, not the branch head (2.0.5): " + json.dumps({k: u.get(k) for k in ["mode", "latest", "release_tag", "available", "head_signed", "error"]}))
-ok(u.get("signers") == [fp("key")] and sorted(u.get("unsigned", [])) == ["v2.0.2", "v2.0.3", "v2.0.4"] and "signed with the MSP-ALIGN release key" in u.get("warning", ""), "the check shows the key's fingerprint, names the unsigned tags and warns")
+ok(u.get("signers") == [fp("key")] and sorted(u.get("unsigned", [])) == ["v2.0.2", "v2.0.3", "v2.0.4"] and "signed with the MSP Align release key" in u.get("warning", ""), "the check shows the key's fingerprint, names the unsigned tags and warns")
 ok(q("select id from audit_log where action='system.update_unsigned' order by id desc limit 1"), "an unsigned release tag is in the audit log (and raises a security alert)")
 ok(check(ALIGN_RELEASE_SIGNERS="none", ALIGN_AGENT_TEST="0").get("mode") == "signed", "the test override is ignored outside tests (ALIGN_AGENT_TEST)")
 r = agent("update-cli")

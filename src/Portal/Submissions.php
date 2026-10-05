@@ -226,7 +226,7 @@ final class Submissions
         }
         $blocks[] = T::button('Open the client portal', N::url($s['kind'] === 'license' ? '/portal/licensing' : '/portal/budget'));
         Mailer::queue('client_submission_decided', [['address' => $s['email'], 'name' => $s['name']]],
-            ($added ? 'Added: ' : 'Reviewed: ') . $s['title'], T::render($added ? 'Your suggestion was added' : 'Your suggestion was reviewed', $blocks, 'Sent by ' . $company . ' through MSP-ALIGN.'),
+            ($added ? 'Added: ' : 'Reviewed: ') . $s['title'], T::render($added ? 'Your suggestion was added' : 'Your suggestion was reviewed', $blocks, 'Sent by ' . $company . ' through MSP Align.'),
             ['client_id' => (int) $s['client_id'], 'created_by' => null, 'dedupe' => 'sub:' . $id]);
     }
 }

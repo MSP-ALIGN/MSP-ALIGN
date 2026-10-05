@@ -1,9 +1,9 @@
 #!/usr/bin/env php
 <?php
-// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors
+// MSP Align. Copyright (C) 2026 Mountaineer IT Inc. and MSP Align contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 /**
- * MSP-ALIGN system agent. Runs as root, started by systemd:
+ * MSP Align system agent. Runs as root, started by systemd:
  *   msp-align-agent.path/.service   when the web app drops a request in /run/msp-align/requests
  *   msp-align-update-check.timer    every 6 hours (check)
  *   msp-align-nightly.timer         nightly clean-up and audit log checks
@@ -152,7 +152,7 @@ function headSigned(): bool
     return $c === 0;
 }
 
-const DOCKER_UPDATE = 'This server runs in Docker, so it updates by pulling the new image. On the Docker host, in the MSP-ALIGN folder: docker compose pull && docker compose up -d';
+const DOCKER_UPDATE = 'This server runs in Docker, so it updates by pulling the new image. On the Docker host, in the MSP Align folder: docker compose pull && docker compose up -d';
 // Agent state lives in its own root-owned folder (not inside the www-data-owned data folder)
 define('STATE', rtrim($env('ALIGN_AGENT_DIR', $path('/var/lib/msp-align-agent', '/var/lib/mountaineer-align-agent')), '/'));
 define('JOBS', STATE . '/jobs');
@@ -687,7 +687,7 @@ function ageError(string $log): string
  * SECURITY: $file is root's own copy in WORK (the upload can't change under it). Everything in the backup is untrusted:
  * anyone with the server's public key can make one (a restore trusting any backup that opens with the key is an
  * accepted risk), so the parts are limited to the known names, the manifest is size-limited and only its version is
- * acted on, the database must look like an MSP-ALIGN one, the uploaded files may only be plain files and folders under
+ * acted on, the database must look like an MSP Align one, the uploaded files may only be plain files and folders under
  * uploads/, and the app key must have app_key's format.
  */
 function inspect(Job $job, string $file, string $keyFile): array
@@ -707,11 +707,11 @@ function inspect(Job $job, string $file, string $keyFile): array
         }
         foreach (array_keys($members) as $n) {
             if (!in_array($n, PARTS, true)) {
-                throw new JobFailed("This isn't an MSP-ALIGN backup (unexpected part: $n).");
+                throw new JobFailed("This isn't an MSP Align backup (unexpected part: $n).");
             }
         }
         if (!isset($members['manifest.json'], $members['db.sql.gz.age'])) {
-            throw new JobFailed("This isn't an MSP-ALIGN backup (no manifest or database).");
+            throw new JobFailed("This isn't an MSP Align backup (no manifest or database).");
         }
         $m = json_decode(Tar::read($file, $members['manifest.json'], 65536), true);
         if (!is_array($m) || ($m['format'] ?? 0) !== 1 || !isset($m['version'], $m['created'])) {
@@ -734,7 +734,7 @@ function inspect(Job $job, string $file, string $keyFile): array
     }
     $tables = array_unique(array_filter(explode("\n", trim($out))));
     if (!in_array('CREATE TABLE `users`', $tables, true) || !in_array('CREATE TABLE `schema_migrations`', $tables, true)) {
-        throw new JobFailed('The database in this backup is not an MSP-ALIGN database.');
+        throw new JobFailed('The database in this backup is not an MSP Align database.');
     }
     $info['tables'] = count($tables);
     if (isset($info['members']['uploads.tar.gz.age'])) {
@@ -1060,7 +1060,7 @@ function check(?Job $job = null): array
             $target = $commit ?: 'HEAD';
             if ($s['unsigned']) {
                 $s['warning'] = 'Newer release tag' . (count($s['unsigned']) === 1 ? ' ' : 's ') . implode(', ', $s['unsigned'])
-                    . ' on GitHub ' . (count($s['unsigned']) === 1 ? 'isn\'t' : 'aren\'t') . ' signed with the MSP-ALIGN release key, so ' . (count($s['unsigned']) === 1 ? 'it isn\'t' : 'they aren\'t')
+                    . ' on GitHub ' . (count($s['unsigned']) === 1 ? 'isn\'t' : 'aren\'t') . ' signed with the MSP Align release key, so ' . (count($s['unsigned']) === 1 ? 'it isn\'t' : 'they aren\'t')
                     . ' offered. If a release was expected, check mspalign.org before doing anything else.';
             }
         } else {
@@ -1268,7 +1268,7 @@ function doUpdate(Job $job): array
     }
     $from = version();
     $safety = SAFETY . '/pre-update-' . $job->s['id'] . '.tar';
-    maintenanceOn($job, 'Updating MSP-ALIGN');
+    maintenanceOn($job, 'Updating MSP Align');
     try {
         if (recipients()) {
             $job->step('Making a safety copy of the current data');
@@ -1292,7 +1292,7 @@ function doUpdate(Job $job): array
             }
             if ($tag === null) {
                 if (!headSigned()) {
-                    throw new JobFailed('There is no newer release signed with the MSP-ALIGN release key. Nothing was changed.');
+                    throw new JobFailed('There is no newer release signed with the MSP Align release key. Nothing was changed.');
                 }
                 // Up to date: run this signed release's installer again, which repairs packages, permissions and
                 // services (what "sudo msp-align-update" is for when nothing is new), as on a branch
@@ -1374,12 +1374,12 @@ function process(array $req, bool $echo = false): Job
                 if ($s['error']) {
                     throw new JobFailed($s['error']);
                 }
-                $job->finish(true, $s['available'] ? "Version {$s['latest']} is available." : 'MSP-ALIGN is up to date.', ['latest' => $s['latest']]);
+                $job->finish(true, $s['available'] ? "Version {$s['latest']} is available." : 'MSP Align is up to date.', ['latest' => $s['latest']]);
                 break;
 
             case 'update':
                 $r = doUpdate($job);
-                $job->finish(true, !empty($r['repair']) ? "No newer release: {$r['to']} was installed again." . (!empty($r['refused']) ? ' Refused because not signed with the MSP-ALIGN release key: ' . implode(', ', $r['refused']) . '.' : '') : ($r['from'] === $r['to'] ? "Updated (still {$r['to']})." : "Updated from {$r['from']} to {$r['to']}."), $r);
+                $job->finish(true, !empty($r['repair']) ? "No newer release: {$r['to']} was installed again." . (!empty($r['refused']) ? ' Refused because not signed with the MSP Align release key: ' . implode(', ', $r['refused']) . '.' : '') : ($r['from'] === $r['to'] ? "Updated (still {$r['to']})." : "Updated from {$r['from']} to {$r['to']}."), $r);
                 break;
 
             case 'backup':

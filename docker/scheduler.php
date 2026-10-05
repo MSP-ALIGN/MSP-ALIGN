@@ -1,5 +1,5 @@
 <?php
-// MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors
+// MSP Align. Copyright (C) 2026 Mountaineer IT Inc. and MSP Align contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 /**
  * Scheduler for the Docker image (1.44): runs, inside the container, what systemd runs on a dedicated server.
