@@ -356,7 +356,7 @@ final class DocumentController
     /** Deletes a document and its history after typing DELETE. Admins only. Evidence links are cleared, not deleted. */
     public static function delete(int $id): void
     {
-        // Deleting removes the whole version history (policies are kept 6 years for HIPAA): admins only (1.45)
+        // Deleting removes the whole version history (policies are often kept for years as compliance records): admins only (1.45)
         Auth::requireRole('admin');
         $doc = self::find($id);
         if (post('confirm') !== 'DELETE') {

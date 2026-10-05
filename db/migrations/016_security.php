@@ -1,4 +1,5 @@
 <?php
+// (Already applied on every install; comments only may change here.)
 // 1.5.0 security hardening: session revocation, TOTP replay protection, forced password change,
 // hashed calendar tokens, tamper-evident (hash-chained) audit log.
 use Align\DB;
