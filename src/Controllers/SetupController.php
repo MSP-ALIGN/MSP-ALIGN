@@ -128,7 +128,7 @@ final class SetupController
             'return' => '/setup/' . $step, 'pending' => self::pending()];
         $vars += match ($step) {
             'company' => ['v' => ['company_name' => Settings::get('company_name'), 'company_phone' => Settings::get('company_phone'), 'company_email' => Settings::get('company_email'),
-                'company_website' => Settings::get('company_website'), 'brand_primary' => Settings::get('brand_primary')], 'hasLogo' => Branding::hasLogo(), 'logoUrl' => Branding::logoUrl()],
+                'company_website' => Settings::get('company_website'), 'brand_primary' => Settings::get('brand_primary')], 'hasLogo' => Branding::hasLogo('light'), 'logoUrl' => Branding::lightLogoUrl()],
             'locale' => ['v' => ['timezone' => Settings::get('timezone'), 'locale_currency_position' => Settings::get('locale_currency_position')]],
             'psa' => ['connectors' => self::forms(Providers::psaConnectors())],
             'rmm' => ['connectors' => self::forms(Providers::rmmConnectors())],
@@ -164,7 +164,7 @@ final class SetupController
     /**
      * Step 1 is the wizard's own form: company details, logo and colour in one go. The name is required and the
      * email checked before anything is saved; each text value is cut to its length. The colour is only saved as
-     * #rrggbb (it is printed into CSS), and the logo goes through Branding::saveLogo (checked and re-encoded).
+     * #rrggbb (it is printed into CSS), and the logo goes through Branding::saveLogo (checked and re-encoded) into the light mode slot.
      */
     public static function saveCompany(): void
     {
@@ -191,13 +191,16 @@ final class SetupController
             Settings::set('brand_primary', $color);
             $changed[] = 'brand_primary';
         }
+        // 2.2.5: the wizard's one logo is the light mode logo (reports, emails, the client portal: white pages), as a
+        // first logo is usually made for those; it stands in on dark backgrounds until a dark mode logo is uploaded
+        // under Settings → Branding. The field keeps its name (logo).
         if (!empty($_FILES['logo']) && ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-            if ($err = Branding::saveLogo($_FILES['logo'])) {
+            if ($err = Branding::saveLogo($_FILES['logo'], 'light')) {
                 flash('error', $err);
                 redirect('/setup/company');
             }
-            $changed[] = 'logo';
-            Audit::log('branding.logo_uploaded');
+            $changed[] = 'logo_light';
+            Audit::log('branding.light_logo_uploaded');
         }
         if ($changed) {
             Audit::log('settings.save', 'setup: ' . implode(', ', $changed));

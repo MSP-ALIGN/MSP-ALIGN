@@ -49,11 +49,12 @@ for s in ["company", "locale", "psa", "rmm", "more", "email", "clients", "team",
     r = st.get(FB + "/setup/" + s); ok(r.status_code == 200 and not errs(r.text) and ('aria-current="step"' in r.text or s == "finish"), "step " + s + " renders")
 r = st.post(FB + "/setup/psa/skip", data={"_csrf": fcsrf(st, "/setup/psa")})
 ok(r.url.endswith("/setup/rmm") and "psa" in fq("select value from settings where name='setup_skipped'")[0]["value"], "skip a step: marked skipped, on to the next")
-t = st.get(FB + "/setup/finish").text; ok("Skipped" in t and "Go to step" in t, "finish page shows what was skipped, with a way back")
+t = st.get(FB + "/setup/finish").text; ok("Skipped" in t and "Go to step" in t and "Settings → Diagnostics" in t, "finish page shows what was skipped, with a way back, and points to Diagnostics")
 st.get(FB + "/setup/locale"); st.post(FB + "/setup/locale/skip", data={"_csrf": fcsrf(st, "/setup/locale")})
 t = st.get(FB + "/setup/finish").text
 ok(re.search(r'fa-circle-minus[^>]*></i><span class="me-auto">Currency &amp; dates', t) is not None, "opening and skipping Currency & dates leaves it skipped, not done")
-t = st.get(FB + "/setup/psa").text; ok("Continue without a PSA" in t and 'action="/setup/psa/skip"' in t, "no PSA: the way on is a skip")
+t = st.get(FB + "/setup/psa").text; ok("marks projects started instead of making tickets" in t, "the PSA step says what Ready to start does without one")
+ok("Continue without a PSA" in t and 'action="/setup/psa/skip"' in t, "no PSA: the way on is a skip")
 ok(st.get(FB + "/setup/nonsense", allow_redirects=False).status_code in (302, 303), "unknown step goes back to the start")
 
 # ---- company (the wizard's own form)
@@ -63,7 +64,13 @@ r = st.post(FB + "/setup/company", data={"_csrf": fcsrf(st, "/setup/company"), "
             files={"logo": ("logo.png", png(32, 32), "image/png")})
 vals = {r["name"]: r["value"] for r in fq("select name, value from settings where name in ('company_name','company_phone','brand_primary')")}
 ok(r.url.endswith("/setup/locale") and vals == {"company_name": "Fresh MSP <Co>", "company_phone": "(555) 010-2000", "brand_primary": "#1a7f5a"}, "company saved, on to Currency & dates: " + str(vals))
-ok("Fresh MSP &lt;Co&gt;" in st.get(FB + "/setup/company").text, "company name escaped on the page")
+lg = {r["name"]: r["value"] for r in fq("select name, value from settings where name in ('brand_logo','brand_logo_light')")}
+ok(re.fullmatch(r"llogo-[a-f0-9]{16}\.png", lg.get("brand_logo_light") or "") and not lg.get("brand_logo"), "the wizard's logo is the light mode logo (2.2.5): " + str(lg))
+ok(fq("select 1 from audit_log where action = 'branding.light_logo_uploaded'"), "and its upload is audited as such")
+t = st.get(FB + "/setup/company").text
+ok("Fresh MSP &lt;Co&gt;" in t, "company name escaped on the page")
+ok(re.search(r'class="setup-logo-preview[^"]*"><img src="/branding/logo-light\?v=', t) and "dark mode logo" in t and "Settings → Branding" in t,
+   "the step shows the saved logo on white and points to Branding for a dark mode logo")
 r = st.post(FB + "/setup/company", data={"_csrf": fcsrf(st, "/setup/company"), "company_name": ""}); ok("company name" in flash(r.text).lower(), "company name needed to continue (or skip)")
 
 # ---- the app's own forms come back to the wizard

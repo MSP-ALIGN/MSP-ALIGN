@@ -101,12 +101,12 @@ case 'company': ?>
           <div class="mb-3 col-md-6"><label for="s-web">Website</label><input id="s-web" name="company_website" class="form-control" maxlength="190" value="<?= e($v['company_website']) ?>" placeholder="www.example.com"></div>
         </div>
         <div class="row g-2 align-items-end">
-          <div class="mb-3 col-md-8"><label for="logo">Logo <small class="text-muted">(optional)</small></label>
-            <div class="d-flex align-items-center"><div class="logo-preview me-3"><img src="<?= e($logoUrl) ?>" alt="Current logo" id="logo-img"></div>
-              <input type="file" class="form-control" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/gif"></div></div>
+          <div class="mb-3 col-md-8"><label for="logo">Logo <small class="text-muted">(optional; for white pages)</small></label>
+            <div class="d-flex align-items-center"><div class="setup-logo-preview me-3"><img src="<?= e($logoUrl) ?>" alt="Current logo" id="logo-img"></div>
+              <input type="file" class="form-control" id="logo" name="logo" data-setup-logo accept="image/png,image/jpeg,image/webp,image/gif"></div></div>
           <div class="mb-3 col-md-4"><label for="s-color">Main colour</label><input id="s-color" type="color" name="brand_primary" class="form-control" value="<?= e($v['brand_primary'] ?: \Align\Branding::color()) ?>"></div>
         </div>
-        <p class="small text-muted mb-0">More branding (portal name, sidebar, sign-in message) is under Settings → Branding.</p>
+        <p class="small text-muted mb-0">This logo goes on reports, emails and the client portal, and everywhere else until you add a dark mode logo (for the dark menu and dark sign-in). That, the sign-in backgrounds and the rest of the branding are under Settings → Branding.</p>
       </div>
       <div class="card-footer d-flex"><button class="btn btn-primary ms-auto">Save and continue<i class="fas fa-arrow-right ms-1"></i></button></div>
     </form>
@@ -120,7 +120,7 @@ case 'company': ?>
     <?= $footer(false) ?>
 <?php break; case 'psa': case 'rmm': case 'more':
     $intro = [
-        'psa' => ['Your PSA', 'Clients, contacts, assets, licenses, invoices and tickets come from your PSA. MSP Align works without one too: clients can then come from your RMM, a CSV file or be added by hand.', 'No PSA? Just continue.'],
+        'psa' => ['Your PSA', 'Clients, contacts, assets, licenses, invoices and tickets come from your PSA. MSP Align works without one too: clients can then come from your RMM, a CSV file or be added by hand, and Ready to start marks projects started instead of making tickets.', 'No PSA? Just continue.'],
         'rmm' => ['Your RMM', 'Computers, servers, operating systems and warranty data come from your RMM, and it links each device to its client.', ''],
         'more' => ['Backups & warranty', 'Optional: backup results for each client, and warranty end dates looked up from Dell and Lenovo.', ''],
     ][$step]; ?>
@@ -236,7 +236,7 @@ case 'company': ?>
             <span class="small text-muted me-2"><?= $sl ?></span><?php if ($s['state'] !== 'done'): ?><a class="btn btn-xs btn-default" href="/setup/<?= $k ?>">Go to step</a><?php endif; ?></li>
         <?php endforeach; ?>
       </ul>
-      <div class="card-body small text-muted">Anything skipped can be done later from Integrations and Settings; the dashboard's <b>Getting set up</b> list shows what's left. Help has a guide for every step.</div>
+      <div class="card-body small text-muted">Anything skipped can be done later from Integrations and Settings; the dashboard's <b>Getting set up</b> list shows what's left. Help has a guide for every step, and <b>Settings → Diagnostics</b> shows whether the server and background jobs are healthy.</div>
       <div class="card-footer d-flex">
         <?php if ($prev): ?><a class="btn btn-default me-auto" href="<?= e($prev) ?>"><i class="fas fa-arrow-left me-1"></i>Back</a><?php endif; ?>
         <form method="post" action="/setup/finish"><?= csrf_field() ?><button class="btn btn-success"><i class="fas fa-check me-1"></i>Finish and go to the dashboard</button></form>

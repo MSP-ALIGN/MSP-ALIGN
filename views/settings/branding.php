@@ -206,25 +206,28 @@ $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
                 </div>
               </div>
               <div class="tab-pane fade" id="bp-tab-portal" role="tabpanel">
-                <div class="bp-portal">
+                <?php // 2.2.5: laid out like the real portal (views/portal/layout.php, portal/home.php), which is always light ?>
+                <div class="bp-portal" data-bs-theme="light">
                   <div class="bp-portal-top">
-                    <span class="bp-client-badge">CR</span>
+                    <img src="<?= e($lightUrl) ?>" alt="" class="bp-logo bp-portal-logo" data-logo="light">
                     <span class="bp-portal-name"><b>Cedar Ridge Family Dental</b><small>IT portal · <span class="bp-company"><?= e($company) ?></span></small></span>
-                    <span class="bp-avatar ms-auto">JE</span>
+                    <span class="bp-portal-account ms-auto"><span class="bp-avatar">JE</span>Jamie Ellis</span>
                   </div>
-                  <div class="bp-portal-tabs"><span class="is-active"><i class="fas fa-house me-1"></i>Home</span><span><i class="fas fa-route me-1"></i>Roadmap</span><span><i class="fas fa-coins me-1"></i>Budget</span><span><i class="fas fa-desktop me-1"></i>Devices</span></div>
+                  <div class="bp-portal-tabs"><span class="is-active"><i class="fas fa-house me-1"></i>Home</span><span><i class="fas fa-road me-1"></i>Plan</span><span><i class="fas fa-desktop me-1"></i>Your technology</span><span><i class="fas fa-clipboard-check me-1"></i>Compliance</span><span><i class="fas fa-handshake me-1"></i>Meetings</span></div>
                   <div class="bp-content">
+                    <div class="bp-portal-hello"><div><b>Welcome, Jamie</b><small>Cedar Ridge Family Dental technology plan, provided by <span class="bp-company"><?= e($company) ?></span></small></div>
+                      <span class="bp-btn-outline bp-link ms-auto"><i class="fas fa-book-open me-1"></i>Business review report</span></div>
                     <div class="bp-card">
-                      <div class="bp-card-head">Waiting for your decision</div>
-                      <div class="bp-row">Replace the front desk PCs · Q1 2027 <span class="bp-btn ms-auto">Approve</span></div>
-                      <div class="bp-row">Move email to Microsoft 365 · Q2 2027 <span class="bp-link ms-auto">Details</span></div>
+                      <div class="bp-card-head">Waiting for your decision <span class="bp-muted">Review <i class="fas fa-arrow-right"></i></span></div>
+                      <div class="bp-row"><i class="fas fa-fw fa-desktop bp-ico"></i>Replace the front desk PCs · Q1 2027 <b class="ms-auto">$9,600</b></div>
+                      <div class="bp-row"><i class="fas fa-fw fa-cloud bp-ico"></i>Move email to Microsoft 365 · Q2 2027 <b class="ms-auto">$3,500</b></div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <p class="small text-muted mb-0 mt-2">Each person picks light or dark for themselves under Account; the brand color and logo are the same in both. Printed reports always use the light colors.</p>
+          <p class="small text-muted mb-0 mt-2">Each staff member picks light or dark for themselves under Account; the brand color is the same in both. Printed reports and the client portal are always light, and a client with its own logo sees that logo in the portal instead of yours.</p>
         </div>
       </div>
     </div>

@@ -647,6 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     preview.style.setProperty('--bp-color', hex);
     preview.style.setProperty('--bp-text', textFor(hex));
     preview.style.setProperty('--bp-link', linkFor(hex, preview.dataset.bsTheme === 'dark'));
+    preview.style.setProperty('--bp-link-light', linkFor(hex, false));   // the client portal is always light (2.2.5)
     if (textLabel) textLabel.textContent = textFor(hex) === '#ffffff' ? 'white' : 'dark';
     document.querySelectorAll('[data-swatch]').forEach((b) => b.classList.toggle('is-active', b.dataset.swatch.toLowerCase() === hex.toLowerCase()));
   };
@@ -713,6 +714,15 @@ document.addEventListener('DOMContentLoaded', () => {
     swap(document.getElementById(kind === 'dark' ? 'logo-img' : 'light-logo-img'), url);
     refresh();
   });
+});
+
+// Setup wizard: show the chosen logo before saving (2.2.5). blob: address only, used as an image.
+document.addEventListener('change', (e) => {
+  const input = e.target;
+  if (!input.matches || !input.matches('[data-setup-logo]') || !input.files || !input.files[0]) return;
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(input.files[0].type)) return;
+  const img = document.getElementById('logo-img');
+  if (img) img.src = URL.createObjectURL(input.files[0]);
 });
 
 // Bulk categorize (Unassigned hardware)
