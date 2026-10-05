@@ -74,6 +74,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.2.2', 'fa-stethoscope', 'Diagnostics', 'Settings → <b>Diagnostics</b> shows the server, the database, storage and the background jobs at a glance, marks anything that needs a look, lists the last week\'s problems, and gives you a report to paste into a support request.', 'diagnostics', 'admin'],
         ['2.2.2', 'fa-palette', 'A new logo and name', 'The app is called MSP Align now (it was MSP-ALIGN), with a new logo in the menu, the browser tab and on the sign-in pages, and the default brand color is now its blue. Your own logo, name and color from Settings → Branding still take its place.', 'branding', 'admin'],
         ['2.2.2', 'fa-filter', 'More device filters', 'The <b>Filters</b> button on Devices &amp; assets narrows the list by make and model, operating system, age, replacement year, warranty, status, backup, location, project and last user, with a count beside each choice. Active filters show as chips (press one to remove it), stay in the page address so you can bookmark or share the list, and the CSV follows them.', 'search', 'viewer'],
         ['2.2.2', 'fa-play', 'Ready to start', 'Approve a whole year of projects without filling the ticket board: a project\'s <b>QUOTE-</b> ticket in ' . psa_name() . ' is made only when you press <b>Ready to start</b> (or tick <b>Make the QUOTE- ticket now</b> when you add it). Projects go on <b>To do</b> on the first day of their quarter, and <b>Not yet</b> hides one for 1, 2, 3 or 6 months. Projects added by hand work the same way. Without a PSA (or for a client not linked to one), Ready to start marks the project started instead.', 'project', 'tech'],
@@ -356,6 +357,11 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'To restore: upload the file under <b>Restore</b>, paste the backup private key (<code>AGE-SECRET-KEY-1…</code>) and press <b>Test this backup</b> first. <b>Restore</b> needs your two-factor code and signs everyone out. The same progress window follows the restore and reloads when it\'s done.',
       'Keep the backup key in your password manager; <b>Check key</b> confirms it matches this server.',
   ], ['Updates & backups' => '/settings/system']) ?>
+  <?= $guide('diagnostics', 'fa-stethoscope', 'Check the server\'s health', 'admin', [
+      'Open <b>Settings → Diagnostics</b>. The row on top sums up the server, the app, the database, storage and the background jobs: green is healthy, yellow needs a look, red is a problem. Each line below says what it found and what to do.',
+      '<b>Background jobs</b> shows whether the hourly sync, the 2-minute PSA check, email, the nightly audit log check and the update check ran when they should. One that\'s late usually means its timer stopped: running the installer again (<code>sudo msp-align-update</code>) puts the timers back.',
+      'Asking for help? <b>Copy report</b> or <b>Download report</b> gives the same facts as text, without your site address or any error text, ready to paste into a support request or a GitHub issue.',
+  ], ['Diagnostics' => '/settings/diagnostics']) ?>
   <?= $guide('settings', 'fa-gear', 'Change settings: planning, onboarding, branding and more', 'admin', [
       '<b>Settings → General</b>: company details on reports and sign-out timers.',
       '<b>Settings → Planning &amp; lifecycle</b>: budget year, meeting length, warning thresholds, warranty re-checks, lifespans and replacement costs. <b>OS support dates</b> has the Windows end-of-support table.',

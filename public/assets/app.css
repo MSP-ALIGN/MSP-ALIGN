@@ -1000,3 +1000,10 @@ textarea.pv-in { resize: none; white-space: normal; }
 .pv-who-client-text { color: #146c43; } .pv-who-provider-text { color: #0b5ed7; } .pv-who-services-text { color: #8a6100; }
 .ct-paper .pv, .sign-paper .pv { margin: -8px; }
 .ct-paper:has(.pv), .sign-paper:has(.pv) { padding: 16px; background: var(--bs-tertiary-bg); }
+
+/* 2.2.2 Settings → Diagnostics: label on the left, value (and its note) on the right; long values wrap */
+.diag-rows .diag-label { flex: 0 0 38%; }
+.diag-rows .diag-value { min-width: 0; overflow-wrap: anywhere; }
+.diag-tile:hover { box-shadow: var(--align-shadow-hover); }
+#diag-report-box > summary { cursor: pointer; list-style: none; }
+#diag-report-box > summary::-webkit-details-marker { display: none; }
