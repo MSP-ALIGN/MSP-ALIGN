@@ -27,6 +27,29 @@ try:
     t = st.get(S_URL + "/settings/system").text
     ok("Test channel" in t and "develop" in t, "Updates page shows the test channel")
 
+    # ---- 2.2.2 Ready to start on a test server: the whole flow works, with a pretend ticket and nothing sent to ITFlow
+    scur = sphp('echo Align\\Roadmap\\Plan::quarters()[Align\\Roadmap\\Plan::currentIndex()]["start"];').stdout.strip()
+    q("delete from roadmap_items where title = 'STG ready'")
+    q("insert into roadmap_items (client_id, title, category, priority, status, target_quarter, cost) values (1, 'STG ready', 'security', 'high', 'approved', %s, 900)", scur)
+    sid = q("select id from roadmap_items where title = 'STG ready'")[0]["id"]
+    t = st.get(S_URL + "/todo").text
+    ok(f'data-todo="project-{sid}"' in t, "To do lists the project on the test server too")
+    fw = st.get(S_URL + f"/projects/{sid}/start").text
+    ok("Create the ticket" in fw and f"TEST-{sid}" in fw and "nothing is sent to ITFlow" in fw, "the confirm window shows the ticket, and says it will be pretend")
+    sent = requests.post(M + "/mock/tickets-created", json={}).json()["created"]
+    r = st.post(S_URL + f"/projects/{sid}/start", data={"_csrf": re.search(r'name="_csrf" value="([^"]+)"', st.get(S_URL + "/todo").text).group(1), "back": "/todo"})
+    row = q("select psa_ticket_id, ticket_at from roadmap_items where id = %s", sid)[0]
+    ok(row["psa_ticket_id"] == f"TEST-{sid}" and row["ticket_at"] and len(requests.post(M + "/mock/tickets-created", json={}).json()["created"]) == len(sent),
+       "Create the ticket saves TEST-%s and sends nothing to ITFlow" % sid)
+    ok("pretend ticket" in r.text, "and says so")
+    fr = st.get(S_URL + f"/projects/{sid}/form").text
+    ok(f"Pretend ticket TEST-{sid}" in fr and "agent/ticket.php" not in fr, "the project window calls it a pretend ticket, with no link into ITFlow")
+    pg = st.get(S_URL + "/projects?client=1&ticket=has&status=all").text
+    ok("<th>Ticket</th>" in pg and "STG ready" in pg, "Projects keeps its Ticket column on the test server")
+    dv = st.get(S_URL + "/clients/1/devices").text
+    ok('id="mp-ticket"' in dv, "and Make projects still offers the ticket box")
+    q("delete from roadmap_items where title = 'STG ready'")
+
     # ---- client portal and API are off
     for p in ["/portal/login", "/portal", "/portal/welcome/abc123"]:
         r = requests.get(S_URL + p)

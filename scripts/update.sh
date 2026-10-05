@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
-# Updates MSP-ALIGN from GitHub: safety copy of the data, latest code, then the installer
+# MSP Align. Copyright (C) 2026 Mountaineer IT Inc. and MSP Align contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
+# Updates MSP Align from GitHub: safety copy of the data, latest code, then the installer
 # in upgrade mode (packages, migrations, services). The safety copy is deleted once the update
 # succeeds. Same as Settings -> Updates & backups -> Update.   Usage: sudo msp-align-update
 # Root only. It takes no arguments and passes none on: the agent (scripts/agent.php update-cli) does the work, with

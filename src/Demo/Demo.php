@@ -93,7 +93,7 @@ final class Demo
             return 'Demo data can only be added while there are no clients, so it never mixes with real data.';
         }
         if (\Align\Providers\Providers::psaConfigured() || \Align\Providers\Providers::anyRmm() || \Align\Providers\Providers::backupConfigured()) {
-            return 'Demo data is for trying MSP-ALIGN before it\'s connected: with a PSA, RMM or backup service set up, your real clients come in with the next sync.';
+            return 'Demo data is for trying MSP Align before it\'s connected: with a PSA, RMM or backup service set up, your real clients come in with the next sync.';
         }
         return null;
     }
@@ -203,7 +203,7 @@ final class Demo
             'contact_name' => $p[0], 'contact_title' => $p[1], 'contact_email' => self::email($p[0], $domain),
             'main_phone' => sprintf('(555) 01%d-%04d', $i, 1000 + $i * 111), 'website' => 'https://www.' . $domain,
             'address' => (100 + $i * 25) . ' Example Street' . "\n" . $city . ', CA 00000',
-            'notes' => 'Demo client, made up for trying MSP-ALIGN. Remove it under Settings → General → Demo data.',
+            'notes' => 'Demo client, made up for trying MSP Align. Remove it under Settings → General → Demo data.',
         ]);
         // Contacts
         foreach ($people as $j => [$pn, $title, $decision]) {

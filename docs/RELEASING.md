@@ -1,6 +1,6 @@
 # Signed releases
 
-Since 2.0, dedicated servers install only **release tags signed with an MSP-ALIGN release key**. The public half of each
+Since 2.0, dedicated servers install only **release tags signed with an MSP Align release key**. The public half of each
 key is in [`deploy/release-signers`](../deploy/release-signers). The private half is held by the project maintainers
 only. It is never stored on GitHub or on a build machine, and each signature needs the maintainer's approval. A stolen
 GitHub account or a push to `main` alone can't reach a server that is already on 2.x: its updater checks each tag against
@@ -22,7 +22,7 @@ These are the keys servers trust today. Compare them with the fingerprint on Set
 
 | Key | Type | Fingerprint | Trusted since |
 |---|---|---|---|
-| MSP-ALIGN release key 1 | ed25519 | `SHA256:1vsfmkmWqJLKcIQkEmrXZa54YJ+mSwKduweXbhpGWq0` | 2.0.0 |
+| MSP Align release key 1 | ed25519 | `SHA256:1vsfmkmWqJLKcIQkEmrXZa54YJ+mSwKduweXbhpGWq0` | 2.0.0 |
 
 The fingerprint is safe to publish: it identifies the key, and can't be used to sign anything.
 
@@ -33,7 +33,7 @@ you trust (for example the one already on your server, `/opt/msp-align/deploy/re
 downloaded:
 
 ```bash
-git clone https://github.com/MSP-ALIGN/MSP-ALIGN.git && cd MSP-ALIGN
+git clone https://github.com/MSP-ALIGN/MSP-ALIGN.git && cd MSP Align
 git -c gpg.ssh.allowedSignersFile=/opt/msp-align/deploy/release-signers verify-tag v2.0.1
 # Good "git" signature for releases@mspalign.org with ED25519 key SHA256:...
 ```

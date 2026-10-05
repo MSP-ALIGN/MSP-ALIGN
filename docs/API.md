@@ -1,6 +1,6 @@
 # REST API
 
-MSP-ALIGN has a REST API for automation tools (n8n, Zapier, Power Automate), AI agents, scripts and other systems.
+MSP Align has a REST API for automation tools (n8n, Zapier, Power Automate), AI agents, scripts and other systems.
 It reads and changes planning data: clients, contacts, devices, projects, budgets, licensing, meetings, compliance,
 backups and service levels. JSON in and out.
 
@@ -29,7 +29,7 @@ curl -s -H "Authorization: Bearer $ALIGN_KEY" "https://align.example.com/api/v1/
 
 ## Ids
 
-- `id` is MSP-ALIGN's own id for a record: a number.
+- `id` is MSP Align's own id for a record: a number.
 - **Ids from your PSA are text** (since 2.0): `psa_id` on clients, contacts and licenses, and `psa_asset_id` on
   devices, for example `"57"` for ITFlow. A PSA that uses other kinds of ids (GUIDs, for example) fits the same field.
 - The older `itflow_*` fields (`itflow_client_id`, `itflow_contact_id`, `itflow_asset_id`, …) are still there, as

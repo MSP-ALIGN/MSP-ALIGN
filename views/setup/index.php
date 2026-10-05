@@ -46,7 +46,7 @@ $connectorCard = function (array $x, string $return, bool $open) {
 };
 ?>
 <div class="d-flex flex-wrap align-items-center mb-3">
-  <div class="me-auto"><h1 class="h3 mb-0"><i class="fas fa-wand-magic-sparkles text-secondary me-2"></i>Set up MSP-ALIGN</h1>
+  <div class="me-auto"><h1 class="h3 mb-0"><i class="fas fa-wand-magic-sparkles text-secondary me-2"></i>Set up MSP Align</h1>
     <div class="small text-muted">A few steps to get your first clients in. Skip anything you don't use yet; you can come back here any time from Settings → General.</div></div>
   <?php if ($pending): ?>
     <form method="post" action="/setup/finish" class="mt-2 mt-md-0"><?= csrf_field() ?><input type="hidden" name="how" value="skip">
@@ -120,7 +120,7 @@ case 'company': ?>
     <?= $footer(false) ?>
 <?php break; case 'psa': case 'rmm': case 'more':
     $intro = [
-        'psa' => ['Your PSA', 'Clients, contacts, assets, licenses, invoices and tickets come from your PSA. MSP-ALIGN works without one too: clients can then come from your RMM, a CSV file or be added by hand.', 'No PSA? Just continue.'],
+        'psa' => ['Your PSA', 'Clients, contacts, assets, licenses, invoices and tickets come from your PSA. MSP Align works without one too: clients can then come from your RMM, a CSV file or be added by hand.', 'No PSA? Just continue.'],
         'rmm' => ['Your RMM', 'Computers, servers, operating systems and warranty data come from your RMM, and it links each device to its client.', ''],
         'more' => ['Backups & warranty', 'Optional: backup results for each client, and warranty end dates looked up from Dell and Lenovo.', ''],
     ][$step]; ?>
@@ -129,7 +129,7 @@ case 'company': ?>
     <?= $footer(true, $step === 'psa' ? 'Continue without a PSA' : 'Skip this step') ?>
 <?php break; case 'email': ?>
     <div class="card card-body py-2 mb-3"><h2 class="h5 mb-1">Email</h2>
-      <div class="small text-muted">Optional, but it's how MSP-ALIGN sends notifications, digests, client portal invitations and meeting invitations.
+      <div class="small text-muted">Optional, but it's how MSP Align sends notifications, digests, client portal invitations and meeting invitations.
         <?= $ready ? '<b class="text-success">Email is set up (' . e(\Align\Mail\Mail::providerName()) . ').</b>' : '' ?></div></div>
     <div class="card mb-3">
       <div class="card-header py-2"><h3 class="card-title"><i class="fab fa-microsoft fa-fw text-secondary me-1"></i><i class="fab fa-google fa-fw text-secondary me-2"></i>Microsoft 365 or Google Workspace</h3></div>
@@ -163,7 +163,7 @@ case 'company': ?>
     <?= $footer() ?>
 <?php break; case 'clients': ?>
     <div class="card card-body py-2 mb-3"><h2 class="h5 mb-1">Your clients</h2>
-      <div class="small text-muted"><?= $clients ? "<b>$clients</b> client" . ($clients === 1 ? '' : 's') . ' in MSP-ALIGN so far.' : 'No clients yet.' ?> Pick whichever way suits you; you can use more than one.</div></div>
+      <div class="small text-muted"><?= $clients ? "<b>$clients</b> client" . ($clients === 1 ? '' : 's') . ' in MSP Align so far.' : 'No clients yet.' ?> Pick whichever way suits you; you can use more than one.</div></div>
     <div class="row">
       <?php if ($psa || $rmm): ?>
         <div class="col-md-6"><div class="card"><div class="card-body">

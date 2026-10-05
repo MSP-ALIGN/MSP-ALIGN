@@ -147,7 +147,7 @@ $h = substr($t, $o, 512); $h = substr_replace($h, "0000000127x4", 124, 12); $h =
 $s = 0; for ($i = 0; $i < 512; $i++) $s += ord($h[$i]);
 $h = substr_replace($h, str_pad(decoct($s), 6, '0', STR_PAD_LEFT) . "\\0 ", 148, 8); file_put_contents("$d/c.tar", substr_replace($t, $h, $o, 512));
 try {{ Align\\System\\Tar::members("$d/c.tar"); echo 'accepted'; }} catch (RuntimeException $e) {{ echo 'refused: ' . $e->getMessage(); }}""")
-ok(out.endswith("refused: This is not an MSP-ALIGN backup (bad tar header)."), "a tar size field with a non-octal character is refused (octdec skipped it): " + out[-120:])
+ok(out.endswith("refused: This is not an MSP Align backup (bad tar header)."), "a tar size field with a non-octal character is refused (octdec skipped it): " + out[-120:])
 
 # ---- backup download cut off part-way: audited as interrupted, and the backup kept so it can be downloaded again
 jid = "20260101-000000-acc0a1"

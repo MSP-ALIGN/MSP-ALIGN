@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
+# MSP Align. Copyright (C) 2026 Mountaineer IT Inc. and MSP Align contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 #
 # 1.35: moves an install from the old mountaineer-align names to msp-align. Run by install.sh --upgrade
 # before anything else. Every step checks first, so it can run again after an interruption, and it does
@@ -170,5 +170,5 @@ if [[ -L "$R/opt/$OLD" && -f "$TMPF" ]] && ! grep -q "^L /run/$OLD " "$TMPF"; th
   echo "L /run/$OLD - - - - /run/$NEW" >>"$TMPF"
 fi
 
-[[ $moved -gt 0 ]] && echo "==> MSP-ALIGN now lives in /opt/$NEW, /etc/$NEW and /var/lib/$NEW (the old folder names still work)"
+[[ $moved -gt 0 ]] && echo "==> MSP Align now lives in /opt/$NEW, /etc/$NEW and /var/lib/$NEW (the old folder names still work)"
 exit 0

@@ -8,7 +8,8 @@ use Align\Branding;
  * Security: $v['brand_primary'] is Branding::color() (always #rrggbb), so it is safe in the style attributes; the
  * background URLs are built by Branding from fixed parts and the dims are integers. Text values are escaped.
  */
-$swatches = ['#007bff' => 'Default blue', '#2f7a55' => 'Mountain green', '#1d4e89' => 'Navy', '#0f766e' => 'Teal', '#6f42c1' => 'Purple', '#b3261e' => 'Red', '#e67e22' => 'Orange', '#343a40' => 'Charcoal'];
+// 2.2.2: the default is the MSP Align logo's blue; its teal and navy, and the old default, are choices too
+$swatches = ['#1b68b8' => 'Default blue', '#0b7d88' => 'MSP Align teal', '#0f2a4f' => 'MSP Align navy', '#007bff' => 'Bright blue', '#2f7a55' => 'Mountain green', '#6f42c1' => 'Purple', '#b3261e' => 'Red', '#e67e22' => 'Orange', '#343a40' => 'Charcoal'];
 $company = (string) ($v['company_name'] ?: 'Your company');
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'branding']) ?>

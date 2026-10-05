@@ -69,7 +69,8 @@ final class BrandingController
         }
 
         $name = mb_substr(post('brand_name'), 0, 60);
-        Settings::set('brand_name', $name !== '' ? $name : null);
+        // The default name isn't stored, so a later rename of the app (as in 2.2.2) still reaches this server
+        Settings::set('brand_name', $name !== '' && $name !== Branding::DEFAULT_NAME ? $name : null);
         $color = strtolower(post('brand_primary'));
         Settings::set('brand_primary', preg_match('/^#[0-9a-f]{6}$/', $color) ? $color : null);
         Settings::set('brand_sidebar', post('brand_sidebar') === 'light' ? 'light' : 'dark');
@@ -126,7 +127,7 @@ final class BrandingController
     {
         $file = Branding::logoFile();
         if (!$file) {
-            header('Location: /assets/icon.svg', true, 302);
+            header('Location: /assets/icon.png', true, 302); // the built-in mark (2.2.2)
             return;
         }
         $mime = array_search(pathinfo($file, PATHINFO_EXTENSION), Branding::TYPES, true) ?: 'application/octet-stream';

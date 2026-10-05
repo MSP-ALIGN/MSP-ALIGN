@@ -5,17 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 {{base}}<title>{{title}}</title>
 <meta name="description" content="{{description}}">
-<link rel="icon" href="icon.svg">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:title" content="{{title}}">
+<meta property="og:description" content="{{description}}">
+<meta property="og:image" content="https://mspalign.org/brand/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0f2a4f">
 <style>
 :root {
   --bg: #ffffff; --panel: #f5f7fa; --text: #1f2933; --muted: #5f6b7a; --line: #e1e6ec;
-  --accent: #1f6feb; --accent-soft: #e8f0fe; --code-bg: #f1f3f6; --pre-bg: #0f1720; --pre-text: #e6edf3;
+  --accent: #1b68b8; --accent-soft: #e4edf6; --code-bg: #f1f3f6; --pre-bg: #0f1720; --pre-text: #e6edf3;
   --warn-bg: #fff8e1; --warn-line: #e0a800;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0d1117; --panel: #151b23; --text: #e6edf3; --muted: #9aa5b1; --line: #2a323c;
-    --accent: #5b9dff; --accent-soft: #16233a; --code-bg: #1c232c; --pre-bg: #0a0e13; --pre-text: #e6edf3;
+    --accent: #6fb0ec; --accent-soft: #0f2238; --code-bg: #1c232c; --pre-bg: #0a0e13; --pre-text: #e6edf3;
     --warn-bg: #2a2412; --warn-line: #b38600;
   }
 }
@@ -26,7 +34,12 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 2; }
 .brand { white-space: nowrap; display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; letter-spacing: .02em; }
-.brand img { width: 28px; height: 28px; }
+/* 2.2.2: the MSP Align logo (mark and name), with light lettering in dark mode */
+.brand img { height: 30px; width: auto; display: block; }
+.brand .on-dark, .hero-logo .on-dark { display: none; }
+@media (prefers-color-scheme: dark) { .brand .on-light, .hero-logo .on-light { display: none; } .brand .on-dark, .hero-logo .on-dark { display: block; } }
+.hero-logo { margin: 8px 0 18px; }
+.hero-logo img { width: min(460px, 100%); height: auto; border: 0; border-radius: 0; box-shadow: none; display: block; }
 .brand:hover { text-decoration: none; }
 .top .spacer { flex: 1; }
 .top .gh { color: var(--muted); font-size: 14px; }
@@ -101,7 +114,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html"{{home_current}}><img src="icon.svg" alt="">MSP-ALIGN</a>
+  <a class="brand" href="index.html"{{home_current}} aria-label="MSP Align home"><img class="on-light" src="logo.png" alt="MSP Align" width="1032" height="277"><img class="on-dark" src="logo-dark.png" alt="MSP Align" width="1032" height="277"></a>
   <span class="spacer"></span>
   <a class="suggest" href="{{suggest}}">Suggest<span class="long"> a feature</span></a>
   <a class="gh" href="{{repo}}">GitHub</a>
@@ -111,7 +124,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
   <nav class="side" aria-label="Documentation">{{nav}}</nav>
   <main>
 {{body}}
-    <footer>MSP-ALIGN {{version}} · <a href="{{edit}}">Edit this page on GitHub</a> · <a href="{{suggest}}">Suggest a feature</a> · <a href="license.html">AGPL-3.0-or-later</a></footer>
+    <footer>MSP Align {{version}} · <a href="{{edit}}">Edit this page on GitHub</a> · <a href="{{suggest}}">Suggest a feature</a> · <a href="license.html">AGPL-3.0-or-later</a></footer>
   </main>
 </div>
 </body>

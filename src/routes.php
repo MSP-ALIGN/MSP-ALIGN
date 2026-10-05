@@ -91,6 +91,12 @@ $r->post('/licenses/{id}', [\Align\Controllers\LicenseController::class, 'update
 $r->get('/licenses/{id}/form', [\Align\Controllers\FormController::class, 'license']);
 $r->get('/contacts/{id}/form', [\Align\Controllers\FormController::class, 'contact']);
 $r->get('/projects/{id}/form', [\Align\Controllers\FormController::class, 'project']);
+// 2.2.2 Ready to start: a project's QUOTE- ticket, made only when asked for
+$r->get('/projects/{id}/start', [\Align\Controllers\ProjectTicketController::class, 'form']);
+$r->post('/projects/{id}/start', [\Align\Controllers\ProjectTicketController::class, 'start']);
+$r->post('/projects/{id}/snooze', [\Align\Controllers\ProjectTicketController::class, 'snooze']);
+$r->post('/projects/{id}/unstart', [\Align\Controllers\ProjectTicketController::class, 'unstart']); // 2.2.2: undo "marked started"
+$r->post('/projects/start-all', [\Align\Controllers\ProjectTicketController::class, 'startAll']);
 $r->get('/clients/{id}/roadmap', [RoadmapController::class, 'show']);
 $r->post('/clients/{id}/roadmap', [RoadmapController::class, 'create']);
 $r->post('/clients/{id}/roadmap/{item}', [RoadmapController::class, 'update']);

@@ -388,7 +388,7 @@ final class ClientController
         }));
     }
 
-    /** A client's Devices & assets list (search, filters, 100 rows at a time). Any staff role; the view is audited. */
+    /** A client's Devices & assets list (search, view, Type and the Filters panel; 100 rows at a time). Any staff role; the view is audited. */
     public static function devices(int $id): void
     {
         Auth::require();
@@ -398,7 +398,13 @@ final class ClientController
         $filter = query('filter') === 'itflow' ? 'psa' : query('filter'); // itflow: links saved before 1.28
         $class = query('class');
         $q = \Align\Paging::q();
-        $rows = \Align\Paging::search(self::filter($all, $filter, $class), $q, self::DEVICE_SEARCH);
+        // 2.2.2: the Filters panel (make, OS, age, warranty, backup…), applied together with the view, Type and search
+        $bkOn = (bool) \Align\Providers\ClientLinks::backupCompanyUids($id);
+        $backupMap = \Align\Backup\Backup::deviceMap(null, $id);
+        $f = \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $all);
+        // $base (view, Type, search) is what the panel counts from; $rows adds the panel's filters for the list
+        $base = \Align\Paging::search(self::filter($all, $filter, $class), $q, self::DEVICE_SEARCH);
+        $rows = \Align\Lifecycle\DeviceFilters::apply($base, $f, $backupMap);
         $limit = \Align\Paging::limit();
         View::render('clients/devices', [
             'title' => $client['name'] . ' · Devices',
@@ -409,10 +415,12 @@ final class ClientController
             'matched' => count($rows),
             'limit' => $limit,
             'q' => $q,
-            'backupMap' => \Align\Backup\Backup::deviceMap(null, $id),
+            'backupMap' => $backupMap,
             'total' => count($all),
             'filter' => $filter,
             'class' => $class,
+            'dfilters' => $f,
+            'dopts' => \Align\Lifecycle\DeviceFilters::options($base, $f, $backupMap, $bkOn),
         ]);
     }
 
@@ -425,7 +433,11 @@ final class ClientController
         Auth::require();
         $client = self::load($id);
         $devices = (new Lifecycle())->devices($id);
-        Audit::log('client.export', $client['name']);
+        // 2.2.2: as filtered on the list (view, Type, Filters panel, search); no filters = every device
+        $filter = query('filter') === 'itflow' ? 'psa' : query('filter');
+        $devices = \Align\Paging::search(self::filter(\Align\Lifecycle\DeviceFilters::apply($devices, \Align\Lifecycle\DeviceFilters::tidy(\Align\Lifecycle\DeviceFilters::fromQuery(), $devices), \Align\Backup\Backup::deviceMap(null, $id)),
+            $filter, query('class')), \Align\Paging::q(), self::DEVICE_SEARCH);
+        Audit::log('client.export', $client['name'] . ' (' . count($devices) . ' devices)');
         self::csv($devices, preg_replace('/[^A-Za-z0-9]+/', '-', $client['name']) . '-lifecycle-' . date('Y-m-d') . '.csv');
     }
 

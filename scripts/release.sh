@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MSP-ALIGN. Copyright (C) 2026 Mountaineer IT Inc. and MSP-ALIGN contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
+# MSP Align. Copyright (C) 2026 Mountaineer IT Inc. and MSP Align contributors. SPDX-License-Identifier: AGPL-3.0-or-later (see LICENSE)
 #
 # Signed releases (2.0). Checks release tags in a checkout against the release signers file.
 #

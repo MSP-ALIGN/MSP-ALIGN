@@ -20,7 +20,7 @@ ok('app-sidebar shadow sidebar-light' in d and "--align-brand:#2f7a55" in d, "th
 ok("Welcome back, team" in requests.get(B + "/login").text, "the sign-in page shows the message")
 r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "reset"})
 t = admin.get(B + "/settings/branding").text
-ok('value="dark" checked' in t and "--bp-color: #007bff" in t, "reset: back to the default blue and dark menu")
+ok('value="dark" checked' in t and "--bp-color: #1b68b8" in t, "reset: back to the default blue and dark menu")
 # ---- 2.1.1: sign-in backgrounds, one for staff and one for the client portal
 import subprocess
 def img(w, h, color, fmt="JPEG", noise=False):

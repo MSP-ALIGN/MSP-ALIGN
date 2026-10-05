@@ -1,5 +1,5 @@
 #!/bin/bash
-# MSP-ALIGN container start-up (1.44). Writes the server config from environment variables, prepares the data
+# MSP Align container start-up (1.44). Writes the server config from environment variables, prepares the data
 # folders, waits for the database, applies migrations, creates the first admin, then runs the web server with the
 # scheduler (the jobs systemd runs on a dedicated server) and the backup agent next to it.
 #
@@ -174,7 +174,7 @@ proxies_php="${proxies_php%, }]"
 ( umask 027
   cat >"$CONF.tmp" <<PHP
 <?php
-// MSP-ALIGN server config - written by the container on every start from its environment variables.
+// MSP Align server config - written by the container on every start from its environment variables.
 // Edit the .env file (or compose.yaml) and restart instead of changing this file.
 return [
     'db' => [
@@ -237,7 +237,7 @@ fi
 # ----------------------------------------------------------------------- run --
 # Secrets are in config.php now; keep them out of the web server's and jobs' environment
 unset ALIGN_DB_PASSWORD ALIGN_DB_PASSWORD_FILE ALIGN_ADMIN_PASSWORD ALIGN_ADMIN_PASSWORD_FILE ALIGN_APP_KEY ALIGN_APP_KEY_FILE ADMIN_PASS DB_PASS APP_KEY
-log "MSP-ALIGN $(cat "$APP/VERSION") is starting at $ALIGN_URL"
+log "MSP Align $(cat "$APP/VERSION") is starting at $ALIGN_URL"
 php "$APP/docker/scheduler.php" &
 SCHED=$!
 STOPPING=0

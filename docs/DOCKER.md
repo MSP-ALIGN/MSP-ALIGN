@@ -1,6 +1,6 @@
 # Install with Docker
 
-Since 1.44 MSP-ALIGN also ships as a container image, `ghcr.io/msp-align/msp-align`, built for every release on
+Since 1.44 MSP Align also ships as a container image, `ghcr.io/msp-align/msp-align`, built for every release on
 amd64 and arm64. It's the same app as a dedicated install ([Install](https://mspalign.org/install.html#install-fresh-debian-13-vm)): the same
 Debian 13 Apache and PHP packages, the same scheduled jobs and the same encrypted backups. Choose Docker if you already
 run a Docker host; choose the dedicated install for a VM of its own. Both are supported, and a dedicated server is

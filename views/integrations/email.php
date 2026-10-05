@@ -78,13 +78,13 @@ $status = match (true) {
           <details class="mb-3 small border rounded p-2 bg-light" data-show-when="mail_provider=microsoft">
             <summary class="fw-bold">Setup steps in Microsoft Entra ID</summary>
             <ol class="ps-3 mt-2 mb-1">
-              <li>Entra admin center → <b>App registrations</b> → <b>New registration</b>. Name it "MSP-ALIGN", single tenant.</li>
+              <li>Entra admin center → <b>App registrations</b> → <b>New registration</b>. Name it "MSP Align", single tenant.</li>
               <li>Copy the <b>Application (client) ID</b> and <b>Directory (tenant) ID</b> into the fields below.</li>
               <li><b>Certificates &amp; secrets</b>: create a client secret (copy its <b>Value</b>), or upload a certificate (.cer) and paste the certificate and its private key below.</li>
               <li data-show-when="mail_mode=app"><b>API permissions</b> → Microsoft Graph → <b>Application permissions</b>: <code>Mail.Send</code>, and <code>Calendars.ReadWrite</code> for Outlook meeting invitations. Click <b>Grant admin consent</b>.
                 <br>To limit the app to the sending mailbox (recommended), use Exchange <b>RBAC for Applications</b> instead of tenant-wide consent:
                 <pre class="bg-white border p-2 mt-1 mb-1 small">Connect-ExchangeOnline
-New-ServicePrincipal -AppId &lt;client ID&gt; -ObjectId &lt;enterprise app object ID&gt; -DisplayName "MSP-ALIGN"
+New-ServicePrincipal -AppId &lt;client ID&gt; -ObjectId &lt;enterprise app object ID&gt; -DisplayName "MSP Align"
 New-ManagementScope -Name "Align mailboxes" -RecipientRestrictionFilter "CustomAttribute10 -eq 'align'"
 Set-Mailbox <?= e($v['mail_from'] ?: 'alerts@yourdomain.com') ?> -CustomAttribute10 align
 New-ManagementRoleAssignment -App &lt;client ID&gt; -Role "Application Mail.Send" -CustomResourceScope "Align mailboxes"
@@ -161,7 +161,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <div class="col-md-6"><?= $secret('m365_cert_pem', 'Certificate (PEM)', true, '-----BEGIN CERTIFICATE-----') ?></div>
               <div class="col-md-6"><?= $secret('m365_key_pem', 'Private key (PEM, unencrypted)', true, '-----BEGIN PRIVATE KEY-----') ?></div>
             </div>
-            <p class="small text-muted">Create one with <code>openssl req -x509 -newkey rsa:2048 -nodes -days 730 -subj "/CN=MSP-ALIGN" -keyout align.key -out align.crt</code>, upload <code>align.crt</code> to the app registration, and paste both files here. In delegated mode a client secret is still needed for the sign-in button.</p>
+            <p class="small text-muted">Create one with <code>openssl req -x509 -newkey rsa:2048 -nodes -days 730 -subj "/CN=MSP Align" -keyout align.key -out align.crt</code>, upload <code>align.crt</code> to the app registration, and paste both files here. In delegated mode a client secret is still needed for the sign-in button.</p>
           </div>
 
           </div>

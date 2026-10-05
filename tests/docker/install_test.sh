@@ -61,7 +61,7 @@ check_mode() {
 }
 checks() {   # $1 = expected version
   ok "[[ \$(vm 'curl -sk -o /dev/null -w %{http_code} --resolve align.test:443:127.0.0.1 https://align.test/login') == 200 ]]" "the site answers over HTTPS"
-  ok "vm 'curl -sk --resolve align.test:443:127.0.0.1 https://align.test/login' | grep -q 'MSP-ALIGN'" "the sign-in page is MSP-ALIGN"
+  ok "vm 'curl -sk --resolve align.test:443:127.0.0.1 https://align.test/login' | grep -q 'MSP Align'" "the sign-in page is MSP Align"
   ok "[[ \$(vm 'cat /opt/msp-align/VERSION') == '$1' ]]" "version $1"
   ok "[[ \$(vm 'systemctl list-timers --all --no-legend' | grep -c 'msp-align-') -ge 5 ]]" "the scheduled jobs are systemd timers"
   for unit in apache2 mariadb msp-align-agent.path; do ok "vm 'systemctl is-active --quiet $unit'" "$unit is running"; done

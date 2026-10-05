@@ -72,7 +72,7 @@ for k, v in {"mail_provider": "smtp", "mail_mode": "app", "mail_from": "alerts@e
     setting(k, v)
 q("delete from settings where name='smtp_pass'")
 st = login("admin@example.com", "LongPassword123!")
-ok("Test email sent" in flash(st.post(B + "/integrations/email/test", data={"_csrf": csrf(st, "/integrations/email"), "to": "admin@example.com"}).text) and sunk("MSP-ALIGN test email"), "the test SMTP server receives mail")
+ok("Test email sent" in flash(st.post(B + "/integrations/email/test", data={"_csrf": csrf(st, "/integrations/email"), "to": "admin@example.com"}).text) and sunk("MSP Align test email"), "the test SMTP server receives mail")
 
 # ---- Mailer: reply-to checked, onboarding links wiped, a send cut off isn't left "sending" with its link
 phpv('Align\\Mail\\Mailer::queue("test", ["mq@client.example"], "MQ-replyto", "<p>x</p>", ["reply_to" => "not an address, evil@x.example"]);')

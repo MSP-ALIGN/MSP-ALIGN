@@ -50,7 +50,7 @@
     <div class="card">
       <div class="card-header py-2"><h3 class="card-title mt-1">Import</h3></div>
       <div class="card-body small">
-        <p>Load a template exported from another MSP-ALIGN (Export is on each template's page). It's added as a new template.</p>
+        <p>Load a template exported from another MSP Align (Export is on each template's page). It's added as a new template.</p>
         <form method="post" action="/contracts/templates/import" enctype="multipart/form-data"><?= csrf_field() ?>
           <div class="input-group input-group-sm"><input type="file" class="form-control" name="file" accept=".json,application/json" required aria-label="Template file"><button class="btn btn-primary">Import</button></div></form>
       </div>

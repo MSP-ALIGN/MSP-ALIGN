@@ -1,4 +1,4 @@
-// MSP-ALIGN - page behaviour on top of AdminLTE / Bootstrap 4.
+// MSP Align - page behaviour on top of AdminLTE / Bootstrap 4.
 //
 // Security assumptions: loaded on every staff page, the client portal and the public welcome/signing pages, with a
 // CSP of script-src 'self' (no inline scripts or handlers, no eval). The behaviours below are driven by data-*
@@ -289,6 +289,17 @@ document.addEventListener('click', (ev) => {
   if (!el) return;
   ev.preventDefault();
   const sel = el.dataset.bsTarget;
+  // Opened from inside another window (Ready to start in the project window, 2.2.2): close that one first, so
+  // the two never stack (Bootstrap shows one modal at a time)
+  const parent = el.closest('.modal.show');
+  if (parent && parent.id) {
+    const go = () => el.click();
+    parent.addEventListener('hidden.bs.modal', go, { once: true });
+    // Closing can be stopped (unsaved changes): then don't open it later, when that window closes for another reason
+    parent.addEventListener('hide.bs.modal', (e) => setTimeout(() => { if (e.defaultPrevented) parent.removeEventListener('hidden.bs.modal', go); }, 0), { once: true });
+    bsModal('#' + parent.id).hide();
+    return;
+  }
   const show = () => bsModal(sel).show();
   if (document.querySelector(sel)) { show(); return; }
   if (el.dataset.loading) return;
@@ -1012,7 +1023,7 @@ const jobOverlay = (() => {
     if (confirm && !confirm.checked) return; // the server explains what's missing
     const restore = f.action.endsWith('/restore');
     t0 = Date.now();
-    api.show(restore ? 'Restoring from the backup' : 'Updating MSP-ALIGN', 'Starting', 0);
+    api.show(restore ? 'Restoring from the backup' : 'Updating MSP Align', 'Starting', 0);
     api.update(1);
   }));
   if (!ov.hidden) api.show();
@@ -1655,4 +1666,20 @@ document.addEventListener('change', (ev) => {
     btn.textContent = one ? 'Make the project' : 'Make ' + n + ' projects';
     btn.disabled = !n; // nothing ticked that can still become a project
   }
+});
+
+// 2.2.2 Devices & assets Filters panel: "Any" fields stay out of the address, and a new make drops the old model
+// (the model list is for one make; it appears once the make is applied). Without script the form still works.
+document.addEventListener('submit', (ev) => {
+  const form = ev.target;
+  if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-device-filters')) return;
+  form.querySelectorAll('select, input[type=hidden]').forEach((el) => { if (el.value === '') el.disabled = true; });
+  // re-enable once the page is back from the cache (back button), so the fields still work
+  window.addEventListener('pageshow', () => form.querySelectorAll(':disabled').forEach((el) => { el.disabled = false; }), { once: true });
+});
+document.addEventListener('change', (ev) => {
+  const el = ev.target;
+  if (!(el instanceof HTMLSelectElement) || el.id !== 'df-make') return;
+  const model = el.form && el.form.querySelector('#df-model');
+  if (model) { model.value = ''; model.disabled = true; }
 });

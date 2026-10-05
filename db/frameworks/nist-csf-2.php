@@ -1,7 +1,7 @@
 <?php
 /**
  * NIST Cybersecurity Framework (CSF) 2.0 — all 106 Subcategories (NIST CSWP 29, February 26, 2024).
- * Titles quote the public-domain NIST outcome text; guidance is the MSP-ALIGN project's plain-English summary.
+ * Titles quote the public-domain NIST outcome text; guidance is the MSP Align project's plain-English summary.
  */
 return [
     'slug' => 'nist-csf-2',

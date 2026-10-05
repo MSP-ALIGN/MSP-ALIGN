@@ -9,19 +9,22 @@ use Align\Lifecycle\Lifecycle;
 
 /**
  * The To do list (1.42): one place for everything waiting on the team, from every client. Each item is a
- * count worked out from live data, so it leaves the list by itself once the work is done.
+ * count worked out from live data, so it leaves the list by itself once the work is done. Projects whose quarter has
+ * come and that have no ticket yet are listed one by one (2.2.2, Roadmap\ProjectTickets).
  *
  * Security assumptions: everything here is work for techs and admins; viewers get an empty list (the To do page
  * also requires tech). Provider keys put into SQL are reduced to [a-z0-9_-]. Texts are plain text with same-site links.
  */
 final class Todo
 {
-    public const CATEGORIES = ['hardware' => 'Hardware', 'licensing' => 'Licensing', 'integrations' => 'Integrations', 'clients' => 'From clients'];
+    public const CATEGORIES = ['projects' => 'Projects', 'hardware' => 'Hardware', 'licensing' => 'Licensing', 'integrations' => 'Integrations', 'clients' => 'From clients'];
 
     private static ?array $items = null;
 
     /**
-     * @return list<array{key:string,category:string,icon:string,tone:string,title:string,detail:string,link:string,action:string,count:int}>
+     * 2.2.2: projects ready to start come first, one line each, with 'project' set (the view shows Not yet and
+     * Ready to start for them instead of the usual button).
+     * @return list<array{key:string,category:string,icon:string,tone:string,title:string,detail:string,link:string,action:string,count:int,project?:array}>
      */
     public static function items(): array
     {
@@ -34,6 +37,22 @@ final class Todo
         $out = [];
         $plural = fn(int $n, string $one, string $many) => $n . ' ' . ($n === 1 ? $one : $many);
         $psa = psa_on() ? psa_name() : null;
+        $cur = \Align\Roadmap\Plan::quarters()[\Align\Roadmap\Plan::currentIndex()]['start'];
+        foreach (\Align\Roadmap\ProjectTickets::due() as $r) {
+            [$catLabel, $catIcon] = \Align\Roadmap\Roadmap::category($r['category']);
+            $q = \Align\Roadmap\Plan::quarterFor((string) $r['target_quarter'])['label'] ?? '';
+            $n = (int) $r['device_count'];
+            $out[] = ['key' => 'project-' . (int) $r['id'], 'category' => 'projects', 'icon' => $catIcon, 'tone' => $r['target_quarter'] < $cur ? 'warning' : 'primary',
+                'title' => $r['title'], 'client' => $r['client_name'],
+                'detail' => ($r['target_quarter'] < $cur ? "$q, overdue" : $q) . ' · ' . $catLabel . ' · ' . (\Align\Roadmap\Roadmap::STATUSES[$r['status']][0] ?? $r['status'])
+                    . ' · ' . money((float) $r['cost']) . ($n ? ' · ' . $plural($n, 'device', 'devices') : ''),
+                'overdue' => $r['target_quarter'] < $cur,
+                'error' => $r['ticket_error'] !== null ? 'Last try ' . fmt_date((string) $r['ticket_error_at'], 'short') . ': ' . $r['ticket_error'] : null,
+                'link' => '/clients/' . (int) $r['client_id'] . '/roadmap#modal-roadmap-' . (int) $r['id'], 'action' => 'Ready to start', 'count' => 1,
+                // ticket: Ready to start makes its ticket; false: it marks the project started (no PSA, or an unlinked client)
+                'project' => ['id' => (int) $r['id'], 'client_id' => (int) $r['client_id'], 'title' => $r['title'], 'client' => $r['client_name'],
+                    'ticket' => \Align\Roadmap\ProjectTickets::makesTicket((string) $r['client_psa_id'])]];
+        }
         if ($n = Lifecycle::unassignedCount()) {
             $out[] = ['key' => 'unassigned', 'category' => 'hardware', 'icon' => 'fa-circle-question', 'tone' => 'warning',
                 'title' => $plural($n, 'device needs a type', 'devices need a type'),

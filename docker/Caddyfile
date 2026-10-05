@@ -1,4 +1,4 @@
-# MSP-ALIGN behind Caddy (compose.caddy.yaml): HTTPS certificates from Let's Encrypt, renewed automatically.
+# MSP Align behind Caddy (compose.caddy.yaml): HTTPS certificates from Let's Encrypt, renewed automatically.
 # Caddy redirects HTTP to HTTPS, uses its own TLS defaults (1.2 and 1.3, forward-secret AEAD ciphers) and replaces
 # any X-Forwarded-For/-Proto a visitor sends with its own, so the app (which trusts only Caddy's address) sees the
 # real ones. The 2 GB body limit is for restoring a backup; Apache limits every other URL (docker/apache.conf).

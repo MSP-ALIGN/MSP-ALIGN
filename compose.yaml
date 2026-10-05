@@ -1,4 +1,4 @@
-# MSP-ALIGN with Docker Compose (1.44). Quick start (see docs/DOCKER.md):
+# MSP Align with Docker Compose (1.44). Quick start (see docs/DOCKER.md):
 #   1. cp .env.example .env   and fill it in
 #   2. docker compose up -d        (or, with automatic HTTPS:  docker compose -f compose.yaml -f compose.caddy.yaml up -d)
 #   3. docker compose logs app     shows the first admin's temporary password

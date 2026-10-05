@@ -18,7 +18,7 @@ def fmt(code):
 SAMPLE = ('$t = strtotime("2026-09-29 14:30:05"); echo implode("|", [money(1234.5), money_exact(1234.5), money_exact(22), money(-980), Align\\Fmt::moneyShort(12500), Align\\Fmt::moneyShort(1250000),'
           ' num(1150), fmt_date("2026-09-29"), Align\\Fmt::date($t, "long"), Align\\Fmt::date($t, "day"), Align\\Fmt::date($t, "short"), fmt_time("2026-09-29 14:30:05"), fmt_datetime("2026-09-29 14:30:05"), Align\\Fmt::hour(7), Align\\Fmt::trim(97.5, 1), Align\\Fmt::trim(98.0, 1)]);')
 
-# ---- defaults: exactly the US style MSP-ALIGN always used
+# ---- defaults: exactly the US style MSP Align always used
 d = fmt(SAMPLE).split("|")
 ok(d == ["$1,235", "$1,234.50", "$22", "$-980", "$12.5k", "$1.3M", "1,150", "Sep 29, 2026", "September 29, 2026", "Tue Sep 29, 2026", "Sep 29", "2:30 pm", "Tue Sep 29, 2026 · 2:30 pm", "7 am", "97.5", "98"], "defaults unchanged: " + str(d))
 

@@ -1,17 +1,19 @@
 <?php
 /**
- * Every client's devices (1.42). @var array $devices (this page); int $matched; int $total; int $limit; string $q, $filter, $class; int $clientId; array $clients, $tiles, $counts
+ * Every client's devices (1.42). @var array $devices (this page); int $matched; int $total; int $limit; string $q, $filter, $class; int $clientId; array $clients, $tiles, $counts, $dfilters, $dopts (Filters panel)
  * Query values only go into escaped, URL-encoded links; client names are escaped.
  */
 $base = '/devices';
-$keep = array_filter(['client' => $clientId ?: '', 'q' => $q, 'class' => $class], fn($v) => $v !== '');
+// What the Client menu's links keep (2.2.2: the Filters panel values too)
+$keep = array_filter(['client' => $clientId ?: '', 'q' => $q, 'class' => $class], fn($v) => $v !== '') + \Align\Lifecycle\DeviceFilters::query($dfilters);
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-desktop', 'title' => 'Devices & assets', 'count' => $matched !== $total ? num($matched) . ' of ' . num($total) : $total,
     'desc' => 'Every client\'s computers, servers and network gear. Search by name, serial, last user or model; open a device to change its type, dates or replacement plan.',
     'secondary' => ['<a class="btn btn-sm btn-default" href="/devices/unassigned"><i class="fas fa-circle-question me-1"></i>Unassigned hardware' . ($counts['unassigned'] ? ' <span class="badge text-bg-warning">' . num($counts['unassigned']) . '</span>' : '') . '</a>'],
     'help' => \Align\Auth::can('tech') ? 'guide-lifecycle' : null,
 ]);
-$tileLink = fn(string $f) => $base . '?' . http_build_query(array_filter(['client' => $clientId ?: '', 'filter' => $f]));
+// A tile opens its view for the same client and filters (the tile counts follow the filters, so the list matches)
+$tileLink = fn(string $f) => $base . '?' . http_build_query(array_filter(['client' => $clientId ?: '', 'filter' => $f] + \Align\Lifecycle\DeviceFilters::query($dfilters)));
 echo \Align\View::fetch('partials/tiles', ['tiles' => [
     ['label' => 'Needs attention', 'value' => $tiles['attention'], 'tone' => $tiles['attention'] ? 'danger' : 'success', 'href' => $tileLink('attention'), 'active' => $filter === 'attention'],
     ['label' => 'Replace / plan', 'value' => $tiles['replace'], 'tone' => 'warning', 'href' => $tileLink('replace'), 'active' => $filter === 'replace', 'title' => 'Past or near end of life, or with a replacement planned'],
@@ -28,8 +30,9 @@ foreach ($clients as $c) {
 $clientMenu .= '</div></div>';
 ?>
 <div class="card">
-  <?= \Align\View::fetch('devices/_toolbar', ['base' => $base, 'keep' => $clientId ? ['client' => $clientId] : [], 'filter' => $filter, 'class' => $class, 'q' => $q, 'bkOn' => false,
-      'export' => '/devices/export?' . http_build_query(array_filter(['client' => $clientId ?: '', 'filter' => $filter, 'class' => $class, 'q' => $q])), 'counts' => $counts, 'extraMenus' => [$clientMenu]]) ?>
+  <?php // The CSV link carries everything the list is narrowed by, so the file holds what is on screen ?>
+  <?= \Align\View::fetch('devices/_toolbar', ['base' => $base, 'keep' => $clientId ? ['client' => $clientId] : [], 'filter' => $filter, 'class' => $class, 'q' => $q, 'bkOn' => false, 'dfilters' => $dfilters, 'dopts' => $dopts,
+      'export' => '/devices/export?' . http_build_query(array_filter(['client' => $clientId ?: '', 'filter' => $filter, 'class' => $class, 'q' => $q] + \Align\Lifecycle\DeviceFilters::query($dfilters))), 'counts' => $counts, 'extraMenus' => [$clientMenu]]) ?>
   <div class="card-body p-0">
     <?= \Align\View::fetch('devices/_table', ['devices' => $devices, 'showClient' => true]) ?>
   </div>

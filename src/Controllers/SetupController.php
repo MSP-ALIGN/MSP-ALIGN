@@ -16,7 +16,7 @@ use Align\View;
  * First-run setup wizard (1.40): company, currency & dates, PSA, RMM, other integrations, email, clients
  * and team, one step at a time. Every step can be skipped and come back to later. The forms are the
  * app's own (they post to the usual settings, integration, email and user pages and come back here), so
- * the wizard never saves anything differently from the rest of MSP-ALIGN.
+ * the wizard never saves anything differently from the rest of MSP Align.
  *
  * Settings: setup_state (pending = open it for the first admin; done), setup_seen / setup_skipped
  * (comma lists of step keys).
@@ -124,7 +124,7 @@ final class SetupController
         if ($step !== 'finish' && !isset(self::STEPS[$step])) {
             redirect('/setup');
         }
-        $vars = ['title' => 'Set up MSP-ALIGN', 'nav' => 'settings', 'step' => $step, 'steps' => self::status(), 'next' => self::next($step),
+        $vars = ['title' => 'Set up MSP Align', 'nav' => 'settings', 'step' => $step, 'steps' => self::status(), 'next' => self::next($step),
             'return' => '/setup/' . $step, 'pending' => self::pending()];
         $vars += match ($step) {
             'company' => ['v' => ['company_name' => Settings::get('company_name'), 'company_phone' => Settings::get('company_phone'), 'company_email' => Settings::get('company_email'),

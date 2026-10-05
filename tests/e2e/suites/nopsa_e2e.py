@@ -93,7 +93,7 @@ ok(not said, "no page mentions a PSA when there isn't one: " + str(said)[:600])
 t = st.get(FB + "/").text
 ok("Connect PSA" not in text(st.get(FB + "/")) or "Optional" in text(st.get(FB + "/")), "setup checklist treats the PSA as optional")
 t = text(st.get(FB + "/help"))
-ok("Run MSP-ALIGN without a PSA" in t and "No PSA needed" in t, "Help explains running without a PSA")
+ok("Run MSP Align without a PSA" in t and "No PSA needed" in t, "Help explains running without a PSA")
 
 # ---- CSV import: clients
 before = fq("select count(*) n from clients")[0]["n"]
@@ -158,6 +158,37 @@ r2 = upload(st, "contacts", "dup.csv", "Client,Name,Email\nZz Import One LLC,Dee
 t1, t2 = token(r2), token(upload(st, "contacts", "dup.csv", "Client,Name,Email\nZz Import One LLC,Dee Dupe,dee@one.example\n"))
 st.post(FB + "/clients/import/run", data={"_csrf": fcsrf(st), "token": t1}); st.post(FB + "/clients/import/run", data={"_csrf": fcsrf(st), "token": t2})
 ok(fq("select count(*) n from contacts where email='dee@one.example'")[0]["n"] == 1, "the same file imported twice (two tabs) adds the contact once")
+
+# ---- 2.2.2 Ready to start without a PSA: projects go on To do in their quarter and are marked started (no ticket)
+def tx(h): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", h)))
+fcur = fphp('echo Align\\Roadmap\\Plan::quarters()[Align\\Roadmap\\Plan::currentIndex()]["start"];').stdout.strip()
+fq("delete from roadmap_items where title like 'NP %%'")
+for title, status, quarter in [("NP due", "approved", fcur), ("NP later", "approved", "2099-01-01"), ("NP proposed", "proposed", fcur)]:
+    fq("insert into roadmap_items (client_id, title, category, priority, status, target_quarter, cost) values (%s, %s, 'security', 'high', %s, %s, 500)", cid, title, status, quarter)
+npid = {r["title"]: r["id"] for r in fq("select id, title from roadmap_items where title like 'NP %%'")}
+t = st.get(FB + "/todo").text
+ok(f'data-todo="project-{npid["NP due"]}"' in t and f'project-{npid["NP later"]}"' not in t and f'project-{npid["NP proposed"]}"' not in t,
+   "without a PSA, an approved project goes on To do when its quarter is here (later and proposed ones don't)")
+ok(tx(t) and "marks a project started" in tx(t) and "ticket" not in tx(t).split("Ready to start", 1)[1].split("NP due", 1)[0].lower(), "To do doesn't talk about tickets")
+fw = st.get(FB + f"/projects/{npid['NP due']}/start").text
+ok("Mark as started" in fw and "ticket" not in tx(fw).lower(), "the confirm window marks it started, with no word about tickets")
+fr = st.get(FB + f"/projects/{npid['NP later']}/form").text
+ok('data-ticket-state="later"' in fr and "Not started yet" in fr and "Ticket" not in fr, "the project window: Not started yet, with Ready to start")
+pg = st.get(FB + f"/projects?client={cid}&status=all").text
+ok("<th>Started</th>" in pg and ">Started<" in pg and not errs(pg), "Projects has a Started column and filter")
+r = st.post(FB + f"/projects/{npid['NP due']}/start", data={"_csrf": fcsrf(st, "/todo"), "back": "/todo"})
+row = fq("select psa_ticket_id, started_at, started_by from roadmap_items where id = %s", npid["NP due"])[0]
+ok(row["started_at"] and row["started_by"] and row["psa_ticket_id"] is None and f'project-{npid["NP due"]}"' not in r.text and "Started" in flash(r.text),
+   "Ready to start marks it started and it leaves To do: " + flash(r.text))
+pg = st.get(FB + f"/projects?client={cid}&ticket=has&status=all").text
+ok("NP due" in pg and "NP later" not in pg and "Make the ticket" not in pg, "the Started filter lists it")
+fq("insert into roadmap_items (client_id, title, category, priority, status, target_quarter, cost) values (%s, 'NP two', 'security', 'high', 'scheduled', %s, 500), (%s, 'NP three', 'security', 'high', 'approved', %s, 500)", cid, fcur, cid, fcur)
+two = {r["title"]: r["id"] for r in fq("select id, title from roadmap_items where title in ('NP two', 'NP three')")}
+t = st.get(FB + "/todo").text
+ok('id="modal-start-all"' in t and "Start 2 projects" in tx(t) and "Start them" in t, "Ready to start: all starts them all, without tickets")
+r = st.post(FB + "/projects/start-all", data={"_csrf": fcsrf(st, "/todo"), "ids[]": list(two.values()), "back": "/todo"})
+ok(all(fq("select started_at from roadmap_items where id = %s", i)[0]["started_at"] for i in two.values()) and "Started 2 projects without a ticket" in flash(r.text), flash(r.text))
+fq("delete from roadmap_items where title like 'NP %%'")
 
 # ---- on an install with a PSA: PSA details are left alone
 ma = login("admin@example.com", "LongPassword123!")

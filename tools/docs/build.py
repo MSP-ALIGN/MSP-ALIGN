@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the MSP-ALIGN docs site (mspalign.org) from README.md and docs/*.md.
+"""Builds the MSP Align docs site (mspalign.org) from README.md and docs/*.md.
 
     python3 tools/docs/build.py [OUT_DIR]      # default: _site
 
@@ -283,7 +283,7 @@ def page(slug, title, body, description):
         tpl = f.read()
     nav = "".join(
         f'<a href="{s}.html"{CURRENT if s == slug else ""}>{html.escape(t)}</a>' for s, t, _, _ in PAGES)
-    full_title = "MSP-ALIGN" if slug == "index" else f"{title} · MSP-ALIGN"
+    full_title = "MSP Align" if slug == "index" else f"{title} · MSP Align"
     return (tpl.replace("{{title}}", html.escape(full_title))
                .replace("{{description}}", html.escape(description))
                .replace("{{nav}}", nav)
@@ -329,22 +329,26 @@ def main():
             f.write(page(slug, title, body, summary))
 
     # Home: the README's first paragraph, the install command and a card per page
-    intro = next((p for p in sec[""].split("\n\n") if p.strip() and not p.startswith("#") and not p.startswith(">")), None)
+    # (HTML blocks, like the logo at the top of the README, aren't the intro)
+    intro = next((p for p in sec[""].split("\n\n") if p.strip() and not p.startswith(("#", ">", "<"))), None)
     install = re.search(r"```bash\n(curl [^\n]+install\.sh[^\n]*)\n```", sec["Install (fresh Debian 13 VM)"])
     if not intro or not install:
         sys.exit("docs: README.md needs an intro paragraph and a ```bash curl ... install.sh``` block under Install")
     install = install.group(1)
     cards = "".join(
         f'<a class="card" href="{s}.html"><b>{html.escape(t)}</b><span>{html.escape(d)}</span></a>' for s, t, _, d in PAGES)
-    body = (f'<div class="hero"><h1>MSP-ALIGN</h1><p class="lead">{render(rewrite_links(intro, "."))[3:-4]}</p>'
+    # 2.2.2: the logo with its tagline as the page's heading (light lettering in dark mode; the alt text is the name)
+    hero_logo = ('<h1 class="hero-logo"><img class="on-light" src="brand/logo-tagline.png" alt="MSP Align" width="1036" height="365">'
+                 '<img class="on-dark" src="brand/logo-tagline-dark.png" alt="MSP Align" width="1036" height="365"></h1>')
+    body = (f'<div class="hero">{hero_logo}<p class="lead">{render(rewrite_links(intro, "."))[3:-4]}</p>'
             f'<p class="free">Free and open source (AGPL-3.0). Self-hosted: your client data stays on your server.</p></div>'
-            f'<p><a href="screenshots.html"><img class="shot" src="screenshots/dashboard.png" alt="The MSP-ALIGN dashboard" width="1400" height="900"></a></p>'
+            f'<p><a href="screenshots.html"><img class="shot" src="screenshots/dashboard.png" alt="The MSP Align dashboard" width="1400" height="900"></a></p>'
             f'<p><a href="screenshots.html">More screenshots →</a></p>'
             f'<h2>Install</h2><p>On a fresh Debian 13 VM:</p><pre><code>{html.escape(install)}</code></pre>'
             f'<p><a href="install.html">Full install and setup guide →</a></p>'
             f'<h2>Documentation</h2><div class="cards">{cards}</div>'
             f'<h2 id="ideas">Ideas and feature requests</h2>'
-            f'<p>MSP-ALIGN is built by MSPs for MSPs. Missing something, or have an idea that would save you time? Tell us what '
+            f'<p>MSP Align is built by MSPs for MSPs. Missing something, or have an idea that would save you time? Tell us what '
             f'you\'re trying to do and how you do it today.</p>'
             f'<p class="actions"><a class="button" href="{SUGGEST}">Suggest a feature</a>'
             f'<a class="button secondary" href="{REPO}/discussions">Talk an idea through first</a></p>'
@@ -352,9 +356,12 @@ def main():
             f'Found a bug? <a href="{REPO}/issues/new/choose">Report it here</a>; a security problem goes '
             f'<a href="{REPO}/security/advisories/new">privately</a>.</p>')
     with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
-        f.write(page("index", "MSP-ALIGN", body, "Self-hosted, open-source vCIO toolkit for managed service providers."))
+        f.write(page("index", "MSP Align", body, "Self-hosted, open-source vCIO toolkit for managed service providers."))
 
-    shutil.copy(os.path.join(ROOT, "public/assets/icon.svg"), os.path.join(OUT, "icon.svg"))
+    # 2.2.2 brand: the app's own icon and logos, plus docs/brand (the logo with its tagline, the link-preview image)
+    for f in ("icon.png", "apple-touch-icon.png", "logo.png", "logo-dark.png"):
+        shutil.copy(os.path.join(ROOT, "public/assets", f), os.path.join(OUT, f))
+    shutil.copytree(os.path.join(ROOT, "docs/brand"), os.path.join(OUT, "brand"))
     if os.path.isdir(os.path.join(ROOT, SHOTS)):
         shutil.copytree(os.path.join(ROOT, SHOTS), os.path.join(OUT, "screenshots"))
     with open(os.path.join(OUT, "404.html"), "w", encoding="utf-8") as f:

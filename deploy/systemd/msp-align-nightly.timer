@@ -1,5 +1,5 @@
 [Unit]
-Description=Nightly MSP-ALIGN maintenance
+Description=Nightly MSP Align maintenance
 
 [Timer]
 OnCalendar=*-*-* 02:30:00

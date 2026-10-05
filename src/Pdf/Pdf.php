@@ -315,7 +315,7 @@ final class Pdf
         $objs[$pagesObj] = '<< /Type /Pages /Kids [' . implode(' ', $kids) . '] /Count ' . count($kids) . ' >>';
         $objs[$catalog] = '<< /Type /Catalog /Pages ' . $pagesObj . ' 0 R >>';
         $infoObj = $next++;
-        $info = ['Producer' => 'MSP-ALIGN'] + array_filter($this->info, fn($v) => $v !== '');
+        $info = ['Producer' => 'MSP Align'] + array_filter($this->info, fn($v) => $v !== '');
         $objs[$infoObj] = '<< ' . implode(' ', array_map(fn($k, $v) => '/' . $k . ' ' . self::str($v), array_keys($info), $info))
             . ' /CreationDate (D:' . gmdate('YmdHis') . "Z) >>";
 

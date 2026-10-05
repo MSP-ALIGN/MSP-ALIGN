@@ -7,7 +7,7 @@ namespace Align;
  * How money, numbers, dates and times are shown (1.38, Settings → General → Currency & dates). One choice
  * for the whole install, so reports and client emails look the same whoever sends them. It only changes
  * how values are written: amounts are never converted, and stored dates are unchanged. The defaults are
- * the US style MSP-ALIGN always used ($1,234 · Sep 29, 2026 · 2:30 pm).
+ * the US style MSP Align always used ($1,234 · Sep 29, 2026 · 2:30 pm).
  *
  * Security assumptions: the choices come from Settings but only values in the lists below are used (anything else
  * falls back to the default), so the formats are always these literals. Results are plain text: escape them in
@@ -141,7 +141,7 @@ final class Fmt
         };
     }
 
-    /** The symbol goes in front of the number as written, sign included ($-980, as MSP-ALIGN always showed it), or after it (-980 €). */
+    /** The symbol goes in front of the number as written, sign included ($-980, as MSP Align always showed it), or after it (-980 €). */
     private static function withSymbol(string $n): string
     {
         $s = self::symbol();

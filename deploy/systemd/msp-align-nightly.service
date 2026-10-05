@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - nightly audit log check and clean-up
+Description=MSP Align - nightly audit log check and clean-up
 After=mariadb.service
 
 [Service]

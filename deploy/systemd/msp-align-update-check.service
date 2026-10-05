@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - check GitHub for updates
+Description=MSP Align - check GitHub for updates
 After=network-online.target
 Wants=network-online.target
 

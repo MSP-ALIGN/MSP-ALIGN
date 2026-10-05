@@ -1,5 +1,5 @@
 [Unit]
-Description=MSP-ALIGN - sync ITFlow and NinjaOne
+Description=MSP Align - sync ITFlow and NinjaOne
 After=network-online.target mariadb.service
 Wants=network-online.target
 

@@ -456,20 +456,20 @@ final class Backup
         return $out;
     }
 
-    /** device id => [last restore point, tone] for one client's devices ($companyUid is no longer needed; kept for callers). */
+    /**
+     * device id => [last restore point, tone, exempt] for one client's devices, or every client's when $clientId is
+     * null (2.2.2: the all-clients device list filters by backup). $companyUid is no longer needed; kept for callers.
+     */
     public static function deviceMap(?string $companyUid, ?int $clientId = null): array
     {
         $out = [];
-        if ($clientId) {
-            foreach (DB::all("SELECT device_id FROM backup_exemptions WHERE client_id = ? AND kind = 'device'", [$clientId]) as $e) {
-                $out[(int) $e['device_id']] = ['last_point' => null, 'tone' => 'muted', 'exempt' => true];
-            }
-        }
-        if (!$clientId) {
-            return $out;
+        // One WHERE for the three queries: one client's rows, or every client's ($clientId is bound, never inlined)
+        [$w, $p] = $clientId ? ['client_id = ?', [$clientId]] : ['1=1', []];
+        foreach (DB::all("SELECT device_id FROM backup_exemptions WHERE $w AND kind = 'device'", $p) as $e) {
+            $out[(int) $e['device_id']] = ['last_point' => null, 'tone' => 'muted', 'exempt' => true];
         }
         $stale = self::staleHours();
-        foreach (DB::all('SELECT device_id, MAX(last_point) AS lp FROM backup_workloads WHERE client_id = ? AND device_id IS NOT NULL GROUP BY device_id', [$clientId]) as $r) {
+        foreach (DB::all("SELECT device_id, MAX(last_point) AS lp FROM backup_workloads WHERE $w AND device_id IS NOT NULL GROUP BY device_id", $p) as $r) {
             $age = $r['lp'] ? (time() - strtotime($r['lp'])) / 3600 : null;
             if (isset($out[(int) $r['device_id']])) {
                 $out[(int) $r['device_id']]['last_point'] = $r['lp'];
@@ -477,11 +477,9 @@ final class Backup
             }
             $out[(int) $r['device_id']] = ['exempt' => false, 'last_point' => $r['lp'], 'tone' => $age === null ? 'bad' : ($age <= $stale ? 'ok' : ($age <= $stale * 2 ? 'warn' : 'bad'))];
         }
-        if ($clientId) {
-            // A protected machine marked "not required" also clears its device
-            foreach (DB::all('SELECT w.device_id FROM backup_exemptions e JOIN backup_workloads w ON w.uid = e.item_uid WHERE e.client_id = ? AND w.device_id IS NOT NULL', [$clientId]) as $r) {
-                $out[(int) $r['device_id']] = ['last_point' => $out[(int) $r['device_id']]['last_point'] ?? null, 'tone' => 'muted', 'exempt' => true];
-            }
+        // A protected machine marked "not required" also clears its device
+        foreach (DB::all('SELECT w.device_id FROM backup_exemptions e JOIN backup_workloads w ON w.uid = e.item_uid WHERE ' . ($clientId ? 'e.client_id = ?' : '1=1') . ' AND w.device_id IS NOT NULL', $p) as $r) {
+            $out[(int) $r['device_id']] = ['last_point' => $out[(int) $r['device_id']]['last_point'] ?? null, 'tone' => 'muted', 'exempt' => true];
         }
         return $out;
     }
