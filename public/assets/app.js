@@ -676,12 +676,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   // Start the preview in the theme the page is shown in
   if (document.documentElement.dataset.bsTheme === 'dark') document.querySelector('[data-preview-theme="dark"]').click();
-  // The logo previews (2.2.4: two logos). Each place shows the logo it will use: white pages the report logo, dark
-  // ones the app logo, either standing in for the other; the menu follows the menu color. Listens on the document,
-  // like the image pickers below.
+  // The logo previews (2.2.4: a light mode and a dark mode logo). Each place shows the logo it will use: light
+  // backgrounds the light mode logo, dark ones the dark mode logo, either standing in for the other; the menu follows
+  // the menu color. Listens on the document, like the image pickers below.
   const logos = {
-    app: preview.dataset.hasApp === '1' ? document.getElementById('logo-img').getAttribute('src') : null,
-    report: preview.dataset.hasReport === '1' ? document.getElementById('report-logo-img').getAttribute('src') : null,
+    dark: preview.dataset.hasDark === '1' ? document.getElementById('logo-img').getAttribute('src') : null,
+    light: preview.dataset.hasLight === '1' ? document.getElementById('light-logo-img').getAttribute('src') : null,
   };
   const swap = (old, url) => {
     if (!old) return;
@@ -694,8 +694,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const refresh = () => {
     const builtin = preview.dataset.builtin;
-    const light = logos.report || logos.app || builtin;
-    const dark = logos.app || logos.report || builtin;
+    const light = logos.light || logos.dark || builtin;
+    const dark = logos.dark || logos.light || builtin;
     const menuLight = (document.querySelector('[data-preview="sidebar"]:checked') || {}).value === 'light';
     preview.querySelectorAll('[data-logo="light"]').forEach((el) => swap(el, light));
     preview.querySelectorAll('[data-logo="dark"]').forEach((el) => swap(el, dark));
@@ -704,13 +704,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('change', (e) => {
     const input = e.target;
     if (input.matches && input.matches('[data-preview="sidebar"]')) { refresh(); return; }
-    if ((input.id !== 'logo' && input.id !== 'report_logo') || !input.files || !input.files[0]) return;
+    if ((input.id !== 'logo' && input.id !== 'logo_light') || !input.files || !input.files[0]) return;
     const f = input.files[0];
     if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) return;
     const url = URL.createObjectURL(f);   // a blob: address for the chosen file, only ever used as an image
-    const kind = input.id === 'logo' ? 'app' : 'report';
+    const kind = input.id === 'logo' ? 'dark' : 'light';
     logos[kind] = url;
-    swap(document.getElementById(kind === 'app' ? 'logo-img' : 'report-logo-img'), url);
+    swap(document.getElementById(kind === 'dark' ? 'logo-img' : 'light-logo-img'), url);
     refresh();
   });
 });

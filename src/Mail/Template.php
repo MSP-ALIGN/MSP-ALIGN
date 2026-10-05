@@ -38,7 +38,7 @@ final class Template
 
     /**
      * The brand logo as an inline attachment (PNG/JPG/GIF under 300 KB; Outlook can't show WebP). The file was
-     * re-encoded on upload. Emails are white, so it's the report logo when there is one (2.2.4).
+     * re-encoded on upload. Emails are white, so it's the light mode logo when there is one (2.2.4).
      */
     public static function logo(): ?array
     {

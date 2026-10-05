@@ -5,16 +5,17 @@ use Align\Branding;
  * Branding (1.45.2): the 1.43 look. Name and logo, the sign-in page, the brand color and the sidebar on the left;
  * on the right a live preview of the app, the sign-in page and the client portal as they look now, in light or dark.
  * @var array $v; bool $hasLogo; string $logoUrl; array $backgrounds [staff|portal => [url, dim]] (2.1.1);
- *      bool $hasReportLogo; string $reportLogoUrl (2.2.4: a second logo for reports and other white pages)
+ *      bool $hasLightLogo; string $lightLogoUrl (2.2.4: a light mode logo; $hasLogo / $logoUrl are the dark mode one)
  * Security: $v['brand_primary'] is Branding::color() (always #rrggbb), so it is safe in the style attributes; the
  * background URLs are built by Branding from fixed parts and the dims are integers. Text values are escaped.
  */
 // 2.2.2: the default is the MSP Align logo's blue; its teal and navy, and the old default, are choices too
 $swatches = ['#1b68b8' => 'Default blue', '#0b7d88' => 'MSP Align teal', '#0f2a4f' => 'MSP Align navy', '#007bff' => 'Bright blue', '#2f7a55' => 'Mountain green', '#6f42c1' => 'Purple', '#b3261e' => 'Red', '#e67e22' => 'Orange', '#343a40' => 'Charcoal'];
 $company = (string) ($v['company_name'] ?: 'Your company');
-// 2.2.4: which logo each place uses: white pages take the report logo, dark ones the app logo (either stands in for the other)
-$lightUrl = $hasReportLogo ? $reportLogoUrl : $logoUrl;
-$darkUrl = $hasLogo || !$hasReportLogo ? $logoUrl : $reportLogoUrl;
+// 2.2.4: which logo each place uses: light backgrounds the light mode logo, dark ones the dark mode logo (either
+// stands in for the other)
+$lightUrl = $hasLightLogo ? $lightLogoUrl : $logoUrl;
+$darkUrl = $hasLogo || !$hasLightLogo ? $logoUrl : $lightLogoUrl;
 $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
 ?>
 <?= \Align\View::fetch('settings/_tabs', ['tab' => 'branding']) ?>
@@ -41,25 +42,25 @@ $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
           <hr class="my-3">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="d-block" for="logo">App logo</label>
-              <div class="brand-logo-drop is-dark"><img src="<?= e($logoUrl) ?>" alt="Current app logo" id="logo-img"></div>
-              <input type="file" class="form-control mt-2" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
-              <div class="form-text">In the menu and on your team's sign-in page in dark mode. A light or white logo suits the dark menu.</div>
-              <?php if ($hasLogo): ?>
-                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_logo" formnovalidate data-confirm="Remove the app logo?<?= $hasReportLogo ? ' The report logo is used everywhere then.' : ' The default icon comes back.' ?>"><i class="fas fa-trash me-1"></i>Remove app logo</button>
+              <label class="d-block" for="logo_light"><i class="fas fa-sun me-1 text-warning"></i>Light mode logo</label>
+              <div class="brand-logo-drop is-light"><img src="<?= e($lightLogoUrl) ?>" alt="Current light mode logo" id="light-logo-img"<?= $hasLightLogo ? '' : ' class="opacity-50"' ?>></div>
+              <input type="file" class="form-control mt-2" id="logo_light" name="logo_light" accept="image/png,image/jpeg,image/webp,image/gif">
+              <div class="form-text">For light backgrounds: the sign-in page in light mode, printed reports, contracts and their PDFs, emails, the client portal, onboarding pages, a light menu and the browser tab. Use a dark or colored logo that reads on white.</div>
+              <?php if ($hasLightLogo): ?>
+                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_logo_light" formnovalidate data-confirm="Remove the light mode logo?<?= $hasLogo ? ' The dark mode logo is used everywhere then.' : ' The default icon comes back.' ?>"><i class="fas fa-trash me-1"></i>Remove light mode logo</button>
               <?php else: ?>
-                <div class="form-text"><i class="fas fa-circle-info me-1"></i><?= $hasReportLogo ? 'Using the report logo.' : 'Showing the default icon.' ?></div>
+                <div class="form-text"><i class="fas fa-circle-info me-1"></i><?= $hasLogo ? 'Empty: using the dark mode logo.' : 'Empty: showing the default icon.' ?></div>
               <?php endif; ?>
             </div>
             <div class="col-md-6">
-              <label class="d-block" for="report_logo">Report logo <span class="badge text-bg-light border fw-normal">white pages</span></label>
-              <div class="brand-logo-drop is-light"><img src="<?= e($reportLogoUrl) ?>" alt="Current report logo" id="report-logo-img"<?= $hasReportLogo ? '' : ' class="opacity-50"' ?>></div>
-              <input type="file" class="form-control mt-2" id="report_logo" name="report_logo" accept="image/png,image/jpeg,image/webp,image/gif">
-              <div class="form-text">On printed reports, contracts and their PDFs, emails, the client portal, onboarding pages, the light sign-in page and the browser tab. Use a dark or colored logo that reads on white.</div>
-              <?php if ($hasReportLogo): ?>
-                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_report_logo" formnovalidate data-confirm="Remove the report logo?<?= $hasLogo ? ' Reports use the app logo again.' : '' ?>"><i class="fas fa-trash me-1"></i>Remove report logo</button>
+              <label class="d-block" for="logo"><i class="fas fa-moon me-1 text-secondary"></i>Dark mode logo</label>
+              <div class="brand-logo-drop is-dark"><img src="<?= e($logoUrl) ?>" alt="Current dark mode logo" id="logo-img"<?= $hasLogo || !$hasLightLogo ? '' : ' class="opacity-50"' ?>></div>
+              <input type="file" class="form-control mt-2" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
+              <div class="form-text">For dark backgrounds: the dark menu and the sign-in page in dark mode. A light or white logo works best.</div>
+              <?php if ($hasLogo): ?>
+                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_logo" formnovalidate data-confirm="Remove the dark mode logo?<?= $hasLightLogo ? ' The light mode logo is used everywhere then.' : ' The default icon comes back.' ?>"><i class="fas fa-trash me-1"></i>Remove dark mode logo</button>
               <?php else: ?>
-                <div class="form-text"><i class="fas fa-circle-info me-1"></i><?= $hasLogo ? 'Empty: reports use the app logo.' : 'Empty: showing the default icon.' ?></div>
+                <div class="form-text"><i class="fas fa-circle-info me-1"></i><?= $hasLightLogo ? 'Empty: using the light mode logo.' : 'Empty: showing the default icon.' ?></div>
               <?php endif; ?>
             </div>
           </div>
@@ -162,7 +163,7 @@ $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
             <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#bp-tab-login" role="tab" aria-selected="false">Sign-in page</button></li>
             <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#bp-tab-portal" role="tab" aria-selected="false">Client portal</button></li>
           </ul>
-          <div class="bp-frame" id="brand-preview" data-bs-theme="light" data-has-app="<?= $hasLogo ? '1' : '0' ?>" data-has-report="<?= $hasReportLogo ? '1' : '0' ?>" data-builtin="/assets/icon.png" data-default-name="<?= e(Branding::DEFAULT_NAME) ?>" data-default-company="Your company"
+          <div class="bp-frame" id="brand-preview" data-bs-theme="light" data-has-dark="<?= $hasLogo ? '1' : '0' ?>" data-has-light="<?= $hasLightLogo ? '1' : '0' ?>" data-builtin="/assets/icon.png" data-default-name="<?= e(Branding::DEFAULT_NAME) ?>" data-default-company="Your company"
             style="--bp-color: <?= e($v['brand_primary']) ?>; --bp-text: <?= e(Branding::contrastText($v['brand_primary'])) ?>">
             <div class="tab-content">
               <div class="tab-pane fade show active" id="bp-tab-app" role="tabpanel">

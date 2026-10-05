@@ -78,7 +78,7 @@ final class PdfRender
         $this->accent = Pdf::hex($st['color'] ?: \Align\Branding::color());
         $this->vals = Contracts::values($c);
         $this->w = $pw - $this->ml - $this->mr;
-        if ($st['logo'] && ($f = \Align\Branding::lightLogoFile())) { // the report logo, else the app logo (2.2.4)
+        if ($st['logo'] && ($f = \Align\Branding::lightLogoFile())) { // the light mode logo, else the dark mode one (2.2.4)
             $this->logo = $this->pdf->addImage((string) file_get_contents($f));
         }
         $this->top = ($this->logo !== null || $st['header'] !== '' || !$final) ? 92 : 60;

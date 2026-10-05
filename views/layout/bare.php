@@ -28,7 +28,7 @@
       <img src="/assets/logo.png?v=<?= e(APP_VERSION) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-wordmark is-light d-block mx-auto" width="1032" height="277">
       <img src="/assets/logo-dark.png?v=<?= e(APP_VERSION) ?>" alt="<?= e(\Align\Branding::name()) ?>" class="login-wordmark is-dark mx-auto" width="1032" height="277">
     <?php else: ?>
-      <?php // 2.2.4: the report logo on a light page, the app logo in dark mode (the portal's sign-in is always light)
+      <?php // 2.2.4: the light mode logo on a light page, the dark mode logo in dark mode (the portal's sign-in is always light)
       $lightLogo = \Align\Branding::lightLogoUrl();
       $darkLogo = defined('IS_PORTAL') && IS_PORTAL ? $lightLogo : \Align\Branding::darkLogoUrl();
       $custom = \Align\Branding::anyLogo() ? ' is-custom' : ''; ?>

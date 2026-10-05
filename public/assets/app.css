@@ -346,7 +346,7 @@ a.rm-item:hover { text-decoration: none; background: var(--bs-tertiary-bg); colo
 .app-sidebar .brand-image.is-builtin { background: #fff; border-radius: 8px; padding: 3px; width: 34px; height: 34px; max-height: 34px; object-fit: contain; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
 .login-wordmark.is-dark, [data-bs-theme=dark] .login-wordmark.is-light { display: none !important; }
 [data-bs-theme=dark] .login-wordmark.is-dark { display: block !important; }
-/* 2.2.4: an uploaded report logo on the light sign-in page, the app logo in dark mode */
+/* 2.2.4: the light mode logo on the light sign-in page, the dark mode logo in dark mode */
 .login-logo-img.on-dark, [data-bs-theme=dark] .login-logo-img.on-light { display: none !important; }
 [data-bs-theme=dark] .login-logo-img.on-dark { display: block !important; }
 .login-logo-img.is-custom { width: auto; max-width: 260px; max-height: 90px; }
@@ -357,7 +357,7 @@ a.rm-item:hover { text-decoration: none; background: var(--bs-tertiary-bg); colo
 .brand-logo-drop { width: 120px; height: 72px; border: 1px dashed var(--bs-border-color); border-radius: .6rem; display: flex; align-items: center; justify-content: center; flex: 0 0 120px;
   background: repeating-conic-gradient(var(--bs-tertiary-bg) 0% 25%, var(--bs-body-bg) 0% 50%) 50% / 12px 12px; }
 .brand-logo-drop img { max-width: 108px; max-height: 60px; object-fit: contain; }
-/* 2.2.4: each logo slot shows its logo on the background it's for (app: the dark menu; report: a white page) */
+/* 2.2.4: each logo slot shows its logo on the background it's for (dark mode: the dark menu; light mode: a white page) */
 .brand-logo-drop.is-dark { background: #1b2129; border-style: solid; border-color: #1b2129; }
 .brand-logo-drop.is-light { background: #fff; border-style: solid; }
 .bp-frame .bp-on-dark, .bp-frame[data-bs-theme=dark] .bp-on-light { display: none; }

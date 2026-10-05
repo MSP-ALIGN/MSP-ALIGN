@@ -302,7 +302,7 @@ $r->get('/settings/os', [SettingsController::class, 'os']);
 $r->get('/settings/branding', [BrandingController::class, 'show']);
 $r->post('/settings/branding', [BrandingController::class, 'save']);
 $r->get('/branding/logo', [BrandingController::class, 'logo']);
-$r->get('/branding/report-logo', [BrandingController::class, 'reportLogo']); // 2.2.4: the logo for white pages
+$r->get('/branding/logo-light', [BrandingController::class, 'lightLogo']); // 2.2.4: the light mode logo
 $r->get('/branding/background/{kind:str}', [BrandingController::class, 'background']);
 $r->post('/settings/os', [SettingsController::class, 'osSave']);
 // Demo data (1.41)

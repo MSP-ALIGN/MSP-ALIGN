@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Align;
 
 /**
- * Portal name, logos (the app's and, since 2.2.4, one for reports and other white pages) and colors (Settings → Branding).
+ * Portal name, logos (since 2.2.4 one for light mode and white pages, one for dark mode) and colors (Settings → Branding).
  * Uploaded logos live outside the web root and are served by /branding/logo.
  *
  * Security assumptions: only admins save branding (BrandingController checks the role and CSRF). The logo and the
@@ -46,19 +46,21 @@ final class Branding
     }
 
     /**
-     * 2.2.4: two logos. 'app' is the menu's and the staff sign-in's (often light, for the dark menu); 'report' is
-     * for white pages: printed reports, contracts and their PDFs, emails, the client portal and onboarding pages.
-     * kind => [setting, file name prefix, URL]. Either one stands in for the other while only one is uploaded.
+     * 2.2.4: two logos, one for each kind of background. 'light' is for light mode and white pages: printed reports,
+     * contracts and their PDFs, emails, the client portal, onboarding pages, the light sign-in page, a light menu and
+     * the browser tab. 'dark' is for dark mode and the dark menu (the logo Align had before 2.2.4, so an existing
+     * logo stays where it was). kind => [setting, file name prefix, URL]. Either one stands in for the other while
+     * only one is uploaded.
      */
     public const LOGOS = [
-        'app' => ['brand_logo', 'logo', '/branding/logo'],
-        'report' => ['brand_logo_report', 'rlogo', '/branding/report-logo'],
+        'dark' => ['brand_logo', 'logo', '/branding/logo'],
+        'light' => ['brand_logo_light', 'llogo', '/branding/logo-light'],
     ];
 
-    /** Path of an uploaded logo ($kind: a LOGOS key), or null. webp/gif are app logos stored before 1.45 re-encoded them. */
-    public static function logoFile(string $kind = 'app'): ?string
+    /** Path of an uploaded logo ($kind: a LOGOS key), or null. webp/gif are logos stored before 1.45 re-encoded them. */
+    public static function logoFile(string $kind = 'dark'): ?string
     {
-        [$setting, $prefix] = self::LOGOS[$kind] ?? self::LOGOS['app'];
+        [$setting, $prefix] = self::LOGOS[$kind] ?? self::LOGOS['dark'];
         $f = Settings::get($setting);
         // The name must be one Branding made, so a setting can't point outside the upload folder
         if (!$f || !preg_match('/^' . $prefix . '-[a-f0-9]{16}\.(png|jpg|webp|gif)\z/', $f)) {
@@ -69,14 +71,14 @@ final class Branding
     }
 
     /** URL of an uploaded logo (cache-busted), or the built-in MSP Align mark (2.2.2: a PNG, was icon.svg). */
-    public static function logoUrl(string $kind = 'app'): string
+    public static function logoUrl(string $kind = 'dark'): string
     {
-        [$setting, $prefix, $url] = self::LOGOS[$kind] ?? self::LOGOS['app'];
+        [$setting, $prefix, $url] = self::LOGOS[$kind] ?? self::LOGOS['dark'];
         return self::logoFile($kind) ? $url . '?v=' . substr((string) Settings::get($setting), strlen($prefix) + 1, 8) : '/assets/icon.png?v=' . (defined('APP_VERSION') ? APP_VERSION : '1');
     }
 
     /** Whether that logo was uploaded (the file, not just the setting). */
-    public static function hasLogo(string $kind = 'app'): bool
+    public static function hasLogo(string $kind = 'dark'): bool
     {
         return self::logoFile($kind) !== null;
     }
@@ -84,25 +86,25 @@ final class Branding
     /** Whether either logo was uploaded. */
     public static function anyLogo(): bool
     {
-        return self::hasLogo('app') || self::hasLogo('report');
+        return self::hasLogo('dark') || self::hasLogo('light');
     }
 
-    /** The logo for a light background: the report logo, else the app logo, else the built-in mark. */
+    /** The logo for a light background: the light mode logo, else the dark mode one, else the built-in mark. */
     public static function lightLogoUrl(): string
     {
-        return self::logoUrl(self::hasLogo('report') ? 'report' : 'app');
+        return self::logoUrl(self::hasLogo('light') ? 'light' : 'dark');
     }
 
-    /** The logo for a dark background (the dark menu, dark mode): the app logo, else the report logo, else the built-in mark. */
+    /** The logo for a dark background (dark mode, the dark menu): the dark mode logo, else the light mode one, else the built-in mark. */
     public static function darkLogoUrl(): string
     {
-        return self::logoUrl(self::hasLogo('app') || !self::hasLogo('report') ? 'app' : 'report');
+        return self::logoUrl(self::hasLogo('dark') || !self::hasLogo('light') ? 'dark' : 'light');
     }
 
-    /** The file of the logo for white pages (PDFs, emails): the report logo, else the app logo, or null. */
+    /** The file of the logo for white pages (PDFs, emails): the light mode logo, else the dark mode one, or null. */
     public static function lightLogoFile(): ?string
     {
-        return self::logoFile('report') ?? self::logoFile('app');
+        return self::logoFile('light') ?? self::logoFile('dark');
     }
 
     /** The menu's logo: the dark or light one to suit the menu color (Settings → Branding → Menu). */
@@ -264,9 +266,9 @@ final class Branding
      * Security: the caller is an admin (role and CSRF checked). Size, type by content and dimensions are checked
      * before decoding, SVG is refused, and only the re-encoded pixels are kept under a random name.
      */
-    public static function saveLogo(array $file, string $kind = 'app'): ?string
+    public static function saveLogo(array $file, string $kind = 'dark'): ?string
     {
-        [$setting, $prefix] = self::LOGOS[$kind] ?? self::LOGOS['app'];
+        [$setting, $prefix] = self::LOGOS[$kind] ?? self::LOGOS['dark'];
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             return match ($file['error'] ?? 0) {
                 UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'That file is too large (2 MB max).',
@@ -306,12 +308,12 @@ final class Branding
     }
 
     /** Deletes an uploaded logo (the other one, or the built-in MSP Align mark, takes its place). Admins only (caller). */
-    public static function removeLogo(string $kind = 'app'): void
+    public static function removeLogo(string $kind = 'dark'): void
     {
         if ($f = self::logoFile($kind)) {
             @unlink($f);
         }
-        Settings::set((self::LOGOS[$kind] ?? self::LOGOS['app'])[0], null);
+        Settings::set((self::LOGOS[$kind] ?? self::LOGOS['dark'])[0], null);
     }
 
     /**

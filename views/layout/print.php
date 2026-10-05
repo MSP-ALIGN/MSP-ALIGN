@@ -57,7 +57,7 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', '<'], ['\\\\', '\\"', '
 <div class="container-report report-page">
   <?php if (empty($noMasthead)): ?>
   <header class="masthead">
-    <?php if (\Align\Branding::anyLogo()): // 2.2.4: the report logo (white page), else the app logo ?><img src="<?= e(\Align\Branding::lightLogoUrl()) ?>" alt="<?= e($brand['company']) ?>" class="provider-logo"><?php endif; ?>
+    <?php if (\Align\Branding::anyLogo()): // 2.2.4: the light mode logo (white page), else the dark mode one ?><img src="<?= e(\Align\Branding::lightLogoUrl()) ?>" alt="<?= e($brand['company']) ?>" class="provider-logo"><?php endif; ?>
     <div class="titles">
       <div class="kicker"><?= e($brand['company']) ?><?= $client ? ' · ' . e($client['name']) : '' ?></div>
       <h1><?= e($reportTitle ?? $title) ?></h1>
