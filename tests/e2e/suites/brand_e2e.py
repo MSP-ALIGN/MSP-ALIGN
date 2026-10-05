@@ -7,6 +7,9 @@ admin = login("admin@example.com", "LongPassword123!")
 before = {r["name"]: r["value"] for r in q("select name, value from settings where name in ('brand_name','brand_primary','brand_sidebar','brand_logo_only','brand_login_message')")}
 t = admin.get(B + "/settings/branding").text
 ok(not errs(t) and 'id="brand-preview"' in t and all(x in t for x in ['id="bp-tab-app"', 'id="bp-tab-login"', 'id="bp-tab-portal"', 'data-preview-theme="dark"']), "the page has the preview: app, sign-in page and client portal, light and dark")
+pp = t.split('id="bp-tab-portal"')[1].split('id="bp-tab-')[0] if 'id="bp-tab-portal"' in t else ""
+ok('class="bp-portal" data-bs-theme="light"' in pp and 'data-logo="light"' in pp and "Your technology" in pp and "bp-client-badge" not in pp,
+   "the portal preview is laid out like the portal: always light, with the light mode logo (2.2.5)")
 ok('class="bp-header"' in t and 'bp-search' in t and "Top bar, buttons" not in t, "the preview is the current look (white header with search, not the old colored top bar)")
 ok(t.count('name="brand_sidebar"') == 2 and 'type="radio"' in t, "the menu color is two picture choices")
 r = admin.post(B + "/settings/branding", data={"_csrf": csrf(admin, "/settings/branding"), "action": "save", "brand_name": "Acme vCIO", "company_name": "Example MSP Group",

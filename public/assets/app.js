@@ -647,6 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     preview.style.setProperty('--bp-color', hex);
     preview.style.setProperty('--bp-text', textFor(hex));
     preview.style.setProperty('--bp-link', linkFor(hex, preview.dataset.bsTheme === 'dark'));
+    preview.style.setProperty('--bp-link-light', linkFor(hex, false));   // the client portal is always light (2.2.5)
     if (textLabel) textLabel.textContent = textFor(hex) === '#ffffff' ? 'white' : 'dark';
     document.querySelectorAll('[data-swatch]').forEach((b) => b.classList.toggle('is-active', b.dataset.swatch.toLowerCase() === hex.toLowerCase()));
   };

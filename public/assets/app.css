@@ -411,9 +411,18 @@ a.rm-item:hover { text-decoration: none; background: var(--bs-tertiary-bg); colo
 .bp-login-card { width: 220px; background: var(--bs-body-bg); border: 1px solid var(--align-card-border); border-top: 3px solid var(--bp-color); border-radius: 9px; padding: 12px; box-shadow: 0 4px 20px rgba(16,24,40,.06); }
 .bp-login-msg { text-align: center; color: var(--bs-secondary-color); margin-bottom: 8px; overflow-wrap: anywhere; }
 .bp-field { border: 1px solid var(--bs-border-color); border-radius: 5px; padding: 4px 7px; margin-bottom: 6px; color: var(--bs-secondary-color); background: var(--bs-body-bg); }
-.bp-portal { min-height: 300px; }
+/* 2.2.5: the portal preview is always light (data-bs-theme on .bp-portal), like the portal; its link color is the light one */
+.bp-portal { min-height: 300px; --bp-link: var(--bp-link-light, var(--bp-color)); background: var(--align-page-bg); color: var(--bs-body-color); }
+.bp-frame .bp-portal-logo { max-height: 26px; max-width: 90px; }
+.bp-portal-account { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 2px; border: 1px solid var(--align-card-border); border-radius: 999px; white-space: nowrap; }
+.bp-portal-account .bp-avatar { margin-left: 0; }
+.bp-portal-hello { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.bp-portal-hello b { display: block; font-size: 14px; color: var(--bs-emphasis-color); }
+.bp-portal-hello small { color: var(--bs-secondary-color); font-size: 9.5px; }
+.bp-portal-hello .bp-btn-outline { border-color: var(--bp-link); white-space: nowrap; }
+.bp-ico { color: var(--bp-link); }
+.bp-muted { color: var(--bs-secondary-color); font-weight: 400; }
 .bp-portal-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bs-body-bg); border-bottom: 1px solid var(--align-card-border); }
-.bp-client-badge { width: 28px; height: 28px; border-radius: 6px; background: var(--bs-tertiary-bg); border: 1px solid var(--align-card-border); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--bs-secondary-color); }
 .bp-portal-name { display: flex; flex-direction: column; min-width: 0; color: var(--bs-emphasis-color); }
 .bp-portal-name small { color: var(--bs-secondary-color); font-size: 9.5px; }
 .bp-portal-tabs { display: flex; gap: 12px; padding: 0 10px; background: var(--bs-body-bg); border-bottom: 1px solid var(--align-card-border); color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; }

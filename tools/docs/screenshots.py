@@ -80,7 +80,7 @@ HIDE = "document.querySelectorAll('.alert').forEach(a => { if (/is available|Dem
 
 portal = fq("select * from portal_users where email=%s", PORTAL_USER)[0]
 fq("update users set name='Jordan Lee', email='jordan@yourmsp.example' where email=%s", ADMIN)
-SECRET = "JBSWY3DPEHPK3PXP"
+SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"   # 20 bytes: the app refuses authenticator keys under 16 (2.2.1)
 try:
     with sync_playwright() as p:
         br = p.chromium.launch()
@@ -119,6 +119,9 @@ try:
             r = s.post(B_FRESH + "/portal/login", data={"_csrf": tok, "email": PORTAL_USER, "password": "PortalShots-12345"})
             tok = re.search(r'name="_csrf" value="([^"]+)"', r.text).group(1)
             s.post(B_FRESH + "/portal/login/2fa", data={"_csrf": tok, "code": totp(SECRET)})
+            if not s.get(B_FRESH + "/portal").url.rstrip("/").endswith("/portal"):
+                # without this the shots are quietly of the sign-in page (as from 2.2.1 to 2.2.4)
+                sys.exit("screenshots: the demo portal user couldn't sign in, so no portal shots were taken")
             cookies = [{"name": c.name, "value": c.value, "url": B_FRESH} for c in s.cookies]
             ctx = br.new_context(viewport={"width": 1400, "height": 900}, color_scheme="light")
             ctx.add_cookies(cookies)
