@@ -1,4 +1,4 @@
-"""2.2.2 Settings → Diagnostics: server, app, database, storage, data and background-job health for admins, recent
+"""2.2.3 Settings → Diagnostics: server, app, database, storage, data and background-job health for admins, recent
 problems, and a text report to share (without the site address or error text)."""
 from lib import *
 import re, html as H

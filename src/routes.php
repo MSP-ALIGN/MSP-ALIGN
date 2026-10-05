@@ -256,7 +256,7 @@ $r->get('/sync/{id}', [SyncController::class, 'show']);
 
 // Admin
 $S = \Align\Controllers\SystemController::class;
-$r->get('/settings/diagnostics', [\Align\Controllers\DiagnosticsController::class, 'index']); // 2.2.2
+$r->get('/settings/diagnostics', [\Align\Controllers\DiagnosticsController::class, 'index']); // 2.2.3
 $r->get('/settings/diagnostics/report', [\Align\Controllers\DiagnosticsController::class, 'report']);
 $r->get('/settings/system', [$S, 'index']);
 $r->post('/settings/system/check', [$S, 'check']);

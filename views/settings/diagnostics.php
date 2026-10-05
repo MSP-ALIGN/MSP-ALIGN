@@ -1,6 +1,6 @@
 <?php
 /**
- * 2.2.2 Settings → Diagnostics (admins). @var array $d (System\Diagnostics::all); string $report (the text report)
+ * 2.2.3 Settings → Diagnostics (admins). @var array $d (System\Diagnostics::all); string $report (the text report)
  * Every value is escaped; nothing here takes input. The report is shown in a read-only box so admins see exactly
  * what they'd share before copying or downloading it.
  */

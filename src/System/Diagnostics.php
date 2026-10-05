@@ -8,7 +8,7 @@ use Align\DB;
 use Align\Settings;
 
 /**
- * 2.2.2 Settings → Diagnostics: how the server, the app, the database and the background jobs are doing, how much
+ * 2.2.3 Settings → Diagnostics: how the server, the app, the database and the background jobs are doing, how much
  * data there is, and recent problems, in one place, plus a plain-text report to paste into a support request.
  *
  * Every figure is read on the spot and every check is wrapped, so a reading that isn't possible here (a /proc file

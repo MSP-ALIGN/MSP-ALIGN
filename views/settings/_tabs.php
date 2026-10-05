@@ -8,7 +8,7 @@ $tabs = [
     'branding' => ['/settings/branding', 'Branding', 'fa-palette'],
     'api' => ['/settings/api', 'API', 'fa-code'],
     'system' => ['/settings/system', 'Updates & backups', 'fa-arrows-rotate'],
-    'diagnostics' => ['/settings/diagnostics', 'Diagnostics', 'fa-stethoscope'], // 2.2.2: server, database and job health
+    'diagnostics' => ['/settings/diagnostics', 'Diagnostics', 'fa-stethoscope'], // 2.2.3: server, database and job health
 ];
 $newer = \Align\System\Agent::updateAvailable();
 ?>

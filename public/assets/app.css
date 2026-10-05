@@ -1001,7 +1001,7 @@ textarea.pv-in { resize: none; white-space: normal; }
 .ct-paper .pv, .sign-paper .pv { margin: -8px; }
 .ct-paper:has(.pv), .sign-paper:has(.pv) { padding: 16px; background: var(--bs-tertiary-bg); }
 
-/* 2.2.2 Settings → Diagnostics: label on the left, value (and its note) on the right; long values wrap */
+/* 2.2.3 Settings → Diagnostics: label on the left, value (and its note) on the right; long values wrap */
 .diag-rows .diag-label { flex: 0 0 38%; }
 .diag-rows .diag-value { min-width: 0; overflow-wrap: anywhere; }
 .diag-tile:hover { box-shadow: var(--align-shadow-hover); }

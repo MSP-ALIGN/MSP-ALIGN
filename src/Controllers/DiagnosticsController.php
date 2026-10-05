@@ -9,7 +9,7 @@ use Align\System\Diagnostics;
 use Align\View;
 
 /**
- * 2.2.2 Settings → Diagnostics: server, app, database, storage, data and background-job health on one page, and
+ * 2.2.3 Settings → Diagnostics: server, app, database, storage, data and background-job health on one page, and
  * the same facts as a text report to paste into a support request.
  *
  * Security assumptions: admins only (requireRole first in each action); both are GET and change nothing. Viewing is
