@@ -46,7 +46,7 @@ $contact = $company['email'] !== '' ? '<a href="mailto:' . e($company['email']) 
     <p>Administrators may change your access or disable your account at any time, for example when your role changes or you leave. We may update these terms; the date at the top shows the latest version, and continuing to use the app means you accept it.</p>
 
     <h2 class="h5 mt-4">10. The software and its license</h2>
-    <p>The app's software is free software licensed under the <a href="/license">GNU Affero General Public License, version 3</a>. Nothing in these terms limits the rights that license gives you. These terms cover how you use this installation of the app. The software comes <b>without any warranty</b>, to the extent the law allows (see sections 15 and 16 of the license).</p>
+    <p>The app's software is free software licensed under the <a href="/license">GNU Affero General Public License, version 3 or (at your option) any later version</a>. Nothing in these terms limits the rights that license gives you. These terms cover how you use this installation of the app. The software comes <b>without any warranty</b>, to the extent the law allows (see sections 15 and 16 of the license).</p>
 
     <h2 class="h5 mt-4">11. Questions</h2>
     <p class="mb-0">Contact <?= $contact ?><?= $company['phone'] !== '' ? ' or call ' . e($company['phone']) : '' ?>.</p>

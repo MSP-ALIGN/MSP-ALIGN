@@ -41,7 +41,7 @@ $v = e(APP_VERSION);
 </main>
 <footer class="welcome-wrap pb-4 small text-muted d-flex flex-wrap">
   <span class="me-auto"><?= e($company['name']) ?><?= $company['website'] ? ' · ' . e(preg_replace('#^https?://#', '', $company['website'])) : '' ?></span>
-  <a href="/portal/terms" class="text-muted">Terms of use</a>
+  <span><a href="/portal/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
 </footer>
 </body>
 </html>

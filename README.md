@@ -288,7 +288,7 @@ To point at the mocks, add `'allow_insecure_integrations' => true` to the config
 
 **Profiling:** add `'profile' => '/tmp/align-profile.log'` to the config and each request appends its time, query count, database time, slow queries (`'profile_slow_ms'`, default 50) and repeated queries.
 
-Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, Font Awesome, FullCalendar, Quill; see their LICENSE files) · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL and PHP files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.
+Layout: `public/` web root (`public/vendor/` = bundled AdminLTE, Bootstrap, Font Awesome, FullCalendar, PDF.js, Quill; see their LICENSE files) · `src/` app code (no framework, no Composer) · `views/` templates · `db/migrations/` numbered SQL and PHP files applied once each · `deploy/systemd/` timers · `scripts/` update and backup.
 
 ## License
 
@@ -296,6 +296,8 @@ MSP Align is free software, copyright © 2026 Mountaineer IT Inc. and MSP Align 
 
 MSP Align was started by [Mountaineer IT](https://mountaineerit.com), an MSP in Northern California, and is now developed in the open at [github.com/MSP-ALIGN/MSP-ALIGN](https://github.com/MSP-ALIGN/MSP-ALIGN). Contributions are welcome under the same license: see [Contributing](CONTRIBUTING.md) and the [Code of conduct](CODE_OF_CONDUCT.md). Questions go to [GitHub Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN/discussions).
 
-Bundled third-party components keep their own licenses (all compatible): AdminLTE, Bootstrap and FullCalendar (MIT), Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1, code MIT) and Quill (BSD-3-Clause). Their license files are in `public/vendor/`, and the in-app **License** page lists them.
+Bundled third-party components keep their own licenses (all compatible): AdminLTE (MIT), Bootstrap (MIT, includes Popper, MIT), FullCalendar (MIT, includes Preact, MIT), Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1, code MIT), PDF.js (Apache-2.0; its standard fonts SIL OFL 1.1 and BSD) and Quill (BSD-3-Clause; includes Parchment, BSD-3-Clause, and quill-delta, lodash, eventemitter3, MIT, and fast-diff, Apache-2.0). Contract PDFs use character widths from Adobe's Core 14 font metrics (Copyright © 1985–1997 Adobe Systems Incorporated, used under the Adobe AFM notice in `src/Pdf/ADOBE-AFM-README.txt`; no fonts are embedded). The license files are in `public/vendor/`, and the in-app **License** page lists them.
+
+**Trademarks:** the license covers the code, not the MSP Align name and logo; see the [trademark policy](TRADEMARKS.md) for what's fine (running, rebranding and sharing unchanged copies all are). Other product and standard names (ITFlow, NinjaOne, Veeam, Microsoft, Google, Dell, Lenovo, CIS Controls®, ISO/IEC 27001, PCI DSS, SOC 2 and others) are trademarks of their owners, used only to say what MSP Align works with; MSP Align isn't affiliated with or endorsed by them. The compliance checklists cite official control numbers, but their titles and guidance are MSP Align's own summaries, not the text of the standards.
 
 **Terms of use:** the app has terms for staff (`/terms`) and for client portal users (`/portal/terms`), readable before signing in and linked from the sign-in pages, footers and Help & how-to → Terms & license. They use the company name, email and phone from Settings → General. Have your own counsel review them before relying on them; update `LegalController::TERMS_UPDATED` when you change them.

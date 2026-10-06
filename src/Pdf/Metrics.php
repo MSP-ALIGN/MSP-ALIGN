@@ -9,6 +9,10 @@ namespace Align\Pdf;
  * the widths and metrics are taken, remapped from AdobeStandardEncoding glyph names to WinAnsiEncoding byte
  * order. This is a modified, derived form of the AFM data; the AFM files themselves are not included.
  * Regenerate with tools/pdf-metrics.py.
+ *
+ * Font metrics: Copyright (c) 1985, 1987, 1989, 1990, 1993, 1997 Adobe Systems Incorporated. All Rights Reserved.
+ * Helvetica and Times are trademarks of Linotype-Hell AG and/or its subsidiaries. Used under the Adobe AFM notice
+ * in ADOBE-AFM-README.txt; no fonts are embedded.
  */
 final class Metrics
 {

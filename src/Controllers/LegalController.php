@@ -18,18 +18,18 @@ use Align\View;
 final class LegalController
 {
     /** Change this (and the text) whenever the terms change. */
-    public const TERMS_UPDATED = '2026-09-26';
+    public const TERMS_UPDATED = '2026-10-06';
     public const DEFAULT_SOURCE = 'https://github.com/MSP-ALIGN/MSP-ALIGN';
 
     /** Bundled third-party software: [name, version, license, url]. */
     public const THIRD_PARTY = [
         ['AdminLTE', '4.9.1', 'MIT', 'https://adminlte.io', 'public/vendor/adminlte/LICENSE'],
-        ['Bootstrap', '5.3.8', 'MIT', 'https://getbootstrap.com', 'public/vendor/bootstrap/LICENSE'],
+        ['Bootstrap', '5.3.8', 'MIT; includes Popper 2 (MIT)', 'https://getbootstrap.com', 'public/vendor/bootstrap/LICENSE'],
         ['Font Awesome Free', '6.7.2', 'Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT', 'https://fontawesome.com', 'public/vendor/fontawesome/LICENSE.txt'],
-        ['FullCalendar', '6.1.19', 'MIT', 'https://fullcalendar.io', 'public/vendor/fullcalendar/LICENSE.md'],
+        ['FullCalendar', '6.1.19', 'MIT; includes Preact (MIT)', 'https://fullcalendar.io', 'public/vendor/fullcalendar/LICENSE.md'],
         ['PDF.js', '4.10.38', 'Apache-2.0; its fonts SIL OFL 1.1 (Liberation) and BSD (Foxit)', 'https://mozilla.github.io/pdf.js/', ['public/vendor/pdfjs/LICENSE', 'public/vendor/pdfjs/standard_fonts/LICENSE_LIBERATION', 'public/vendor/pdfjs/standard_fonts/LICENSE_FOXIT']],
-        ['Quill', '2.0.3', 'BSD-3-Clause', 'https://quilljs.com', ['public/vendor/quill/LICENSE', 'public/vendor/quill/quill.js.LICENSE.txt']],
-        ['Adobe Core 14 font metrics', 'AFM 4.1 (character widths only, in src/Pdf/Metrics.php)', 'Adobe AFM notice (free to use, copy and distribute)', 'https://github.com/matplotlib/matplotlib/tree/main/lib/matplotlib/mpl-data/fonts/pdfcorefonts', 'src/Pdf/ADOBE-AFM-README.txt'],
+        ['Quill', '2.0.3', 'BSD-3-Clause; includes Parchment (BSD-3-Clause), quill-delta, lodash-es and eventemitter3 (MIT) and fast-diff (Apache-2.0)', 'https://quilljs.com', ['public/vendor/quill/LICENSE', 'public/vendor/quill/quill.js.LICENSE.txt']],
+        ['Adobe Core 14 font metrics', 'AFM 4.1 (character widths only, in src/Pdf/Metrics.php)', '© 1985–1997 Adobe Systems Incorporated; Adobe AFM notice (free to use, copy and distribute). Helvetica and Times are trademarks of Linotype-Hell AG', 'https://github.com/matplotlib/matplotlib/tree/main/lib/matplotlib/mpl-data/fonts/pdfcorefonts', 'src/Pdf/ADOBE-AFM-README.txt'],
     ];
 
     /** The company's name, email and phone for the terms (plain text, from Settings). */
