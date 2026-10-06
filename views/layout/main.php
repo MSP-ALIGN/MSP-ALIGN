@@ -82,6 +82,7 @@ $clientMenu = $client ? [
     'THE PLAN',
     ['roadmap', "/clients/$cidM/roadmap", 'Roadmap & projects', 'fa-road'],
     ['budget', "/clients/$cidM/budget", 'Budget', 'fa-coins'],
+    ['alignment', "/clients/$cidM/alignment", 'Alignment', 'fa-bullseye'], // 2.3.0: measured against the MSP's own standards
     ['compliance', "/clients/$cidM/compliance", 'Compliance', 'fa-clipboard-check'],
     ['documents', "/clients/$cidM/documents", 'Documents', 'fa-file-lines'],
     'MEETINGS',

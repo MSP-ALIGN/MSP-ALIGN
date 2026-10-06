@@ -10,7 +10,7 @@ use Align\Settings;
 /**
  * Demo data (1.41): four made-up clients with everything the app can show without integrations: contacts,
  * devices (of every age, with warranty and OS support dates), licenses, budget lines, roadmap projects,
- * meetings, compliance, documents, backups and a client portal user. Dates are relative to the day it is
+ * meetings, compliance, alignment reviews (2.3.0), documents, backups and a client portal user. Dates are relative to the day it is
  * loaded, so the plan always looks current.
  *
  * Only on an install with no clients and no PSA, RMM or backup service connected yet, so demo and real data
@@ -218,6 +218,7 @@ final class Demo
         self::roadmap($cid, $i, $userId, $p[0]);
         self::meetings($cid, $i, $cadence, $userId, $p[0], self::email($p[0], $domain));
         self::compliance($cid, $framework, $i, $userId);
+        self::alignment($cid, $i, $userId);
         self::documents($cid, $i, $userId);
         self::backups($cid, $i, $deviceIds, $name);
         // A portal user for the main contact (invited, no password yet: send yourself the invite to see the portal)
@@ -414,6 +415,38 @@ final class Demo
             DB::insert('client_control_status', ['client_id' => $cid, 'control_id' => $c['id'], 'status' => $st,
                 'owner' => in_array($st, ['partial', 'not_met'], true) ? 'IT provider' : null,
                 'due_date' => in_array($st, ['partial', 'not_met'], true) ? self::d('+' . (($k % 5) * 20 - 15) . ' days') : null, 'updated_by' => $userId]);
+        }
+    }
+
+    /**
+     * 2.3.0: two finished alignment reviews (about seven and two months ago, the later one better) against the active
+     * standards, for the first three demo clients; the fourth is left unreviewed so "Start the first review" shows.
+     */
+    private static function alignment(int $cid, int $i, ?int $userId): void
+    {
+        $std = DB::all('SELECT id, title, priority FROM alignment_standards WHERE is_active = 1 ORDER BY category_id, sort, id');
+        if (!$std || $i > 2) {
+            return;
+        }
+        // Which standards are misaligned (by position): more then, fewer now; one N/A (no guest Wi-Fi, say)
+        $misThen = [[1, 9, 11, 14, 15, 16, 17, 21, 23, 27, 28, 30], [2, 6, 10, 15, 16, 19, 23, 24, 28, 31], [0, 1, 8, 11, 15, 16, 18, 23, 26, 28, 29, 30, 33]][$i];
+        $misNow = [[1, 9, 11, 15, 16, 23, 28, 30], [6, 10, 16, 24, 31], [1, 8, 11, 15, 16, 23, 28, 30, 33]][$i];
+        $na = [[19], [21], [19, 32]][$i];
+        $notes = [1 => 'VPN has no MFA yet; the remote support tool does.', 9 => 'Two front-desk PCs still run an unsupported Windows.', 15 => 'Backups go to a NAS in the same room.',
+            16 => 'No restore test on record.', 19 => 'No guest Wi-Fi at this office.', 23 => 'DMARC is at p=none.', 28 => 'No written plan yet.'];
+        foreach ([['-7 months', $misThen], ['-2 months', $misNow]] as [$when, $mis]) {
+            $at = date('Y-m-d H:i:s', strtotime($when . ' -' . $i . ' days 10:00'));
+            $rows = [];
+            foreach ($std as $k => $s) {
+                $rows[] = ['answer' => in_array($k, $na, true) ? 'na' : (in_array($k, $mis, true) ? 'misaligned' : 'aligned'), 'priority' => $s['priority']];
+            }
+            $sc = \Align\Alignment\Alignment::score($rows);
+            $rid = DB::insert('alignment_reviews', ['client_id' => $cid, 'status' => 'done', 'started_at' => $at, 'started_by' => $userId, 'finished_at' => $at,
+                'finished_by' => $userId, 'score' => $sc['score'], 'aligned' => $sc['aligned'], 'misaligned' => $sc['misaligned'], 'na' => $sc['na'], 'unanswered' => 0]);
+            foreach ($std as $k => $s) {
+                DB::insert('alignment_answers', ['review_id' => $rid, 'standard_id' => $s['id'], 'answer' => $rows[$k]['answer'], 'title' => $s['title'], 'priority' => $s['priority'],
+                    'note' => $rows[$k]['answer'] !== 'aligned' ? ($notes[$k] ?? null) : null, 'updated_by' => $userId, 'updated_at' => $at]);
+            }
         }
     }
 

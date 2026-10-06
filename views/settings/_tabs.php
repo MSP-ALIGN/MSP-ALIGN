@@ -3,6 +3,7 @@
 $tabs = [
     'general' => ['/settings', 'General', 'fa-gear'],
     'planning' => ['/settings/planning', 'Planning & lifecycle', 'fa-recycle'],
+    'standards' => ['/settings/standards', 'Standards', 'fa-bullseye'], // 2.3.0: what alignment reviews measure clients against
     'os' => ['/settings/os', 'OS support dates', 'fa-windows fab'],
     'notifications' => ['/settings/notifications', 'Notifications', 'fa-bell'],
     'branding' => ['/settings/branding', 'Branding', 'fa-palette'],
@@ -18,5 +19,5 @@ $newer = \Align\System\Agent::updateAvailable();
     <li class="nav-item"><a class="nav-link<?= $tab === $k ? ' active' : '' ?>" href="<?= $href ?>"<?= $tab === $k ? ' aria-current="page"' : '' ?>><i class="<?= str_contains($icon, 'fab') ? $icon : 'fas ' . $icon ?> fa-fw me-1"></i><?= e($label) ?><?= $k === 'system' && $newer ? ' <span class="badge text-bg-info">new</span>' : '' ?></a></li>
   <?php endforeach; ?>
   <li class="nav-item ms-auto"><a class="nav-link" href="/integrations" title="Integrations"><i class="fas fa-plug fa-fw"></i><span class="d-none d-xxl-inline ms-1">Integrations</span><span class="visually-hidden">Integrations</span></a></li>
-  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'api' => 'api', 'diagnostics' => 'diagnostics'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="visually-hidden">Help</span></a></li>
+  <li class="nav-item"><a class="nav-link" href="/help#guide-<?= ['system' => 'backup', 'notifications' => 'email', 'api' => 'api', 'diagnostics' => 'diagnostics', 'standards' => 'alignment'][$tab] ?? 'settings' ?>" title="Help"><i class="fas fa-circle-question"></i><span class="visually-hidden">Help</span></a></li>
 </ul>

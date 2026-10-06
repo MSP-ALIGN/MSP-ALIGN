@@ -1746,3 +1746,64 @@ document.addEventListener('change', (ev) => {
   const model = el.form && el.form.querySelector('#df-model');
   if (model) { model.value = ''; model.disabled = true; }
 });
+
+// 2.3.0 Alignment review: the live score and progress as answers change ([data-w] weights the row by priority),
+// "Use" / "Fill" hint buttons pick an answer, and "Fill … from compliance" picks the suggested answer on every
+// unanswered row that has one. Only radio values the page drew are ever chosen.
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('al-form');
+  const live = document.getElementById('al-live');
+  if (!form || !live) return;
+  const rows = () => Array.from(form.querySelectorAll('.al-q'));
+  const band = (s) => (s >= 80 ? ['On track', 'success'] : s >= 60 ? ['Needs attention', 'warning'] : ['At risk', 'danger']);
+  const update = () => {
+    let ok = 0, all = 0, done = 0;
+    const list = rows();
+    list.forEach((r) => {
+      const c = r.querySelector('input[type=radio]:checked');
+      r.classList.toggle('is-open', !c);
+      if (!c) return;
+      done++;
+      const w = Number(r.dataset.w) || 2;
+      if (c.value === 'aligned') { ok += w; all += w; } else if (c.value === 'misaligned') { all += w; }
+    });
+    const s = all ? Math.round((100 * ok) / all) : null;
+    live.textContent = s === null ? '–' : s + '%';
+    const b = document.getElementById('al-live-band');
+    if (b) {
+      const [label, tone] = s === null ? ['Not scored yet', 'secondary'] : band(s);
+      b.textContent = label;
+      b.className = 'badge text-bg-' + tone;
+    }
+    const a = document.getElementById('al-answered');
+    if (a) a.textContent = done + ' / ' + list.length;
+    const p = document.getElementById('al-prog');
+    if (p) p.style.width = (list.length ? Math.round((100 * done) / list.length) : 0) + '%';
+  };
+  const choose = (id, value) => {
+    const input = form.querySelector('#al-' + id + ' input[type=radio][value="' + value + '"]');
+    if (!input || input.disabled) return false;
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    const row = input.closest('.al-q');
+    if (row) { row.dataset.dirty = '1'; row.classList.add('al-filled'); }
+    return true;
+  };
+  form.addEventListener('change', (e) => { if (e.target.matches('input[type=radio]')) update(); });
+  form.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-al-set]');
+    if (b && choose(b.dataset.alSet, b.dataset.value)) b.remove();
+  });
+  const all = document.getElementById('al-fill-all');
+  if (all) all.addEventListener('click', () => {
+    let n = 0;
+    rows().forEach((r) => {
+      if (!r.dataset.suggest || r.querySelector('input[type=radio]:checked')) return;
+      const id = (r.querySelector('[id^="al-"]') || {}).id;
+      if (id && choose(id.slice(3), r.dataset.suggest)) n++;
+    });
+    all.disabled = true;
+    all.textContent = n ? 'Filled ' + n + ': review, then save' : 'Nothing to fill';
+  });
+  update();
+});

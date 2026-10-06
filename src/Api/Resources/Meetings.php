@@ -227,6 +227,9 @@ final class Meetings
             default => 'update',
         };
         \Align\Audit::log("meeting.$action", ($cols['title'] ?? $m['title']) . ' (' . implode(', ', array_keys($in)) . ')');
+        if ($action === 'complete' && ($cols['type'] ?? $m['type']) === 'qbr' && ($cols['client_id'] ?? $m['client_id'])) {
+            \Align\Alignment\Snapshot::take((int) ($cols['client_id'] ?? $m['client_id']), $id); // 2.3.0, as on the meeting page
+        }
         $invite = null;
         if ($action === 'cancel') {
             $invite = \Align\Mail\Invites::send($id, 'cancel'); // only when invitations had gone out

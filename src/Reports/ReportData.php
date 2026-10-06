@@ -301,6 +301,21 @@ final class ReportData
         ];
     }
 
+    /**
+     * 2.3.0: the client's latest alignment review for reports (client-facing: no staff notes, no "how to check"), or
+     * null when it was never reviewed. Gaps keep why each matters and the plan (the roadmap project made for it).
+     */
+    public static function alignment(int $clientId): ?array
+    {
+        $s = \Align\Alignment\Alignment::summary($clientId);
+        if (!$s['review']) {
+            return null;
+        }
+        $gaps = array_map(fn($g) => ['title' => $g['title'], 'priority' => $g['priority'], 'why' => $g['why'], 'project' => $g['project']], $s['gaps']);
+        return ['review' => $s['review'], 'score' => $s['score'], 'delta' => $s['delta'], 'previous' => $s['previous'],
+            'history' => array_slice($s['history'], 0, 4), 'gaps' => $gaps, 'na' => count($s['na'])];
+    }
+
     /** Backup status for a client, or null when it has no backup data. */
     public static function backup(int $clientId): ?array
     {
@@ -313,7 +328,7 @@ final class ReportData
      * or empty/null when that section is off (the caller decides). Amounts only when $costs. Plain text: escape it.
      * @return array<int, array{tone:string, title:string, text:string}>
      */
-    public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs, ?array $bk = null, ?array $sla = null): array
+    public static function highlights(array $a, array $r, ?array $bud, ?array $comp, ?array $lic, bool $costs, ?array $bk = null, ?array $sla = null, ?array $al = null): array
     {
         $out = [];
         $bkOut = [];
@@ -360,6 +375,15 @@ final class ReportData
             $out[] = $low
                 ? ['tone' => 'warn', 'title' => 'Compliance: ' . $comp['avg'] . '% average across ' . count($comp['frameworks']) . ' framework' . (count($comp['frameworks']) == 1 ? '' : 's'), 'text' => count($comp['open']) . ' open item' . (count($comp['open']) == 1 ? '' : 's') . ' to close; ' . implode(', ', array_column($low, 'name')) . ' below 80%.']
                 : ['tone' => 'ok', 'title' => 'Compliance in good shape (' . $comp['avg'] . '% average)', 'text' => 'Keep reviews and evidence current.'];
+        }
+        if ($al && $al['score']['score'] !== null) {
+            // 2.3.0: the alignment score, its change since the review before and how many gaps already have a plan
+            $sc = (int) $al['score']['score'];
+            $planned = count(array_filter($al['gaps'], fn($g) => $g['project']));
+            $out[] = ['tone' => $sc >= 80 ? 'ok' : ($sc >= 60 ? 'warn' : 'bad'),
+                'title' => 'Alignment with our standards: ' . $sc . '% (' . strtolower($al['score']['band']) . ')',
+                'text' => ($al['delta'] !== null && $al['delta'] !== 0 ? ($al['delta'] > 0 ? 'Up ' : 'Down ') . abs($al['delta']) . ' points since ' . fmt_date($al['previous']['finished_at']) . '. ' : '')
+                    . ($al['gaps'] ? count($al['gaps']) . ' gap' . (count($al['gaps']) == 1 ? '' : 's') . ' to close' . ($planned ? ', ' . $planned . ' already planned' : '') . '.' : 'Every standard that applies is met.')];
         }
         if ($sla && ($h = \Align\Service\Sla::headline($sla))) {
             $out[] = $h;

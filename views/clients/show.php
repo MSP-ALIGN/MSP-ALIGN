@@ -1,7 +1,7 @@
 <?php
 /**
  * A client's overview. @var array $client, $readiness, $summary, $forecast, $unplanned, $licensing, $keyContacts,
- * $byType, $frameworks, $indicators, $upcoming, $recent, $users; ?array $cadence, $backup, $sla; int $contactCount
+ * $byType, $frameworks, $indicators, $upcoming, $recent, $users, $alignment (2.3.0, Alignment::summary); ?array $cadence, $backup, $sla; int $contactCount
  * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
  * classes come from fixed tone lists.
  */
@@ -27,6 +27,33 @@ $cid = (int) $client['id'];
   <div class="col-lg-8">
     <?php $forecastLink = '/clients/' . $cid . '/roadmap'; $budgetLink = '/clients/' . $cid . '/budget'; $addProject = \Align\Auth::can('tech'); require __DIR__ . '/../partials/forecast.php'; ?>
     <?php if ($addProject) echo \Align\View::fetch('roadmap/_modal', ['it' => null, 'cid' => $cid, 'back' => '/clients/' . $cid]); ?>
+
+    <?php $al = $alignment; $alr = $al['review']; // 2.3.0 ?>
+    <div class="card card-dark" id="overview-alignment">
+      <div class="card-header py-2">
+        <h3 class="card-title mt-1"><i class="fas fa-fw fa-bullseye me-2"></i>Alignment</h3>
+        <div class="card-tools"><a href="/clients/<?= $cid ?>/alignment" class="btn btn-tool">Open</a></div>
+      </div>
+      <div class="card-body">
+        <?php if (!$alr): ?>
+          <p class="text-muted mb-0">Not reviewed against your standards yet.<?= $al['draft'] ? ' A review is in progress.' : '' ?>
+            <?php if (\Align\Auth::can('tech')): ?><a href="/clients/<?= $cid ?>/alignment"><?= $al['draft'] ? 'Continue it' : 'Start one' ?></a><?php endif; ?></p>
+        <?php else: $as = $al['score']; ?>
+          <div class="d-flex align-items-center mb-2">
+            <div class="score-ring me-3 text-<?= $as['tone'] ?>"><b><?= $as['score'] !== null ? (int) $as['score'] . '%' : '–' ?></b></div>
+            <div><span class="badge text-bg-<?= $as['tone'] ?>"><?= e($as['band']) ?></span>
+              <div class="small text-muted mt-1">Reviewed <?= e(fmt_date($alr['finished_at'])) ?><?php if ($al['delta'] !== null): ?> ·
+                <span class="<?= $al['delta'] > 0 ? 'text-success' : ($al['delta'] < 0 ? 'text-danger' : '') ?>"><?= $al['delta'] > 0 ? '+' : '' ?><?= (int) $al['delta'] ?> since <?= e(fmt_date($al['previous']['finished_at'])) ?></span><?php endif; ?></div></div>
+          </div>
+          <?php if ($al['gaps']): ?>
+            <ul class="list-unstyled small mb-1">
+              <?php foreach (array_slice($al['gaps'], 0, 3) as $g): ?><li class="mb-1"><span class="badge rounded-pill text-bg-<?= \Align\Alignment\Alignment::PRIORITIES[$g['priority']][1] ?? 'secondary' ?> al-prio"><?= e(\Align\Alignment\Alignment::PRIORITIES[$g['priority']][0] ?? '') ?></span> <?= e($g['title']) ?></li><?php endforeach; ?>
+            </ul>
+            <div class="small text-muted"><?= count($al['gaps']) ?> gap<?= count($al['gaps']) === 1 ? '' : 's' ?> · <?= count(array_filter($al['gaps'], fn($g) => $g['project'])) ?> on the roadmap</div>
+          <?php else: ?><p class="small text-success mb-0"><i class="fas fa-circle-check me-1"></i>No gaps.</p><?php endif; ?>
+        <?php endif; ?>
+      </div>
+    </div>
 
     <div class="card card-dark">
       <div class="card-header py-2">

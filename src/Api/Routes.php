@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Align\Api;
 
+use Align\Api\Resources\Alignment;
 use Align\Api\Resources\Backups;
 use Align\Api\Resources\Budget;
 use Align\Api\Resources\Clients;
@@ -126,6 +127,22 @@ final class Routes
                 'body' => [Compliance::class, 'controlRules']]),
             $r('PATCH', '/clients/{id}/compliance/{framework}/controls', 'compliance:write', [Compliance::class, 'updateControls'], 'Compliance', 'Update many controls', ['returns' => 'BulkResult',
                 'body' => ['controls' => ['array', ['required' => true, 'desc' => 'Up to 500 items: {"id": <control id>, "status": "met", "notes": "..."}. All or nothing.']]]]),
+
+            // 2.3.0 Alignment reviews
+            $r('GET', '/alignment/standards', 'alignment:read', [Alignment::class, 'standards'], 'Alignment', 'List the standards', ['list' => true, 'returns' => 'Standard',
+                'query' => ['include_inactive' => ['bool', 'Also standards switched off (kept for old reviews).']] + $page, 'description' => 'The library alignment reviews measure clients against. Admins edit it in the web app (Settings → Standards).']),
+            $r('GET', '/clients/{id}/alignment', 'alignment:read', [Alignment::class, 'client'], 'Alignment', 'Get a client\'s alignment', ['returns' => 'Alignment',
+                'description' => 'The latest finished review\'s score and band, the change since the review before, the gaps (most important first, each with its roadmap project if one was made and the compliance controls it helps with) and the open draft.']),
+            $r('GET', '/clients/{id}/alignment/reviews', 'alignment:read', [Alignment::class, 'reviews'], 'Alignment', 'List a client\'s reviews', ['list' => true, 'returns' => 'AlignmentReview', 'query' => $page]),
+            $r('GET', '/clients/{id}/alignment/reviews/{review}', 'alignment:read', [Alignment::class, 'show'], 'Alignment', 'Get a review with its answers', ['returns' => 'AlignmentReview']),
+            $r('POST', '/clients/{id}/alignment/reviews', 'alignment:write', [Alignment::class, 'start'], 'Alignment', 'Start a review', ['returns' => 'AlignmentReview', 'status' => 201, 'creating' => true,
+                'description' => 'Starts from the last finished review\'s answers. If a draft is already open it is returned instead (200). Send an empty body.']),
+            $r('PATCH', '/clients/{id}/alignment/reviews/{review}/answers', 'alignment:write', [Alignment::class, 'answers'], 'Alignment', 'Answer standards in a draft', ['returns' => 'AlignmentAnswersResult',
+                'body' => ['answers' => ['array', ['required' => true, 'desc' => 'Up to 500 items: {"standard_id": 12, "answer": "aligned", "note": "..."}. answer is aligned, misaligned or na; a field left out stays as it is. All or nothing; 409 when the review is finished.']]]]),
+            $r('POST', '/clients/{id}/alignment/reviews/{review}/finish', 'alignment:write', [Alignment::class, 'finish'], 'Alignment', 'Finish a draft', ['returns' => 'AlignmentReview',
+                'description' => 'Stores the score (weighted by priority; N/A and unanswered standards left out). 409 when it is already finished.']),
+            $r('DELETE', '/clients/{id}/alignment/reviews/{review}', 'alignment:write', [Alignment::class, 'discard'], 'Alignment', 'Discard a draft', ['status' => 204,
+                'description' => 'Finished reviews are kept: 409.']),
 
             $r('GET', '/backups', 'backups:read', [Backups::class, 'index'], 'Backups', 'Backup health for every client', ['list' => true, 'returns' => 'BackupSummary', 'query' => $page]),
             $r('GET', '/clients/{id}/backups', 'backups:read', [Backups::class, 'client'], 'Backups', 'Get a client\'s backups', ['returns' => 'ClientBackups',

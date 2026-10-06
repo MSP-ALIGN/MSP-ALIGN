@@ -147,7 +147,7 @@ final class ReportController
     }
 
     /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
-    public const QBR_SECTIONS = ['s_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
+    public const QBR_SECTIONS = ['s_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -177,6 +177,11 @@ final class ReportController
         $comp = in_array('s_compliance', $allowed, true) ? ReportData::compliance($id) : null;
         $lic = in_array('s_licensing', $allowed, true) ? ReportData::licensing($id) : null;
         $bk = in_array('s_backup', $allowed, true) ? ReportData::backup($id) : null;
+        // 2.3.0 (staff packs only: the portal doesn't pass s_alignment); no review yet = no switch in the toolbar
+        $al = in_array('s_alignment', $allowed, true) ? ReportData::alignment($id) : null;
+        if (!$al) {
+            $allowed = array_values(array_diff($allowed, ['s_alignment']));
+        }
         if (!$bk) {
             // Client not linked to a backup product: no backup switch in the toolbar
             $allowed = array_values(array_diff($allowed, ['s_backup']));
@@ -199,11 +204,13 @@ final class ReportController
             'quarter' => $q,
             'on' => $on,
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
+            'al' => $on('s_alignment') ? $al : null,
             'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],
             'provider' => ['company' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],
             'highlights' => ReportData::highlights($on('s_assets') ? $a ?? [] : [], $on('s_roadmap') ? $r ?? [] : [], $on('s_budget') ? $bd : null,
-                $on('s_compliance') ? $comp : null, $on('s_licensing') ? $lic : null, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null),
+                $on('s_compliance') ? $comp : null, $on('s_licensing') ? $lic : null, (bool) $opt['costs'], $on('s_backup') ? $bk : null, $on('s_sla') ? $sla : null,
+                $on('s_alignment') ? $al : null),
         ], 'layout/print');
     }
 

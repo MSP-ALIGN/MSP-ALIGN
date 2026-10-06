@@ -24,12 +24,12 @@ q("update settings set value='1' where name='api_enabled'")
 full=mk("atk full", ALL)
 spec=requests.get(API+"/openapi.json").json()
 ops=[(path,m.upper(),op) for path,item in spec["paths"].items() for m,op in item.items()]
-ok(len(ops)==47,f"{len(ops)} operations in the spec")
+ok(len(ops)==55,f"{len(ops)} operations in the spec")  # 2.3.0: +8 alignment
 
 # sample ids for path params
 cid_a=1; cid_b=2
 ids={"id":cid_a,"framework":q("select framework_id from client_frameworks where client_id=1 limit 1")[0]["framework_id"],
-     "control":1,"exemption":1,"uid":"x"}
+     "control":1,"exemption":1,"uid":"x","review":1}
 def fill(path, over=None):
     d=dict(ids); d.update(over or {})
     return re.sub(r"\{(\w+)\}", lambda m: urllib.parse.quote(str(d[m.group(1)]),safe=""), path.replace("/api/v1",""))
@@ -64,7 +64,8 @@ probes=[("GET",f"/clients/{cid_a}"),("GET",f"/clients/{cid_a}/contacts"),("GET",
         ("GET",f"/clients/{cid_a}/backups"),("GET",f"/clients/{cid_a}/backup-exemptions"),("POST",f"/clients/{cid_a}/backup-exemptions",{"kind":"device","device_id":dev1,"reason":"x"}),
         ("GET",f"/clients/{cid_a}/service-levels"),("GET",f"/devices?client_id={cid_a}"),("GET",f"/projects?client_id={cid_a}"),("GET",f"/licenses?client_id={cid_a}"),
         ("POST","/projects",{"client_id":cid_a,"title":"x"}),("POST","/budget-lines",{"client_id":cid_a,"name":"x","amount":1}),("POST","/licenses",{"client_id":cid_a,"name":"x"}),
-        ("POST","/meetings",{"client_id":cid_a,"starts_at":"2026-12-01T10:00:00"})]
+        ("POST","/meetings",{"client_id":cid_a,"starts_at":"2026-12-01T10:00:00"}),
+        ("GET",f"/clients/{cid_a}/alignment"),("GET",f"/clients/{cid_a}/alignment/reviews"),("POST",f"/clients/{cid_a}/alignment/reviews",{})]
 for p in probes:
     r=call(lim,p[0],p[1],p[2] if len(p)>2 else None)
     if r.status_code not in (404,):
@@ -198,6 +199,9 @@ drift=[]
 getp={"/api/v1/clients/{id}/compliance/{framework}/controls":{"framework":ids["framework"]},"/api/v1/contacts/{id}":{"id":one["contact"]},"/api/v1/devices/{id}":{"id":dev1},
       "/api/v1/projects/{id}":{"id":one["project"]},"/api/v1/budget-lines/{id}":{"id":one["line"]},"/api/v1/licenses/{id}":{"id":one["license"]},"/api/v1/meetings/{id}":{"id":one["meeting"]}}
 checked=0
+# 2.3.0: a review to read back (a draft lists every standard)
+rid=call(full,"POST","/clients/1/alignment/reviews",{}).json()["data"]["id"]
+getp["/api/v1/clients/{id}/alignment/reviews/{review}"]={"review":rid}
 for path,m,op in ops:
     if m!="GET" or "openapi" in path: continue
     r=call(full,"GET",fill(path,getp.get(path)))
@@ -217,6 +221,7 @@ for path,m,op in ops:
             if got not in want and not (got=="integer" and "number" in want): drift.append(f"{path}.{k}: {got} not in {sorted(want)}")
     checked+=1
 ok(not drift,f"contract: {checked} GET responses match the OpenAPI schemas: "+"; ".join(sorted(set(drift))[:8]))
+call(full,"DELETE",f"/clients/1/alignment/reviews/{rid}")
 
 # ---- 7. nothing crashed, audit chain intact
 e=q("select method,path,status from api_requests where status>=500")

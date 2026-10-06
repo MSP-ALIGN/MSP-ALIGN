@@ -114,6 +114,13 @@ $r->get('/clients/{id}/devices', [ClientController::class, 'devices']);
 $r->post('/clients/{id}/devices', [DeviceController::class, 'create']);
 $r->get('/clients/{id}/export', [ClientController::class, 'export']);
 $r->get('/clients/{id}/meetings', [MeetingController::class, 'clientIndex']);
+// 2.3.0 Alignment reviews: a client measured against the MSP's own standards
+$r->get('/clients/{id}/alignment', [\Align\Controllers\AlignmentController::class, 'client']);
+$r->post('/clients/{id}/alignment/start', [\Align\Controllers\AlignmentController::class, 'start']);
+$r->get('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentController::class, 'review']);
+$r->post('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentController::class, 'save']);
+$r->post('/clients/{id}/alignment/review/discard', [\Align\Controllers\AlignmentController::class, 'discard']);
+$r->get('/clients/{id}/alignment/reviews/{rid}', [\Align\Controllers\AlignmentController::class, 'show']);
 $r->get('/clients/{id}/compliance', [ComplianceController::class, 'client']);
 $r->post('/clients/{id}/compliance', [ComplianceController::class, 'assign']);
 $r->get('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'checklist']);
@@ -256,6 +263,12 @@ $r->get('/sync/{id}', [SyncController::class, 'show']);
 
 // Admin
 $S = \Align\Controllers\SystemController::class;
+$r->get('/settings/standards', [\Align\Controllers\StandardsController::class, 'index']); // 2.3.0: the alignment standards library
+$r->post('/settings/standards', [\Align\Controllers\StandardsController::class, 'save']);
+$r->post('/settings/standards/categories', [\Align\Controllers\StandardsController::class, 'category']);
+$r->get('/settings/standards/export', [\Align\Controllers\StandardsController::class, 'export']);
+$r->post('/settings/standards/import', [\Align\Controllers\StandardsController::class, 'import']);
+$r->post('/settings/standards/starter', [\Align\Controllers\StandardsController::class, 'starter']);
 $r->get('/settings/diagnostics', [\Align\Controllers\DiagnosticsController::class, 'index']); // 2.2.3
 $r->get('/settings/diagnostics/report', [\Align\Controllers\DiagnosticsController::class, 'report']);
 $r->get('/settings/system', [$S, 'index']);

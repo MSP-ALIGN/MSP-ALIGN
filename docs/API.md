@@ -2,7 +2,10 @@
 
 MSP Align has a REST API for automation tools (n8n, Zapier, Power Automate), AI agents, scripts and other systems.
 It reads and changes planning data: clients, contacts, devices, projects, budgets, licensing, meetings, compliance,
-backups and service levels. JSON in and out.
+alignment reviews, backups and service levels. JSON in and out.
+
+**Alignment (2.3.0)** has its own scope, `alignment:read` / `alignment:write`. Keys made before 2.3.0 don't have it:
+edit the key under Settings → API and tick Alignment.
 
 The reference below is generated from the same route table and validation rules the API itself uses, so it always
 matches the release it was built from. Your own server has the same reference under **Settings → API → API reference**,

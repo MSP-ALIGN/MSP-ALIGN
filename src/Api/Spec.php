@@ -26,7 +26,7 @@ final class Spec
             'vcio' => ['object', 'Staff user who is vCIO for the client: id, name.'], 'meeting_cadence' => ['string', 'How often you meet.'], 'in_planning' => ['boolean', 'false = taken out of planning.'],
             'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''], 'url' => ['string', 'Link to the client in the web app.']]],
         'ClientDetail' => ['A client plus a health summary.', ['(all Client fields)' => ['object', ''],
-            'summary' => ['object', 'devices {total, healthy, past_end_of_life, unsupported_os, out_of_warranty}, projects {active, awaiting_decision}, next_meeting, backups {health, jobs, failed_jobs, ...}, compliance {frameworks, average_score}, service_levels_90d. Only the sections the key can read.']]],
+            'summary' => ['object', 'devices {total, healthy, past_end_of_life, unsupported_os, out_of_warranty}, projects {active, awaiting_decision}, next_meeting, backups {health, jobs, failed_jobs, ...}, compliance {frameworks, average_score}, alignment {score, band, reviewed_at, gaps} (2.3.0), service_levels_90d. Only the sections the key can read.']]],
         'Contact' => ['A client contact.', [
             'id' => ['integer', ''], 'client_id' => ['integer', ''], 'name' => ['string', ''], 'title' => ['string', ''], 'department' => ['string', ''], 'email' => ['string', ''],
             'phone' => ['string', ''], 'extension' => ['string', ''], 'mobile' => ['string', ''], 'location' => ['string', ''],
@@ -49,6 +49,7 @@ final class Spec
             'psa_ticket_id' => ['id', 'The project\'s QUOTE- ticket in the PSA, once someone pressed Ready to start (or asked for it when the project was made); null until then.'],
             'started_at' => ['date-time', 'When Ready to start was first pressed: the ticket was made, or (with no ticket possible, e.g. no PSA) the project was marked started; a ticket made later keeps this date. Null until then; projects whose ticket was made before 2.2.2 have none.'],
             'decision' => ['object', 'Who approved or declined it (e.g. in the client portal): by, at, comment, via_portal.'],
+            'alignment_standard_id' => ['integer', 'The alignment standard this project fixes (made from a gap, 2.3.0); null otherwise.'],
             'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''], 'url' => ['string', '']]],
         'BudgetSummary' => ['A client\'s three-year technology budget.', [
             'client_id' => ['integer', ''], 'currency' => ['string', ''], 'recurring_monthly' => ['number', 'Current recurring monthly run rate.'],
@@ -74,6 +75,25 @@ final class Spec
             'location' => ['string', ''], 'video_url' => ['string', ''], 'attendees' => ['object[]', 'email, name.'], 'agenda' => ['string', ''], 'notes' => ['string', ''],
             'owner' => ['object', 'id, name.'], 'series_id' => ['integer', ''], 'invitations_sent_at' => ['date-time', ''], 'created_at' => ['date-time', ''], 'updated_at' => ['date-time', ''],
             'url' => ['string', ''], 'invitations' => ['string', 'After POST/PATCH with send_invites: what happened to the invitations.']]],
+        'Standard' => ['A standard in the alignment library (2.3.0).', [
+            'id' => ['integer', ''], 'category' => ['string', ''], 'section' => ['string', 'Optional heading above the category.'], 'title' => ['string', ''],
+            'why' => ['string', 'Why it matters, in the client\'s words.'], 'how' => ['string', 'How to check it (staff notes).'], 'priority' => ['string', 'critical, high, medium, low.'],
+            'weight' => ['integer', 'How much it counts in the score: 4, 3, 2 or 1.'], 'auto_check' => ['string', 'os_supported, hw_lifecycle, warranty, stale or backups; null = answered by hand.'],
+            'tags' => ['string[]', 'Compliance tags: answers are shared with compliance controls that have the same tags.'],
+            'suggested_fix' => ['object', 'title, category, cost: what Make project fills in.'], 'active' => ['boolean', 'false = switched off (kept for old reviews).'], 'updated_at' => ['date-time', '']]],
+        'Alignment' => ['A client\'s alignment with the standards (2.3.0).', [
+            'client_id' => ['integer', ''], 'score' => ['integer', 'Percent from the latest finished review; null = never reviewed (or nothing that applies).'],
+            'band' => ['string', 'On track (80+), Needs attention (60-79), At risk (under 60), Not reviewed or No score.'], 'reviewed_at' => ['date-time', ''], 'reviewed_by' => ['string', ''], 'review_id' => ['integer', ''],
+            'counts' => ['object', 'aligned, misaligned, not_applicable, unanswered.'], 'change' => ['object', 'points since the review before, since (its date); null with fewer than two reviews.'],
+            'gaps' => ['object[]', 'standard_id, title, priority, category, note, why, helps_with (compliance controls), project {id, title, status, target_quarter} or null. Most important first.'],
+            'not_applicable' => ['object[]', 'standard_id, title, note.'], 'draft' => ['object', 'id, started_at of the open draft; null when none.'], 'url' => ['string', '']]],
+        'AlignmentReview' => ['An alignment review (2.3.0).', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'status' => ['string', 'draft or done.'], 'started_at' => ['date-time', ''], 'started_by' => ['string', ''],
+            'finished_at' => ['date-time', ''], 'finished_by' => ['string', ''], 'score' => ['integer', 'Stored when finished.'], 'band' => ['string', ''],
+            'counts' => ['object', 'aligned, misaligned, not_applicable, unanswered.'], 'score_so_far' => ['integer', 'Drafts, with answers: the score if it were finished now.'],
+            'answers' => ['object[]', 'Single review only: standard_id, category, title, priority, auto_check, answer (aligned, misaligned, na or null), note, updated_at. A draft lists every active standard.'],
+            'url' => ['string', '']]],
+        'AlignmentAnswersResult' => ['Result of answering standards.', ['updated' => ['integer', ''], 'unchanged' => ['integer', ''], 'review' => ['object', 'The review afterwards (without answers).']]],
         'Framework' => ['A compliance framework.', ['id' => ['integer', ''], 'slug' => ['string', ''], 'name' => ['string', ''], 'description' => ['string', ''], 'built_in' => ['boolean', ''], 'controls' => ['integer', '']]],
         'Assessment' => ['A framework assigned to a client, with its score.', [
             'client_id' => ['integer', ''], 'framework_id' => ['integer', ''], 'framework' => ['string', ''], 'slug' => ['string', ''], 'assigned_at' => ['date-time', ''], 'last_reviewed' => ['date', ''], 'next_review' => ['date', ''],

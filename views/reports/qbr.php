@@ -15,7 +15,7 @@ use Align\View;
  *   9 Decisions & next steps   what we need from you, who to call, next meeting
  *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
- * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla
+ * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only)
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -29,6 +29,7 @@ if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
 if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing'; // budget and licensing are all prices: left out when costs are off
 if ($bk) $sections['backup'] = 'Backup & recovery';
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
+if (!empty($al)) $sections['alignment'] = 'Alignment with our standards'; // 2.3.0
 if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
 if ($on('s_budget') && $bd && $costs) $sections['budget'] = 'Technology budget';
 $sumA = $on('s_assets') ? $a : null;
@@ -141,6 +142,11 @@ foreach ($sections as $k => $_) {
 <?php if (isset($sections['compliance'])): ?>
 <div class="page-break"></div>
 <?= View::fetch('reports/sections/compliance', ['c' => $comp, 'num' => $numOf['compliance']]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['alignment'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/alignment', ['al' => $al, 'num' => $numOf['alignment'], 'company' => $provider['company'], 'client' => $client]) ?>
 <?php endif; ?>
 
 <?php if (isset($sections['roadmap'])): ?>
