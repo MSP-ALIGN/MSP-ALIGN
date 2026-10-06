@@ -157,8 +157,9 @@ final class LicenseController
         $clientId = $id;
         Auth::requireRole('tech');
         $client = ClientController::load($clientId);
-        $f = self::fields(false);
         $back = self::back("/clients/$clientId/licenses");
+        refuse_large_amounts(['unit_price' => ['The price', self::MAX_PRICE]], $back);
+        $f = self::fields(false);
         if ($f['name'] === '') {
             flash('error', 'Give the license a name.');
             redirect($back);
@@ -212,6 +213,7 @@ final class LicenseController
                 flash('success', "Deleted {$l['name']}.");
                 redirect($back);
         }
+        refuse_large_amounts(['unit_price' => ['The price', self::MAX_PRICE]], $back);
         $f = self::fields($fromPsa);
         if (!$fromPsa && $f['name'] === '') {
             $f['name'] = $l['name'];

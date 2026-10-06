@@ -66,6 +66,12 @@ final class RoadmapController
         self::create($cid);
     }
 
+    /** The project form's amounts and the most each column holds, for refuse_large_amounts (2.2.6). */
+    private static function limits(): array
+    {
+        return ['cost' => ['The one-time cost', self::MAX_COST], 'recurring_monthly' => ['The monthly cost', self::MAX_RECURRING]];
+    }
+
     /** A posted amount from 0 to $max (its column's limit), to the cent, or null (2.2.1: a larger one failed the save). */
     private static function amount(string $v, float $max): ?float
     {
@@ -100,6 +106,7 @@ final class RoadmapController
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        refuse_large_amounts(self::limits(), self::back($id));
         $f = self::fields();
         if ($f['title'] === '') {
             flash('error', 'Give the project a name.');
@@ -139,6 +146,7 @@ final class RoadmapController
             flash('success', 'Project deleted.');
             redirect(self::back($id));
         }
+        refuse_large_amounts(self::limits(), self::back($id));
         $f = self::fields();
         if ($f['title'] === '') {
             $f['title'] = $row['title'];

@@ -97,10 +97,11 @@ ok(r.status_code == 200 and q("select purchase_date from device_overrides where 
 r = post(tech, DPAGE, {**base, "purchase_date": "0000-00-00"}, DPAGE)
 ok(r.status_code == 200 and q("select purchase_date from device_overrides where device_id=%s", DID)[0]["purchase_date"] is None,
    "0000-00-00 isn't stored as an in-service date (it made the device 2,000 years old)")
-r = post(tech, DPAGE, {**base, "purchase_date": "2021-03-15", "replacement_cost": "1000000000000"}, DPAGE)
+post(tech, DPAGE, {**base, "purchase_date": "2021-03-15", "replacement_cost": "800"}, DPAGE)
+r = post(tech, DPAGE, {**base, "purchase_date": "2022-01-01", "replacement_cost": "1000000000000"}, DPAGE)
 row = q("select purchase_date, replacement_cost from device_overrides where device_id=%s", DID)[0]
-ok(r.status_code == 200 and row["replacement_cost"] is None and str(row["purchase_date"]) == "2021-03-15",
-   "a replacement cost too large for its column is left out instead of failing the save (2.2.1): %d" % r.status_code)
+ok(r.status_code == 200 and "too large" in flash(r.text) and float(row["replacement_cost"]) == 800.0 and str(row["purchase_date"]) == "2021-03-15",
+   "a replacement cost too large for its column is refused with a message, and nothing changes (2.2.6; it used to be cleared): %d" % r.status_code)
 r = post(tech, DPAGE, {**base, "purchase_date": "2021-03-15", "os_build": "9" * 100}, DPAGE)
 ok(r.status_code == 200 and len(q("select os_build from devices where id=%s", DID)[0]["os_build"] or "") == 60, "a 100-digit OS build is cut to its column (it failed the save)")
 r = post(tech, DPAGE, {**base, "purchase_date": "2021-03-15", "replace_on": "2027-02-31"}, DPAGE)
@@ -128,15 +129,17 @@ ok("No project was made" in flash(r.text) and not q("select 1 from roadmap_item_
    "another client's device can't be made into this client's project")
 r = post(tech, f"/clients/{MID}/devices/projects", {"ids[]": [DID], "status": "approved", "cost": "10000000000000", "back": DEV_PAGE}, DEV_PAGE)
 pj = q("select ri.id, ri.cost from roadmap_items ri join roadmap_item_devices rid on rid.roadmap_item_id = ri.id where rid.device_id=%s", DID)
-ok(r.status_code == 200 and pj and float(pj[0]["cost"]) < 1e9, "a project cost too large for its column falls back to the budgeted cost instead of failing (2.2.1): %d %s" % (r.status_code, pj))
+ok(r.status_code == 200 and "too large" in flash(r.text) and not pj, "a project cost too large for its column is refused with a message, no project made (2.2.6): %d %s" % (r.status_code, pj))
 for p in pj:
     q("delete from roadmap_items where id=%s", p["id"])
 
 # ---- roadmap projects: amounts, real quarters, quarters outside the plan
 RPAGE = f"/clients/{MID}/roadmap"
 r = post(tech, RPAGE, {"title": "Zz Q Project", "status": "proposed", "cost": "10000000000000", "recurring_monthly": "50"}, RPAGE)
+ok(r.status_code == 200 and "too large" in flash(r.text) and not q("select 1 from roadmap_items where client_id=%s and title='Zz Q Project'", MID),
+   "a project budget too large for its column is refused with a message instead of saving without it (2.2.6)")
+post(tech, RPAGE, {"title": "Zz Q Project", "status": "proposed", "recurring_monthly": "50"}, RPAGE)
 rp = q("select id, cost, recurring_monthly from roadmap_items where client_id=%s and title='Zz Q Project'", MID)
-ok(r.status_code == 200 and rp and rp[0]["cost"] is None and float(rp[0]["recurring_monthly"]) == 50.0, "a project budget too large for its column is left out instead of failing the save (2.2.1)")
 RID = rp[0]["id"]
 want = php('echo Align\\Roadmap\\Plan::quarterFor("2031-05-17")["start"];').stdout.strip()
 post(tech, f"{RPAGE}/{RID}", {"title": "Zz Q Project", "status": "proposed", "target_quarter": "2031-05-17"}, RPAGE)
@@ -160,7 +163,7 @@ la = q("select expire_date from licenses where client_id=%s and name='Zz Q Lic A
 ok(r.status_code == 200 and la and la[0]["expire_date"] is None, "a license expiry of 2026-02-30 is left out instead of failing the save (2.2.1): %d" % r.status_code)
 r = post(tech, LPAGE, {"name": "Zz Q Lic B", "unit_price": "10000000000000"}, LPAGE)
 lb = q("select unit_price from licenses where client_id=%s and name='Zz Q Lic B'", MID)
-ok(r.status_code == 200 and lb and lb[0]["unit_price"] is None, "a price too large for its column is left out instead of failing the save (2.2.1)")
+ok(r.status_code == 200 and "too large" in flash(r.text) and not lb, "a price too large for its column is refused with a message (2.2.6)")
 r = post(tech, LPAGE, {"name": "Zz Q Lic C", "contract_start": "2026-13-01", "contract_term_months": "12"}, LPAGE)
 lc = q("select contract_start from licenses where client_id=%s and name='Zz Q Lic C'", MID)
 ok(r.status_code == 200 and lc and lc[0]["contract_start"] is None, "a contract start of 2026-13-01 is left out instead of failing the save (2.2.1): %d" % r.status_code)

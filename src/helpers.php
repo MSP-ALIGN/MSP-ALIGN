@@ -254,6 +254,23 @@ function money_exact(float|int|string|null $v): string
     return \Align\Fmt::money($v, true);
 }
 
+/**
+ * 2.2.6: stops a save when a posted amount is larger than its column holds, saying which one and the most it takes,
+ * and goes back to $back. Before, the form's amount helpers turned such a number into "empty", so saving an edit
+ * quietly cleared the amount that was there. $limits: form field => [label, largest amount]. Blank, negative and
+ * non-number values are left to the form's own rules.
+ */
+function refuse_large_amounts(array $limits, string $back): void
+{
+    foreach ($limits as $field => [$label, $max]) {
+        $v = post($field);
+        if (is_numeric($v) && round((float) $v, 2) > $max) {
+            flash('error', "$label is too large: enter up to " . money_exact($max) . '. Nothing was saved.');
+            redirect($back);
+        }
+    }
+}
+
 /** A number with the chosen thousands separator (1,234 · 1.234 · 1 234). */
 function num(float|int|string|null $v, int $decimals = 0): string
 {

@@ -44,6 +44,41 @@ docker compose exec app rm /etc/msp-align/backup-key.txt
 docker compose exec app cat /etc/msp-align/app-key           # decrypts saved passwords and API keys
 ```
 
+## Portainer
+
+Portainer runs the same app as a stack, from `compose.portainer.yaml`. That file is `compose.yaml` set up so a stack
+deploys with nothing filled in:
+
+- **No build step.** It always uses the published image, so the stack doesn't need the repository's files.
+- **Database password made for you.** On the first start the database makes up a long random password and keeps it
+  in its own volume (`db-secret`), which the app reads too. To choose your own, set `ALIGN_DB_PASSWORD` before the
+  first deploy; after that the saved one is always used.
+- **Follows the host's address.** The web port listens on every address the Docker host has, so it keeps working
+  when the host's address comes from DHCP, on the first free port from 8080 to 8099.
+
+To install:
+
+1. **Stacks → Add stack**, name it `msp-align`. Either paste `compose.portainer.yaml` into the **Web editor**, or
+   choose **Repository** with `https://github.com/MSP-ALIGN/MSP-ALIGN`, reference `refs/heads/main` and compose path
+   `compose.portainer.yaml`.
+2. Under **Environment variables**, click **Advanced mode** and add at least the first admin, `ALIGN_ADMIN_EMAIL` and
+   `ALIGN_ADMIN_NAME`, and your `ALIGN_TZ`. The other settings in the table below work here too.
+3. **Deploy the stack.** The port it got is in the **Containers** list; browse to `http://<docker host>:<port>`.
+4. Open the app container (`msp-align-app-1`) → **Logs** for the first admin's temporary password. Without
+   `ALIGN_ADMIN_EMAIL` the log says "No users yet": open the container's **Console** (`/bin/bash`) and run
+   `align user:create --email=you@example.com --role=admin`, which prints a password.
+5. In the same Console, save the two keys as above (`cat /etc/msp-align/backup-key.txt`, then `rm` it, and
+   `cat /etc/msp-align/app-key`).
+
+Before real use, set `ALIGN_URL` to the address people use (it goes into links the app emails out) and fix the port
+with `ALIGN_PORTS=8080`, so a redeploy can't move it while a reverse proxy points at it. Behind your own proxy also
+set `ALIGN_TRUSTED_PROXIES`. To update: download a backup, then **Update the stack** with **Re-pull image** on (or
+**Pull and redeploy** for a Repository stack). The commands on this page that start with `docker compose exec app`
+can be typed into the app container's Console without that part.
+
+The built-in HTTPS add-on (`compose.caddy.yaml`) isn't used with Portainer: it mounts a file by a relative path,
+which Portainer stacks don't handle reliably. Put the stack behind your own reverse proxy instead.
+
 ## Settings (.env)
 
 | Setting | What it does |

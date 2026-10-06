@@ -113,4 +113,16 @@ caddy = open(ROOT + "/compose.caddy.yaml").read()
 for var in re.findall(r"^(ALIGN_[A-Z_]+)=", envx, re.M):
     ok(var in compose or var in caddy, f".env.example's {var} is used by the compose files")
 ok("install_type" not in inst, "install.sh writes nothing Docker-specific")
+# 2.2.6: the Portainer stack is compose.yaml with only its documented differences (no build, its own database
+# password, every host address), so the two can't drift apart unnoticed
+import yaml
+pt_text = open(ROOT + "/compose.portainer.yaml").read()
+pt, cy = yaml.safe_load(pt_text), yaml.safe_load(compose)
+for var in re.findall(r"^\s+(ALIGN_[A-Z_]+):", pt_text, re.M):
+    ok(var in ent or var in pt_text.split("entrypoint:")[1].split("command:")[0], f"the Portainer stack passes {var}, which the entrypoint (or its db start) reads")
+ok("build" not in pt["services"]["app"] and pt["services"]["app"]["image"] == cy["services"]["app"]["image"], "the Portainer stack uses the published image, never a build")
+ok(pt["services"]["db"]["command"] == cy["services"]["db"]["command"] and pt["services"]["db"]["image"] == cy["services"]["db"]["image"], "same database settings (encryption at rest included)")
+ok(all(v in pt["services"]["app"]["volumes"] for v in cy["services"]["app"]["volumes"]) and pt["services"]["app"]["tmpfs"] == cy["services"]["app"]["tmpfs"], "same app volumes and tmpfs")
+ok(all(pt["services"][x]["security_opt"] == ["no-new-privileges:true"] for x in ("db", "app")), "no-new-privileges on both services")
+ok(set(k for k in cy["services"]["app"]["environment"] if k != "ALIGN_DB_PASSWORD") <= set(pt["services"]["app"]["environment"]), "every setting compose.yaml passes the app, the Portainer stack passes too")
 done()
