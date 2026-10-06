@@ -183,3 +183,12 @@ docker compose logs -f app                      # web requests, the scheduler an
 
 `docker compose build` builds from the checked-out code (`Dockerfile`), for example to test a change or a fork. Set
 `ALIGN_VERSION` to a tag of your own so a `pull` doesn't replace it.
+
+## Licenses in the image
+
+The MSP Align image contains MSP Align (AGPL-3.0-or-later, with the bundled components listed on its **License**
+page) on top of Debian 13 packages such as Apache, PHP, the MariaDB client and age. Those packages keep their own
+licenses, some of them GPL. Each package's license is in `/usr/share/doc/<package>/copyright` inside the image. Its
+source is available from Debian (`apt-get source <package>`, or [sources.debian.org](https://sources.debian.org)) for
+the versions in the image (`dpkg -l` lists them). The `db` service uses the official `mariadb` image, which is covered
+by MariaDB's own licenses (GPL-2.0).

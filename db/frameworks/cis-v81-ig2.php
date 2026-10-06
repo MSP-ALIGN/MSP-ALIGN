@@ -1,8 +1,9 @@
 <?php
 /**
  * CIS Critical Security Controls v8.1 (June 2024) — Implementation Groups 1 and 2.
- * 130 safeguards: 56 IG1 + 74 IG2. Titles and guidance are paraphrased summaries
- * (CIS Controls are licensed CC BY-NC-SA 4.0); refs are the official safeguard numbers.
+ * 130 safeguards: 56 IG1 + 74 IG2. Titles and guidance are MSP Align's own summaries, not CIS text;
+ * refs are the official safeguard numbers, used only to identify each safeguard. CIS Controls® is a
+ * registered trademark of the Center for Internet Security, Inc.; no affiliation or endorsement.
  * Guidance starts with "IG1." or "IG2." to show the lowest group the safeguard belongs to.
  */
 $c1  = '1. Inventory and Control of Enterprise Assets';
@@ -27,7 +28,7 @@ $c18 = '18. Penetration Testing';
 return [
     'slug' => 'cis-v81-ig2',
     'name' => 'CIS Controls v8.1 — IG2',
-    'description' => 'The CIS Critical Security Controls are a prioritized set of safeguards against the most common attacks. Implementation Group 2 is aimed at organizations with IT staff supporting multiple departments or handling sensitive client or company data, and includes every IG1 ("essential cyber hygiene") safeguard: 56 IG1 plus 74 IG2 safeguards, 130 in total. Version 8.1 (June 2024) added the Govern security function and revised some safeguard wording. IG2 is a common target for managed security service clients. Titles and guidance are paraphrased summaries for tracking an assessment, not the official CIS text.',
+    'description' => 'The CIS Critical Security Controls are a prioritized set of safeguards against the most common attacks. Implementation Group 2 is aimed at organizations with IT staff supporting multiple departments or handling sensitive client or company data, and includes every IG1 ("essential cyber hygiene") safeguard: 56 IG1 plus 74 IG2 safeguards, 130 in total. Version 8.1 (June 2024) added the Govern security function and revised some safeguard wording. IG2 is a common target for managed security service clients. Titles and guidance are paraphrased summaries for tracking an assessment, not the official CIS text. CIS Controls® is a registered trademark of the Center for Internet Security, Inc.; no affiliation or endorsement.',
     'controls' => [
         // 1. Inventory and Control of Enterprise Assets
         [$c1, '1.1', 'Keep a detailed, current inventory of all enterprise assets', 'IG1. Every end-user device, server, network device and IoT device (on-prem, remote and cloud) is recorded with owner, address and approval status, and reviewed at least twice a year. Evidence: RMM/PSA asset export and the date of the last review.', null, ['asset_hw_inventory']],
@@ -47,9 +48,9 @@ return [
         [$c3, '3.1', 'Maintain a data management process', 'IG1. A documented process covers data sensitivity, owners, handling, retention and disposal, reviewed yearly. Evidence: approved data management policy or procedure.', null, ['data_inventory', 'gov_policy']],
         [$c3, '3.2', 'Maintain a data inventory', 'IG1. Sensitive data (at minimum) is inventoried by location and owner, and reviewed yearly. Evidence: data inventory or data map.', null, ['data_inventory']],
         [$c3, '3.3', 'Set access control lists on data', 'IG1. File shares, databases and SharePoint/OneDrive permissions follow need-to-know. Evidence: permission reports for key repositories.', null, ['iam_least_privilege']],
-        [$c3, '3.4', 'Enforce data retention', 'IG1. Data is kept for the minimum and maximum periods set in the data management process. Evidence: retention schedule and configured retention policies (e.g. Microsoft Purview).', null, ['data_retention_disposal']],
+        [$c3, '3.4', 'Keep data only as long as the retention policy allows', 'IG1. Data is kept for the minimum and maximum periods set in the data management process. Evidence: retention schedule and configured retention policies (e.g. Microsoft Purview).', null, ['data_retention_disposal']],
         [$c3, '3.5', 'Dispose of data securely', 'IG1. Disposal methods match data sensitivity for files, drives and devices. Evidence: disposal procedure and certificates of destruction.', null, ['data_retention_disposal', 'media_sanitization']],
-        [$c3, '3.6', 'Encrypt data on end-user devices', 'IG1. Laptops and mobile devices holding sensitive data use full-disk encryption (BitLocker, FileVault, device encryption). Evidence: encryption status report from RMM/MDM.', null, ['ep_encryption']],
+        [$c3, '3.6', 'Encrypt laptops and other end-user devices', 'IG1. Laptops and mobile devices holding sensitive data use full-disk encryption (BitLocker, FileVault, device encryption). Evidence: encryption status report from RMM/MDM.', null, ['ep_encryption']],
         [$c3, '3.7', 'Maintain a data classification scheme', 'IG2. A labeling scheme (e.g. public, internal, confidential) is defined, applied and reviewed yearly. Evidence: classification standard and sensitivity labels in use.', null, ['data_inventory']],
         [$c3, '3.8', 'Document data flows', 'IG2. Flows of sensitive data, including to service providers, are documented and reviewed yearly. Evidence: data flow diagrams.', null, ['data_inventory']],
         [$c3, '3.9', 'Encrypt data on removable media', 'IG2. USB drives and other removable media holding enterprise data are encrypted (e.g. BitLocker To Go) or blocked. Evidence: device control / encryption policy.', null, ['media_protection', 'data_encrypt_rest']],
@@ -72,8 +73,8 @@ return [
 
         // 5. Account Management
         [$c5, '5.1', 'Maintain an inventory of accounts', 'IG1. User and admin accounts are listed with name, username, department and dates, and checked at least quarterly to confirm they are authorized. Evidence: account export (Entra ID/AD) and review record.', null, ['iam_accounts', 'iam_access_review']],
-        [$c5, '5.2', 'Use unique passwords', 'IG1. Each account has a unique password (at least 8 characters with MFA, 14 without); a business password manager is in place. Evidence: password policy and password manager deployment.', null, ['iam_passwords']],
-        [$c5, '5.3', 'Disable dormant accounts', 'IG1. Accounts unused for 45 days are disabled or deleted where supported. Evidence: stale account report and disable actions.', null, ['iam_accounts', 'iam_offboarding']],
+        [$c5, '5.2', 'Require a different password for every account', 'IG1. Each account has a unique password (at least 8 characters with MFA, 14 without); a business password manager is in place. Evidence: password policy and password manager deployment.', null, ['iam_passwords']],
+        [$c5, '5.3', 'Turn off accounts unused for 45 days', 'IG1. Accounts unused for 45 days are disabled or deleted where supported. Evidence: stale account report and disable actions.', null, ['iam_accounts', 'iam_offboarding']],
         [$c5, '5.4', 'Keep admin rights on dedicated admin accounts', 'IG1. Administrator privileges exist only on separate admin accounts; daily work such as email and browsing uses non-privileged accounts. Evidence: admin group membership and separate admin account list.', null, ['iam_privileged']],
         [$c5, '5.5', 'Maintain an inventory of service accounts', 'IG2. Service accounts are listed with owner, purpose and review date, and checked at least quarterly. Evidence: service account register.', null, ['iam_accounts', 'iam_privileged']],
         [$c5, '5.6', 'Centralize account management', 'IG2. Accounts are managed through a directory or identity service (Entra ID, Active Directory). Evidence: directory showing central management; minimal local accounts.', null, ['iam_sso', 'iam_accounts']],
@@ -82,8 +83,8 @@ return [
         [$c6, '6.1', 'Have a process for granting access', 'IG1. Access is granted through a documented, preferably automated, process on hire or role change. Evidence: onboarding procedure and sample approved access tickets.', null, ['iam_accounts']],
         [$c6, '6.2', 'Have a process for revoking access', 'IG1. Access is removed promptly on termination or role change, disabling rather than deleting accounts to keep audit trails. Evidence: offboarding procedure and sample tickets.', null, ['iam_offboarding']],
         [$c6, '6.3', 'Require MFA on externally exposed applications', 'IG1. Internet-facing and third-party apps (including Microsoft 365) enforce MFA, ideally through SSO. Evidence: Conditional Access/Security Defaults and MFA registration report.', null, ['iam_mfa']],
-        [$c6, '6.4', 'Require MFA for remote network access', 'IG1. VPN, remote desktop gateways and remote access tools require MFA. Evidence: VPN/RD gateway MFA configuration.', null, ['iam_mfa_remote', 'net_remote_access']],
-        [$c6, '6.5', 'Require MFA for administrative access', 'IG1. All admin accounts, on-prem and cloud/service-provider consoles, require MFA. Evidence: MFA enforcement for admin roles.', null, ['iam_mfa_admin']],
+        [$c6, '6.4', 'Use MFA for VPN and other remote access', 'IG1. VPN, remote desktop gateways and remote access tools require MFA. Evidence: VPN/RD gateway MFA configuration.', null, ['iam_mfa_remote', 'net_remote_access']],
+        [$c6, '6.5', 'Use MFA for every admin sign-in', 'IG1. All admin accounts, on-prem and cloud/service-provider consoles, require MFA. Evidence: MFA enforcement for admin roles.', null, ['iam_mfa_admin']],
         [$c6, '6.6', 'Inventory authentication and authorization systems', 'IG2. Systems that authenticate or authorize users (on-prem and remote, including SaaS identity providers) are listed and reviewed yearly. Evidence: list of identity systems.', null, ['iam_sso']],
         [$c6, '6.7', 'Centralize access control', 'IG2. Access to applications is controlled through a directory service or SSO provider where supported. Evidence: SSO/enterprise app configuration.', null, ['iam_sso']],
 
@@ -98,7 +99,7 @@ return [
 
         // 8. Audit Log Management
         [$c8, '8.1', 'Maintain an audit log management process', 'IG1. A documented process defines what is logged, how logs are reviewed and how long they are kept, reviewed yearly. Evidence: logging standard.', null, ['log_collect', 'gov_policy']],
-        [$c8, '8.2', 'Collect audit logs', 'IG1. Audit logging is enabled on enterprise assets per the logging process. Evidence: audit policy settings and M365 unified audit log enabled.', null, ['log_collect']],
+        [$c8, '8.2', 'Turn on audit logging', 'IG1. Audit logging is enabled on enterprise assets per the logging process. Evidence: audit policy settings and M365 unified audit log enabled.', null, ['log_collect']],
         [$c8, '8.3', 'Provide enough audit log storage', 'IG1. Log destinations have enough capacity to meet the logging process. Evidence: log size/retention settings.', null, ['log_retention']],
         [$c8, '8.4', 'Standardize time synchronization', 'IG2. At least two synchronized time sources are configured across assets. Evidence: NTP configuration on domain controllers, firewalls and servers.', null, ['log_time_sync']],
         [$c8, '8.5', 'Collect detailed audit logs', 'IG2. Logs for assets holding sensitive data capture event source, date, user, timestamp and addresses. Evidence: advanced audit policy and sample log entries.', null, ['log_collect']],
@@ -118,9 +119,9 @@ return [
         [$c9, '9.6', 'Block unnecessary file types', 'IG2. Email gateways block attachment types the business does not need. Evidence: email filter attachment policy.', null, ['email_filter']],
 
         // 10. Malware Defenses
-        [$c10, '10.1', 'Deploy and maintain anti-malware software', 'IG1. Anti-malware runs on all enterprise assets. Evidence: AV/EDR coverage report.', null, ['ep_malware', 'ep_edr']],
+        [$c10, '10.1', 'Run anti-malware on every device', 'IG1. Anti-malware runs on all enterprise assets. Evidence: AV/EDR coverage report.', null, ['ep_malware', 'ep_edr']],
         [$c10, '10.2', 'Update anti-malware signatures automatically', 'IG1. Signature and engine updates happen automatically. Evidence: AV update policy and currency report.', null, ['ep_malware']],
-        [$c10, '10.3', 'Disable autorun and autoplay for removable media', 'IG1. Autorun/autoplay is turned off for removable media. Evidence: GPO/Intune setting.', null, ['media_protection', 'cfg_baseline']],
+        [$c10, '10.3', 'Turn off autorun for USB drives and other removable media', 'IG1. Autorun/autoplay is turned off for removable media. Evidence: GPO/Intune setting.', null, ['media_protection', 'cfg_baseline']],
         [$c10, '10.4', 'Scan removable media automatically', 'IG2. Anti-malware scans removable media when it is connected. Evidence: AV policy setting.', null, ['ep_malware', 'media_protection']],
         [$c10, '10.5', 'Turn on anti-exploitation features', 'IG2. Exploit protections such as DEP, Windows Defender Exploit Guard or attack surface reduction rules are enabled. Evidence: exploit protection / ASR policy.', null, ['cfg_baseline', 'ep_edr']],
         [$c10, '10.6', 'Manage anti-malware centrally', 'IG2. Anti-malware is managed from a central console. Evidence: management console showing all endpoints.', null, ['ep_malware']],
@@ -129,7 +130,7 @@ return [
         // 11. Data Recovery
         [$c11, '11.1', 'Maintain a data recovery process', 'IG1. A documented recovery process sets scope, prioritization and backup protection, reviewed yearly. Evidence: backup and recovery procedure.', null, ['data_backup', 'bc_plan']],
         [$c11, '11.2', 'Run automated backups', 'IG1. In-scope assets are backed up automatically, weekly or more often depending on data sensitivity. Evidence: backup job schedules and success reports.', null, ['data_backup']],
-        [$c11, '11.3', 'Protect recovery data', 'IG1. Backups get protections equal to the source data, such as encryption and separation. Evidence: backup encryption and access settings.', null, ['data_backup', 'data_encrypt_rest']],
+        [$c11, '11.3', 'Secure backups as carefully as the data they hold', 'IG1. Backups get protections equal to the source data, such as encryption and separation. Evidence: backup encryption and access settings.', null, ['data_backup', 'data_encrypt_rest']],
         [$c11, '11.4', 'Keep an isolated copy of recovery data', 'IG1. At least one backup copy is offline, cloud-isolated or immutable. Evidence: offsite/immutable backup configuration.', null, ['data_backup_offsite']],
         [$c11, '11.5', 'Test data recovery', 'IG2. A sample of in-scope assets is restored at least quarterly. Evidence: restore test log with results.', null, ['data_restore_test']],
 

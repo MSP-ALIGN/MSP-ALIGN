@@ -1,12 +1,14 @@
 <?php
 /**
  * ISO/IEC 27001:2022 (incl. Amendment 1:2024) checklist: ISMS clauses 4 to 10 plus the
- * 93 Annex A controls. Titles and guidance are short paraphrases, not the standard's text.
+ * 93 Annex A controls. Clause numbers and Annex A control names are cited only as reference identifiers;
+ * the descriptions and guidance are MSP Align's own, not text from the standard. ISO and IEC are trademarks
+ * of their owners; no affiliation or endorsement.
  */
 return [
     'slug' => 'iso-27001-2022',
     'name' => 'ISO/IEC 27001:2022',
-    'description' => 'International standard for establishing, running and continually improving an information security management system (ISMS). Certification is granted by an accredited certification body after a Stage 1 (documentation) and Stage 2 (implementation) audit, followed by annual surveillance audits and recertification every three years. All clauses 4 to 10 are mandatory; Annex A controls are selected through the risk assessment and treatment process and recorded, with justification, in the Statement of Applicability (SoA). Organizations certified to the 2013 edition had to transition to 2022 by October 31, 2025. Includes the Amendment 1:2024 climate change consideration in clauses 4.1 and 4.2. This is a paraphrased summary for tracking an assessment, not the text of the standard.',
+    'description' => 'International standard for establishing, running and continually improving an information security management system (ISMS). Certification is granted by an accredited certification body after a Stage 1 (documentation) and Stage 2 (implementation) audit, followed by annual surveillance audits and recertification every three years. All clauses 4 to 10 are mandatory; Annex A controls are selected through the risk assessment and treatment process and recorded, with justification, in the Statement of Applicability (SoA). Organizations certified to the 2013 edition had to transition to 2022 by October 31, 2025. Includes the Amendment 1:2024 climate change consideration in clauses 4.1 and 4.2. Clause and control names are cited as references; descriptions are our own summaries for tracking an assessment, not the text of the standard. Get the standard from ISO or your national standards body.',
     'controls' => [
         // ISMS clauses
         ['ISMS clauses', 'Clause 4.1', 'Understand the organization and its internal and external context', 'Documented list of internal and external issues affecting the ISMS; per Amendment 1:2024, state whether climate change is a relevant issue. Evidence: context/issues register reviewed at management review.', null, ['gov_risk_assessment']],

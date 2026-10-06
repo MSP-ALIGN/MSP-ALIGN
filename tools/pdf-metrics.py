@@ -18,7 +18,10 @@ out = ["<?php", "declare(strict_types=1);", "", "namespace Align\\Pdf;", "", "/*
        " * for contracts. GENERATED from Adobe's Core 14 AFM files (see ADOBE-AFM-README.txt next to this file): only",
        " * the widths and metrics are taken, remapped from AdobeStandardEncoding glyph names to WinAnsiEncoding byte",
        " * order. This is a modified, derived form of the AFM data; the AFM files themselves are not included.",
-       " * Regenerate with tools/pdf-metrics.py.", " */", "final class Metrics", "{", "    public const FONTS = ["]
+       " * Regenerate with tools/pdf-metrics.py.", " *",
+       " * Font metrics: Copyright (c) 1985, 1987, 1989, 1990, 1993, 1997 Adobe Systems Incorporated. All Rights Reserved.",
+       " * Helvetica and Times are trademarks of Linotype-Hell AG and/or its subsidiaries. Used under the Adobe AFM notice",
+       " * in ADOBE-AFM-README.txt; no fonts are embedded.", " */", "final class Metrics", "{", "    public const FONTS = ["]
 for f in fonts:
     w, meta = {}, {}
     for line in open(D + f + ".afm", encoding="latin-1"):

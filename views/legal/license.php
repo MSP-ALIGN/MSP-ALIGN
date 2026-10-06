@@ -40,6 +40,9 @@ use Align\Controllers\LegalController;
         </tbody>
       </table>
     </div>
+    <h2 class="h5 mt-4">Trademarks</h2>
+    <p class="small">The license covers the code, not the MSP Align name and logo. Running the app for your business, rebranding it under Settings → Branding and sharing unchanged copies are all fine; a changed version shared with others needs its own name. See the <a href="https://github.com/MSP-ALIGN/MSP-ALIGN/blob/main/TRADEMARKS.md" target="_blank" rel="noopener">trademark policy</a>.</p>
+    <p class="small">Other product and standard names (ITFlow, NinjaOne, Veeam, Microsoft, Google, Dell, Lenovo, CIS Controls®, ISO/IEC 27001, PCI DSS, SOC 2 and others) are trademarks of their owners and appear only to say what the app works with; MSP Align isn't affiliated with or endorsed by them. The compliance checklists cite official control numbers, but their titles and guidance are MSP Align's own summaries, not the text of the standards.</p>
     <p class="small text-muted mt-3 mb-0">The app also uses services you connect to it (ITFlow, NinjaOne, Veeam, Microsoft, Google, Dell, Lenovo); those are covered by their providers' own terms. Using this app is also subject to the <a href="/terms">terms of use</a>.</p>
   </div>
 </div>

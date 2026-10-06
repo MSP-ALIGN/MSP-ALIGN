@@ -123,7 +123,7 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
       <?php if (!empty($provider['phone'])): ?> · <?= e($provider['phone']) ?><?php endif; ?>
       <?php if (!empty($provider['email'])): ?> · <a href="mailto:<?= e($provider['email']) ?>"><?= e($provider['email']) ?></a><?php endif; ?>
     </span>
-    <span>Only you and your IT provider can see this information. · <a href="/portal/terms">Terms of use</a></span>
+    <span>Only you and your IT provider can see this information. · <a href="/portal/terms">Terms of use</a> · <a href="/license">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" target="_blank" rel="noopener">Source</a></span>
   </div>
 </footer>
 </body>
