@@ -1027,3 +1027,27 @@ textarea.pv-in { resize: none; white-space: normal; }
 .diag-tile:hover { box-shadow: var(--align-shadow-hover); }
 #diag-report-box > summary { cursor: pointer; list-style: none; }
 #diag-report-box > summary::-webkit-details-marker { display: none; }
+
+/* 2.3.0 Alignment reviews: priority pills, the score, categories, hints on the review form, the library */
+.al-minw { min-width: 0; }
+.al-measure { max-width: 70ch; }
+.al-prio { font-size: .68rem; vertical-align: 2px; font-weight: 600; }
+.al-ring-lg { width: 84px; height: 84px; flex-basis: 84px; font-size: 1.25rem; }
+.al-spark { width: 200px; max-width: 100%; height: 60px; }
+.al-cat { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.al-cat-name { width: 200px; font-size: .9rem; }
+.al-cat .progress { min-width: 120px; height: 8px; }
+.al-cat-num { width: 44px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.al-cat-miss { width: 72px; }
+.al-helps { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: .75rem; color: var(--bs-secondary-color); }
+.al-chip { border: 1px solid var(--bs-border-color); border-radius: 4px; padding: 0 5px; background: var(--bs-tertiary-bg); }
+.al-hints { display: flex; flex-wrap: wrap; gap: 6px; }
+.al-hint { font-size: .78rem; border-radius: 5px; padding: 1px 7px; background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color); color: var(--bs-secondary-color); }
+.al-hint-auto { border-color: var(--bs-info-border-subtle); background: var(--bs-info-bg-subtle); color: var(--bs-info-text-emphasis); }
+.al-hint-comp { border-color: var(--bs-primary-border-subtle); background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+.al-hint .al-hint-btn { font-size: .78rem; vertical-align: baseline; }
+.al-q.is-open { box-shadow: inset 3px 0 0 var(--bs-warning); }
+.al-q.al-filled { box-shadow: inset 3px 0 0 var(--bs-info); }
+.al-revbar { position: sticky; top: calc(var(--lte-app-header-height, 3.5rem) + .5rem); z-index: 5; }
+.al-ans .btn { white-space: nowrap; }
+@media (max-width: 575.98px) { .al-cat-name { width: 100%; } .al-revbar { position: static; } }

@@ -27,6 +27,13 @@ warranties, meetings and compliance due dates. Drag projects and devices to anot
 
 ![The client roadmap](screenshots/roadmap.png)
 
+### Alignment
+
+How the client measures against your own standards (Settings → Standards): the score and its trend, each category,
+and the gaps in order of importance, each one a roadmap project in one click.
+
+![The client's alignment review](screenshots/alignment.png)
+
 ### Technology budget
 
 A three-year budget by quarter that builds itself from licensing, hardware replacements, projects and managed services,

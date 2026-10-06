@@ -1,6 +1,6 @@
 <?php
 /**
- * The client list. @var array $clients, $stats, $scores, $cadence, $counts, $users; string $view
+ * The client list. @var array $clients, $stats, $scores, $alignment (2.3.0, Alignment::allLatest), $cadence, $counts, $users; string $view, $alignFilter
  * Names, reasons and RMM organization names are escaped; the bulk bar and the New client window are for techs and admins.
  */
 use Align\Auth;
@@ -24,6 +24,13 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
         <li class="nav-item"><a class="nav-link <?= $view === $k ? 'active' : '' ?>" href="/clients?view=<?= $k ?>"><?= e($label) ?> <span class="badge <?= $view === $k ? 'text-bg-light' : 'text-bg-secondary' ?>"><?= (int) ($counts[$k] ?? 0) ?></span></a></li>
       <?php endforeach; ?>
     </ul>
+    <?php $afs = ['' => 'Any alignment', 'at_risk' => 'At risk (under 60%)', 'attention' => 'Needs attention (60–79%)', 'old' => 'Reviewed over 6 months ago', 'never' => 'Never reviewed']; ?>
+    <div class="dropdown my-1 me-1">
+      <button type="button" class="btn btn-sm <?= $alignFilter ? 'btn-primary' : 'btn-default' ?> dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-bullseye me-1"></i><?= e($afs[$alignFilter]) ?></button>
+      <div class="dropdown-menu">
+        <?php foreach ($afs as $k => $l): ?><a class="dropdown-item<?= $alignFilter === $k ? ' active' : '' ?>" href="/clients?<?= e(http_build_query(array_filter(['view' => $view, 'alignment' => $k, 'sort' => query('sort') === 'alignment' ? 'alignment' : '']))) ?>"><?= e($l) ?></a><?php endforeach; ?>
+      </div>
+    </div>
     <input type="search" class="form-control form-control-sm list-search my-1 me-1" data-filter-table="clients-table" data-enter-nosubmit placeholder="Filter clients…" aria-label="Filter clients" value="<?= e($q) ?>">
     <?php if ($canEdit): ?>
       <div class="bulk-bar d-none d-flex flex-wrap align-items-center" id="bulk-bar">
@@ -46,7 +53,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
         <tr>
           <?php if ($canEdit): ?><th class="w-check"><input type="checkbox" id="check-all" aria-label="Select all"></th><?php endif; ?>
           <th>Client</th><th>Industry</th><th>vCIO</th><th class="text-end">Devices</th><th class="text-end">Critical</th>
-          <th class="text-end">Warnings</th><th class="text-end">Next 12 mo</th><th>Compliance</th><th>Next meeting</th>
+          <th class="text-end">Warnings</th><th class="text-end">Next 12 mo</th><th><a class="text-reset" href="/clients?<?= e(http_build_query(array_filter(['view' => $view, 'alignment' => $alignFilter, 'sort' => query('sort') === 'alignment' ? '' : 'alignment']))) ?>" title="Lowest score first">Alignment<?= query('sort') === 'alignment' ? ' <i class="fas fa-sort-up"></i>' : '' ?></a></th><th>Compliance</th><th>Next meeting</th>
         </tr>
       </thead>
       <tbody>
@@ -71,6 +78,11 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           <td class="text-end"><?= $s['bad'] ? '<span class="badge text-bg-danger">' . (int) $s['bad'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
           <td class="text-end"><?= $s['warn'] ? '<span class="badge text-bg-warning">' . (int) $s['warn'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
           <td class="text-end"><?= $s['cost12'] ? money($s['cost12']) : '<span class="text-muted">—</span>' ?></td>
+          <td class="small text-nowrap" data-sort-value="<?= isset($alignment[$c['id']]) && $alignment[$c['id']]['score'] !== null ? (int) $alignment[$c['id']]['score'] : 101 ?>">
+            <?php if ($al = $alignment[$c['id']] ?? null): [$alb, $alt] = \Align\Alignment\Alignment::band($al['score']); ?>
+              <span class="badge text-bg-<?= $alt ?>"><?= $al['score'] !== null ? (int) $al['score'] . '%' : '–' ?></span> <span class="text-muted" title="Reviewed <?= e(fmt_date($al['finished_at'])) ?>"><?= e($alb) ?></span>
+            <?php else: ?><span class="text-muted">—</span><?php endif; ?>
+          </td>
           <td class="compliance-cell">
             <?php if ($avg !== null): ?>
               <div class="progress progress-xs mb-1"><div class="progress-bar bg-<?= $avg >= 80 ? 'success' : ($avg >= 50 ? 'warning' : 'danger') ?>" style="width: <?= $avg ?>%"></div></div>
@@ -84,7 +96,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$clients): ?><tr><td colspan="10" class="text-muted p-3"><?= $view === 'active' ? (psa_on() ? 'No clients yet. Add one, or run a sync to bring them in from ' . psa_name() . '.' : 'No clients yet. Add one, <a href="/clients/import">import a CSV file</a>, or add them from your RMM organizations on <a href="/mapping">Client mapping</a>.') : 'None.' ?></td></tr><?php endif; ?>
+      <?php if (!$clients): ?><tr><td colspan="11" class="text-muted p-3"><?= $view === 'active' ? (psa_on() ? 'No clients yet. Add one, or run a sync to bring them in from ' . psa_name() . '.' : 'No clients yet. Add one, <a href="/clients/import">import a CSV file</a>, or add them from your RMM organizations on <a href="/mapping">Client mapping</a>.') : 'None.' ?></td></tr><?php endif; ?>
       </tbody>
     </table>
     </div>

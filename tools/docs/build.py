@@ -301,6 +301,7 @@ def page(slug, title, body, description):
 # Small line icons (24x24, stroke = currentColor), drawn for this page
 ICONS = {
     "lifecycle": '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/><path d="M12 7v5l3 2"/>',
+    "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
     "roadmap": '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h4M7 17h8"/>',
     "report": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 18v-3M12 18v-6M16 18v-4"/>',
     "portal": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5"/>',
@@ -322,6 +323,7 @@ def icon(name):
 # What it does: (icon, title, one line). Plain claims only, each one true of the current release.
 FEATURES = [
     ("lifecycle", "Lifecycle at a glance", "Warranty, end of life and OS support for every device, with Dell and Lenovo warranty lookups."),
+    ("target", "Alignment reviews", "Score every client against your own standards, then turn each gap into a roadmap project."),
     ("roadmap", "Roadmaps and budgets", "Projects by quarter and a three-year budget that fills itself from hardware, licenses and services."),
     ("report", "QBRs in one click", "A polished pack: lifecycle, backups, compliance, roadmap and budget, ready to print or send."),
     ("portal", "Client portal", "Clients see their plan, approve projects and send requests, with two-factor sign-in."),

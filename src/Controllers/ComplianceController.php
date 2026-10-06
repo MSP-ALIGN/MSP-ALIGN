@@ -179,8 +179,31 @@ final class ComplianceController
             'indicators' => Compliance::indicators((new Lifecycle())->devices($id)),
             'filter' => query('filter'),
             'docs' => \Align\Docs\Documents::forClient($id),
-            'crosswalk' => Compliance::crosswalk($id, $fw, $controls),
+            'crosswalk' => self::withAlignment($id, Compliance::crosswalk($id, $fw, $controls), $controls),
         ]);
+    }
+
+    /**
+     * 2.3.0: adds the client's latest alignment answers to the crosswalk, as matches from "Alignment review (date)"
+     * (Aligned = Met, Misaligned = Not met, N/A = N/A), so a control can be filled from the matching standard. A
+     * control with no suggestion yet gets one when its strongest alignment matches agree.
+     */
+    private static function withAlignment(int $clientId, array $xw, array $controls): array
+    {
+        foreach (\Align\Alignment\Alignment::forCrosswalk($clientId, $controls) as $cid => $ms) {
+            usort($ms, fn($a, $b) => $b['score'] <=> $a['score']);
+            $x = $xw[$cid] ?? ['matches' => [], 'answered' => 0, 'suggest' => null];
+            $x['matches'] = array_merge($ms, $x['matches']);
+            $x['answered'] += count($ms);
+            if ($x['suggest'] === null && $ms[0]['score'] >= 3) {
+                $top = array_filter($ms, fn($m) => $m['score'] === $ms[0]['score']);
+                if (count(array_unique(array_column($top, 'status'))) === 1) {
+                    $x['suggest'] = $ms[0];
+                }
+            }
+            $xw[$cid] = $x;
+        }
+        return $xw;
     }
 
     /**

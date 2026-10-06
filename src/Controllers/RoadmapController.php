@@ -112,8 +112,13 @@ final class RoadmapController
             flash('error', 'Give the project a name.');
             redirect(self::back($id));
         }
+        // 2.3.0: a project made from an alignment gap remembers the standard it fixes (the gap then shows it)
+        $std = (int) post('alignment_standard_id');
+        if ($std && DB::value('SELECT 1 FROM alignment_standards WHERE id = ?', [$std])) {
+            $f['alignment_standard_id'] = $std;
+        }
         $pid = DB::insert('roadmap_items', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
-        Audit::log('roadmap.create', "{$client['name']}: {$f['title']}");
+        Audit::log('roadmap.create', "{$client['name']}: {$f['title']}" . (isset($f['alignment_standard_id']) ? ' (from an alignment gap)' : ''));
         $msg = "Added \"{$f['title']}\" to {$client['name']}'s plan.";
         if (post('ticket') === '1' && !\Align\Roadmap\ProjectTickets::makesTicket((string) $client['psa_id'])) {
             // Ticked for a client with no ticket possible (picked from the all-clients form): don't mark it started

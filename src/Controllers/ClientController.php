@@ -73,7 +73,27 @@ final class ClientController
         $counts = DB::one('SELECT SUM(is_archived = 0 AND planning_excluded = 0) AS active, SUM(planning_excluded = 1) AS removed,
             SUM(is_archived = 1) AS archived, COUNT(*) AS `all` FROM clients');
         $scores = Compliance::allScores();
+        // 2.3.0: ?alignment= filters by the latest alignment review, ?sort=alignment puts the lowest scores first
+        $align = \Align\Alignment\Alignment::allLatest();
+        $af = in_array(query('alignment'), ['at_risk', 'attention', 'old', 'never'], true) ? query('alignment') : '';
+        if ($af !== '') {
+            $old = date('Y-m-d H:i:s', strtotime('-6 months'));
+            $clients = array_values(array_filter($clients, function ($c) use ($align, $af, $old) {
+                $a = $align[$c['id']] ?? null;
+                return match ($af) {
+                    'never' => $a === null,
+                    'old' => $a !== null && $a['finished_at'] < $old,
+                    'at_risk' => $a !== null && $a['score'] !== null && $a['score'] < 60,
+                    'attention' => $a !== null && $a['score'] !== null && $a['score'] >= 60 && $a['score'] < 80,
+                };
+            }));
+        }
+        if (query('sort') === 'alignment') {
+            usort($clients, fn($x, $y) => [$align[$x['id']]['score'] ?? 101, $x['name']] <=> [$align[$y['id']]['score'] ?? 101, $y['name']]);
+        }
         View::render('clients/index', [
+            'alignment' => $align,
+            'alignFilter' => $af,
             'title' => 'Clients',
             'nav' => 'clients',
             'clients' => $clients,
@@ -350,6 +370,7 @@ final class ClientController
             'byType' => $byType,
             'frameworks' => $frameworks,
             'indicators' => Compliance::indicators($devices),
+            'alignment' => \Align\Alignment\Alignment::summary($id), // 2.3.0
             'upcoming' => DB::all("SELECT * FROM meetings WHERE client_id = ? AND status = 'scheduled' AND starts_at >= NOW() ORDER BY starts_at LIMIT 5", [$id]),
             'recent' => DB::all("SELECT * FROM meetings WHERE client_id = ? AND (status = 'completed' OR starts_at < NOW()) AND status <> 'cancelled' ORDER BY starts_at DESC LIMIT 3", [$id]),
             'cadence' => Meetings::cadence()[$id] ?? null,
