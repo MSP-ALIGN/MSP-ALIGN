@@ -33,6 +33,8 @@ final class Projects
             'recurring_monthly' => ['number', ['min' => 0, 'max' => 10000000, 'desc' => 'Added monthly cost once done.']],
             'priority' => ['string', ['enum' => array_keys(Roadmap::PRIORITIES), 'desc' => 'Priority (default "medium").']],
             'status' => ['string', ['enum' => array_keys(Roadmap::STATUSES), 'desc' => 'Status (default "proposed"). Approved and scheduled projects roll into the budget.']],
+            // 2.3.0: the alignment standard the project fixes (a gap then shows it's on the roadmap)
+            'alignment_standard_id' => $creating ? ['int', ['min' => 1, 'desc' => 'The alignment standard this project fixes (GET /alignment/standards).']] : null,
         ]);
     }
 
@@ -101,6 +103,9 @@ final class Projects
     {
         $in = Input::clean(Context::$body, self::rules(true), true);
         $client = Clients::load($in['client_id']);
+        if (isset($in['alignment_standard_id']) && !DB::value('SELECT 1 FROM alignment_standards WHERE id = ?', [$in['alignment_standard_id']])) {
+            throw ApiError::invalid(['alignment_standard_id' => 'No standard with that id.']);
+        }
         $row = $in + ['category' => 'project', 'priority' => 'medium', 'status' => 'proposed', 'created_by' => null];
         $row['category'] ??= 'project';
         $row['priority'] ??= 'medium';
@@ -175,6 +180,7 @@ final class Projects
             'psa_ticket_id' => isset($r['psa_ticket_id']) && $r['psa_ticket_id'] !== null ? (string) $r['psa_ticket_id'] : null,
             // 2.2.2: when Ready to start was pressed (the ticket made, or marked started without one)
             'started_at' => !empty($r['started_at']) ? Out::ts($r['started_at']) : null,
+            'alignment_standard_id' => isset($r['alignment_standard_id']) ? (int) $r['alignment_standard_id'] : null,
             'decision' => $r['decided_at'] ? ['by' => $r['decided_by_name'], 'at' => Out::ts($r['decided_at']), 'comment' => $r['decision_comment'], 'via_portal' => (bool) $r['decided_by_portal_user_id']] : null,
             'created_at' => Out::ts($r['created_at']),
             'updated_at' => Out::ts($r['updated_at'] ?? $r['created_at']),

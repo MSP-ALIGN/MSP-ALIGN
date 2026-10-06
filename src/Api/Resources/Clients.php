@@ -127,6 +127,12 @@ final class Clients
             $scores = array_map(fn($f) => \Align\Compliance\Compliance::score($id, (int) $f['framework_id'])['score'], $fws);
             $out['compliance'] = ['frameworks' => count($fws), 'average_score' => $scores ? (int) round(array_sum($scores) / count($scores)) : null];
         }
+        if (Context::can('alignment:read')) {
+            // 2.3.0: the latest finished alignment review
+            $al = \Align\Alignment\Alignment::latest($id);
+            $sc = $al && $al['score'] !== null ? (int) $al['score'] : null;
+            $out['alignment'] = $al ? ['score' => $sc, 'band' => \Align\Alignment\Alignment::band($sc)[0], 'reviewed_at' => Out::ts($al['finished_at']), 'gaps' => (int) $al['misaligned']] : null;
+        }
         if (Context::can('service:read') && \Align\Service\Sla::enabled() && $c['psa_id']) {
             $r = \Align\Service\Sla::report($id, '90', 0);
             $out['service_levels_90d'] = $r ? ['tickets' => $r['stats']['tickets'], 'responded_on_time_pct' => $r['stats']['resp_pct'], 'resolved_on_time_pct' => $r['stats']['res_pct'], 'goal_pct' => $r['target']] : null;
