@@ -1,0 +1,138 @@
+# MSP Align as a Portainer stack (2.2.6; see docs/DOCKER.md, "Portainer"). Stacks -> Add stack -> Web editor: paste
+# this file, or use Repository with compose path compose.portainer.yaml. The same app as compose.yaml, set up so a
+# stack deploys with nothing filled in; compose.yaml (with a .env file) stays the way for docker compose.
+#
+# Under "Environment variables" click Advanced mode and paste at least the first admin (without it, create one in the
+# app container's Console: align user:create --email=you@example.com --role=admin, which prints a password):
+#
+#   ALIGN_ADMIN_EMAIL=you@example.com
+#   ALIGN_ADMIN_NAME=Your Name
+#   ALIGN_TZ=America/Los_Angeles
+#
+# Address and port: the app listens on every address the Docker host has (so it follows the host's DHCP address) on
+# the first free port from 8080 to 8099. Portainer's Containers list shows which one it got: browse to
+# http://<docker host>:<that port>. Set ALIGN_PORTS=8080 to fix one port, or ALIGN_BIND to one host address.
+#
+# Database password: made up at random on the first start and kept in the db-secret volume (the database and the
+# app both read it from there). To choose your own, set ALIGN_DB_PASSWORD before the FIRST deploy; it's fixed after that.
+#
+# ALIGN_URL   the address in links the app emails out (password resets, portal invites, contract signing). It doesn't
+#             limit where you can browse from, so it can wait for testing; set it (e.g. https://align.example.com)
+#             before real use. Settings -> Diagnostics flags it until then.
+# Optional:   ALIGN_VERSION (latest, or pin a release such as 2.2.6), ALIGN_TRUSTED_PROXIES (your reverse proxy's IP),
+#             ALIGN_SUBNET (172.30.57.0/24, change only if it clashes), ALIGN_DB_BUFFER_POOL (512M),
+#             ALIGN_STAGING=1 + ALIGN_STAGING_MAIL_TO=<mailbox> to make it a test server for a copy of production data
+#
+# First sign-in: Containers -> <stack>-app-1 -> Logs shows "Temporary password: ...".
+# Then save the keys (container Console, /bin/bash):
+#   cat /etc/msp-align/backup-key.txt && rm /etc/msp-align/backup-key.txt
+#   cat /etc/msp-align/app-key
+# Update: download a backup in the app, then Update the stack with "Re-pull image" on.
+
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      MARIADB_DATABASE: ${ALIGN_DB_NAME:-msp_align}
+      MARIADB_USER: ${ALIGN_DB_USER:-msp_align}
+      ALIGN_DB_PASSWORD: ${ALIGN_DB_PASSWORD:-}   # optional: blank makes a random one on the first start
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+      MARIADB_AUTO_UPGRADE: "1"
+    # Encryption at rest: the key is made on the first start and kept in its own volume.
+    # The database password: ALIGN_DB_PASSWORD, or a random one, saved on the first start in the db-secret volume,
+    # which the app reads too. Once saved it's used from there on (MariaDB only takes the password on its first start).
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+        k=/etc/mysql/encryption/keyfile
+        if [ ! -s "$$k" ]; then (umask 077; echo "1;$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')" >"$$k"); fi
+        chown -R mysql:mysql /etc/mysql/encryption; chmod 400 "$$k"
+        p=/run/align-secret/db-password
+        if [ ! -s "$$p" ]; then
+          (umask 077; if [ -n "$$ALIGN_DB_PASSWORD" ]; then printf '%s' "$$ALIGN_DB_PASSWORD"; else head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40; fi >"$$p")
+        fi
+        chmod 600 "$$p"
+        export MARIADB_PASSWORD="$$(cat "$$p")"
+        unset ALIGN_DB_PASSWORD
+        exec docker-entrypoint.sh "$$@"
+      - db-entrypoint
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=${ALIGN_DB_BUFFER_POOL:-512M}
+      - --tmp-table-size=64M
+      - --max-heap-table-size=64M
+      - --plugin-load-add=file_key_management
+      - --file-key-management-filename=/etc/mysql/encryption/keyfile
+      - --file-key-management-encryption-algorithm=AES_CTR
+      - --innodb-encrypt-tables=ON
+      - --innodb-encrypt-log=ON
+      - --innodb-encrypt-temporary-tables=ON
+      - --innodb-encryption-threads=2
+      - --encrypt-tmp-files=ON
+      - --encrypt-tmp-disk-tables=ON
+      - --aria-encrypt-tables=ON
+    volumes:
+      - db:/var/lib/mysql
+      - db-key:/etc/mysql/encryption
+      - db-secret:/run/align-secret
+    networks: [align]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  app:
+    image: ghcr.io/msp-align/msp-align:${ALIGN_VERSION:-latest}
+    restart: unless-stopped
+    stop_grace_period: 2m   # lets a running backup or restore finish
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ALIGN_URL: ${ALIGN_URL:-http://msp-align.local}   # links in emails: set it before real use
+      ALIGN_TZ: ${ALIGN_TZ:-UTC}
+      ALIGN_ADMIN_EMAIL: ${ALIGN_ADMIN_EMAIL:-}
+      ALIGN_ADMIN_NAME: ${ALIGN_ADMIN_NAME:-Administrator}
+      ALIGN_ADMIN_PASSWORD: ${ALIGN_ADMIN_PASSWORD:-}   # blank: a temporary one is printed in the log
+      ALIGN_DB_HOST: db
+      ALIGN_DB_NAME: ${ALIGN_DB_NAME:-msp_align}
+      ALIGN_DB_USER: ${ALIGN_DB_USER:-msp_align}
+      ALIGN_DB_PASSWORD_FILE: /run/align-secret/db-password   # written by the db service on its first start
+      ALIGN_TRUSTED_PROXIES: ${ALIGN_TRUSTED_PROXIES:-}
+      ALIGN_APP_KEY: ${ALIGN_APP_KEY:-}                 # normally made on the first start and kept in the config volume
+      ALIGN_UPDATE_BRANCH: ${ALIGN_UPDATE_BRANCH:-main}
+      ALIGN_STAGING: ${ALIGN_STAGING:-0}
+      ALIGN_STAGING_MAIL_TO: ${ALIGN_STAGING_MAIL_TO:-}
+    ports:
+      # Every host address (follows the host's DHCP address), first free port in the range
+      - "${ALIGN_BIND:-0.0.0.0}:${ALIGN_PORTS:-8080-8099}:80"
+    volumes:
+      - config:/etc/msp-align          # config, encryption key, backup key: keep this volume safe
+      - data:/var/lib/msp-align        # uploads, sessions
+      - agent:/var/lib/msp-align-agent # backup and update job history
+      - db-secret:/run/align-secret:ro # the database password
+    tmpfs:
+      - /run/msp-align
+    networks: [align]
+
+networks:
+  align:
+    ipam:
+      config:
+        - subnet: ${ALIGN_SUBNET:-172.30.57.0/24}
+
+volumes:
+  db:
+  db-key:
+  db-secret:
+  config:
+  data:
+  agent:

@@ -149,6 +149,7 @@ final class Contacts
      * never touched. Archived or deleted in the PSA = archived here (restored if it comes back).
      * Called by the sync with every PSA contact. A contact is matched by its PSA id only and filed under the client
      * linked to its PSA client id (rows for unlinked clients are skipped); it follows its client if the PSA moves it.
+     * An answer with no contacts archives nothing until the PSA has kept giving it for a day (2.2.6).
      */
     public static function syncFromPsa(array $rows, array $locationNames = [], string $psaName = 'the PSA'): string
     {
@@ -211,6 +212,20 @@ final class Contacts
                 DB::insert('contacts', $vals + ['source' => 'psa', 'psa_id' => $kid, 'qbr' => $vals['is_primary']]);
                 $added++;
             }
+        }
+        // 2.2.6: an answer with no contacts at all (a key that lost its permission, a half-failed read) doesn't archive
+        // every PSA contact. It's only believed once the PSA has kept answering "none" for a day, as for licenses.
+        $active = count(array_filter($existing, fn($r) => !$r['archived_at']));
+        if (!$rows && $active) {
+            $first = (string) \Align\Settings::get('psa_contacts_empty_since', '');
+            if ($first === '') {
+                \Align\Settings::set('psa_contacts_empty_since', $first = $now);
+            }
+            if (strtotime($first) > time() - 86400) {
+                return "$psaName returned no contacts (Align has $active), so none were archived; check the API key's permissions";
+            }
+        } elseif ((string) \Align\Settings::get('psa_contacts_empty_since', '') !== '') {
+            \Align\Settings::set('psa_contacts_empty_since', null);
         }
         foreach ($existing as $kid => $ex) {
             if (!isset($seen[$kid]) && !$ex['archived_at']) {

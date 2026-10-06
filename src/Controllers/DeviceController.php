@@ -145,6 +145,7 @@ final class DeviceController
         $back = post('back');
         // Only this client's device list or a device page, with a plain query (+ is a space in a filter or search)
         $back = preg_match('#^/(clients/' . $id . '/devices|devices/\d+)(\?[a-z0-9=&_%.+-]*)?$#i', $back) ? $back : "/clients/$id/devices";
+        refuse_large_amounts(['cost' => ['The project cost', self::MAX_PROJECT_COST]], $back);
         $ids = array_values(array_unique(array_map('intval', (array) ($_POST['ids'] ?? []))));
         if (!$ids) {
             flash('error', 'Tick the devices first.');
@@ -285,6 +286,7 @@ final class DeviceController
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        refuse_large_amounts(['replacement_cost' => ['The replacement cost', self::MAX_DEVICE_COST]], "/clients/$id/devices");
         $f = self::manualFields();
         if (!$f['display_name']) {
             flash('error', 'Device name is required.');
@@ -318,6 +320,7 @@ final class DeviceController
     {
         Auth::requireRole('tech');
         $d = self::find($id);
+        refuse_large_amounts(['replacement_cost' => ['The replacement cost', self::MAX_DEVICE_COST]], "/devices/$id");
         $before = PsaAssetSync::snapshot($id);
         DB::transaction(function () use ($d, $id) {
             $o = self::overrideRow($id);

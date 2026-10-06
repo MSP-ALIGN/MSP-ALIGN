@@ -14,6 +14,8 @@ use Align\Settings;
  *    invitations, updates and cancellations, attendees can accept, and a Teams link can be added.
  *  - ics mode: an email with an .ics invitation attached (works with any mail system). Always used with
  *    SMTP, where the invitation is also sent as a text/calendar part so mail apps show Accept / Decline.
+ *    2.2.6: the addresses each invitation went to are kept (meetings.invited_to), so someone taken off the
+ *    attendee list gets a cancellation, and cancelling the meeting reaches everyone who was invited.
  *
  * Security: callers (meeting pages, the API) have checked the user may change the meeting and send invitations
  * (client-limited API keys can't). Attendees are whatever staff typed, reduced to valid addresses; the organizer
@@ -71,7 +73,8 @@ final class Invites
         if ($action === 'cancel' && !$m['invites_sent_at']) {
             return null;
         }
-        if (!$to && !$m['graph_event_id']) {
+        // Nobody left to write to, unless the last invitation's people now need a cancellation (2.2.6)
+        if (!$to && !$m['graph_event_id'] && !($m['invites_sent_at'] && self::invited($m))) {
             return null;
         }
         try {
@@ -83,6 +86,19 @@ final class Invites
             \Align\Audit::log('meeting.invite_failed', $m['title'] . ': ' . safe_error($e));
             return 'Invitations were not sent: ' . safe_error($e);
         }
+    }
+
+    /** The addresses the last invitation went to (meetings.invited_to; 2.2.6), lowercased. */
+    private static function invited(array $m): array
+    {
+        $list = json_decode((string) ($m['invited_to'] ?? ''), true);
+        return is_array($list) ? array_values(array_filter(array_map(fn($a) => strtolower((string) $a), $list), fn($a) => $a !== '')) : [];
+    }
+
+    /** Remembers who this invitation went to, for the next update or cancellation (2.2.6). */
+    private static function remember(int $id, array $to): void
+    {
+        DB::run('UPDATE meetings SET invited_to = ? WHERE id = ?', [json_encode(array_values(array_unique(array_map(fn($r) => strtolower($r['address']), $to)))), $id]);
     }
 
     /** "Client — Title" (plain text). */
@@ -132,6 +148,10 @@ final class Invites
             }
             return self::viaIcs($m, $to, 'cancel');
         }
+        if (!$to && !$eventId) {
+            // Everyone was taken off a meeting first invited by .ics email: they get their cancellation that way
+            return self::viaIcs($m, $to, 'save');
+        }
         $info = [
             'uid' => (string) $m['uid'],
             'subject' => self::subject($m),
@@ -169,6 +189,7 @@ final class Invites
         DB::run('UPDATE meetings SET graph_event_id = ?, graph_mailbox = ?, online_join_url = COALESCE(?, online_join_url),
             video_url = COALESCE(video_url, ?), invites_sent_at = NOW(), invite_sequence = invite_sequence + 1 WHERE id = ?',
             [$r['id'] ?? $eventId, $r['mailbox'] ?? $m['graph_mailbox'], $join, $join !== null && mb_strlen($join) <= 500 ? $join : null, $m['id']]); // video_url holds 500
+        self::remember((int) $m['id'], $to); // the calendar cancels for removed people itself; kept for a switch to .ics mode
         \Align\Audit::log('meeting.invite', self::subject($m) . ' → ' . implode(', ', array_column($to, 'address')));
         return $verb . ' to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . ' through ' . $c->calendarLabel() . ($join ? ' with a ' . $c->meetingLabel() . ' link' : '') . '.';
     }
@@ -178,6 +199,17 @@ final class Invites
     {
         $cancel = $action === 'cancel';
         $organizer = Mail::fromAddress();
+        $current = array_map(fn($r) => strtolower($r['address']), $to);
+        // People invited last time who are no longer on the list (2.2.6)
+        $removed = $m['invites_sent_at'] ? array_values(array_diff(self::invited($m), $current)) : [];
+        if ($cancel) {
+            // A cancellation reaches everyone who was invited, including anyone taken off the list since
+            $to = array_merge($to, array_map(fn($a) => ['address' => $a, 'name' => ''], $removed));
+            $removed = [];
+        }
+        if (!$to && !$removed) {
+            return 'No attendees with an email address: nothing was sent.';
+        }
         $ics = self::ics($m, $cancel ? 'CANCEL' : 'REQUEST', $organizer, $to, (int) $m['invite_sequence'] + 1);
         $when = \Align\Fmt::dateTime($m['starts_at'], 'dayfull') . ' – ' . \Align\Fmt::time($m['ends_at']) . ' ' . date('T', strtotime($m['ends_at']));
         $blocks = [T::p($cancel ? 'This meeting has been cancelled.' : ($m['invites_sent_at'] ? 'This meeting has been updated.' : 'You\'re invited to a meeting.')),
@@ -187,14 +219,34 @@ final class Invites
             $blocks[] = T::p($m['agenda']);
         }
         $blocks[] = T::p('The calendar invitation is attached.', true);
+        $note = '';
+        if ($removed) {
+            // Their own cancellation, listing only them, so their calendar drops the meeting and nobody else's changes
+            $gone = array_map(fn($a) => ['address' => $a, 'name' => ''], $removed);
+            Mailer::queue('client_meeting_invite', $gone, 'Cancelled: ' . self::subject($m),
+                T::render(self::subject($m), [T::p('You\'ve been taken off this meeting, so it has been removed from your calendar.'),
+                    T::facts(['Meeting' => self::subject($m), 'When' => $when, 'Organizer' => $m['owner_name']])]), [
+                    'client_id' => $m['client_id'] ? (int) $m['client_id'] : null, 'immediate' => true,
+                    'attachments' => [['name' => 'cancel.ics', 'type' => 'text/calendar; charset=utf-8; method=CANCEL',
+                        'content' => self::ics($m, 'CANCEL', $organizer, $gone, (int) $m['invite_sequence'] + 1)]],
+                ]);
+            \Align\Audit::log('meeting.invite_cancel', self::subject($m) . ' → ' . implode(', ', $removed) . ' (taken off the attendee list)');
+            $note = ' Cancellation emailed to ' . count($removed) . ' removed attendee' . (count($removed) === 1 ? '' : 's') . '.';
+        }
+        if (!$to) {
+            DB::run('UPDATE meetings SET invite_sequence = invite_sequence + 1 WHERE id = ?', [$m['id']]);
+            self::remember((int) $m['id'], []);
+            return trim($note);
+        }
         Mailer::queue('client_meeting_invite', $to, ($cancel ? 'Cancelled: ' : ($m['invites_sent_at'] ? 'Updated: ' : 'Invitation: ')) . self::subject($m),
             T::render(self::subject($m), $blocks), [
                 'client_id' => $m['client_id'] ? (int) $m['client_id'] : null, 'immediate' => true,
                 'attachments' => [['name' => $cancel ? 'cancel.ics' : 'invite.ics', 'type' => 'text/calendar; charset=utf-8; method=' . ($cancel ? 'CANCEL' : 'REQUEST'), 'content' => $ics]],
             ]);
         DB::run('UPDATE meetings SET invites_sent_at = NOW(), invite_sequence = invite_sequence + 1 WHERE id = ?', [$m['id']]);
+        self::remember((int) $m['id'], $cancel ? array_merge(array_map(fn($a) => ['address' => $a], self::invited($m)), $to) : $to);
         \Align\Audit::log($cancel ? 'meeting.invite_cancel' : 'meeting.invite', self::subject($m) . ' → ' . implode(', ', array_column($to, 'address')));
-        return ($cancel ? 'Cancellation' : 'Invitation') . ' emailed to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . '.';
+        return ($cancel ? 'Cancellation' : 'Invitation') . ' emailed to ' . count($to) . ' attendee' . (count($to) === 1 ? '' : 's') . '.' . $note;
     }
 
     /**

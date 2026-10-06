@@ -124,6 +124,21 @@ r=st.post(B+"/meetings",data={"_csrf":csrf(st,"/meetings"),"client_id":"1","titl
 msg=[m for m in graph()["mail"] if "ICS Review" in m["message"]["subject"]][-1]["message"]; att=(msg.get("attachments") or [{}])[0]
 ics=base64.b64decode(att.get("contentBytes","")).decode().replace("\r\n ","") if att else ""
 ok("METHOD:REQUEST" in ics and "ATTENDEE" in ics and "jordan@client.example" in ics and att.get("name")=="invite.ics","ICS invitation emailed")
+# 2.2.6: someone taken off the list gets a cancellation of their own; the rest get the update
+imid=q("select id from meetings where title='ICS Review' order by id desc limit 1")[0]["id"]
+ok(q("select invited_to from meetings where id=%s",imid)[0]["invited_to"]=='["jordan@client.example"]',"who was invited is remembered")
+n0=len(graph()["mail"])
+r=st.post(B+f"/meetings/{imid}",data={"_csrf":csrf(st,f"/meetings/{imid}"),"action":"save","client_id":"1","title":"ICS Review","type":"qbr","date":time.strftime("%Y-%m-%d",time.localtime(time.time()+5*86400)),"time":"10:00","duration":"30","attendees":"Pat Lee <pat@client.example>","send_invites":"1","owner_id":"1"})
+new=[m["message"] for m in graph()["mail"][n0:] if "ICS Review" in m["message"]["subject"]]
+def icsof(mm):
+    a=(mm.get("attachments") or [{}])[0]; return base64.b64decode(a.get("contentBytes","")).decode().replace("\r\n ","") if a else ""
+gone=[mm for mm in new if mm["subject"].startswith("Cancelled:")]
+upd=[mm for mm in new if mm["subject"].startswith("Updated:")]
+gi=icsof(gone[0]) if gone else ""
+ok(len(gone)==1 and "METHOD:CANCEL" in gi and "jordan@client.example" in gi and "pat@client.example" not in gi
+   and [x["emailAddress"]["address"] for x in gone[0]["toRecipients"]]==["jordan@client.example"],"the removed attendee gets a cancellation listing only them")
+ok(len(upd)==1 and "pat@client.example" in icsof(upd[0]) and "jordan@client.example" not in icsof(upd[0]) and "removed attendee" in flash(r.text),"the remaining attendee gets the update: "+flash(r.text))
+ok(q("select invited_to from meetings where id=%s",imid)[0]["invited_to"]=='["pat@client.example"]',"and the remembered list follows")
 setting("mail_meeting_mode","calendar")
 # reminders
 q("update meetings set reminder_sent_at=NULL where title='ICS Review'"); q("update meetings set starts_at=now()+interval 2 hour, ends_at=now()+interval 3 hour where title='ICS Review'")

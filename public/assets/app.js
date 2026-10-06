@@ -900,8 +900,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Automatic logoff (HIPAA 164.312(a)(2)(iii)): signs out after the configured idle time, with a
-// one-minute warning. Activity (keys, clicks, scrolling) keeps the server session alive via a ping.
+// Automatic logoff: signs out after the configured idle time, with a one-minute warning. Activity (keys, clicks,
+// scrolling) keeps the server session alive via a ping. 2.2.6: the idle clock is shared by every tab of the same
+// sign-in (staff or portal) through localStorage, so working in one tab keeps a forgotten background tab from
+// signing everyone out, and signing out in one tab sends the others to the sign-in page. Without storage (a private
+// window that refuses it) each tab keeps its own clock, as before.
 document.addEventListener('DOMContentLoaded', () => {
   const meta = document.querySelector('meta[name="align-idle"]');
   if (!meta) return;
@@ -911,8 +914,36 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastPing = Date.now();
   let banner = null;
   let done = false;
-  /** Activity: restart the idle clock (and tell the server, if the warning was showing). */
-  const mark = () => { lastActive = Date.now(); if (banner) { banner.remove(); banner = null; ping(true); } };
+  // Keys per sign-in kind (the ping address differs for staff and portal); values are times, never anything secret
+  const keyActive = 'align-idle-active:' + meta.dataset.ping;
+  const keyOut = 'align-idle-out:' + meta.dataset.ping;
+  const store = {
+    get: (k) => { try { return parseInt(window.localStorage.getItem(k) || '0', 10) || 0; } catch (e) { return 0; } },
+    set: (k, v) => { try { window.localStorage.setItem(k, String(v)); } catch (e) { /* no storage: this tab only */ } },
+  };
+  let lastWrite = 0;
+  /** Takes in activity from another tab: the newest time wins. */
+  const sync = () => {
+    const t = store.get(keyActive);
+    if (t > lastActive) { lastActive = t; if (banner) { banner.remove(); banner = null; } }
+  };
+  /** Activity: restart the idle clock for every tab (and tell the server, if the warning was showing). */
+  const mark = () => {
+    lastActive = Date.now();
+    if (lastActive - lastWrite > 1000) { lastWrite = lastActive; store.set(keyActive, lastActive); }
+    if (banner) { banner.remove(); banner = null; ping(true); }
+  };
+  window.addEventListener('storage', (ev) => {
+    if (ev.key === keyActive) sync();
+    // Another tab signed out (by the idle clock or the Sign out button): this one follows
+    if (ev.key === keyOut && !done) { done = true; window.location.href = meta.dataset.login; }
+  });
+  store.set(keyActive, Math.max(store.get(keyActive), lastActive));
+  // The Sign out button tells the other tabs too
+  document.addEventListener('submit', (ev) => {
+    const f = ev.target;
+    if (f && f.getAttribute && f.getAttribute('action') === meta.dataset.logout) store.set(keyOut, Date.now());
+  }, true);
   ['keydown', 'mousedown', 'wheel', 'touchstart', 'scroll'].forEach((ev) => document.addEventListener(ev, mark, { passive: true, capture: true }));
   let lastMove = 0;
   document.addEventListener('mousemove', () => { const n = Date.now(); if (n - lastMove > 5000) { lastMove = n; mark(); } }, { passive: true });
@@ -927,6 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const signOut = (post) => {
     if (done) return;
     done = true;
+    store.set(keyOut, Date.now());
     const go = () => { window.location.href = meta.dataset.login; };
     if (!post) { go(); return; }
     const body = new URLSearchParams({ _csrf: meta.dataset.csrf });
@@ -934,6 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   setInterval(() => {
     const now = Date.now();
+    sync();
     const quiet = now - lastActive;
     if (quiet >= idle) { signOut(true); return; }
     if (quiet >= idle - 60000 && !banner) {
