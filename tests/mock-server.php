@@ -80,6 +80,218 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     return;
 }
 
+// ---- 2.6.0 Microsoft 365 for clients: login and Graph for the MSP app and client tenants -------
+// Settings for the tests: m365c_login_base = <mock>/m365c-login, m365c_graph_base = <mock>/m365c-graph/v1.0.
+// The setup sign-in (device code) is pending until /mock/m365c-approve; then its token creates the app. App-only
+// tokens need a client assertion signed by a certificate the app has now (checked, so rotation is really tested) or
+// the own app's secret, for a tenant that approved the app (/m365c-login/organizations/v2.0/adminconsent records
+// it). Each tenant's subscriptions come from the state (/mock/m365c-set). Control: /mock/m365c-reset, /mock/m365c.
+$m365File = sys_get_temp_dir() . '/m365c-mock.json';
+$m365Home = 'aaaaaaaa-0000-4000-8000-000000000001';
+$m365Fresh = fn() => ['approved' => false, 'app' => null, 'keys' => [], 'consented' => [], 'consent_tenant' => '11111111-aaaa-4bbb-8ccc-000000000001',
+    'tenants' => [
+        '11111111-aaaa-4bbb-8ccc-000000000001' => ['name' => 'Northwind Dental', 'domain' => 'northwind.example', 'skus' => []],
+        '22222222-aaaa-4bbb-8ccc-000000000002' => ['name' => 'Contoso Legal', 'domain' => 'contoso.example', 'skus' => []],
+        '33333333-aaaa-4bbb-8ccc-000000000003' => ['name' => 'Fabrikam Builders', 'domain' => 'fabrikam.example', 'skus' => []],
+    ], 'own' => ['app_id' => 'cccccccc-0000-4000-8000-00000000000c', 'secret' => 'own-secret', 'tenant' => '33333333-aaaa-4bbb-8ccc-000000000003'],
+    'calls' => [], 'next' => 1];
+$m365State = fn() => json_decode((string) @file_get_contents($m365File), true) ?: $m365Fresh();
+$m365Save = fn(array $st) => file_put_contents($m365File, json_encode($st), LOCK_EX);
+$jwtParts = function (string $jwt): ?array {
+    $p = explode('.', $jwt);
+    if (count($p) !== 3) {
+        return null;
+    }
+    $d = fn($s) => base64_decode(strtr($s, '-_', '+/') . str_repeat('=', (4 - strlen($s) % 4) % 4));
+    return ['head' => json_decode($d($p[0]), true), 'body' => json_decode($d($p[1]), true), 'signed' => "$p[0].$p[1]", 'sig' => $d($p[2])];
+};
+// A JWT signed by one of the app's current certificates (found by its x5t): the key's DER, or null
+$m365Verify = function (array $st, string $jwt) use ($jwtParts): ?string {
+    $j = $jwtParts($jwt);
+    if (!$j || !is_array($j['head'])) {
+        return null;
+    }
+    foreach ($st['keys'] as $k) {
+        $der = base64_decode($k['key']);
+        $x5t = rtrim(strtr(base64_encode(sha1($der, true)), '+/', '-_'), '=');
+        if (($j['head']['x5t'] ?? '') === $x5t) {
+            $pem = "-----BEGIN CERTIFICATE-----\n" . chunk_split($k['key'], 64, "\n") . "-----END CERTIFICATE-----\n";
+            return openssl_verify($j['signed'], $j['sig'], openssl_pkey_get_public($pem), OPENSSL_ALGO_SHA256) === 1 ? $k['keyId'] : null;
+        }
+    }
+    return null;
+};
+if ($path === '/mock/m365c-reset') {
+    @unlink($m365File);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/m365c') {
+    $json($m365State());
+    return;
+}
+if ($path === '/mock/m365c-approve' || $path === '/mock/m365c-set') {
+    $st = $m365State();
+    if ($path === '/mock/m365c-approve') {
+        $st['approved'] = true;
+    } else {
+        $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        foreach ($in as $k => $v) {
+            if ($k === 'skus') {
+                $st['tenants'][$v['tenant']]['skus'] = $v['list'];
+            } elseif ($k === 'revoke') {
+                $st['consented'] = array_values(array_diff($st['consented'], [$v]));
+            } else {
+                $st[$k] = $v;
+            }
+        }
+    }
+    $m365Save($st);
+    $json(['ok' => true]);
+    return;
+}
+if (preg_match('#^/m365c-login/organizations/v2\.0/adminconsent$#', $path)) {
+    // The client's admin accepted: Microsoft records the approval and sends the browser back
+    $st = $m365State();
+    $t = $st['consent_tenant'];
+    $st['consented'] = array_values(array_unique([...$st['consented'], $t]));
+    $m365Save($st);
+    header('Content-Type: text/html');
+    header('Location: ' . $_GET['redirect_uri'] . '?admin_consent=True&tenant=' . $t . '&state=' . urlencode($_GET['state'] ?? ''), true, 302);
+    return;
+}
+if (preg_match('#^/m365c-login/([^/]+)/oauth2/v2\.0/(devicecode|token)$#', $path, $lm)) {
+    $st = $m365State();
+    $st['calls'][] = ['login' => $lm[2], 'tenant' => $lm[1], 'grant' => $_POST['grant_type'] ?? ''];
+    $m365Save($st);
+    $err = function (string $e, string $d, int $code = 400) use ($json) {
+        http_response_code($code);
+        $json(['error' => $e, 'error_description' => $d]);
+    };
+    if ($lm[2] === 'devicecode') {
+        $json(['device_code' => 'dc-1', 'user_code' => 'ABCD-EFGH', 'verification_uri' => 'https://microsoft.com/devicelogin', 'expires_in' => 900, 'interval' => 5]);
+        return;
+    }
+    $grant = $_POST['grant_type'] ?? '';
+    if ($grant === 'urn:ietf:params:oauth:grant-type:device_code') {
+        if (($_POST['client_id'] ?? '') !== '14d82eec-204b-4c2f-b7e8-296a70dab67e' || ($_POST['device_code'] ?? '') !== 'dc-1') {
+            $err('invalid_grant', 'AADSTS70000: bad device code');
+        } elseif (!$st['approved']) {
+            $err('authorization_pending', 'AADSTS70016: OAuth 2.0 device flow error. Authorization is pending.');
+        } else {
+            $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => 'setup-token']);
+        }
+        return;
+    }
+    if ($grant !== 'client_credentials') {
+        $err('unsupported_grant_type', 'AADSTS70003: unsupported');
+        return;
+    }
+    $tenant = $lm[1];
+    $cid = $_POST['client_id'] ?? '';
+    if ($cid === $st['own']['app_id']) {
+        if (($_POST['client_secret'] ?? '') !== $st['own']['secret'] || $tenant !== $st['own']['tenant']) {
+            $err('invalid_client', 'AADSTS7000215: Invalid client secret provided.', 401);
+            return;
+        }
+    } elseif (!$st['app'] || $cid !== $st['app']['appId']) {
+        $err('unauthorized_client', "AADSTS700016: Application with identifier '$cid' was not found in the directory.");
+        return;
+    } elseif (!($assert = $_POST['client_assertion'] ?? '') || !$m365Verify($st, $assert)) {
+        $err('invalid_client', 'AADSTS700027: The certificate with identifier used to sign the client assertion is not registered on application.', 401);
+        return;
+    } elseif (($jwtParts($assert)['body']['aud'] ?? '') !== (($_SERVER['HTTPS'] ?? '') ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $path) {
+        $err('invalid_client', 'AADSTS50027: Invalid JWT token: the audience is wrong.', 401);
+        return;
+    } elseif ($tenant !== $m365Home && !in_array($tenant, $st['consented'], true)) {
+        $err('unauthorized_client', "AADSTS700016: Application with identifier '$cid' was not found in the directory '$tenant'. This can happen if the application has not been installed by the administrator of the tenant.");
+        return;
+    }
+    $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => "t:$tenant:$cid"]);
+    return;
+}
+if (str_starts_with($path, '/m365c-graph/v1.0/')) {
+    $st = $m365State();
+    $sub = substr($path, strlen('/m365c-graph/v1.0'));
+    $auth = substr($_SERVER['HTTP_AUTHORIZATION'] ?? '', 7);
+    $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st['calls'][] = ['graph' => $method . ' ' . $sub, 'auth' => $auth];
+    $m365Save($st);
+    $no = function (int $code, string $c, string $m) use ($json) {
+        http_response_code($code);
+        $json(['error' => ['code' => $c, 'message' => $m]]);
+    };
+    $guid = fn() => sprintf('%08x-0000-4000-8000-%012x', random_int(1, 0x7fffffff), random_int(1, 0x7fffffff));
+    if ($auth === 'setup-token') {
+        // The admin's setup sign-in, in the MSP's own tenant
+        if ($sub === '/organization' || str_starts_with($sub, '/organization?')) {
+            $json(['value' => [['id' => $m365Home, 'displayName' => 'Example MSP']]]);
+        } elseif ($method === 'POST' && $sub === '/applications') {
+            $app = ['id' => $guid(), 'appId' => 'bbbbbbbb-0000-4000-8000-00000000000b', 'displayName' => $body['displayName'] ?? '', 'signInAudience' => $body['signInAudience'] ?? '',
+                'redirectUris' => $body['web']['redirectUris'] ?? [], 'roles' => array_column($body['requiredResourceAccess'][0]['resourceAccess'] ?? [], 'id'), 'owners' => [], 'granted' => []];
+            $st['keys'] = array_map(fn($k) => ['keyId' => $guid(), 'key' => $k['key']], $body['keyCredentials'] ?? []);
+            $st['app'] = $app;
+            $m365Save($st);
+            $json($app + ['keyCredentials' => array_map(fn($k) => ['keyId' => $k['keyId']], $st['keys'])]);
+        } elseif ($method === 'POST' && $sub === '/servicePrincipals') {
+            $st['app']['sp'] = $guid();
+            $m365Save($st);
+            $json(['id' => $st['app']['sp'], 'appId' => $body['appId'] ?? '']);
+        } elseif ($method === 'GET' && $sub === '/servicePrincipals') { // ?$filter=appId eq Graph's (the query isn't in $path)
+            $json(['value' => [['id' => '99999999-0000-4000-8000-000000000099']]]);
+        } elseif ($method === 'POST' && preg_match('#^/servicePrincipals/([^/]+)/appRoleAssignedTo$#', $sub)) {
+            $st['app']['granted'][] = $body['appRoleId'] ?? '';
+            $m365Save($st);
+            $json(['id' => $guid()]);
+        } elseif ($method === 'POST' && preg_match('#^/applications/([^/]+)/owners/\$ref$#', $sub)) {
+            $st['app']['owners'][] = $body['@odata.id'] ?? '';
+            $m365Save($st);
+            http_response_code(204);
+        } else {
+            $no(404, 'Request_ResourceNotFound', "Not mocked: $method $sub");
+        }
+        return;
+    }
+    if (!preg_match('#^t:([^:]+):(.+)$#', $auth, $tm)) {
+        $no(401, 'InvalidAuthenticationToken', 'Access token is empty.');
+        return;
+    }
+    [$tenant, $appId] = [$tm[1], $tm[2]];
+    if (preg_match('#^/applications/([^/]+)/(addKey|removeKey)$#', $sub, $am)) {
+        // Rotation: only the app itself, in its home tenant, with a proof signed by a key it has now
+        $proof = $jwtParts((string) ($body['proof'] ?? ''));
+        if ($tenant !== $m365Home || !$st['app'] || $am[1] !== $st['app']['id'] || !$m365Verify($st, (string) ($body['proof'] ?? ''))
+            || ($proof['body']['aud'] ?? '') !== '00000002-0000-0000-c000-000000000000' || ($proof['body']['iss'] ?? '') !== $st['app']['id']) {
+            $no(403, 'Authorization_RequestDenied', 'Insufficient privileges or bad proof.');
+            return;
+        }
+        if ($am[2] === 'addKey') {
+            $k = ['keyId' => $guid(), 'key' => $body['keyCredential']['key'] ?? ''];
+            $st['keys'][] = $k;
+            $m365Save($st);
+            $json(['keyId' => $k['keyId'], 'type' => 'AsymmetricX509Cert', 'usage' => 'Verify']);
+        } else {
+            $st['keys'] = array_values(array_filter($st['keys'], fn($k) => $k['keyId'] !== ($body['keyId'] ?? '')));
+            $m365Save($st);
+            http_response_code(204);
+        }
+        return;
+    }
+    $t = $st['tenants'][$tenant] ?? null;
+    if (!$t) {
+        $no(403, 'Authorization_RequestDenied', 'Insufficient privileges to complete the operation.');
+        return;
+    }
+    if ($sub === '/organization' || str_starts_with($sub, '/organization?')) {
+        $json(['value' => [['id' => $tenant, 'displayName' => $t['name'], 'verifiedDomains' => [['name' => 'x.onmicrosoft.example', 'isDefault' => false], ['name' => $t['domain'], 'isDefault' => true]]]]]);
+    } elseif ($sub === '/subscribedSkus') {
+        $json(['value' => $t['skus']]);
+    } else {
+        $no(404, 'Request_ResourceNotFound', "Not mocked: $method $sub");
+    }
+    return;
+}
+
 // ---- Microsoft identity platform + Graph (mail, calendar) --------------------------------------
 $graphFile = sys_get_temp_dir() . '/graph-mock.json';
 $graphState = fn() => json_decode((string) @file_get_contents($graphFile), true) ?: ['mail' => [], 'events' => [], 'rt' => 1, 'calls' => []];

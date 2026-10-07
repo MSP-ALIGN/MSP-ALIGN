@@ -81,7 +81,13 @@ ask() {
 
 # rand [N]: N random letters and digits (default 32), about 5.95 bits each, from 64 bytes of OpenSSL's CSPRNG (about
 # 84 usable characters, so N up to 80 is safe). Used for the database and first admin passwords.
-rand() { openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | cut -c1-"${1:-32}"; }
+# rand N: N random letters and digits (default 32). Base64 minus + and / can come up short of a long N, so it keeps
+# adding until there are enough (2.5.2: one pass of 64 bytes sometimes gave fewer than 80).
+rand() {
+  local n=${1:-32} s=''
+  while (( ${#s} < n )); do s+=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9'); done
+  printf '%s\n' "${s:0:n}"
+}
 
 # Runs a command as the web user: for anything that creates or changes files inside the data folder (1.45).
 as_www() { runuser -u www-data -- "$@"; }
