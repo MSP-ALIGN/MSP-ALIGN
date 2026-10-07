@@ -186,8 +186,10 @@ final class OnboardingController
     }
 
     /**
-     * Staff changes to an onboarding's status: complete (the link then works 7 more days), reopen, or delete (removes
-     * the record and what the client sent, so admins only; there's no button for it). Techs and admins.
+     * Staff changes to an onboarding's status: complete (the link then works 7 more days), reopen, or delete (2.4.1:
+     * "Remove onboarding", for one started by mistake). Delete removes the record, its link and the answers kept on
+     * it (contacts and requests the client sent stay where they went): techs may remove one the client hasn't opened
+     * yet, admins any. Techs and admins.
      * Only these three actions exist: anything else is refused and not written to the audit log (2.2.1: any posted
      * word used to be logged as "onboarding.<word>"). Each runs only from the state it applies to, so marking a
      * finished onboarding complete again doesn't overwrite who finished it.
@@ -201,14 +203,17 @@ final class OnboardingController
             flash('error', 'That isn\'t something you can do to an onboarding.');
             redirect("/clients/$id/onboarding");
         }
-        if ($action === 'delete' && !Auth::can('admin')) {
-            flash('error', 'Only an admin can remove an onboarding.');
+        // Once the client has opened the page they may have entered things: then only an admin can remove it
+        $admin = Auth::can('admin');
+        if ($action === 'delete' && !$admin && DB::value('SELECT 1 FROM client_onboardings WHERE client_id = ? AND opened_at IS NOT NULL', [$id])) {
+            flash('error', 'The client has already opened this onboarding, so only an admin can remove it.');
             redirect("/clients/$id/onboarding");
         }
         $changed = match ($action) {
             'complete' => DB::run('UPDATE client_onboardings SET completed_at = NOW(), completed_by = ?, token_expires_at = LEAST(token_expires_at, NOW() + INTERVAL ' . Onboarding::AFTER_DONE_DAYS . ' DAY) WHERE client_id = ? AND completed_at IS NULL', [$u['name'] . ' (staff)', $id])->rowCount(),
             'reopen' => DB::run('UPDATE client_onboardings SET completed_at = NULL, completed_by = NULL WHERE client_id = ? AND completed_at IS NOT NULL', [$id])->rowCount(),
-            'delete' => DB::run('DELETE FROM client_onboardings WHERE client_id = ?', [$id])->rowCount(),
+            // The opened check again in the DELETE itself, in case the client opens the link meanwhile
+            'delete' => DB::run('DELETE FROM client_onboardings WHERE client_id = ? AND (? OR opened_at IS NULL)', [$id, (int) $admin])->rowCount(),
         };
         if (!$changed) {
             flash('info', ['complete' => 'This onboarding is already complete (or hasn\'t been started).', 'reopen' => 'This onboarding is already open.', 'delete' => 'There\'s no onboarding to remove.'][$action]);
