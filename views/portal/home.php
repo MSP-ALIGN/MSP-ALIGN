@@ -4,7 +4,7 @@ use Align\Roadmap\Roadmap;
 /**
  * Portal home: a card per section the controller filled in (each checked its own permission). Values are escaped;
  * the provider's website is only ever an https:// or http:// link and the phone link keeps digits and + only.
- * @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary, $changes (2.4.0); array $pending, $dates, $frameworks
+ * @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary, $changes (2.4.0), $health (2.5.0: h, trend, since); array $pending, $dates, $frameworks
  */
 $logo = client_logo_url($client);
 $vcio = $provider['vcio'] ?? null;
@@ -60,6 +60,9 @@ $vcio = $provider['vcio'] ?? null;
 </div>
 
 <div class="row">
+  <?php if (!empty($health)): // 2.5.0: switched on per client by staff ?>
+    <div class="col-lg-6"><?= \Align\View::fetch('health/_card', $health + ['staff' => false]) ?></div>
+  <?php endif; ?>
   <div class="col-lg-6">
     <div class="card portal-it-team">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-headset me-2 text-secondary"></i>Your IT team</h3></div>

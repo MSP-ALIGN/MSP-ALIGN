@@ -336,7 +336,11 @@ final class ClientController
         redirect('/clients' . ($action === 'restore' ? '?view=removed' : ''));
     }
 
-    /** The client overview: lifecycle summary, forecast, compliance, meetings, backups, contacts. Any staff role; the view is audited. */
+    /**
+     * The client overview: lifecycle summary, forecast, compliance, meetings, backups, contacts, and (2.5.0) the health
+     * score, worked out now from the same devices and backup data and stored as today's row. Any staff role; the view
+     * is audited.
+     */
     public static function show(int $id): void
     {
         Auth::require();
@@ -355,7 +359,12 @@ final class ClientController
             $fw['score'] = Compliance::score($id, (int) $fw['id']);
         }
         unset($fw);
+        $backup = \Align\Backup\Backup::forClient($client, $devices);
+        $health = \Align\Health\Health::forClient($client, $devices, $backup); // 2.5.0: also refreshes today's row
         View::render('clients/show', [
+            'health' => $health,
+            'healthTrend' => \Align\Health\Health::history($id, 90),
+            'healthSince' => \Align\Health\Health::sinceReview($id, $health['score']),
             'readiness' => \Align\Workflow\Readiness::client($client, $devices),
             'title' => $client['name'],
             'nav' => 'clients',
@@ -375,7 +384,7 @@ final class ClientController
             'recent' => DB::all("SELECT * FROM meetings WHERE client_id = ? AND (status = 'completed' OR starts_at < NOW()) AND status <> 'cancelled' ORDER BY starts_at DESC LIMIT 3", [$id]),
             'cadence' => Meetings::cadence()[$id] ?? null,
             'users' => self::users(),
-            'backup' => \Align\Backup\Backup::forClient($client, $devices),
+            'backup' => $backup,
             'sla' => \Align\Service\Sla::overview($id),
         ]);
     }

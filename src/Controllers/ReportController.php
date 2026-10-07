@@ -147,7 +147,7 @@ final class ReportController
     }
 
     /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
-    public const QBR_SECTIONS = ['s_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
+    public const QBR_SECTIONS = ['s_health' => 'Health', 's_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -166,10 +166,24 @@ final class ReportController
      * contacts and meetings (a portal user without "Documents, contacts & meetings", 1.45). A section switched off
      * is also left out of the executive summary's tiles and highlights (2.2.1: unticking Compliance still printed
      * the compliance score and the frameworks below 80% on the first page).
+     * 2.5.0: the health headline opens the executive summary (s_health); $portal gives the portal's version of it
+     * (no alignment area, no lines; the portal passes s_health only when the client's portal_health switch is on).
      */
-    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true, ?array $changeParts = null): void
+    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true, ?array $changeParts = null, bool $portal = false): void
     {
         $id = (int) $client['id'];
+        $hl = null;
+        if (in_array('s_health', $allowed, true) && !empty($opt['s_health'])) {
+            $h = $portal ? \Align\Health\Health::forPortal(\Align\Health\Health::today($client)) : \Align\Health\Health::forClient($client);
+            // An area whose own section is switched off (or not allowed) isn't shown or named in the headline either,
+            // as with the summary's other tiles (2.2.1); the overall score stays the client's real one
+            foreach (['lifecycle' => 's_assets', 'backups' => 's_backup', 'compliance' => 's_compliance', 'service' => 's_sla', 'alignment' => 's_alignment'] as $area => $sec) {
+                if (!in_array($sec, $allowed, true) || empty($opt[$sec])) {
+                    unset($h['pillars'][$area]);
+                }
+            }
+            $hl = ['h' => $h, 'since' => \Align\Health\Health::sinceReview($id, $h['score'])];
+        }
         // 2.4.0 "What changed since the last review": from ?since= (a review or a date), else the newest completed
         // review; the portal passes only the parts its user may see. No review to compare with = no switch.
         $ch = null;
@@ -219,6 +233,7 @@ final class ReportController
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'al' => $on('s_alignment') ? $al : null,
             'ch' => $on('s_changes') ? $ch : null,
+            'hl' => $on('s_health') ? $hl : null, // 2.5.0
             'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],
             'provider' => ['company' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],

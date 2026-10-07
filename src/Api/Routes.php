@@ -10,6 +10,7 @@ use Align\Api\Resources\Budget;
 use Align\Api\Resources\Clients;
 use Align\Api\Resources\Compliance;
 use Align\Api\Resources\Devices;
+use Align\Api\Resources\Health;
 use Align\Api\Resources\Licenses;
 use Align\Api\Resources\Meetings;
 use Align\Api\Resources\Projects;
@@ -133,6 +134,13 @@ final class Routes
             $r('GET', '/clients/{id}/changes', 'clients:read', [Changes::class, 'client'], 'Clients', 'What changed since the last review', ['returns' => 'Changes',
                 'query' => ['since' => ['string', 'm<meeting id> (one of the client\'s completed business reviews) or YYYY-MM-DD; default: the newest completed review.']],
                 'description' => 'Projects finished, devices replaced, added and removed, warranties, end of life and OS support that ran out, alignment and compliance changes, licenses and tickets since the starting point. Each part is included only when the key can read its area (tickets need service:read). Then-figures come from the snapshot saved when the review was completed (since 2.3.0); without one they are null.']),
+
+            // 2.5.0 Client health score
+            $r('GET', '/clients/{id}/health', 'health:read', [Health::class, 'client'], 'Health', 'Get a client\'s health score', ['returns' => 'Health',
+                'description' => 'One score from 0 to 100 made from lifecycle, backups, compliance, service levels and alignment, each scored 0 to 100 and weighted as set in Settings → Planning & lifecycle. An area with no data is left out. Each area\'s details (what pulls it down) are included only when the key can read that area; otherwise details is null. Worked out now, and stored as today\'s entry in the history.']),
+            $r('GET', '/clients/{id}/health/history', 'health:read', [Health::class, 'history'], 'Health', 'Get a client\'s health history', ['list' => true, 'returns' => 'HealthDay',
+                'query' => ['days' => ['int', 'How many days back, 1-1100 (default 90).']] + $page,
+                'description' => 'One entry per day that was recorded (once a day, and whenever the client is opened), newest first. Scores are worked out with the weights in use now.']),
 
             // 2.3.0 Alignment reviews
             $r('GET', '/alignment/standards', 'alignment:read', [Alignment::class, 'standards'], 'Alignment', 'List the standards', ['list' => true, 'returns' => 'Standard',

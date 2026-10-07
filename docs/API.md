@@ -2,7 +2,7 @@
 
 MSP Align has a REST API for automation tools (n8n, Zapier, Power Automate), AI agents, scripts and other systems.
 It reads and changes planning data: clients, contacts, devices, projects, budgets, licensing, meetings, compliance,
-alignment reviews, backups and service levels. JSON in and out.
+alignment reviews, health scores, backups and service levels. JSON in and out.
 
 **Alignment (2.3.0)** has its own scope, `alignment:read` / `alignment:write`. Keys made before 2.3.0 don't have it:
 edit the key under Settings → API and tick Alignment.
@@ -10,6 +10,11 @@ edit the key under Settings → API and tick Alignment.
 **What changed (2.4.0):** `GET /clients/{id}/changes` returns what changed since the client's last completed business
 review (or `?since=m<meeting id>` / `?since=YYYY-MM-DD`). It needs `clients:read`; each part (devices, projects,
 alignment, compliance, licenses, backups, tickets) is included only when the key can read that area.
+
+**Health score (2.5.0)** has its own scope, `health:read`. Keys made before 2.5.0 don't have it: edit the key under
+Settings → API and tick Health score. `GET /clients/{id}/health` returns the score, band and each area's score;
+an area's details (what pulls it down) come only when the key can also read that area. `GET /clients/{id}/health/history`
+returns one entry per day (`?days=`, default 90).
 
 The reference below is generated from the same route table and validation rules the API itself uses, so it always
 matches the release it was built from. Your own server has the same reference under **Settings → API → API reference**,

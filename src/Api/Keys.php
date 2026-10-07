@@ -31,6 +31,7 @@ final class Keys
         'alignment' => ['Alignment', 'Standards, clients\' alignment scores, gaps and reviews with their answers', 'Start reviews, answer standards, finish and discard reviews (2.3.0)'],
         'backups' => ['Backups', 'Backup status, jobs, protected machines and hosted backups', '"Not required" exemptions and hosted backup assignments'],
         'service' => ['Service levels', 'SLA results from PSA tickets', null],
+        'health' => ['Health score', 'Clients\' health scores, each area\'s score and the daily history (2.5.0)', null],
     ];
 
     /** Ready-made scope sets offered when creating a key. */

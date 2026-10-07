@@ -82,6 +82,35 @@ $cards['kpis'] = function () use ($kpis, $toneText) {
     <?php return ob_get_clean();
 };
 
+// 2.5.0 Every client's health, worst first (Health::latest); the 30-day change and the weakest area for triage
+$cards['health'] = function () use ($health, $cardHead) {
+    $counts = array_count_values(array_column($health, 'tone'));
+    ob_start(); ?>
+    <div class="card card-dark dash-health">
+      <?= $cardHead('health', (!empty($counts['danger']) ? '<span class="badge text-bg-danger ms-1">' . (int) $counts['danger'] . ' at risk</span>' : '')
+          . (!empty($counts['warning']) ? '<span class="badge text-bg-warning ms-1">' . (int) $counts['warning'] . ' need attention</span>' : '')) ?>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height: 26rem"><table class="table table-sm table-striped table-borderless table-hover mb-0">
+          <thead class="text-dark"><tr><th>Client</th><th class="text-end">Score</th><th class="text-end">30 days</th><th>Band</th><th>Weakest area</th></tr></thead>
+          <tbody>
+          <?php foreach ($health as $cid => $h): ?>
+            <tr>
+              <td><a href="/clients/<?= (int) $cid ?>#overview-health" class="fw-bold"><?= e($h['name']) ?></a></td>
+              <td class="text-end fw-bold text-<?= e($h['tone']) ?>"><?= $h['score'] !== null ? (int) $h['score'] : '–' ?></td>
+              <td class="text-end health-change<?= $h['change'] > 0 ? ' text-success' : ($h['change'] < 0 ? ' text-danger' : ' text-muted') ?>">
+                <?php if ($h['change'] === null): ?>–<?php else: ?><i class="fas <?= $h['change'] > 0 ? 'fa-arrow-up' : ($h['change'] < 0 ? 'fa-arrow-down' : 'fa-minus') ?> me-1"></i><?= abs((int) $h['change']) ?><?php endif; ?></td>
+              <td><span class="badge text-bg-<?= e($h['tone']) ?>"><?= e($h['band']) ?></span></td>
+              <td class="small text-muted"><?php if ($h['weakest']): [$wk, $ws] = $h['weakest']; ?><?= e(\Align\Health\Health::PILLARS[$wk][0]) ?> <?= (int) $ws ?><?php else: ?>–<?php endif; ?></td>
+            </tr>
+          <?php endforeach; ?>
+          <?php if (!$health): ?><tr><td colspan="5" class="text-muted p-3">No clients in planning yet.</td></tr><?php endif; ?>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <?php return ob_get_clean();
+};
+
 $cards['forecast'] = function () use ($forecast, $unplanned) {
     ob_start();
     $budgetLink = '/budget';

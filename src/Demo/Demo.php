@@ -10,7 +10,7 @@ use Align\Settings;
 /**
  * Demo data (1.41): four made-up clients with everything the app can show without integrations: contacts,
  * devices (of every age, with warranty and OS support dates), licenses, budget lines, roadmap projects,
- * meetings, compliance, alignment reviews (2.3.0), documents, backups and a client portal user. Dates are relative to the day it is
+ * meetings, compliance, alignment reviews (2.3.0), health history (2.5.0), documents, backups and a client portal user. Dates are relative to the day it is
  * loaded, so the plan always looks current.
  *
  * Only on an install with no clients and no PSA, RMM or backup service connected yet, so demo and real data
@@ -124,8 +124,46 @@ final class Demo
         } finally {
             DB::value("SELECT RELEASE_LOCK('msp_align_demo')");
         }
+        try {
+            self::healthHistory($ids);
+        } catch (\Throwable $e) {
+            // Made-up history only: the demo is loaded either way, and the daily refresh fills today's scores in
+            error_log('Demo health history: ' . $e->getMessage());
+        }
         Audit::log('demo.load', count($ids) . ' demo clients');
         return count($ids);
+    }
+
+    /**
+     * 2.5.0: today's health for each demo client from its demo data, and 90 days of made-up history before it so the
+     * trend and "since the last review" have something to show: most clients improved over the period, the last one
+     * slipped. Each area moves on its own, a few points at a time. The first client shows its score in the portal.
+     */
+    private static function healthHistory(array $ids): void
+    {
+        $now = \Align\Health\Health::refreshAll($ids);
+        $rows = [];
+        foreach (array_values($ids) as $i => $cid) {
+            $today = $now[$cid] ?? null;
+            if (!$today) {
+                continue;
+            }
+            $dir = $i === count($ids) - 1 ? -1 : 1; // the last demo client is slipping
+            for ($d = 90; $d >= 1; $d--) {
+                $row = ['client_id' => $cid, 'day' => date('Y-m-d', strtotime("-$d days"))];
+                foreach ($today as $k => $s) {
+                    // the score that day: today's, less (or plus) up to ~14 points the further back, in small steps
+                    $off = intdiv($d * (6 + (crc32($k) % 9)), 90) + (($d + $i + strlen($k)) % 4 === 0 ? 2 : 0);
+                    $row[$k] = $s === null ? null : max(0, min(100, $s - $dir * $off));
+                }
+                $rows[] = $row + ['computed_at' => date('Y-m-d 00:05:00', strtotime("-$d days"))];
+            }
+        }
+        DB::upsertMany('client_health', $rows, ['client_id', 'day']);
+        // The first demo client shows its score in the portal, so the demo portal user sees the card
+        if ($ids) {
+            DB::run('UPDATE clients SET portal_health = 1 WHERE id = ? AND is_demo = 1', [(int) reset($ids)]);
+        }
     }
 
     /**

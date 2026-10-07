@@ -79,7 +79,18 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
           <li>No internal notes: device notes, license and contact notes, meeting notes, compliance evidence and internal meetings stay private.</li>
           <li>Documents only when <b>Active</b> and shared (policies and plans are shared by default; toggle it on each document).</li>
           <li>Prices only for users with Budget &amp; licensing access.</li>
+          <li>The health score only when it's switched on below, for users with Devices access, without the alignment area or the details.</li>
         </ul>
+        <?php // 2.5.0: whether this client's portal users see the health score (admins change it) ?>
+        <form method="post" action="/clients/<?= $cid ?>/portal/health" class="border-top mt-3 pt-3" id="portal-health">
+          <?= csrf_field() ?>
+          <input type="hidden" name="portal_health" value="0">
+          <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" role="switch" id="portal-health-on" name="portal_health" value="1"<?= !empty($client['portal_health']) ? ' checked' : '' ?><?= \Align\Auth::can('admin') ? '' : ' disabled' ?> data-autosubmit-check>
+            <label class="form-check-label fw-normal" for="portal-health-on">Show the health score in the portal</label>
+          </div>
+          <?php if (\Align\Auth::can('admin')): ?><noscript><button class="btn btn-xs btn-default mt-1">Save</button></noscript><?php else: ?><div class="text-muted mt-1">Only admins change this.</div><?php endif; ?>
+        </form>
       </div>
     </div>
   </div>

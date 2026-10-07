@@ -24,7 +24,7 @@ q("update settings set value='1' where name='api_enabled'")
 full=mk("atk full", ALL)
 spec=requests.get(API+"/openapi.json").json()
 ops=[(path,m.upper(),op) for path,item in spec["paths"].items() for m,op in item.items()]
-ok(len(ops)==56,f"{len(ops)} operations in the spec")  # 2.3.0: +8 alignment; 2.4.0: +1 changes
+ok(len(ops)==58,f"{len(ops)} operations in the spec")  # 2.3.0: +8 alignment; 2.4.0: +1 changes; 2.5.0: +2 health
 
 # sample ids for path params
 cid_a=1; cid_b=2
@@ -65,7 +65,8 @@ probes=[("GET",f"/clients/{cid_a}"),("GET",f"/clients/{cid_a}/contacts"),("GET",
         ("GET",f"/clients/{cid_a}/service-levels"),("GET",f"/devices?client_id={cid_a}"),("GET",f"/projects?client_id={cid_a}"),("GET",f"/licenses?client_id={cid_a}"),
         ("POST","/projects",{"client_id":cid_a,"title":"x"}),("POST","/budget-lines",{"client_id":cid_a,"name":"x","amount":1}),("POST","/licenses",{"client_id":cid_a,"name":"x"}),
         ("POST","/meetings",{"client_id":cid_a,"starts_at":"2026-12-01T10:00:00"}),
-        ("GET",f"/clients/{cid_a}/alignment"),("GET",f"/clients/{cid_a}/alignment/reviews"),("POST",f"/clients/{cid_a}/alignment/reviews",{})]
+        ("GET",f"/clients/{cid_a}/alignment"),("GET",f"/clients/{cid_a}/alignment/reviews"),("POST",f"/clients/{cid_a}/alignment/reviews",{}),
+        ("GET",f"/clients/{cid_a}/changes"),("GET",f"/clients/{cid_a}/health"),("GET",f"/clients/{cid_a}/health/history")]
 for p in probes:
     r=call(lim,p[0],p[1],p[2] if len(p)>2 else None)
     if r.status_code not in (404,):

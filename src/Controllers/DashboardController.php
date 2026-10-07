@@ -125,6 +125,7 @@ final class DashboardController
             'overdueCount' => count($overdue),
             'clientCount' => count($names),
             'backupIssues' => isset($show['backups']) ? self::backupIssues() : [],
+            'health' => isset($show['health']) ? \Align\Health\Health::latest() : [], // 2.5.0
             'sla' => $sla,
             'attention' => isset($show['attention']) ? \Align\Dashboard\Dashboard::attention([
                 'devices' => $devices, 'overdue' => $overdue, 'lastSync' => $lastSync, 'unmapped' => $unmapped, 'unassigned' => $unassigned,

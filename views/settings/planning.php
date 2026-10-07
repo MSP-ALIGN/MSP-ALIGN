@@ -89,6 +89,23 @@ foreach (Lifecycle::CLASSES as $class => $label) {
       </div>
     </div>
   </div>
+  <?php // 2.5.0 client health score: how much each area counts, and where the bands start ?>
+  <div class="card card-dark" id="settings-health">
+    <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-heart-pulse me-2"></i>Client health score</h3></div>
+    <div class="card-body">
+      <p class="small text-muted">One score from 0 to 100 for each client, on the client page, the dashboard, the QBR pack and (if you switch it on for a client) the client portal. Weights are relative: equal weights count each area the same, 0 leaves an area out. An area with no data for a client is skipped and the others fill its place.</p>
+      <div class="row g-2">
+        <?php foreach (\Align\Health\Health::PILLARS as $key => [$label]): ?>
+          <div class="col-md col-6"><?= $num("health_weight_$key", $label . ' weight') ?></div>
+        <?php endforeach; ?>
+      </div>
+      <div class="row g-2">
+        <div class="col-md-3 col-6"><?= $num('health_good', 'Healthy from') ?></div>
+        <div class="col-md-3 col-6"><?= $num('health_warn', 'Needs attention from') ?></div>
+        <div class="col-md-6 small text-muted align-self-center">Below "Needs attention from" is At risk.</div>
+      </div>
+    </div>
+  </div>
   <button class="btn btn-primary"><i class="fas fa-check me-1"></i>Save</button>
   <span class="small text-muted ms-2">Windows versions and their end-of-support dates are under <a href="/settings/os">OS support dates</a>.</span>
 </form>

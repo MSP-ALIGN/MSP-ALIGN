@@ -15,7 +15,8 @@ use Align\View;
  *   9 Decisions & next steps   what we need from you, who to call, next meeting
  *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
- * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed)
+ * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed),
+ *   $hl (2.5.0 health headline: h, since)
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -78,6 +79,9 @@ foreach ($sections as $k => $_) {
 <section class="rsection page-break">
   <?= Ui::head('Executive summary', '01', $client['name']) ?>
   <p class="lede">Where your technology stands today, what's coming up, and the decisions we recommend for the next few quarters.</p>
+  <?php if (!empty($hl) && $hl['h']['score'] !== null): // 2.5.0 the health headline ?>
+    <?= View::fetch('reports/sections/health', $hl) ?>
+  <?php endif; ?>
   <div class="kpi-row">
     <?php if ($sumA): $s = $sumA['summary']; $hp = $s['total'] ? (int) round($sumA['healthy'] / $s['total'] * 100) : 0; ?>
       <?= Ui::kpi($hp . '%', 'Devices healthy', $sumA['healthy'] . ' of ' . $s['total'] . ' within policy', $hp >= 80 ? 'ok' : ($hp >= 50 ? 'warn' : 'bad')) ?>

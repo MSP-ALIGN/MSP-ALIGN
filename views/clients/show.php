@@ -2,6 +2,7 @@
 /**
  * A client's overview. @var array $client, $readiness, $summary, $forecast, $unplanned, $licensing, $keyContacts,
  * $byType, $frameworks, $indicators, $upcoming, $recent, $users, $alignment (2.3.0, Alignment::summary); ?array $cadence, $backup, $sla; int $contactCount
+ * 2.5.0: array $health (Health::forClient), $healthTrend (Health::history); ?array $healthSince (Health::sinceReview)
  * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
  * classes come from fixed tone lists.
  */
@@ -82,6 +83,8 @@ $cid = (int) $client['id'];
   </div>
 
   <div class="col-lg-4">
+    <?= \Align\View::fetch('health/_card', ['h' => $health, 'trend' => $healthTrend, 'since' => $healthSince, 'staff' => true]) // 2.5.0 ?>
+
     <div class="card card-dark">
       <div class="card-header py-2">
         <h3 class="card-title mt-1"><i class="fas fa-fw fa-handshake me-2"></i>Meetings</h3>

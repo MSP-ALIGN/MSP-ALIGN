@@ -39,6 +39,16 @@ final class Notify
                 $out[] = 'contracts: ' . $e->getMessage();
             }
         }
+        // 2.5.0 client health: today's row for every client, once a day (the first run after midnight), with or
+        // without email, before the digests that read it
+        if ($force || N::state('health_day') !== date('Y-m-d')) {
+            N::setState('health_day', date('Y-m-d'));
+            try {
+                $out[] = 'health: ' . count(\Align\Health\Health::refreshAll()) . ' clients';
+            } catch (\Throwable $e) {
+                $out[] = 'health: ' . $e->getMessage();
+            }
+        }
         if (!Mail::on()) {
             return array_merge($out, ['email is off']);
         }
@@ -310,7 +320,8 @@ final class Notify
         $backup = self::backupProblems(array_keys($names));
         $cad = \Align\Meetings\Meetings::cadence();
         $due = array_filter(array_keys($names), fn($cid) => !empty($cad[$cid]['overdue']));
-        if (!$meetings && !$pending && !$renew && !$backup && !$due) {
+        $drops = \Align\Health\Health::drops(array_keys($names)); // 2.5.0: clients whose health band fell this week
+        if (!$meetings && !$pending && !$renew && !$backup && !$due && !$drops) {
             return null;
         }
         $blocks = [T::p('Your week across ' . count($names) . ' client' . (count($names) === 1 ? '' : 's') . '.')];
@@ -333,6 +344,12 @@ final class Notify
         if ($due) {
             $blocks[] = T::h2('Due for a review meeting');
             $blocks[] = T::items(array_map(fn($cid) => [$names[$cid], 'warn'], array_values($due)));
+        }
+        if ($drops) {
+            // 2.5.0: one line per client whose health band dropped since a week ago, with the weakest area
+            $blocks[] = T::h2('Client health dropped this week');
+            $blocks[] = T::items(array_map(fn($d) => [$d['name'] . ': ' . $d['was_band'] . ' → ' . $d['band'] . ' (' . $d['was'] . ' → ' . $d['score'] . ')'
+                . ($d['weakest'] ? ', weakest: ' . strtolower(\Align\Health\Health::PILLARS[$d['weakest'][0]][0]) . ' ' . $d['weakest'][1] : ''), $d['band'] === 'At risk' ? 'bad' : 'warn'], $drops));
         }
         $blocks[] = T::button('Open the dashboard', N::url('/'));
         return ['Your week: ' . count($meetings) . ' meeting' . (count($meetings) === 1 ? '' : 's') . ', ' . count($pending) . ' decision' . (count($pending) === 1 ? '' : 's') . ' waiting', 'Weekly vCIO digest', $blocks];
