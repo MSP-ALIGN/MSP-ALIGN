@@ -40,7 +40,7 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i>Progress</h3></div>
       <div class="card-body">
         <?php if (!$sent): ?>
-          <p class="text-muted mb-0">Nothing sent yet. Write the welcome email and send it when <?= e($client['name']) ?> is officially a client.</p>
+          <p class="text-muted <?= $o ? 'mb-2' : 'mb-0' ?>">Nothing sent yet. Write the welcome email and send it when <?= e($client['name']) ?> is officially a client.</p>
         <?php else: ?>
           <ul class="onb-steps list-unstyled mb-2">
             <?= $step($o['sent_at'], 'Welcome email sent', e(($o['sent_to'] ?: 'Link created to send yourself') . ($sentBy ? ' · by ' . $sentBy : '') . ($o['send_count'] > 1 ? ' · sent ' . $o['send_count'] . ' times' : ''))) ?>
@@ -53,18 +53,25 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
           <div class="small text-muted mb-2">
             <?php if ($o['token_hash'] && $o['token_expires_at']): ?>Link works until <?= e(fmt_date($o['token_expires_at'])) ?>.<?php else: ?><span class="text-danger">The link is turned off.</span><?php endif; ?>
           </div>
-          <?php if ($canEdit): ?>
+          <?php endif; ?>
+          <?php if ($canEdit && $o): ?>
             <div class="d-flex flex-wrap">
               <?php if ($o['token_hash']): ?>
                 <form method="post" action="/clients/<?= $cid ?>/onboarding/revoke" class="me-1 mb-1"><?= csrf_field() ?><button class="btn btn-xs btn-outline-danger" data-confirm="Turn off the onboarding link? The client won't be able to open it until you send a new one.">Turn off link</button></form>
               <?php endif; ?>
-              <form method="post" action="/clients/<?= $cid ?>/onboarding/status" class="me-1 mb-1"><?= csrf_field() ?>
-                <?php if ($o['completed_at']): ?><button class="btn btn-xs btn-outline-secondary" name="action" value="reopen">Reopen</button>
-                <?php else: ?><button class="btn btn-xs btn-outline-success" name="action" value="complete">Mark complete</button><?php endif; ?>
-              </form>
+              <?php if ($o['completed_at'] || $sent): ?>
+                <form method="post" action="/clients/<?= $cid ?>/onboarding/status" class="me-1 mb-1"><?= csrf_field() ?>
+                  <?php if ($o['completed_at']): ?><button class="btn btn-xs btn-outline-secondary" name="action" value="reopen">Reopen</button>
+                  <?php else: ?><button class="btn btn-xs btn-outline-success" name="action" value="complete">Mark complete</button><?php endif; ?>
+                </form>
+              <?php endif; ?>
+              <?php // 2.4.1: started by mistake? Techs remove one the client hasn't opened; admins any (the controller checks again) ?>
+              <?php if (Auth::can('admin') || !$o['opened_at']): ?>
+                <form method="post" action="/clients/<?= $cid ?>/onboarding/status" class="me-1 mb-1"><?= csrf_field() ?>
+                  <button class="btn btn-xs btn-outline-danger" name="action" value="delete" data-confirm="Remove this onboarding? The link stops working and its progress<?= $o['opened_at'] ? ' and the client\'s answers (getting-started details, billing confirmation) are' : ' is' ?> deleted. Contacts and requests the client already sent stay. You can start a new one any time." data-confirm-ok="Remove onboarding">Remove onboarding</button></form>
+              <?php endif; ?>
             </div>
           <?php endif; ?>
-        <?php endif; ?>
       </div>
     </div>
 

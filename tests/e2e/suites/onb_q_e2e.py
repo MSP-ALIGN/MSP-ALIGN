@@ -53,9 +53,18 @@ q("update client_onboardings set completed_at=now(), completed_by='Jordan Ellis'
 r = status(tech, "complete")
 ok(onb()["completed_by"] == "Jordan Ellis" and "already complete" in flash(r.text), "marking a finished onboarding complete again keeps who finished it")
 r = status(tech, "reopen"); ok(onb()["completed_at"] is None and "reopened" in flash(r.text), "reopen still works")
+# 2.4.1 Remove onboarding: techs until the client opens it, admins any time; the button follows the same rule
+ok('value="delete"' in tech.get(B + f"/clients/{CID}/onboarding").text, "a tech sees Remove onboarding while the client hasn't opened it")
+q("update client_onboardings set opened_at=now() where client_id=%s", CID)
+ok('value="delete"' not in tech.get(B + f"/clients/{CID}/onboarding").text and 'value="delete"' in admin.get(B + f"/clients/{CID}/onboarding").text,
+   "once opened, only admins see it")
 r = status(tech, "delete")
-ok(onb() is not None and "Only an admin" in flash(r.text), "a tech can't remove an onboarding (and what the client sent)")
+ok(onb() is not None and "only an admin" in flash(r.text), "a tech can't remove one the client has opened (and what the client entered)")
 r = status(admin, "delete"); ok(onb() is None and "removed" in flash(r.text), "an admin can")
+new_link()
+ok(onb() is not None and onb()["opened_at"] is None, "a new link starts a fresh onboarding")
+r = status(tech, "delete"); ok(onb() is None and "removed" in flash(r.text) and audits("onboarding.delete") >= 2, "a tech can remove one started by mistake (not opened yet), audited")
+ok("/clients/%d/onboarding" % CID not in tech.get(B + f"/clients/{CID}").text.split("THEIR IT")[0], "the client menu drops the Onboarding item")
 
 # ---- staff: the onboarding page is audited like the other client pages
 n0 = audits("view.onboarding", f"#{CID} %")
