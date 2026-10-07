@@ -108,7 +108,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
 <?php if (!empty($refresh)): ?><meta http-equiv="refresh" content="5"><?php endif; ?>
 <?php if ($u): ?><meta name="align-idle" content="<?= \Align\Security::idleSeconds() ?>" data-ping="/session/ping" data-logout="/logout" data-login="/login" data-csrf="<?= e(csrf_token()) ?>"><?php endif; ?>
 <title><?= \Align\Staging::on() ? '[TEST] ' : '' ?><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>"><?php // browser tabs are mostly light (2.2.4) ?>
+<link rel="icon" href="<?= e(\Align\Branding::faviconUrl()) ?>"><?php // the browser icon (2.5.1; the built-in mark when none is uploaded) ?>
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">

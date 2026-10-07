@@ -705,6 +705,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('change', (e) => {
     const input = e.target;
     if (input.matches && input.matches('[data-preview="sidebar"]')) { refresh(); return; }
+    // 2.5.1: the browser icon shows in its own tile only (it isn't in the preview)
+    if (input.id === 'favicon' && input.files && input.files[0] && /^image\/(png|jpeg|webp|gif)$/.test(input.files[0].type)) {
+      swap(document.getElementById('favicon-img'), URL.createObjectURL(input.files[0]));
+      return;
+    }
     if ((input.id !== 'logo' && input.id !== 'logo_light') || !input.files || !input.files[0]) return;
     const f = input.files[0];
     if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) return;

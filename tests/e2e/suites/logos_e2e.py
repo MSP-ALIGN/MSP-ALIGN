@@ -1,7 +1,7 @@
 """2.2.4: a light mode and a dark mode logo. The dark mode logo goes on dark backgrounds (the dark menu, the staff
 sign-in in dark mode); the light mode logo on light ones: printed reports, contracts and their PDFs, emails, the client
-portal, onboarding pages, the light sign-in page, a light menu and the browser tab. Either one stands in for the other
-while only one is uploaded."""
+portal, onboarding pages, the light sign-in page and a light menu. Either one stands in for the other while only one
+is uploaded. (The browser tab used the light mode logo until 2.5.1; it has its own icon now, favicon_e2e.)"""
 from lib import *
 import re, subprocess, tempfile, os
 
@@ -40,7 +40,7 @@ ok(q("select count(*) n from audit_log where action = 'branding.light_logo_uploa
 # ---- where each one goes
 d = admin.get(B + "/").text
 ok(srcs(d, "brand-image") and srcs(d, "brand-image")[0].startswith("/branding/logo?v="), "the dark menu shows the dark mode logo")
-ok(re.search(r'<link rel="icon" href="/branding/logo-light\?v=', d), "the browser tab shows the light mode logo")
+ok(re.search(r'<link rel="icon" href="/assets/icon\.png\?v=', d), "the browser tab keeps the built-in icon, not a logo (2.5.1: it has its own browser icon)")
 up({}, {"brand_sidebar": "light"})
 ok(srcs(admin.get(B + "/").text, "brand-image")[0].startswith("/branding/logo-light?v="), "a light menu shows the light mode logo")
 up({}, {"brand_sidebar": "dark"})

@@ -5,7 +5,8 @@ use Align\Branding;
  * Branding (1.45.2): the 1.43 look. Name and logo, the sign-in page, the brand color and the sidebar on the left;
  * on the right a live preview of the app, the sign-in page and the client portal as they look now, in light or dark.
  * @var array $v; bool $hasLogo; string $logoUrl; array $backgrounds [staff|portal => [url, dim]] (2.1.1);
- *      bool $hasLightLogo; string $lightLogoUrl (2.2.4: a light mode logo; $hasLogo / $logoUrl are the dark mode one)
+ *      bool $hasLightLogo; string $lightLogoUrl (2.2.4: a light mode logo; $hasLogo / $logoUrl are the dark mode one);
+ *      bool $hasFavicon; string $faviconUrl (2.5.1: the browser icon, or the built-in mark)
  * Security: $v['brand_primary'] is Branding::color() (always #rrggbb), so it is safe in the style attributes; the
  * background URLs are built by Branding from fixed parts and the dims are integers. Text values are escaped.
  */
@@ -45,7 +46,7 @@ $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
               <label class="d-block" for="logo_light"><i class="fas fa-sun me-1 text-warning"></i>Light mode logo</label>
               <div class="brand-logo-drop is-light"><img src="<?= e($lightLogoUrl) ?>" alt="Current light mode logo" id="light-logo-img"<?= $hasLightLogo ? '' : ' class="opacity-50"' ?>></div>
               <input type="file" class="form-control mt-2" id="logo_light" name="logo_light" accept="image/png,image/jpeg,image/webp,image/gif">
-              <div class="form-text">For light backgrounds: the sign-in page in light mode, printed reports, contracts and their PDFs, emails, the client portal, onboarding pages, a light menu and the browser tab. Use a dark or colored logo that reads on white.</div>
+              <div class="form-text">For light backgrounds: the sign-in page in light mode, printed reports, contracts and their PDFs, emails, the client portal, onboarding pages and a light menu. Use a dark or colored logo that reads on white.</div>
               <?php if ($hasLightLogo): ?>
                 <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_logo_light" formnovalidate data-confirm="Remove the light mode logo?<?= $hasLogo ? ' The dark mode logo is used everywhere then.' : ' The default icon comes back.' ?>"><i class="fas fa-trash me-1"></i>Remove light mode logo</button>
               <?php else: ?>
@@ -68,6 +69,21 @@ $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
           <div class="form-check form-switch mt-3 mb-0">
             <input type="checkbox" class="form-check-input" role="switch" id="logo-only" name="brand_logo_only" value="1" <?= $v['brand_logo_only'] ? 'checked' : '' ?> data-preview="logo-only">
             <label class="form-check-label fw-normal" for="logo-only">My logo already includes our name: hide the app name next to it</label>
+          </div>
+          <?php // 2.5.1: the browser icon, its own small square image (logos are no longer used for the tab) ?>
+          <hr class="my-3">
+          <div class="d-flex align-items-start gap-3" id="favicon-field">
+            <div class="brand-favicon-drop"><img src="<?= e($faviconUrl) ?>" alt="Current browser icon" id="favicon-img" width="32" height="32"></div>
+            <div class="flex-fill">
+              <label class="d-block" for="favicon"><i class="fas fa-window-maximize me-1 text-secondary"></i>Browser icon</label>
+              <input type="file" class="form-control mt-1" id="favicon" name="favicon" accept="image/png,image/jpeg,image/webp,image/gif">
+              <div class="form-text">The small icon in browser tabs and bookmarks, on every page: staff, the client portal, sign-in pages and reports. A square image (256 × 256 works well; it's scaled down) in PNG, JPG, WebP or GIF up to 2 MB.</div>
+              <?php if ($hasFavicon): ?>
+                <button class="btn btn-sm btn-link text-danger px-0" name="action" value="remove_favicon" formnovalidate data-confirm="Remove the browser icon? Tabs show the MSP Align icon again."><i class="fas fa-trash me-1"></i>Remove browser icon</button>
+              <?php else: ?>
+                <div class="form-text"><i class="fas fa-circle-info me-1"></i>Empty: showing the MSP Align icon.</div>
+              <?php endif; ?>
+            </div>
           </div>
         </div>
       </div>

@@ -1060,3 +1060,6 @@ textarea.pv-in { resize: none; white-space: normal; }
 .health-area { padding: 6px 0; border-top: 1px solid var(--bs-border-color-translucent); }
 .health-area:first-child { border-top: 0; }
 .health-change { white-space: nowrap; font-size: .85rem; }
+/* 2.5.1 Settings → Branding: the browser icon at the size tabs show it, on a tab-like tile */
+.brand-favicon-drop { flex: 0 0 auto; width: 56px; height: 56px; border: 1px solid var(--bs-border-color); border-radius: .5rem; display: flex; align-items: center; justify-content: center; background: var(--bs-tertiary-bg); }
+.brand-favicon-drop img { width: 32px; height: 32px; object-fit: contain; }
