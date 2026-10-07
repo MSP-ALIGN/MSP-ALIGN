@@ -7,6 +7,10 @@ alignment reviews, backups and service levels. JSON in and out.
 **Alignment (2.3.0)** has its own scope, `alignment:read` / `alignment:write`. Keys made before 2.3.0 don't have it:
 edit the key under Settings → API and tick Alignment.
 
+**What changed (2.4.0):** `GET /clients/{id}/changes` returns what changed since the client's last completed business
+review (or `?since=m<meeting id>` / `?since=YYYY-MM-DD`). It needs `clients:read`; each part (devices, projects,
+alignment, compliance, licenses, backups, tickets) is included only when the key can read that area.
+
 The reference below is generated from the same route table and validation rules the API itself uses, so it always
 matches the release it was built from. Your own server has the same reference under **Settings → API → API reference**,
 and serves the machine-readable description at `https://<your server>/api/v1/openapi.json`.

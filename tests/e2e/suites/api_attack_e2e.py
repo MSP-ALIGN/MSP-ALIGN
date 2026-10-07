@@ -24,7 +24,7 @@ q("update settings set value='1' where name='api_enabled'")
 full=mk("atk full", ALL)
 spec=requests.get(API+"/openapi.json").json()
 ops=[(path,m.upper(),op) for path,item in spec["paths"].items() for m,op in item.items()]
-ok(len(ops)==55,f"{len(ops)} operations in the spec")  # 2.3.0: +8 alignment
+ok(len(ops)==56,f"{len(ops)} operations in the spec")  # 2.3.0: +8 alignment; 2.4.0: +1 changes
 
 # sample ids for path params
 cid_a=1; cid_b=2

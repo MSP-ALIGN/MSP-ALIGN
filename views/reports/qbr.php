@@ -15,7 +15,7 @@ use Align\View;
  *   9 Decisions & next steps   what we need from you, who to call, next meeting
  *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
- * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only)
+ * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed)
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -24,6 +24,7 @@ $costs = (bool) $opt['costs'];
 $users = (bool) ($opt['users'] ?? true);
 $clientLogo = client_logo_url($client);
 $sections = [];
+if (!empty($ch)) $sections['changes'] = 'Since our last review'; // 2.4.0: right after the summary
 if (!empty($sla)) $sections['sla'] = 'Service levels';
 if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
 if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing'; // budget and licensing are all prices: left out when costs are off
@@ -116,6 +117,11 @@ foreach ($sections as $k => $_) {
   <?php endif; endif; ?>
 
 </section>
+
+<?php if (isset($sections['changes'])): ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/changes', ['ch' => $ch, 'client' => $client, 'costs' => $costs, 'num' => $numOf['changes']]) ?>
+<?php endif; ?>
 
 <?php if (isset($sections['sla'])): ?>
 <div class="page-break"></div>

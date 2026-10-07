@@ -1807,3 +1807,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   update();
 });
+
+// 2.4.0 Since last QBR: the date box shows only for "A date…"; picking a review shows it straight away
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.querySelector('[data-ch-since]');
+  const date = document.getElementById('ch-date');
+  if (!sel || !date) return;
+  sel.addEventListener('change', () => {
+    date.hidden = sel.value !== 'date';
+    if (sel.value === 'date') date.focus();
+    else sel.form.submit();
+  });
+});

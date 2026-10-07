@@ -108,6 +108,7 @@ final class DeviceProjects
                     'priority' => array_filter($g, fn($d) => $d['status'] === 'replace') ? 'high' : 'medium',
                     'status' => $status, 'created_by' => $userId,
                 ]);
+                Roadmap::stampStatus($id); // 2.4.0
                 foreach ($g as $d) {
                     DB::run('INSERT IGNORE INTO roadmap_item_devices (roadmap_item_id, device_id) VALUES (?, ?)', [$id, (int) $d['id']]);
                 }

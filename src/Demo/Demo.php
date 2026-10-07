@@ -219,6 +219,7 @@ final class Demo
         self::meetings($cid, $i, $cadence, $userId, $p[0], self::email($p[0], $domain));
         self::compliance($cid, $framework, $i, $userId);
         self::alignment($cid, $i, $userId);
+        self::history($cid, $i, $deviceIds, $userId, $slug);
         self::documents($cid, $i, $userId);
         self::backups($cid, $i, $deviceIds, $name);
         // A portal user for the main contact (invited, no password yet: send yourself the invite to see the portal)
@@ -364,6 +365,8 @@ final class Demo
             DB::insert('roadmap_items', ['client_id' => $cid, 'title' => $title, 'category' => $cat, 'description' => $desc,
                 'target_quarter' => $status === 'done' ? self::quarter(-1) : self::quarter($q), 'cost' => $costs[$k][$i], 'recurring_monthly' => $monthly,
                 'priority' => $prio, 'status' => $status, 'created_by' => $userId,
+                'done_at' => $status === 'done' ? date('Y-m-d H:i:s', strtotime('-' . (20 + $k * 3) . ' days')) : null, // 2.4.0: after the last review
+                'status_seen' => $status, 'status_changed_at' => $status === 'done' ? date('Y-m-d H:i:s', strtotime('-' . (20 + $k * 3) . ' days')) : ($decided ? date('Y-m-d H:i:s', strtotime('-' . (10 + $k) . ' days')) : null),
                 'decided_by_name' => $decided ? $contact : null, 'decided_at' => $decided ? date('Y-m-d H:i:s', strtotime('-' . (10 + $k) . ' days')) : null,
                 'decision_comment' => $status === 'declined' ? 'Not this year: we\'ll look at it again after the renewal.' : null]);
         }
@@ -415,6 +418,36 @@ final class Demo
             DB::insert('client_control_status', ['client_id' => $cid, 'control_id' => $c['id'], 'status' => $st,
                 'owner' => in_array($st, ['partial', 'not_met'], true) ? 'IT provider' : null,
                 'due_date' => in_array($st, ['partial', 'not_met'], true) ? self::d('+' . (($k % 5) * 20 - 15) . ' days') : null, 'updated_by' => $userId]);
+        }
+    }
+
+    /**
+     * 2.4.0: a little history since the last review, so "Since last QBR" has something to show: the devices,
+     * licenses and projects date from months ago (one proposal is new), a desktop was replaced by a finished project
+     * a month ago and its replacement added, and one warranty ran out since.
+     */
+    private static function history(int $cid, int $i, array $deviceIds, ?int $userId, string $slug): void
+    {
+        $at = fn(int $days) => date('Y-m-d H:i:s', strtotime("-$days days"));
+        DB::run('UPDATE devices SET created_at = ? WHERE client_id = ?', [$at(400), $cid]);
+        DB::run('UPDATE licenses SET created_at = ? WHERE client_id = ?', [$at(400), $cid]);
+        DB::run("UPDATE roadmap_items SET created_at = ? WHERE client_id = ? AND status <> 'proposed'", [$at(150), $cid]);
+        DB::run("UPDATE roadmap_items SET created_at = ? WHERE client_id = ? AND status = 'proposed'", [$at(15), $cid]);
+        $tag = strtoupper(substr($slug, 0, 3));
+        $old = (int) DB::insert('devices', ['source' => 'manual', 'client_id' => $cid, 'display_name' => "$tag-PC-OLD", 'system_name' => "$tag-PC-OLD",
+            'device_class' => 'Workstation', 'device_type' => 'Desktop', 'manufacturer' => 'Dell', 'model' => 'OptiPlex 7040', 'serial' => sprintf('DEMO%dOLD', $i + 1),
+            'os_name' => 'Windows 10 Professional Edition', 'os_build' => '19045', 'offline' => 1, 'created_at' => $at(2100), 'removed_at' => $at(25)]);
+        DB::insert('device_overrides', ['device_id' => $old, 'purchase_date' => date('Y-m-d', strtotime('-2100 days'))]);
+        $new = (int) DB::insert('devices', ['source' => 'manual', 'client_id' => $cid, 'display_name' => "$tag-PC20", 'system_name' => "$tag-PC20",
+            'device_class' => 'Workstation', 'device_type' => 'Desktop', 'manufacturer' => 'Dell', 'model' => 'OptiPlex 7020', 'serial' => sprintf('DEMO%dNEW', $i + 1),
+            'os_name' => 'Windows 11 Professional Edition', 'os_build' => self::currentBuild(), 'offline' => 0, 'last_contact' => $at(0), 'created_at' => $at(27)]);
+        DB::insert('device_overrides', ['device_id' => $new, 'purchase_date' => date('Y-m-d', strtotime('-27 days')), 'warranty_end' => date('Y-m-d', strtotime('+3 years -27 days'))]);
+        $pid = (int) DB::insert('roadmap_items', ['client_id' => $cid, 'title' => 'Replace the front desk PC', 'category' => 'hardware',
+            'description' => 'Six-year-old desktop on Windows 10: replace with a new Windows 11 machine.', 'target_quarter' => self::quarter(-1), 'cost' => 1450,
+            'priority' => 'high', 'status' => 'done', 'created_by' => $userId, 'created_at' => $at(120), 'done_at' => $at(25), 'status_seen' => 'done', 'status_changed_at' => $at(25)]);
+        DB::insert('roadmap_item_devices', ['roadmap_item_id' => $pid, 'device_id' => $old]);
+        if ($dev = $deviceIds['Desktop'][1] ?? null) {
+            DB::run('UPDATE device_overrides SET warranty_end = ? WHERE device_id = ?', [date('Y-m-d', strtotime('-' . (20 + $i * 3) . ' days')), $dev]);
         }
     }
 

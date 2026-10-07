@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Align\Api;
 
 use Align\Api\Resources\Alignment;
+use Align\Api\Resources\Changes;
 use Align\Api\Resources\Backups;
 use Align\Api\Resources\Budget;
 use Align\Api\Resources\Clients;
@@ -127,6 +128,11 @@ final class Routes
                 'body' => [Compliance::class, 'controlRules']]),
             $r('PATCH', '/clients/{id}/compliance/{framework}/controls', 'compliance:write', [Compliance::class, 'updateControls'], 'Compliance', 'Update many controls', ['returns' => 'BulkResult',
                 'body' => ['controls' => ['array', ['required' => true, 'desc' => 'Up to 500 items: {"id": <control id>, "status": "met", "notes": "..."}. All or nothing.']]]]),
+
+            // 2.4.0 What changed since the last business review
+            $r('GET', '/clients/{id}/changes', 'clients:read', [Changes::class, 'client'], 'Clients', 'What changed since the last review', ['returns' => 'Changes',
+                'query' => ['since' => ['string', 'm<meeting id> (one of the client\'s completed business reviews) or YYYY-MM-DD; default: the newest completed review.']],
+                'description' => 'Projects finished, devices replaced, added and removed, warranties, end of life and OS support that ran out, alignment and compliance changes, licenses and tickets since the starting point. Each part is included only when the key can read its area (tickets need service:read). Then-figures come from the snapshot saved when the review was completed (since 2.3.0); without one they are null.']),
 
             // 2.3.0 Alignment reviews
             $r('GET', '/alignment/standards', 'alignment:read', [Alignment::class, 'standards'], 'Alignment', 'List the standards', ['list' => true, 'returns' => 'Standard',

@@ -245,8 +245,8 @@ final class MeetingController
                 redirect("/meetings/$id");
             }
             Audit::log("meeting.$action", $m['title']);
-            if ($action === 'complete' && $m['type'] === 'qbr' && $m['client_id']) {
-                \Align\Alignment\Snapshot::take((int) $m['client_id'], $id); // 2.3.0: quiet history for "what changed since the last review"
+            if ($action === 'complete' && in_array($m['type'], \Align\Changes\Changes::REVIEW_TYPES, true) && $m['client_id']) {
+                \Align\Alignment\Snapshot::take((int) $m['client_id'], $id); // 2.3.0, every kind of business review from 2.4.0: "what changed since the last review" compares with it
             }
             $inv = $action === 'cancel' ? \Align\Mail\Invites::send($id, 'cancel')
                 : ($action === 'reopen' && $m['invites_sent_at'] && $m['status'] === 'cancelled' ? \Align\Mail\Invites::send($id) : null);

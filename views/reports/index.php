@@ -37,9 +37,9 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
 
 <div class="row">
   <?= $card('fa-book-open', 'Business review pack (QBR)',
-      'Runs in meeting order: summary, service levels, assets (servers with their hosts and VMs), licensing, backups, compliance, alignment, roadmap, budget, then decisions &amp; next steps. Choose the sections to include (with costs off, budget and licensing are left out).',
+      'Runs in meeting order: summary, what changed since the last review, service levels, assets (servers with their hosts and VMs), licensing, backups, compliance, alignment, roadmap, budget, then decisions &amp; next steps. Choose the sections to include (with costs off, budget and licensing are left out).',
       '/report/qbr',
-      ($slaEnabled ? $chk('s_sla', 'Service levels') : '') . $chk('s_assets', 'Assets') . $chk('s_licensing', 'Licensing') . ($backupEnabled ? $chk('s_backup', 'Backups') : '') . $chk('s_compliance', 'Compliance') . $chk('s_alignment', 'Alignment') . $chk('s_roadmap', 'Roadmap') . $chk('s_budget', 'Budget')
+      $chk('s_changes', 'What changed') . ($slaEnabled ? $chk('s_sla', 'Service levels') : '') . $chk('s_assets', 'Assets') . $chk('s_licensing', 'Licensing') . ($backupEnabled ? $chk('s_backup', 'Backups') : '') . $chk('s_compliance', 'Compliance') . $chk('s_alignment', 'Alignment') . $chk('s_roadmap', 'Roadmap') . $chk('s_budget', 'Budget')
       . '<div class="w-100"></div>' . $chk('costs', 'Costs') . $chk('users', 'Last user') . $chk('virtual', 'Virtual machines', false) . $chk('notes', 'Notes') . ($slaEnabled ? $chk('missed', 'Missed tickets') : '') . $chk('inventory', 'Full inventory appendix', false)) ?>
   <?php if ($slaEnabled): ?>
   <?= $card('fa-stopwatch', 'Service levels',

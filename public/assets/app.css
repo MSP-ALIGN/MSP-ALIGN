@@ -1031,6 +1031,9 @@ textarea.pv-in { resize: none; white-space: normal; }
 /* 2.3.0 Alignment reviews: priority pills, the score, categories, hints on the review form, the library */
 .al-minw { min-width: 0; }
 .al-measure { max-width: 70ch; }
+/* 2.4.0 Since last QBR */
+.ch-minw { min-width: 0; }
+.ch-measure { max-width: 70ch; }
 .al-prio { font-size: .68rem; vertical-align: 2px; font-weight: 600; }
 .al-ring-lg { width: 84px; height: 84px; flex-basis: 84px; font-size: 1.25rem; }
 .al-spark { width: 200px; max-width: 100%; height: 60px; }

@@ -118,6 +118,7 @@ final class RoadmapController
             $f['alignment_standard_id'] = $std;
         }
         $pid = DB::insert('roadmap_items', $f + ['client_id' => $id, 'created_by' => Auth::id()]);
+        \Align\Roadmap\Roadmap::stampStatus($pid); // 2.4.0: a project added as done counts as finished today
         Audit::log('roadmap.create', "{$client['name']}: {$f['title']}" . (isset($f['alignment_standard_id']) ? ' (from an alignment gap)' : ''));
         $msg = "Added \"{$f['title']}\" to {$client['name']}'s plan.";
         if (post('ticket') === '1' && !\Align\Roadmap\ProjectTickets::makesTicket((string) $client['psa_id'])) {
@@ -164,6 +165,7 @@ final class RoadmapController
             flash('warning', 'Saved, but kept as ' . $row['status'] . ': ' . implode(', ', $taken) . (count($taken) === 1 ? ' is' : ' are') . ' in another project now. Decline or delete that one first.');
             $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
             DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
+            \Align\Roadmap\Roadmap::stampStatus($item);
             redirect(self::back($id));
         }
         if ($f['target_quarter'] !== $row['target_quarter']) {
@@ -171,6 +173,7 @@ final class RoadmapController
         }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($f), $item]);
+        \Align\Roadmap\Roadmap::stampStatus($item); // 2.4.0: when it was finished, for "What changed"
         Audit::log('roadmap.update', "{$client['name']}: {$f['title']}");
         flash('success', 'Project saved.');
         redirect(self::back($id));
