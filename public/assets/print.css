@@ -288,3 +288,10 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .rtable td.decide { white-space: nowrap; color: var(--ink-2); font-size: .74rem; }
 .check-box { display: inline-block; width: .8rem; height: .8rem; border: 1.5px solid var(--ink-2); border-radius: 2px; vertical-align: -2px; margin: 0 .15rem 0 .35rem; }
 .check-box:first-child { margin-left: 0; }
+
+/* 2.5.0 Client health headline (top of the QBR's executive summary) */
+.health-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: .8rem; align-items: center; margin-bottom: .6rem; break-inside: avoid; }
+.health-bars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem 1rem; }
+.health-bar { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 2rem; gap: .5rem; align-items: center; font-size: .78rem; color: var(--ink-2); }
+.health-bar b { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.health-weak { font-size: .8rem; color: var(--ink-2); margin: 0 0 .8rem; }

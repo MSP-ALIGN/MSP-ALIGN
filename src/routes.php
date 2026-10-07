@@ -347,6 +347,7 @@ $r->post('/account/remembered', [AccountController::class, 'remembered']);
 $r->get('/clients/{id}/portal', [PortalAdminController::class, 'show']);
 $r->post('/clients/{id}/suggestions/{sid}/decline', [PortalAdminController::class, 'declineSuggestion']);
 $r->post('/clients/{id}/portal', [PortalAdminController::class, 'create']);
+$r->post('/clients/{id}/portal/health', [PortalAdminController::class, 'health']); // 2.5.0
 $r->post('/portal-users/{id}', [PortalAdminController::class, 'update']);
 $r->get('/portal-users', [PortalAdminController::class, 'index']);
 $r->post('/portal-users/settings', [PortalAdminController::class, 'settings']);

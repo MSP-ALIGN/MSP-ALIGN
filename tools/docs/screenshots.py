@@ -69,6 +69,7 @@ PAGES = [
     ("roadmap", f"/clients/{C}/roadmap", 1400, 900, "light"),
     ("alignment", f"/clients/{C}/alignment", 1400, 900, "light"),
     ("changes", f"/clients/{C}/changes", 1400, 900, "light"),
+    ("health", f"/clients/{C}#overview-health", 1400, 900, "light"),   # 2.5.0: the client page scrolled to its Health card
     ("budget", f"/clients/{C}/budget", 1400, 900, "light"),
     ("devices", f"/clients/{C}/devices", 1400, 900, "light"),
     ("device", f"/devices/{dev[0]['id']}" if dev else "/devices", 1400, 760, "light"),

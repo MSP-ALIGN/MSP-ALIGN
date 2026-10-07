@@ -41,6 +41,14 @@ out, the alignment score then and now, and approved projects that slipped. The Q
 
 ![What changed since the last QBR](screenshots/changes.png)
 
+### Client health
+
+One score from 0 to 100 for each client, from lifecycle, backups, compliance, service levels and alignment: the band,
+the last 90 days, the change since the last business review and what pulls each area down. The dashboard lists every
+client worst first, and the QBR pack opens with it.
+
+![The client's health score](screenshots/health.png)
+
 ### Technology budget
 
 A three-year budget by quarter that builds itself from licensing, hardware replacements, projects and managed services,

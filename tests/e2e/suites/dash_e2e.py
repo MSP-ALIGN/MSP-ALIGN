@@ -6,7 +6,7 @@ st=login("admin@example.com","LongPassword123!")
 t0=time.time(); r=st.get(B+"/"); dt=time.time()-t0
 t=r.text; ok(r.status_code==200 and not errs(t),"dashboard renders (%.2fs)"%dt)
 ok("Good " in t and "Customize" in t,"greeting and Customize button")
-for k in ["attention","kpis","forecast","clients","sla","planning","meetings","due","backups","renewals","portal"]:
+for k in ["attention","kpis","health","forecast","clients","sla","planning","meetings","due","backups","renewals","portal"]:
     ok(f'data-card="{k}"' in t, f"card {k} shown by default")
 order=re.findall(r'data-card="(\w+)"',t); ok(order[:2]==["attention","kpis"],"Needs attention first, then health tiles: "+",".join(order[:3]))
 ok("past SLA target" in t and "backup job" in t and "Due for a meeting" in t,"attention list mixes SLA, backups and meetings")
@@ -50,7 +50,7 @@ with sync_playwright() as p:
         bb=src.bounding_box(); tb=dst.bounding_box(); pg.mouse.move(bb['x']+5,bb['y']+5); pg.mouse.down(); pg.mouse.move(tb['x']+50,tb['y']+10,steps=12); pg.mouse.up(); pg.wait_for_timeout(300)
         z=pg.eval_on_selector('.dash-card[data-card="renewals"]',"c=>c.closest('.dash-zone').dataset.zone")
     zs=pg.evaluate("Object.fromEntries([...document.querySelectorAll('.dash-zone')].map(z=>[z.dataset.zone,[...z.querySelectorAll(':scope>.dash-card')].map(c=>c.dataset.card)]))")
-    ok(z=="main" and zs["main"][:2]==["renewals","forecast"] and "meetings" in zs["side"],"drag moves a card to another column: "+json.dumps(zs))
+    ok(z=="main" and zs["main"][zs["main"].index("renewals")+1:][:1]==["forecast"] and "meetings" in zs["side"],"drag moves a card to another column: "+json.dumps(zs))
     pg.set_viewport_size({"width":1400,"height":1000})
     pg.screenshot(path=WORK+"/shots/dash_editing.png")
     pg.click("#dash-done"); pg.wait_for_timeout(600)

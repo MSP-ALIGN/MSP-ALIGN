@@ -25,6 +25,7 @@ final class Dashboard
     public const CARDS = [
         'attention' => ['Needs attention', 'fa-bell', 'top', 'One list of what to act on across every client: SLA breaches, failed backups, sync errors, overdue meetings and compliance items, renewals and client decisions.'],
         'kpis' => ['Portfolio health', 'fa-gauge-high', 'top', 'Tiles for service levels and backups, lifecycle and security, client engagement, and money.'],
+        'health' => ['Client health', 'fa-heart-pulse', 'main', 'Every client\'s health score, worst first, with the change over 30 days and the weakest area.'], // 2.5.0
         'forecast' => ['3-year forecast', 'fa-chart-column', 'main', 'Hardware replacements and projects by quarter across all clients.'],
         'clients' => ['Clients needing attention', 'fa-triangle-exclamation', 'main', 'Clients with devices past end of life, on an unsupported OS or otherwise out of policy.'],
         'sla' => ['Service levels', 'fa-stopwatch', 'main', 'Last 90 days of ticket SLA results and the clients below goal.'],

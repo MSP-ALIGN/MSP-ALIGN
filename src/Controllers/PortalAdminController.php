@@ -49,6 +49,24 @@ final class PortalAdminController
     }
 
     /**
+     * 2.5.0 Whether client $id's portal users see the health score (admin; off by default). The Router has checked
+     * CSRF; the client comes from the URL and is loaded (404 when missing). Only a posted "1" turns it on, anything
+     * else turns it off. Audited when it changes.
+     */
+    public static function health(int $id): void
+    {
+        Auth::requireRole('admin');
+        $client = ClientController::load($id);
+        $on = post('portal_health') === '1' ? 1 : 0;
+        if ($on !== (int) $client['portal_health']) {
+            DB::run('UPDATE clients SET portal_health = ? WHERE id = ?', [$on, $id]);
+            Audit::log('client.portal_health', $client['name'] . ': health score in the portal ' . ($on ? 'on' : 'off'));
+        }
+        flash('success', $on ? "{$client['name']}'s portal users with Devices access now see the health score." : "The health score is hidden from {$client['name']}'s portal.");
+        redirect("/clients/$id/portal");
+    }
+
+    /**
      * A client's portal page (tech): its users, their recent portal activity, and a link issued on the previous
      * request (shown once, and only on the page of the client it belongs to). The view is audited.
      */

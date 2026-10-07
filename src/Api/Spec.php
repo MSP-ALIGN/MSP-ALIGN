@@ -101,6 +101,16 @@ final class Spec
             'alignment' => ['object', 'then, now, change, closed and opened gaps (alignment:read).'], 'compliance' => ['object', 'frameworks with now, then, change, updated (compliance:read).'],
             'licenses' => ['object', 'now, then, added, retired (licenses:read).'], 'backup' => ['object', 'now, then (backups:read).'], 'tickets' => ['object', 'opened, closed, still_open, categories (service:read).'],
             'url' => ['string', '']]],
+        'Health' => ['A client\'s health score (2.5.0).', [
+            'client_id' => ['integer', ''], 'score' => ['integer', '0-100; null when no area has data.'], 'band' => ['string', 'Healthy, Needs attention, At risk or No score.'],
+            'areas_counted' => ['integer', 'Areas with data and a weight above 0.'], 'areas_weighted' => ['integer', 'Areas with a weight above 0.'],
+            'bands' => ['object', 'healthy_from, needs_attention_from (the settings in use).'],
+            'areas' => ['object[]', 'key (lifecycle, backups, compliance, service, alignment), label, score (null = no data), weight, counted, details [{text, tone}] (null when the key can\'t read that area).'],
+            'weakest' => ['object', 'key, score of the lowest counted area; null when none.'],
+            'since_last_review' => ['object', 'date, score then, change, label (with meetings:read) of the newest completed business review; null when there is none or no score from then.'],
+            'url' => ['string', '']]],
+        'HealthDay' => ['A client\'s health on one day (2.5.0).', [
+            'date' => ['date', ''], 'score' => ['integer', 'Null when no area had data.'], 'band' => ['string', ''], 'areas' => ['object', 'lifecycle, backups, compliance, service, alignment: each 0-100 or null.']]],
         'AlignmentAnswersResult' => ['Result of answering standards.', ['updated' => ['integer', ''], 'unchanged' => ['integer', ''], 'review' => ['object', 'The review afterwards (without answers).']]],
         'Framework' => ['A compliance framework.', ['id' => ['integer', ''], 'slug' => ['string', ''], 'name' => ['string', ''], 'description' => ['string', ''], 'built_in' => ['boolean', ''], 'controls' => ['integer', '']]],
         'Assessment' => ['A framework assigned to a client, with its score.', [

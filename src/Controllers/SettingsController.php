@@ -31,6 +31,16 @@ final class SettingsController
         'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
         'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24], 'remember_2fa_days' => [0, \Align\Remember::MAX_DAYS],
+        // 2.5.0 client health score: each area's weight (0 = left out) and where the bands start
+        'health_weight_lifecycle' => [0, 100], 'health_weight_backups' => [0, 100], 'health_weight_compliance' => [0, 100],
+        'health_weight_service' => [0, 100], 'health_weight_alignment' => [0, 100], 'health_good' => [2, 100], 'health_warn' => [1, 99],
+    ];
+
+    /** Numbers with no stored value until someone saves one: the value in use meanwhile (so saving it unchanged isn't a change). */
+    private const NUMBER_DEFAULTS = [
+        'health_weight_lifecycle' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_backups' => \Align\Health\Health::DEFAULT_WEIGHT,
+        'health_weight_compliance' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_service' => \Align\Health\Health::DEFAULT_WEIGHT,
+        'health_weight_alignment' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_good' => \Align\Health\Health::DEFAULT_GOOD, 'health_warn' => \Align\Health\Health::DEFAULT_WARN,
     ];
     private const LOCALE_DEFAULTS = ['locale_currency' => 'USD', 'locale_currency_position' => '', 'locale_number' => 'comma', 'locale_date' => 'mdy', 'locale_time' => '12', 'locale_week_start' => '0'];
 
@@ -52,7 +62,7 @@ final class SettingsController
     {
         $values = [];
         foreach (array_merge(self::TEXT, array_keys(self::NUMBERS), ['plan_start', 'timezone'], array_keys(self::localeChoices())) as $k) {
-            $values[$k] = Settings::get($k);
+            $values[$k] = Settings::get($k, isset(self::NUMBER_DEFAULTS[$k]) ? (string) self::NUMBER_DEFAULTS[$k] : null);
         }
         return $values;
     }
@@ -99,6 +109,17 @@ final class SettingsController
             flash('error', 'The company email must be an email address.');
             redirect(setup_return($back));
         }
+        // 2.5.0: the health bands must stay in order (Needs attention starts below Healthy)
+        if (is_numeric(post('health_good')) && is_numeric(post('health_warn')) && (int) post('health_warn') >= (int) post('health_good')) {
+            flash('error', 'The health score\'s "Needs attention from" must be lower than "Healthy from".');
+            redirect(setup_return($back));
+        }
+        // ...and at least one area must count, or no client would have a score
+        $weights = array_map(fn($k) => post("health_weight_$k"), array_keys(\Align\Health\Health::PILLARS));
+        if (count(array_filter($weights, 'is_numeric')) === count($weights) && !array_filter($weights, fn($w) => (int) $w > 0)) {
+            flash('error', 'At least one area of the health score needs a weight above 0.');
+            redirect(setup_return($back));
+        }
         foreach (self::TEXT as $k) {
             // Cut to the column's purpose (2.2.1: any length was kept, up to the 64 KB the database refuses). A value
             // posted back unchanged is left as it is, even if an older version saved it longer.
@@ -136,7 +157,7 @@ final class SettingsController
             // whole number that is used (2.2.1): "0.4" days was saved as typed, read as 0 (off), and skipped the
             // "off forgets every remembered browser" kill switch below, so the browsers came back when it was raised
             $v = str_starts_with($k, 'cost_') ? rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') : (string) (int) $v;
-            if ($v !== Settings::get($k)) {
+            if ($v !== Settings::get($k, isset(self::NUMBER_DEFAULTS[$k]) ? (string) self::NUMBER_DEFAULTS[$k] : null)) {
                 if ($k === 'remember_2fa_days') {
                     // It changes what a sign-in needs (1.45.1): old and new value in the log, a security alert, and
                     // turning it off forgets every remembered browser (a kill switch, not a pause)

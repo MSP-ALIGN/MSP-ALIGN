@@ -286,10 +286,16 @@ final class PortalController
                 $_SESSION['portal_changes'] = ['k' => $ck, 't' => time(), 'v' => $data['changes']];
             }
         }
+        $data['health'] = null;
         if ($pu['can_devices']) {
             $data['summary'] = Lifecycle::summarize((new Lifecycle())->devices($cid));
             $data['frameworks'] = self::frameworks($cid);
             $data['sla'] = \Align\Service\Sla::overview($cid);
+            // 2.5.0: the health score, when staff switched it on for this client (scores only, no alignment area)
+            if (\Align\Health\Health::inPortal($data['client'])) {
+                $h = \Align\Health\Health::forPortal(\Align\Health\Health::today($data['client']));
+                $data['health'] = ['h' => $h, 'trend' => \Align\Health\Health::history($cid, 90), 'since' => \Align\Health\Health::sinceReview($cid, $h['score'])];
+            }
         }
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
     }
@@ -616,10 +622,11 @@ final class PortalController
             // Only the sections this user may see; costs only with budget access
             $allowed = array_keys(array_filter(['s_roadmap' => $pu['can_roadmap'], 's_budget' => $pu['can_budget'], 's_assets' => $pu['can_devices'],
                 's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget'],
-                's_changes' => (bool) \Align\Changes\Changes::portalParts($pu)])); // 2.4.0, only the parts this user may see
+                's_changes' => (bool) \Align\Changes\Changes::portalParts($pu), // 2.4.0, only the parts this user may see
+                's_health' => $pu['can_devices'] && \Align\Health\Health::inPortal($client)])); // 2.5.0, when staff switched it on
             $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',
                 'virtual' => false, 'notes' => query('notes', '1') === '1', 'missed' => false, '_hide' => $pu['can_budget'] ? ['missed'] : ['costs', 'missed']] + ReportController::qbrSections(true);
-            ReportController::renderQbr($client, $opt, $allowed, (bool) $pu['can_documents'], \Align\Changes\Changes::portalParts($pu));
+            ReportController::renderQbr($client, $opt, $allowed, (bool) $pu['can_documents'], \Align\Changes\Changes::portalParts($pu), true);
             return;
         }
         if ($kind === 'sla') {
