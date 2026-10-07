@@ -5,7 +5,8 @@ namespace Align;
 
 /**
  * Portal name, logos (since 2.2.4 one for light mode and white pages, one for dark mode) and colors (Settings → Branding).
- * Uploaded logos live outside the web root and are served by /branding/logo.
+ * Uploaded logos live outside the web root and are served by /branding/logo and /branding/logo-light, and the browser
+ * icon (2.5.1) by /branding/favicon.
  *
  * Security assumptions: only admins save branding (BrandingController checks the role and CSRF). The logo and the
  * sign-in backgrounds are public on purpose (sign-in pages, emails, printed reports), so they are re-encoded and
@@ -47,15 +48,21 @@ final class Branding
 
     /**
      * 2.2.4: two logos, one for each kind of background. 'light' is for light mode and white pages: printed reports,
-     * contracts and their PDFs, emails, the client portal, onboarding pages, the light sign-in page, a light menu and
-     * the browser tab. 'dark' is for dark mode and the dark menu (the logo Align had before 2.2.4, so an existing
+     * contracts and their PDFs, emails, the client portal, onboarding pages, the light sign-in page and a light menu
+     * (and the browser tab until 2.5.1). 'dark' is for dark mode and the dark menu (the logo Align had before 2.2.4, so an existing
      * logo stays where it was). kind => [setting, file name prefix, URL]. Either one stands in for the other while
      * only one is uploaded.
+     * 2.5.1: 'icon' is the browser icon (the tab, bookmarks): a small square image of its own. It never stands in for a
+     * logo or the other way round; without one the tab shows the built-in MSP Align mark (faviconUrl()).
      */
     public const LOGOS = [
         'dark' => ['brand_logo', 'logo', '/branding/logo'],
         'light' => ['brand_logo_light', 'llogo', '/branding/logo-light'],
+        'icon' => ['brand_favicon', 'favicon', '/branding/favicon'],
     ];
+
+    /** 2.5.1: the browser icon is scaled down to at most this many pixels a side (tabs show it at 16 to 32). */
+    public const ICON_MAX = 256;
 
     /** Path of an uploaded logo ($kind: a LOGOS key), or null. webp/gif are logos stored before 1.45 re-encoded them. */
     public static function logoFile(string $kind = 'dark'): ?string
@@ -87,6 +94,16 @@ final class Branding
     public static function anyLogo(): bool
     {
         return self::hasLogo('dark') || self::hasLogo('light');
+    }
+
+    /**
+     * 2.5.1 The browser tab's icon on every page (staff, the client portal, sign-in, public and printed pages): the
+     * uploaded browser icon, else the built-in MSP Align mark. The logos are no longer used for it (from 2.2.4 to
+     * 2.5.0 the light mode logo was): a wide wordmark doesn't read at 16 pixels.
+     */
+    public static function faviconUrl(): string
+    {
+        return self::logoUrl('icon');
     }
 
     /** The logo for a light background: the light mode logo, else the dark mode one, else the built-in mark. */
@@ -262,7 +279,8 @@ final class Branding
     }
 
     /**
-     * Stores an uploaded logo ($kind: a LOGOS key); returns an error message or null on success.
+     * Stores an uploaded logo ($kind: a LOGOS key); returns an error message or null on success. The browser icon
+     * (2.5.1) must be about square and is scaled down to ICON_MAX pixels.
      * Security: the caller is an admin (role and CSRF checked). Size, type by content and dimensions are checked
      * before decoding, SVG is refused, and only the re-encoded pixels are kept under a random name.
      */
@@ -288,13 +306,17 @@ final class Branding
         if ($w < 16 || $h < 16 || $w > 4000 || $h > 4000) {
             return 'Image should be between 16 and 4000 pixels on each side.';
         }
+        // A browser icon is drawn in a square: a wide or tall one would be squashed (2.5.1)
+        if ($kind === 'icon' && max($w, $h) > 1.25 * min($w, $h)) {
+            return 'Use a square image (for example 256 × 256 pixels): browsers show it as a small square.';
+        }
         $dir = self::uploadDir();
         if (!is_dir($dir) && !@mkdir($dir, 0750, true)) {
             return "Can't create the upload folder ($dir). Run sudo msp-align-update to fix permissions.";
         }
         // Re-encoded, not stored as uploaded: the logo is public (sign-in page, emails), so nothing but its pixels goes out (1.45)
         $name = $prefix . '-' . bin2hex(random_bytes(8)) . ($mime === 'image/jpeg' ? '.jpg' : '.png');
-        if (!\Align\Images::reencode($file['tmp_name'], $mime, "$dir/$name")) {
+        if (!\Align\Images::reencode($file['tmp_name'], $mime, "$dir/$name", $kind === 'icon' ? self::ICON_MAX : 2000)) {
             @unlink("$dir/$name");
             return 'That image couldn\'t be read or saved. Try saving it again as PNG, and check that the upload folder is writable.';
         }

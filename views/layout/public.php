@@ -9,7 +9,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title ?? '') ?> | <?= e(\Align\Branding::name()) ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>">
+<link rel="icon" href="<?= e(\Align\Branding::faviconUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">

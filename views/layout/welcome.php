@@ -14,7 +14,7 @@ $v = e(APP_VERSION);
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title><?= e($title ?? 'Welcome') ?> | <?= e($company['name']) ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>">
+<link rel="icon" href="<?= e(\Align\Branding::faviconUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= $v ?>">
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">

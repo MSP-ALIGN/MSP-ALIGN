@@ -317,6 +317,8 @@ $r->get('/settings/branding', [BrandingController::class, 'show']);
 $r->post('/settings/branding', [BrandingController::class, 'save']);
 $r->get('/branding/logo', [BrandingController::class, 'logo']);
 $r->get('/branding/logo-light', [BrandingController::class, 'lightLogo']); // 2.2.4: the light mode logo
+$r->get('/branding/favicon', [BrandingController::class, 'favicon']); // 2.5.1: the browser icon
+$r->get('/favicon.ico', [BrandingController::class, 'favicon']); // ...also where browsers look on pages without a <link rel="icon"> (PDFs, images)
 $r->get('/branding/background/{kind:str}', [BrandingController::class, 'background']);
 $r->post('/settings/os', [SettingsController::class, 'osSave']);
 // Demo data (1.41)

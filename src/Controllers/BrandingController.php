@@ -12,7 +12,8 @@ use Align\View;
 /**
  * Settings → Branding (admins), and the public brand images.
  * Security assumptions: the router checks CSRF on every POST; show() and save() check the admin role themselves.
- * logo() and background() are public on purpose (sign-in pages, emails, printed reports) and serve only the files
+ * logo(), favicon() and background() are public on purpose (sign-in pages, emails, printed reports, the browser tab
+ * before sign-in) and serve only the files
  * Branding wrote, re-encoded, with nosniff and a sandbox CSP.
  */
 final class BrandingController
@@ -36,6 +37,8 @@ final class BrandingController
             'logoUrl' => Branding::logoUrl(),
             'hasLightLogo' => Branding::hasLogo('light'),
             'lightLogoUrl' => Branding::logoUrl('light'),
+            'hasFavicon' => Branding::hasLogo('icon'), // 2.5.1
+            'faviconUrl' => Branding::faviconUrl(),
             'backgrounds' => array_map(fn($k) => ['url' => Branding::backgroundUrl($k), 'dim' => Branding::backgroundDim($k), 'mode' => Branding::backgroundMode($k)], array_combine(array_keys(Branding::BG_KINDS), array_keys(Branding::BG_KINDS))),
         ]);
     }
@@ -58,6 +61,13 @@ final class BrandingController
             flash('success', ucfirst($kind) . ' mode logo removed. ' . (Branding::hasLogo($other) ? "The $other mode logo is used everywhere now." : 'The default icon is back.'));
             redirect('/settings/branding');
         }
+        // 2.5.1: the browser icon goes back to the built-in MSP Align mark (not to a logo)
+        if ($action === 'remove_favicon') {
+            Branding::removeLogo('icon');
+            Audit::log('branding.favicon_removed');
+            flash('success', 'Browser icon removed. Browser tabs show the MSP Align icon again.');
+            redirect('/settings/branding');
+        }
         if (preg_match('/^(remove|plain|default)_bg_(staff|portal)$/', $action, $m)) {
             Branding::removeBackground($m[2], $m[1] === 'plain');
             Audit::log('branding.background_' . ($m[1] === 'plain' ? 'none' : 'default'), Branding::BG_KINDS[$m[2]]);
@@ -69,7 +79,7 @@ final class BrandingController
                 Settings::set($k, null);
             }
             Audit::log('branding.reset');
-            flash('success', 'Name and colors reset to the defaults. Your logos and sign-in backgrounds were kept.');
+            flash('success', 'Name and colors reset to the defaults. Your logos, browser icon and sign-in backgrounds were kept.');
             redirect('/settings/branding');
         }
 
@@ -99,8 +109,10 @@ final class BrandingController
                 Audit::log('branding.background_uploaded', Branding::BG_KINDS[$k]);
             }
         }
-        // The dark mode logo (field logo, the one Align always had) and, since 2.2.4, the light mode logo (field logo_light)
-        foreach (['logo' => ['dark', 'Dark mode logo', 'branding.logo_uploaded'], 'logo_light' => ['light', 'Light mode logo', 'branding.light_logo_uploaded']] as $field => [$kind, $label, $event]) {
+        // The dark mode logo (field logo, the one Align always had), since 2.2.4 the light mode logo (field logo_light)
+        // and since 2.5.1 the browser icon (field favicon)
+        foreach (['logo' => ['dark', 'Dark mode logo', 'branding.logo_uploaded'], 'logo_light' => ['light', 'Light mode logo', 'branding.light_logo_uploaded'],
+            'favicon' => ['icon', 'Browser icon', 'branding.favicon_uploaded']] as $field => [$kind, $label, $event]) {
             if (!empty($_FILES[$field]) && ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                 if ($err = Branding::saveLogo($_FILES[$field], $kind)) {
                     flash('error', "$label: $err");
@@ -140,6 +152,12 @@ final class BrandingController
     public static function lightLogo(): void
     {
         self::sendLogo('light');
+    }
+
+    /** Serves the uploaded browser icon (2.5.1), or the built-in mark. Public: tabs show it before anyone signs in. */
+    public static function favicon(): void
+    {
+        self::sendLogo('icon');
     }
 
     /** Sends an uploaded logo ($kind: a Branding::LOGOS key), or redirects to the built-in mark when there is none. */

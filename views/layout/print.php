@@ -20,7 +20,7 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', '<'], ['\\\\', '\\"', '
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= \Align\Staging::on() ? '[TEST] ' : '' ?><?= e($title ?? 'Report') ?></title>
-<link rel="icon" href="<?= e(\Align\Branding::lightLogoUrl()) ?>">
+<link rel="icon" href="<?= e(\Align\Branding::faviconUrl()) ?>">
 <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/vendor/adminlte/adminlte.min.css?v=<?= e(APP_VERSION) ?>">
 <link rel="stylesheet" href="/assets/print.css?v=<?= e(APP_VERSION) ?>">
