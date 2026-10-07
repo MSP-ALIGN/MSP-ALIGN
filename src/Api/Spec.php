@@ -93,6 +93,14 @@ final class Spec
             'counts' => ['object', 'aligned, misaligned, not_applicable, unanswered.'], 'score_so_far' => ['integer', 'Drafts, with answers: the score if it were finished now.'],
             'answers' => ['object[]', 'Single review only: standard_id, category, title, priority, auto_check, answer (aligned, misaligned, na or null), note, updated_at. A draft lists every active standard.'],
             'url' => ['string', '']]],
+        'Changes' => ['What changed for a client since a business review (2.4.0).', [
+            'client_id' => ['integer', ''], 'since' => ['object', 'key, meeting_id, date, at, label, days, snapshot (then-figures saved at that review).'],
+            'baselines' => ['object[]', 'Completed reviews to compare with, newest first.'], 'headline' => ['object[]', 'tone, title, text: a short summary.'],
+            'devices' => ['object', 'now, then, counts and lists: added, removed, replaced, warranty_expired, became_due, os_ended (devices:read).'],
+            'projects' => ['object', 'counts and lists: done, added, approved, started, declined (projects:read).'], 'spend' => ['object', 'done_cost, done_monthly, slipped (projects:read).'],
+            'alignment' => ['object', 'then, now, change, closed and opened gaps (alignment:read).'], 'compliance' => ['object', 'frameworks with now, then, change, updated (compliance:read).'],
+            'licenses' => ['object', 'now, then, added, retired (licenses:read).'], 'backup' => ['object', 'now, then (backups:read).'], 'tickets' => ['object', 'opened, closed, still_open, categories (service:read).'],
+            'url' => ['string', '']]],
         'AlignmentAnswersResult' => ['Result of answering standards.', ['updated' => ['integer', ''], 'unchanged' => ['integer', ''], 'review' => ['object', 'The review afterwards (without answers).']]],
         'Framework' => ['A compliance framework.', ['id' => ['integer', ''], 'slug' => ['string', ''], 'name' => ['string', ''], 'description' => ['string', ''], 'built_in' => ['boolean', ''], 'controls' => ['integer', '']]],
         'Assessment' => ['A framework assigned to a client, with its score.', [

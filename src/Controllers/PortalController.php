@@ -269,12 +269,44 @@ final class PortalController
             $data['budget'] = ['year' => $b['years'][Plan::quarters()[Plan::currentIndex()]['year']], 'runRate' => $b['runRate']];
             $data['dates'] = array_values(array_filter(self::portalDates($cid, 120), fn($d) => $d['urgency'] !== 'later'));
         }
+        // 2.4.0: a few lines on what changed since the last review, linking to the full page
+        $parts = \Align\Changes\Changes::portalParts($pu);
+        $base = $parts ? \Align\Changes\Changes::resolve($cid, null) : null;
+        $base = $base ? \Align\Changes\Changes::forPortal($base) : null;
+        $data['changes'] = null;
+        if ($base) {
+            // Worked out at most every 10 minutes per signed-in user (the home page is opened often; the full page isn't cached)
+            $ck = sha1($cid . '|' . $base['key'] . '|' . implode(',', $parts) . '|' . (int) $pu['can_budget']);
+            $cached = $_SESSION['portal_changes'] ?? null;
+            if (is_array($cached) && ($cached['k'] ?? '') === $ck && ($cached['t'] ?? 0) > time() - 600) {
+                $data['changes'] = $cached['v'];
+            } else {
+                $c = \Align\Changes\Changes::compare($cid, $base, $parts, (bool) $pu['can_budget']);
+                $data['changes'] = ['base' => $c['base'], 'headline' => array_slice($c['headline'], 0, 4)];
+                $_SESSION['portal_changes'] = ['k' => $ck, 't' => time(), 'v' => $data['changes']];
+            }
+        }
         if ($pu['can_devices']) {
             $data['summary'] = Lifecycle::summarize((new Lifecycle())->devices($cid));
             $data['frameworks'] = self::frameworks($cid);
             $data['sla'] = \Align\Service\Sla::overview($cid);
         }
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
+    }
+
+    /**
+     * 2.4.0 "Since your last review": what changed since the newest completed business review, only the parts this
+     * user may see (Changes::portalParts: alignment stays staff-only, money only with can_budget).
+     */
+    public static function changes(): void
+    {
+        $pu = PortalAuth::require();
+        $cid = (int) $pu['client_id'];
+        $parts = \Align\Changes\Changes::portalParts($pu);
+        $base = $parts ? \Align\Changes\Changes::resolve($cid, null) : null;
+        $base = $base ? \Align\Changes\Changes::forPortal($base) : null;
+        self::render('changes', ['title' => 'Since your last review', 'nav' => 'home', 'client' => self::client($pu), 'base' => $base, 'costs' => (bool) $pu['can_budget'],
+            'ch' => $base ? \Align\Changes\Changes::compare($cid, $base, $parts, (bool) $pu['can_budget']) : null], $pu);
     }
 
     /** Compliance frameworks assigned to client $cid (the caller's own), with their scores. */
@@ -327,6 +359,7 @@ final class PortalController
         }
         $n = DB::run("UPDATE roadmap_items SET status = ?, decided_by_portal_user_id = ?, decided_by_name = ?, decided_at = NOW(), decision_comment = ?
             WHERE id = ? AND client_id = ? AND status = 'proposed'", [$decision, $pu['id'], $pu['name'], mb_substr(post('comment'), 0, 2000) ?: null, $id, $pu['client_id']])->rowCount();
+        \Align\Roadmap\Roadmap::stampStatus($id); // 2.4.0: when its status changed, for "What changed"
         if ($n !== 1) {
             flash('error', 'That project is no longer waiting for a decision.');
             redirect('/portal/roadmap');
@@ -582,10 +615,11 @@ final class PortalController
         if ($kind === 'qbr') {
             // Only the sections this user may see; costs only with budget access
             $allowed = array_keys(array_filter(['s_roadmap' => $pu['can_roadmap'], 's_budget' => $pu['can_budget'], 's_assets' => $pu['can_devices'],
-                's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget']]));
+                's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget'],
+                's_changes' => (bool) \Align\Changes\Changes::portalParts($pu)])); // 2.4.0, only the parts this user may see
             $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',
                 'virtual' => false, 'notes' => query('notes', '1') === '1', 'missed' => false, '_hide' => $pu['can_budget'] ? ['missed'] : ['costs', 'missed']] + ReportController::qbrSections(true);
-            ReportController::renderQbr($client, $opt, $allowed, (bool) $pu['can_documents']);
+            ReportController::renderQbr($client, $opt, $allowed, (bool) $pu['can_documents'], \Align\Changes\Changes::portalParts($pu));
             return;
         }
         if ($kind === 'sla') {

@@ -147,7 +147,7 @@ final class ReportController
     }
 
     /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
-    public const QBR_SECTIONS = ['s_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
+    public const QBR_SECTIONS = ['s_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -160,15 +160,28 @@ final class ReportController
     }
 
     /**
-     * Quarterly business review pack: cover, executive summary, then each section.
+     * Quarterly business review pack: cover, executive summary, then each section (from 2.4.0 starting with what
+     * changed since the last review; $changeParts limits its parts, null = all).
      * $allowed limits the sections (the portal passes only what the user may see); $people false leaves out the key
      * contacts and meetings (a portal user without "Documents, contacts & meetings", 1.45). A section switched off
      * is also left out of the executive summary's tiles and highlights (2.2.1: unticking Compliance still printed
      * the compliance score and the frameworks below 80% on the first page).
      */
-    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true): void
+    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true, ?array $changeParts = null): void
     {
         $id = (int) $client['id'];
+        // 2.4.0 "What changed since the last review": from ?since= (a review or a date), else the newest completed
+        // review; the portal passes only the parts its user may see. No review to compare with = no switch.
+        $ch = null;
+        if (in_array('s_changes', $allowed, true) && ($base = \Align\Changes\Changes::resolve($id, is_string($_GET['since'] ?? null) ? $_GET['since'] : null))) {
+            $parts = $changeParts ?? \Align\Changes\Changes::PARTS;
+            $base = $changeParts !== null ? \Align\Changes\Changes::forPortal($base) : $base;
+            // Switched off in the toolbar: keep the switch (a placeholder), skip the work
+            $ch = !$parts ? null : (!empty($opt['s_changes']) ? \Align\Changes\Changes::compare($id, $base, $parts, !empty($opt['costs'])) : ['off' => true]);
+        }
+        if (!$ch) {
+            $allowed = array_values(array_diff($allowed, ['s_changes']));
+        }
         $on = fn(string $k) => in_array($k, $allowed, true) && !empty($opt[$k]);
         $q = \Align\Roadmap\Plan::quarters()[\Align\Roadmap\Plan::currentIndex()];
         $a = in_array('s_assets', $allowed, true) ? ReportData::assets($id, $opt) : null;
@@ -205,6 +218,7 @@ final class ReportController
             'on' => $on,
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'al' => $on('s_alignment') ? $al : null,
+            'ch' => $on('s_changes') ? $ch : null,
             'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],
             'provider' => ['company' => Settings::get('company_name') ?: 'Your company', 'phone' => Settings::get('company_phone'),
                 'email' => Settings::get('company_email'), 'vcio' => $vcio],

@@ -7,8 +7,7 @@ use Align\DB;
 
 /**
  * 2.3.0: quiet snapshots of a client's numbers, saved when a QBR meeting is marked completed (on the meeting page or
- * through the API). Nothing shows them yet: they build the history a later "what changed since the last review" page
- * compares against. Each snapshot is one JSON document: device counts and which devices were past end of life, on an
+ * through the API). From 2.4.0 "What changed since the last QBR" (Align\Changes\Changes) compares against them. Each snapshot is one JSON document: device counts and which devices were past end of life, on an
  * unsupported OS or out of warranty, each roadmap project's status, compliance and alignment scores, license totals
  * and backup health.
  *

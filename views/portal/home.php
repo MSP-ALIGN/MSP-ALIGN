@@ -4,7 +4,7 @@ use Align\Roadmap\Roadmap;
 /**
  * Portal home: a card per section the controller filled in (each checked its own permission). Values are escaped;
  * the provider's website is only ever an https:// or http:// link and the phone link keeps digits and + only.
- * @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary; array $pending, $dates, $frameworks
+ * @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary, $changes (2.4.0); array $pending, $dates, $frameworks
  */
 $logo = client_logo_url($client);
 $vcio = $provider['vcio'] ?? null;
@@ -85,6 +85,21 @@ $vcio = $provider['vcio'] ?? null;
       </div>
     </div>
   </div>
+  <?php if (!empty($changes)): // 2.4.0: what changed since the last review, a few lines ?>
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock-rotate-left me-2 text-secondary"></i>Since your last review</h3>
+          <div class="card-tools"><a href="/portal/changes" class="btn btn-tool">Details</a></div></div>
+        <ul class="list-group list-group-flush small">
+          <?php foreach (array_slice($changes['headline'], 0, 4) as $h): ?>
+            <li class="list-group-item py-2"><i class="fas fa-fw <?= ['ok' => 'fa-circle-check text-success', 'warn' => 'fa-triangle-exclamation text-warning', 'bad' => 'fa-circle-exclamation text-danger'][$h['tone']] ?? 'fa-circle-info text-secondary' ?> me-1"></i><?= e($h['title']) ?></li>
+          <?php endforeach; ?>
+          <?php if (!$changes['headline']): ?><li class="list-group-item py-2 text-muted">Nothing that needs your attention has changed since <?= e(fmt_date($changes['base']['date'])) ?>.</li><?php endif; ?>
+        </ul>
+        <div class="card-footer small text-muted py-1">Since <?= e($changes['base']['label']) ?></div>
+      </div>
+    </div>
+  <?php endif; ?>
   <?php if ($summary): ?>
     <div class="col-lg-6">
       <div class="card">

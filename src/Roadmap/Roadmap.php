@@ -212,4 +212,16 @@ final class Roadmap
     {
         return self::CATEGORIES[$c] ?? ['Other', 'fa-tag', 'secondary'];
     }
+
+    /**
+     * Keeps a project's status dates current (2.4.0): status_changed_at when its status differs from the one last
+     * seen (status_seen), and done_at the first time it is marked done (cleared when it is reopened). Called after
+     * every insert or status change; reads the status from the row itself, so callers pass only the id.
+     */
+    public static function stampStatus(int $id): void
+    {
+        DB::run("UPDATE roadmap_items SET status_changed_at = IF(status_seen <=> status, status_changed_at, NOW()), status_seen = status,
+            done_at = IF(status = 'done', COALESCE(done_at, NOW()), NULL)
+            WHERE id = ? AND (NOT (status_seen <=> status) OR (done_at IS NULL) = (status = 'done'))", [$id]);
+    }
 }

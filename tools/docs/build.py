@@ -325,7 +325,7 @@ FEATURES = [
     ("lifecycle", "Lifecycle at a glance", "Warranty, end of life and OS support for every device, with Dell and Lenovo warranty lookups."),
     ("target", "Alignment reviews", "Score every client against your own standards, then turn each gap into a roadmap project."),
     ("roadmap", "Roadmaps and budgets", "Projects by quarter and a three-year budget that fills itself from hardware, licenses and services."),
-    ("report", "QBRs in one click", "A polished pack: lifecycle, backups, compliance, roadmap and budget, ready to print or send."),
+    ("report", "QBRs in one click", "A polished pack that opens with what changed since the last review, then lifecycle, backups, compliance, roadmap and budget."),
     ("portal", "Client portal", "Clients see their plan, approve projects and send requests, with two-factor sign-in."),
     ("shield", "Compliance and policies", "CIS, NIST CSF, CMMC, PCI DSS, SOC 2, ISO 27001 and more, plus 27 policy templates."),
     ("pen", "Contracts and e-signatures", "Upload your agreement, send it to sign online, countersign and keep the certificate."),

@@ -227,8 +227,8 @@ final class Meetings
             default => 'update',
         };
         \Align\Audit::log("meeting.$action", ($cols['title'] ?? $m['title']) . ' (' . implode(', ', array_keys($in)) . ')');
-        if ($action === 'complete' && ($cols['type'] ?? $m['type']) === 'qbr' && ($cols['client_id'] ?? $m['client_id'])) {
-            \Align\Alignment\Snapshot::take((int) ($cols['client_id'] ?? $m['client_id']), $id); // 2.3.0, as on the meeting page
+        if ($action === 'complete' && in_array($cols['type'] ?? $m['type'], \Align\Changes\Changes::REVIEW_TYPES, true) && ($cols['client_id'] ?? $m['client_id'])) {
+            \Align\Alignment\Snapshot::take((int) ($cols['client_id'] ?? $m['client_id']), $id); // 2.3.0, as on the meeting page (2.4.0: every kind of business review)
         }
         $invite = null;
         if ($action === 'cancel') {

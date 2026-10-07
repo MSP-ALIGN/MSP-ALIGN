@@ -116,6 +116,7 @@ $r->get('/clients/{id}/export', [ClientController::class, 'export']);
 $r->get('/clients/{id}/meetings', [MeetingController::class, 'clientIndex']);
 // 2.3.0 Alignment reviews: a client measured against the MSP's own standards
 $r->get('/clients/{id}/alignment', [\Align\Controllers\AlignmentController::class, 'client']);
+$r->get('/clients/{id}/changes', [\Align\Controllers\ChangesController::class, 'client']); // 2.4.0 since last QBR
 $r->post('/clients/{id}/alignment/start', [\Align\Controllers\AlignmentController::class, 'start']);
 $r->get('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentController::class, 'review']);
 $r->post('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentController::class, 'save']);
@@ -382,6 +383,7 @@ $r->get('/portal/invite/{token:str}', [PortalController::class, 'inviteForm']);
 $r->post('/portal/invite/{token:str}', [PortalController::class, 'invite']);
 $r->get('/portal', [PortalController::class, 'home']);
 $r->get('/portal/roadmap', [PortalController::class, 'roadmap']);
+$r->get('/portal/changes', [PortalController::class, 'changes']); // 2.4.0
 $r->post('/portal/projects/{id}/decide', [PortalController::class, 'decide']);
 $r->get('/portal/budget', [PortalController::class, 'budget']);
 $r->get('/portal/licensing', [PortalController::class, 'licensing']);

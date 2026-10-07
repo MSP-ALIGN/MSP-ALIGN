@@ -34,6 +34,13 @@ and the gaps in order of importance, each one a roadmap project in one click.
 
 ![The client's alignment review](screenshots/alignment.png)
 
+### Since last QBR
+
+What changed since the last business review: projects finished, devices replaced, warranties and support that ran
+out, the alignment score then and now, and approved projects that slipped. The QBR pack opens with the same summary.
+
+![What changed since the last QBR](screenshots/changes.png)
+
 ### Technology budget
 
 A three-year budget by quarter that builds itself from licensing, hardware replacements, projects and managed services,

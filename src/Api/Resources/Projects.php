@@ -111,6 +111,7 @@ final class Projects
         $row['priority'] ??= 'medium';
         $row['status'] ??= 'proposed';
         $id = DB::insert('roadmap_items', $row);
+        \Align\Roadmap\Roadmap::stampStatus($id); // 2.4.0
         \Align\Audit::log('roadmap.create', "{$client['name']}: {$in['title']}");
         return Out::one(self::shape(self::load($id)), 201);
     }
@@ -141,6 +142,7 @@ final class Projects
         // Column names come from the rules (Input::clean refuses unknown fields), never from the body itself
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($in)));
         DB::run("UPDATE roadmap_items SET $sets WHERE id = ?", [...array_values($in), $id]);
+        \Align\Roadmap\Roadmap::stampStatus($id); // 2.4.0
         \Align\Audit::log('roadmap.update', "{$r['client_name']}: " . ($in['title'] ?? $r['title']) . ' (' . implode(', ', array_keys($in)) . ')');
         return Out::one(self::shape(self::load($id)));
     }
