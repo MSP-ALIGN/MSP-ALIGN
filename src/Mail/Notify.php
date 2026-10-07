@@ -48,6 +48,10 @@ final class Notify
             } catch (\Throwable $e) {
                 $out[] = 'health: ' . $e->getMessage();
             }
+            // 2.6.0: the Microsoft 365 (clients) certificate is replaced by itself when it's due
+            if ($r = \Align\M365\App::rotateIfDue()) {
+                $out[] = 'm365: ' . $r;
+            }
         }
         if (!Mail::on()) {
             return array_merge($out, ['email is off']);

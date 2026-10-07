@@ -223,6 +223,24 @@ $r->post('/integrations/email', [$E, 'save']);
 $r->post('/integrations/email/test', [$E, 'test']);
 $r->get('/integrations/email/connect', [$E, 'connect']);
 $r->post('/integrations/email/disconnect', [$E, 'disconnect']);
+// 2.6.0 Microsoft 365 for clients (before the generic integration routes)
+$M = \Align\Controllers\M365Controller::class;
+$r->get('/integrations/microsoft-365', [$M, 'index']);
+$r->post('/integrations/microsoft-365/setup', [$M, 'setupStart']);
+$r->post('/integrations/microsoft-365/setup/finish', [$M, 'setupFinish']);
+$r->post('/integrations/microsoft-365/manual', [$M, 'saveManual']);
+$r->post('/integrations/microsoft-365/rotate', [$M, 'rotate']);
+$r->post('/integrations/microsoft-365/forget', [$M, 'forget']);
+$r->post('/integrations/microsoft-365/prices', [$M, 'savePrices']);
+$r->post('/clients/{id}/m365/connect', [$M, 'connect']);
+$r->post('/clients/{id}/m365/link', [$M, 'link']);
+$r->post('/clients/{id}/m365/confirm', [$M, 'confirm']);
+$r->post('/clients/{id}/m365/reject', [$M, 'reject']);
+$r->post('/clients/{id}/m365/sync', [$M, 'sync']);
+$r->post('/clients/{id}/m365/disconnect', [$M, 'disconnect']);
+$r->post('/clients/{id}/m365/own', [$M, 'saveOwn']);
+$r->post('/clients/{id}/m365/dupes', [$M, 'dupes']);
+$r->get('/m365/consent', [$M, 'consent']); // public: Microsoft sends the client's admin back here
 $r->get('/integrations/{key:str}', [$I, 'show']);
 $r->post('/integrations/{key:str}', [$I, 'save']);
 $r->post('/integrations/{key:str}/test', [$I, 'test']);

@@ -43,7 +43,21 @@ final class LicenseController
             'back' => "/clients/$id/licenses" . ($showRetired ? '?retired=1' : ''),
             'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($id), fn($d) => str_ends_with($d['link'], '/licenses'))),
             'subs' => \Align\Portal\Submissions::pending($id, 'license'),
+            'm365' => self::m365Card($id),
         ]);
+    }
+
+    /**
+     * 2.6.0 What the Microsoft 365 card needs: the client's connection, whether the MSP app is set up, an approval
+     * link made on the previous request (shown once, only on its own client's page) and the duplicate check.
+     */
+    private static function m365Card(int $id): array
+    {
+        $row = \Align\M365\Tenants::row($id);
+        $link = $_SESSION['m365c_link'] ?? null;
+        unset($_SESSION['m365c_link']);
+        return ['m365' => $row, 'appReady' => \Align\M365\App::ready(), 'link' => is_array($link) && (int) $link['client_id'] === $id ? (string) $link['url'] : null,
+            'dupes' => \Align\M365\Tenants::connected($row) && !$row['dupes_checked'] ? \Align\M365\Tenants::dupes($id) : []];
     }
 
     /** Licensing across every client in planning (or one client, ?client=), with filters and search. Any staff role. */
@@ -182,7 +196,12 @@ final class LicenseController
         redirect($back);
     }
 
-    /** Saves, retires, restores or deletes a license (post action). Techs and admins; only Align's own can be deleted. */
+    /**
+     * Saves, retires, restores or deletes a license (post action). Techs and admins; only Align's own can be deleted.
+     * 2.6.0: on a Microsoft 365 license the name, seats and seats in use (Microsoft's) are ignored from the form; a
+     * changed price or billing cycle makes it this client's own price (price_source custom), and use_list_price puts
+     * it back on the price list.
+     */
     public static function update(int $id): void
     {
         Auth::requireRole('tech');
@@ -192,6 +211,7 @@ final class LicenseController
         }
         $back = self::back("/clients/{$l['client_id']}/licenses");
         $fromPsa = $l['source'] === 'psa';
+        $fromM365 = $l['source'] === 'm365'; // 2.6.0: synced from the client's Microsoft 365 tenant
         switch (post('action')) {
             case 'retire':
                 DB::run("UPDATE licenses SET retired_at = NOW(), retired_reason = 'align' WHERE id = ?", [$id]);
@@ -204,8 +224,8 @@ final class LicenseController
                 flash('success', "Restored {$l['name']}.");
                 redirect($back);
             case 'delete':
-                if ($fromPsa) {
-                    flash('error', 'Licenses from ' . psa_name() . ' can be retired but not deleted (they would come back on the next sync).');
+                if ($fromPsa || $fromM365) {
+                    flash('error', 'Licenses from ' . ($fromM365 ? 'Microsoft 365' : psa_name()) . ' can be retired but not deleted (they would come back on the next sync).');
                     redirect($back);
                 }
                 DB::run('DELETE FROM licenses WHERE id = ?', [$id]);
@@ -214,12 +234,23 @@ final class LicenseController
                 redirect($back);
         }
         refuse_large_amounts(['unit_price' => ['The price', self::MAX_PRICE]], $back);
-        $f = self::fields($fromPsa);
-        if (!$fromPsa && $f['name'] === '') {
+        $f = self::fields($fromPsa || $fromM365);
+        if ($fromM365) {
+            // Microsoft owns the name, seats and seats in use; dates and the version are Align's. A price or cycle
+            // that differs from what the license had makes it this client's own price (until "use the price list")
+            unset($f['seats_used']);
+            $f += ['purchase_date' => self::fields(false)['purchase_date'], 'expire_date' => self::fields(false)['expire_date'], 'version' => self::fields(false)['version']];
+            if ((string) $f['unit_price'] !== (string) ($l['unit_price'] === null ? '' : round((float) $l['unit_price'], 2)) || $f['billing_cycle'] !== $l['billing_cycle']) {
+                $f['price_source'] = 'custom';
+            }
+        } elseif (!$fromPsa && $f['name'] === '') {
             $f['name'] = $l['name'];
         }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($f), $id]);
+        if ($fromM365 && post('use_list_price') === '1') {
+            \Align\M365\Tenants::useListPrice($id); // 2.6.0
+        }
         Audit::log('license.update', "{$l['client_name']}: {$l['name']}");
         $e = Licenses::enrich(DB::one('SELECT * FROM licenses WHERE id = ?', [$id]));
         flash('success', 'Saved. ' . ($e['priced']

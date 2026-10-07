@@ -152,6 +152,15 @@ final class Dashboard
                 }
             }
         }
+        // 2.6.0 Microsoft 365 for clients: a client's sync failing, a tenant to confirm, an own-app secret expiring;
+        // and for admins the app's certificate or secret (the integration's own status never says danger for those,
+        // so they aren't listed twice)
+        foreach (\Align\M365\Tenants::problems() as $p) {
+            if ($p['client'] === null && !Auth::can('admin')) {
+                continue;
+            }
+            $add($p['tone'], 'system', $p['title'], $p['detail'], $p['link'], $p['client']);
+        }
         if (!empty($ctx['unmapped']) || !empty($ctx['unassigned'])) {
             $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' client(s) without an organization in ' . \Align\Providers\Providers::rmmNames() . '. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' ' . \Align\Providers\Providers::rmmNames() . ' device(s) in an unlinked organization.' : '')), '/mapping');
         }

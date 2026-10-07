@@ -138,6 +138,10 @@ final class SyncRunner
                 $this->step($c->shortName() . ' backups', fn() => BackupSync::run($backup, fn($m) => $this->info($m)));
             }
         }
+        // 2.6.0: each connected client's Microsoft 365 subscriptions into Licensing (the MSP app, or a client's own)
+        if (\Align\DB::value("SELECT 1 FROM client_m365 WHERE status = 'connected' LIMIT 1")) {
+            $this->step('Microsoft 365 licenses', fn() => \Align\M365\Tenants::syncAll());
+        }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
         if ($psaOk && $psa->supports('assets.write') && Settings::get('psa_writeback', 'off') !== 'off') {
             $this->step("Write warranty dates to $psaName", fn() => $this->writeBack($psa));

@@ -1,5 +1,8 @@
 <?php
-/** One client's licensing. @var array $client, $licenses, $totals, $dates, $subs; int $retiredCount; bool $showRetired; string $back */
+/**
+ * One client's licensing. @var array $client, $licenses, $totals, $dates, $subs; int $retiredCount; bool $showRetired; string $back
+ * 2.6.0: array $m365 (LicenseController::m365Card: the Microsoft 365 card's data)
+ */
 use Align\Auth;
 
 require __DIR__ . '/../partials/client_header.php';
@@ -23,6 +26,7 @@ $t = $totals;
   <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. <?= psa_on() ? e(psa_name()) . ' doesn\'t store license prices; click' : 'Click' ?> a license to add its price and billing cycle.</div>
 <?php endif; ?>
 <?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'license', 'cid' => $cid, 'back' => $back]) ?>
+<?= \Align\View::fetch('m365/_client', $m365 + ['client' => $client]) // 2.6.0 ?>
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>
 <div class="card card-dark">
   <div class="card-body p-0">
@@ -30,5 +34,5 @@ $t = $totals;
   </div>
 </div>
 <?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates']); ?>
-<p class="small text-muted"><?php if (psa_on()): ?>Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. <?php endif; ?>Prices, billing cycle, category and seats in use are kept in Align.</p>
+<p class="small text-muted"><?php if (psa_on()): ?>Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. <?php endif; ?><?php if (\Align\M365\Tenants::connected($m365['m365'])): ?>Microsoft 365 subscriptions update every hour. <?php endif; ?>Prices, billing cycle, category and seats in use are kept in Align.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('licenses/_modal', ['l' => null, 'cid' => $cid, 'back' => $back]); ?>
