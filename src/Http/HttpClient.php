@@ -54,7 +54,8 @@ final class HttpClient
     }
 
     /**
-     * Sends one request and returns the status, raw body and decoded JSON (null when the body isn't JSON).
+     * Sends one request and returns the status, raw body and decoded JSON (null when the body isn't JSON). A redirect
+     * is an error whose HttpException carries the target in 'location' (2.6.3; the caller decides whether to go there).
      * An array $body is sent form-encoded. Throws HttpException when the URL or a header is refused, on a
      * connection failure, a 3xx/4xx/5xx status (after retries) or a response over MAX_BYTES. Exception messages
      * name the host only, never the path or query (ITFlow's key is in the query).
@@ -134,6 +135,7 @@ final class HttpClient
             $retryAfter = defined('CURLINFO_RETRY_AFTER') ? (int) curl_getinfo($ch, CURLINFO_RETRY_AFTER) : 0;
             $err = curl_error($ch);
             $errno = curl_errno($ch);
+            $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL); // 2.6.3: a redirect's target, reported (never followed)
             curl_close($ch);
 
             if ($blocked !== null) {
@@ -158,7 +160,7 @@ final class HttpClient
             $json = json_decode((string) $resp, true);
             if ($status >= 300) {
                 // Redirects aren't followed: one would otherwise read as an empty, "successful" answer
-                throw new HttpException("HTTP $status from $host" . ($status < 400 ? ' (a redirect: check the address)' : ''), $status, mb_substr((string) $resp, 0, 1000));
+                throw new HttpException("HTTP $status from $host" . ($status < 400 ? ' (a redirect: check the address)' : ''), $status, mb_substr((string) $resp, 0, 1000), $status < 400 ? $location : '');
             }
             return ['status' => $status, 'body' => (string) $resp, 'json' => $json];
         }

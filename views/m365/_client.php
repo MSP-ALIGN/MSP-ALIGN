@@ -89,7 +89,7 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <details class="mt-2"<?= $m365 && $m365['mode'] === 'own' ? ' open' : '' ?>><summary class="text-muted">Use an app in the client's own tenant instead</summary>
         <form method="post" action="/clients/<?= $cid ?>/m365/own" class="mt-2" data-unsaved>
           <?= csrf_field() ?>
-          <p class="text-muted mb-2">For a client that doesn't allow outside apps: register an app in <b>their</b> Entra ID with Microsoft Graph application permissions Organization.Read.All, User.Read.All and, for the security checks, SecurityEvents.Read.All, Policy.Read.All, AuditLog.Read.All and RoleManagement.Read.Directory (admin consent granted) and a client secret.</p>
+          <p class="text-muted mb-2">For a client that doesn't allow outside apps: register an app in <b>their</b> Entra ID with Microsoft Graph application permissions Organization.Read.All, User.Read.All and, for the security checks, SecurityEvents.Read.All, Policy.Read.All, AuditLog.Read.All, RoleManagement.Read.Directory, UserAuthenticationMethod.Read.All and Reports.Read.All (admin consent granted) and a client secret.</p>
           <div class="row g-2">
             <div class="col-md-6"><label>Directory (tenant) ID</label><input name="tenant_id" class="form-control form-control-sm" value="<?= e($m365 && $m365['mode'] === 'own' ? $m365['tenant_id'] : '') ?>" required></div>
             <div class="col-md-6"><label>Application (client) ID</label><input name="app_id" class="form-control form-control-sm" value="<?= e($m365 && $m365['mode'] === 'own' ? $m365['app_id'] : '') ?>" required></div>

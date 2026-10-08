@@ -12,7 +12,9 @@ use Align\DB;
  * 90 days. Read once a day (REFRESH_HOURS) on the hourly sync, and on Sync now.
  *
  * Each check is pass, fail or unknown (with why: not approved yet, or the tenant's licences don't include it, e.g.
- * Conditional Access and sign-in activity need Entra ID P1). Unknown never counts as a fail. The result is kept on
+ * Conditional Access needs Entra ID P1). Unknown never counts as a fail. 2.6.3: MFA registration and unused accounts
+ * no longer need P1 either: without it, MFA is read from each account's authentication methods and activity from
+ * the Microsoft 365 active users report (two more read-only permissions, which clients approve once). The result is kept on
  * the client's client_m365 row (security_json) and feeds: compliance controls and alignment standards linked to a
  * check (as a suggested answer: a person decides), and the Security area of the health score (the share of known
  * checks that pass). A result older than KEEP_HOURS is ignored everywhere, so old passes don't linger when the
@@ -20,7 +22,8 @@ use Align\DB;
  *
  * Security assumptions: read-only Graph calls in the client's own tenant (App::graph), for a client the caller has
  * loaded. Everything Microsoft returns is remote data: only counts, booleans and the score are kept, never user names
- * or ids (account ids are used in memory to match lists, then dropped). Callers check the viewer may see the client.
+ * or ids (account ids and, from the activity report, user principal names are used in memory to match lists, then
+ * dropped). The report's download address is checked by App::graphDownload() before it's fetched. Callers check the viewer may see the client.
  */
 final class Security
 {
@@ -41,10 +44,12 @@ final class Security
         '246dd0d5-5bd0-4def-940b-0421030a5b68', // Policy.Read.All: security defaults, Conditional Access
         'b0afded3-3588-46d8-8b3d-9842eff778da', // AuditLog.Read.All: MFA registration, last sign-in
         '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', // RoleManagement.Read.Directory: who's a Global Administrator
+        '38d9df27-64da-44fd-b7c5-a6fbac20248f', // 2.6.3 UserAuthenticationMethod.Read.All: MFA methods per user (no P1 needed)
+        '230c1aed-a721-4c5d-9cb4-a90514e508ef', // 2.6.3 Reports.Read.All: last Microsoft 365 activity per user (no P1 needed)
     ];
 
     /** 2.6.2 The names of ROLES, as Microsoft puts them in a token's 'roles' claim (App::grantedRoles), in the same order. */
-    public const ROLE_NAMES = ['SecurityEvents.Read.All', 'Policy.Read.All', 'AuditLog.Read.All', 'RoleManagement.Read.Directory'];
+    public const ROLE_NAMES = ['SecurityEvents.Read.All', 'Policy.Read.All', 'AuditLog.Read.All', 'RoleManagement.Read.Directory', 'UserAuthenticationMethod.Read.All', 'Reports.Read.All'];
 
     /** Global Administrator's role template id (the same in every tenant). */
     private const GLOBAL_ADMIN = '62e90394-69f5-4237-9190-012177145e10';
@@ -60,6 +65,20 @@ final class Security
     public const MAX_EXCLUDED = 3;
     /** At most this many pages are read for a list (up to 999 items each; Microsoft may send fewer); more leaves the check unknown. */
     private const MAX_PAGES = 100;
+    /** 2.6.3 Without Entra ID P1, MFA is read per account (20 to a $batch request): at most this many accounts. */
+    private const MAX_METHOD_USERS = 2000;
+    /** Authentication methods that count as a second factor (not password, email or a temporary access pass). */
+    private const MFA_METHODS = ['#microsoft.graph.microsoftAuthenticatorAuthenticationMethod', '#microsoft.graph.phoneAuthenticationMethod',
+        '#microsoft.graph.fido2AuthenticationMethod', '#microsoft.graph.softwareOathAuthenticationMethod', '#microsoft.graph.hardwareOathAuthenticationMethod',
+        '#microsoft.graph.windowsHelloForBusinessAuthenticationMethod', '#microsoft.graph.platformCredentialAuthenticationMethod'];
+    /**
+     * Directory roles that don't make an account an admin: Directory Readers, Guest Inviter, Directory Synchronization
+     * Accounts, Message Center Reader, Reports Reader, Usage Summary Reports Reader.
+     */
+    private const NOT_ADMIN_ROLES = ['88d8e3e3-8f55-4a1e-953a-9b9898b8876b', '95e79109-95c0-4d8e-aee3-d01accf2d47b', 'd29b2b05-8046-44ba-8758-1e26182fcf32',
+        '790c1fb9-7f7d-4f88-86a1-ef1f95c05c1b', '4a5d8f65-41da-4de4-8968-e035b65339cf', '75934031-6c7e-415a-99d7-48dbd49e875e'];
+    /** A $batch item Microsoft throttles (429) is tried again once, after its Retry-After (at most this many seconds). */
+    private const MAX_RETRY_WAIT = 30;
 
     /**
      * Runs every check in the client's tenant and stores the result on its row. $own: the client's own app (Tenants).
@@ -110,7 +129,7 @@ final class Security
             $code = $e instanceof M365Exception ? $e->oauthError : '';
             $lc = strtolower($code);
             // e.g. Authentication_RequestFromNonPremiumTenantOrB2CTenant
-            if (in_array($s, [400, 403], true) && (str_contains($lc, 'premium') || str_contains($lc, 'license') || str_contains($lc, 'licence'))) {
+            if (self::premiumError($e)) {
                 return 'Not available: needs Entra ID P1 (Business Premium, E3 or above).';
             }
             if ($s === 403 && in_array($lc, ['authorization_requestdenied', 'forbidden', 'accessdenied', ''], true)) {
@@ -122,6 +141,11 @@ final class Security
             }
             return 'Couldn\'t be read: ' . mb_strimwidth($e->getMessage(), 0, 200, '…');
         };
+        // 2.6.3: a call refused because the tenant has no Entra ID P1 (those checks then use the ways that don't need it)
+        $premium = fn(\Throwable $e) => self::premiumError($e);
+        // 2.6.3: a fallback whose permission the tenant hasn't granted yet says so without calling Microsoft (the report
+        // endpoint's refusal doesn't always say why)
+        $notYet = fn(string $role) => in_array($role, $missing, true) ? 'Not approved yet: the client\'s admin needs to approve the app\'s new permissions.' : null;
         $set = function (string $k, ?bool $pass, string $detail) use (&$checks) {
             $checks[$k] = ['status' => $pass === null ? 'unknown' : ($pass ? 'pass' : 'fail'), 'detail' => mb_substr($detail, 0, 300)];
         };
@@ -147,14 +171,15 @@ final class Security
 
         // The tenant's accounts (User.Read.All, no P1 needed): which are enabled and which licensed, so disabled
         // accounts, shared and room mailboxes and the directory sync account (unlicensed) don't count as users.
-        // id => [enabled, licensed]; only in memory.
+        // id => [enabled, licensed, guest, user principal name (lower case; 2.6.3, to match the activity report)]; only in memory.
         $dir = null;
         $dirWhy = '';
         try {
             $list = [];
-            foreach (self::pages($g, '/users?$select=id,accountEnabled,assignedLicenses&$top=999') as $u) {
+            foreach (self::pages($g, '/users?$select=id,accountEnabled,assignedLicenses,userType,userPrincipalName&$top=999') as $u) {
                 if (is_string($u['id'] ?? null)) {
-                    $list[$u['id']] = [!empty($u['accountEnabled']), !empty($u['assignedLicenses'])];
+                    $list[$u['id']] = [!empty($u['accountEnabled']), !empty($u['assignedLicenses']), strtolower((string) ($u['userType'] ?? '')) === 'guest',
+                        strtolower(is_string($u['userPrincipalName'] ?? null) ? $u['userPrincipalName'] : '')];
                 }
             }
             $dir = $list;
@@ -177,8 +202,30 @@ final class Security
                 $set('m365_mfa_users', $members ? $without($members) === 0 : null, $members ? (count($members) - $without($members)) . ' of ' . count($members) . ' licensed users registered for MFA' : 'No licensed users found.');
                 $set('m365_mfa_admins', $admins ? $without($admins) === 0 : null, $admins ? (count($admins) - $without($admins)) . ' of ' . count($admins) . ' admins registered for MFA' : 'No admins found.');
             } catch (\Throwable $e) {
-                $set('m365_mfa_users', null, $why($e));
-                $set('m365_mfa_admins', null, $why($e));
+                if (!$premium($e)) {
+                    $set('m365_mfa_users', null, $why($e));
+                    $set('m365_mfa_admins', null, $why($e));
+                } else {
+                    // 2.6.3 No Entra ID P1 (the registration report needs it): each account's own methods instead
+                    try {
+                        if ($ny = $notYet('UserAuthenticationMethod.Read.All')) {
+                            throw new M365Exception($ny, 403, 'Authorization_RequestDenied');
+                        }
+                        $members = array_keys(array_filter($dir, fn($d) => $d[0] && $d[1] && !$d[2]));
+                        // Enabled members only, as the P1 report: a guest admin registers MFA in its own tenant
+                        $admins = array_values(array_filter(self::adminIds($g), fn($id) => ($dir[$id][0] ?? false) && !$dir[$id][2]));
+                        $has = self::mfaByMethods($tenant, $own, array_values(array_unique([...$members, ...$admins])));
+                        // An account Microsoft no longer had (deleted meanwhile) is left out
+                        $members = array_values(array_filter($members, fn($id) => isset($has[$id])));
+                        $admins = array_values(array_filter($admins, fn($id) => isset($has[$id])));
+                        $without = fn(array $ids) => count(array_filter($ids, fn($id) => !$has[$id]));
+                        $set('m365_mfa_users', $members ? $without($members) === 0 : null, $members ? (count($members) - $without($members)) . ' of ' . count($members) . ' licensed users have an MFA method' : 'No licensed users found.');
+                        $set('m365_mfa_admins', $admins ? $without($admins) === 0 : null, $admins ? (count($admins) - $without($admins)) . ' of ' . count($admins) . ' admins have an MFA method' : 'No admins found.');
+                    } catch (\Throwable $e2) {
+                        $set('m365_mfa_users', null, $why($e2));
+                        $set('m365_mfa_admins', null, $why($e2));
+                    }
+                }
             }
         }
 
@@ -278,7 +325,21 @@ final class Security
             });
             $set('m365_stale', !$stale, count($stale) . ' of ' . count($lic) . ' licensed account' . (count($lic) === 1 ? '' : 's') . ' unused for ' . self::STALE_DAYS . ' days');
         } catch (\Throwable $e) {
-            $set('m365_stale', null, $why($e));
+            if (!$premium($e)) {
+                $set('m365_stale', null, $why($e));
+            } else {
+                // 2.6.3 No Entra ID P1 (sign-in activity needs it): the Microsoft 365 active users report instead
+                try {
+                    if ($ny = $notYet('Reports.Read.All')) {
+                        throw new M365Exception($ny, 403, 'Authorization_RequestDenied');
+                    }
+                    [$stale, $of, $hidden] = self::staleByReport($tenant, $own, $dir ?? []);
+                    $set('m365_stale', $of ? !$stale : null, $of ? "$stale of $of licensed account" . ($of === 1 ? '' : 's') . ' with no Microsoft 365 activity for ' . self::STALE_DAYS . ' days'
+                        . ($hidden ? ' (names are hidden in the tenant\'s reports, so blocked accounts with a licence count too)' : '') : 'No licensed accounts in Microsoft\'s activity report.');
+                } catch (\Throwable $e2) {
+                    $set('m365_stale', null, $why($e2));
+                }
+            }
         }
         return ['secure' => $secure, 'checks' => $checks, 'consent' => $consent, 'missing' => $missing, 'at' => date('Y-m-d H:i:s')];
     }
@@ -310,6 +371,156 @@ final class Security
             $path = substr($next, strlen($base));
         }
         throw new M365Exception('Too many accounts to check.');
+    }
+
+    /** 2.6.3 Whether Microsoft refused a call because the tenant has no Entra ID P1 (e.g. Authentication_RequestFromNonPremiumTenantOrB2CTenant). */
+    private static function premiumError(\Throwable $e): bool
+    {
+        $lc = $e instanceof M365Exception ? strtolower($e->oauthError) : '';
+        return $e instanceof M365Exception && in_array($e->status, [400, 403], true) && (str_contains($lc, 'premium') || str_contains($lc, 'license') || str_contains($lc, 'licence'));
+    }
+
+    /**
+     * 2.6.3 The ids of accounts holding an admin role: user members of every activated directory role except the
+     * NOT_ADMIN_ROLES (only in memory). $g: the Graph GET function of collect().
+     */
+    private static function adminIds(callable $g): array
+    {
+        $ids = [];
+        foreach (self::pages($g, '/directoryRoles?$select=id,roleTemplateId') as $r) {
+            if (!is_string($r['id'] ?? null) || !preg_match(App::GUID, $r['id']) || in_array(strtolower((string) ($r['roleTemplateId'] ?? '')), self::NOT_ADMIN_ROLES, true)) {
+                continue;
+            }
+            foreach (self::pages($g, '/directoryRoles/' . $r['id'] . '/members?$select=id') as $m) {
+                if (($m['@odata.type'] ?? '') === '#microsoft.graph.user' && is_string($m['id'] ?? null)) {
+                    $ids[$m['id']] = true;
+                }
+            }
+        }
+        return array_keys($ids);
+    }
+
+    /**
+     * 2.6.3 Whether each account in $ids has a second factor registered (id => bool), from its own authentication
+     * methods (UserAuthenticationMethod.Read.All, no Entra ID P1 needed), 20 accounts to a Graph $batch request (only
+     * GETs inside). Throws when there are more than MAX_METHOD_USERS, when Microsoft refuses (403: the permission isn't
+     * approved yet) or doesn't answer for an account, so the checks stay unknown rather than half counted.
+     */
+    private static function mfaByMethods(string $tenant, ?array $own, array $ids): array
+    {
+        if (count($ids) > self::MAX_METHOD_USERS) {
+            throw new M365Exception('More than ' . self::MAX_METHOD_USERS . ' accounts to check one by one (Entra ID P1 reads them at once).');
+        }
+        foreach ($ids as $id) {
+            if (!preg_match('/^[A-Za-z0-9-]{1,64}$/', (string) $id)) { // ids come from Graph (GUIDs): checked before going in a path
+                throw new M365Exception('Microsoft returned an account id Align can\'t use.');
+            }
+        }
+        $out = [];
+        $queue = array_map('strval', array_values($ids));
+        for ($round = 0; $queue && $round < 2; $round++) { // a second round only for items Microsoft throttled
+            $throttled = [];
+            $wait = 0;
+            foreach (array_chunk($queue, 20) as $chunk) {
+                $reqs = [];
+                foreach ($chunk as $i => $id) {
+                    $reqs[] = ['id' => (string) $i, 'method' => 'GET', 'url' => '/users/' . $id . '/authentication/methods'];
+                }
+                $byId = [];
+                foreach ((array) (App::graph($tenant, 'POST', '/$batch', ['requests' => $reqs], $own)['responses'] ?? []) as $resp) {
+                    if (is_array($resp) && is_string($resp['id'] ?? null)) {
+                        $byId[$resp['id']] = $resp; // answers come back in any order
+                    }
+                }
+                foreach ($chunk as $i => $id) {
+                    $resp = $byId[(string) $i] ?? null;
+                    $status = (int) ($resp['status'] ?? 0);
+                    if ($status === 403) {
+                        throw new M365Exception('Not allowed to read authentication methods.', 403, 'Authorization_RequestDenied');
+                    } elseif ($status === 404) {
+                        continue; // deleted since the account list was read: left out
+                    } elseif ($status === 429 && $round === 0) {
+                        $throttled[] = $id;
+                        $after = $resp['headers']['Retry-After'] ?? ($resp['headers']['retry-after'] ?? 0);
+                        $wait = max($wait, is_numeric($after) ? (int) $after : 5);
+                        continue;
+                    } elseif ($status !== 200) {
+                        throw new M365Exception('Microsoft didn\'t answer for every account (HTTP ' . $status . ').');
+                    }
+                    $types = array_map(fn($m) => is_array($m) ? (string) ($m['@odata.type'] ?? '') : '', (array) ($resp['body']['value'] ?? []));
+                    $out[$id] = (bool) array_intersect($types, self::MFA_METHODS);
+                }
+            }
+            if ($throttled) {
+                sleep(max(1, min(self::MAX_RETRY_WAIT, $wait)));
+            }
+            $queue = $throttled;
+        }
+        if ($queue) {
+            throw new M365Exception('Microsoft kept limiting requests; tried again on the next sync.');
+        }
+        return $out;
+    }
+
+    /**
+     * 2.6.3 Licensed accounts with no Microsoft 365 activity for STALE_DAYS, from the Microsoft 365 active users report
+     * (Reports.Read.All, no Entra ID P1 needed): the newest of its Exchange, OneDrive, SharePoint, Skype, Yammer and
+     * Teams activity dates; an account never active counts when its licence is older than STALE_DAYS. Accounts the
+     * directory ($dir) shows as blocked are left out when the report shows real names (many tenants hide them, the
+     * default). Returns [unused, licensed accounts counted, names hidden]. The CSV is remote data: only dates and flags
+     * are read, and nothing is kept.
+     */
+    private static function staleByReport(string $tenant, ?array $own, array $dir): array
+    {
+        $csv = App::graphDownload($tenant, "/reports/getOffice365ActiveUserDetail(period='D90')", $own);
+        // Read as a CSV stream, so a quoted field holding a line break stays one field
+        $fh = fopen('php://temp', 'r+');
+        fwrite($fh, preg_replace('/^\xEF\xBB\xBF/', '', $csv) ?? '');
+        rewind($fh);
+        $head = array_map('trim', (array) fgetcsv($fh, null, ',', '"', ''));
+        $col = array_flip($head);
+        if (!isset($col['User Principal Name'], $col['Assigned Products'])) {
+            throw new M365Exception('Microsoft\'s activity report wasn\'t in the expected format.');
+        }
+        $blocked = [];
+        foreach ($dir as [$enabled, , , $upn]) {
+            if ($upn !== '' && !$enabled) {
+                $blocked[$upn] = true;
+            }
+        }
+        $known = array_flip(array_filter(array_column($dir, 3)));
+        $cut = time() - self::STALE_DAYS * 86400;
+        $stale = $of = $unmatched = 0;
+        while (($row = fgetcsv($fh, null, ',', '"', '')) !== false) {
+            if ($row === [null]) {
+                continue; // a blank line
+            }
+            $v = fn(string $name) => trim((string) ($row[$col[$name] ?? -1] ?? ''));
+            if (strtolower($v('Is Deleted')) === 'true' || $v('Assigned Products') === '') {
+                continue;
+            }
+            $upn = strtolower($v('User Principal Name'));
+            if (!isset($known[$upn])) {
+                $unmatched += str_contains($upn, '@') ? 0 : 1; // a hidden name is a hash without "@": can't tell whether it's blocked
+            } elseif (isset($blocked[$upn])) {
+                continue;
+            }
+            $dates = $assigned = [];
+            foreach ($head as $h) {
+                $t = preg_match('/^\d{4}-\d{2}-\d{2}$/', $v($h)) ? strtotime($v($h)) : false;
+                if ($t !== false && str_ends_with($h, 'Last Activity Date')) {
+                    $dates[] = $t;
+                } elseif ($t !== false && str_ends_with($h, 'License Assign Date')) {
+                    $assigned[] = $t;
+                }
+            }
+            $of++;
+            if ($dates ? max($dates) < $cut : ($assigned && min($assigned) < $cut)) {
+                $stale++;
+            }
+        }
+        fclose($fh);
+        return [$stale, $of, $unmatched > 0];
     }
 
     /** The stored result for a client row, or null when never checked or checked more than KEEP_HOURS ago. */

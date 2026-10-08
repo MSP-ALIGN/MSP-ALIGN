@@ -365,11 +365,33 @@ if (preg_match('#^/m365c-login/([^/]+)/oauth2/v2\.0/(devicecode|token)$#', $path
     // tenant granted (App::grantedRoles reads it); mock-only: 'roles_lag' leaves some out, as just after approving
     $names = ['498476ce-e0fe-48b0-b801-37ba7e2685c6' => 'Organization.Read.All', 'df021288-bdef-4463-88db-98f22de89214' => 'User.Read.All',
         'bf394140-e372-4bf9-a898-299cfc7564e5' => 'SecurityEvents.Read.All', '246dd0d5-5bd0-4def-940b-0421030a5b68' => 'Policy.Read.All',
-        'b0afded3-3588-46d8-8b3d-9842eff778da' => 'AuditLog.Read.All', '483bed4a-2ad3-4361-a73b-c83ccdbdc53c' => 'RoleManagement.Read.Directory'];
+        'b0afded3-3588-46d8-8b3d-9842eff778da' => 'AuditLog.Read.All', '483bed4a-2ad3-4361-a73b-c83ccdbdc53c' => 'RoleManagement.Read.Directory',
+        '38d9df27-64da-44fd-b7c5-a6fbac20248f' => 'UserAuthenticationMethod.Read.All', '230c1aed-a721-4c5d-9cb4-a90514e508ef' => 'Reports.Read.All']; // 2.6.3: + the last two
     $roles = $cid === $st['own']['app_id'] ? array_values($names) : array_values(array_intersect_key($names, array_flip($st['grants'][$tenant] ?? [])));
     $roles = array_values(array_diff($roles, $st['roles_lag'] ?? []));
     $b64 = fn(array $a) => rtrim(strtr(base64_encode(json_encode($a)), '+/', '-_'), '=');
     $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => $b64(['typ' => 'JWT', 'alg' => 'none']) . '.' . $b64(['tid' => $tenant, 'appid' => $cid, 'roles' => $roles]) . '.mock']);
+    return;
+}
+if (preg_match('#^/m365c-report/([0-9a-f-]+)$#', $path, $rm)) {
+    // 2.6.3: the pre-signed report download (no Authorization header): the tenant's 'activity' rows as Microsoft's CSV
+    $st = $m365State();
+    $st['calls'][] = ['report' => $rm[1], 'auth' => $_SERVER['HTTP_AUTHORIZATION'] ?? ''];
+    $m365Save($st);
+    header('Content-Type: application/octet-stream');
+    $cols = ['Report Refresh Date', 'User Principal Name', 'Display Name', 'Is Deleted', 'Deleted Date', 'Has Exchange License', 'Has OneDrive License', 'Has SharePoint License',
+        'Has Skype For Business License', 'Has Yammer License', 'Has Teams License', 'Exchange Last Activity Date', 'OneDrive Last Activity Date', 'SharePoint Last Activity Date',
+        'Skype For Business Last Activity Date', 'Yammer Last Activity Date', 'Teams Last Activity Date', 'Exchange License Assign Date', 'OneDrive License Assign Date',
+        'SharePoint License Assign Date', 'Skype For Business License Assign Date', 'Yammer License Assign Date', 'Teams License Assign Date', 'Assigned Products'];
+    $out = "\xEF\xBB\xBF" . implode(',', $cols) . "\r\n";
+    foreach ($st['tenants'][$rm[1]]['security']['activity'] ?? [] as $a) {
+        $row = array_fill_keys($cols, '');
+        $row = ['Report Refresh Date' => date('Y-m-d'), 'User Principal Name' => $a['upn'], 'Display Name' => '', 'Is Deleted' => !empty($a['deleted']) ? 'True' : 'False',
+            'Exchange Last Activity Date' => $a['last'] ?? '', 'Teams Last Activity Date' => $a['teams'] ?? '', 'Exchange License Assign Date' => $a['assigned'] ?? '',
+            'Assigned Products' => $a['products'] ?? 'MICROSOFT 365 BUSINESS BASIC'] + $row;
+        $out .= implode(',', array_map(fn($c) => '"' . str_replace('"', '""', (string) $row[$c]) . '"', $cols)) . "\r\n";
+    }
+    print($out);
     return;
 }
 if (str_starts_with($path, '/m365c-graph/v1.0/')) {
@@ -465,7 +487,11 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
         ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => true], ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => false],
         ['userType' => 'guest', 'isAdmin' => false, 'isMfaRegistered' => false], ['userType' => 'member', 'isAdmin' => true, 'isMfaRegistered' => false, 'enabled' => false],
         ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => false, 'licensed' => false]],
-        'defaults' => false, 'ca' => 'nop1', 'admins' => 1, 'admin_groups' => 0, 'signins' => 'nop1'];
+        'defaults' => false, 'ca' => 'nop1', 'admins' => 1, 'admin_groups' => 0, 'signins' => 'nop1', 'regs' => 'ok', 'activity' => []];
+    // 2.6.3: 'regs' => 'nop1' makes the registration report need Entra ID P1 (as in Microsoft), so MFA is read per
+    // account ($batch of /users/{id}/authentication/methods: 'methods' per user, else from isMfaRegistered); 'activity'
+    // rows feed the Microsoft 365 active users report (a redirect to /m365c-report/{tenant}, then CSV): upn, deleted,
+    // products, last (date or null), assigned (date)
     foreach ($sec['users'] as $i => &$u) {
         $u += ['id' => 'p' . ($i + 1), 'enabled' => true, 'licensed' => true];
     }
@@ -473,8 +499,8 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     $signins = str_contains(rawurldecode($_SERVER['QUERY_STRING'] ?? ''), 'signInActivity'); // /users with sign-in activity needs AuditLog and P1
     $need = ['/security/secureScores' => 'bf394140-e372-4bf9-a898-299cfc7564e5', '/reports/authenticationMethods/userRegistrationDetails' => 'b0afded3-3588-46d8-8b3d-9842eff778da',
         '/policies/identitySecurityDefaultsEnforcementPolicy' => '246dd0d5-5bd0-4def-940b-0421030a5b68', '/identity/conditionalAccess/policies' => '246dd0d5-5bd0-4def-940b-0421030a5b68',
-        '/directoryRoles' => '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', '/users' => $signins ? 'b0afded3-3588-46d8-8b3d-9842eff778da' : 'df021288-bdef-4463-88db-98f22de89214'];
-    $base = preg_replace('#/directoryRoles/.*#', '/directoryRoles', $sub);
+        '/directoryRoles' => '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', '/reports/getOffice365ActiveUserDetail' => '230c1aed-a721-4c5d-9cb4-a90514e508ef', '/users' => $signins ? 'b0afded3-3588-46d8-8b3d-9842eff778da' : 'df021288-bdef-4463-88db-98f22de89214'];
+    $base = preg_replace(['#/directoryRoles/.*#', '#^/reports/getOffice365ActiveUserDetail.*#'], ['/directoryRoles', '/reports/getOffice365ActiveUserDetail'], $sub);
     if (isset($need[$base]) && !$granted($need[$base])) {
         $no(403, 'Authorization_RequestDenied', 'Insufficient privileges to complete the operation.');
         return;
@@ -482,6 +508,42 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     $nop1 = fn() => $no(403, 'Authentication_RequestFromNonPremiumTenantOrB2CTenant', "Neither tenant is B2C or tenant doesn't have premium license");
     if ($sub === '/security/secureScores') {
         $json(['value' => $sec['secure'] ? [['currentScore' => $sec['secure'][0], 'maxScore' => $sec['secure'][1]]] : []]);
+        return;
+    }
+    if ($sub === '/reports/authenticationMethods/userRegistrationDetails' && $sec['regs'] === 'nop1') {
+        $nop1();
+        return;
+    }
+    if ($method === 'POST' && $sub === '/$batch') {
+        // 2.6.3: each request answered on its own: a user's authentication methods (needs UserAuthenticationMethod.Read.All)
+        $st['calls'][] = ['batch' => count($body['requests'] ?? [])];
+        $m365Save($st);
+        $byId = array_column($sec['users'], null, 'id');
+        $out = [];
+        foreach ((array) ($body['requests'] ?? []) as $rq) {
+            if (!preg_match('#^/users/([^/]+)/authentication/methods$#', (string) ($rq['url'] ?? ''), $um) || ($rq['method'] ?? '') !== 'GET') {
+                $out[] = ['id' => $rq['id'] ?? '', 'status' => 400, 'body' => ['error' => ['code' => 'BadRequest']]];
+            } elseif (!$granted('38d9df27-64da-44fd-b7c5-a6fbac20248f')) {
+                $out[] = ['id' => $rq['id'], 'status' => 403, 'body' => ['error' => ['code' => 'Authorization_RequestDenied']]];
+            } elseif (!empty($sec['throttle']) && empty($st['throttled'])) {
+                // 2.6.3: 'throttle' answers 429 to the first account once, as Graph does inside a busy batch
+                $st['throttled'] = true;
+                $m365Save($st);
+                $out[] = ['id' => $rq['id'], 'status' => 429, 'headers' => ['Retry-After' => '1'], 'body' => ['error' => ['code' => 'TooManyRequests']]];
+            } elseif (!isset($byId[$um[1]])) {
+                $out[] = ['id' => $rq['id'], 'status' => 404, 'body' => ['error' => ['code' => 'Request_ResourceNotFound']]];
+            } else {
+                $u = $byId[$um[1]];
+                $types = $u['methods'] ?? (!empty($u['isMfaRegistered']) ? ['microsoftAuthenticatorAuthenticationMethod', 'passwordAuthenticationMethod'] : ['passwordAuthenticationMethod']);
+                $out[] = ['id' => $rq['id'], 'status' => 200, 'body' => ['value' => array_map(fn($t) => ['@odata.type' => "#microsoft.graph.$t", 'id' => 'm'], $types)]];
+            }
+        }
+        $json(['responses' => array_reverse($out)]); // order isn't guaranteed by Microsoft either
+        return;
+    }
+    if (str_starts_with($sub, '/reports/getOffice365ActiveUserDetail')) {
+        http_response_code(302);
+        header('Location: http://' . $_SERVER['HTTP_HOST'] . '/m365c-report/' . $tenant);
         return;
     }
     if ($sub === '/reports/authenticationMethods/userRegistrationDetails') {
@@ -517,7 +579,8 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     if ($sub === '/users') {
         if (!$signins) {
             // the account list (no P1 needed): enabled and licensed
-            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'], 'assignedLicenses' => $u['licensed'] ? [['skuId' => 'x']] : []], $sec['users'])]);
+            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'], 'assignedLicenses' => $u['licensed'] ? [['skuId' => 'x']] : [],
+                'userType' => ucfirst($u['userType'] ?? 'member'), 'userPrincipalName' => $u['upn'] ?? $u['id'] . '@' . $t['domain']], $sec['users'])]);
             return;
         }
         $sec['signins'] === 'nop1' ? $nop1() : $json(['value' => $sec['signins']]);

@@ -76,7 +76,7 @@ $ready = $app['ready'];
         <?= csrf_field() ?>
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-wrench me-2"></i>Use an app you made yourself</h3></div>
         <div class="card-body small">
-          <p>In <b>your</b> Entra ID: App registrations → New registration, <b>Accounts in any organizational directory</b>, Web redirect URI <code><?= e($redirectUri) ?></code>. Under API permissions add Microsoft Graph <b>application</b> permissions Organization.Read.All, User.Read.All and, for the security checks, SecurityEvents.Read.All, Policy.Read.All, AuditLog.Read.All and RoleManagement.Read.Directory. Create a client secret.</p>
+          <p>In <b>your</b> Entra ID: App registrations → New registration, <b>Accounts in any organizational directory</b>, Web redirect URI <code><?= e($redirectUri) ?></code>. Under API permissions add Microsoft Graph <b>application</b> permissions Organization.Read.All, User.Read.All and, for the security checks, SecurityEvents.Read.All, Policy.Read.All, AuditLog.Read.All, RoleManagement.Read.Directory, UserAuthenticationMethod.Read.All and Reports.Read.All. Create a client secret.</p>
           <div class="row g-2">
             <div class="col-md-6"><label>Application (client) ID</label><input name="app_id" class="form-control" value="<?= e($app['mode'] === 'manual' ? $app['app_id'] : '') ?>" required></div>
             <div class="col-md-6"><label>Directory (tenant) ID</label><input name="tenant_id" class="form-control" value="<?= e($app['mode'] === 'manual' ? $app['tenant'] : '') ?>" required></div>
