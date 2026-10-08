@@ -21,7 +21,8 @@ use Align\Settings;
  *  - service:     the share of SLA targets met in the last 90 days;
  *  - alignment:   the latest finished alignment review's score;
  *  - security:    (2.6.1) the share of the client's known security checks that pass: Microsoft 365 (M365\Security); 2.6.3
- *                 also Google Workspace (Google\Security) and email authentication (Domains\EmailAuth), see SecurityChecks.
+ *                 also Google Workspace (Google\Security) and email authentication (Domains\EmailAuth); 2.7.0 Huntress and
+ *                 training uploads; see SecurityChecks.
  * An area with no data for the client (no frameworks, no backups, no tickets, never reviewed) is left out and the
  * others are weighted up to fill its place, so a missing area never counts as zero. The weights and the band
  * thresholds are admin settings (Settings → Planning & lifecycle). Bands: Healthy, Needs attention, At risk.
@@ -152,8 +153,8 @@ final class Health
     public static function forClient(array $client, ?array $devices = null, array|null|false $backup = false): array
     {
         $cid = (int) $client['id'];
-        $ctx = self::context([$cid]);
         $devices ??= (new Lifecycle())->devices($cid);
+        $ctx = self::context([$cid], [$cid => $devices]);
         if ($backup !== false) {
             $ctx['backups'][$cid] = $backup;
         }
@@ -210,7 +211,7 @@ final class Health
                 $byClient[(int) $d['client_id']][] = $d;
             }
         }
-        $ctx = self::context(array_map(fn($c) => (int) $c['id'], $clients));
+        $ctx = self::context(array_map(fn($c) => (int) $c['id'], $clients), $byClient);
         $out = [];
         $rows = [];
         foreach ($clients as $c) {
@@ -241,12 +242,12 @@ final class Health
      * What the areas are scored from, read once for $ids: compliance scores and framework names, the latest alignment
      * score and its misaligned standards, SLA results for the last SLA_DAYS days. For one client (a page, the API)
      * every query is limited to that client; for many (the daily refresh) each covers every client once and only
-     * $ids are kept.
+     * $ids are kept. $devices (2.7.0): client id => Lifecycle devices, for the Huntress checks (see SecurityChecks::stored()).
      */
-    private static function context(array $ids): array
+    private static function context(array $ids, array $devices = []): array
     {
         if (count($ids) === 1) {
-            return self::contextOne((int) reset($ids));
+            return self::contextOne((int) reset($ids), $devices);
         }
         $want = array_flip($ids);
         $ctx = ['compliance' => array_intersect_key(Compliance::allScores(), $want), 'frameworks' => [],
@@ -269,12 +270,12 @@ final class Health
             [$from, $to] = Sla::range((string) self::SLA_DAYS);
             $ctx['sla'] = array_intersect_key(Sla::allClients($from, $to), $want);
         }
-        $ctx['security'] = self::securityFor($ids);
+        $ctx['security'] = self::securityFor($ids, $devices);
         return $ctx;
     }
 
     /** context() for one client, with queries limited to it (the same shapes as the all-client ones). */
-    private static function contextOne(int $cid): array
+    private static function contextOne(int $cid, array $devices = []): array
     {
         $ctx = ['compliance' => [], 'frameworks' => [], 'alignment' => [], 'gaps' => [], 'sla' => null, 'backup' => Backup::enabled()];
         foreach (DB::all('SELECT f.id, f.name FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ?', [$cid]) as $f) {
@@ -298,17 +299,18 @@ final class Health
                 AND t.archived_at IS NULL AND t.sla_id > 0 AND (t.response_met = 0 OR t.resolution_met = 0)', [$cid]);
             $ctx['sla'] = [$cid => $s];
         }
-        $ctx['security'] = self::securityFor([$cid]);
+        $ctx['security'] = self::securityFor([$cid], $devices);
         return $ctx;
     }
 
     /**
      * 2.6.1 The stored security results of clients among $ids: [client id => ['checks' => ...]]. 2.6.3: Microsoft 365,
-     * Google Workspace and email authentication together (Health\SecurityChecks).
+     * Google Workspace and email authentication together (Health\SecurityChecks); 2.7.0 Huntress and SAT too, with
+     * $devices (client id => Lifecycle devices) when known.
      */
-    private static function securityFor(array $ids): array
+    private static function securityFor(array $ids, array $devices = []): array
     {
-        return SecurityChecks::stored($ids);
+        return SecurityChecks::stored($ids, $devices);
     }
 
     /**

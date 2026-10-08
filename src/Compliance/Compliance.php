@@ -45,7 +45,7 @@ final class Compliance
      */
     public static function forClient(int $clientId, array $devices): array
     {
-        return self::indicators($devices) + \Align\Health\SecurityChecks::indicators($clientId);
+        return self::indicators($devices) + \Align\Health\SecurityChecks::indicators($clientId, $devices);
     }
 
     /** Score for one client + framework (counts by status; partial counts half, N/A is left out). */

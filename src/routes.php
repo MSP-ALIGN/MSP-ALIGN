@@ -243,6 +243,9 @@ $r->post('/clients/{id}/gws/sync', [$G, 'sync']);
 $r->post('/clients/{id}/gws/disconnect', [$G, 'disconnect']);
 $r->post('/clients/{id}/gws/dupes', [$G, 'dupes']);
 $r->post('/clients/{id}/email-auth/check', [$G, 'checkEmail']);
+// 2.7.0 Security awareness training uploads
+$r->post('/clients/{id}/sat', [\Align\Controllers\SatController::class, 'upload']);
+$r->post('/clients/{id}/sat/{sid}/delete', [\Align\Controllers\SatController::class, 'delete']);
 $r->get('/clients/{id}/connectors', [\Align\Controllers\ConnectorsController::class, 'client']); // 2.6.1
 $r->post('/clients/{id}/m365/connect', [$M, 'connect']);
 $r->post('/clients/{id}/m365/link', [$M, 'link']);

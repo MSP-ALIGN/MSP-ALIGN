@@ -6,6 +6,8 @@
  * 2.6.1: ?array $m365sec (M365\Security::stored() for a connected client, [] when it has no recent result; null when not connected)
  * 2.6.3: ?array $gwssec (the same for Google Workspace, Google\Security); ?array $emailAuth (Domains\EmailAuth::stored(),
  *        null when the client has no recent result: its card is shown only then)
+ * 2.7.0: ?array $huntress (Huntress\Clients::forClient(), null without a Huntress organization); ?array $sat
+ *        (['history', 'checks'] from Sat\Sat, null when Huntress isn't set up and the client has no SAT results)
  * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
  * classes come from fixed tone lists.
  */
@@ -88,6 +90,8 @@ $cid = (int) $client['id'];
       <?php if ($m365sec !== null) echo \Align\View::fetch('m365/_security', ['client' => $client, 'sec' => $m365sec, 'm365' => \Align\M365\Tenants::row((int) $client['id'])]); ?>
       <?php if ($gwssec !== null) echo \Align\View::fetch('gws/_security', ['client' => $client, 'sec' => $gwssec]); ?>
       <?php if ($emailAuth !== null) echo \Align\View::fetch('gws/_email_auth', ['client' => $client, 'ea' => $emailAuth]); ?>
+      <?php if ($huntress !== null) echo \Align\View::fetch('huntress/_card', ['client' => $client, 'h' => $huntress]); // 2.7.0 ?>
+      <?php if ($sat !== null) echo \Align\View::fetch('sat/_card', ['client' => $client] + $sat); // 2.7.0 ?>
     </div>
   </div>
 
