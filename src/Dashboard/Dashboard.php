@@ -162,6 +162,10 @@ final class Dashboard
             // 2.6.1: a client's problem links to its Connectors page, which only techs and admins can open
             $add($p['tone'], 'system', $p['title'], $p['detail'], Auth::can('tech') ? $p['link'] : preg_replace('#/connectors$#', '/licenses#m365', $p['link']), $p['client']);
         }
+        // 2.7.0 Huntress: open critical/high incidents and overdue escalations (the client's overview has the details)
+        foreach (\Align\Huntress\Clients::problems() as $p) {
+            $add($p['tone'], 'system', $p['title'], $p['detail'], $p['link'], $p['client']);
+        }
         // 2.6.3 Google Workspace for clients: a client's sync failing
         foreach (\Align\Google\Clients::problems() as $p) {
             $add($p['tone'], 'system', $p['title'], $p['detail'], Auth::can('tech') ? $p['link'] : preg_replace('#/connectors$#', '/licenses', $p['link']), $p['client']);

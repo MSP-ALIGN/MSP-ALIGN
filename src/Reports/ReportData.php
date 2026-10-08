@@ -316,6 +316,33 @@ final class ReportData
             'history' => array_slice($s['history'], 0, 4), 'gaps' => $gaps, 'na' => count($s['na'])];
     }
 
+    /**
+     * 2.7.0 The QBR's Security section: Huntress (coverage, incidents, summary reports), security awareness training
+     * and every automatic security check that has a result (Microsoft 365, Google Workspace, email, Huntress, SAT).
+     * Null when the client has none of them. ['huntress' => Huntress\Clients::forClient() or null, 'sat' => uploads,
+     * 'checks' => [label => [status, detail]] (known ones only), 'incidents90' => severity => count in 90 days].
+     */
+    public static function security(int $clientId): ?array
+    {
+        $devices = self::devices($clientId);
+        $h = \Align\Huntress\Clients::forClient($clientId, $devices);
+        $checks = [];
+        foreach (\Align\Health\SecurityChecks::indicators($clientId, $devices, $h) as $i) {
+            if (!$i['unknown']) {
+                $checks[$i['label']] = [$i['ok'] ? 'pass' : 'fail', $i['text']];
+            }
+        }
+        if (!$h && !$checks) {
+            return null;
+        }
+        $inc = $h ? array_column(DB::all('SELECT severity, COUNT(*) AS n FROM huntress_incidents WHERE org_id = ? AND sent_at >= NOW() - INTERVAL 90 DAY GROUP BY severity',
+            [$h['org']['org_id']]), 'n', 'severity') : [];
+        return ['huntress' => $h, 'checks' => $checks, 'incidents90' => $inc,
+            'training' => DB::one("SELECT * FROM sat_results WHERE client_id = ? AND kind = 'training' ORDER BY covers_to DESC, id DESC LIMIT 1", [$clientId]),
+            'phishing' => DB::one("SELECT SUM(sent) AS sent, SUM(clicked) AS clicked, SUM(reported) AS reported, MAX(covers_to) AS last FROM sat_results
+                WHERE client_id = ? AND kind = 'phishing' AND covers_to >= CURDATE() - INTERVAL 12 MONTH HAVING SUM(sent) > 0", [$clientId])];
+    }
+
     /** Backup status for a client, or null when it has no backup data. */
     public static function backup(int $clientId): ?array
     {

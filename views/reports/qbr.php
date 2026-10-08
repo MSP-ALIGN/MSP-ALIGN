@@ -9,6 +9,7 @@ use Align\View;
  *   3 Assets & lifecycle       what you have: servers with hosts and VMs, network, computers
  *   4 Software & licensing     what you have: subscriptions and renewals
  *   5 Backup & recovery        is it protected
+ *     Security (2.7.0)         Huntress, training and the security checks
  *   6 Compliance               is it secure and compliant
  *   7 Roadmap & projects       where we're going
  *   8 Technology budget        what it costs (this year, three years, dates to act on)
@@ -16,7 +17,7 @@ use Align\View;
  *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
  * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed),
- *   $hl (2.5.0 health headline: h, since)
+ *   $hl (2.5.0 health headline: h, since), $sec (2.7.0 ReportData::security())
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -30,6 +31,7 @@ if (!empty($sla)) $sections['sla'] = 'Service levels';
 if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
 if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing'; // budget and licensing are all prices: left out when costs are off
 if ($bk) $sections['backup'] = 'Backup & recovery';
+if (!empty($sec)) $sections['security'] = 'Security'; // 2.7.0
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
 if (!empty($al)) $sections['alignment'] = 'Alignment with our standards'; // 2.3.0
 if ($on('s_roadmap') && $r) $sections['roadmap'] = 'Roadmap & projects';
@@ -147,6 +149,11 @@ foreach ($sections as $k => $_) {
 <?php if (isset($sections['backup'])): ?>
 <div class="page-break"></div>
 <?= View::fetch('reports/sections/backup', ['b' => $bk, 'num' => $numOf['backup'], 'details' => true, 'machines' => true, 'limit' => 15]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['security'])): // 2.7.0 ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/security', ['s' => $sec, 'num' => $numOf['security']]) ?>
 <?php endif; ?>
 
 <?php if (isset($sections['compliance'])): ?>

@@ -72,7 +72,7 @@ final class ConnectorsController
             $l = $links[$key] ?? null;
             $ext = $l['external_id'] ?? null;
             $rec = $ext !== null ? $c->linkRecord((string) $ext, $cid) : null;
-            $out[] = ['kind' => $c instanceof \Align\Integrations\RmmConnector ? 'RMM' : ($c instanceof \Align\Integrations\BackupConnector ? 'Backups' : 'Other'),
+            $out[] = ['kind' => $c instanceof \Align\Integrations\RmmConnector ? 'RMM' : ($c instanceof \Align\Integrations\BackupConnector ? 'Backups' : ($c->category() === 'Security' ? 'Security' : 'Other')),
                 'name' => $c->linkName(), 'icon' => $c->icon(), 'key' => $c->key(),
                 'status' => $ext !== null ? ($rec ? 'linked' : 'missing') : ($l ? 'kept' : 'none'),
                 'record' => $rec['name'] ?? null,

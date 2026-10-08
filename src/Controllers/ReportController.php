@@ -147,7 +147,7 @@ final class ReportController
     }
 
     /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
-    public const QBR_SECTIONS = ['s_health' => 'Health', 's_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
+    public const QBR_SECTIONS = ['s_health' => 'Health', 's_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_security' => 'Security', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -209,6 +209,11 @@ final class ReportController
         if (!$al) {
             $allowed = array_values(array_diff($allowed, ['s_alignment']));
         }
+        // 2.7.0 Security (Huntress, training, every automatic security check): nothing to show = no switch
+        $sec = in_array('s_security', $allowed, true) ? ReportData::security($id) : null;
+        if (!$sec) {
+            $allowed = array_values(array_diff($allowed, ['s_security']));
+        }
         if (!$bk) {
             // Client not linked to a backup product: no backup switch in the toolbar
             $allowed = array_values(array_diff($allowed, ['s_backup']));
@@ -232,6 +237,7 @@ final class ReportController
             'on' => $on,
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'al' => $on('s_alignment') ? $al : null,
+            'sec' => $on('s_security') ? $sec : null, // 2.7.0
             'ch' => $on('s_changes') ? $ch : null,
             'hl' => $on('s_health') ? $hl : null, // 2.5.0
             'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],

@@ -391,6 +391,9 @@ final class ClientController
             // 2.6.3: the same for Google Workspace, and the email domain's SPF, DKIM and DMARC (only when checked recently)
             'gwssec' => ($g = \Align\Google\Security::forClient($id))[0] ? ($g[1] ?? []) : null,
             'emailAuth' => \Align\Domains\EmailAuth::stored($id),
+            // 2.7.0: Huntress (when the client has a Huntress organization) and security awareness training results
+            'huntress' => \Align\Huntress\Clients::forClient($id, $devices),
+            'sat' => \Align\Huntress\Api::configured() || \Align\Sat\Sat::any($id) ? ['history' => \Align\Sat\Sat::history($id), 'checks' => \Align\Sat\Sat::checks($id)] : null,
         ]);
     }
 

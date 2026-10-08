@@ -17,11 +17,12 @@ final class Registry
         Connectors\Email::class,
         Connectors\Microsoft365::class, // 2.6.0
         Connectors\GoogleWorkspace::class, // 2.6.3
+        Connectors\Huntress::class, // 2.7.0
         Connectors\Dell::class,
         Connectors\Lenovo::class,
     ];
 
-    public const CATEGORIES = ['PSA & documentation', 'RMM', 'Backup', 'Microsoft 365', 'Google Workspace', 'Email & calendar', 'Warranty'];
+    public const CATEGORIES = ['PSA & documentation', 'RMM', 'Backup', 'Microsoft 365', 'Google Workspace', 'Security', 'Email & calendar', 'Warranty'];
 
     /**
      * One instance of each connector, keyed by key() (made once per request).

@@ -147,6 +147,10 @@ final class SyncRunner
         if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' LIMIT 1")) {
             $this->step('Google Workspace licenses', fn() => \Align\Google\Clients::syncAll());
         }
+        // 2.7.0: Huntress (organizations matched to clients, agents, incidents, escalations, reports, identities, ports)
+        if (\Align\Huntress\Api::configured()) {
+            $this->step('Huntress', fn() => \Align\Huntress\Sync::run());
+        }
         if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth LIMIT 1")) {
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }

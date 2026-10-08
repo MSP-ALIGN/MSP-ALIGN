@@ -80,6 +80,74 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     return;
 }
 
+// ---- 2.7.0 Huntress REST API (/huntress-api/v1/...) -------------------------------------------------------------
+// Settings for the tests: huntress_api_base = <mock>/huntress-api, key "hk", secret "hs". State (/mock/huntress-set,
+// top-level keys replace): organizations, agents, incident_reports, escalations, reports, identities, external_ports
+// (lists as Huntress returns them), 'fail' (list name => HTTP status), 'page' (items per page, default 3, to test
+// next_page_token). Every call is recorded with its method and query (/mock/huntress). Reset: /mock/huntress-reset.
+$hnFile = sys_get_temp_dir() . '/huntress-mock.json';
+$hnState = fn() => json_decode((string) @file_get_contents($hnFile), true) ?: ['calls' => []];
+if ($path === '/mock/huntress-reset') {
+    @unlink($hnFile);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/huntress') {
+    $json($hnState());
+    return;
+}
+if ($path === '/mock/huntress-set') {
+    $st = $hnState();
+    foreach (json_decode((string) file_get_contents('php://input'), true) ?: [] as $k => $v) {
+        $st[$k] = $v;
+    }
+    file_put_contents($hnFile, json_encode($st), LOCK_EX);
+    $json(['ok' => true]);
+    return;
+}
+if (preg_match('#^/huntress-api/v1/([a-z_]+)$#', $path, $hm)) {
+    $st = $hnState();
+    $st['calls'][] = ['m' => $method, 'path' => $hm[1], 'q' => $_GET];
+    file_put_contents($hnFile, json_encode($st), LOCK_EX);
+    if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Basic ' . base64_encode('hk:hs')) {
+        http_response_code(401);
+        $json(['errors' => ['Unauthorized']]);
+        return;
+    }
+    if ($method !== 'GET') {
+        http_response_code(405);
+        return;
+    }
+    $name = $hm[1];
+    if (isset($st['fail'][$name])) {
+        http_response_code((int) $st['fail'][$name]);
+        $json(['errors' => ['Not allowed']]);
+        return;
+    }
+    if ($name === 'account') {
+        $json(['account' => ['id' => 1, 'name' => 'Example MSP']]);
+        return;
+    }
+    $items = (array) ($st[$name] ?? []);
+    // the filters Align uses
+    foreach (['status', 'organization_id', 'severity'] as $f) {
+        if (isset($_GET[$f])) {
+            $items = array_values(array_filter($items, fn($i) => (string) ($i[$f] ?? '') === (string) $_GET[$f]));
+        }
+    }
+    if (($_GET['sort_direction'] ?? '') === 'desc') {
+        usort($items, fn($a, $b) => strcmp((string) ($b[$_GET['sort_field'] ?? 'id'] ?? ''), (string) ($a[$_GET['sort_field'] ?? 'id'] ?? '')));
+    }
+    $size = min((int) ($_GET['limit'] ?? 10), (int) ($st['page'] ?? 3));
+    $at = (int) ($_GET['page_token'] ?? 0);
+    $out = [$name => array_slice($items, $at, $size), 'pagination' => []];
+    if ($at + $size < count($items)) {
+        $out['pagination']['next_page_token'] = (string) ($at + $size);
+    }
+    $json($out);
+    return;
+}
+
 // ---- 2.6.3 Google Workspace for clients: token (JWT bearer, domain-wide delegation), Directory, Licensing, Policy -------
 // Settings for the tests: gwc_token_url = <mock>/gws-token, gwc_api_base = <mock>/gws-api (each Google host under it),
 // dns_mock_url = <mock>/dns. Service accounts are registered with their public key (/mock/gws-set {"accounts":
