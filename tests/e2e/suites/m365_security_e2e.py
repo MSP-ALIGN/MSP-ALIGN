@@ -243,9 +243,19 @@ with sync_playwright() as p:
     # The mock Microsoft approves straight away and sends the browser back: arriving back with the result proves the
     # browser went there (before 2.6.2 it was stopped on the Connectors page and nothing happened)
     pg.goto(B + f"/clients/{C2}/connectors")
-    with pg.expect_request(lambda rq: "/m365c-login/" in rq.url and "adminconsent" in rq.url, timeout=8000) as rq:
+    seen = []
+    pg.context.on("request", lambda rq: seen.append(rq.url))
+    with pg.context.expect_page() as newp:   # 2.6.2: Microsoft opens in a new tab; this one stays
         pg.click("text=Connect Microsoft 365")
-    pg.wait_for_load_state()
-    ok("adminconsent?" in rq.value.url and "approved the app" in flash(pg.content()), "clicking Connect Microsoft 365 opens Microsoft's approval page (and comes back): " + flash(pg.content())[:80])
+    np = newp.value
+    np.wait_for_load_state()
+    ok(any("/m365c-login/" in u and "adminconsent?" in u for u in seen) and "approved the app" in flash(np.content()),
+       "clicking Connect Microsoft 365 opens Microsoft's approval page in a new tab (and the result shows there): " + flash(np.content())[:80])
+    ok(pg.url.startswith(B + f"/clients/{C2}/connectors"), "the Connectors page stays open in its own tab")
+    np.close(); pg.bring_to_front()
+    # Back on this tab: it reloads by itself (headless Chrome may already have fired visibilitychange on bring_to_front)
+    pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    pg.wait_for_timeout(1500); pg.wait_for_load_state()
+    ok("Tenant ID" in pg.content(), "coming back to it, the page reloads and shows the result (the tenant waiting to be confirmed)")
     b.close()
 done()

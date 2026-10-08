@@ -18,7 +18,10 @@ $cid = (int) $client['id'];
 $tech = Auth::can('tech');
 $connected = Tenants::connected($m365);
 $pending = Tenants::awaiting($m365); // a tenant approved through a link (or not readable yet) waiting for staff
-$form = fn(string $action, string $label, string $cls, string $extra = '') => '<form method="post" action="/clients/' . $cid . '/m365/' . $action . '" class="d-inline">' . csrf_field()
+// 2.6.2: Connect and Approve open Microsoft's sign-in in a new tab (this page stays; the result shows in that tab, and
+// this page reloads when you come back to it, app.js data-reload-on-return)
+$form = fn(string $action, string $label, string $cls, string $extra = '') => '<form method="post" action="/clients/' . $cid . '/m365/' . $action . '" class="d-inline"'
+    . ($action === 'connect' ? ' target="_blank" rel="noopener" data-reload-on-return' : '') . '>' . csrf_field()
     . '<button class="btn btn-sm ' . $cls . '"' . $extra . '>' . $label . '</button></form>';
 ?>
 <div class="card card-outline card-<?= $connected ? ($m365['last_error'] ? 'danger' : 'success') : 'secondary' ?>" id="m365">
@@ -71,7 +74,7 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <p class="mb-2">Connect to read <?= e($client['name']) ?>'s Microsoft 365 subscriptions into Licensing (hourly) and check its security settings (daily), read-only. An admin of their tenant approves your app once.</p>
       <?php if ($tech): ?>
         <div class="d-flex flex-wrap gap-2">
-          <?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Connect Microsoft 365', 'btn-primary', ' title="Opens Microsoft: sign in as the client\'s admin and accept"') ?>
+          <?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Connect Microsoft 365', 'btn-primary', ' title="Opens Microsoft in a new tab: sign in as the client\'s admin and accept"') ?>
           <?= $form('link', '<i class="fas fa-link me-1"></i>Link for the client\'s admin', 'btn-default') ?>
         </div>
       <?php endif; ?>
