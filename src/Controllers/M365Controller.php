@@ -11,8 +11,8 @@ use Align\View;
 
 /**
  * 2.6.0 Microsoft 365 for clients: the integration page (setting up the MSP's app, the price list, the certificate),
- * and on each client's Licensing page connecting its tenant, syncing, confirming, the own-app fallback, disconnecting
- * and retiring duplicates. Also the public page Microsoft sends a client's admin back to after approving the app.
+ * and on each client's Connectors page (2.6.1; Licensing before) connecting its tenant, syncing, confirming, the
+ * own-app fallback and disconnecting; retiring duplicates (from Licensing). Also the public page Microsoft sends a client's admin back to after approving the app.
  *
  * Security assumptions: the router checks CSRF on every POST. Admins set up, replace or forget the MSP app, save the
  * price list and enter a client's own app secret (credentials); techs and admins connect, sync, confirm and disconnect
@@ -124,7 +124,7 @@ final class M365Controller
         }
         Audit::log('m365.app_manual', 'App ' . App::appId());
         \Align\Mail\Notify::security('Microsoft 365 (clients) app saved', 'An existing app (' . App::appId() . ') was saved by ' . ($u['email'] ?? ''));
-        flash('success', 'Saved. Connect clients from their Licensing pages.');
+        flash('success', 'Saved. Connect clients from their Connectors pages.');
         redirect('/integrations/microsoft-365');
     }
 
@@ -177,6 +177,21 @@ final class M365Controller
     // ---- A client's tenant --------------------------------------------------------------------
 
     /**
+     * 2.6.1 What the Microsoft 365 card on a client's Connectors page needs: the client's connection, whether the MSP
+     * app is set up, an approval link made on the previous request (read from the session and removed here, so it's
+     * shown once, and only on its own client's page) and whether licenses wait for the duplicate check on Licensing.
+     * The caller has loaded the client (tech or above).
+     */
+    public static function card(int $id): array
+    {
+        $row = Tenants::row($id);
+        $link = $_SESSION['m365c_link'] ?? null;
+        unset($_SESSION['m365c_link']);
+        return ['m365' => $row, 'appReady' => App::ready(), 'link' => is_array($link) && (int) $link['client_id'] === $id ? (string) $link['url'] : null,
+            'dupes' => Tenants::connected($row) && !$row['dupes_checked'] ? Tenants::dupes($id) : []];
+    }
+
+    /**
      * Sends the tech to Microsoft's approval page for the client (they sign in as the client's admin). The link's
      * nonce is also kept in this tech's session: only this session's callback connects straight away (Tenants).
      * Techs and admins.
@@ -190,7 +205,7 @@ final class M365Controller
             $_SESSION['m365c_nonce'][$id] = $nonce;
         } catch (\Throwable $e) {
             flash('error', $e->getMessage());
-            redirect("/clients/$id/licenses");
+            redirect("/clients/$id/connectors#m365");
         }
         Audit::log('m365.connect_started', $client['name']);
         // Off-site, to Microsoft's sign-in host: the address is built by Tenants::consentUrl() from App::loginBase()
@@ -200,7 +215,7 @@ final class M365Controller
     }
 
     /**
-     * Makes an approval link to send to the client's admin (shown once on the Licensing page; it works for
+     * Makes an approval link to send to the client's admin (shown once on the client's Connectors page; it works for
      * Tenants::LINK_DAYS days and once). A tenant connected through it waits for staff to confirm. Techs and admins.
      */
     public static function link(int $id): void
@@ -214,13 +229,13 @@ final class M365Controller
         } catch (\Throwable $e) {
             flash('error', $e->getMessage());
         }
-        redirect("/clients/$id/licenses#m365");
+        redirect("/clients/$id/connectors#m365");
     }
 
     /**
      * Where Microsoft sends the browser after the approval page (public). Staff count only when fully signed in (a
      * tech or admin with two-factor set up and no password change pending, as Auth::require() would insist); their
-     * Connect's nonces come from their session. Staff go back to the client's Licensing page with the result; anyone
+     * Connect's nonces come from their session. Staff go back to the client's Connectors page (2.6.1) with the result; anyone
      * else gets a short page saying it's done (or what went wrong).
      */
     public static function consent(): void
@@ -235,9 +250,9 @@ final class M365Controller
             flash(['error' => 'error', 'pending' => 'warning', 'connected' => 'success'][$r['status']], match ($r['status']) {
                 'error' => $r['message'],
                 'pending' => "{$r['message']} approved the app. Check it's this client's tenant and confirm below.",
-                default => "Connected to {$r['message']}. Its Microsoft subscriptions are in Licensing below.",
+                default => "Connected to {$r['message']}. Its Microsoft subscriptions are in Licensing.",
             });
-            redirect("/clients/$cid/licenses#m365");
+            redirect("/clients/$cid/connectors#m365");
         }
         View::render('m365/consent', ['title' => 'Microsoft 365', 'r' => $r], 'layout/public');
     }
@@ -254,7 +269,7 @@ final class M365Controller
         } catch (\Throwable $e) {
             flash('error', 'Not connected: ' . $e->getMessage());
         }
-        redirect("/clients/$id/licenses#m365");
+        redirect("/clients/$id/connectors#m365");
     }
 
     /** Forgets the tenant waiting for confirmation; a working connection stays as it was. Techs and admins; audited. */
@@ -266,18 +281,18 @@ final class M365Controller
         Tenants::reject($id);
         Audit::log('m365.rejected', $client['name'] . ($row && $row['pending_tenant_name'] ? ": {$row['pending_tenant_name']} ({$row['pending_tenant_id']})" : ''));
         flash('success', 'Forgotten. Nothing was connected.');
-        redirect("/clients/$id/licenses#m365");
+        redirect("/clients/$id/connectors#m365");
     }
 
-    /** Reads the client's subscriptions now. Techs and admins. */
+    /** Reads the client's subscriptions now, and its security checks (2.6.1). Techs and admins. */
     public static function sync(int $id): void
     {
         Auth::requireRole('tech');
         ClientController::load($id);
-        $r = Tenants::syncClient($id);
+        $r = Tenants::syncClient($id, true);
         flash($r['error'] ? 'error' : 'success', $r['error'] ? 'Microsoft 365 sync failed: ' . $r['error']
             : 'Synced from Microsoft 365' . ($r['added'] ? ": {$r['added']} new" : '') . ($r['retired'] ? ", {$r['retired']} retired" : '') . '.');
-        redirect("/clients/$id/licenses#m365");
+        redirect("/clients/$id/connectors#m365");
     }
 
     /** Disconnects the client and retires its Microsoft 365 licenses. Techs and admins; audited. */
@@ -290,7 +305,7 @@ final class M365Controller
         Audit::log('m365.disconnected', $client['name'] . ($row ? ": {$row['tenant_name']}" : '') . ($n ? ", $n licenses retired" : ''));
         flash('success', 'Disconnected.' . ($n ? " $n Microsoft 365 license" . ($n === 1 ? ' was' : 's were') . ' retired (restored if you connect again).' : '')
             . ' To remove Align\'s access completely, the client\'s admin deletes the app under Enterprise applications in their tenant.');
-        redirect("/clients/$id/licenses");
+        redirect("/clients/$id/connectors");
     }
 
     /** Connects the client with an app in its own tenant (tenant, app id, secret, expiry). Admins; audited with a security alert. */
@@ -302,12 +317,12 @@ final class M365Controller
             $name = Tenants::saveOwn($id, post('tenant_id'), post('app_id'), post('secret'), post('secret_expires'));
         } catch (\Throwable $e) {
             flash('error', $e->getMessage());
-            redirect("/clients/$id/licenses#m365");
+            redirect("/clients/$id/connectors#m365");
         }
         Audit::log('m365.connected', "{$client['name']}: $name (own app)");
         \Align\Mail\Notify::security('Microsoft 365 app saved for a client', "{$client['name']}: an app in their tenant was saved by " . ($u['email'] ?? ''));
         flash('success', "Connected to $name with the client's own app.");
-        redirect("/clients/$id/licenses#m365");
+        redirect("/clients/$id/connectors#m365");
     }
 
     /** Retires the ticked duplicates (licenses from the PSA or added by hand) and closes the check. Techs and admins; audited. */

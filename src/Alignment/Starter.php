@@ -23,7 +23,7 @@ final class Starter
     public static function standards(): array
     {
         return [
-            ['Identity & access', 'MFA on Microsoft 365 for every user', 'critical', null, 'iam_mfa,cloud_config',
+            ['Identity & access', 'MFA on Microsoft 365 for every user', 'critical', 'm365_mfa_enforced', 'iam_mfa,cloud_config',
                 'A stolen password alone can\'t get into email, files or Teams.',
                 'In Entra ID, check Conditional Access or security defaults require MFA for all users. Note any excluded accounts and why (break-glass only).',
                 'Turn on MFA for every Microsoft 365 user', 'security', 450],
@@ -119,7 +119,7 @@ final class Starter
                 'Nobody can send email pretending to be the company.',
                 'Look up the domain\'s SPF, DKIM and DMARC records; DMARC policy should be quarantine or reject.',
                 'Set up SPF, DKIM and DMARC', 'cloud', 300],
-            ['Email & Microsoft 365', 'Legacy sign-in blocked in Microsoft 365', 'high', null, 'cloud_config,iam_mfa',
+            ['Email & Microsoft 365', 'Legacy sign-in blocked in Microsoft 365', 'high', 'm365_legacy_blocked', 'cloud_config,iam_mfa',
                 'Old sign-in methods skip MFA entirely.',
                 'Check a Conditional Access policy blocks legacy authentication, and sign-in logs show none.',
                 'Block legacy authentication', 'cloud', 200],

@@ -60,7 +60,7 @@ $ready = $app['ready'];
         <?php else: ?>
           <p>Align creates one app in <b>your</b> Microsoft tenant: each client's admin approves it once, and Align reads their tenant with it. You sign in once; nothing to copy or paste.</p>
           <ul class="small text-muted">
-            <li>The app can only <b>read</b> client tenants: subscriptions and users (for license waste later).</li>
+            <li>The app can only <b>read</b> client tenants: subscriptions, users and security settings (Secure Score, MFA, admin roles).</li>
             <li>It signs in with a certificate whose private key stays (encrypted) in Align, replaced automatically every year.</li>
             <li>Your sign-in is used once, to create the app, and not kept.</li>
           </ul>
@@ -76,7 +76,7 @@ $ready = $app['ready'];
         <?= csrf_field() ?>
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-wrench me-2"></i>Use an app you made yourself</h3></div>
         <div class="card-body small">
-          <p>In <b>your</b> Entra ID: App registrations → New registration, <b>Accounts in any organizational directory</b>, Web redirect URI <code><?= e($redirectUri) ?></code>. Under API permissions add Microsoft Graph <b>application</b> permissions <b>Organization.Read.All</b> and <b>User.Read.All</b>. Create a client secret.</p>
+          <p>In <b>your</b> Entra ID: App registrations → New registration, <b>Accounts in any organizational directory</b>, Web redirect URI <code><?= e($redirectUri) ?></code>. Under API permissions add Microsoft Graph <b>application</b> permissions Organization.Read.All, User.Read.All and, for the security checks, SecurityEvents.Read.All, Policy.Read.All, AuditLog.Read.All and RoleManagement.Read.Directory. Create a client secret.</p>
           <div class="row g-2">
             <div class="col-md-6"><label>Application (client) ID</label><input name="app_id" class="form-control" value="<?= e($app['mode'] === 'manual' ? $app['app_id'] : '') ?>" required></div>
             <div class="col-md-6"><label>Directory (tenant) ID</label><input name="tenant_id" class="form-control" value="<?= e($app['mode'] === 'manual' ? $app['tenant'] : '') ?>" required></div>
@@ -97,7 +97,7 @@ $ready = $app['ready'];
       <ul class="list-group list-group-flush small">
         <?php foreach ($clients as $c): ?>
           <li class="list-group-item d-flex align-items-start">
-            <div class="me-auto"><a href="/clients/<?= (int) $c['client_id'] ?>/licenses#m365" class="fw-bold"><?= e($c['client_name']) ?></a>
+            <div class="me-auto"><a href="/clients/<?= (int) $c['client_id'] ?>/connectors#m365" class="fw-bold"><?= e($c['client_name']) ?></a>
               <div class="text-muted"><?= e($c['tenant_name'] ?: ($c['tenant_id'] ?: ($c['pending_tenant_name'] ?: $c['pending_tenant_id']))) ?><?= $c['tenant_domain'] ? ' · ' . e($c['tenant_domain']) : '' ?><?= $c['mode'] === 'own' ? ' · own app' : '' ?></div>
               <?php if ($c['last_error']): ?><div class="text-danger"><?= e($c['last_error']) ?></div><?php endif; ?></div>
             <div class="text-end text-nowrap ms-2">
@@ -106,7 +106,7 @@ $ready = $app['ready'];
                 <div class="text-muted"><?= $c['last_sync_at'] ? e(rel_time($c['last_sync_at'])) : 'not synced' ?></div><?php endif; ?></div>
           </li>
         <?php endforeach; ?>
-        <?php if (!$clients): ?><li class="list-group-item text-muted">No clients connected yet. <?= $ready ? 'Open a client\'s Licensing page and press Connect Microsoft 365.' : 'Set up the app first.' ?></li><?php endif; ?>
+        <?php if (!$clients): ?><li class="list-group-item text-muted">No clients connected yet. <?= $ready ? 'Open a client\'s Connectors page and press Connect Microsoft 365.' : 'Set up the app first.' ?></li><?php endif; ?>
       </ul>
     </div>
   </div>

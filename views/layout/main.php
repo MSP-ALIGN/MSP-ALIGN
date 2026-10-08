@@ -89,7 +89,8 @@ $clientMenu = $client ? [
     ['meetings', "/clients/$cidM/meetings", 'Meetings', 'fa-handshake'],
     ['changes', "/clients/$cidM/changes", 'Since last QBR', 'fa-clock-rotate-left'], // 2.4.0: progress since the last review
     ['reports', "/clients/$cidM/reports", 'Reports', 'fa-print'],
-    ...(Auth::can('tech') ? [['portal', "/clients/$cidM/portal", 'Client portal', 'fa-door-open']] : []),
+    ...(Auth::can('tech') ? [['portal', "/clients/$cidM/portal", 'Client portal', 'fa-door-open'],
+        ['connectors', "/clients/$cidM/connectors", 'Connectors', 'fa-plug']] : []), // 2.6.1: the client's connections (staff only)
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;

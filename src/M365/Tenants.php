@@ -21,7 +21,7 @@ use Align\Settings;
  * staff member's own session started that Connect (the nonce is also kept in their session) and the tenant isn't the
  * MSP's own or already another client's. Everything else (a link sent to the client's admin, a changed tenant, a
  * conflict, a tenant that can't be read yet) waits in the pending_* columns for staff to confirm on the client's
- * Licensing page, showing its name, domain and id; a working connection is never replaced until then.
+ * Connectors page (2.6.1; Licensing before), showing its name, domain and id; a working connection is never replaced until then.
  *
  * Security assumptions: callers check roles (any staff reads; techs connect, sync, confirm and reject; admins save a
  * client's own app secret and the price list) and CSRF (router). Everything from Microsoft and from the callback is
@@ -142,7 +142,7 @@ final class Tenants
     private static function connectTenant(int $cid, string $tenant, array $org): void
     {
         DB::run('UPDATE client_m365 SET status = \'connected\', mode = \'msp\', tenant_id = ?, tenant_name = ?, tenant_domain = ?, app_id = NULL, secret_enc = NULL,
-            secret_expires = NULL, connected_at = NOW(), connected_by = ?, last_error = NULL, pending_tenant_id = NULL, pending_tenant_name = NULL,
+            secret_expires = NULL, connected_at = NOW(), connected_by = ?, last_error = NULL, security_json = NULL, security_at = NULL, pending_tenant_id = NULL, pending_tenant_name = NULL,
             pending_tenant_domain = NULL, pending_at = NULL, pending_note = NULL WHERE client_id = ?', [$tenant, $org['name'], $org['domain'], \Align\Auth::id(), $cid]);
         self::syncClient($cid);
     }
@@ -205,7 +205,7 @@ final class Tenants
             VALUES (?, \'connected\', \'own\', ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, NULL)
             ON DUPLICATE KEY UPDATE status = VALUES(status), mode = VALUES(mode), tenant_id = VALUES(tenant_id), tenant_name = VALUES(tenant_name), tenant_domain = VALUES(tenant_domain),
             app_id = VALUES(app_id), secret_enc = VALUES(secret_enc), secret_expires = VALUES(secret_expires), connected_at = VALUES(connected_at), connected_by = VALUES(connected_by),
-            last_error = NULL, consent_nonce = NULL, pending_tenant_id = NULL, pending_tenant_name = NULL, pending_tenant_domain = NULL, pending_at = NULL, pending_note = NULL',
+            last_error = NULL, consent_nonce = NULL, security_json = NULL, security_at = NULL, pending_tenant_id = NULL, pending_tenant_name = NULL, pending_tenant_domain = NULL, pending_at = NULL, pending_note = NULL',
             [$clientId, $tenant, $org['name'], $org['domain'], $appId, \Align\Crypto::encrypt($secret), $expires, \Align\Auth::id()]);
         self::syncClient($clientId);
         return $org['name'];
@@ -280,20 +280,21 @@ final class Tenants
         if ($failed && !$ok) {
             throw new \RuntimeException("$failed client" . ($failed === 1 ? '' : 's') . " failed: $last");
         }
-        return "$ok client" . ($ok === 1 ? '' : 's') . ($added ? ", $added new license" . ($added === 1 ? '' : 's') : '') . ($failed ? ", $failed with errors (see their Licensing pages)" : '');
+        return "$ok client" . ($ok === 1 ? '' : 's') . ($added ? ", $added new license" . ($added === 1 ? '' : 's') : '') . ($failed ? ", $failed with errors (see their Connectors pages)" : '');
     }
 
     /**
      * Reads the client's subscriptions and updates its Microsoft 365 licenses. Returns ['added', 'updated', 'retired',
      * 'error' => message or null]; the result is also kept on the client's row (last_sync_at, last_error).
      */
-    public static function syncClient(int $clientId): array
+    public static function syncClient(int $clientId, bool $checks = false): array
     {
         $out = ['added' => 0, 'updated' => 0, 'retired' => 0, 'error' => null];
         $row = self::row($clientId);
         if (!self::connected($row)) {
             return ['error' => 'Not connected.'] + $out;
         }
+        $own = null;
         try {
             $own = $row['mode'] === 'own' ? ['app_id' => (string) $row['app_id'], 'secret' => (string) \Align\Crypto::decrypt($row['secret_enc'])] : null;
             if (!$own && !App::ready()) {
@@ -308,6 +309,16 @@ final class Tenants
         } catch (\Throwable $e) {
             $out['error'] = mb_substr($e->getMessage(), 0, 1000);
             DB::run('UPDATE client_m365 SET last_error = ? WHERE client_id = ?', [$out['error'], $clientId]);
+        }
+        // 2.6.1: the security checks, apart from the licenses (whether or not they synced), once a day or when asked
+        // ($checks: Sync now). A check that can't be read is just unknown; if this never runs, the stored result
+        // expires (Security::KEEP_HOURS).
+        try {
+            if (($checks || Security::due($row)) && ($row['mode'] !== 'own' ? App::ready() : $own !== null)) {
+                Security::refresh($clientId, (string) $row['tenant_id'], $own);
+            }
+        } catch (\Throwable) {
+            // nothing stored: the last result stays until it expires
         }
         return $out;
     }
@@ -508,14 +519,14 @@ final class Tenants
         foreach (DB::all("SELECT m.*, c.name AS client_name FROM client_m365 m JOIN clients c ON c.id = m.client_id WHERE c.is_archived = 0
                 AND ((m.status = 'connected' AND m.last_error IS NOT NULL) OR m.pending_tenant_id IS NOT NULL
                 OR (m.mode = 'own' AND m.secret_expires IS NOT NULL AND m.secret_expires <= ?)) ORDER BY c.name", [date('Y-m-d', strtotime('+' . self::WARN_DAYS . ' days'))]) as $r) {
-            $link = '/clients/' . (int) $r['client_id'] . '/licenses';
+            $link = '/clients/' . (int) $r['client_id'] . '/connectors'; // 2.6.1: the connection's page
             if ($r['pending_tenant_id'] !== null) {
                 $out[] = ['tone' => 'warn', 'title' => 'Confirm a Microsoft 365 tenant', 'detail' => "{$r['pending_tenant_name']} approved the app: confirm it's this client's.", 'link' => $link, 'client' => $r['client_name']];
             } elseif ($r['last_error'] !== null) {
                 $out[] = ['tone' => 'bad', 'title' => 'Microsoft 365 licenses not syncing', 'detail' => (string) $r['last_error'], 'link' => $link, 'client' => $r['client_name']];
             } else {
                 $out[] = ['tone' => 'warn', 'title' => 'Microsoft 365 app secret ' . ($r['secret_expires'] < date('Y-m-d') ? 'has expired' : 'expires ' . fmt_date($r['secret_expires'])),
-                    'detail' => 'Create a new secret for the app in the client\'s tenant and save it on its Licensing page.', 'link' => $link, 'client' => $r['client_name']];
+                    'detail' => 'Create a new secret for the app in the client\'s tenant and save it on its Connectors page.', 'link' => $link, 'client' => $r['client_name']];
             }
         }
         return $out;

@@ -15,7 +15,8 @@ use Align\Settings;
  * Two ways to get the app:
  *  - auto:   the MSP admin signs in once with a device code (Microsoft's "Microsoft Graph Command Line Tools" public
  *            client, so nothing has to exist first), and Align creates the app itself: multi-tenant, read-only
- *            application permissions for client tenants (Organization.Read.All, User.Read.All), a certificate whose
+ *            application permissions for client tenants (Organization.Read.All, User.Read.All, and from 2.6.1 the
+ *            security checks' Security::ROLES), a certificate whose
  *            private key never leaves Align, and Application.ReadWrite.OwnedBy in the MSP tenant with the app as its
  *            own owner, so it can rotate its certificate (rotateIfDue(), daily) without anyone signing in again.
  *  - manual: an app the MSP made themselves: its ID, tenant and client secret (with the secret's expiry date, for
@@ -172,7 +173,7 @@ final class App
         }
         foreach (['m365c_mode', 'm365c_app_id', 'm365c_app_object_id', 'm365c_tenant', 'm365c_tenant_name', 'm365c_app_name', 'm365c_cert_expires',
                 'm365c_cert_key_id', 'm365c_old_key_id', 'm365c_next_key_id', 'm365c_next_expires', 'm365c_next_since', 'm365c_secret_expires',
-                'm365c_rotated_at', 'm365c_rotate_error', 'm365c_set_up_at'] as $k) {
+                'm365c_rotated_at', 'm365c_rotate_error', 'm365c_set_up_at', 'm365c_permissions'] as $k) {
             Settings::set($k, null);
         }
         self::$tokens = [];
@@ -244,8 +245,7 @@ final class App
             'web' => ['redirectUris' => [self::redirectUri()]],
             // What client admins approve: read-only. Application.ReadWrite.OwnedBy is NOT listed here (a client's
             // approval grants everything listed); it's granted below, in the MSP's own tenant only
-            'requiredResourceAccess' => [['resourceAppId' => self::GRAPH_APP, 'resourceAccess' => [
-                ['id' => self::ROLE_ORG_READ, 'type' => 'Role'], ['id' => self::ROLE_USER_READ, 'type' => 'Role']]]],
+            'requiredResourceAccess' => self::clientAccess(),
             'keyCredentials' => [['type' => 'AsymmetricX509Cert', 'usage' => 'Verify', 'key' => $der, 'displayName' => 'MSP Align ' . date('Y-m-d')]],
         ]);
         $appId = is_string($app['appId'] ?? null) && preg_match(self::GUID, $app['appId']) ? strtolower($app['appId']) : null;
@@ -287,10 +287,51 @@ final class App
         Settings::setSecret('m365c_cert_pem', $certPem);
         foreach (['m365c_mode' => 'auto', 'm365c_app_id' => $appId, 'm365c_app_object_id' => $objectId, 'm365c_tenant' => $tenant,
                 'm365c_tenant_name' => mb_substr(is_string($org['displayName'] ?? null) ? $org['displayName'] : '', 0, 190), 'm365c_app_name' => $name,
-                'm365c_cert_expires' => $expires, 'm365c_cert_key_id' => $keyId, 'm365c_set_up_at' => date('Y-m-d H:i:s')] as $k => $v) {
+                'm365c_cert_expires' => $expires, 'm365c_cert_key_id' => $keyId, 'm365c_set_up_at' => date('Y-m-d H:i:s'), 'm365c_permissions' => (string) self::PERMISSIONS_VERSION] as $k => $v) {
             Settings::set($k, $v);
         }
         return "Created \"$name\" in " . (Settings::get('m365c_tenant_name') ?: 'your tenant') . '. You can connect clients now.';
+    }
+
+    /** Version of clientAccess(): raised whenever the list grows, so updatePermissions() applies it to an app made earlier. */
+    public const PERMISSIONS_VERSION = 2;
+
+    /**
+     * What client admins approve (the app's requiredResourceAccess), all read-only Microsoft Graph application
+     * permissions: subscriptions and users (2.6.0) and the security checks (2.6.1, Security::ROLES). The app's own
+     * Application.ReadWrite.OwnedBy is never in this list: it's granted in the MSP's tenant only.
+     */
+    public static function clientAccess(): array
+    {
+        return [['resourceAppId' => self::GRAPH_APP, 'resourceAccess' => array_map(fn($id) => ['id' => $id, 'type' => 'Role'],
+            [self::ROLE_ORG_READ, self::ROLE_USER_READ, ...Security::ROLES])]];
+    }
+
+    /**
+     * 2.6.1 Brings an app Align made earlier up to clientAccess() (its own registration, which OwnedBy allows), once,
+     * from the daily run. Clients then approve again to grant the new permissions (until they do, the checks that
+     * need them show as not approved). Auto mode only; an app made by hand is updated by the MSP in Entra ID.
+     * Returns a line for the log, or null when there was nothing to do; a failure is kept and tried the next day.
+     * It replaces the whole requiredResourceAccess with clientAccess(): the app is the one Align made, so anything
+     * added to it by hand in Entra ID is dropped.
+     */
+    public static function updatePermissions(): ?string
+    {
+        if (self::mode() !== 'auto' || !self::ready() || Settings::int('m365c_permissions', 1) >= self::PERMISSIONS_VERSION) {
+            return null;
+        }
+        $objectId = (string) Settings::get('m365c_app_object_id');
+        try {
+            if (!preg_match(self::GUID, $objectId)) {
+                throw new \RuntimeException('The app\'s object id is missing.');
+            }
+            self::graph((string) Settings::get('m365c_tenant'), 'PATCH', "/applications/$objectId", ['requiredResourceAccess' => self::clientAccess()]);
+            Settings::set('m365c_permissions', (string) self::PERMISSIONS_VERSION);
+            \Align\Audit::log('m365.permissions', 'Microsoft 365 (clients) app now asks for the security permissions; clients approve again from their Connectors page');
+            return 'app permissions updated: clients need to approve again';
+        } catch (\Throwable $e) {
+            return 'permissions update failed: ' . mb_substr($e->getMessage(), 0, 300);
+        }
     }
 
     /**

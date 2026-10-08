@@ -1,7 +1,7 @@
 <?php
 /**
  * One client's licensing. @var array $client, $licenses, $totals, $dates, $subs; int $retiredCount; bool $showRetired; string $back
- * 2.6.0: array $m365 (LicenseController::m365Card: the Microsoft 365 card's data)
+ * 2.6.0: array $m365 (LicenseController::m365: the client_m365 row, appReady, dupes; 2.6.1: a summary line here, the card on Connectors)
  */
 use Align\Auth;
 
@@ -26,7 +26,8 @@ $t = $totals;
   <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i><b><?= (int) $t['unpriced'] ?> license<?= $t['unpriced'] === 1 ? '' : 's' ?> ha<?= $t['unpriced'] === 1 ? 's' : 've' ?> no price</b>, so the totals above are incomplete. <?= psa_on() ? e(psa_name()) . ' doesn\'t store license prices; click' : 'Click' ?> a license to add its price and billing cycle.</div>
 <?php endif; ?>
 <?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'license', 'cid' => $cid, 'back' => $back]) ?>
-<?= \Align\View::fetch('m365/_client', $m365 + ['client' => $client]) // 2.6.0 ?>
+<?= \Align\View::fetch('m365/_summary', $m365 + ['client' => $client]) // 2.6.1: the connection is on Connectors ?>
+<?= \Align\View::fetch('m365/_dupes', $m365 + ['client' => $client]) // 2.6.0 ?>
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>
 <div class="card card-dark">
   <div class="card-body p-0">

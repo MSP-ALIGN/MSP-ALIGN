@@ -386,6 +386,8 @@ final class ClientController
             'users' => self::users(),
             'backup' => $backup,
             'sla' => \Align\Service\Sla::overview($id),
+            // 2.6.1: the Microsoft 365 security checks of a connected client (null otherwise: no card)
+            'm365sec' => ($m = \Align\M365\Security::forClient($id))[0] ? ($m[1] ?? []) : null, // connected: its result ([] when none recent)
         ]);
     }
 

@@ -42,4 +42,10 @@ interface LinksClients
      * @return array<int, array{n:int, html:string}> client id => count and a short, already escaped HTML summary
      */
     public function linkClientSummary(): array;
+
+    /**
+     * 2.6.1 One record by its id, with what $clientId gets through it (counted as linkClientSummary() does), for a
+     * client's Connectors page: ['name', 'count'], or null when the record isn't (or isn't yet) in Align.
+     */
+    public function linkRecord(string $id, int $clientId): ?array;
 }

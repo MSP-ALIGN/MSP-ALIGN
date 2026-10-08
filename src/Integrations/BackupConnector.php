@@ -82,6 +82,14 @@ abstract class BackupConnector extends Connector implements LinksClients
         return 'machines';
     }
 
+    /** 2.6.1 One company and the client's protected machines in this product (as linkClientSummary() counts; see LinksClients::linkRecord()). */
+    public function linkRecord(string $id, int $clientId): ?array
+    {
+        $r = DB::one('SELECT b.name, (SELECT COUNT(*) FROM backup_workloads w WHERE w.provider = b.provider AND w.client_id = ?) AS n
+            FROM backup_companies b WHERE b.provider = ? AND b.uid = ?', [$clientId, $this->key(), $id]);
+        return $r ? ['name' => (string) $r['name'], 'count' => (int) $r['n']] : null;
+    }
+
     /** Protected machines the client has in this product (its own and hosted ones), and Microsoft 365 users. */
     public function linkClientSummary(): array
     {

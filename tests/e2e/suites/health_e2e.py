@@ -11,7 +11,7 @@ TAG = "ZzHL"
 PW = "Quartz-Lantern-Field-31"
 SEC = "KRUGKIDROVUWG2ZAMJZG653OEBTG66BA"
 API = B + "/api/v1"
-HKEYS = ["health_weight_lifecycle", "health_weight_backups", "health_weight_compliance", "health_weight_service", "health_weight_alignment", "health_good", "health_warn"]
+HKEYS = ["health_weight_lifecycle", "health_weight_backups", "health_weight_compliance", "health_weight_service", "health_weight_alignment", "health_weight_security", "health_good", "health_warn"]
 
 
 def day(days): return (date.today() - timedelta(days=days)).isoformat()
@@ -72,7 +72,7 @@ for cid_ in ctrls:
     q("insert into client_control_status (client_id, control_id, status) values (%s, %s, 'met')", CID, cid_)
 r = st.get(B + f"/clients/{CID}")
 t = text(r.text)
-ok("100" in t and "Healthy" in t and "Based on 1 of 5 areas" in t, "every control met: 100, Healthy, based on 1 of 5 areas")
+ok("100" in t and "Healthy" in t and "Based on 1 of 6 areas" in t, "every control met: 100, Healthy, based on 1 of 6 areas (2.6.1: + Security)")
 half = ctrls[: len(ctrls) // 2]
 for cid_ in half:
     q("update client_control_status set status='not_met' where client_id=%s and control_id=%s", CID, cid_)
@@ -119,7 +119,7 @@ ok(q("select value from settings where name='health_good'")[0]["value"] == "95",
 t = text(st.get(B + f"/clients/{CID}").text)
 ok("No score" in t and "not counted" in t, "with compliance weighted 0 the client has no score and the area says not counted")
 q("delete from settings where name like 'health_%%'")
-r = st.post(B + "/settings", data={**F, "health_good": "80", "health_warn": "60", **{"health_weight_" + k: "0" for k in ["lifecycle", "backups", "compliance", "service", "alignment"]}})
+r = st.post(B + "/settings", data={**F, "health_good": "80", "health_warn": "60", **{"health_weight_" + k: "0" for k in ["lifecycle", "backups", "compliance", "service", "alignment", "security"]}})
 ok("needs a weight above 0" in flash(r.text) and not q("select 1 from settings where name like 'health_weight_%%'"), "all weights 0 is refused")
 tech = login("tech@example.com", TECH_PASSWORD)
 ok(tech.post(B + "/settings", data={"_csrf": csrf(tech, "/clients"), "_tab": "planning", "health_weight_service": "5"}).status_code == 403 and not q("select 1 from settings where name='health_weight_service'"), "techs can't change the weights")
@@ -227,7 +227,7 @@ r = call(k4, f"/clients/{CID}/health")
 ok(r.status_code == 403 and r.headers.get("X-Required-Scope") == "health:read", "a key without health:read is refused (403)")
 r = call(k1, f"/clients/{CID}/health/history?days=30")
 d = r.json()
-ok(r.status_code == 200 and d["meta"]["total"] >= 3 and d["data"][0]["date"] == date.today().isoformat() and d["data"][0]["date"] > d["data"][-1]["date"] and set(d["data"][0]["areas"]) == {"lifecycle", "backups", "compliance", "service", "alignment"},
+ok(r.status_code == 200 and d["meta"]["total"] >= 3 and d["data"][0]["date"] == date.today().isoformat() and d["data"][0]["date"] > d["data"][-1]["date"] and set(d["data"][0]["areas"]) == {"lifecycle", "backups", "compliance", "service", "alignment", "security"},
    "history: one entry per day, newest first, with each area")
 ok(call(k1, f"/clients/{CID}/health/history?days=0").status_code == 422 and call(k1, f"/clients/{CID}/health/history?days=x").status_code == 422, "a bad ?days is refused (422)")
 spec = requests.get(API + "/openapi.json").json()

@@ -43,20 +43,18 @@ final class LicenseController
             'back' => "/clients/$id/licenses" . ($showRetired ? '?retired=1' : ''),
             'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($id), fn($d) => str_ends_with($d['link'], '/licenses'))),
             'subs' => \Align\Portal\Submissions::pending($id, 'license'),
-            'm365' => self::m365Card($id),
+            'm365' => self::m365($id),
         ]);
     }
 
     /**
-     * 2.6.0 What the Microsoft 365 card needs: the client's connection, whether the MSP app is set up, an approval
-     * link made on the previous request (shown once, only on its own client's page) and the duplicate check.
+     * 2.6.0 What Licensing shows about Microsoft 365: the client's connection (for the summary line; 2.6.1: the card
+     * itself is on the Connectors page, M365Controller::card) and the one-time duplicate check.
      */
-    private static function m365Card(int $id): array
+    private static function m365(int $id): array
     {
         $row = \Align\M365\Tenants::row($id);
-        $link = $_SESSION['m365c_link'] ?? null;
-        unset($_SESSION['m365c_link']);
-        return ['m365' => $row, 'appReady' => \Align\M365\App::ready(), 'link' => is_array($link) && (int) $link['client_id'] === $id ? (string) $link['url'] : null,
+        return ['m365' => $row, 'appReady' => \Align\M365\App::ready(),
             'dupes' => \Align\M365\Tenants::connected($row) && !$row['dupes_checked'] ? \Align\M365\Tenants::dupes($id) : []];
     }
 

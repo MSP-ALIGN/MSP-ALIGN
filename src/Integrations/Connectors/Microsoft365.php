@@ -40,7 +40,7 @@ final class Microsoft365 extends Connector
     public function setup(): string
     {
         return '<ol class="ps-3 mb-0"><li>Sign in once with an admin account of your own (MSP) Microsoft tenant: Align creates its app there.</li>'
-            . '<li>On each client\'s <b>Licensing</b> page, press <b>Connect Microsoft 365</b> and approve as the client\'s admin (or send them the link).</li>'
+            . '<li>On each client\'s <b>Connectors</b> page (2.6.1), press <b>Connect Microsoft 365</b> and approve as the client\'s admin (or send them the link).</li>'
             . '<li>Fill in your prices on the price list.</li></ol>';
     }
 

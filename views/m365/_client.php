@@ -1,8 +1,9 @@
 <?php
 /**
- * 2.6.0 The Microsoft 365 card on a client's Licensing page: connect (or send the approval link), the connected
- * tenant with its last sync, Sync now, Disconnect, confirming a tenant approved through a link, the client's own app
- * (fallback, admins), and the one-time offer to retire licenses that Microsoft 365 now counts.
+ * 2.6.0 The Microsoft 365 card, on a client's Connectors page since 2.6.1 (Licensing was its home in 2.6.0): connect
+ * (or send the approval link), the connected tenant with its last sync, Sync now, Disconnect, confirming a tenant
+ * approved through a link, and the client's own app (fallback, admins). The one-time offer to retire licenses that
+ * Microsoft 365 now counts stays on Licensing (m365/_dupes); this card points to it.
  * @var array $client; ?array $m365 client_m365 row; bool $appReady; ?string $link an approval link made on the last
  * request (shown once); array $dupes Tenants::dupes() (only before the check is done)
  * Security: every value is escaped (tenant names and errors come from Microsoft). Forms post with CSRF; the role
@@ -40,16 +41,25 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <div><b><?= e($m365['tenant_name']) ?></b><?= $m365['tenant_domain'] ? ' · ' . e($m365['tenant_domain']) : '' ?>
         <span class="text-muted">· <?= $m365['mode'] === 'own' ? 'the client\'s own app' : 'your app' ?> · last synced <?= $m365['last_sync_at'] ? e(rel_time($m365['last_sync_at'])) : 'not yet' ?></span></div>
       <?php if ($m365['last_error']): ?><div class="text-danger mt-1"><i class="fas fa-triangle-exclamation me-1"></i><?= e($m365['last_error']) ?></div><?php endif; ?>
+      <?php if ($m365['mode'] === 'msp' && !empty(\Align\M365\Security::stored($m365)['consent'])): // 2.6.1: new permissions to approve ?>
+        <div class="alert alert-warning py-2 mt-2 mb-1"><i class="fas fa-key me-1"></i>Your app now also reads security settings (Secure Score, MFA, admin roles), read-only.
+          <?php if (\Align\M365\App::mode() === 'manual'): // an app made by hand: the MSP adds the permissions to it first ?>First add the new permissions to your app registration (<a href="/integrations/microsoft-365">Integrations → Microsoft 365 (clients)</a> lists them), then<?php endif; ?>
+          the client's admin approves once more:
+          <?php if ($tech): ?><div class="mt-1"><?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Approve new permissions', 'btn-sm btn-warning') ?> <?= $form('link', 'Link for the client\'s admin', 'btn-default') ?></div><?php endif; ?></div>
+      <?php endif; ?>
       <?php if ($m365['mode'] === 'own' && $m365['secret_expires'] && $m365['secret_expires'] <= date('Y-m-d', strtotime('+' . Tenants::WARN_DAYS . ' days'))): ?>
         <div class="text-warning mt-1"><i class="fas fa-key me-1"></i>The app's client secret <?= $m365['secret_expires'] < date('Y-m-d') ? 'has expired' : 'expires ' . e(fmt_date($m365['secret_expires'])) ?>: save a new one below.</div>
       <?php endif; ?>
-      <div class="text-muted mt-1">Seats bought and assigned update every hour. Prices come from the <a href="/integrations/microsoft-365#prices">price list</a> unless a license has its own.</div>
+      <?php if ($dupes && $tech): // 2.6.1: the duplicate check is on Licensing ?>
+        <div class="alert alert-warning py-2 mt-2 mb-1"><i class="fas fa-clone me-1"></i><?= count($dupes) ?> license<?= count($dupes) === 1 ? '' : 's' ?> may now be counted twice. <a href="/clients/<?= $cid ?>/licenses#m365-dupes">Review on Licensing</a></div>
+      <?php endif; ?>
+      <div class="text-muted mt-1">Subscriptions go to <a href="/clients/<?= $cid ?>/licenses">Licensing</a>, with seats bought and assigned updated every hour; prices come from the <a href="/integrations/microsoft-365#prices">price list</a> unless a license has its own. Security checks (Secure Score, MFA, admins) run once a day and show on the <a href="/clients/<?= $cid ?>">overview</a>.</div>
     <?php elseif ($pending): ?>
       <?php // nothing more to show until it's confirmed or forgotten ?>
     <?php elseif (!$appReady): ?>
       <p class="mb-0 text-muted">Read this client's Microsoft 365 subscriptions into Licensing. <?= Auth::can('admin') ? 'First <a href="/integrations/microsoft-365">set up Microsoft 365 (clients)</a> (once for all clients).' : 'An admin sets it up once under Integrations.' ?></p>
     <?php else: ?>
-      <p class="mb-2">Connect to read <?= e($client['name']) ?>'s Microsoft 365 subscriptions into Licensing, hourly and read-only. An admin of their tenant approves your app once.</p>
+      <p class="mb-2">Connect to read <?= e($client['name']) ?>'s Microsoft 365 subscriptions into Licensing (hourly) and check its security settings (daily), read-only. An admin of their tenant approves your app once.</p>
       <?php if ($tech): ?>
         <div class="d-flex flex-wrap gap-2">
           <?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Connect Microsoft 365', 'btn-primary', ' title="Opens Microsoft: sign in as the client\'s admin and accept"') ?>
@@ -67,7 +77,7 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <details class="mt-2"<?= $m365 && $m365['mode'] === 'own' ? ' open' : '' ?>><summary class="text-muted">Use an app in the client's own tenant instead</summary>
         <form method="post" action="/clients/<?= $cid ?>/m365/own" class="mt-2" data-unsaved>
           <?= csrf_field() ?>
-          <p class="text-muted mb-2">For a client that doesn't allow outside apps: register an app in <b>their</b> Entra ID with Microsoft Graph application permissions Organization.Read.All and User.Read.All (admin consent granted) and a client secret.</p>
+          <p class="text-muted mb-2">For a client that doesn't allow outside apps: register an app in <b>their</b> Entra ID with Microsoft Graph application permissions Organization.Read.All, User.Read.All and, for the security checks, SecurityEvents.Read.All, Policy.Read.All, AuditLog.Read.All and RoleManagement.Read.Directory (admin consent granted) and a client secret.</p>
           <div class="row g-2">
             <div class="col-md-6"><label>Directory (tenant) ID</label><input name="tenant_id" class="form-control form-control-sm" value="<?= e($m365 && $m365['mode'] === 'own' ? $m365['tenant_id'] : '') ?>" required></div>
             <div class="col-md-6"><label>Application (client) ID</label><input name="app_id" class="form-control form-control-sm" value="<?= e($m365 && $m365['mode'] === 'own' ? $m365['app_id'] : '') ?>" required></div>
@@ -80,20 +90,3 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
     <?php endif; ?>
   </div>
 </div>
-
-<?php if ($dupes && $tech): // the one-time duplicate check after connecting ?>
-<form method="post" action="/clients/<?= $cid ?>/m365/dupes" class="card card-outline card-warning">
-  <?= csrf_field() ?>
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-clone me-2 text-warning"></i>Counted twice?</h3></div>
-  <div class="card-body py-2 small">
-    <p class="mb-2">These licenses look like Microsoft subscriptions that Microsoft 365 now counts. Retire the ones that are the same, so their cost isn't counted twice:</p>
-    <?php foreach ($dupes as $d): ?>
-      <div class="form-check"><input type="checkbox" class="form-check-input" name="retire[]" value="<?= (int) $d['id'] ?>" id="dupe-<?= (int) $d['id'] ?>" checked>
-        <label class="form-check-label fw-normal" for="dupe-<?= (int) $d['id'] ?>"><?= e($d['name']) ?> <span class="text-muted">(<?= $d['source'] === 'psa' ? e(psa_name()) : 'added in Align' ?><?= $d['seats'] !== null ? ', ' . (int) $d['seats'] . ' seats' : '' ?>)</span></label></div>
-    <?php endforeach; ?>
-    <div class="mt-2"><button class="btn btn-sm btn-warning">Retire the ticked ones</button>
-      <button class="btn btn-sm btn-link" name="keep" value="1" formnovalidate>Keep them all</button></div>
-    <?php if (array_filter($dupes, fn($x) => $x['source'] === 'psa')): ?><p class="text-muted mt-2 mb-0">Retired here only: archive them in <?= e(psa_name()) ?> too.</p><?php endif; ?>
-  </div>
-</form>
-<?php endif; ?>

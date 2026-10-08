@@ -70,8 +70,8 @@ ok(s["m365c_cert_expires"] and date.fromisoformat(s["m365c_cert_expires"]) > dat
 ok(phpo('echo Align\\Settings::hasSecret("m365c_key_pem") && Align\\Settings::hasSecret("m365c_cert_pem") ? "yes" : "no";') == "yes"
    and q("select count(*) n from settings where name='m365c_key_pem' and value like '%%PRIVATE KEY%%'")[0]["n"] == 0, "the key and certificate are stored encrypted")
 app = mock()["app"]
-ok(app["signInAudience"] == "AzureADMultipleOrgs" and set(app["roles"]) == {"498476ce-e0fe-48b0-b801-37ba7e2685c6", "df021288-bdef-4463-88db-98f22de89214"},
-   "the app is multi-tenant, and clients are asked only for read-only permissions")
+ok(app["signInAudience"] == "AzureADMultipleOrgs" and {"498476ce-e0fe-48b0-b801-37ba7e2685c6", "df021288-bdef-4463-88db-98f22de89214"} <= set(app["roles"]) and "18a4783c-866b-4cc7-a460-3d5e5662c884" not in app["roles"],
+   "the app is multi-tenant, and clients are asked only for read-only permissions (never OwnedBy; 2.6.1 adds the security ones)")
 ok(st.post(B + "/integrations/microsoft-365/setup", data={"_csrf": tok(st, "/integrations/microsoft-365")}).text.count("ABCD-EFGH") == 0, "setting up again is refused while the app is in use")
 ok(app["granted"] == ["18a4783c-866b-4cc7-a460-3d5e5662c884"] and app["owners"] and app["owners"][0].endswith("/directoryObjects/" + app["sp"]), "it may change only itself, and owns itself")
 ok(app["redirectUris"] and app["redirectUris"][0].endswith("/m365/consent"), "its redirect URI is Align's consent page")
@@ -83,15 +83,19 @@ ok("Ready" in r.text and "bbbbbbbb-0000-4000-8000-00000000000b" in r.text and "R
 # ---- connecting a client (staff): its subscriptions in Licensing
 q("insert into licenses (client_id, source, name, category, pricing, seats, unit_price) values (%s, 'manual', 'ZzM365 Microsoft 365 Business Premium', 'productivity', 'per_seat', 9, 20)", C1)
 mset(skus={"tenant": T1, "list": [sku(SPB, "SPB", 10, 8), sku(EXO, "EXCHANGESTANDARD", 5, 5), sku(FLOW, "FLOW_FREE", 10000, 3)]})
-t = st.get(B + f"/clients/{C1}/licenses").text
-ok('id="m365"' in t and "Connect Microsoft 365" in t and "Link for the client" in t, "the client's Licensing page offers to connect")
-ok("Connect Microsoft 365" not in viewer.get(B + f"/clients/{C1}/licenses").text, "viewers don't get the buttons")
+t = st.get(B + f"/clients/{C1}/connectors").text
+ok('id="m365"' in t and "Connect Microsoft 365" in t and "Link for the client" in t and "Linked systems" in t, "the client's Connectors page offers to connect and lists its linked systems")
+ok(f'href="/clients/{C1}/connectors"' in t and f'href="/clients/{C1}/connectors"' in tech.get(B + f"/clients/{C1}").text, "Connectors is in the client menu for admins and techs")
+ok("Connect it on Connectors" in st.get(B + f"/clients/{C1}/licenses").text, "Licensing points to Connectors")
+vt = viewer.get(B + f"/clients/{C1}/licenses").text
+ok("Connect Microsoft 365" not in vt and "/connectors" not in vt, "viewers get no buttons and no Connectors link")
+ok(viewer.get(B + f"/clients/{C1}/connectors").status_code == 403, "viewers can't open Connectors")
 r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/licenses")}, allow_redirects=False)
 loc = r.headers.get("Location", "")
 ok(r.status_code == 302 and "/m365c-login/organizations/v2.0/adminconsent?" in loc and "client_id=bbbbbbbb" in loc and "redirect_uri=" in loc, "Connect sends you to Microsoft's approval page")
 r = st.get(loc)
 row = q("select * from client_m365 where client_id=%s", C1)[0]
-ok(r.url.endswith(f"/clients/{C1}/licenses#m365") or f"/clients/{C1}/licenses" in r.url, "after approving, staff are back on the client's Licensing page")
+ok(f"/clients/{C1}/connectors" in r.url, "after approving, staff are back on the client's Connectors page")
 ok(row["status"] == "connected" and row["tenant_id"] == T1 and row["tenant_name"] == "Northwind Dental" and row["tenant_domain"] == "northwind.example" and row["consent_nonce"] is None,
    "the tenant is connected with its name and domain; the link is spent")
 spb, exo = lic(C1, "SPB"), lic(C1, "EXCHANGESTANDARD")
@@ -101,8 +105,22 @@ ok(exo and exo["seats"] == 5 and lic(C1, "FLOW_FREE") is None, "free subscriptio
 pl = {p["sku_part"]: p for p in q("select * from m365_prices")}
 ok(set(pl) == {"SPB", "EXCHANGESTANDARD", "FLOW_FREE"} and pl["FLOW_FREE"]["skip"] == 1 and pl["SPB"]["skip"] == 0, "every subscription goes on the price list, free ones left out")
 t = st.get(B + f"/clients/{C1}/licenses").text
-ok("Northwind Dental" in t and "Microsoft 365</span>" in t and "Sync now" in t and "needs price" in t, "the page shows the tenant, the Microsoft 365 badge and that prices are missing")
+ok("synced from <b>Northwind Dental</b>" in t and "Microsoft 365</span>" in t and "needs price" in t and "Sync now" not in t, "Licensing shows a line about the tenant, the Microsoft 365 badge and that prices are missing")
 ok("Counted twice?" in t and "ZzM365 Microsoft 365 Business Premium" in t, "a license added by hand that looks the same is offered for retiring")
+tc = st.get(B + f"/clients/{C1}/connectors").text
+ok("Northwind Dental" in tc and "Sync now" in tc and "may now be counted twice" in tc, "Connectors shows the tenant and Sync now, and points to the duplicates on Licensing")
+tt = text(tc)
+ok("Linked systems" in tt and "· PSA" in tt and "· RMM" in tt and "· Backups" in tt and "Last hourly sync (all clients)" in tt, "Linked systems lists the PSA, the RMM and the backup product, with the last sync")
+orig = q("select external_id, match_method from client_links where client_id=%s and provider='ninjaone'", C1)
+q("insert into client_links (client_id, provider, external_id, match_method) values (%s, 'ninjaone', 'zz-gone', 'manual') on duplicate key update external_id='zz-gone'", C1)
+tt = text(st.get(B + f"/clients/{C1}/connectors").text)
+ok("Link broken" in tt and "zz-gone" not in tt and "not synced yet" in tt, "a link to an organization Align doesn't have shows as broken")
+if orig:
+    q("update client_links set external_id=%s, match_method=%s where client_id=%s and provider='ninjaone'", orig[0]["external_id"], orig[0]["match_method"], C1)
+else:
+    q("delete from client_links where client_id=%s and provider='ninjaone'", C1)
+vt = viewer.get(B + f"/clients/{C1}").text
+ok('id="m365-security"' in vt and "/connectors" not in vt, "viewers see the security card without links to Connectors")
 ok(q("select count(*) n from audit_log where action='m365.connected'")[0]["n"] >= 1, "connecting is audited")
 
 # ---- the price list and a license's own price
@@ -164,16 +182,18 @@ t = st.post(B + f"/clients/{C2}/m365/link", data={"_csrf": tok(st, f"/clients/{C
 m = re.search(r'id="m365-link" value="([^"]+)"', t)
 link = H.unescape(m.group(1)) if m else ""
 ok(link.startswith(M + "/m365c-login/organizations/v2.0/adminconsent?"), "the link is shown once")
-ok('id="m365-link"' not in st.get(B + f"/clients/{C2}/licenses").text, "...and not again")
+ok('id="m365-link"' not in st.get(B + f"/clients/{C2}/connectors").text, "...and not again")
 anon = requests.Session()
 r = anon.get(link)
 ok(r.status_code == 200 and "Thank you" in r.text and "Contoso Legal" in r.text, "the client's admin gets a thank-you page")
 row = q("select * from client_m365 where client_id=%s", C2)[0]
 ok(row["status"] == "pending" and row["tenant_id"] is None and row["pending_tenant_id"] == T2 and lic(C2, "SPB") is None, "approved through a link, it waits for staff (nothing synced)")
 ok("already used" in anon.get(link).text, "the link works once")
-t = st.get(B + f"/clients/{C2}/licenses").text
+ok("waiting to be confirmed" in st.get(B + f"/clients/{C2}/licenses").text, "Licensing says a tenant is waiting")
+t = st.get(B + f"/clients/{C2}/connectors").text
 ok("Contoso Legal" in t and "Yes, connect it" in t and T2 in t and "contoso.example" in t, "staff are asked to confirm, with the tenant's id and domain")
 ok("Confirm a Microsoft 365 tenant" in st.get(B + "/").text, "the dashboard says there's one to confirm")
+ok(f"/clients/{C2}/connectors" not in viewer.get(B + "/").text, "viewers' dashboard doesn't link to Connectors")
 tech.post(B + f"/clients/{C2}/m365/confirm", data={"_csrf": tok(tech, f"/clients/{C2}/licenses")})
 row = q("select * from client_m365 where client_id=%s", C2)[0]
 ok(row["status"] == "connected" and row["tenant_id"] == T2 and row["pending_tenant_id"] is None and lic(C2, "SPB")["seats"] == 3, "confirmed, it's connected and synced")
@@ -217,7 +237,7 @@ ok("secret is wrong" in flash(r.text) and not q("select 1 from client_m365 where
 r = st.post(B + f"/clients/{C3}/m365/own", data={**fo, "secret": "own-secret", "_csrf": tok(st, f"/clients/{C3}/licenses")})
 row = q("select * from client_m365 where client_id=%s", C3)[0]
 ok(row["mode"] == "own" and row["status"] == "connected" and lic(C3, "SPB")["seats"] == 4 and row["secret_enc"].startswith("v1:") and "own-secret" not in row["secret_enc"], "connected with its own app; the secret is encrypted")
-ok("own-secret" not in st.get(B + f"/clients/{C3}/licenses").text and "expires" in text(st.get(B + f"/clients/{C3}/licenses").text), "the secret isn't shown back; its expiry is flagged")
+ok("own-secret" not in st.get(B + f"/clients/{C3}/connectors").text and "expires" in text(st.get(B + f"/clients/{C3}/connectors").text), "the secret isn't shown back; its expiry is flagged")
 ok("Microsoft 365 app secret expires" in st.get(B + "/").text, "the dashboard flags the expiring secret")
 
 # ---- certificate rotation: forced, when due, and failing

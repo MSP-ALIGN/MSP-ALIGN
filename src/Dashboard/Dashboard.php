@@ -159,7 +159,8 @@ final class Dashboard
             if ($p['client'] === null && !Auth::can('admin')) {
                 continue;
             }
-            $add($p['tone'], 'system', $p['title'], $p['detail'], $p['link'], $p['client']);
+            // 2.6.1: a client's problem links to its Connectors page, which only techs and admins can open
+            $add($p['tone'], 'system', $p['title'], $p['detail'], Auth::can('tech') ? $p['link'] : preg_replace('#/connectors$#', '/licenses#m365', $p['link']), $p['client']);
         }
         if (!empty($ctx['unmapped']) || !empty($ctx['unassigned'])) {
             $add('info', 'system', 'Client mapping to review', trim(($ctx['unmapped'] ? $ctx['unmapped'] . ' client(s) without an organization in ' . \Align\Providers\Providers::rmmNames() . '. ' : '') . ($ctx['unassigned'] ? $ctx['unassigned'] . ' ' . \Align\Providers\Providers::rmmNames() . ' device(s) in an unlinked organization.' : '')), '/mapping');

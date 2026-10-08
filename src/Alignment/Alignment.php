@@ -44,7 +44,7 @@ final class Alignment
     /** Automatic checks a standard can use: the compliance device checks plus backups. */
     public static function checks(): array
     {
-        return Compliance::AUTO_CHECKS + ['backups' => 'Servers backed up, no failed jobs'];
+        return Compliance::AUTO_CHECKS + ['backups' => 'Servers backed up, no failed jobs'] + \Align\M365\Security::CHECKS; // 2.6.1: + Microsoft 365
     }
 
     /** [label, tone] for a score (null: no score, e.g. every standard N/A or never reviewed). */
@@ -304,10 +304,17 @@ final class Alignment
 
     /**
      * Suggestions from Align's own data for standards with an automatic check: [check => ['text', 'suggest' (an
-     * answer or null), 'ok', 'unknown']]. $devices: Lifecycle::devices($clientId); $backup: Backup::forClient().
+     * answer or null), 'ok', 'unknown']]. $devices: Lifecycle::devices($clientId); $backup: Backup::forClient();
+     * $m365: the client's stored Microsoft 365 security results (M365\Security::forClient(), 2.6.1; null = none);
+     * $m365On: whether its Microsoft 365 is connected (only the text of a check without a result changes).
      */
-    public static function indicators(array $devices, ?array $backup): array
+    public static function indicators(array $devices, ?array $backup, ?array $m365 = null, bool $m365On = false): array
     {
+        // 2.6.1 Microsoft 365 checks, as answers (a person still decides)
+        $m = [];
+        foreach (\Align\M365\Security::indicators($m365, $m365On) as $k => $i) {
+            $m[$k] = ['label' => $i['label'], 'text' => $i['text'], 'ok' => $i['ok'], 'unknown' => $i['unknown'], 'suggest' => $i['suggest'] ? self::fromCompliance($i['suggest']) : null];
+        }
         $out = [];
         foreach (Compliance::indicators($devices) as $k => $i) {
             $out[$k] = ['label' => $i['label'], 'text' => $i['text'], 'ok' => $i['ok'], 'unknown' => $i['unknown'],
@@ -336,7 +343,7 @@ final class Alignment
             $out['backups'] = ['label' => 'Backups', 'ok' => false, 'unknown' => true, 'suggest' => null, 'text' => 'No backup data for this client'];
             // (also when the client's backup product lists nothing for it yet)
         }
-        return $out;
+        return $out + $m;
     }
 
     /**
