@@ -201,6 +201,7 @@ final class ClientLinks
             isset(Providers::rmmConnectors()[$provider]) => ['rmm_orgs', 'org_id'],
             isset(Providers::backupConnectors()[$provider]) => ['backup_companies', 'uid'],
             $provider === \Align\Huntress\Sync::PROVIDER => ['huntress_orgs', 'org_id'], // 2.7.0
+            $provider === \Align\Sat\Curricula::PROVIDER => ['sat_accounts', 'account_id'], // 2.7.2
             default => null,
         };
     }

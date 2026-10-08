@@ -151,6 +151,11 @@ final class SyncRunner
         if (\Align\Huntress\Api::configured()) {
             $this->step('Huntress', fn() => \Align\Huntress\Sync::run());
         }
+        // 2.7.2: Huntress SAT through Curricula (accounts matched to clients; each linked client's results once a day),
+        // after Huntress so accounts can match through the Huntress organization they belong to
+        if (\Align\Sat\Curricula::configured()) {
+            $this->step('Curricula (Huntress SAT)', fn() => \Align\Sat\Curricula::run());
+        }
         if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth LIMIT 1")) {
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }

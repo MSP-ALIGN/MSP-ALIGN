@@ -393,7 +393,9 @@ final class ClientController
             'emailAuth' => \Align\Domains\EmailAuth::stored($id),
             // 2.7.0: Huntress (when the client has a Huntress organization) and security awareness training results
             'huntress' => \Align\Huntress\Clients::forClient($id, $devices),
-            'sat' => \Align\Huntress\Api::configured() || \Align\Sat\Sat::any($id) ? ['history' => \Align\Sat\Sat::history($id), 'checks' => \Align\Sat\Sat::checks($id)] : null,
+            // (2.7.2: and the client's Curricula account, when linked, with its summary reports)
+            'sat' => \Align\Huntress\Api::configured() || \Align\Sat\Curricula::configured() || \Align\Sat\Sat::any($id) ? ['history' => \Align\Sat\Sat::history($id), 'checks' => \Align\Sat\Sat::checks($id),
+                'source' => \Align\Sat\Sat::source($id), 'curricula' => $cur = \Align\Sat\Curricula::account($id), 'reports' => $cur ? \Align\Sat\Curricula::reports((string) $cur['account_id']) : []] : null,
         ]);
     }
 

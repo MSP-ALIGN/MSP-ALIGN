@@ -9,8 +9,9 @@ use Align\Settings;
 /**
  * 2.7.0 Security awareness training (SAT) results per client, from the exports of Huntress Managed SAT (Curricula)
  * uploaded on the client's page: "Assignment: Learner Progress" (training completion), and "Phishing: Attempts" or
- * "Phishing: Annual Overview" (simulated phishing). Huntress's API has no SAT results (only a learner count), so
- * uploads are the source; an API can replace them later without changing what's stored.
+ * "Phishing: Annual Overview" (simulated phishing). Huntress's API has no SAT results (only a learner count); since
+ * 2.7.2 a client whose Curricula account is linked gets them from the Curricula API instead (Sat\Curricula, rows with
+ * source 'api'), and its uploads are then ignored by the checks (kept, and used again if the link goes).
  *
  * Only totals are kept (learners, completed, phishing emails sent, clicked, reported, compromised, the dates they
  * cover); employee names and emails in the file are read in memory and never stored. Two automatic checks (CHECKS)
@@ -36,6 +37,15 @@ final class Sat
     /** Columns of a Learner Progress export that aren't training episodes (normalized names). */
     private const META = ['firstname', 'lastname', 'name', 'fullname', 'learner', 'email', 'emailaddress', 'enrollmentdate', 'enrolled', 'enrolledat', 'company',
         'account', 'accountname', 'status', 'learnerstatus', 'department', 'manager', 'title', 'jobtitle', 'group', 'groups', 'location', 'id', 'learnerid'];
+
+    /**
+     * Where the client's checks come from (2.7.2): 'api' when Curricula is set up and has results for the client,
+     * else 'upload'. One source at a time, so an upload and the API never count the same campaign twice.
+     */
+    public static function source(int $clientId): string
+    {
+        return Curricula::configured() && DB::value("SELECT 1 FROM sat_results WHERE client_id = ? AND source = 'api' LIMIT 1", [$clientId]) ? 'api' : 'upload';
+    }
 
     /** Training passes at this share of learners done (setting sat_training_pass, %). */
     public static function trainingPass(): int
@@ -295,18 +305,19 @@ final class Sat
      */
     public static function save(int $clientId, array $p, string $fileName, ?int $userId): int
     {
-        DB::run('DELETE FROM sat_results WHERE client_id = ? AND report = ? AND covers_from <=> ? AND covers_to <=> ?', [$clientId, $p['report'], $p['covers_from'], $p['covers_to']]);
+        DB::run("DELETE FROM sat_results WHERE client_id = ? AND source = 'upload' AND report = ? AND covers_from <=> ? AND covers_to <=> ?", [$clientId, $p['report'], $p['covers_from'], $p['covers_to']]);
         $clean = mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]/', '', basename($fileName)) ?? ''), 0, 255);
-        return DB::insert('sat_results', ['client_id' => $clientId, 'kind' => $p['kind'], 'report' => $p['report'], 'file_name' => $clean ?: null,
+        return DB::insert('sat_results', ['client_id' => $clientId, 'kind' => $p['kind'], 'source' => 'upload', 'report' => $p['report'], 'file_name' => $clean ?: null,
             'learners' => $p['learners'] ?? null, 'completed' => $p['completed'] ?? null, 'assignments' => $p['assignments'] ?? null,
             'sent' => $p['sent'] ?? null, 'clicked' => $p['clicked'] ?? null, 'reported' => $p['reported'] ?? null, 'compromised' => $p['compromised'] ?? null,
             'campaigns' => $p['campaigns'] ?? null, 'covers_from' => $p['covers_from'], 'covers_to' => $p['covers_to'], 'uploaded_by' => $userId]);
     }
 
-    /** The client's uploads, newest first. */
+    /** The client's results from the source the checks use (source()), newest first. */
     public static function history(int $clientId): array
     {
-        return DB::all('SELECT s.*, u.name AS uploaded_by_name FROM sat_results s LEFT JOIN users u ON u.id = s.uploaded_by WHERE s.client_id = ? ORDER BY s.uploaded_at DESC, s.id DESC', [$clientId]);
+        return DB::all('SELECT s.*, u.name AS uploaded_by_name FROM sat_results s LEFT JOIN users u ON u.id = s.uploaded_by WHERE s.client_id = ? AND s.source = ?
+            ORDER BY s.uploaded_at DESC, s.covers_to DESC, s.id DESC', [$clientId, self::source($clientId)]);
     }
 
     /**
@@ -314,15 +325,17 @@ final class Sat
      * completion date is within the last 12 months, passes at trainingPass()% of learners done (every assigned
      * episode completed). Phishing: the uploads covering the
      * last 12 months together (each campaign's own numbers), passing under clickMax()% clicked with a campaign in the
-     * last campaignMonths() months. Unknown without uploads.
+     * last campaignMonths() months. Unknown without uploads. Only rows from source() count.
      */
     public static function checks(int $clientId): array
     {
         $out = [];
+        $src = self::source($clientId);
+        $none = $src === 'api' ? 'Curricula has no ' : 'No ';
         $year = date('Y-m-d', strtotime('-12 months'));
-        $t = DB::one("SELECT * FROM sat_results WHERE client_id = ? AND kind = 'training' ORDER BY covers_to DESC, id DESC LIMIT 1", [$clientId]);
+        $t = DB::one("SELECT * FROM sat_results WHERE client_id = ? AND source = ? AND kind = 'training' ORDER BY covers_to DESC, id DESC LIMIT 1", [$clientId, $src]);
         if (!$t) {
-            $out['sat_training'] = ['status' => 'unknown', 'detail' => 'No training results uploaded.'];
+            $out['sat_training'] = ['status' => 'unknown', 'detail' => $none . 'training results' . ($src === 'api' ? '.' : ' uploaded.')];
         } elseif ($t['covers_to'] < $year) {
             $out['sat_training'] = ['status' => 'fail', 'detail' => 'The newest training results end ' . fmt_date($t['covers_to']) . ': nothing in the last 12 months.'];
         } else {
@@ -331,10 +344,11 @@ final class Sat
                 'detail' => "{$t['completed']} of {$t['learners']} learners completed their training ($pct%; " . self::trainingPass() . '% needed), as of ' . fmt_date($t['covers_to'])];
         }
         $p = DB::one("SELECT SUM(sent) AS sent, SUM(clicked) AS clicked, SUM(reported) AS reported, SUM(IF(reported IS NULL, 0, sent)) AS reported_of, SUM(campaigns) AS campaigns,
-            MAX(covers_to) AS last FROM sat_results WHERE client_id = ? AND kind = 'phishing' AND covers_to >= ?", [$clientId, $year]);
+            MAX(covers_to) AS last FROM sat_results WHERE client_id = ? AND source = ? AND kind = 'phishing' AND covers_to >= ?", [$clientId, $src, $year]);
         if (!$p || !(int) $p['sent']) {
-            $last = DB::value("SELECT MAX(covers_to) FROM sat_results WHERE client_id = ? AND kind = 'phishing'", [$clientId]);
-            $out['sat_phishing'] = ['status' => $last ? 'fail' : 'unknown', 'detail' => $last ? 'The last phishing campaign uploaded was ' . fmt_date($last) . ': none in the last 12 months.' : 'No phishing results uploaded.'];
+            $last = DB::value("SELECT MAX(covers_to) FROM sat_results WHERE client_id = ? AND source = ? AND kind = 'phishing'", [$clientId, $src]);
+            $out['sat_phishing'] = ['status' => $last ? 'fail' : 'unknown', 'detail' => $last ? 'The last phishing campaign ' . ($src === 'api' ? 'in Curricula' : 'uploaded') . ' was ' . fmt_date($last) . ': none in the last 12 months.'
+                : $none . 'phishing results' . ($src === 'api' ? '.' : ' uploaded.')];
         } else {
             $rate = round((int) $p['clicked'] / (int) $p['sent'] * 100, 1);
             $recent = $p['last'] >= date('Y-m-d', strtotime('-' . self::campaignMonths() . ' months'));
@@ -360,6 +374,6 @@ final class Sat
     /** Whether the client has any SAT results (for the health score: none means the checks are left out). */
     public static function any(int $clientId): bool
     {
-        return (bool) DB::value('SELECT 1 FROM sat_results WHERE client_id = ? LIMIT 1', [$clientId]);
+        return (bool) DB::value('SELECT 1 FROM sat_results WHERE client_id = ? AND source = ? LIMIT 1', [$clientId, self::source($clientId)]);
     }
 }

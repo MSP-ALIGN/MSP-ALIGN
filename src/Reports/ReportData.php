@@ -337,10 +337,12 @@ final class ReportData
         }
         $inc = $h ? array_column(DB::all('SELECT severity, COUNT(*) AS n FROM huntress_incidents WHERE org_id = ? AND sent_at >= NOW() - INTERVAL 90 DAY GROUP BY severity',
             [$h['org']['org_id']]), 'n', 'severity') : [];
+        // SAT figures from the same source as the checks (2.7.2: Curricula's API, else uploads)
+        $src = \Align\Sat\Sat::source($clientId);
         return ['huntress' => $h, 'checks' => $checks, 'incidents90' => $inc,
-            'training' => DB::one("SELECT * FROM sat_results WHERE client_id = ? AND kind = 'training' ORDER BY covers_to DESC, id DESC LIMIT 1", [$clientId]),
+            'training' => DB::one("SELECT * FROM sat_results WHERE client_id = ? AND source = ? AND kind = 'training' ORDER BY covers_to DESC, id DESC LIMIT 1", [$clientId, $src]),
             'phishing' => DB::one("SELECT SUM(sent) AS sent, SUM(clicked) AS clicked, SUM(reported) AS reported, MAX(covers_to) AS last FROM sat_results
-                WHERE client_id = ? AND kind = 'phishing' AND covers_to >= CURDATE() - INTERVAL 12 MONTH HAVING SUM(sent) > 0", [$clientId])];
+                WHERE client_id = ? AND source = ? AND kind = 'phishing' AND covers_to >= CURDATE() - INTERVAL 12 MONTH HAVING SUM(sent) > 0", [$clientId, $src])];
     }
 
     /** Backup status for a client, or null when it has no backup data. */
