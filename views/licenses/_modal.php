@@ -7,20 +7,23 @@ use Align\Licensing\Licenses;
  * 2.6.0: a Microsoft 365 license (source m365) has its name, type, seats, seats in use and SKU read-only (from the
  * client's tenant); price, billing, dates and notes stay editable, and "use the price list's price again" appears
  * once it has its own price. It can be retired but not deleted (it would come back on the next sync).
+ * 2.6.3: a Google Workspace license (source gws) is handled the same way (seats are the users assigned the edition).
  * Every value is escaped (a suggestion's text comes from a portal user); $back is checked again by the controller.
  */
 $l = $l ?? null;
 $edit = $l && !empty($l['id']);
 $sub = !$edit && !empty($l['submission_id']) ? (int) $l['submission_id'] : 0;
 $fromPsa = $edit && $l['source'] === 'psa';
-$fromM365 = $edit && $l['source'] === 'm365'; // 2.6.0: name, seats and seats in use come from the client's tenant
+$fromM365 = $edit && in_array($l['source'], ['m365', 'gws'], true); // 2.6.0: name, seats and seats in use come from the client's tenant (2.6.3: or Google Workspace)
+$gws = $edit && $l['source'] === 'gws';
+$cloud = $gws ? 'Google Workspace' : 'Microsoft 365';
 $id = $edit ? 'modal-license-' . (int) $l['id'] : ($sub ? 'modal-suggestion-' . $sub : 'modal-license');
 $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
 $ro = $fromPsa ? 'readonly' : '';
 $tag = $fromPsa ? ' <span class="badge text-bg-light border fw-normal" title="Managed in ' . psa_name() . '">' . psa_name() . '</span>' : '';
 // Microsoft 365 licenses: what Microsoft owns is read-only (dates, price and notes stay in Align)
 $mro = $fromPsa || $fromM365 ? 'readonly' : '';
-$mtag = $fromM365 ? ' <span class="badge text-bg-light border fw-normal" title="From the client\'s Microsoft 365 tenant">Microsoft 365</span>' : $tag;
+$mtag = $fromM365 ? ' <span class="badge text-bg-light border fw-normal" title="From the client\'s ' . $cloud . '">' . $cloud . '</span>' : $tag;
 ?>
 <div class="modal fade" id="<?= $id ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -37,7 +40,9 @@ $mtag = $fromM365 ? ' <span class="badge text-bg-light border fw-normal" title="
           <?php if ($fromPsa): ?>
             <div class="alert alert-light border small py-2"><i class="fas fa-circle-info me-1"></i>This license comes from <?= e(psa_name()) ?>. Its name, type, seats, vendor and dates are updated from <?= e(psa_name()) ?> every few minutes, so change those in <?= e(psa_name()) ?>. Price, billing, category and seats in use are kept in Align.</div>
           <?php endif; ?>
-          <?php if ($fromM365): ?>
+          <?php if ($gws): // 2.6.3 ?>
+            <div class="alert alert-light border small py-2"><i class="fab fa-google me-1"></i>This edition comes from the client's Google Workspace. The users assigned it update every hour (seats and seats in use are both that number); the name comes from the price list (Integrations → Google Workspace (clients)). <?= $l['price_source'] === 'custom' ? 'This license has its own price.' : 'Its price follows the price list; change it here to give this client its own.' ?></div>
+          <?php elseif ($fromM365): ?>
             <div class="alert alert-light border small py-2"><i class="fab fa-microsoft me-1"></i>This subscription comes from the client's Microsoft 365 tenant. Seats bought and assigned update every hour; the name comes from the price list (Integrations → Microsoft 365 (clients)). <?= $l['price_source'] === 'custom' ? 'This license has its own price.' : 'Its price follows the price list; change it here to give this client its own.' ?></div>
           <?php endif; ?>
           <div class="row g-2">
@@ -52,7 +57,7 @@ $mtag = $fromM365 ? ' <span class="badge text-bg-light border fw-normal" title="
               <?php else: ?><select name="license_type" class="form-select"><?php foreach (Licenses::TYPES as $k => $label): ?><option value="<?= $k ?>" <?= $sel($k, $l['license_type'] ?? 'user') ?>><?= e($label) ?></option><?php endforeach; ?></select><?php endif; ?></div>
             <div class="mb-3 col-md-3"><label>Seats / licenses<?= $mtag ?></label><input type="number" min="0" name="seats" class="form-control" value="<?= e($l['seats'] ?? '') ?>" <?= $mro ?> data-lic="seats"></div>
             <div class="mb-3 col-md-3"><label>In use <?= $fromM365 ? $mtag : '<small class="text-muted">(optional)</small>' ?></label><input type="number" min="0" name="seats_used" class="form-control" value="<?= e($l['seats_used'] ?? '') ?>" <?= $fromM365 ? 'readonly' : '' ?>></div>
-            <div class="mb-3 col-md-3"><label><?= $fromM365 ? 'Microsoft SKU' : 'Kind' ?><?= $mtag ?></label><input name="software_type" class="form-control" value="<?= e($l['software_type'] ?? '') ?>" <?= $mro ?> placeholder="SaaS, Desktop…"></div>
+            <div class="mb-3 col-md-3"><label><?= $gws ? 'Google SKU' : ($fromM365 ? 'Microsoft SKU' : 'Kind') ?><?= $mtag ?></label><input name="software_type" class="form-control" value="<?= e($l['software_type'] ?? '') ?>" <?= $mro ?> placeholder="SaaS, Desktop…"></div>
           </div>
           <div class="row g-2">
             <div class="mb-3 col-md-3"><label>Price</label>

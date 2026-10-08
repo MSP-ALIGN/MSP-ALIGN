@@ -4,6 +4,8 @@
  * $byType, $frameworks, $indicators, $upcoming, $recent, $users, $alignment (2.3.0, Alignment::summary); ?array $cadence, $backup, $sla; int $contactCount
  * 2.5.0: array $health (Health::forClient), $healthTrend (Health::history); ?array $healthSince (Health::sinceReview)
  * 2.6.1: ?array $m365sec (M365\Security::stored() for a connected client, [] when it has no recent result; null when not connected)
+ * 2.6.3: ?array $gwssec (the same for Google Workspace, Google\Security); ?array $emailAuth (Domains\EmailAuth::stored(),
+ *        null when the client has no recent result: its card is shown only then)
  * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
  * classes come from fixed tone lists.
  */
@@ -81,7 +83,12 @@ $cid = (int) $client['id'];
         </div>
       </div>
     </div>
-    <?php if ($m365sec !== null) echo \Align\View::fetch('m365/_security', ['client' => $client, 'sec' => $m365sec, 'm365' => \Align\M365\Tenants::row((int) $client['id'])]); // 2.6.1 ?>
+    <?php // Security cards (the health score's Security area links here): Microsoft 365 (2.6.1), Google Workspace and email authentication (2.6.3) ?>
+    <div id="security">
+      <?php if ($m365sec !== null) echo \Align\View::fetch('m365/_security', ['client' => $client, 'sec' => $m365sec, 'm365' => \Align\M365\Tenants::row((int) $client['id'])]); ?>
+      <?php if ($gwssec !== null) echo \Align\View::fetch('gws/_security', ['client' => $client, 'sec' => $gwssec]); ?>
+      <?php if ($emailAuth !== null) echo \Align\View::fetch('gws/_email_auth', ['client' => $client, 'ea' => $emailAuth]); ?>
+    </div>
   </div>
 
   <div class="col-lg-4">

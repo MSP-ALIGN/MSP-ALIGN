@@ -14,7 +14,8 @@ HOME = "aaaaaaaa-0000-4000-8000-000000000001"
 T1 = "11111111-aaaa-4bbb-8ccc-000000000001"
 C1, C2 = 1, 2
 ORG, USR = "498476ce-e0fe-48b0-b801-37ba7e2685c6", "df021288-bdef-4463-88db-98f22de89214"
-SEC_ROLES = ["bf394140-e372-4bf9-a898-299cfc7564e5", "246dd0d5-5bd0-4def-940b-0421030a5b68", "b0afded3-3588-46d8-8b3d-9842eff778da", "483bed4a-2ad3-4361-a73b-c83ccdbdc53c"]
+SEC_ROLES = ["bf394140-e372-4bf9-a898-299cfc7564e5", "246dd0d5-5bd0-4def-940b-0421030a5b68", "b0afded3-3588-46d8-8b3d-9842eff778da", "483bed4a-2ad3-4361-a73b-c83ccdbdc53c",
+             "38d9df27-64da-44fd-b7c5-a6fbac20248f", "230c1aed-a721-4c5d-9cb4-a90514e508ef"]
 
 
 def text(t): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", t)))
@@ -69,7 +70,7 @@ ok(st_of(C1, "m365_mfa_admins") == "pass" and "1 of 1 admins" in s["checks"]["m3
 ok(st_of(C1, "m365_mfa_enforced") == "unknown" and "per-user MFA" in s["checks"]["m365_mfa_enforced"]["detail"], "defaults off and no Conditional Access: MFA enforcement unknown (per-user MFA can't be read)")
 ok(st_of(C1, "m365_legacy_blocked") == "fail" and "Security defaults are off" in s["checks"]["m365_legacy_blocked"]["detail"], "legacy sign-in isn't blocked")
 ok(st_of(C1, "m365_admin_count") == "fail" and "1 Global Administrator" in s["checks"]["m365_admin_count"]["detail"], "one Global Administrator fails (2 to 4)")
-ok(st_of(C1, "m365_stale") == "unknown" and "Entra ID P1" in s["checks"]["m365_stale"]["detail"], "unused accounts need Entra ID P1: unknown, not failed")
+ok(st_of(C1, "m365_stale") == "unknown" and "activity report" in s["checks"]["m365_stale"]["detail"], "no P1: unused accounts come from the activity report (empty here: unknown, not failed)")
 ok(s["consent"] is False, "nothing is waiting for approval")
 sc = phpo(f'echo Align\\M365\\Security::score(Align\\M365\\Security::stored(Align\\M365\\Tenants::row({C1})));')
 ok(sc == "20", f"Security area = 1 of 5 known checks passing = 20 ({sc[:300]})")
@@ -177,7 +178,7 @@ t = st.get(B + f"/clients/{C1}/connectors").text
 ok("Approve new permissions" in t, "the client's Connectors page asks for approval")
 ok("needs to approve new permissions" in st.get(B + f"/clients/{C1}/licenses").text, "...and Licensing says so")
 out = phpo('Align\\Mail\\Notifications::setState("health_day", "2000-01-01"); echo implode("|", Align\\Mail\\Notify::tick());')
-ok("app permissions updated" in out and set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "2",
+ok("app permissions updated" in out and set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "3",
    "the daily run updates the app's own permissions (once): " + out[-120:])
 ok("app permissions updated" not in phpo('Align\\Mail\\Notifications::setState("health_day", "2000-01-01"); echo implode("|", Align\\Mail\\Notify::tick());'), "...not again")
 r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/licenses")}, allow_redirects=False)
@@ -194,13 +195,13 @@ ok("form-action 'self';" in st.get(B + "/").headers.get("Content-Security-Policy
 mset(app={**mock()["app"], "roles": [ORG, USR]}, grants={T1: [ORG, USR]})
 setting("m365c_permissions", "1")
 r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/connectors")}, allow_redirects=False)
-ok(set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "2", "Approve updates the app's permissions before sending the admin to Microsoft")
+ok(set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "3", "Approve updates the app's permissions before sending the admin to Microsoft")
 st.get(r.headers["Location"])
 ok(sec(C1)["consent"] is False and sec(C1).get("missing") == [], "so one approval grants everything")
 mset(app={**mock()["app"], "roles": [ORG, USR]})
 setting("m365c_permissions", "1")
 st.get(B + "/integrations/microsoft-365")
-ok(set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "2", "an admin opening Integrations -> Microsoft 365 (clients) updates it too")
+ok(set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "3", "an admin opening Integrations -> Microsoft 365 (clients) updates it too")
 
 # ---- 2.6.2: approved, but Microsoft hasn't applied a permission to the sign-in yet: named, and "a few minutes"
 mset(roles_lag=["Policy.Read.All"])
@@ -232,7 +233,7 @@ st.get(B + "/integrations/microsoft-365")
 ok(phpo('echo Align\\Settings::get("m365c_permissions");') == "1", "within the hour it isn't tried again on every page view")
 setting("m365c_permissions_failed_at", "0")
 r = st.get(B + "/integrations/microsoft-365")
-ok(phpo('echo Align\\Settings::get("m365c_permissions");') == "2" and phpo('echo Align\\Settings::get("m365c_permissions_error");') == "", "later it's tried again, and the error is cleared")
+ok(phpo('echo Align\\Settings::get("m365c_permissions");') == "3" and phpo('echo Align\\Settings::get("m365c_permissions_error");') == "", "later it's tried again, and the error is cleared")
 
 # ---- 2.6.2: in a real browser, Connect goes to Microsoft's sign-in (it used to just reload the page: CSP form-action)
 from playwright.sync_api import sync_playwright
@@ -258,4 +259,54 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1500); pg.wait_for_load_state()
     ok("Tenant ID" in pg.content(), "coming back to it, the page reloads and shows the result (the tenant waiting to be confirmed)")
     b.close()
+
+# ---- 2.6.3: without Entra ID P1 (security defaults, no Conditional Access): MFA from each account's own methods
+# ($batch, 20 at a time) and unused accounts from the Microsoft 365 active users report, instead of unknown
+q("delete from client_m365 where client_id=%s and status <> 'connected'", C1)
+q("update client_m365 set status='connected', tenant_id=%s, mode='msp' where client_id=%s", T1, C1)
+dom = q("select tenant_domain from client_m365 where client_id=%s", C1)[0]["tenant_domain"]
+mset(grants={T1: [ORG, USR, *SEC_ROLES]}, roles_lag=[])
+users = [{"id": "u1", "userType": "member", "isAdmin": True, "isMfaRegistered": True},
+         {"id": "u2", "userType": "member", "isAdmin": True, "methods": ["passwordAuthenticationMethod", "emailAuthenticationMethod"]},
+         {"id": "p3", "userType": "member", "methods": ["passwordAuthenticationMethod", "phoneAuthenticationMethod"]},
+         {"id": "p4", "userType": "member", "methods": ["fido2AuthenticationMethod"]},
+         {"id": "p5", "userType": "guest", "methods": ["passwordAuthenticationMethod"]},
+         {"id": "p6", "userType": "member", "enabled": False, "methods": ["passwordAuthenticationMethod"]},
+         {"id": "p7", "userType": "member", "licensed": False, "methods": ["passwordAuthenticationMethod"]},
+         *[{"id": f"x{i}", "userType": "member", "isMfaRegistered": True} for i in range(20)]]
+day = lambda n: (date.today() - timedelta(days=n)).isoformat()
+activity = [{"upn": "u1@" + dom, "last": day(3)}, {"upn": "p3@" + dom, "last": day(120)}, {"upn": "p6@" + dom, "last": day(200)},
+            {"upn": "x0@" + dom, "last": day(200), "teams": day(2)}, {"upn": "5f2c9a0e8b1d", "assigned": day(400)},
+            {"upn": "gone@" + dom, "deleted": True, "last": day(300)}, {"upn": "nolic@" + dom, "products": "", "last": day(300)}]
+mset(security={"tenant": T1, "data": {"defaults": True, "regs": "nop1", "signins": "nop1", "admins": 2, "users": users, "activity": activity}})
+mset(calls=[])
+sync(C1)
+s = sec(C1)
+ok(st_of(C1, "m365_mfa_users") == "fail" and "23 of 24 licensed users have an MFA method" in s["checks"]["m365_mfa_users"]["detail"],
+   "no P1: MFA read from each account's methods (guests, blocked and unlicensed accounts left out; email isn't a second factor): " + s["checks"]["m365_mfa_users"]["detail"])
+ok(st_of(C1, "m365_mfa_admins") == "fail" and "1 of 2 admins have an MFA method" in s["checks"]["m365_mfa_admins"]["detail"], "...and for admins (from their roles)")
+ok(len([c for c in mock().get("calls", []) if "batch" in c]) >= 2, "read 20 accounts to a $batch request")
+mset(security={"tenant": T1, "data": {"defaults": True, "regs": "nop1", "signins": "nop1", "admins": 3, "users": users + [{"id": "u3", "userType": "guest", "isAdmin": True}], "activity": activity, "throttle": True}}, throttled=False)
+sync(C1)
+ok("23 of 24 licensed users" in sec(C1)["checks"]["m365_mfa_users"]["detail"] and "1 of 2 admins" in sec(C1)["checks"]["m365_mfa_admins"]["detail"],
+   "an account Microsoft throttles is tried again after Retry-After; a guest admin isn't counted")
+ok(st_of(C1, "m365_stale") == "fail" and "2 of 4 licensed accounts with no Microsoft 365 activity for 90 days" in s["checks"]["m365_stale"]["detail"] and "names are hidden" in s["checks"]["m365_stale"]["detail"],
+   "no P1: unused accounts from the activity report (Teams counts, blocked, deleted and unlicensed rows left out, a hidden name counted): " + s["checks"]["m365_stale"]["detail"])
+rc = [c for c in mock().get("calls", []) if "report" in c]
+ok(rc and rc[-1]["auth"] == "", "the report's download address gets no token")
+ok(st_of(C1, "m365_mfa_enforced") == "pass", "security defaults still count for MFA enforced")
+mset(security={"tenant": T1, "data": {"defaults": True, "regs": "nop1", "signins": "nop1", "admins": 2, "users": users,
+     "activity": [{"upn": "u1@" + dom, "last": day(3)}, {"upn": "p6@" + dom, "last": day(200)}]}})
+sync(C1)
+ok(st_of(C1, "m365_stale") == "pass" and "names are hidden" not in sec(C1)["checks"]["m365_stale"]["detail"], "real names: a blocked account's licence isn't counted, and nothing else is unused")
+mset(grants={T1: [ORG, *[r for r in SEC_ROLES if r not in ("38d9df27-64da-44fd-b7c5-a6fbac20248f", "230c1aed-a721-4c5d-9cb4-a90514e508ef")], USR]})
+sync(C1)
+s = sec(C1)
+ok(st_of(C1, "m365_mfa_users") == "unknown" and "Not approved yet" in s["checks"]["m365_mfa_users"]["detail"] and st_of(C1, "m365_stale") == "unknown" and s["consent"] is True,
+   "a client that hasn't approved the two new permissions: unknown, asking for approval")
+ok("Approve new permissions" in st.get(B + f"/clients/{C1}/connectors").text, "...on its Connectors page")
+mset(grants={T1: [ORG, USR, *SEC_ROLES]})
+mset(security={"tenant": T1, "data": {"defaults": True, "regs": "nop1", "signins": "nop1", "admins": 2, "users": users, "activity": activity}})
+h = phpo('echo json_encode((new ReflectionMethod("Align\\M365\\App", "graphDownload"))->getDocComment() !== false);')
+ok(h == "true", "the download helper is documented")
 done()

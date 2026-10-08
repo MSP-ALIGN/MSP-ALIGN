@@ -10,8 +10,11 @@ namespace Align\Http;
  */
 final class HttpException extends \RuntimeException
 {
-    /** $status: the HTTP status (0 when no response came back). */
-    public function __construct(string $message, public readonly int $status = 0, public readonly string $body = '')
+    /**
+     * $status: the HTTP status (0 when no response came back). $location (2.6.3): where a redirect points (its Location
+     * header, remote data: callers check it before using it; redirects are never followed by HttpClient itself).
+     */
+    public function __construct(string $message, public readonly int $status = 0, public readonly string $body = '', public readonly string $location = '')
     {
         parent::__construct($message, $status);
     }

@@ -294,7 +294,7 @@ final class App
     }
 
     /** Version of clientAccess(): raised whenever the list grows, so updatePermissions() applies it to an app made earlier. */
-    public const PERMISSIONS_VERSION = 2;
+    public const PERMISSIONS_VERSION = 3; // 3 (2.6.3): the security checks without Entra ID P1 (Security::ROLES)
 
     /**
      * What client admins approve (the app's requiredResourceAccess), all read-only Microsoft Graph application
@@ -553,6 +553,39 @@ final class App
     public static function graph(string $tenant, string $method, string $path, ?array $body = null, ?array $own = null): ?array
     {
         return self::graphWith(self::token($tenant, $own), $method, $path, $body);
+    }
+
+    /**
+     * 2.6.3 A Graph report's file (e.g. /reports/getOffice365ActiveUserDetail(period='D90')): Graph answers with a
+     * redirect to a short-lived, pre-signed download address, fetched here without the app's token. Returns the file
+     * (CSV text). Security: the address is remote data, so only a plain https address on Microsoft's report host
+     * (reports.office.com, or a subdomain of it) is fetched (with allow_insecure_integrations, also the Graph override's own host, for the mocks);
+     * the token is never sent there, and the HttpClient address policy still applies.
+     */
+    public static function graphDownload(string $tenant, string $path, ?array $own = null): string
+    {
+        $client = new HttpClient(60, 2);
+        try {
+            $r = $client->request('GET', self::graphBase() . $path, ['Authorization' => 'Bearer ' . self::token($tenant, $own)], null, true);
+            return $r['body']; // answered directly, without a redirect
+        } catch (HttpException $e) {
+            if ($e->status < 300 || $e->status >= 400 || $e->location === '') {
+                throw M365Exception::from($e);
+            }
+            $loc = $e->location;
+        }
+        $host = strtolower((string) parse_url($loc, PHP_URL_HOST));
+        $mock = \Align\Config::get('allow_insecure_integrations', false) && Settings::get('m365c_graph_base')
+            && $host === strtolower((string) parse_url((string) Settings::get('m365c_graph_base'), PHP_URL_HOST));
+        // No user info, backslashes or spaces: parse_url and curl must read the same host
+        if (preg_match('/[@\\\s]/', $loc) || (!$mock && (strtolower((string) parse_url($loc, PHP_URL_SCHEME)) !== 'https' || !preg_match('/(^|\.)reports\.office\.com$/', $host)))) {
+            throw new M365Exception('Microsoft sent the report somewhere unexpected.');
+        }
+        try {
+            return $client->request('GET', $loc, ['Accept' => 'text/csv'], null, true)['body'];
+        } catch (HttpException $e) {
+            throw M365Exception::from($e);
+        }
     }
 
     /** One Graph request with a given token. Returns the JSON object (or null); throws M365Exception with friendly() text. */

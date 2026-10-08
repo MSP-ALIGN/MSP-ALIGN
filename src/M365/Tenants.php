@@ -224,6 +224,7 @@ final class Tenants
     {
         return DB::transaction(function () use ($clientId) {
             DB::run('DELETE FROM client_m365 WHERE client_id = ?', [$clientId]);
+            \Align\Domains\EmailAuth::forgetUnconnected($clientId); // 2.6.3: its email domain came from this tenant (unless Google Workspace is connected too)
             return DB::run("UPDATE licenses SET retired_at = NOW(), retired_reason = 'm365' WHERE client_id = ? AND source = 'm365' AND retired_at IS NULL", [$clientId])->rowCount();
         });
     }

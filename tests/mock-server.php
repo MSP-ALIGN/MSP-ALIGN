@@ -80,6 +80,157 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     return;
 }
 
+// ---- 2.6.3 Google Workspace for clients: token (JWT bearer, domain-wide delegation), Directory, Licensing, Policy -------
+// Settings for the tests: gwc_token_url = <mock>/gws-token, gwc_api_base = <mock>/gws-api (each Google host under it),
+// dns_mock_url = <mock>/dns. Service accounts are registered with their public key (/mock/gws-set {"accounts":
+// {client_email: {client_id, public_pem}}}); each domain lists its customer, super admins (who may be "sub"), the
+// service account client ids its admin allowed with which scopes, its users, license assignments and policies. Every
+// call is recorded (/mock/gws) so tests can check only GET is sent and the Policy API is paced. Reset: /mock/gws-reset.
+$gwsFile = sys_get_temp_dir() . '/gws-mock.json';
+$gwsState = fn() => json_decode((string) @file_get_contents($gwsFile), true) ?: ['accounts' => [], 'domains' => [], 'dns' => [], 'dns_fail' => [], 'calls' => []];
+$gwsSave = fn(array $st) => file_put_contents($gwsFile, json_encode($st), LOCK_EX);
+if ($path === '/mock/gws-reset') {
+    @unlink($gwsFile);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/gws') {
+    $json($gwsState());
+    return;
+}
+if ($path === '/mock/gws-set') {
+    // Merges the keys given (accounts, domains, dns: an entry given replaces that entry only); dns_fail is replaced
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $gwsState();
+    foreach (['accounts', 'domains', 'dns'] as $k) {
+        if (isset($in[$k]) && is_array($in[$k])) {
+            $st[$k] = $in[$k] + $st[$k];
+        }
+    }
+    if (isset($in['dns_fail']) && is_array($in['dns_fail'])) {
+        $st['dns_fail'] = array_values($in['dns_fail']); // a list: replaced
+    }
+    if (!empty($in['clear_calls'])) {
+        $st['calls'] = [];
+    }
+    $gwsSave($st);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/dns') {
+    // TXT records by name, as {"txt": [...]}; a name in dns_fail answers 500 (a failed lookup)
+    $st = $gwsState();
+    $name = strtolower((string) ($_GET['name'] ?? ''));
+    if (in_array($name, $st['dns_fail'], true)) {
+        http_response_code(500);
+        $json(['error' => 'SERVFAIL']);
+        return;
+    }
+    $json(['txt' => $st['dns'][$name] ?? []]);
+    return;
+}
+if ($path === '/gws-token') {
+    $st = $gwsState();
+    $jwt = (string) ($_POST['assertion'] ?? '');
+    $p = explode('.', $jwt);
+    $d = fn($s) => base64_decode(strtr($s, '-_', '+/') . str_repeat('=', (4 - strlen($s) % 4) % 4));
+    $claims = count($p) === 3 ? json_decode($d($p[1]), true) : null;
+    $st['calls'][] = ['t' => microtime(true), 'm' => $method, 'path' => '/token', 'sub' => $claims['sub'] ?? null];
+    $gwsSave($st);
+    $fail = function (int $code, string $err, string $desc) use ($json) {
+        http_response_code($code);
+        $json(['error' => $err, 'error_description' => $desc]);
+    };
+    $acct = is_array($claims) ? ($st['accounts'][$claims['iss'] ?? ''] ?? null) : null;
+    if (($_POST['grant_type'] ?? '') !== 'urn:ietf:params:oauth:grant-type:jwt-bearer' || !$acct
+        || openssl_verify("$p[0].$p[1]", $d($p[2]), openssl_pkey_get_public($acct['public_pem']), OPENSSL_ALGO_SHA256) !== 1) {
+        $fail(400, 'invalid_grant', 'Invalid JWT Signature.');
+        return;
+    }
+    if (($claims['exp'] ?? 0) < time() || ($claims['aud'] ?? '') !== 'http://' . $_SERVER['HTTP_HOST'] . '/gws-token') {
+        $fail(400, 'invalid_grant', 'Invalid JWT: Token must be a short-lived token and in a reasonable timeframe.');
+        return;
+    }
+    $sub = strtolower((string) ($claims['sub'] ?? ''));
+    $dom = substr(strrchr($sub, '@') ?: '', 1);
+    $dd = $st['domains'][$dom] ?? null;
+    if (!$dd || !in_array($sub, $dd['users_emails'] ?? $dd['admins'] ?? [], true)) {
+        $fail(400, 'invalid_grant', 'Invalid email or User ID');
+        return;
+    }
+    $allowed = $dd['allowed'][$acct['client_id']] ?? null;
+    $want = explode(' ', (string) ($claims['scope'] ?? ''));
+    if (!is_array($allowed) || array_diff($want, $allowed)) {
+        $fail(401, 'unauthorized_client', 'Client is unauthorized to retrieve access tokens using this method, or client not authorized for any of the scopes requested.');
+        return;
+    }
+    $json(['access_token' => 'gws.' . base64_encode($sub), 'expires_in' => 3599, 'token_type' => 'Bearer']);
+    return;
+}
+if (preg_match('#^/gws-api/([a-z.]+)(/.*)$#', $path, $gm)) {
+    $st = $gwsState();
+    [$host, $sub] = [$gm[1], $gm[2]];
+    $tok = substr($_SERVER['HTTP_AUTHORIZATION'] ?? '', 7);
+    $admin = str_starts_with($tok, 'gws.') ? (string) base64_decode(substr($tok, 4)) : '';
+    $dom = substr(strrchr($admin, '@') ?: '', 1);
+    $dd = $st['domains'][$dom] ?? null;
+    $st['calls'][] = ['t' => microtime(true), 'm' => $method, 'path' => "$host$sub", 'q' => $_SERVER['QUERY_STRING'] ?? '', 'admin' => $admin];
+    $gwsSave($st);
+    $gerr = function (int $code, string $status, string $msg, string $reason = '') use ($json) {
+        http_response_code($code);
+        $json(['error' => ['code' => $code, 'message' => $msg, 'status' => $status] + ($reason ? ['errors' => [['reason' => $reason, 'message' => $msg]]] : [])]);
+    };
+    if ($method !== 'GET') {
+        $gerr(405, 'METHOD_NOT_ALLOWED', 'Only reads in this mock.');
+        return;
+    }
+    if (!$dd) {
+        $gerr(401, 'UNAUTHENTICATED', 'Request had invalid authentication credentials.');
+        return;
+    }
+    if (in_array($host, $dd['disabled_apis'] ?? [], true)) {
+        $gerr(403, 'PERMISSION_DENIED', 'API has not been used in project 123 before or it is disabled.', 'accessNotConfigured');
+        return;
+    }
+    // A page of $list (page size $n), with nextPageToken while more remain
+    $page = function (array $list, string $key, int $n) use ($json) {
+        $at = max(0, (int) ($_GET['pageToken'] ?? 0));
+        $out = [$key => array_slice($list, $at, $n)];
+        if ($at + $n < count($list)) {
+            $out['nextPageToken'] = (string) ($at + $n);
+        }
+        $json($out);
+    };
+    if ($host === 'admin.googleapis.com' && $sub === '/admin/directory/v1/customers/my_customer') {
+        $json(['id' => $dd['customer'], 'customerDomain' => $dd['primary'] ?? $dom, 'postalAddress' => ['organizationName' => $dd['name'] ?? '']]);
+    } elseif ($host === 'admin.googleapis.com' && $sub === '/admin/directory/v1/users') {
+        if (($_GET['customer'] ?? '') !== 'my_customer') {
+            $gerr(400, 'INVALID_ARGUMENT', 'Bad Request');
+            return;
+        }
+        $page($dd['users'] ?? [], 'users', 2);
+    } elseif ($host === 'licensing.googleapis.com' && $sub === '/apps/licensing/v1/product/Google-Apps/users') {
+        if (!in_array($_GET['customerId'] ?? '', [$dom, $dd['customer']], true)) { // the domain or the customer id
+            $gerr(403, 'PERMISSION_DENIED', 'Not authorized to access the application ID', 'forbidden');
+            return;
+        }
+        $page($dd['licenses'] ?? [], 'items', 3);
+    } elseif ($host === 'cloudidentity.googleapis.com' && $sub === '/v1/policies') {
+        if (!empty($dd['policy_error'])) {
+            $gerr(403, 'PERMISSION_DENIED', 'The caller does not have permission');
+            return;
+        }
+        $f = (string) ($_GET['filter'] ?? '');
+        // The filter's regular expression, unescaped as CEL would (\\. -> \.)
+        $re = preg_match("#^setting\\.type\\.matches\\('(.*)'\\)$#", $f, $fm) ? str_replace('\\\\', '\\', $fm[1]) : null;
+        $list = array_values(array_filter($dd['policies'] ?? [], fn($p) => $re === null || preg_match('#' . str_replace('#', '\#', $re) . '#', $p['setting']['type']) === 1));
+        $page($list, 'policies', 2);
+    } else {
+        $gerr(404, 'NOT_FOUND', 'Not found');
+    }
+    return;
+}
+
 // ---- 2.6.0 Microsoft 365 for clients: login and Graph for the MSP app and client tenants -------
 // Settings for the tests: m365c_login_base = <mock>/m365c-login, m365c_graph_base = <mock>/m365c-graph/v1.0.
 // The setup sign-in (device code) is pending until /mock/m365c-approve; then its token creates the app. App-only
@@ -214,11 +365,33 @@ if (preg_match('#^/m365c-login/([^/]+)/oauth2/v2\.0/(devicecode|token)$#', $path
     // tenant granted (App::grantedRoles reads it); mock-only: 'roles_lag' leaves some out, as just after approving
     $names = ['498476ce-e0fe-48b0-b801-37ba7e2685c6' => 'Organization.Read.All', 'df021288-bdef-4463-88db-98f22de89214' => 'User.Read.All',
         'bf394140-e372-4bf9-a898-299cfc7564e5' => 'SecurityEvents.Read.All', '246dd0d5-5bd0-4def-940b-0421030a5b68' => 'Policy.Read.All',
-        'b0afded3-3588-46d8-8b3d-9842eff778da' => 'AuditLog.Read.All', '483bed4a-2ad3-4361-a73b-c83ccdbdc53c' => 'RoleManagement.Read.Directory'];
+        'b0afded3-3588-46d8-8b3d-9842eff778da' => 'AuditLog.Read.All', '483bed4a-2ad3-4361-a73b-c83ccdbdc53c' => 'RoleManagement.Read.Directory',
+        '38d9df27-64da-44fd-b7c5-a6fbac20248f' => 'UserAuthenticationMethod.Read.All', '230c1aed-a721-4c5d-9cb4-a90514e508ef' => 'Reports.Read.All']; // 2.6.3: + the last two
     $roles = $cid === $st['own']['app_id'] ? array_values($names) : array_values(array_intersect_key($names, array_flip($st['grants'][$tenant] ?? [])));
     $roles = array_values(array_diff($roles, $st['roles_lag'] ?? []));
     $b64 = fn(array $a) => rtrim(strtr(base64_encode(json_encode($a)), '+/', '-_'), '=');
     $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => $b64(['typ' => 'JWT', 'alg' => 'none']) . '.' . $b64(['tid' => $tenant, 'appid' => $cid, 'roles' => $roles]) . '.mock']);
+    return;
+}
+if (preg_match('#^/m365c-report/([0-9a-f-]+)$#', $path, $rm)) {
+    // 2.6.3: the pre-signed report download (no Authorization header): the tenant's 'activity' rows as Microsoft's CSV
+    $st = $m365State();
+    $st['calls'][] = ['report' => $rm[1], 'auth' => $_SERVER['HTTP_AUTHORIZATION'] ?? ''];
+    $m365Save($st);
+    header('Content-Type: application/octet-stream');
+    $cols = ['Report Refresh Date', 'User Principal Name', 'Display Name', 'Is Deleted', 'Deleted Date', 'Has Exchange License', 'Has OneDrive License', 'Has SharePoint License',
+        'Has Skype For Business License', 'Has Yammer License', 'Has Teams License', 'Exchange Last Activity Date', 'OneDrive Last Activity Date', 'SharePoint Last Activity Date',
+        'Skype For Business Last Activity Date', 'Yammer Last Activity Date', 'Teams Last Activity Date', 'Exchange License Assign Date', 'OneDrive License Assign Date',
+        'SharePoint License Assign Date', 'Skype For Business License Assign Date', 'Yammer License Assign Date', 'Teams License Assign Date', 'Assigned Products'];
+    $out = "\xEF\xBB\xBF" . implode(',', $cols) . "\r\n";
+    foreach ($st['tenants'][$rm[1]]['security']['activity'] ?? [] as $a) {
+        $row = array_fill_keys($cols, '');
+        $row = ['Report Refresh Date' => date('Y-m-d'), 'User Principal Name' => $a['upn'], 'Display Name' => '', 'Is Deleted' => !empty($a['deleted']) ? 'True' : 'False',
+            'Exchange Last Activity Date' => $a['last'] ?? '', 'Teams Last Activity Date' => $a['teams'] ?? '', 'Exchange License Assign Date' => $a['assigned'] ?? '',
+            'Assigned Products' => $a['products'] ?? 'MICROSOFT 365 BUSINESS BASIC'] + $row;
+        $out .= implode(',', array_map(fn($c) => '"' . str_replace('"', '""', (string) $row[$c]) . '"', $cols)) . "\r\n";
+    }
+    print($out);
     return;
 }
 if (str_starts_with($path, '/m365c-graph/v1.0/')) {
@@ -314,7 +487,11 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
         ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => true], ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => false],
         ['userType' => 'guest', 'isAdmin' => false, 'isMfaRegistered' => false], ['userType' => 'member', 'isAdmin' => true, 'isMfaRegistered' => false, 'enabled' => false],
         ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => false, 'licensed' => false]],
-        'defaults' => false, 'ca' => 'nop1', 'admins' => 1, 'admin_groups' => 0, 'signins' => 'nop1'];
+        'defaults' => false, 'ca' => 'nop1', 'admins' => 1, 'admin_groups' => 0, 'signins' => 'nop1', 'regs' => 'ok', 'activity' => []];
+    // 2.6.3: 'regs' => 'nop1' makes the registration report need Entra ID P1 (as in Microsoft), so MFA is read per
+    // account ($batch of /users/{id}/authentication/methods: 'methods' per user, else from isMfaRegistered); 'activity'
+    // rows feed the Microsoft 365 active users report (a redirect to /m365c-report/{tenant}, then CSV): upn, deleted,
+    // products, last (date or null), assigned (date)
     foreach ($sec['users'] as $i => &$u) {
         $u += ['id' => 'p' . ($i + 1), 'enabled' => true, 'licensed' => true];
     }
@@ -322,8 +499,8 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     $signins = str_contains(rawurldecode($_SERVER['QUERY_STRING'] ?? ''), 'signInActivity'); // /users with sign-in activity needs AuditLog and P1
     $need = ['/security/secureScores' => 'bf394140-e372-4bf9-a898-299cfc7564e5', '/reports/authenticationMethods/userRegistrationDetails' => 'b0afded3-3588-46d8-8b3d-9842eff778da',
         '/policies/identitySecurityDefaultsEnforcementPolicy' => '246dd0d5-5bd0-4def-940b-0421030a5b68', '/identity/conditionalAccess/policies' => '246dd0d5-5bd0-4def-940b-0421030a5b68',
-        '/directoryRoles' => '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', '/users' => $signins ? 'b0afded3-3588-46d8-8b3d-9842eff778da' : 'df021288-bdef-4463-88db-98f22de89214'];
-    $base = preg_replace('#/directoryRoles/.*#', '/directoryRoles', $sub);
+        '/directoryRoles' => '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', '/reports/getOffice365ActiveUserDetail' => '230c1aed-a721-4c5d-9cb4-a90514e508ef', '/users' => $signins ? 'b0afded3-3588-46d8-8b3d-9842eff778da' : 'df021288-bdef-4463-88db-98f22de89214'];
+    $base = preg_replace(['#/directoryRoles/.*#', '#^/reports/getOffice365ActiveUserDetail.*#'], ['/directoryRoles', '/reports/getOffice365ActiveUserDetail'], $sub);
     if (isset($need[$base]) && !$granted($need[$base])) {
         $no(403, 'Authorization_RequestDenied', 'Insufficient privileges to complete the operation.');
         return;
@@ -331,6 +508,42 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     $nop1 = fn() => $no(403, 'Authentication_RequestFromNonPremiumTenantOrB2CTenant', "Neither tenant is B2C or tenant doesn't have premium license");
     if ($sub === '/security/secureScores') {
         $json(['value' => $sec['secure'] ? [['currentScore' => $sec['secure'][0], 'maxScore' => $sec['secure'][1]]] : []]);
+        return;
+    }
+    if ($sub === '/reports/authenticationMethods/userRegistrationDetails' && $sec['regs'] === 'nop1') {
+        $nop1();
+        return;
+    }
+    if ($method === 'POST' && $sub === '/$batch') {
+        // 2.6.3: each request answered on its own: a user's authentication methods (needs UserAuthenticationMethod.Read.All)
+        $st['calls'][] = ['batch' => count($body['requests'] ?? [])];
+        $m365Save($st);
+        $byId = array_column($sec['users'], null, 'id');
+        $out = [];
+        foreach ((array) ($body['requests'] ?? []) as $rq) {
+            if (!preg_match('#^/users/([^/]+)/authentication/methods$#', (string) ($rq['url'] ?? ''), $um) || ($rq['method'] ?? '') !== 'GET') {
+                $out[] = ['id' => $rq['id'] ?? '', 'status' => 400, 'body' => ['error' => ['code' => 'BadRequest']]];
+            } elseif (!$granted('38d9df27-64da-44fd-b7c5-a6fbac20248f')) {
+                $out[] = ['id' => $rq['id'], 'status' => 403, 'body' => ['error' => ['code' => 'Authorization_RequestDenied']]];
+            } elseif (!empty($sec['throttle']) && empty($st['throttled'])) {
+                // 2.6.3: 'throttle' answers 429 to the first account once, as Graph does inside a busy batch
+                $st['throttled'] = true;
+                $m365Save($st);
+                $out[] = ['id' => $rq['id'], 'status' => 429, 'headers' => ['Retry-After' => '1'], 'body' => ['error' => ['code' => 'TooManyRequests']]];
+            } elseif (!isset($byId[$um[1]])) {
+                $out[] = ['id' => $rq['id'], 'status' => 404, 'body' => ['error' => ['code' => 'Request_ResourceNotFound']]];
+            } else {
+                $u = $byId[$um[1]];
+                $types = $u['methods'] ?? (!empty($u['isMfaRegistered']) ? ['microsoftAuthenticatorAuthenticationMethod', 'passwordAuthenticationMethod'] : ['passwordAuthenticationMethod']);
+                $out[] = ['id' => $rq['id'], 'status' => 200, 'body' => ['value' => array_map(fn($t) => ['@odata.type' => "#microsoft.graph.$t", 'id' => 'm'], $types)]];
+            }
+        }
+        $json(['responses' => array_reverse($out)]); // order isn't guaranteed by Microsoft either
+        return;
+    }
+    if (str_starts_with($sub, '/reports/getOffice365ActiveUserDetail')) {
+        http_response_code(302);
+        header('Location: http://' . $_SERVER['HTTP_HOST'] . '/m365c-report/' . $tenant);
         return;
     }
     if ($sub === '/reports/authenticationMethods/userRegistrationDetails') {
@@ -366,7 +579,8 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     if ($sub === '/users') {
         if (!$signins) {
             // the account list (no P1 needed): enabled and licensed
-            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'], 'assignedLicenses' => $u['licensed'] ? [['skuId' => 'x']] : []], $sec['users'])]);
+            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'], 'assignedLicenses' => $u['licensed'] ? [['skuId' => 'x']] : [],
+                'userType' => ucfirst($u['userType'] ?? 'member'), 'userPrincipalName' => $u['upn'] ?? $u['id'] . '@' . $t['domain']], $sec['users'])]);
             return;
         }
         $sec['signins'] === 'nop1' ? $nop1() : $json(['value' => $sec['signins']]);

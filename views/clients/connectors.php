@@ -2,7 +2,8 @@
 /**
  * 2.6.1 A client's Connectors page (techs and admins): the client's own connections (Microsoft 365) and how it is
  * linked to the systems set up under Integrations (PSA, RMMs, backup products), with the last sync.
- * @var array $client; array $m365 M365Controller::card(); array $linked ConnectorsController::linked(); ?array $lastSync
+ * @var array $client; array $m365 M365Controller::card(); 2.6.3 array $gws GoogleController::card(), ?array $emailAuth
+ *      EmailAuth::stored(), ?array $emailDomain [domain, provider] when the client has one to check; array $linked ConnectorsController::linked(); ?array $lastSync
  * Security: record names come from the PSA, RMM or backup product and are escaped; links to the PSA come from
  * Providers::psaLink() (built from its configured address). Changes happen on the pages linked from here.
  */
@@ -19,6 +20,8 @@ $badge = ['linked' => ['Linked', 'success'], 'missing' => ['Link broken', 'dange
 
 <?php // The client's own connections ?>
 <?= \Align\View::fetch('m365/_client', $m365 + ['client' => $client]) ?>
+<?= \Align\View::fetch('gws/_client', $gws + ['client' => $client]) // 2.6.3 ?>
+<?php if ($emailDomain !== null || $emailAuth !== null) echo \Align\View::fetch('gws/_email_auth', ['client' => $client, 'ea' => $emailAuth, 'connectors' => true]); // 2.6.3 ?>
 
 <?php // Links to the systems set up under Integrations (read-only here; changed on Client mapping) ?>
 <div class="card card-dark" id="linked">

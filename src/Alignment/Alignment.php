@@ -44,7 +44,7 @@ final class Alignment
     /** Automatic checks a standard can use: the compliance device checks plus backups. */
     public static function checks(): array
     {
-        return Compliance::AUTO_CHECKS + ['backups' => 'Servers backed up, no failed jobs'] + \Align\M365\Security::CHECKS; // 2.6.1: + Microsoft 365
+        return Compliance::AUTO_CHECKS + ['backups' => 'Servers backed up, no failed jobs'] + \Align\Health\SecurityChecks::labels(); // 2.6.1: + Microsoft 365; 2.6.3: + Google Workspace, email authentication
     }
 
     /** [label, tone] for a score (null: no score, e.g. every standard N/A or never reviewed). */
@@ -307,12 +307,14 @@ final class Alignment
      * answer or null), 'ok', 'unknown']]. $devices: Lifecycle::devices($clientId); $backup: Backup::forClient();
      * $m365: the client's stored Microsoft 365 security results (M365\Security::forClient(), 2.6.1; null = none);
      * $m365On: whether its Microsoft 365 is connected (only the text of a check without a result changes).
+     * 2.6.3 $more: further compliance-style indicators (Health\SecurityChecks::indicators(): Google Workspace, email
+     * authentication), turned into answers the same way.
      */
-    public static function indicators(array $devices, ?array $backup, ?array $m365 = null, bool $m365On = false): array
+    public static function indicators(array $devices, ?array $backup, ?array $m365 = null, bool $m365On = false, array $more = []): array
     {
-        // 2.6.1 Microsoft 365 checks, as answers (a person still decides)
+        // 2.6.1 Microsoft 365 checks (2.6.3: and the others in $more), as answers (a person still decides)
         $m = [];
-        foreach (\Align\M365\Security::indicators($m365, $m365On) as $k => $i) {
+        foreach (\Align\M365\Security::indicators($m365, $m365On) + $more as $k => $i) {
             $m[$k] = ['label' => $i['label'], 'text' => $i['text'], 'ok' => $i['ok'], 'unknown' => $i['unknown'], 'suggest' => $i['suggest'] ? self::fromCompliance($i['suggest']) : null];
         }
         $out = [];
