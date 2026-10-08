@@ -1,6 +1,7 @@
 <?php
 /**
  * One client's licensing. @var array $client, $licenses, $totals, $dates, $subs; int $retiredCount; bool $showRetired; string $back
+ * 2.6.3: array $gws LicenseController::gws() (the Google Workspace status line and duplicate check)
  * 2.6.0: array $m365 (LicenseController::m365: the client_m365 row, appReady, dupes; 2.6.1: a summary line here, the card on Connectors)
  */
 use Align\Auth;
@@ -28,6 +29,11 @@ $t = $totals;
 <?= \Align\View::fetch('partials/client_suggestions', ['subs' => $subs ?? [], 'kind' => 'license', 'cid' => $cid, 'back' => $back]) ?>
 <?= \Align\View::fetch('m365/_summary', $m365 + ['client' => $client]) // 2.6.1: the connection is on Connectors ?>
 <?= \Align\View::fetch('m365/_dupes', $m365 + ['client' => $client]) // 2.6.0 ?>
+<?php if (\Align\Google\Clients::connected($gws['gws'])): // 2.6.3: one line about Google Workspace (the connection is on Connectors) ?>
+<div class="alert alert-<?= $gws['gws']['last_error'] ? 'warning' : 'light' ?> border py-2 small" id="gws"><i class="fab fa-google me-1"></i>Google Workspace: synced from <b><?= e($gws['gws']['org_name'] ?: $gws['gws']['domain']) ?></b> <?= $gws['gws']['last_sync_at'] ? e(rel_time($gws['gws']['last_sync_at'])) : '(not yet)' ?>.
+  <?= $gws['gws']['last_error'] ? '<span class="text-danger">The last sync failed.</span>' : '' ?><?php if (Auth::can('tech')): ?> <a href="/clients/<?= $cid ?>/connectors#gws">Connectors</a><?php endif; ?></div>
+<?php endif; ?>
+<?= \Align\View::fetch('m365/_dupes', ['dupes' => $gws['dupes'], 'kind' => 'gws', 'client' => $client]) // 2.6.3 ?>
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>
 <div class="card card-dark">
   <div class="card-body p-0">
@@ -35,5 +41,5 @@ $t = $totals;
   </div>
 </div>
 <?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates']); ?>
-<p class="small text-muted"><?php if (psa_on()): ?>Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. <?php endif; ?><?php if (\Align\M365\Tenants::connected($m365['m365'])): ?>Microsoft 365 subscriptions update every hour. <?php endif; ?>Prices, billing cycle, category and seats in use are kept in Align.</p>
+<p class="small text-muted"><?php if (psa_on()): ?>Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. <?php endif; ?><?php if (\Align\M365\Tenants::connected($m365['m365'])): ?>Microsoft 365 subscriptions update every hour. <?php endif; ?><?php if (\Align\Google\Clients::connected($gws['gws'])): ?>Google Workspace editions update every hour. <?php endif; ?>Prices, billing cycle, category and seats in use are kept in Align.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('licenses/_modal', ['l' => null, 'cid' => $cid, 'back' => $back]); ?>

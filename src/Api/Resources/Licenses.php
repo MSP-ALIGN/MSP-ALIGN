@@ -22,7 +22,7 @@ final class Licenses
 {
     /** Fields the PSA manages for synced licenses (API names). */
     private const PSA_OWNED = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date'];
-    /** 2.6.0: what the client's Microsoft 365 tenant owns on a license synced from it. */
+    /** 2.6.0: what the client's Microsoft 365 tenant owns on a license synced from it (2.6.3: Google Workspace, the same). */
     private const M365_OWNED = ['name', 'software_type', 'license_type', 'seats', 'seats_used', 'vendor'];
 
     /** Validation rules for POST (client_id required, no retired) and PATCH. Also feeds the OpenAPI spec. */
@@ -177,8 +177,10 @@ final class Licenses
         if ($l['source'] === 'psa' && ($owned = array_intersect(array_keys($in), self::PSA_OWNED))) {
             throw ApiError::invalid(array_fill_keys(array_values($owned), 'Managed in ' . psa_name() . ' for this license; change it there.'), 'Some fields are managed in ' . psa_name() . '.');
         }
-        if ($l['source'] === 'm365' && ($owned = array_intersect(array_keys($in), self::M365_OWNED))) {
-            throw ApiError::invalid(array_fill_keys(array_values($owned), 'Comes from the client\'s Microsoft 365 tenant for this license.'), 'Some fields come from Microsoft 365.');
+        // 2.6.3: Google Workspace licenses (gws) the same as Microsoft 365's
+        $cloud = ['m365' => 'Microsoft 365', 'gws' => 'Google Workspace'][$l['source']] ?? null;
+        if ($cloud && ($owned = array_intersect(array_keys($in), self::M365_OWNED))) {
+            throw ApiError::invalid(array_fill_keys(array_values($owned), "Comes from the client's $cloud for this license."), "Some fields come from $cloud.");
         }
         foreach (['category' => 'other', 'pricing' => 'per_seat', 'billing_cycle' => 'monthly', 'license_type' => 'user'] as $k => $d) {
             if (array_key_exists($k, $in) && $in[$k] === null) {
@@ -188,7 +190,7 @@ final class Licenses
         $cols = self::columns($in, $l);
         // 2.6.0: a price or billing cycle changed on a Microsoft 365 license is this client's own from then on (the
         // same value sent again changes nothing, as in the web form)
-        if ($l['source'] === 'm365' && ((array_key_exists('unit_price', $in) && (string) $in['unit_price'] !== (string) ($l['unit_price'] === null ? '' : (float) $l['unit_price']))
+        if ($cloud && ((array_key_exists('unit_price', $in) && (string) $in['unit_price'] !== (string) ($l['unit_price'] === null ? '' : (float) $l['unit_price']))
                 || (array_key_exists('billing_cycle', $in) && $in['billing_cycle'] !== $l['billing_cycle']))) {
             $cols['price_source'] = 'custom';
         }
@@ -213,8 +215,8 @@ final class Licenses
             throw new ApiError(409, 'managed_in_' . Out::source('psa'), // managed_in_itflow for ITFlow, as in v1
                  'Licenses from ' . psa_name() . ' can\'t be deleted (they would come back on the next sync). Retire it instead: PATCH {"retired": true}.');
         }
-        if ($l['source'] === 'm365') { // 2.6.0
-            throw new ApiError(409, 'managed_in_m365', 'Licenses from Microsoft 365 can\'t be deleted (they would come back on the next sync). Retire it instead: PATCH {"retired": true}.');
+        if (in_array($l['source'], ['m365', 'gws'], true)) { // 2.6.0; 2.6.3 Google Workspace
+            throw new ApiError(409, 'managed_in_' . $l['source'], 'Licenses from ' . ($l['source'] === 'gws' ? 'Google Workspace' : 'Microsoft 365') . ' can\'t be deleted (they would come back on the next sync). Retire it instead: PATCH {"retired": true}.');
         }
         DB::run('DELETE FROM licenses WHERE id = ?', [$id]);
         \Align\Audit::log('license.delete', "{$l['client_name']}: {$l['name']}");
@@ -241,7 +243,7 @@ final class Licenses
             'seats_used' => Out::int($l['seats_used']),
             'pricing' => $l['pricing'],
             'unit_price' => Out::num($l['unit_price']),
-            'price_source' => $l['source'] === 'm365' ? ($l['price_source'] ?? 'list') : null, // 2.6.0
+            'price_source' => in_array($l['source'], ['m365', 'gws'], true) ? ($l['price_source'] ?? 'list') : null, // 2.6.0; 2.6.3 gws
             'billing_cycle' => $l['billing_cycle'],
             'priced' => (bool) $e['priced'],
             'cost_per_cycle' => $e['priced'] ? Out::num($e['cycle_cost']) : null,

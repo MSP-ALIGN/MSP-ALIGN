@@ -232,6 +232,17 @@ $r->post('/integrations/microsoft-365/manual', [$M, 'saveManual']);
 $r->post('/integrations/microsoft-365/rotate', [$M, 'rotate']);
 $r->post('/integrations/microsoft-365/forget', [$M, 'forget']);
 $r->post('/integrations/microsoft-365/prices', [$M, 'savePrices']);
+// 2.6.3 Google Workspace for clients (before the generic integration routes)
+$G = \Align\Controllers\GoogleController::class;
+$r->get('/integrations/google-workspace', [$G, 'index']);
+$r->post('/integrations/google-workspace/key', [$G, 'saveKey']);
+$r->post('/integrations/google-workspace/forget', [$G, 'forget']);
+$r->post('/integrations/google-workspace/prices', [$G, 'savePrices']);
+$r->post('/clients/{id}/gws/connect', [$G, 'connect']);
+$r->post('/clients/{id}/gws/sync', [$G, 'sync']);
+$r->post('/clients/{id}/gws/disconnect', [$G, 'disconnect']);
+$r->post('/clients/{id}/gws/dupes', [$G, 'dupes']);
+$r->post('/clients/{id}/email-auth/check', [$G, 'checkEmail']);
 $r->get('/clients/{id}/connectors', [\Align\Controllers\ConnectorsController::class, 'client']); // 2.6.1
 $r->post('/clients/{id}/m365/connect', [$M, 'connect']);
 $r->post('/clients/{id}/m365/link', [$M, 'link']);

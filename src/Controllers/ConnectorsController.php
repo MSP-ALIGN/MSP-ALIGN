@@ -11,12 +11,12 @@ use Align\View;
 
 /**
  * 2.6.1 A client's Connectors page: its own connections (Microsoft 365: connect, approve, sync, disconnect; see
- * M365Controller) and a read-only summary of how it is linked to the PSA, each RMM and each backup product, with the
+ * M365Controller; 2.6.3 Google Workspace, GoogleController, and the email domain's SPF, DKIM and DMARC) and a read-only summary of how it is linked to the PSA, each RMM and each backup product, with the
  * last sync. Staff only: techs and admins (it isn't part of the client portal).
  *
  * Security assumptions: Auth::requireRole('tech') and ClientController::load() (which refuses unknown clients) before
  * anything is read. Record names come from the PSA, RMM or backup product (remote text) and are escaped in the view.
- * Nothing changes here: changes go through M365Controller and MappingController, which check roles and CSRF again.
+ * Nothing changes here: changes go through M365Controller, GoogleController (2.6.3) and MappingController, which check roles and CSRF again.
  */
 final class ConnectorsController
 {
@@ -34,6 +34,9 @@ final class ConnectorsController
             'client' => $client,
             'clientNav' => 'connectors',
             'm365' => M365Controller::card($id),
+            'gws' => GoogleController::card($id), // 2.6.3
+            'emailAuth' => \Align\Domains\EmailAuth::stored($id), // 2.6.3
+            'emailDomain' => \Align\Domains\EmailAuth::domains()[$id] ?? null,
             'linked' => self::linked($client),
             'lastSync' => DB::one('SELECT status, started_at, finished_at FROM sync_runs ORDER BY id DESC LIMIT 1'),
         ]);

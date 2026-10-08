@@ -80,6 +80,157 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
     return;
 }
 
+// ---- 2.6.3 Google Workspace for clients: token (JWT bearer, domain-wide delegation), Directory, Licensing, Policy -------
+// Settings for the tests: gwc_token_url = <mock>/gws-token, gwc_api_base = <mock>/gws-api (each Google host under it),
+// dns_mock_url = <mock>/dns. Service accounts are registered with their public key (/mock/gws-set {"accounts":
+// {client_email: {client_id, public_pem}}}); each domain lists its customer, super admins (who may be "sub"), the
+// service account client ids its admin allowed with which scopes, its users, license assignments and policies. Every
+// call is recorded (/mock/gws) so tests can check only GET is sent and the Policy API is paced. Reset: /mock/gws-reset.
+$gwsFile = sys_get_temp_dir() . '/gws-mock.json';
+$gwsState = fn() => json_decode((string) @file_get_contents($gwsFile), true) ?: ['accounts' => [], 'domains' => [], 'dns' => [], 'dns_fail' => [], 'calls' => []];
+$gwsSave = fn(array $st) => file_put_contents($gwsFile, json_encode($st), LOCK_EX);
+if ($path === '/mock/gws-reset') {
+    @unlink($gwsFile);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/gws') {
+    $json($gwsState());
+    return;
+}
+if ($path === '/mock/gws-set') {
+    // Merges the keys given (accounts, domains, dns: an entry given replaces that entry only); dns_fail is replaced
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $gwsState();
+    foreach (['accounts', 'domains', 'dns'] as $k) {
+        if (isset($in[$k]) && is_array($in[$k])) {
+            $st[$k] = $in[$k] + $st[$k];
+        }
+    }
+    if (isset($in['dns_fail']) && is_array($in['dns_fail'])) {
+        $st['dns_fail'] = array_values($in['dns_fail']); // a list: replaced
+    }
+    if (!empty($in['clear_calls'])) {
+        $st['calls'] = [];
+    }
+    $gwsSave($st);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/dns') {
+    // TXT records by name, as {"txt": [...]}; a name in dns_fail answers 500 (a failed lookup)
+    $st = $gwsState();
+    $name = strtolower((string) ($_GET['name'] ?? ''));
+    if (in_array($name, $st['dns_fail'], true)) {
+        http_response_code(500);
+        $json(['error' => 'SERVFAIL']);
+        return;
+    }
+    $json(['txt' => $st['dns'][$name] ?? []]);
+    return;
+}
+if ($path === '/gws-token') {
+    $st = $gwsState();
+    $jwt = (string) ($_POST['assertion'] ?? '');
+    $p = explode('.', $jwt);
+    $d = fn($s) => base64_decode(strtr($s, '-_', '+/') . str_repeat('=', (4 - strlen($s) % 4) % 4));
+    $claims = count($p) === 3 ? json_decode($d($p[1]), true) : null;
+    $st['calls'][] = ['t' => microtime(true), 'm' => $method, 'path' => '/token', 'sub' => $claims['sub'] ?? null];
+    $gwsSave($st);
+    $fail = function (int $code, string $err, string $desc) use ($json) {
+        http_response_code($code);
+        $json(['error' => $err, 'error_description' => $desc]);
+    };
+    $acct = is_array($claims) ? ($st['accounts'][$claims['iss'] ?? ''] ?? null) : null;
+    if (($_POST['grant_type'] ?? '') !== 'urn:ietf:params:oauth:grant-type:jwt-bearer' || !$acct
+        || openssl_verify("$p[0].$p[1]", $d($p[2]), openssl_pkey_get_public($acct['public_pem']), OPENSSL_ALGO_SHA256) !== 1) {
+        $fail(400, 'invalid_grant', 'Invalid JWT Signature.');
+        return;
+    }
+    if (($claims['exp'] ?? 0) < time() || ($claims['aud'] ?? '') !== 'http://' . $_SERVER['HTTP_HOST'] . '/gws-token') {
+        $fail(400, 'invalid_grant', 'Invalid JWT: Token must be a short-lived token and in a reasonable timeframe.');
+        return;
+    }
+    $sub = strtolower((string) ($claims['sub'] ?? ''));
+    $dom = substr(strrchr($sub, '@') ?: '', 1);
+    $dd = $st['domains'][$dom] ?? null;
+    if (!$dd || !in_array($sub, $dd['users_emails'] ?? $dd['admins'] ?? [], true)) {
+        $fail(400, 'invalid_grant', 'Invalid email or User ID');
+        return;
+    }
+    $allowed = $dd['allowed'][$acct['client_id']] ?? null;
+    $want = explode(' ', (string) ($claims['scope'] ?? ''));
+    if (!is_array($allowed) || array_diff($want, $allowed)) {
+        $fail(401, 'unauthorized_client', 'Client is unauthorized to retrieve access tokens using this method, or client not authorized for any of the scopes requested.');
+        return;
+    }
+    $json(['access_token' => 'gws.' . base64_encode($sub), 'expires_in' => 3599, 'token_type' => 'Bearer']);
+    return;
+}
+if (preg_match('#^/gws-api/([a-z.]+)(/.*)$#', $path, $gm)) {
+    $st = $gwsState();
+    [$host, $sub] = [$gm[1], $gm[2]];
+    $tok = substr($_SERVER['HTTP_AUTHORIZATION'] ?? '', 7);
+    $admin = str_starts_with($tok, 'gws.') ? (string) base64_decode(substr($tok, 4)) : '';
+    $dom = substr(strrchr($admin, '@') ?: '', 1);
+    $dd = $st['domains'][$dom] ?? null;
+    $st['calls'][] = ['t' => microtime(true), 'm' => $method, 'path' => "$host$sub", 'q' => $_SERVER['QUERY_STRING'] ?? '', 'admin' => $admin];
+    $gwsSave($st);
+    $gerr = function (int $code, string $status, string $msg, string $reason = '') use ($json) {
+        http_response_code($code);
+        $json(['error' => ['code' => $code, 'message' => $msg, 'status' => $status] + ($reason ? ['errors' => [['reason' => $reason, 'message' => $msg]]] : [])]);
+    };
+    if ($method !== 'GET') {
+        $gerr(405, 'METHOD_NOT_ALLOWED', 'Only reads in this mock.');
+        return;
+    }
+    if (!$dd) {
+        $gerr(401, 'UNAUTHENTICATED', 'Request had invalid authentication credentials.');
+        return;
+    }
+    if (in_array($host, $dd['disabled_apis'] ?? [], true)) {
+        $gerr(403, 'PERMISSION_DENIED', 'API has not been used in project 123 before or it is disabled.', 'accessNotConfigured');
+        return;
+    }
+    // A page of $list (page size $n), with nextPageToken while more remain
+    $page = function (array $list, string $key, int $n) use ($json) {
+        $at = max(0, (int) ($_GET['pageToken'] ?? 0));
+        $out = [$key => array_slice($list, $at, $n)];
+        if ($at + $n < count($list)) {
+            $out['nextPageToken'] = (string) ($at + $n);
+        }
+        $json($out);
+    };
+    if ($host === 'admin.googleapis.com' && $sub === '/admin/directory/v1/customers/my_customer') {
+        $json(['id' => $dd['customer'], 'customerDomain' => $dd['primary'] ?? $dom, 'postalAddress' => ['organizationName' => $dd['name'] ?? '']]);
+    } elseif ($host === 'admin.googleapis.com' && $sub === '/admin/directory/v1/users') {
+        if (($_GET['customer'] ?? '') !== 'my_customer') {
+            $gerr(400, 'INVALID_ARGUMENT', 'Bad Request');
+            return;
+        }
+        $page($dd['users'] ?? [], 'users', 2);
+    } elseif ($host === 'licensing.googleapis.com' && $sub === '/apps/licensing/v1/product/Google-Apps/users') {
+        if (!in_array($_GET['customerId'] ?? '', [$dom, $dd['customer']], true)) { // the domain or the customer id
+            $gerr(403, 'PERMISSION_DENIED', 'Not authorized to access the application ID', 'forbidden');
+            return;
+        }
+        $page($dd['licenses'] ?? [], 'items', 3);
+    } elseif ($host === 'cloudidentity.googleapis.com' && $sub === '/v1/policies') {
+        if (!empty($dd['policy_error'])) {
+            $gerr(403, 'PERMISSION_DENIED', 'The caller does not have permission');
+            return;
+        }
+        $f = (string) ($_GET['filter'] ?? '');
+        // The filter's regular expression, unescaped as CEL would (\\. -> \.)
+        $re = preg_match("#^setting\\.type\\.matches\\('(.*)'\\)$#", $f, $fm) ? str_replace('\\\\', '\\', $fm[1]) : null;
+        $list = array_values(array_filter($dd['policies'] ?? [], fn($p) => $re === null || preg_match('#' . str_replace('#', '\#', $re) . '#', $p['setting']['type']) === 1));
+        $page($list, 'policies', 2);
+    } else {
+        $gerr(404, 'NOT_FOUND', 'Not found');
+    }
+    return;
+}
+
 // ---- 2.6.0 Microsoft 365 for clients: login and Graph for the MSP app and client tenants -------
 // Settings for the tests: m365c_login_base = <mock>/m365c-login, m365c_graph_base = <mock>/m365c-graph/v1.0.
 // The setup sign-in (device code) is pending until /mock/m365c-approve; then its token creates the app. App-only

@@ -44,6 +44,7 @@ final class LicenseController
             'dates' => array_values(array_filter(\Align\Budget\Contracts::upcoming($id), fn($d) => str_ends_with($d['link'], '/licenses'))),
             'subs' => \Align\Portal\Submissions::pending($id, 'license'),
             'm365' => self::m365($id),
+            'gws' => self::gws($id), // 2.6.3
         ]);
     }
 
@@ -56,6 +57,13 @@ final class LicenseController
         $row = \Align\M365\Tenants::row($id);
         return ['m365' => $row, 'appReady' => \Align\M365\App::ready(),
             'dupes' => \Align\M365\Tenants::connected($row) && !$row['dupes_checked'] ? \Align\M365\Tenants::dupes($id) : []];
+    }
+
+    /** 2.6.3 What Licensing shows about Google Workspace: the client's connection (a status line) and the one-time duplicate check. */
+    private static function gws(int $id): array
+    {
+        $row = \Align\Google\Clients::row($id);
+        return ['gws' => $row, 'dupes' => \Align\Google\Clients::connected($row) && !$row['dupes_checked'] ? \Align\Google\Clients::dupes($id) : []];
     }
 
     /** Licensing across every client in planning (or one client, ?client=), with filters and search. Any staff role. */
@@ -209,7 +217,9 @@ final class LicenseController
         }
         $back = self::back("/clients/{$l['client_id']}/licenses");
         $fromPsa = $l['source'] === 'psa';
-        $fromM365 = $l['source'] === 'm365'; // 2.6.0: synced from the client's Microsoft 365 tenant
+        // 2.6.0: synced from the client's Microsoft 365 tenant; 2.6.3: or its Google Workspace (handled the same way)
+        $fromM365 = in_array($l['source'], ['m365', 'gws'], true);
+        $cloud = $l['source'] === 'gws' ? 'Google Workspace' : 'Microsoft 365';
         switch (post('action')) {
             case 'retire':
                 DB::run("UPDATE licenses SET retired_at = NOW(), retired_reason = 'align' WHERE id = ?", [$id]);
@@ -223,7 +233,7 @@ final class LicenseController
                 redirect($back);
             case 'delete':
                 if ($fromPsa || $fromM365) {
-                    flash('error', 'Licenses from ' . ($fromM365 ? 'Microsoft 365' : psa_name()) . ' can be retired but not deleted (they would come back on the next sync).');
+                    flash('error', 'Licenses from ' . ($fromM365 ? $cloud : psa_name()) . ' can be retired but not deleted (they would come back on the next sync).');
                     redirect($back);
                 }
                 DB::run('DELETE FROM licenses WHERE id = ?', [$id]);
@@ -234,7 +244,7 @@ final class LicenseController
         refuse_large_amounts(['unit_price' => ['The price', self::MAX_PRICE]], $back);
         $f = self::fields($fromPsa || $fromM365);
         if ($fromM365) {
-            // Microsoft owns the name, seats and seats in use; dates and the version are Align's. A price or cycle
+            // Microsoft (or Google) owns the name, seats and seats in use; dates and the version are Align's. A price or cycle
             // that differs from what the license had makes it this client's own price (until "use the price list")
             unset($f['seats_used']);
             $f += ['purchase_date' => self::fields(false)['purchase_date'], 'expire_date' => self::fields(false)['expire_date'], 'version' => self::fields(false)['version']];
@@ -247,7 +257,7 @@ final class LicenseController
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($f), $id]);
         if ($fromM365 && post('use_list_price') === '1') {
-            \Align\M365\Tenants::useListPrice($id); // 2.6.0
+            $l['source'] === 'gws' ? \Align\Google\Clients::useListPrice($id) : \Align\M365\Tenants::useListPrice($id); // 2.6.0, 2.6.3
         }
         Audit::log('license.update', "{$l['client_name']}: {$l['name']}");
         $e = Licenses::enrich(DB::one('SELECT * FROM licenses WHERE id = ?', [$id]));

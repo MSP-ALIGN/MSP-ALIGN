@@ -142,6 +142,14 @@ final class SyncRunner
         if (\Align\DB::value("SELECT 1 FROM client_m365 WHERE status = 'connected' LIMIT 1")) {
             $this->step('Microsoft 365 licenses', fn() => \Align\M365\Tenants::syncAll());
         }
+        // 2.6.3: each connected client's Google Workspace editions (and daily security checks), then the email domains'
+        // SPF, DKIM and DMARC (daily, for clients with Google Workspace or Microsoft 365 connected)
+        if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' LIMIT 1")) {
+            $this->step('Google Workspace licenses', fn() => \Align\Google\Clients::syncAll());
+        }
+        if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth LIMIT 1")) {
+            $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
+        }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
         if ($psaOk && $psa->supports('assets.write') && Settings::get('psa_writeback', 'off') !== 'off') {
             $this->step("Write warranty dates to $psaName", fn() => $this->writeBack($psa));

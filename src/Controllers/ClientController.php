@@ -388,6 +388,9 @@ final class ClientController
             'sla' => \Align\Service\Sla::overview($id),
             // 2.6.1: the Microsoft 365 security checks of a connected client (null otherwise: no card)
             'm365sec' => ($m = \Align\M365\Security::forClient($id))[0] ? ($m[1] ?? []) : null, // connected: its result ([] when none recent)
+            // 2.6.3: the same for Google Workspace, and the email domain's SPF, DKIM and DMARC (only when checked recently)
+            'gwssec' => ($g = \Align\Google\Security::forClient($id))[0] ? ($g[1] ?? []) : null,
+            'emailAuth' => \Align\Domains\EmailAuth::stored($id),
         ]);
     }
 

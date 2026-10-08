@@ -20,7 +20,8 @@ use Align\Settings;
  *  - compliance:  the average score of the client's frameworks (partial counts half, as on the compliance pages);
  *  - service:     the share of SLA targets met in the last 90 days;
  *  - alignment:   the latest finished alignment review's score;
- *  - security:    (2.6.1) the share of the client's known Microsoft 365 security checks that pass (M365\Security).
+ *  - security:    (2.6.1) the share of the client's known security checks that pass: Microsoft 365 (M365\Security); 2.6.3
+ *                 also Google Workspace (Google\Security) and email authentication (Domains\EmailAuth), see SecurityChecks.
  * An area with no data for the client (no frameworks, no backups, no tickets, never reviewed) is left out and the
  * others are weighted up to fill its place, so a missing area never counts as zero. The weights and the band
  * thresholds are admin settings (Settings → Planning & lifecycle). Bands: Healthy, Needs attention, At risk.
@@ -48,7 +49,7 @@ final class Health
         'compliance' => ['Compliance', 'fa-clipboard-check', '/compliance'],
         'service' => ['Service levels', 'fa-stopwatch', '/service-levels'],
         'alignment' => ['Alignment', 'fa-bullseye', '/alignment'],
-        'security' => ['Security', 'fa-shield-halved', '#m365-security'], // 2.6.1: Microsoft 365 checks (connected clients only)
+        'security' => ['Security', 'fa-shield-halved', '#security'], // 2.6.1: Microsoft 365 checks (connected clients only); 2.6.3: + Google Workspace, email
     ];
 
     /** Weight each area starts with (equal), and the band thresholds' defaults. */
@@ -301,17 +302,13 @@ final class Health
         return $ctx;
     }
 
-    /** 2.6.1 The stored Microsoft 365 security results of connected clients among $ids: [client id => result]. Ids are cast to int. */
+    /**
+     * 2.6.1 The stored security results of clients among $ids: [client id => ['checks' => ...]]. 2.6.3: Microsoft 365,
+     * Google Workspace and email authentication together (Health\SecurityChecks).
+     */
     private static function securityFor(array $ids): array
     {
-        $out = [];
-        $in = implode(',', array_map('intval', $ids)) ?: '0';
-        foreach (DB::all("SELECT client_id, security_json FROM client_m365 WHERE status = 'connected' AND client_id IN ($in)") as $r) {
-            if ($s = \Align\M365\Security::stored($r)) {
-                $out[(int) $r['client_id']] = $s;
-            }
-        }
-        return $out;
+        return SecurityChecks::stored($ids);
     }
 
     /**
@@ -403,12 +400,14 @@ final class Health
         $lines = $gaps ? [[self::n($gaps['n'], 'standard') . ' misaligned' . ($gaps['hi'] ? ' (' . $gaps['hi'] . ' high or critical)' : ''), $gaps['hi'] ? 'bad' : 'warn']] : [];
         $p['alignment'] = [$al && $al['score'] !== null ? (int) $al['score'] : null, $lines];
 
-        // Security (2.6.1): the share of the client's known Microsoft 365 checks that pass; the failing ones listed
+        // Security (2.6.1): the share of the client's known checks that pass (2.6.3: Microsoft 365, Google Workspace and
+        // email authentication together); the failing ones listed
         $sec = $ctx['security'][$cid] ?? null;
         $lines = [];
+        $labels = SecurityChecks::labels();
         foreach ((array) ($sec['checks'] ?? []) as $k => $c) {
             if (is_array($c) && ($c['status'] ?? '') === 'fail') {
-                $lines[] = [(\Align\M365\Security::CHECKS[$k] ?? $k) . ': ' . ($c['detail'] ?? ''), 'bad'];
+                $lines[] = [($labels[$k] ?? $k) . ': ' . ($c['detail'] ?? ''), 'bad'];
             }
         }
         $p['security'] = [\Align\M365\Security::score($sec), $lines];
