@@ -5,7 +5,8 @@
  * approved through a link, and the client's own app (fallback, admins). The one-time offer to retire licenses that
  * Microsoft 365 now counts stays on Licensing (m365/_dupes); this card points to it.
  * @var array $client; ?array $m365 client_m365 row; bool $appReady; ?string $link an approval link made on the last
- * request (shown once); array $dupes Tenants::dupes() (only before the check is done)
+ * request (shown once); array $dupes Tenants::dupes() (only before the check is done). 2.6.2: a tenant approved in the
+ * last half hour that still lacks permissions gets "Microsoft can take a few minutes" instead of a new request.
  * Security: every value is escaped (tenant names and errors come from Microsoft). Forms post with CSRF; the role
  * checks are repeated by M365Controller. The own app's secret is never shown back. A tenant waiting for confirmation
  * shows its id and domain so staff can tell it's the right one.
@@ -17,7 +18,10 @@ $cid = (int) $client['id'];
 $tech = Auth::can('tech');
 $connected = Tenants::connected($m365);
 $pending = Tenants::awaiting($m365); // a tenant approved through a link (or not readable yet) waiting for staff
-$form = fn(string $action, string $label, string $cls, string $extra = '') => '<form method="post" action="/clients/' . $cid . '/m365/' . $action . '" class="d-inline">' . csrf_field()
+// 2.6.2: Connect and Approve open Microsoft's sign-in in a new tab (this page stays; the result shows in that tab, and
+// this page reloads when you come back to it, app.js data-reload-on-return)
+$form = fn(string $action, string $label, string $cls, string $extra = '') => '<form method="post" action="/clients/' . $cid . '/m365/' . $action . '" class="d-inline"'
+    . ($action === 'connect' ? ' target="_blank" rel="noopener" data-reload-on-return' : '') . '>' . csrf_field()
     . '<button class="btn btn-sm ' . $cls . '"' . $extra . '>' . $label . '</button></form>';
 ?>
 <div class="card card-outline card-<?= $connected ? ($m365['last_error'] ? 'danger' : 'success') : 'secondary' ?>" id="m365">
@@ -41,8 +45,16 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <div><b><?= e($m365['tenant_name']) ?></b><?= $m365['tenant_domain'] ? ' · ' . e($m365['tenant_domain']) : '' ?>
         <span class="text-muted">· <?= $m365['mode'] === 'own' ? 'the client\'s own app' : 'your app' ?> · last synced <?= $m365['last_sync_at'] ? e(rel_time($m365['last_sync_at'])) : 'not yet' ?></span></div>
       <?php if ($m365['last_error']): ?><div class="text-danger mt-1"><i class="fas fa-triangle-exclamation me-1"></i><?= e($m365['last_error']) ?></div><?php endif; ?>
-      <?php if ($m365['mode'] === 'msp' && !empty(\Align\M365\Security::stored($m365)['consent'])): // 2.6.1: new permissions to approve ?>
-        <div class="alert alert-warning py-2 mt-2 mb-1"><i class="fas fa-key me-1"></i>Your app now also reads security settings (Secure Score, MFA, admin roles), read-only.
+      <?php $sec = \Align\M365\Security::stored($m365) ?? []; ?>
+      <?php // 2.6.2: approved in the last half hour, with the app already asking for everything: Microsoft may still be
+            // applying the new permissions, so say that rather than ask again ?>
+      <?php $justApproved = !empty($sec['consent']) && \Align\M365\App::mode() === 'auto' && \Align\M365\App::permissionsCurrent() && $m365['connected_at'] && strtotime($m365['connected_at']) > time() - 1800; ?>
+      <?php if ($m365['mode'] === 'msp' && $justApproved): ?>
+        <div class="alert alert-info py-2 mt-2 mb-1"><i class="fas fa-hourglass-half me-1"></i>Approved <?= e(rel_time($m365['connected_at'])) ?>. Microsoft can take a few minutes to apply new permissions<?= !empty($sec['missing']) ? ' (not applied yet: ' . e(implode(', ', $sec['missing'])) . ')' : '' ?>:
+          press <b>Sync now</b> in a few minutes to run the security checks again. Still waiting after 15 minutes? Approve again below.
+          <?php if ($tech): ?><div class="mt-1"><?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Approve again', 'btn-sm btn-default') ?></div><?php endif; ?></div>
+      <?php elseif ($m365['mode'] === 'msp' && !empty($sec['consent'])): // 2.6.1: new permissions to approve ?>
+        <div class="alert alert-warning py-2 mt-2 mb-1"><i class="fas fa-key me-1"></i>Your app now also reads security settings (Secure Score, MFA, admin roles), read-only<?= !empty($sec['missing']) ? '; not granted yet: ' . e(implode(', ', $sec['missing'])) : '' ?>.
           <?php if (\Align\M365\App::mode() === 'manual'): // an app made by hand: the MSP adds the permissions to it first ?>First add the new permissions to your app registration (<a href="/integrations/microsoft-365">Integrations → Microsoft 365 (clients)</a> lists them), then<?php endif; ?>
           the client's admin approves once more:
           <?php if ($tech): ?><div class="mt-1"><?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Approve new permissions', 'btn-sm btn-warning') ?> <?= $form('link', 'Link for the client\'s admin', 'btn-default') ?></div><?php endif; ?></div>
@@ -62,7 +74,7 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <p class="mb-2">Connect to read <?= e($client['name']) ?>'s Microsoft 365 subscriptions into Licensing (hourly) and check its security settings (daily), read-only. An admin of their tenant approves your app once.</p>
       <?php if ($tech): ?>
         <div class="d-flex flex-wrap gap-2">
-          <?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Connect Microsoft 365', 'btn-primary', ' title="Opens Microsoft: sign in as the client\'s admin and accept"') ?>
+          <?= $form('connect', '<i class="fab fa-microsoft me-1"></i>Connect Microsoft 365', 'btn-primary', ' title="Opens Microsoft in a new tab: sign in as the client\'s admin and accept"') ?>
           <?= $form('link', '<i class="fas fa-link me-1"></i>Link for the client\'s admin', 'btn-default') ?>
         </div>
       <?php endif; ?>

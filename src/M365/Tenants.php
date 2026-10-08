@@ -61,9 +61,13 @@ final class Tenants
      * Microsoft's admin consent link for the client: opens the approval page, then comes back to App::redirectUri().
      * Starts (or renews) the client's single-use nonce, so an earlier link stops working. The MSP app must be ready.
      * Returns [url, nonce]; the Connect button keeps the nonce in the tech's session (completeConsent()).
+     * 2.6.2: the MSP app's permissions are brought up to date first (App::updatePermissions), because the approval
+     * page grants what the app asks for at that moment; before, that waited for the daily run and an admin approving
+     * in between re-granted only the old permissions.
      */
     public static function consentUrl(int $clientId): array
     {
+        App::updatePermissions(); // nothing to do (null) almost always; a failure is tried again by the daily run
         if (!App::ready()) {
             throw new \RuntimeException('Set up Microsoft 365 (clients) under Integrations first.');
         }

@@ -32,6 +32,12 @@ final class M365Controller
     public static function index(): void
     {
         Auth::requireRole('admin');
+        // 2.6.2: an app made before the latest permissions is brought up to date as soon as an admin looks, not only
+        // by the daily run (success and failure are audited; after a failure it waits an hour before trying again)
+        App::updatePermissions();
+        if (!App::permissionsCurrent() && ($err = (string) \Align\Settings::get('m365c_permissions_error'))) {
+            flash('warning', 'Couldn\'t add the new permissions to your app yet: ' . $err . '. Align tries again within the hour and in the daily run; or add them to the app in Entra ID.');
+        }
         $setup = $_SESSION['m365c_setup'] ?? null;
         if (is_array($setup) && ($setup['expires'] ?? 0) < time()) {
             unset($_SESSION['m365c_setup']);
@@ -207,6 +213,10 @@ final class M365Controller
             flash('error', $e->getMessage());
             redirect("/clients/$id/connectors#m365");
         }
+        if (!App::permissionsCurrent()) {
+            // 2.6.2: the app couldn't be updated (consentUrl() tried): this approval grants only the old permissions
+            flash('warning', 'Your app doesn\'t ask for the newest permissions yet, so this approval grants only the earlier ones. An admin can see why under Integrations → Microsoft 365 (clients).');
+        }
         Audit::log('m365.connect_started', $client['name']);
         // Off-site, to Microsoft's sign-in host: the address is built by Tenants::consentUrl() from App::loginBase()
         // and fixed parts, never from the request (redirect() is for same-site paths only)
@@ -224,6 +234,9 @@ final class M365Controller
         $client = ClientController::load($id);
         try {
             $_SESSION['m365c_link'] = ['client_id' => $id, 'url' => Tenants::consentUrl($id)[0]];
+            if (!App::permissionsCurrent()) { // 2.6.2, as in connect()
+                flash('warning', 'Your app doesn\'t ask for the newest permissions yet, so this link grants only the earlier ones. An admin can see why under Integrations → Microsoft 365 (clients).');
+            }
             unset($_SESSION['m365c_nonce'][$id]); // a link never connects without staff confirming
             Audit::log('m365.link', $client['name']);
         } catch (\Throwable $e) {
@@ -250,7 +263,10 @@ final class M365Controller
             flash(['error' => 'error', 'pending' => 'warning', 'connected' => 'success'][$r['status']], match ($r['status']) {
                 'error' => $r['message'],
                 'pending' => "{$r['message']} approved the app. Check it's this client's tenant and confirm below.",
-                default => "Connected to {$r['message']}. Its Microsoft subscriptions are in Licensing.",
+                default => "Connected to {$r['message']}. Its Microsoft subscriptions are in Licensing."
+                    // 2.6.2: approved, but Microsoft hasn't applied every permission to the app's sign-in yet
+                    . (App::mode() === 'auto' && App::permissionsCurrent() && !empty(\Align\M365\Security::stored(Tenants::row($cid))['consent'])
+                        ? ' Microsoft can take a few minutes to apply new permissions: press Sync now on this page in a few minutes to run the security checks again.' : ''),
             });
             redirect("/clients/$cid/connectors#m365");
         }

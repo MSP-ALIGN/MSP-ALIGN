@@ -21,7 +21,7 @@ header('X-Content-Type-Options: nosniff');
 // Pages opened from a secret link send no Referer at all (2.2.1): with same-origin, their own scripts, styles and
 // images carried the whole URL, token included, into the web server's access and error logs
 header('Referrer-Policy: ' . (preg_match('#^/(ics|portal/(invite|welcome|sign))/#', (string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)) ? 'no-referrer' : 'same-origin'));
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+header('Content-Security-Policy: ' . csp_policy()); // a page whose form leads off-site widens form-action itself (csp_allow_form_target)
 header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=()');
 header('Cross-Origin-Opener-Policy: same-origin');
 header('Cross-Origin-Resource-Policy: same-origin');

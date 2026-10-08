@@ -25,6 +25,9 @@ final class ConnectorsController
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        // 2.6.2: Connect and Approve post here and are answered with a redirect to Microsoft's sign-in, which the
+        // page's form-action has to allow (the button only reloaded the page; Ctrl+click worked)
+        csp_allow_form_target(\Align\M365\App::loginBase());
         View::render('clients/connectors', [
             'title' => $client['name'] . ' · Connectors',
             'nav' => 'clients',

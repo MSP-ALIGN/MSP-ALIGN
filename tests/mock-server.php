@@ -210,7 +210,15 @@ if (preg_match('#^/m365c-login/([^/]+)/oauth2/v2\.0/(devicecode|token)$#', $path
         $err('unauthorized_client', "AADSTS700016: Application with identifier '$cid' was not found in the directory '$tenant'. This can happen if the application has not been installed by the administrator of the tenant.");
         return;
     }
-    $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => "t:$tenant:$cid"]);
+    // 2.6.2: a JWT-shaped token like Microsoft's (unsigned here), whose 'roles' claim names the permissions this
+    // tenant granted (App::grantedRoles reads it); mock-only: 'roles_lag' leaves some out, as just after approving
+    $names = ['498476ce-e0fe-48b0-b801-37ba7e2685c6' => 'Organization.Read.All', 'df021288-bdef-4463-88db-98f22de89214' => 'User.Read.All',
+        'bf394140-e372-4bf9-a898-299cfc7564e5' => 'SecurityEvents.Read.All', '246dd0d5-5bd0-4def-940b-0421030a5b68' => 'Policy.Read.All',
+        'b0afded3-3588-46d8-8b3d-9842eff778da' => 'AuditLog.Read.All', '483bed4a-2ad3-4361-a73b-c83ccdbdc53c' => 'RoleManagement.Read.Directory'];
+    $roles = $cid === $st['own']['app_id'] ? array_values($names) : array_values(array_intersect_key($names, array_flip($st['grants'][$tenant] ?? [])));
+    $roles = array_values(array_diff($roles, $st['roles_lag'] ?? []));
+    $b64 = fn(array $a) => rtrim(strtr(base64_encode(json_encode($a)), '+/', '-_'), '=');
+    $json(['token_type' => 'Bearer', 'expires_in' => 3599, 'access_token' => $b64(['typ' => 'JWT', 'alg' => 'none']) . '.' . $b64(['tid' => $tenant, 'appid' => $cid, 'roles' => $roles]) . '.mock']);
     return;
 }
 if (str_starts_with($path, '/m365c-graph/v1.0/')) {
@@ -255,11 +263,13 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
         }
         return;
     }
-    if (!preg_match('#^t:([^:]+):(.+)$#', $auth, $tm)) {
+    // The token from /m365c-login: header.payload.mock with the tenant and app in the payload (2.6.2; "t:tenant:app" before)
+    $tp = preg_match('#^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\.mock$#', $auth, $tm) ? json_decode((string) base64_decode(strtr($tm[2], '-_', '+/')), true) : null;
+    if (!is_array($tp) || !is_string($tp['tid'] ?? null) || !is_string($tp['appid'] ?? null)) {
         $no(401, 'InvalidAuthenticationToken', 'Access token is empty.');
         return;
     }
-    [$tenant, $appId] = [$tm[1], $tm[2]];
+    [$tenant, $appId] = [$tp['tid'], $tp['appid']];
     if (preg_match('#^/applications/([^/]+)/(addKey|removeKey)$#', $sub, $am)) {
         // Rotation: only the app itself, in its home tenant, with a proof signed by a key it has now
         $proof = $jwtParts((string) ($body['proof'] ?? ''));

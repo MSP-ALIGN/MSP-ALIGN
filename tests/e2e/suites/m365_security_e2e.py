@@ -2,7 +2,10 @@
 the tenant lacks, or permissions not approved yet), the users list followed across pages, security defaults and
 Conditional Access; the client overview card; the health score's Security area (and its weight); suggested answers for
 compliance controls and alignment standards linked to a check (the built-in ones linked by the migration); the app
-gaining the new permissions by itself and clients approving them again, with licenses syncing meanwhile."""
+gaining the new permissions by itself and clients approving them again, with licenses syncing meanwhile.
+2.6.2: the Connectors page lets its forms lead to Microsoft's sign-in (form-action), the app's permissions are brought
+up to date when someone approves or an admin opens the integration page (not only by the daily run), the token's
+granted permissions name what's missing, and a tenant approved minutes ago gets "Microsoft can take a few minutes"."""
 import re, json, html as H
 from datetime import date, datetime, timedelta, timezone
 from lib import *
@@ -181,4 +184,78 @@ r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients
 st.get(r.headers["Location"])
 ok(sec(C1)["consent"] is False and st_of(C1, "m365_secure_score") != "unknown" and q("select status from client_m365 where client_id=%s", C1)[0]["status"] == "connected",
    "approving again (Connect on the same tenant) brings the checks back")
+
+# ---- 2.6.2: Connect/Approve post a form answered with a redirect to Microsoft: the page's form-action allows it
+csp = st.get(B + f"/clients/{C1}/connectors").headers.get("Content-Security-Policy", "")
+ok("form-action 'self' " + M.rstrip("/") in csp, "the Connectors page's form-action allows Microsoft's sign-in: " + csp[csp.find("form-action"):][:80])
+ok("form-action 'self';" in st.get(B + "/").headers.get("Content-Security-Policy", ""), "other pages keep form-action 'self' only")
+
+# ---- 2.6.2: approving brings an older app's permissions up to date first (no waiting for the daily run)
+mset(app={**mock()["app"], "roles": [ORG, USR]}, grants={T1: [ORG, USR]})
+setting("m365c_permissions", "1")
+r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/connectors")}, allow_redirects=False)
+ok(set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "2", "Approve updates the app's permissions before sending the admin to Microsoft")
+st.get(r.headers["Location"])
+ok(sec(C1)["consent"] is False and sec(C1).get("missing") == [], "so one approval grants everything")
+mset(app={**mock()["app"], "roles": [ORG, USR]})
+setting("m365c_permissions", "1")
+st.get(B + "/integrations/microsoft-365")
+ok(set(mock()["app"]["roles"]) == {ORG, USR, *SEC_ROLES} and phpo('echo Align\\Settings::get("m365c_permissions");') == "2", "an admin opening Integrations -> Microsoft 365 (clients) updates it too")
+
+# ---- 2.6.2: approved, but Microsoft hasn't applied a permission to the sign-in yet: named, and "a few minutes"
+mset(roles_lag=["Policy.Read.All"])
+r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/connectors")}, allow_redirects=False)
+r = st.get(r.headers["Location"])
+s = sec(C1)
+ok(s["missing"] == ["Policy.Read.All"] and s["consent"] is True, f"the token's roles name the permission not applied yet: {s.get('missing')}")
+t = text(r.text)
+ok("few minutes" in flash(r.text) and "Microsoft can take a few minutes to apply new permissions" in t and "Policy.Read.All" in t and "Approve new permissions" not in t,
+   "right after approving: wait a few minutes and Sync now, not another approval request")
+q("update client_m365 set connected_at = now() - interval 2 hour where client_id=%s", C1)
+t = text(st.get(B + f"/clients/{C1}/connectors").text)
+ok("Approve new permissions" in t and "not granted yet: Policy.Read.All" in t, "still missing later: approve again, naming the permission")
+mset(roles_lag=[])
+st.post(B + f"/clients/{C1}/m365/sync", data={"_csrf": tok(st, f"/clients/{C1}/connectors")})
+ok(sec(C1)["consent"] is False and "Approve new permissions" not in st.get(B + f"/clients/{C1}/connectors").text, "once Microsoft applies it, Sync now clears it")
+# ---- 2.6.2: if the app can't be updated: kept, audited, a warning when approving, and not retried for an hour
+mset(app={**mock()["app"], "roles": [ORG, USR]})
+setting("m365c_permissions", "1")
+oid = phpo('echo Align\\Settings::get("m365c_app_object_id");')
+setting("m365c_app_object_id", "not-a-guid")
+r = st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/connectors")}, allow_redirects=False)
+ok("object id is missing" in phpo('echo Align\\Settings::get("m365c_permissions_error");') and q("select count(*) n from audit_log where action='m365.permissions_failed'")[0]["n"] >= 1,
+   "a failed update is kept and audited")
+t = st.get(B + f"/clients/{C1}/connectors").text
+ok("grants only the earlier ones" in flash(t), "Approve warns that it grants only the earlier permissions: " + flash(t)[:80])
+setting("m365c_app_object_id", oid)
+st.get(B + "/integrations/microsoft-365")
+ok(phpo('echo Align\\Settings::get("m365c_permissions");') == "1", "within the hour it isn't tried again on every page view")
+setting("m365c_permissions_failed_at", "0")
+r = st.get(B + "/integrations/microsoft-365")
+ok(phpo('echo Align\\Settings::get("m365c_permissions");') == "2" and phpo('echo Align\\Settings::get("m365c_permissions_error");') == "", "later it's tried again, and the error is cleared")
+
+# ---- 2.6.2: in a real browser, Connect goes to Microsoft's sign-in (it used to just reload the page: CSP form-action)
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b = p.chromium.launch(); pg = b.new_page(viewport={"width": 1400, "height": 900})
+    pg.goto(B + "/login"); pg.fill("input[name=email]", "admin@example.com"); pg.fill("input[name=password]", "LongPassword123!"); pg.click("button")
+    __import__('sitecustomize').after_login(pg, "admin@example.com"); pg.wait_for_load_state()
+    # The mock Microsoft approves straight away and sends the browser back: arriving back with the result proves the
+    # browser went there (before 2.6.2 it was stopped on the Connectors page and nothing happened)
+    pg.goto(B + f"/clients/{C2}/connectors")
+    seen = []
+    pg.context.on("request", lambda rq: seen.append(rq.url))
+    with pg.context.expect_page() as newp:   # 2.6.2: Microsoft opens in a new tab; this one stays
+        pg.click("text=Connect Microsoft 365")
+    np = newp.value
+    np.wait_for_load_state()
+    ok(any("/m365c-login/" in u and "adminconsent?" in u for u in seen) and "approved the app" in flash(np.content()),
+       "clicking Connect Microsoft 365 opens Microsoft's approval page in a new tab (and the result shows there): " + flash(np.content())[:80])
+    ok(pg.url.startswith(B + f"/clients/{C2}/connectors"), "the Connectors page stays open in its own tab")
+    np.close(); pg.bring_to_front()
+    # Back on this tab: it reloads by itself (headless Chrome may already have fired visibilitychange on bring_to_front)
+    pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    pg.wait_for_timeout(1500); pg.wait_for_load_state()
+    ok("Tenant ID" in pg.content(), "coming back to it, the page reloads and shows the result (the tenant waiting to be confirmed)")
+    b.close()
 done()

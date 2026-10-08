@@ -38,6 +38,31 @@ function url(string $path = '/', array $query = []): string
 }
 
 /**
+ * The Content-Security-Policy every page sends (public/index.php). $formTargets: other origins a form on this page may
+ * send the browser to (2.6.2): browsers apply form-action to where a form's answer redirects too, so a POST answered
+ * with a redirect to Microsoft's sign-in was silently stopped (the page just reloaded). Each entry is reduced to its
+ * origin (scheme, host, port); anything that isn't an http(s) URL with a plain host name is dropped.
+ */
+function csp_policy(array $formTargets = []): string
+{
+    $extra = '';
+    foreach ($formTargets as $u) {
+        $p = parse_url((string) $u);
+        $host = (string) ($p['host'] ?? '');
+        if (in_array($p['scheme'] ?? '', ['https', 'http'], true) && preg_match('/^[a-z0-9.-]+$/i', $host)) {
+            $extra .= ' ' . $p['scheme'] . '://' . strtolower($host) . (isset($p['port']) ? ':' . (int) $p['port'] : '');
+        }
+    }
+    return "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'$extra; frame-ancestors 'none'";
+}
+
+/** Lets this page's forms lead to $url's origin as well (replaces the page's CSP header; see csp_policy()). */
+function csp_allow_form_target(string $url): void
+{
+    header('Content-Security-Policy: ' . csp_policy([$url]), true);
+}
+
+/**
  * Redirects (302) to a same-site path built by url() and stops. Callers that take the target from the request
  * must still check it with Security::safePath() or a fixed list: url() keeps it on this site, not on the page
  * the caller meant.

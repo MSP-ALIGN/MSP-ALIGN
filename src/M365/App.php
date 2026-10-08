@@ -308,16 +308,35 @@ final class App
     }
 
     /**
+     * 2.6.2 Whether the app already asks for everything in clientAccess(): always for an app made by hand (the MSP
+     * keeps it up to date in Entra ID), else once updatePermissions() (or the setup) has applied this version.
+     */
+    public static function permissionsCurrent(): bool
+    {
+        return self::mode() !== 'auto' || Settings::int('m365c_permissions', 1) >= self::PERMISSIONS_VERSION;
+    }
+
+    /**
      * 2.6.1 Brings an app Align made earlier up to clientAccess() (its own registration, which OwnedBy allows), once,
      * from the daily run. Clients then approve again to grant the new permissions (until they do, the checks that
      * need them show as not approved). Auto mode only; an app made by hand is updated by the MSP in Entra ID.
-     * Returns a line for the log, or null when there was nothing to do; a failure is kept and tried the next day.
+     * Returns a line for the log, or null when there was nothing to do (or, 2.6.2, a failure less than an hour ago
+     * outside the daily run, $daily). A failure is kept in m365c_permissions_error and audited.
      * It replaces the whole requiredResourceAccess with clientAccess(): the app is the one Align made, so anything
      * added to it by hand in Entra ID is dropped.
      */
-    public static function updatePermissions(): ?string
+    public static function updatePermissions(bool $daily = false): ?string
     {
-        if (self::mode() !== 'auto' || !self::ready() || Settings::int('m365c_permissions', 1) >= self::PERMISSIONS_VERSION) {
+        if (self::permissionsCurrent()) {
+            return null;
+        }
+        if (self::mode() !== 'auto' || !self::ready()) {
+            return null;
+        }
+        // 2.6.2: it's now also tried when someone approves or opens the integration page: after a failure, wait an
+        // hour before trying again (each try is a sign-in and a Graph call that may hang), unless it's the daily run
+        $failedAt = (int) Settings::get('m365c_permissions_failed_at', '0');
+        if (!$daily && $failedAt > time() - 3600) {
             return null;
         }
         $objectId = (string) Settings::get('m365c_app_object_id');
@@ -327,10 +346,17 @@ final class App
             }
             self::graph((string) Settings::get('m365c_tenant'), 'PATCH', "/applications/$objectId", ['requiredResourceAccess' => self::clientAccess()]);
             Settings::set('m365c_permissions', (string) self::PERMISSIONS_VERSION);
+            Settings::set('m365c_permissions_error', '');
+            Settings::set('m365c_permissions_failed_at', '0');
             \Align\Audit::log('m365.permissions', 'Microsoft 365 (clients) app now asks for the security permissions; clients approve again from their Connectors page');
             return 'app permissions updated: clients need to approve again';
         } catch (\Throwable $e) {
-            return 'permissions update failed: ' . mb_substr($e->getMessage(), 0, 300);
+            // Kept for the integration page and the Connectors page to show, and logged once per failure
+            $msg = mb_substr($e->getMessage(), 0, 300);
+            Settings::set('m365c_permissions_error', $msg);
+            Settings::set('m365c_permissions_failed_at', (string) time());
+            \Align\Audit::log('m365.permissions_failed', 'Couldn\'t add the new permissions to the Microsoft 365 (clients) app: ' . $msg);
+            return 'permissions update failed: ' . $msg;
         }
     }
 
@@ -500,6 +526,27 @@ final class App
         }
         self::$tokens[$ck] = [$r['access_token'], time() + (int) ($r['expires_in'] ?? 3600)];
         return $r['access_token'];
+    }
+
+    /**
+     * 2.6.2 The application permissions Microsoft has granted the app in $tenant right now, by name (e.g.
+     * "Policy.Read.All"), read from the 'roles' claim of the app-only token: what the tenant's admin approved, once
+     * Microsoft has applied it (a few minutes after approving). Null when the token can't be read that way (not a
+     * three-part JWT, e.g. an encrypted token): then nothing is concluded from it. A token without the claim gives []:
+     * Microsoft leaves it out when no application permission is granted at all. The token comes straight from Microsoft's sign-in over
+     * HTTPS, so its signature isn't checked here; the names are only compared with a fixed list.
+     */
+    public static function grantedRoles(string $tenant, ?array $own = null): ?array
+    {
+        $parts = explode('.', self::token($tenant, $own));
+        if (count($parts) !== 3) {
+            return null;
+        }
+        $payload = json_decode((string) base64_decode(strtr($parts[1], '-_', '+/'), true), true);
+        if (!is_array($payload)) {
+            return null;
+        }
+        return array_values(array_filter((array) ($payload['roles'] ?? []), fn($r) => is_string($r) && preg_match('/^[A-Za-z.]{3,80}$/', $r)));
     }
 
     /** One Graph request in $tenant with an app-only token (see token()). $path is built by the caller from fixed or encoded parts. */

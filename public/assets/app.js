@@ -1824,3 +1824,15 @@ document.addEventListener('DOMContentLoaded', () => {
     else sel.form.submit();
   });
 });
+
+// 2.6.2 A form that opens another site in a new tab (Microsoft 365 Connect / Approve): once sent, this page reloads
+// when you come back to it, so it shows the result instead of the old state
+(() => {
+  let sent = false;
+  document.addEventListener('submit', (e) => {
+    if (e.target instanceof HTMLFormElement && e.target.matches('form[data-reload-on-return]')) sent = true;
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (sent && document.visibilityState === 'visible') { sent = false; location.reload(); }
+  });
+})();
