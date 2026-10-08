@@ -6,7 +6,7 @@
 use Align\Compliance\Compliance;
 
 $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="form-select form-select-sm"><option value="">—</option>'
-    . implode('', array_map(fn($k, $l) => '<option value="' . $k . '"' . ($cur === $k ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(Compliance::AUTO_CHECKS), Compliance::AUTO_CHECKS))
+    . implode('', array_map(fn($k, $l) => '<option value="' . $k . '"' . ($cur === $k ? ' selected' : '') . '>' . e($l) . '</option>', array_keys(Compliance::checks()), Compliance::checks())) // 2.6.1: Microsoft 365 checks too
     . '</select>';
 ?>
 <div class="small"><a href="/frameworks">Frameworks</a> /</div>

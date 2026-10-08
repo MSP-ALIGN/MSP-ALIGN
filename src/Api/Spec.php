@@ -78,7 +78,7 @@ final class Spec
         'Standard' => ['A standard in the alignment library (2.3.0).', [
             'id' => ['integer', ''], 'category' => ['string', ''], 'section' => ['string', 'Optional heading above the category.'], 'title' => ['string', ''],
             'why' => ['string', 'Why it matters, in the client\'s words.'], 'how' => ['string', 'How to check it (staff notes).'], 'priority' => ['string', 'critical, high, medium, low.'],
-            'weight' => ['integer', 'How much it counts in the score: 4, 3, 2 or 1.'], 'auto_check' => ['string', 'os_supported, hw_lifecycle, warranty, stale or backups; null = answered by hand.'],
+            'weight' => ['integer', 'How much it counts in the score: 4, 3, 2 or 1.'], 'auto_check' => ['string', 'os_supported, hw_lifecycle, warranty, stale, backups, or (2.6.1) a Microsoft 365 check: m365_secure_score, m365_mfa_users, m365_mfa_admins, m365_mfa_enforced, m365_legacy_blocked, m365_admin_count, m365_stale; null = answered by hand.'],
             'tags' => ['string[]', 'Compliance tags: answers are shared with compliance controls that have the same tags.'],
             'suggested_fix' => ['object', 'title, category, cost: what Make project fills in.'], 'active' => ['boolean', 'false = switched off (kept for old reviews).'], 'updated_at' => ['date-time', '']]],
         'Alignment' => ['A client\'s alignment with the standards (2.3.0).', [
@@ -105,12 +105,12 @@ final class Spec
             'client_id' => ['integer', ''], 'score' => ['integer', '0-100; null when no area has data.'], 'band' => ['string', 'Healthy, Needs attention, At risk or No score.'],
             'areas_counted' => ['integer', 'Areas with data and a weight above 0.'], 'areas_weighted' => ['integer', 'Areas with a weight above 0.'],
             'bands' => ['object', 'healthy_from, needs_attention_from (the settings in use).'],
-            'areas' => ['object[]', 'key (lifecycle, backups, compliance, service, alignment), label, score (null = no data), weight, counted, details [{text, tone}] (null when the key can\'t read that area).'],
+            'areas' => ['object[]', 'key (lifecycle, backups, compliance, service, alignment, security (2.6.1)), label, score (null = no data), weight, counted, details [{text, tone}] (null when the key can\'t read that area).'],
             'weakest' => ['object', 'key, score of the lowest counted area; null when none.'],
             'since_last_review' => ['object', 'date, score then, change, label (with meetings:read) of the newest completed business review; null when there is none or no score from then.'],
             'url' => ['string', '']]],
         'HealthDay' => ['A client\'s health on one day (2.5.0).', [
-            'date' => ['date', ''], 'score' => ['integer', 'Null when no area had data.'], 'band' => ['string', ''], 'areas' => ['object', 'lifecycle, backups, compliance, service, alignment: each 0-100 or null.']]],
+            'date' => ['date', ''], 'score' => ['integer', 'Null when no area had data.'], 'band' => ['string', ''], 'areas' => ['object', 'lifecycle, backups, compliance, service, alignment, security (2.6.1): each 0-100 or null.']]],
         'AlignmentAnswersResult' => ['Result of answering standards.', ['updated' => ['integer', ''], 'unchanged' => ['integer', ''], 'review' => ['object', 'The review afterwards (without answers).']]],
         'Framework' => ['A compliance framework.', ['id' => ['integer', ''], 'slug' => ['string', ''], 'name' => ['string', ''], 'description' => ['string', ''], 'built_in' => ['boolean', ''], 'controls' => ['integer', '']]],
         'Assessment' => ['A framework assigned to a client, with its score.', [

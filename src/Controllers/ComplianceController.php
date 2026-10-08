@@ -176,7 +176,7 @@ final class ComplianceController
             'link' => $link,
             'sections' => $sections,
             'score' => Compliance::score($id, $fw),
-            'indicators' => Compliance::indicators((new Lifecycle())->devices($id)),
+            'indicators' => Compliance::forClient($id, (new Lifecycle())->devices($id)), // 2.6.1: Microsoft 365 checks too
             'filter' => query('filter'),
             'docs' => \Align\Docs\Documents::forClient($id),
             'crosswalk' => self::withAlignment($id, Compliance::crosswalk($id, $fw, $controls), $controls),
@@ -415,7 +415,7 @@ final class ComplianceController
                 $tagSql = array_key_exists('tags', $r) ? ', tags = ?' : '';
                 DB::run("UPDATE compliance_controls SET section = ?, ref = ?, title = ?, guidance = ?, auto_check = ?, sort = ?$tagSql WHERE id = ? AND framework_id = ?", [
                     $str($r['section'] ?? '', 190), $str($r['ref'] ?? '', 40), $str($r['title'], 255), $str($r['guidance'] ?? '', 5000),
-                    is_string($r['auto_check'] ?? null) && isset(Compliance::AUTO_CHECKS[$r['auto_check']]) ? $r['auto_check'] : null, $sort($r['sort'] ?? 0),
+                    is_string($r['auto_check'] ?? null) && isset(Compliance::checks()[$r['auto_check']]) ? $r['auto_check'] : null, $sort($r['sort'] ?? 0),
                     ...($tagSql ? [Compliance::cleanTags(is_string($r['tags']) ? $r['tags'] : '')] : []), (int) $cid, $id,
                 ]);
             }
@@ -427,7 +427,7 @@ final class ComplianceController
                     'ref' => $str($new['ref'] ?? '', 40),
                     'title' => $str($new['title'], 255),
                     'guidance' => $str($new['guidance'] ?? '', 5000),
-                    'auto_check' => is_string($new['auto_check'] ?? null) && isset(Compliance::AUTO_CHECKS[$new['auto_check']]) ? $new['auto_check'] : null,
+                    'auto_check' => is_string($new['auto_check'] ?? null) && isset(Compliance::checks()[$new['auto_check']]) ? $new['auto_check'] : null,
                     'tags' => Compliance::cleanTags(is_string($new['tags'] ?? null) ? $new['tags'] : ''),
                     'sort' => (int) DB::value('SELECT COALESCE(MAX(sort), 0) + 10 FROM compliance_controls WHERE framework_id = ?', [$id]),
                 ]);

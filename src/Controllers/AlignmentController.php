@@ -107,7 +107,8 @@ final class AlignmentController
             'score' => Alignment::score($rows),
             'last' => $last,
             'lastAnswers' => $lastAnswers,
-            'indicators' => $edit ? Alignment::indicators($devices, \Align\Backup\Backup::forClient($client, $devices)) : [],
+            'indicators' => $edit ? Alignment::indicators($devices, \Align\Backup\Backup::forClient($client, $devices),
+                ...array_reverse(\Align\M365\Security::forClient($id))) : [], // 2.6.1: Microsoft 365 checks too (result, connected)
             'matches' => Alignment::complianceMatches($id, $rows),
         ]);
     }

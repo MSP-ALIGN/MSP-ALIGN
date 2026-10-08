@@ -52,6 +52,9 @@ final class Notify
             if ($r = \Align\M365\App::rotateIfDue()) {
                 $out[] = 'm365: ' . $r;
             }
+            if ($r = \Align\M365\App::updatePermissions()) { // 2.6.1: an app made before the security checks
+                $out[] = 'm365: ' . $r;
+            }
         }
         if (!Mail::on()) {
             return array_merge($out, ['email is off']);

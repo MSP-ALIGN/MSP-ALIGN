@@ -12,14 +12,15 @@ use Align\Service\Sla;
 use Align\Settings;
 
 /**
- * 2.5.0 Client health score: one number from 0 to 100 for each client, made from five areas, each scored 0-100:
+ * 2.5.0 Client health score: one number from 0 to 100 for each client, made from six areas (five before 2.6.1), each scored 0-100:
  *  - lifecycle:   the four device checks (supported OS, within lifecycle, servers and network gear under warranty,
  *                 checking in to the RMM), each the share of devices that pass, averaged over the checks with devices;
  *  - backups:     the share of protected machines, servers and Microsoft 365 items with a backup inside the overdue
  *                 window (servers with no backup count as not backed up), less 10 for each failed job (at most 30);
  *  - compliance:  the average score of the client's frameworks (partial counts half, as on the compliance pages);
  *  - service:     the share of SLA targets met in the last 90 days;
- *  - alignment:   the latest finished alignment review's score.
+ *  - alignment:   the latest finished alignment review's score;
+ *  - security:    (2.6.1) the share of the client's known Microsoft 365 security checks that pass (M365\Security).
  * An area with no data for the client (no frameworks, no backups, no tickets, never reviewed) is left out and the
  * others are weighted up to fill its place, so a missing area never counts as zero. The weights and the band
  * thresholds are admin settings (Settings → Planning & lifecycle). Bands: Healthy, Needs attention, At risk.
@@ -47,6 +48,7 @@ final class Health
         'compliance' => ['Compliance', 'fa-clipboard-check', '/compliance'],
         'service' => ['Service levels', 'fa-stopwatch', '/service-levels'],
         'alignment' => ['Alignment', 'fa-bullseye', '/alignment'],
+        'security' => ['Security', 'fa-shield-halved', '#m365-security'], // 2.6.1: Microsoft 365 checks (connected clients only)
     ];
 
     /** Weight each area starts with (equal), and the band thresholds' defaults. */
@@ -266,6 +268,7 @@ final class Health
             [$from, $to] = Sla::range((string) self::SLA_DAYS);
             $ctx['sla'] = array_intersect_key(Sla::allClients($from, $to), $want);
         }
+        $ctx['security'] = self::securityFor($ids);
         return $ctx;
     }
 
@@ -294,7 +297,21 @@ final class Health
                 AND t.archived_at IS NULL AND t.sla_id > 0 AND (t.response_met = 0 OR t.resolution_met = 0)', [$cid]);
             $ctx['sla'] = [$cid => $s];
         }
+        $ctx['security'] = self::securityFor([$cid]);
         return $ctx;
+    }
+
+    /** 2.6.1 The stored Microsoft 365 security results of connected clients among $ids: [client id => result]. Ids are cast to int. */
+    private static function securityFor(array $ids): array
+    {
+        $out = [];
+        $in = implode(',', array_map('intval', $ids)) ?: '0';
+        foreach (DB::all("SELECT client_id, security_json FROM client_m365 WHERE status = 'connected' AND client_id IN ($in)") as $r) {
+            if ($s = \Align\M365\Security::stored($r)) {
+                $out[(int) $r['client_id']] = $s;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -385,6 +402,16 @@ final class Health
         $gaps = $ctx['gaps'][$cid] ?? null;
         $lines = $gaps ? [[self::n($gaps['n'], 'standard') . ' misaligned' . ($gaps['hi'] ? ' (' . $gaps['hi'] . ' high or critical)' : ''), $gaps['hi'] ? 'bad' : 'warn']] : [];
         $p['alignment'] = [$al && $al['score'] !== null ? (int) $al['score'] : null, $lines];
+
+        // Security (2.6.1): the share of the client's known Microsoft 365 checks that pass; the failing ones listed
+        $sec = $ctx['security'][$cid] ?? null;
+        $lines = [];
+        foreach ((array) ($sec['checks'] ?? []) as $k => $c) {
+            if (is_array($c) && ($c['status'] ?? '') === 'fail') {
+                $lines[] = [(\Align\M365\Security::CHECKS[$k] ?? $k) . ': ' . ($c['detail'] ?? ''), 'bad'];
+            }
+        }
+        $p['security'] = [\Align\M365\Security::score($sec), $lines];
 
         $w = self::weights();
         $scores = array_map(fn($x) => $x[0], $p);

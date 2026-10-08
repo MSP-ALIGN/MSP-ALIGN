@@ -29,6 +29,23 @@ final class Compliance
         'stale' => 'Devices checking in to RMM',
     ];
 
+    /** 2.6.1 Every automatic check a control can use: the device checks and the client's Microsoft 365 checks. key => label */
+    public static function checks(): array
+    {
+        return self::AUTO_CHECKS + \Align\M365\Security::CHECKS;
+    }
+
+    /**
+     * 2.6.1 Indicators for one client's checklist: the device checks (indicators()) and its Microsoft 365 checks from
+     * the last sync (unknown when it isn't connected). $devices: Lifecycle::devices($clientId). The caller has checked
+     * access to the client.
+     */
+    public static function forClient(int $clientId, array $devices): array
+    {
+        [$on, $stored] = \Align\M365\Security::forClient($clientId);
+        return self::indicators($devices) + \Align\M365\Security::indicators($stored, $on);
+    }
+
     /** Score for one client + framework (counts by status; partial counts half, N/A is left out). */
     public static function score(int $clientId, int $frameworkId): array
     {

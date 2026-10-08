@@ -76,6 +76,14 @@ abstract class RmmConnector extends Connector implements LinksClients
         return 'devices';
     }
 
+    /** 2.6.1 One organization and the devices the client gets from it (as linkClientSummary() counts; see LinksClients::linkRecord()). */
+    public function linkRecord(string $id, int $clientId): ?array
+    {
+        $r = DB::one('SELECT o.name, (SELECT COUNT(*) FROM devices d WHERE d.rmm_provider = o.provider AND d.rmm_org_id = o.org_id
+                AND d.client_id IS NULL AND d.removed_at IS NULL) AS n FROM rmm_orgs o WHERE o.provider = ? AND o.org_id = ?', [$this->key(), $id]);
+        return $r ? ['name' => (string) $r['name'], 'count' => (int) $r['n']] : null;
+    }
+
     /** Devices the client gets from its organization (ones not placed at another client by hand). */
     public function linkClientSummary(): array
     {

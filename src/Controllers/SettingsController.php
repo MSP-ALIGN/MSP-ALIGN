@@ -33,14 +33,14 @@ final class SettingsController
         'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24], 'remember_2fa_days' => [0, \Align\Remember::MAX_DAYS],
         // 2.5.0 client health score: each area's weight (0 = left out) and where the bands start
         'health_weight_lifecycle' => [0, 100], 'health_weight_backups' => [0, 100], 'health_weight_compliance' => [0, 100],
-        'health_weight_service' => [0, 100], 'health_weight_alignment' => [0, 100], 'health_good' => [2, 100], 'health_warn' => [1, 99],
+        'health_weight_service' => [0, 100], 'health_weight_alignment' => [0, 100], 'health_weight_security' => [0, 100], 'health_good' => [2, 100], 'health_warn' => [1, 99],
     ];
 
     /** Numbers with no stored value until someone saves one: the value in use meanwhile (so saving it unchanged isn't a change). */
     private const NUMBER_DEFAULTS = [
         'health_weight_lifecycle' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_backups' => \Align\Health\Health::DEFAULT_WEIGHT,
         'health_weight_compliance' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_service' => \Align\Health\Health::DEFAULT_WEIGHT,
-        'health_weight_alignment' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_good' => \Align\Health\Health::DEFAULT_GOOD, 'health_warn' => \Align\Health\Health::DEFAULT_WARN,
+        'health_weight_alignment' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_security' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_good' => \Align\Health\Health::DEFAULT_GOOD, 'health_warn' => \Align\Health\Health::DEFAULT_WARN,
     ];
     private const LOCALE_DEFAULTS = ['locale_currency' => 'USD', 'locale_currency_position' => '', 'locale_number' => 'comma', 'locale_date' => 'mdy', 'locale_time' => '12', 'locale_week_start' => '0'];
 

@@ -232,6 +232,7 @@ $r->post('/integrations/microsoft-365/manual', [$M, 'saveManual']);
 $r->post('/integrations/microsoft-365/rotate', [$M, 'rotate']);
 $r->post('/integrations/microsoft-365/forget', [$M, 'forget']);
 $r->post('/integrations/microsoft-365/prices', [$M, 'savePrices']);
+$r->get('/clients/{id}/connectors', [\Align\Controllers\ConnectorsController::class, 'client']); // 2.6.1
 $r->post('/clients/{id}/m365/connect', [$M, 'connect']);
 $r->post('/clients/{id}/m365/link', [$M, 'link']);
 $r->post('/clients/{id}/m365/confirm', [$M, 'confirm']);

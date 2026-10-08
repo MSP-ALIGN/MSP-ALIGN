@@ -139,6 +139,8 @@ if ($path === '/mock/m365c-approve' || $path === '/mock/m365c-set') {
         foreach ($in as $k => $v) {
             if ($k === 'skus') {
                 $st['tenants'][$v['tenant']]['skus'] = $v['list'];
+            } elseif ($k === 'security') { // 2.6.1: a tenant's security answers (merged over the defaults)
+                $st['tenants'][$v['tenant']]['security'] = $v['data'];
             } elseif ($k === 'revoke') {
                 $st['consented'] = array_values(array_diff($st['consented'], [$v]));
             } else {
@@ -155,6 +157,7 @@ if (preg_match('#^/m365c-login/organizations/v2\.0/adminconsent$#', $path)) {
     $st = $m365State();
     $t = $st['consent_tenant'];
     $st['consented'] = array_values(array_unique([...$st['consented'], $t]));
+    $st['grants'][$t] = $st['app']['roles'] ?? []; // 2.6.1: what the admin approved
     $m365Save($st);
     header('Content-Type: text/html');
     header('Location: ' . $_GET['redirect_uri'] . '?admin_consent=True&tenant=' . $t . '&state=' . urlencode($_GET['state'] ?? ''), true, 302);
@@ -277,9 +280,86 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
         }
         return;
     }
+    if ($method === 'PATCH' && preg_match('#^/applications/([^/]+)$#', $sub, $am)) {
+        // 2.6.1: the app updating its own permissions, in its home tenant
+        if ($tenant !== $m365Home || !$st['app'] || $am[1] !== $st['app']['id']) {
+            $no(403, 'Authorization_RequestDenied', 'Insufficient privileges to complete the operation.');
+            return;
+        }
+        $st['app']['roles'] = array_column($body['requiredResourceAccess'][0]['resourceAccess'] ?? [], 'id');
+        $m365Save($st);
+        http_response_code(204);
+        return;
+    }
     $t = $st['tenants'][$tenant] ?? null;
     if (!$t) {
         $no(403, 'Authorization_RequestDenied', 'Insufficient privileges to complete the operation.');
+        return;
+    }
+    // 2.6.1 security endpoints: each needs its permission granted in this tenant (a client's own app has them all)
+    $granted = fn(string $role) => $appId === $st['own']['app_id'] || in_array($role, $st['grants'][$tenant] ?? [], true);
+    // users: registration details plus 'enabled' and 'licensed' (default true) for the /users list; ids p1, p2... unless given.
+    // The defaults: a disabled member and an unlicensed one (a shared mailbox) without MFA, which don't count as users
+    $sec = ($t['security'] ?? []) + ['secure' => [62, 100], 'users' => [['userType' => 'member', 'isAdmin' => true, 'isMfaRegistered' => true],
+        ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => true], ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => false],
+        ['userType' => 'guest', 'isAdmin' => false, 'isMfaRegistered' => false], ['userType' => 'member', 'isAdmin' => true, 'isMfaRegistered' => false, 'enabled' => false],
+        ['userType' => 'member', 'isAdmin' => false, 'isMfaRegistered' => false, 'licensed' => false]],
+        'defaults' => false, 'ca' => 'nop1', 'admins' => 1, 'admin_groups' => 0, 'signins' => 'nop1'];
+    foreach ($sec['users'] as $i => &$u) {
+        $u += ['id' => 'p' . ($i + 1), 'enabled' => true, 'licensed' => true];
+    }
+    unset($u);
+    $signins = str_contains(rawurldecode($_SERVER['QUERY_STRING'] ?? ''), 'signInActivity'); // /users with sign-in activity needs AuditLog and P1
+    $need = ['/security/secureScores' => 'bf394140-e372-4bf9-a898-299cfc7564e5', '/reports/authenticationMethods/userRegistrationDetails' => 'b0afded3-3588-46d8-8b3d-9842eff778da',
+        '/policies/identitySecurityDefaultsEnforcementPolicy' => '246dd0d5-5bd0-4def-940b-0421030a5b68', '/identity/conditionalAccess/policies' => '246dd0d5-5bd0-4def-940b-0421030a5b68',
+        '/directoryRoles' => '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', '/users' => $signins ? 'b0afded3-3588-46d8-8b3d-9842eff778da' : 'df021288-bdef-4463-88db-98f22de89214'];
+    $base = preg_replace('#/directoryRoles/.*#', '/directoryRoles', $sub);
+    if (isset($need[$base]) && !$granted($need[$base])) {
+        $no(403, 'Authorization_RequestDenied', 'Insufficient privileges to complete the operation.');
+        return;
+    }
+    $nop1 = fn() => $no(403, 'Authentication_RequestFromNonPremiumTenantOrB2CTenant', "Neither tenant is B2C or tenant doesn't have premium license");
+    if ($sub === '/security/secureScores') {
+        $json(['value' => $sec['secure'] ? [['currentScore' => $sec['secure'][0], 'maxScore' => $sec['secure'][1]]] : []]);
+        return;
+    }
+    if ($sub === '/reports/authenticationMethods/userRegistrationDetails') {
+        // two per page, to test following @odata.nextLink
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $all = array_map(fn($u) => array_intersect_key($u, array_flip(['id', 'userType', 'isAdmin', 'isMfaRegistered'])), $sec['users']);
+        $out = ['value' => array_slice($all, ($page - 1) * 2, 2)];
+        if (count($all) > $page * 2) {
+            $out['@odata.nextLink'] = 'http://' . $_SERVER['HTTP_HOST'] . '/m365c-graph/v1.0/reports/authenticationMethods/userRegistrationDetails?$top=2&page=' . ($page + 1);
+        }
+        $json($out);
+        return;
+    }
+    if ($sub === '/policies/identitySecurityDefaultsEnforcementPolicy') {
+        $json(['isEnabled' => (bool) $sec['defaults']]);
+        return;
+    }
+    if ($sub === '/identity/conditionalAccess/policies') {
+        $sec['ca'] === 'nop1' ? $nop1() : $json(['value' => $sec['ca']]);
+        return;
+    }
+    if ($sub === '/directoryRoles') {
+        $json(['value' => [['id' => '77777777-0000-4000-8000-000000000077', 'roleTemplateId' => '62e90394-69f5-4237-9190-012177145e10']]]);
+        return;
+    }
+    if (preg_match('#^/directoryRoles/[^/]+/members$#', $sub)) {
+        $n = max(0, (int) $sec['admins']);
+        $groups = max(0, (int) $sec['admin_groups']);
+        $json(['value' => [...array_map(fn($i) => ['@odata.type' => '#microsoft.graph.user', 'id' => "u$i"], $n ? range(1, $n) : []),
+            ...array_map(fn($i) => ['@odata.type' => '#microsoft.graph.group', 'id' => "g$i"], $groups ? range(1, $groups) : [])]]);
+        return;
+    }
+    if ($sub === '/users') {
+        if (!$signins) {
+            // the account list (no P1 needed): enabled and licensed
+            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'], 'assignedLicenses' => $u['licensed'] ? [['skuId' => 'x']] : []], $sec['users'])]);
+            return;
+        }
+        $sec['signins'] === 'nop1' ? $nop1() : $json(['value' => $sec['signins']]);
         return;
     }
     if ($sub === '/organization' || str_starts_with($sub, '/organization?')) {

@@ -16,13 +16,14 @@ use Align\Health\Health as H;
  *
  * Security: reached through the Kernel with health:read checked; Clients::load() applies the key's client limit and
  * hides archived clients. Each area's score comes with health:read; the lines saying what pulls an area down only
- * when the key can also read that area (devices, backups, compliance, service, alignment), so a narrow key learns no
+ * when the key can also read that area (devices, backups, compliance, service, alignment; 2.6.1 Security with compliance), so a narrow key learns no
  * more than counts it could already read. ?days is a whole number, kept to 1..KEEP_DAYS.
  */
 final class Health
 {
     /** Which scope shows each area's lines. */
-    private const SCOPES = ['lifecycle' => 'devices:read', 'backups' => 'backups:read', 'compliance' => 'compliance:read', 'service' => 'service:read', 'alignment' => 'alignment:read'];
+    private const SCOPES = ['lifecycle' => 'devices:read', 'backups' => 'backups:read', 'compliance' => 'compliance:read', 'service' => 'service:read', 'alignment' => 'alignment:read',
+        'security' => 'compliance:read']; // 2.6.1: Microsoft 365 security checks, a security-posture area like compliance
 
     /** GET /clients/{id}/health: worked out now (and stored as today's row, as when the client page is opened). */
     public static function client(int $id): array

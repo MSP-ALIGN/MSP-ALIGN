@@ -26,7 +26,9 @@ Rules
   state regulations are public domain and can be quoted.
 - `auto_check` (optional) links a control to live device data: `os_supported` (devices on a supported OS),
   `hw_lifecycle` (hardware within lifecycle), `warranty` (servers/network gear under warranty),
-  `stale` (devices checking in to RMM). Use only where it genuinely helps.
+  `stale` (devices checking in to RMM); or (2.6.1) to the client's Microsoft 365 tenant: `m365_secure_score`,
+  `m365_mfa_users`, `m365_mfa_admins`, `m365_mfa_enforced`, `m365_legacy_blocked`, `m365_admin_count`, `m365_stale`
+  (see `src/M365/Security.php`). Use only where it genuinely helps.
 - Escape single quotes in PHP strings (`\'`). The file must pass `php -l`.
 
 ## Crosswalk tags
