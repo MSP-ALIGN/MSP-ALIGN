@@ -34,6 +34,8 @@ final class Clients
 
     /** Huntress data older than this (the sync failing) makes every check unknown rather than judged on old data. */
     public const STALE_HOURS = 26;
+    /** 2.7.1 Defender statuses that mean protected (Huntress's API example says "Healthy"; real agents report "Protected"). */
+    private const GOOD_AV = ['healthy', 'protected'];
     /** Device classes that should run a Huntress agent. */
     private const NEEDS_AGENT = ['desktop', 'laptop', 'server'];
     /** Operating systems a Huntress agent can't run on (hypervisors). */
@@ -126,8 +128,8 @@ final class Clients
     /**
      * Managed Antivirus on the organization's Windows agents that called in recently and that Huntress manages Defender
      * on (a policy status is reported; a client running another antivirus, Defender passive, has none): ['of',
-     * 'bad' => [[hostname, status text]]]. A status other than Healthy, or a policy status other than Compliant,
-     * counts as bad.
+     * 'bad' => [[hostname, status text]]]. Good: a status in GOOD_AV (2.7.1: Huntress reports "Protected" as well as
+     * the "Healthy" its documentation shows), a sub-status that doesn't say out of date, and policy status Compliant.
      */
     public static function antivirus(array $agents): array
     {
@@ -139,7 +141,8 @@ final class Clients
                 continue;
             }
             $of++;
-            $ok = strtolower($a['defender_status']) === 'healthy' && strtolower($a['defender_policy_status']) === 'compliant';
+            $ok = in_array(strtolower(trim($a['defender_status'])), self::GOOD_AV, true) && strtolower(trim($a['defender_policy_status'])) === 'compliant'
+                && !preg_match('/out of date|outdated|not up to date|expired/i', (string) $a['defender_substatus']);
             if (!$ok) {
                 $bad[] = [$a['hostname'], trim($a['defender_status'] . ($a['defender_substatus'] ? ' (' . $a['defender_substatus'] . ')' : '')
                     . ($a['defender_policy_status'] && strtolower($a['defender_policy_status']) !== 'compliant' ? ', policy ' . $a['defender_policy_status'] : ''))];

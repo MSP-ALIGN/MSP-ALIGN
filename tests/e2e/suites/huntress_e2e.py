@@ -80,6 +80,10 @@ for i, (did, serial, name) in enumerate(devs[2:]):
         a["last_callback_at"] = iso(20)  # not checking in
     if i == 2:
         a["defender_status"], a["defender_substatus"] = "Unhealthy", "Out of date"
+    if i == 3:
+        a["defender_status"], a["defender_substatus"] = "Protected", "Up to date"  # 2.7.1: what real agents report
+    if i == 4:
+        a["defender_status"], a["defender_substatus"] = "Protected", "Signatures out of date"
     agents.append(a)
 agents.append({"id": 6000, "organization_id": 102, "hostname": "NF-PC1", "serial_number": "NF1", "platform": "windows", "last_callback_at": iso(0)})
 hset(organizations=[{"id": 101, "name": cname(C1), "key": "cedar", "agents_count": len(agents) - 1, "sat_learner_count": 25},
@@ -116,6 +120,8 @@ ok(c["huntress_agents"]["status"] == "fail" and f"{len(devs) - 3} of {len(devs)}
    "agents: two devices without one, one not checking in (one matched by host name despite a placeholder serial): " + c["huntress_agents"]["detail"])
 ok(c["huntress_incidents"]["status"] == "fail" and "1 open critical or high incident" in c["huntress_incidents"]["detail"], "an open critical incident fails")
 ok(c["huntress_av"]["status"] == "fail" and "Unhealthy" in c["huntress_av"]["detail"], "an agent with Defender unhealthy fails: " + c["huntress_av"]["detail"])
+ok("(Protected (Up to date))" not in c["huntress_av"]["detail"] and "Signatures out of date" in c["huntress_av"]["detail"] and f"{len(agents) - 4} of {len(agents) - 2}" in c["huntress_av"]["detail"],
+   "2.7.1: Protected and up to date counts as healthy; Protected with signatures out of date doesn't: " + c["huntress_av"]["detail"])
 ok(c["huntress_identities"]["status"] == "pass" and "2 identities monitored, none at high risk, 1 without MFA" in c["huntress_identities"]["detail"], "ITDR: guests left out, counts only: " + c["huntress_identities"]["detail"])
 ok(c["huntress_ports"]["status"] == "pass" and "1 open port, none risky" in c["huntress_ports"]["detail"], "external ports: none risky")
 setting("huntress_offline_days", "30")
