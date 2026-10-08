@@ -43,6 +43,9 @@ final class Security
         '483bed4a-2ad3-4361-a73b-c83ccdbdc53c', // RoleManagement.Read.Directory: who's a Global Administrator
     ];
 
+    /** 2.6.2 The names of ROLES, as Microsoft puts them in a token's 'roles' claim (App::grantedRoles), in the same order. */
+    public const ROLE_NAMES = ['SecurityEvents.Read.All', 'Policy.Read.All', 'AuditLog.Read.All', 'RoleManagement.Read.Directory'];
+
     /** Global Administrator's role template id (the same in every tenant). */
     private const GLOBAL_ADMIN = '62e90394-69f5-4237-9190-012177145e10';
     /** Secure Score at or above this share passes. */
@@ -81,13 +84,25 @@ final class Security
     /**
      * ['secure' => ['current', 'max'] or null, 'checks' => [key => ['status' => pass|fail|unknown, 'detail' => text]],
      * 'consent' => true when a check was refused for lack of permission (the client's admin needs to approve the app
-     * again), 'at' => when (Y-m-d H:i:s)]. Remote values are reduced to numbers and booleans here.
+     * again), 'missing' => names of the permissions the token shows aren't granted (2.6.2; [] when all are, or when
+     * it can't tell), 'at' => when (Y-m-d H:i:s)]. Remote values are reduced to numbers and booleans here.
      */
     public static function collect(string $tenant, ?array $own): array
     {
         $g = fn(string $path) => App::graph($tenant, 'GET', $path, null, $own);
         $checks = [];
         $consent = false;
+        // 2.6.2: which of the checks' permissions the tenant has actually granted (null: can't tell). A missing one
+        // means approving again, and the card names it; right after approving, Microsoft may not have applied it yet.
+        try {
+            $granted = App::grantedRoles($tenant, $own);
+        } catch (\Throwable) {
+            $granted = null; // the token itself failed: each check below says why
+        }
+        $missing = $granted === null ? [] : array_values(array_diff(self::ROLE_NAMES, $granted));
+        if ($missing) {
+            $consent = true;
+        }
         // A failed call: unknown, saying why (a licence the tenant lacks, permission not approved yet, or the error).
         // Told apart by Microsoft's error code (M365Exception::from replaces a 403's message with a hint).
         $why = function (\Throwable $e) use (&$consent): string {
@@ -265,7 +280,7 @@ final class Security
         } catch (\Throwable $e) {
             $set('m365_stale', null, $why($e));
         }
-        return ['secure' => $secure, 'checks' => $checks, 'consent' => $consent, 'at' => date('Y-m-d H:i:s')];
+        return ['secure' => $secure, 'checks' => $checks, 'consent' => $consent, 'missing' => $missing, 'at' => date('Y-m-d H:i:s')];
     }
 
     /**
