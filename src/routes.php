@@ -110,6 +110,7 @@ $r->get('/clients/{id}/service-levels', [\Align\Controllers\ServiceController::c
 $r->get('/clients/{id}/backups', [\Align\Controllers\BackupController::class, 'client']);
 $r->post('/clients/{id}/backups/exempt', [\Align\Controllers\BackupController::class, 'exempt']);
 $r->post('/clients/{id}/backups/claim', [\Align\Controllers\BackupController::class, 'claim']);
+$r->post('/clients/{id}/backups/link', [\Align\Controllers\BackupController::class, 'link']); // 2.7.5
 $r->get('/clients/{id}/devices', [ClientController::class, 'devices']);
 $r->post('/clients/{id}/devices', [DeviceController::class, 'create']);
 $r->get('/clients/{id}/export', [ClientController::class, 'export']);
