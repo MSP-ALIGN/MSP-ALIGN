@@ -12,6 +12,13 @@
 (() => {
   /** HTML-escapes for element text and quoted attributes (not URLs, CSS or JS). */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  /** 2.7.6 An <img> for a signature or picture: only an image data: URL or a path on this site is used as its source. */
+  const img = (src, alt) => {
+    const i = document.createElement('img');
+    i.alt = alt;
+    if (typeof src === 'string' && (/^data:image\/(png|jpe?g|gif|webp);/i.test(src) || /^\/(?![/\\])/.test(src))) i.src = src;
+    return i;
+  };
   let lib = null;
   /** PDF.js, loaded once (as a module, from /vendor on this server) with its worker from the same place. */
   const pdfjs = (v) => lib || (lib = import('/vendor/pdfjs/pdf.min.js?v=' + encodeURIComponent(v || '')).then((m) => {
@@ -75,11 +82,11 @@
         el.title = it.who === 'client' ? 'The client fills this in' : (it.who === 'provider' ? 'You fill this in, or sign here' : 'Filled in by Align');
         break;
       case 'sig':
-        if (it.img) el.innerHTML = '<img alt="Signature" src="' + esc(it.img) + '">';
+        if (it.img) el.replaceChildren(img(it.img, 'Signature'));
         else { el.textContent = it.text; el.classList.add('pv-script'); }
         break;
       case 'photo':
-        el.innerHTML = '<img alt="" src="' + esc(it.img) + '">';
+        el.replaceChildren(img(it.img, ''));
         break;
       // Signing: the steps the guide on the signing page takes the signer through (contracts.js does the rest)
       case 'sighere':

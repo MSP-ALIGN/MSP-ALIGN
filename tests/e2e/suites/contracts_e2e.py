@@ -392,6 +392,11 @@ with sync_playwright() as p:
     pg.click("[data-pv-accept-all]"); pg.wait_for_timeout(300)
     ok(pg.locator(".pv-box").count() == len([n for n in names if n]) and pg.locator(".pv-suggest").count() == len([n for n in names if not n]), "Add them: a box for each named blank; the price spots stay to choose")
     ok("Contract start date</b> box on page 1 is narrow for a date" in pg.locator("[data-pv-checks]").inner_html(), "the checks say when a date box is too narrow for a date")
+    # 2.7.6: the list and the checks are built as elements (code scanning): every box listed by page, a click selects it
+    links = pg.locator("[data-pv-list] a[data-goto]")
+    ok(links.count() == pg.locator(".pv-box").count() and "Page 1:" in pg.locator("[data-pv-list]").inner_text(), "the list names every box, by page")
+    links.first.click(); pg.wait_for_timeout(200)
+    ok(pg.locator(".pv-box.selected").count() == 1, "clicking a name in the list selects its box")
     # a box placed by hand: your picture, on the last page
     pg.select_option("[data-pv-add]", "photo.provider"); pg.click("[data-pv-place]")
     box = pg.locator(".pv-page").nth(2).bounding_box()
