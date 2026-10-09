@@ -5,7 +5,6 @@ namespace Align\Controllers;
 
 use Align\Audit;
 use Align\Auth;
-use Align\Domains\EmailAuth;
 use Align\Google\Clients;
 use Align\Google\Workspace;
 use Align\View;
@@ -180,25 +179,5 @@ final class GoogleController
         flash('success', 'Disconnected.' . ($n ? " $n Google Workspace license" . ($n === 1 ? ' was' : 's were') . ' retired (restored if you connect again).' : '')
             . ' To remove Align\'s access completely, the client\'s super admin deletes its client ID under Domain-wide delegation in their Admin console.');
         redirect("/clients/$id/connectors");
-    }
-
-    /**
-     * Checks the client's email domain (SPF, DKIM, DMARC) now, rather than waiting for the daily check. Only a domain
-     * from its Google Workspace or Microsoft 365 connection. Techs and admins.
-     */
-    public static function checkEmail(int $id): void
-    {
-        Auth::requireRole('tech');
-        ClientController::load($id);
-        $d = EmailAuth::domains()[$id] ?? null;
-        if ($d === null) {
-            flash('error', 'Connect the client\'s Google Workspace or Microsoft 365 first: that\'s where its email domain comes from.');
-        } else {
-            $r = EmailAuth::refresh($id, $d[0], $d[1]);
-            $fails = count(array_filter($r['checks'], fn($c) => $c['status'] === 'fail'));
-            flash($fails ? 'warning' : 'success', "Checked {$d[0]}: " . ($fails ? "$fails of 3 checks fail." : 'nothing failing.'));
-        }
-        $back = $_POST['back'] ?? '';
-        redirect($back === 'overview' ? "/clients/$id#email-auth" : "/clients/$id/connectors#email-auth");
     }
 }

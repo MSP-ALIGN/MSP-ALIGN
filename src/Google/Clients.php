@@ -118,7 +118,7 @@ final class Clients
         self::syncClient($clientId, true);
         // Email authentication for the new domain right away (the hourly sync keeps it current after that)
         try {
-            EmailAuth::refresh($clientId, $domain, 'google');
+            EmailAuth::refreshClient($clientId); // 2.7.4: with the client's other domains and DKIM selectors
         } catch (\Throwable) {
             // the hourly sync tries again
         }

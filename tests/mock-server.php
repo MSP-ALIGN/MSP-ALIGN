@@ -279,6 +279,13 @@ if ($path === '/mock/gws-set') {
     }
     if (!empty($in['clear_calls'])) {
         $st['calls'] = [];
+        $st['doh_calls'] = [];
+    }
+    if (isset($in['cname']) && is_array($in['cname'])) {
+        $st['cname'] = $in['cname']; // 2.7.4: name => target, replaced
+    }
+    if (isset($in['doh']) && is_array($in['doh'])) {
+        $st['doh'] = $in['doh']; // 2.7.4: replaced
     }
     $gwsSave($st);
     $json(['ok' => true]);
@@ -294,6 +301,42 @@ if ($path === '/dns') {
         return;
     }
     $json(['txt' => $st['dns'][$name] ?? []]);
+    return;
+}
+if (preg_match('#^/doh/(a|b)$#', $path, $dm)) {
+    // 2.7.4 DNS-over-HTTPS (JSON API) as Cloudflare and Google answer it, from the same records as /dns. Per resolver
+    // (/mock/gws-set {"doh": {"a": {...}, "b": {...}}}): 'missing' names it answers without (a resolver's bad moment),
+    // 'fail' names it answers SERVFAIL for, 'down' answers 503 for everything. Long records come in 255-byte parts.
+    // Every question is recorded in doh_calls as [resolver, name].
+    $st = $gwsState();
+    $r = $st['doh'][$dm[1]] ?? [];
+    $name = strtolower(rtrim((string) ($_GET['name'] ?? ''), '.'));
+    $st['doh_calls'][] = [$dm[1], $name];
+    $gwsSave($st);
+    if (!empty($r['down'])) {
+        http_response_code(503);
+        return;
+    }
+    header('Content-Type: application/dns-json');
+    if (in_array($name, (array) ($r['fail'] ?? []), true) || in_array($name, $st['dns_fail'], true)) {
+        $json(['Status' => 2, 'TC' => false]);
+        return;
+    }
+    if (!array_key_exists($name, $st['dns']) || in_array($name, (array) ($r['missing'] ?? []), true)) {
+        $json(['Status' => array_key_exists($name, $st['dns']) ? 0 : 3, 'Question' => [['name' => "$name.", 'type' => 16]]]);
+        return;
+    }
+    // 'a' answers as Cloudflare does (each 255-byte part quoted), 'b' as Google does (unquoted, joined); a name in
+    // 'cname' comes as a CNAME first, then the TXT at its target (as for Microsoft 365's DKIM selectors)
+    $ans = [];
+    if (isset($st['cname'][$name])) {
+        $ans[] = ['name' => "$name.", 'type' => 5, 'TTL' => 300, 'data' => $st['cname'][$name] . '.'];
+    }
+    foreach ((array) $st['dns'][$name] as $txt) {
+        $ans[] = ['name' => ($st['cname'][$name] ?? $name) . '.', 'type' => 16, 'TTL' => 300, 'data' => $dm[1] === 'b' ? (string) $txt
+            : implode(' ', array_map(fn($p) => '"' . addcslashes($p, '"\\') . '"', str_split((string) $txt, 255) ?: ['']))];
+    }
+    $json(['Status' => 0, 'Question' => [['name' => "$name.", 'type' => 16]], 'Answer' => $ans]);
     return;
 }
 if ($path === '/gws-token') {

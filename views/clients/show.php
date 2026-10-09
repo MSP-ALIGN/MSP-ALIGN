@@ -21,14 +21,14 @@ $cid = (int) $client['id'];
 ?>
 <?= \Align\View::fetch('partials/readiness', ['r' => $readiness, 'title' => 'Planning checklist', 'id' => 'readiness-' . $cid,
     'intro' => 'The steps that make this client\'s roadmap, budget and reports complete. Click a step to go straight to it.']) ?>
-<div class="row">
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-desktop"></i></span><div class="info-box-content"><span class="info-box-text">Devices</span><span class="info-box-number"><?= (int) $summary['total'] ?></span></div></div></div>
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['replace'] ? 'danger' : 'success' ?>"><i class="fas fa-recycle"></i></span><div class="info-box-content"><span class="info-box-text">Replace now</span><span class="info-box-number"><?= (int) $summary['replace'] ?></span></div></div></div>
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['os_eos'] ? 'danger' : 'success' ?>"><i class="fab fa-windows"></i></span><div class="info-box-content"><span class="info-box-text">Unsupported OS</span><span class="info-box-number"><?= (int) $summary['os_eos'] ?></span></div></div></div>
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['plan'] ? 'warning' : 'success' ?>"><i class="fas fa-calendar-plus"></i></span><div class="info-box-content"><span class="info-box-text">Plan (12 mo)</span><span class="info-box-number"><?= (int) $summary['plan'] ?></span></div></div></div>
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= $summary['warranty_expired'] + $summary['warranty_soon'] ? 'warning' : 'success' ?>"><i class="fas fa-shield-halved"></i></span><div class="info-box-content"><span class="info-box-text">Warranty issues</span><span class="info-box-number"><?= (int) ($summary['warranty_expired'] + $summary['warranty_soon']) ?></span></div></div></div>
-  <div class="col-lg-2 col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas <?= \Align\Fmt::icon() ?>"></i></span><div class="info-box-content"><span class="info-box-text">Overdue cost</span><span class="info-box-number"><?= money($summary['overdue_cost']) ?></span></div></div></div>
-</div>
+<div class="tile-grid"><?php // 2.7.4: 6 across only when the page is wide enough (container width, not screen width), else 3 or 2 ?><div class="tile-row">
+  <div><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-desktop"></i></span><div class="info-box-content"><span class="info-box-text">Devices</span><span class="info-box-number"><?= (int) $summary['total'] ?></span></div></div></div>
+  <div><div class="info-box"><span class="info-box-icon bg-<?= $summary['replace'] ? 'danger' : 'success' ?>"><i class="fas fa-recycle"></i></span><div class="info-box-content"><span class="info-box-text">Replace now</span><span class="info-box-number"><?= (int) $summary['replace'] ?></span></div></div></div>
+  <div><div class="info-box"><span class="info-box-icon bg-<?= $summary['os_eos'] ? 'danger' : 'success' ?>"><i class="fab fa-windows"></i></span><div class="info-box-content"><span class="info-box-text">Unsupported OS</span><span class="info-box-number"><?= (int) $summary['os_eos'] ?></span></div></div></div>
+  <div><div class="info-box"><span class="info-box-icon bg-<?= $summary['plan'] ? 'warning' : 'success' ?>"><i class="fas fa-calendar-plus"></i></span><div class="info-box-content"><span class="info-box-text">Plan (12 mo)</span><span class="info-box-number"><?= (int) $summary['plan'] ?></span></div></div></div>
+  <div><div class="info-box"><span class="info-box-icon bg-<?= $summary['warranty_expired'] + $summary['warranty_soon'] ? 'warning' : 'success' ?>"><i class="fas fa-shield-halved"></i></span><div class="info-box-content"><span class="info-box-text">Warranty issues</span><span class="info-box-number"><?= (int) ($summary['warranty_expired'] + $summary['warranty_soon']) ?></span></div></div></div>
+  <div><div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas <?= \Align\Fmt::icon() ?>"></i></span><div class="info-box-content"><span class="info-box-text">Overdue cost</span><span class="info-box-number"><?= money($summary['overdue_cost']) ?></span></div></div></div>
+</div></div>
 
 <div class="row">
   <div class="col-lg-8">

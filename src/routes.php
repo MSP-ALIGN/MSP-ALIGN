@@ -242,7 +242,11 @@ $r->post('/clients/{id}/gws/connect', [$G, 'connect']);
 $r->post('/clients/{id}/gws/sync', [$G, 'sync']);
 $r->post('/clients/{id}/gws/disconnect', [$G, 'disconnect']);
 $r->post('/clients/{id}/gws/dupes', [$G, 'dupes']);
-$r->post('/clients/{id}/email-auth/check', [$G, 'checkEmail']);
+// 2.7.4: a client's email domains (EmailAuthController; Check now moved from GoogleController)
+$r->post('/clients/{id}/email-auth/check', [\Align\Controllers\EmailAuthController::class, 'check']);
+$r->post('/clients/{id}/email-domains', [\Align\Controllers\EmailAuthController::class, 'add']);
+$r->post('/clients/{id}/email-domains/selectors', [\Align\Controllers\EmailAuthController::class, 'selectors']);
+$r->post('/clients/{id}/email-domains/remove', [\Align\Controllers\EmailAuthController::class, 'remove']);
 // 2.7.0 Security awareness training uploads
 $r->post('/clients/{id}/sat', [\Align\Controllers\SatController::class, 'upload']);
 $r->post('/clients/{id}/sat/{sid}/delete', [\Align\Controllers\SatController::class, 'delete']);
