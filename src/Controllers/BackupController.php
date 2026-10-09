@@ -112,6 +112,40 @@ final class BackupController
     }
 
     /**
+     * 2.7.5 Links a backed-up machine of the client to one of its devices by hand (the names are too different to
+     * match), or with unlink=1 removes the link. Applied at once (BackupSync::assign()); every sync keeps it while both
+     * belong to the client. Techs and admins; both the machine and the device must be this client's.
+     */
+    public static function link(int $id): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $w = \Align\DB::one('SELECT uid, name FROM backup_workloads WHERE uid = ? AND client_id = ?', [post('workload'), $id]);
+        if (!$w) {
+            flash('error', 'Pick one of this client\'s backed-up machines.');
+            redirect("/clients/$id/backups");
+        }
+        if (post('unlink') === '1') {
+            \Align\DB::run('DELETE FROM backup_device_links WHERE workload_uid = ?', [$w['uid']]);
+            \Align\Sync\BackupSync::assign(); // re-sorts under the sort's lock (a sync running now can't undo it)
+            Audit::log('backup.unlink_device', "{$client['name']}: {$w['name']}");
+            flash('success', "{$w['name']} is no longer linked to a device (the next sync matches it by name again, if it can).");
+            redirect("/clients/$id/backups");
+        }
+        $ref = post('device');
+        $d = ctype_digit($ref) ? (new Lifecycle())->devices($id, false, (int) $ref)[0] ?? null : null;
+        if (!$d) {
+            flash('error', 'Pick one of this client\'s devices.');
+            redirect("/clients/$id/backups");
+        }
+        \Align\DB::run('REPLACE INTO backup_device_links (workload_uid, device_id, linked_by) VALUES (?, ?, ?)', [$w['uid'], (int) $d['id'], Auth::user()['id'] ?? null]);
+        \Align\Sync\BackupSync::assign(); // applies it under the sort's lock, as claim() does
+        Audit::log('backup.link_device', "{$client['name']}: {$w['name']} = {$d['name']}");
+        flash('success', "{$d['name']} is backed up as {$w['name']}.");
+        redirect("/clients/$id/backups");
+    }
+
+    /**
      * Marks a device, protected machine or Microsoft 365 item as not needing a backup, or undoes it.
      * POST action=add: kind (device|workload|m365), ref (device id or item uid), reason. action=remove: exemption.
      * Techs and admins. The item must be this client's: one of its devices, a machine sorted to it, or a Microsoft 365

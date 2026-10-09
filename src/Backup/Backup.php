@@ -173,8 +173,9 @@ final class Backup
         $company = $companies[0] ?? null;
         $jobRows = DB::all('SELECT j.*, jc.how AS client_how, (SELECT COUNT(*) FROM backup_job_clients x WHERE x.job_uid = j.uid) AS client_count
             FROM backup_jobs j JOIN backup_job_clients jc ON jc.job_uid = j.uid AND jc.client_id = ? ORDER BY j.name', [$cid]);
-        $wlRows = DB::all('SELECT w.*, d.display_name AS device_name FROM backup_workloads w LEFT JOIN devices d ON d.id = w.device_id
-            WHERE w.client_id = ? ORDER BY w.name', [$cid]);
+        $wlRows = DB::all('SELECT w.*, d.display_name AS device_name, (l.device_id IS NOT NULL AND l.device_id = w.device_id) AS linked_by_hand
+            FROM backup_workloads w LEFT JOIN devices d ON d.id = w.device_id LEFT JOIN backup_device_links l ON l.workload_uid = w.uid
+            WHERE w.client_id = ? ORDER BY w.name', [$cid]); // 2.7.5: linked_by_hand
         if (!$company && !$jobRows && !$wlRows) {
             return null;
         }

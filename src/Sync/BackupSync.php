@@ -137,6 +137,8 @@ final class BackupSync
             if ($kinds) {
                 $kIn = implode(',', array_fill(0, count($kinds), '?'));
                 DB::run("DELETE FROM backup_workloads WHERE provider = ? AND synced_at < ? AND kind IN ($kIn)", [$key, $now, ...$kinds]);
+                // 2.7.5: links made by hand for machines that are gone
+                DB::run('DELETE l FROM backup_device_links l LEFT JOIN backup_workloads w ON w.uid = l.workload_uid WHERE w.uid IS NULL');
                 DB::run("DELETE x FROM backup_workload_jobs x LEFT JOIN backup_workloads w ON w.uid = x.workload_uid WHERE w.uid IS NULL OR (w.provider = ? AND w.kind IN ($kIn))", [$key, ...$kinds]);
             } else {
                 DB::run('DELETE x FROM backup_workload_jobs x LEFT JOIN backup_workloads w ON w.uid = x.workload_uid WHERE w.uid IS NULL');
@@ -208,10 +210,12 @@ final class BackupSync
 
         // Device names per client, and which names belong to exactly one client
         $devByClient = [];
+        $devClient = [];
         $owners = [];
         foreach (DB::all('SELECT d.id, d.display_name, d.system_name, COALESCE(cm.id, cn.id) AS client_id FROM devices d ' . \Align\Lifecycle\Lifecycle::CLIENT_JOIN . '
                 JOIN clients c ON c.id = COALESCE(cm.id, cn.id) AND c.is_archived = 0
                 WHERE d.removed_at IS NULL') as $d) {
+            $devClient[(int) $d['id']] = (int) $d['client_id']; // 2.7.5: for links made by hand (any device, named or not)
             foreach ([$d['system_name'], $d['display_name']] as $nm) {
                 $k = host_key((string) $nm);
                 if ($k !== '') {
@@ -222,6 +226,9 @@ final class BackupSync
         }
         $uniqueOwner = fn(string $k) => $k !== '' && isset($owners[$k]) && count($owners[$k]) === 1 ? (int) array_key_first($owners[$k]) : null;
 
+        // 2.7.5 Machines linked to a device by hand (kept while both belong to the same client)
+        $linked = array_column(DB::all('SELECT workload_uid, device_id FROM backup_device_links'), 'device_id', 'workload_uid');
+
         $devices = 0;
         $hosted = 0;
         $unsorted = 0;
@@ -231,7 +238,8 @@ final class BackupSync
         foreach ($rows as $w) {
             $cu = (string) $w['company_uid'];
             $inPool = $cu === '' || isset($pool[$cu]);
-            $keys = array_values(array_unique(array_filter([(string) $w['hostname'], host_key((string) $w['name'])])));
+            $keys = self::nameKeys((string) $w['hostname'], (string) $w['name']);              // the device, within the client
+            $strict = self::nameKeys((string) $w['hostname'], (string) $w['name'], false);   // the client
             $client = null;
             $how = null;
             if (array_key_exists($w['uid'], $manual['workload'])) {
@@ -246,7 +254,7 @@ final class BackupSync
                     }
                 }
                 if ($how === null) {
-                    foreach ($keys as $k) {
+                    foreach ($strict as $k) {
                         if ($o = $uniqueOwner($k)) {
                             [$client, $how] = [$o, 'device'];
                             break;
@@ -264,7 +272,11 @@ final class BackupSync
             }
             $dev = null;
             if ($client !== null) {
-                foreach ($keys as $k) {
+                $hand = isset($linked[$w['uid']]) ? (int) $linked[$w['uid']] : null;
+                if ($hand !== null && ($devClient[$hand] ?? null) === $client) {
+                    $dev = $hand;
+                }
+                foreach ($dev === null ? $keys : [] as $k) {
                     if (isset($devByClient[$client][$k])) {
                         $dev = $devByClient[$client][$k];
                         break;
@@ -432,5 +444,22 @@ final class BackupSync
     private static function in(array $vals): string
     {
         return implode(',', array_fill(0, count($vals), '?'));
+    }
+
+    /**
+     * 2.7.5 The names a backed-up machine can match a device by, best first: the guest's host name, the machine's name
+     * as is (host_key: lower case, no domain), the name without bracketed parts ("FS01 (DC/File)", "[Prod] FS01"),
+     * and with $loose the part before a " - " ("FS01 - file server"). The loose form only picks a device within a
+     * client already known (never the client itself), so an odd name can't move a machine to another client.
+     */
+    public static function nameKeys(string $hostname, string $name, bool $loose = true): array
+    {
+        $keys = [host_key($hostname), host_key($name)];
+        $bare = trim(preg_replace('/\s*[\(\[\{][^\)\]\}]*[\)\]\}]\s*/u', ' ', $name) ?? '');
+        $keys[] = host_key($bare);
+        if ($loose) {
+            $keys[] = host_key(trim(preg_split('/\s+[-–—|:]\s+/u', $bare)[0] ?? ''));
+        }
+        return array_values(array_unique(array_filter($keys, fn($k) => $k !== '')));
     }
 }

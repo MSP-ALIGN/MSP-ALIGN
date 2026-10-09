@@ -64,8 +64,13 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
 <?php if ($b['unprotected']): ?>
 <div class="card card-outline card-danger">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-halved text-danger me-2"></i>Servers with no backup (<?= count($b['unprotected']) ?>)</h3></div>
-  <div class="card-body py-2 small text-muted border-bottom">Servers from <?= e(\Align\Providers\Providers::rmmNames()) ?><?= psa_on() ? ' or ' . e(psa_name()) : '' ?> that no <?= e($b['source']) ?> job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).</div>
-  <?php $li = fn(array $d) => '<li class="list-group-item py-2 d-flex align-items-center"><a href="/devices/' . (int) $d['id'] . '" class="me-auto fw-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted me-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
+  <div class="card-body py-2 small text-muted border-bottom">Servers from <?= e(\Align\Providers\Providers::rmmNames()) ?><?= psa_on() ? ' or ' . e(psa_name()) : '' ?> that no <?= e($b['source']) ?> job protects (matched by computer name). Add them to a job, or mark them <b>Not required</b> if they don't need a backup (for example a domain controller replica or a test server).<?php if ($canEx && array_filter($b['workloads'], fn($w) => !$w['device_id'])): ?> If one is backed up under another name, pick it under <b>Backed up as</b>.<?php endif; ?></div>
+  <?php // 2.7.5: when a backed-up machine of this client isn't matched to a device, techs can say which machine a server is
+    $unmatched = $canEx ? array_values(array_filter($b['workloads'], fn($w) => !$w['device_id'])) : [];
+    $linkForm = fn(array $d) => $unmatched ? '<form method="post" action="/clients/' . $cid . '/backups/link" class="d-flex gap-1 ms-2">' . csrf_field()
+        . '<input type="hidden" name="device" value="' . (int) $d['id'] . '"><select name="workload" class="form-select form-select-sm" aria-label="Backed up as" required><option value="">Backed up as…</option>'
+        . implode('', array_map(fn($w) => '<option value="' . e($w['uid']) . '">' . e($w['name']) . '</option>', $unmatched)) . '</select><button class="btn btn-sm btn-default text-nowrap">Link</button></form>' : '';
+    $li = fn(array $d) => '<li class="list-group-item py-2 d-flex flex-wrap align-items-center gap-1"><a href="/devices/' . (int) $d['id'] . '" class="me-auto fw-bold"><i class="fas fa-fw ' . e($d['icon']) . ' text-muted me-1"></i>' . e($d['name']) . '</a><span class="small text-muted">' . e($d['type']) . ' · ' . e($d['os_name'] ?? '') . '</span>' . $linkForm($d) . $exBtn('device', (string) $d['id'], $d['name']) . '</li>'; ?>
   <ul class="list-group list-group-flush">
     <?php foreach (array_slice($b['unprotected'], 0, 8) as $d) echo $li($d); ?>
   </ul>
@@ -119,7 +124,8 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
           <td class="small text-nowrap"><?= $w['last_point'] ? e(Backup::age($w['age_h'])) . ' ago<div class="text-muted">' . e(fmt_datetime($w['last_point'])) . '</div>' : '<span class="text-danger">none</span>' ?></td>
           <td class="small text-end"><?= $w['restore_points'] !== null ? (int) $w['restore_points'] : '—' ?></td>
           <td class="small text-end text-nowrap"><?= e(fmt_bytes($w['backup_bytes'])) ?></td>
-          <td class="small"><?= $w['device_id'] ? '<a href="/devices/' . (int) $w['device_id'] . '">' . e($w['device_name'] ?: 'Device') . '</a>' : '<span class="text-muted">not matched</span>' ?></td>
+          <td class="small"><?= $w['device_id'] ? '<a href="/devices/' . (int) $w['device_id'] . '">' . e($w['device_name'] ?: 'Device') . '</a>' : '<span class="text-muted">not matched</span>' ?>
+            <?php if (!empty($w['linked_by_hand'])): // 2.7.5 ?><div class="text-muted">linked by hand<?php if ($canEx): ?> · <form method="post" action="/clients/<?= $cid ?>/backups/link" class="d-inline"><?= csrf_field() ?><input type="hidden" name="workload" value="<?= e($w['uid']) ?>"><input type="hidden" name="unlink" value="1"><button class="btn btn-link btn-sm p-0 align-baseline">unlink</button></form><?php endif; ?></div><?php endif; ?></td>
           <?php if ($canEx): ?><td class="text-end"><?= $w['tone'] !== 'ok' ? $exBtn('workload', $w['uid'], $w['name']) : '' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
