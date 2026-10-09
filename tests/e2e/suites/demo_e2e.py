@@ -50,7 +50,8 @@ counts = {k: n(sql) for k, sql in {
     "roadmap": f"select count(*) from roadmap_items where client_id in ({inn})", "meetings": f"select count(*) from meetings where client_id in ({inn})",
     "controls": f"select count(*) from client_control_status where client_id in ({inn})", "documents": f"select count(*) from documents where client_id in ({inn})",
     "backups": f"select count(*) from backup_job_runs where job_uid like 'demo-%%'", "portal": f"select count(*) from portal_users where client_id in ({inn})",
-    "suggestions": f"select count(*) from portal_submissions where client_id in ({inn}) and status='pending'"}.items()}
+    "suggestions": f"select count(*) from portal_submissions where client_id in ({inn}) and status='pending'",
+    "training": f"select count(*) from sat_results where client_id in ({inn})"}.items()}
 ok(all(v > 0 for v in counts.values()), "every part of the app gets data: " + str(counts))
 ok(n(f"select count(*) from meetings where client_id in ({inn}) and status='scheduled' and starts_at > now()") >= 4, "upcoming meetings are in the future (dates follow today)")
 ok(n(f"select count(*) from devices where client_id in ({inn}) and (serial like 'DEMO%%' or serial is null)") == counts["devices"] and n(f"select count(*) from contacts where client_id in ({inn}) and email not like '%%.example'") == 0, "made-up serials and .example addresses only")
@@ -104,6 +105,7 @@ fq("insert into clients (source, name) values ('manual', 'Real Co')")
 r = st.post(FB + "/demo/remove", data={"_csrf": fcsrf(st, "/settings")})
 ok("Removed the 3 demo clients" in flash(r.text) and n("select count(*) from clients") == 1 and fq("select name from clients")[0]["name"] == "Real Co", "remove deletes the demo clients only")
 left = {k: n(sql) for k, sql in {
+    "training": f"select count(*) from sat_results where client_id in ({inn})",
     "devices": f"select count(*) from devices where client_id in ({inn})", "meetings": f"select count(*) from meetings where client_id in ({inn})",
     "licenses": f"select count(*) from licenses where client_id in ({inn})", "docs": f"select count(*) from documents where client_id in ({inn})",
     "portal": f"select count(*) from portal_users where client_id in ({inn})", "contacts": f"select count(*) from contacts where client_id in ({inn})",

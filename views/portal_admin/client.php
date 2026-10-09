@@ -140,7 +140,7 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
   <div class="modal-dialog modal-lg"><div class="modal-content">
     <form method="post" action="/portal-users/<?= (int) $u['id'] ?>" data-unsaved>
       <?= csrf_field() ?>
-      <div class="modal-header bg-dark"><h5 class="modal-title"><?= e($u['name']) ?> <small class="text-light"><?= e($u['email']) ?></small></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-header bg-dark"><h5 class="modal-title"><?= e($u['name']) ?> <small class="text-body-secondary"><?= e($u['email']) ?></small></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <div class="mb-3"><label>Name</label><input name="name" class="form-control" value="<?= e($u['name']) ?>" maxlength="190"></div>
         <?= \Align\View::fetch('portal_admin/_perms', ['u' => $u, 'pid' => 'pu' . (int) $u['id']]) ?>

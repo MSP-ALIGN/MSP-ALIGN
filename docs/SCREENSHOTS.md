@@ -1,7 +1,7 @@
 # Screenshots
 
-A tour of MSP Align 2.0 with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
-can try all of this before connecting anything).
+A tour of MSP Align with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
+can try all of this before connecting anything). The [home page](https://mspalign.org) has a one-minute video tour.
 
 ## Dashboard
 
@@ -48,6 +48,20 @@ the last 90 days, the change since the last business review and what pulls each 
 client worst first, and the QBR pack opens with it.
 
 ![The client's health score](screenshots/health.png)
+
+### Security
+
+With **Huntress** connected, each client's agents are compared with the computers its RMM reports, alongside
+Managed Antivirus (Defender), open incidents, ITDR identities, external ports and the monthly summary reports. Each
+check counts in the health score's Security area and suggests answers for linked compliance controls.
+
+![The Huntress card on a client's overview](screenshots/huntress.png)
+
+**Security awareness training**: training completion and phishing click rates from Huntress SAT, read from the
+Curricula API or uploaded as exports. Only totals are kept, never names. Microsoft 365, Google Workspace and email
+authentication (SPF, DKIM, DMARC) get their own cards once connected.
+
+![The security awareness training card](screenshots/training.png)
 
 ### Technology budget
 

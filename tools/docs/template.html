@@ -172,6 +172,9 @@ body.home { background: radial-gradient(60% 520px at 50% 0, color-mix(in srgb, v
 }
 /* the dashboard picture in dark mode is the app's dark theme */
 .h-shot .on-dark { display: none; }
+.h-video video { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--line); background: var(--bg);
+  box-shadow: 0 24px 60px -24px rgba(16, 42, 67, .35); }
+.h-video figcaption { margin-top: 10px; font-size: .9rem; color: var(--muted, #667085); }
 @media (prefers-color-scheme: dark) { .h-shot .on-light { display: none; } .h-shot .on-dark { display: block; } }
 </style>
 </head>

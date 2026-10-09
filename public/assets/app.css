@@ -131,6 +131,8 @@ body.app-staff, body.app-staff .app-main { background: var(--align-page-bg); }
 .btn-outline-primary { --bs-btn-color: var(--align-link); --bs-btn-border-color: var(--align-brand); --bs-btn-hover-bg: var(--align-brand); --bs-btn-hover-border-color: var(--align-brand); --bs-btn-hover-color: var(--align-brand-text);
   --bs-btn-active-bg: var(--align-brand); --bs-btn-active-border-color: var(--align-brand); --bs-btn-active-color: var(--align-brand-text); --bs-btn-disabled-color: var(--align-brand); --bs-btn-disabled-border-color: var(--align-brand); --bs-btn-focus-shadow-rgb: var(--align-brand-rgb); }
 .btn-link { --bs-btn-color: var(--align-link); --bs-btn-hover-color: var(--align-brand-dark); --bs-btn-active-color: var(--align-brand-dark); }
+/* 2.7.3: yellow text on white is unreadable (1.6:1): the outline warning button's text uses the theme's warning text color */
+.btn-outline-warning { --bs-btn-color: var(--bs-warning-text-emphasis); }
 .btn-default { --bs-btn-color: var(--bs-body-color); --bs-btn-bg: var(--bs-body-bg); --bs-btn-border-color: #d3d9e1; --bs-btn-hover-color: var(--bs-body-color); --bs-btn-hover-bg: var(--bs-tertiary-bg);
   --bs-btn-hover-border-color: #c1c9d3; --bs-btn-active-color: var(--bs-body-color); --bs-btn-active-bg: var(--bs-secondary-bg); --bs-btn-active-border-color: #c1c9d3;
   --bs-btn-disabled-color: var(--bs-secondary-color); --bs-btn-disabled-bg: var(--bs-body-bg); --bs-btn-disabled-border-color: var(--bs-border-color); --bs-btn-focus-shadow-rgb: var(--align-brand-rgb); box-shadow: 0 1px 1px rgba(16,24,40,.04); }

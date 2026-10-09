@@ -39,7 +39,7 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
   <div class="alert alert-warning d-none align-items-center" id="doc-conflict" role="alert">
     <i class="fas fa-code-merge me-2"></i><span class="me-auto" id="doc-conflict-text"></span>
     <button type="button" class="btn btn-sm btn-light ms-2" id="doc-load-theirs">Load their version</button>
-    <button type="button" class="btn btn-sm btn-outline-dark ms-2" id="doc-keep-mine">Keep mine (overwrite)</button>
+    <button type="button" class="btn btn-sm btn-default ms-2" id="doc-keep-mine">Keep mine (overwrite)</button>
   </div>
   <div class="alert alert-danger d-none" id="doc-error" role="alert"></div>
 

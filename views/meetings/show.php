@@ -87,7 +87,7 @@ $past = strtotime($m['ends_at']) < time();
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-repeat me-2"></i>Series</h3></div>
         <ul class="list-group list-group-flush small">
           <?php foreach ($series as $s): ?>
-            <li class="list-group-item py-1 <?= (int) $s['id'] === (int) $m['id'] ? 'active' : '' ?>"><a href="/meetings/<?= (int) $s['id'] ?>" class="<?= (int) $s['id'] === (int) $m['id'] ? 'text-white' : '' ?>"><?= e(fmt_date($s['starts_at'])) ?></a> <span class="float-end"><?= e($s['status']) ?></span></li>
+            <li class="list-group-item py-1 <?= (int) $s['id'] === (int) $m['id'] ? 'active' : '' ?>"><a href="/meetings/<?= (int) $s['id'] ?>" class="<?= (int) $s['id'] === (int) $m['id'] ? 'text-reset' : '' ?>"><?= e(fmt_date($s['starts_at'])) ?></a> <span class="float-end"><?= e($s['status']) ?></span></li>
           <?php endforeach; ?>
         </ul>
       </div>

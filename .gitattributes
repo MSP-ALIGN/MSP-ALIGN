@@ -1,5 +1,8 @@
 # Line endings and binary files for the MSP Align repository
 * text=auto eol=lf
 *.png binary
+*.jpg binary
+*.mp4 binary
+*.webm binary
 *.woff2 binary
 *.svg text

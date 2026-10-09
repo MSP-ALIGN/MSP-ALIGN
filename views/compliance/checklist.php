@@ -59,7 +59,7 @@ $show = function (array $c) use ($filter) {
   <?php foreach ($sections as $section => $controls): $visible = array_filter($controls, $show); if (!$visible) continue; ?>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><?= e($section) ?></h3>
-        <div class="card-tools small text-light"><?= count(array_filter($controls, fn($c) => $c['status'] === 'met')) ?>/<?= count($controls) ?> met</div></div>
+        <div class="card-tools small text-body-secondary"><?= count(array_filter($controls, fn($c) => $c['status'] === 'met')) ?>/<?= count($controls) ?> met</div></div>
       <div class="card-body p-0">
         <table class="table table-sm table-borderless mb-0 checklist">
           <?php foreach ($visible as $c): $k = (int) $c['id']; $ind = $c['auto_check'] ? ($indicators[$c['auto_check']] ?? null) : null; ?>

@@ -19,7 +19,7 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="f
   <?= csrf_field() ?>
   <div class="card card-dark">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i><?= e($fw['name']) ?></h3>
-      <div class="card-tools small text-light">Used by <?= (int) $inUse ?> client<?= $inUse == 1 ? '' : 's' ?></div></div>
+      <div class="card-tools small text-body-secondary">Used by <?= (int) $inUse ?> client<?= $inUse == 1 ? '' : 's' ?></div></div>
     <div class="card-body">
       <div class="row g-2">
         <div class="mb-3 col-md-6"><label>Name</label><input name="name" class="form-control" value="<?= e($fw['name']) ?>" required></div>
