@@ -61,7 +61,7 @@ final class SecurityChecks
         foreach (DB::all("SELECT client_id, security_json FROM client_gws WHERE status = 'connected' AND client_id IN ($in)") as $r) {
             $add((int) $r['client_id'], GoogleSecurity::stored($r));
         }
-        foreach (DB::all("SELECT client_id FROM client_email_auth WHERE client_id IN ($in)") as $r) {
+        foreach (DB::all("SELECT DISTINCT client_id FROM client_email_auth WHERE client_id IN ($in)") as $r) { // 2.7.4: a row per domain
             $add((int) $r['client_id'], EmailAuth::stored((int) $r['client_id']));
         }
         // 2.7.0 Huntress (clients linked to an organization) and SAT (clients with uploads): worked out from stored data

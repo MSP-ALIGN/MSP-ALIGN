@@ -156,7 +156,7 @@ final class SyncRunner
         if (\Align\Sat\Curricula::configured()) {
             $this->step('Curricula (Huntress SAT)', fn() => \Align\Sat\Curricula::run());
         }
-        if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth LIMIT 1")) {
+        if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth UNION SELECT 1 FROM client_email_domains LIMIT 1")) { // 2.7.4: or domains added by hand
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());

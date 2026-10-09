@@ -36,7 +36,8 @@ final class ConnectorsController
             'm365' => M365Controller::card($id),
             'gws' => GoogleController::card($id), // 2.6.3
             'emailAuth' => \Align\Domains\EmailAuth::stored($id), // 2.6.3
-            'emailDomain' => \Align\Domains\EmailAuth::domains()[$id] ?? null,
+            // 2.7.4: every domain checked, the ones added by hand or left out, and a domain to suggest
+            'emailDomains' => self::emailDomains($client),
             'linked' => self::linked($client),
             'lastSync' => DB::one('SELECT status, started_at, finished_at FROM sync_runs ORDER BY id DESC LIMIT 1'),
         ]);
@@ -82,5 +83,24 @@ final class ConnectorsController
                 'url' => null];
         }
         return $out;
+    }
+
+    /**
+     * 2.7.4 The client's email domains for the email authentication card: ['list' => [domain => [source, selectors,
+     * skipped]], 'suggest' => a domain to offer when it has none].
+     */
+    public static function emailDomains(array $client): array
+    {
+        $id = (int) $client['id'];
+        $list = [];
+        foreach (\Align\Domains\EmailAuth::targets($id)[$id] ?? [] as $d => $t) {
+            $list[$d] = ['source' => $t['source'], 'selectors' => $t['selectors'], 'skipped' => false];
+        }
+        foreach (\Align\Domains\EmailAuth::domains($id)[$id] ?? [] as $d => $provider) {
+            if (!isset($list[$d])) {
+                $list[$d] = ['source' => $provider, 'selectors' => [], 'skipped' => true]; // left out
+            }
+        }
+        return ['list' => $list, 'suggest' => $list ? null : \Align\Domains\EmailAuth::suggest($client)];
     }
 }
