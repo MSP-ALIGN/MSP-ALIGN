@@ -14,7 +14,7 @@ use Align\Integrations\LinksClients;
  * the Integrations page, and the Huntress column on Client mapping (each client links to one Huntress organization,
  * matched by name on every sync, like an RMM's). The sync is Huntress\Sync; per-client data and checks are
  * Huntress\Clients. Also holds the security awareness training (SAT) thresholds, since Huntress Managed SAT is
- * where those results come from (uploaded per client, Sat\Sat).
+ * where those results come from (uploaded per client, Sat\Sat, or read from Curricula since 2.7.2, Sat\Curricula).
  *
  * Security assumptions: as Connector. The API key and secret are secret fields (encrypted, never shown again) and
  * only ever sent to Huntress's fixed host (Huntress\Api). Organization names come from Huntress (escape them); the
@@ -49,7 +49,7 @@ final class Huntress extends Connector implements LinksClients
         return '<ol class="ps-3 mb-0"><li>In Huntress open the menu at the top right → <b>API Credentials</b> → Setup → <b>Generate</b>. The secret is shown once.</li>'
             . '<li>Paste the key and secret here, save and press <b>Test</b>. Align only reads (GET requests), whatever the key allows.</li>'
             . '<li>Run a sync, then check the Huntress column on <a href="/mapping">Client mapping</a> (organizations are matched to clients by name).</li>'
-            . '<li>Security awareness training: upload each client\'s Huntress SAT exports on its overview page (the API has no SAT results).</li></ol>';
+            . '<li>Security awareness training: set up <a href="/integrations/curricula">Huntress SAT (Curricula)</a> to read results automatically, or upload each client\'s Huntress SAT exports on its overview page (the Huntress API has no SAT results).</li></ol>';
     }
 
     /** API key and secret (secrets), how long an agent may go quiet, and the SAT thresholds. */

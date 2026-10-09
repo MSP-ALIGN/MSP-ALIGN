@@ -10,7 +10,8 @@ use Align\Sat\Sat;
 
 /**
  * 2.7.0 Security awareness training uploads on a client's overview: upload a Huntress SAT export (its totals are
- * stored, see Sat\Sat) and delete one.
+ * stored, see Sat\Sat) and delete one. 2.7.2: read the client's results from the Curricula API now (Refresh), and
+ * open one of its Curricula summary reports.
  *
  * Security assumptions: the router checks CSRF; techs and admins only (who see every client); ClientController::load()
  * refuses a client that doesn't exist. The file is untrusted: size-limited, read as text and parsed into counts, then thrown away (never
@@ -54,14 +55,57 @@ final class SatController
         redirect("/clients/$id#sat");
     }
 
-    /** Deletes one upload's results. */
+    /** Reads the client's results from Curricula now (2.7.2; techs and admins). */
+    public static function refresh(int $id): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        try {
+            if (!\Align\Sat\Curricula::refresh($id)) {
+                flash('error', 'This client isn\'t linked to a Curricula account. Link it on Client mapping.');
+                redirect("/clients/$id#sat");
+            }
+        } catch (\Throwable $e) {
+            flash('error', 'Curricula: ' . $e->getMessage());
+            redirect("/clients/$id#sat");
+        }
+        Audit::log('sat.refresh', $client['name']);
+        flash('success', 'Read the training and phishing results from Curricula.');
+        redirect("/clients/$id#sat");
+    }
+
+    /**
+     * Opens one of the client's Curricula summary reports (2.7.2; techs and admins): asks Curricula for the PDF's
+     * current link, since the one it gives is temporary, and sends the browser there. Only an https link is followed
+     * (Curricula::reportUrl() checks it and that the report is this client's).
+     */
+    public static function report(int $id, string $rid): void
+    {
+        Auth::requireRole('tech');
+        ClientController::load($id);
+        try {
+            $url = \Align\Sat\Curricula::reportUrl($id, $rid);
+        } catch (\Throwable $e) {
+            flash('error', 'Curricula: ' . $e->getMessage());
+            redirect("/clients/$id#sat");
+        }
+        if ($url === null) {
+            flash('error', 'That report isn\'t available from Curricula.');
+            redirect("/clients/$id#sat");
+        }
+        header('Referrer-Policy: no-referrer');
+        header('Location: ' . $url, true, 302);
+        exit;
+    }
+
+    /** Deletes one upload's results (uploads only: results read from Curricula are replaced by its next read). */
     public static function delete(int $id, int $sid): void
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
-        $row = DB::one('SELECT report FROM sat_results WHERE id = ? AND client_id = ?', [$sid, $id]);
+        $row = DB::one("SELECT report FROM sat_results WHERE id = ? AND client_id = ? AND source = 'upload'", [$sid, $id]);
         if ($row) {
-            DB::run('DELETE FROM sat_results WHERE id = ? AND client_id = ?', [$sid, $id]);
+            DB::run("DELETE FROM sat_results WHERE id = ? AND client_id = ? AND source = 'upload'", [$sid, $id]);
             Audit::log('sat.delete', "{$client['name']}: {$row['report']}");
             flash('success', 'Deleted.');
         }

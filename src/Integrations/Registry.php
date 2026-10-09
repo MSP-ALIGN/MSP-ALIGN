@@ -18,6 +18,7 @@ final class Registry
         Connectors\Microsoft365::class, // 2.6.0
         Connectors\GoogleWorkspace::class, // 2.6.3
         Connectors\Huntress::class, // 2.7.0
+        Connectors\Curricula::class, // 2.7.2
         Connectors\Dell::class,
         Connectors\Lenovo::class,
     ];

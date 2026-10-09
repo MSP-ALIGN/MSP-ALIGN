@@ -148,6 +148,105 @@ if (preg_match('#^/huntress-api/v1/([a-z_]+)$#', $path, $hm)) {
     return;
 }
 
+// ---- 2.7.2 Curricula API (/curricula/oauth/token, /curricula/api/v1/...) ---------------------------------------------
+// Settings for the tests: curricula_base = <mock>/curricula, client ID "cid", secret "csec". State (/mock/curricula-set,
+// top-level keys replace): accounts (JSON:API resources), assignments and campaigns and reports ({accountId: [...]}),
+// activity and learners ({assignmentId: [...]}; GET /account-summary-reports/{id} finds a report in any account), 'fail' (path => HTTP status, e.g. "accounts/acc1/assignments"), 'page' (items per
+// page, default 2, to test meta.page.lastPage). Calls are recorded with method, path, query and whether a valid token
+// came (/mock/curricula); learner activity, campaigns and reports are filtered by startsAfter as Align asks.
+// Reset: /mock/curricula-reset.
+$cuFile = sys_get_temp_dir() . '/curricula-mock.json';
+$cuState = fn() => json_decode((string) @file_get_contents($cuFile), true) ?: ['calls' => []];
+if ($path === '/mock/curricula-reset') {
+    @unlink($cuFile);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/curricula') {
+    $json($cuState());
+    return;
+}
+if ($path === '/mock/curricula-set') {
+    $st = $cuState();
+    foreach (json_decode((string) file_get_contents('php://input'), true) ?: [] as $k => $v) {
+        $st[$k] = $v;
+    }
+    file_put_contents($cuFile, json_encode($st), LOCK_EX);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/curricula/oauth/token') {
+    $st = $cuState();
+    $st['calls'][] = ['m' => $method, 'path' => 'oauth/token', 'form' => array_diff_key($_POST, ['client_secret' => 1])];
+    file_put_contents($cuFile, json_encode($st), LOCK_EX);
+    if ($method !== 'POST' || ($_POST['grant_type'] ?? '') !== 'client_credentials' || ($_POST['client_id'] ?? '') !== 'cid' || ($_POST['client_secret'] ?? '') !== 'csec') {
+        http_response_code(401);
+        $json(['error' => 'invalid_client']);
+        return;
+    }
+    $json(['token_type' => 'Bearer', 'expires_in' => 3600, 'access_token' => 'cu-token-1']);
+    return;
+}
+if (preg_match('#^/curricula/api/v1/([A-Za-z0-9/_-]+)$#', $path, $cm)) {
+    $st = $cuState();
+    $authed = ($_SERVER['HTTP_AUTHORIZATION'] ?? '') === 'Bearer cu-token-1';
+    $st['calls'][] = ['m' => $method, 'path' => $cm[1], 'q' => $_GET, 'auth' => $authed, 'accept' => $_SERVER['HTTP_ACCEPT'] ?? ''];
+    file_put_contents($cuFile, json_encode($st), LOCK_EX);
+    header('Content-Type: application/vnd.api+json');
+    if (!$authed) {
+        http_response_code(401);
+        $json(['errors' => [['title' => 'Unauthenticated']]]);
+        return;
+    }
+    if ($method !== 'GET') {
+        http_response_code(405);
+        return;
+    }
+    if (isset($st['fail'][$cm[1]])) {
+        http_response_code((int) $st['fail'][$cm[1]]);
+        $json(['errors' => [['title' => 'Forbidden']]]);
+        return;
+    }
+    $p = explode('/', $cm[1]);
+    $items = match (true) {
+        $cm[1] === 'accounts' => (array) ($st['accounts'] ?? []),
+        count($p) === 3 && $p[0] === 'accounts' && $p[2] === 'assignments' => (array) ($st['assignments'][$p[1]] ?? []),
+        count($p) === 3 && $p[0] === 'accounts' && $p[2] === 'phishing-campaigns' => (array) ($st['campaigns'][$p[1]] ?? []),
+        count($p) === 3 && $p[0] === 'accounts' && $p[2] === 'account-summary-reports' => (array) ($st['reports'][$p[1]] ?? []),
+        count($p) === 3 && $p[0] === 'assignments' && $p[2] === 'learner-activity' => (array) ($st['activity'][$p[1]] ?? []),
+        count($p) === 3 && $p[0] === 'assignments' && $p[2] === 'learners' => (array) ($st['learners'][$p[1]] ?? []),
+        default => null,
+    };
+    // one summary report, with a fresh temporary link
+    if (count($p) === 2 && $p[0] === 'account-summary-reports') {
+        foreach ((array) ($st['reports'] ?? []) as $list) {
+            foreach ($list as $rep) {
+                if (($rep['id'] ?? '') === $p[1]) {
+                    $json(['data' => $rep]);
+                    return;
+                }
+            }
+        }
+    }
+    if ($items === null) {
+        http_response_code(404);
+        $json(['errors' => [['title' => 'Not found']]]);
+        return;
+    }
+    if (isset($_GET['filter']['startsAfter'])) {
+        $after = strtotime($_GET['filter']['startsAfter']);
+        $items = array_values(array_filter($items, fn($i) => ($t = $i['attributes']['startsAt'] ?? $i['attributes']['campaignStartsAt'] ?? null) === null || strtotime($t) >= $after));
+    }
+    if (($_GET['sort'] ?? '') === '-endDate') {
+        usort($items, fn($a, $b) => strcmp((string) ($b['attributes']['endDate'] ?? ''), (string) ($a['attributes']['endDate'] ?? '')));
+    }
+    $size = min((int) ($_GET['page']['size'] ?? 15), (int) ($st['page'] ?? 2));
+    $num = max(1, (int) ($_GET['page']['number'] ?? 1));
+    $last = max(1, (int) ceil(count($items) / $size));
+    $json(['data' => array_slice($items, ($num - 1) * $size, $size), 'meta' => ['page' => ['currentPage' => $num, 'lastPage' => $last, 'perPage' => $size, 'total' => count($items)]]]);
+    return;
+}
+
 // ---- 2.6.3 Google Workspace for clients: token (JWT bearer, domain-wide delegation), Directory, Licensing, Policy -------
 // Settings for the tests: gwc_token_url = <mock>/gws-token, gwc_api_base = <mock>/gws-api (each Google host under it),
 // dns_mock_url = <mock>/dns. Service accounts are registered with their public key (/mock/gws-set {"accounts":
