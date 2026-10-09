@@ -59,9 +59,9 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
   <input type="hidden" name="show" value="<?= e($show) ?>">
   <div class="card card-dark">
     <div class="card-header py-2 d-flex align-items-center flex-wrap">
-      <ul class="nav nav-pills nav-pills-dark me-auto" role="tablist">
+      <ul class="nav nav-pills me-auto" role="tablist">
         <?php foreach ($tabs as $t => [$tl, $ti]): ?>
-          <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === $t ? ' active' : ' text-light' ?>" href="?show=<?= $t ?>"><i class="fas <?= $ti ?> me-1"></i><?= e($tl) ?> <span class="badge text-bg-<?= $show === $t ? 'light' : 'secondary' ?>"><?= (int) $counts[$t] ?></span></a></li>
+          <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === $t ? ' active' : ' text-body' ?>" href="?show=<?= $t ?>"><i class="fas <?= $ti ?> me-1"></i><?= e($tl) ?> <span class="badge text-bg-<?= $show === $t ? 'light' : 'secondary' ?>"><?= (int) $counts[$t] ?></span></a></li>
         <?php endforeach; ?>
       </ul>
       <div class="card-tools d-flex"><input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="hb-machines" placeholder="Filter…" data-enter-nosubmit aria-label="Filter machines"><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div>

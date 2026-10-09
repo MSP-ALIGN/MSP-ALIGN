@@ -72,7 +72,7 @@ $stateBadge = ['breached' => '<span class="badge text-bg-danger">Past target</sp
 
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-chart-column me-2"></i>Last 12 months</h3>
-    <div class="card-tools small pt-1 text-light"><span class="sla-key success"></span>At or above goal <span class="sla-key warning ms-2"></span>Within 10 pts <span class="sla-key danger ms-2"></span>Below</div></div>
+    <div class="card-tools small pt-1 text-body-secondary"><span class="sla-key success"></span>At or above goal <span class="sla-key warning ms-2"></span>Within 10 pts <span class="sla-key danger ms-2"></span>Below</div></div>
   <div class="card-body py-2 sla-chart-wrap">
     <?= Ui::slaChart($s['monthly'], $s['target']) ?>
     <div class="small text-muted">Share of response and resolution targets met each month; the number under each month is tickets opened. Hover a month for details.</div>

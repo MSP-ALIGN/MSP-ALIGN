@@ -311,6 +311,7 @@ ICONS = {
     "plug": '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/>',
     "server": '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
     "lock": '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    "pulse": '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
     "check": '<path d="M12 2l2.4 2.2 3.2-.4.9 3.1 2.8 1.6-1.2 3 1.2 3-2.8 1.6-.9 3.1-3.2-.4L12 22l-2.4-2.2-3.2.4-.9-3.1-2.8-1.6 1.2-3-1.2-3 2.8-1.6.9-3.1 3.2.4z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
 }
 
@@ -327,13 +328,14 @@ FEATURES = [
     ("roadmap", "Roadmaps and budgets", "Projects by quarter and a three-year budget that fills itself from hardware, licenses and services."),
     ("report", "QBRs in one click", "A polished pack that opens with what changed since the last review, then lifecycle, backups, compliance, roadmap and budget."),
     ("portal", "Client portal", "Clients see their plan, approve projects and send requests, with two-factor sign-in."),
+    ("pulse", "Security and client health", "Huntress, security awareness training, Microsoft 365 and Google Workspace checked daily, rolled into one health score per client."),
     ("shield", "Compliance and policies", "CIS, NIST CSF, CMMC, PCI DSS, SOC 2, ISO 27001 and more, plus 27 policy templates."),
     ("pen", "Contracts and e-signatures", "Upload your agreement, send it to sign online, countersign and keep the certificate."),
     ("key", "Licensing and renewals", "Every license and contract with its cost and renewal date, so nothing renews unnoticed."),
     ("plug", "To do and automation", "One list of what's waiting on your team, and a REST API for n8n, Zapier and scripts."),
 ]
-TOOLS = ["ITFlow", "NinjaOne", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "SMTP", "Dell warranties",
-         "Lenovo warranties", "CSV import"]
+TOOLS = ["ITFlow", "NinjaOne", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)",
+         "SMTP", "Dell warranties", "Lenovo warranties", "CSV import"]
 TRUST = [
     ("server", "Your server, your data", "Self-hosted on a Debian VM or Docker. No telemetry, no cloud account."),
     ("lock", "Locked down", "Two-factor for every account, a tamper-evident audit log, encrypted secrets and backups."),
@@ -356,8 +358,15 @@ def home_body(install):
         '<p class="h-cta"><a class="button" href="install.html">Install it free</a>'
         '<a class="button secondary" href="screenshots.html">See screenshots</a>'
         f'<a class="button ghost" href="{REPO}">View on GitHub</a></p>'
-        '<a class="h-shot" href="screenshots.html"><img class="on-light" src="screenshots/dashboard.png" alt="The MSP Align dashboard" width="1400" height="900">'
-        '<img class="on-dark" src="screenshots/dashboard-dark.png" alt="The MSP Align dashboard in dark mode" width="1400" height="900" loading="lazy"></a>'
+        # 2.7.3: a short muted video tour (tools/docs/screenshots.py video), looping, with controls to pause it; it
+        # only starts by itself for visitors who haven't asked for less motion (and not without JavaScript)
+        '<figure class="h-shot h-video"><video id="tour" muted loop playsinline controls preload="metadata" width="1280" height="800" '
+        'poster="screenshots/tour-poster.jpg" aria-label="A one-minute tour of MSP Align: the dashboard, a client\'s overview, health and '
+        'security, roadmap, alignment, budget, compliance, devices, the QBR pack and dark mode">'
+        '<source src="screenshots/tour.mp4" type="video/mp4"><source src="screenshots/tour.webm" type="video/webm"></video>'
+        '<figcaption>A one-minute tour with the demo clients. <a href="screenshots.html">More screenshots →</a></figcaption></figure>'
+        '<script>(function(){var v=document.getElementById("tour");if(v&&window.matchMedia("(prefers-reduced-motion: no-preference)").matches)'
+        '{var p=v.play();if(p&&p.catch)p.catch(function(){});}})();</script>'
         '</section>'
         '<section class="h-sec"><h2>What it does</h2>'
         '<p class="h-lead">The vCIO work, without the spreadsheets.</p>'

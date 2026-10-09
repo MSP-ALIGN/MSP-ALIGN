@@ -74,9 +74,9 @@ $cols = 1 + 3 * count($providers);
   <input type="hidden" name="show" value="<?= e($show) ?>">
   <div class="card card-dark">
     <div class="card-header py-2 d-flex align-items-center flex-wrap">
-      <ul class="nav nav-pills nav-pills-dark me-auto">
-        <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === 'all' ? ' active' : ' text-light' ?>" href="/mapping"><i class="fas fa-list me-1"></i>All clients <span class="badge text-bg-<?= $show === 'all' ? 'light' : 'secondary' ?>"><?= (int) $total ?></span></a></li>
-        <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === 'missing' ? ' active' : ' text-light' ?>" href="/mapping?show=missing"><i class="fas fa-link-slash me-1"></i>Missing a link <span class="badge text-bg-<?= $show === 'missing' ? 'light' : ($missing ? 'warning' : 'secondary') ?>"><?= (int) $missing ?></span></a></li>
+      <ul class="nav nav-pills me-auto">
+        <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === 'all' ? ' active' : ' text-body' ?>" href="/mapping"><i class="fas fa-list me-1"></i>All clients <span class="badge text-bg-<?= $show === 'all' ? 'light' : 'secondary' ?>"><?= (int) $total ?></span></a></li>
+        <li class="nav-item"><a class="nav-link py-1 px-2 small<?= $show === 'missing' ? ' active' : ' text-body' ?>" href="/mapping?show=missing"><i class="fas fa-link-slash me-1"></i>Missing a link <span class="badge text-bg-<?= $show === 'missing' ? 'light' : ($missing ? 'warning' : 'secondary') ?>"><?= (int) $missing ?></span></a></li>
       </ul>
       <div class="card-tools d-flex">
         <input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="map-table" data-enter-nosubmit placeholder="Filter…" aria-label="Filter clients">

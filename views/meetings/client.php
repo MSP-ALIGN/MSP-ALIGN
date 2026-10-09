@@ -18,8 +18,8 @@ require __DIR__ . '/../partials/client_header.php';
   <div class="card-header py-2">
     <h3 class="card-title mt-2"><i class="fas fa-fw fa-handshake me-2"></i>Meetings</h3>
     <div class="card-tools">
-      <a class="btn btn-sm btn-outline-light" href="/calendar?client=<?= (int) $client['id'] ?>"><i class="fas fa-calendar-days me-1"></i>Calendar</a>
-      <a class="btn btn-sm btn-outline-light" href="/clients/<?= (int) $client['id'] ?>/roadmap"><i class="fas fa-road me-1"></i>Roadmap</a>
+      <a class="btn btn-sm btn-default" href="/calendar?client=<?= (int) $client['id'] ?>"><i class="fas fa-calendar-days me-1"></i>Calendar</a>
+      <a class="btn btn-sm btn-default" href="/clients/<?= (int) $client['id'] ?>/roadmap"><i class="fas fa-road me-1"></i>Roadmap</a>
       <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-meeting"><i class="fas fa-plus me-1"></i>Schedule</button><?php endif; ?>
     </div>
   </div>

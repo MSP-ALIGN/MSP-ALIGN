@@ -10,7 +10,8 @@ use Align\Settings;
 /**
  * Demo data (1.41): four made-up clients with everything the app can show without integrations: contacts,
  * devices (of every age, with warranty and OS support dates), licenses, budget lines, roadmap projects,
- * meetings, compliance, alignment reviews (2.3.0), health history (2.5.0), documents, backups and a client portal user. Dates are relative to the day it is
+ * meetings, compliance, alignment reviews (2.3.0), health history (2.5.0), documents, backups, security awareness
+ * training results (2.7.3) and a client portal user. Dates are relative to the day it is
  * loaded, so the plan always looks current.
  *
  * Only on an install with no clients and no PSA, RMM or backup service connected yet, so demo and real data
@@ -260,6 +261,7 @@ final class Demo
         self::history($cid, $i, $deviceIds, $userId, $slug);
         self::documents($cid, $i, $userId);
         self::backups($cid, $i, $deviceIds, $name);
+        self::training($cid, $i, (int) $staff); // 2.7.3
         // A portal user for the main contact (invited, no password yet: send yourself the invite to see the portal)
         DB::insert('portal_users', ['client_id' => $cid, 'email' => self::email($p[0], $domain), 'name' => $p[0], 'can_roadmap' => 1, 'can_budget' => 1, 'can_devices' => 1,
             'can_documents' => 1, 'can_approve' => 1, 'can_submit' => 1, 'can_contacts' => 1, 'invited_by' => $userId,
@@ -565,6 +567,24 @@ final class Demo
                 'kind' => $d['is_virtual'] ? 'vm' : 'computer', 'name' => $d['display_name'], 'hostname' => $d['display_name'], 'device_id' => $devId,
                 'last_point' => date('Y-m-d H:i:s', strtotime(date('Y-m-d 01:30:00', time() - (time() < strtotime('today 02:30') ? 86400 : 0))) + 2400), 'restore_points' => 30, 'backup_bytes' => (int) ((120 + 40 * $k) * 1024 ** 3), 'source_bytes' => (int) ((300 + 80 * $k) * 1024 ** 3),
                 'synced_at' => date('Y-m-d H:i:s')]);
+        }
+    }
+
+    /**
+     * 2.7.3 Security awareness training results, as if uploaded from Huntress SAT: this year's training (most staff
+     * finished; one client lags behind) and three phishing campaigns over the last six months.
+     */
+    private static function training(int $cid, int $i, int $staff): void
+    {
+        $done = $i === 2 ? (int) floor($staff * 0.7) : $staff - ($i % 2);
+        DB::insert('sat_results', ['client_id' => $cid, 'kind' => 'training', 'source' => 'upload', 'report' => 'Assignment: Learner Progress',
+            'file_name' => 'learner-progress.csv', 'learners' => $staff, 'completed' => $done, 'assignments' => 6,
+            'covers_from' => self::d('-10 months'), 'covers_to' => self::d('-12 days'), 'uploaded_at' => self::d('-10 days') . ' 09:15:00']);
+        foreach ([[150, 2 + $i], [90, 1], [30, $i === 2 ? 3 : 1]] as [$ago, $clicked]) {
+            DB::insert('sat_results', ['client_id' => $cid, 'kind' => 'phishing', 'source' => 'upload', 'report' => 'Phishing: Attempts',
+                'file_name' => 'phishing-attempts.csv', 'sent' => $staff, 'clicked' => min($staff, $clicked), 'reported' => (int) floor($staff * 0.4),
+                'compromised' => $clicked > 2 ? 1 : 0, 'campaigns' => 1, 'covers_from' => self::d("-$ago days"), 'covers_to' => self::d("-$ago days"),
+                'uploaded_at' => self::d('-' . ($ago - 2) . ' days') . ' 10:00:00']);
         }
     }
 }
