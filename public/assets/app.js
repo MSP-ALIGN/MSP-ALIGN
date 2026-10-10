@@ -941,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('storage', (ev) => {
     if (ev.key === keyActive) sync();
     // Another tab signed out (by the idle clock or the Sign out button): this one follows
-    if (ev.key === keyOut && !done) { done = true; window.location.href = meta.dataset.login; }
+    if (ev.key === keyOut && !done) { done = true; window.location.href = sitePath(meta.dataset.login) ? meta.dataset.login : '/login'; }
   });
   store.set(keyActive, Math.max(store.get(keyActive), lastActive));
   // The Sign out button tells the other tabs too
@@ -964,7 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (done) return;
     done = true;
     store.set(keyOut, Date.now());
-    const go = () => { window.location.href = meta.dataset.login; };
+    const go = () => { window.location.href = sitePath(meta.dataset.login) ? meta.dataset.login : '/login'; }; // 2.7.6: this site's paths only
     if (!post) { go(); return; }
     const body = new URLSearchParams({ _csrf: meta.dataset.csrf });
     fetch(meta.dataset.logout, { method: 'POST', credentials: 'same-origin', body }).finally(go);
@@ -1174,7 +1174,7 @@ const jobOverlay = (() => {
         if (started && !downloaded) { downloaded = true; dl.submit(); }
       }
       // Version or backup info changed: refresh the page (not for downloads, which would cancel them)
-      if (started && ['update', 'check', 'purge_legacy', 'delete_safety'].includes(j.action)) setTimeout(() => location.replace('/settings/system?job=' + id), 1500);
+      if (started && ['update', 'check', 'purge_legacy', 'delete_safety'].includes(j.action)) setTimeout(() => location.replace('/settings/system?job=' + encodeURIComponent(id)), 1500);
     };
     /** Polls the job every 1.5 s until it ends. A page that isn't JSON means maintenance mode or, after a restore, signed out. */
     const tick = () => {

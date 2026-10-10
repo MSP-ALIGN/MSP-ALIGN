@@ -4,7 +4,16 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+  # 2.7.7: once a week (Sunday night, US Pacific), every suite in one run, one after another, as before the groups:
+  # catches a suite that only passes because of what runs before it in its group
+  schedule:
+    - cron: '23 6 * * 1'
   workflow_dispatch:
+    inputs:
+      full:
+        description: 'Every suite in one run, one after another (about an hour) instead of five groups'
+        type: boolean
+        default: false
 
 # Read-only token, no secrets: pull requests (also from forks) run their own code here (pull_request, never
 # pull_request_target)
@@ -16,10 +25,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 2.7.7: the suites run as five groups at once, each on its own machine with its own fresh install (tests/e2e/run.sh
+  # SUITE_GROUPS: the full list in its usual order, cut in five). Nothing is shared between them; "End-to-end suites"
+  # at the end passes only when every group passed, so branch protection can keep requiring that one check.
+  # The weekly run (and a manual run with "full") is a single job, group 0: every suite in order.
   e2e:
-    name: End-to-end suites (Debian 13)
+    name: ${{ matrix.group == 0 && 'End-to-end suites (all, in order)' || format('End-to-end suites (group {0} of 5)', matrix.group) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.group == 0 && 90 || 45 }}
+    strategy:
+      fail-fast: false # a failure in one group doesn't stop the others: every failing suite is reported
+      matrix:
+        group: ${{ (github.event_name == 'schedule' || inputs.full) && fromJSON('[0]') || fromJSON('[1, 2, 3, 4, 5]') }}
     # The same OS as a production install; everything runs as root inside the container.
     container: debian:trixie
     steps:
@@ -46,6 +63,7 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           find src views bin scripts public db tests -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
           bash -n install.sh scripts/*.sh tests/e2e/run.sh
+          bash tests/e2e/run.sh --check-groups   # 2.7.7: every suite is in exactly one group
           python3 tools/docs/build.py /tmp/docs-site   # the docs site still builds (README sections it needs are there)
 
       - name: Python and browser
@@ -61,12 +79,29 @@ jobs:
           mysqladmin ping
 
       - name: Run the suites
+        env:
+          GROUP: ${{ matrix.group }}
         run: tests/e2e/run.sh
 
       - name: Keep the logs
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: e2e-logs
+          name: e2e-logs-group-${{ matrix.group }}
           path: /tmp/msp-align-tests/*.log
           retention-days: 14
+
+  # 2.7.7: one result for all five groups (the check the old single job gave)
+  e2e-all:
+    name: End-to-end suites (Debian 13)
+    if: always()
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every group passed
+        env:
+          RESULT: ${{ needs.e2e.result }}
+        run: |
+          echo "Groups: $RESULT"
+          test "$RESULT" = success
+

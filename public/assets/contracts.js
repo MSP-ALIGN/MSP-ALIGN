@@ -215,7 +215,7 @@
       out('sig_png').value = png;
       pv.querySelectorAll('[data-step="sign"]').forEach((b) => {
         b.classList.add('done');
-        b.innerHTML = png ? '<img alt="Your signature" src="' + png + '">' : '<span class="pv-script">' + esc(typed) + '</span>';
+        b.innerHTML = png ? '<img alt="Your signature" src="' + esc(png) + '">' : '<span class="pv-script">' + esc(typed) + '</span>';
         b.title = 'Your signature (click to change it)';
       });
       modal('adopt-sig').hide();
@@ -236,11 +236,11 @@
       b.innerHTML = on ? '<span class="pv-script">' + esc(initials) + '</span>' : 'Initial';
       b.title = on ? 'Initialed (click to take it off)' : '';
       const keep = initialed.querySelector('[value="' + CSS.escape(b.dataset.place) + '"]');
-      if (on && !keep) initialed.insertAdjacentHTML('beforeend', '<input type="hidden" name="initialed[]" value="' + esc(b.dataset.place) + '">');
+      if (on && !keep) initialed.append(Object.assign(document.createElement('input'), { type: 'hidden', name: 'initialed[]', value: b.dataset.place }));
       if (!on && keep) keep.remove();
       if (b.dataset.field) {
         let f = form.querySelector('input[type=hidden][name="' + CSS.escape(b.dataset.field) + '"]');
-        if (!f) { form.insertAdjacentHTML('beforeend', '<input type="hidden" name="' + esc(b.dataset.field) + '">'); f = form.lastElementChild; }
+        if (!f) { f = Object.assign(document.createElement('input'), { type: 'hidden', name: b.dataset.field }); form.append(f); }
         f.value = on ? initials : '';
       }
       update();
@@ -518,17 +518,35 @@
       ins.count.textContent = def.places.length;
       const byPage = {};
       def.places.forEach((x) => { (byPage[x.page] = byPage[x.page] || []).push(x); });
-      ins.list.innerHTML = Object.keys(byPage).sort((a, b) => a - b).map((pg) => '<div class="mb-1"><b>Page ' + (+pg + 1) + ':</b> '
-        + byPage[pg].map((x) => '<a href="#" data-goto="' + esc(x.id) + '" class="pv-who-' + groupOf(x.key) + '-text">' + esc(h.labelOf(x.key)) + '</a>').join(', ') + '</div>').join('') || '<span class="text-muted">None yet.</span>';
+      // 2.7.6: built as elements (labels and keys are template data: text and attributes only, never parsed as HTML)
+      const pages = Object.keys(byPage).sort((a, b) => a - b);
+      ins.list.replaceChildren(...(pages.length ? pages.map((pg) => {
+        const row = Object.assign(document.createElement('div'), { className: 'mb-1' });
+        row.append(Object.assign(document.createElement('b'), { textContent: 'Page ' + (+pg + 1) + ':' }), ' ');
+        byPage[pg].forEach((x, i) => {
+          const a = Object.assign(document.createElement('a'), { href: '#', className: 'pv-who-' + groupOf(x.key) + '-text', textContent: h.labelOf(x.key) });
+          a.dataset.goto = x.id;
+          row.append(...(i ? [', ', a] : [a]));
+        });
+        return row;
+      }) : [Object.assign(document.createElement('span'), { className: 'text-muted', textContent: 'None yet.' })]));
       const keys = def.places.map((x) => x.key);
       const warn = [];
-      if (!keys.includes('sig.client')) warn.push('No box for the <b>client’s signature</b> yet.');
-      if (def.signing.countersign !== 'none' && !keys.includes('sig.provider')) warn.push('No box for <b>your signature</b> yet (or choose "Only the client signs" under Signing).');
+      // Each warning: text, with [text] parts in bold (put together as elements below, so labels stay text)
+      if (!keys.includes('sig.client')) warn.push(['No box for the ', ['client’s signature'], ' yet.']);
+      if (def.signing.countersign !== 'none' && !keys.includes('sig.provider')) warn.push(['No box for ', ['your signature'], ' yet (or choose "Only the client signs" under Signing).']);
       // A date needs room: "September 30, 2026" is about 9.4 times the text size wide in Helvetica
       const isDate = (k) => /^date\.(client|provider)$|^(start|signed)_date$/.test(k) || def.fields.some((f) => f.key === k && f.type === 'date');
-      def.places.filter((x) => isDate(x.key) && x.w < x.size * 9.4 * 0.8).forEach((x) => warn.push('The <b>' + esc(h.labelOf(x.key)) + '</b> box on page ' + (x.page + 1)
-        + ' is narrow for a date like “September 30, 2026”, so it will print very small. Drag its corner to make it wider, or choose a smaller text size.'));
-      ins.checks.innerHTML = warn.length ? '<i class="fas fa-triangle-exclamation text-warning me-1"></i>' + warn.join('<br>') : '<i class="fas fa-circle-check text-success me-1"></i>The signatures have their boxes.';
+      def.places.filter((x) => isDate(x.key) && x.w < x.size * 9.4 * 0.8).forEach((x) => warn.push(['The ', [h.labelOf(x.key)], ' box on page ' + (x.page + 1)
+        + ' is narrow for a date like “September 30, 2026”, so it will print very small. Drag its corner to make it wider, or choose a smaller text size.']));
+      const icon = (cls) => Object.assign(document.createElement('i'), { className: cls });
+      const out = [icon(warn.length ? 'fas fa-triangle-exclamation text-warning me-1' : 'fas fa-circle-check text-success me-1')];
+      if (!warn.length) out.push('The signatures have their boxes.');
+      warn.forEach((parts, n) => {
+        if (n) out.push(document.createElement('br'));
+        parts.forEach((p) => out.push(Array.isArray(p) ? Object.assign(document.createElement('b'), { textContent: String(p[0] ?? '') }) : p));
+      });
+      ins.checks.replaceChildren(...out);
     };
     // The selected box's blank: what it asks for (filled in from the blank unless you're typing in it)
     const blankPanel = (pl) => {
@@ -932,7 +950,8 @@
       if (act === 'down' && i < def.blocks.length - 1) [def.blocks[i + 1], def.blocks[i]] = [def.blocks[i], def.blocks[i + 1]];
       if (act === 'remove') {
         const b = def.blocks[i];
-        if (b.type === 'text' && (b.html || '').replace(/<[^>]+>/g, '').trim() !== ''
+        // whether the block has any wording: some text between its tags (only tested, nothing is built from it)
+        if (b.type === 'text' && />[^<]*[^\s<]/.test('>' + (b.html || ''))
           && !(await ask({ title: 'Remove this text block?', text: 'Its wording is removed too.', ok: 'Remove', danger: true }))) return;
         def.blocks.splice(def.blocks.indexOf(b), 1);
       }
@@ -992,7 +1011,7 @@
           + '<button type="button" class="btn btn-sm btn-light text-danger" data-f="remove" title="Remove"><i class="fas fa-trash"></i><span class="visually-hidden">Remove</span></button></div>'
           + '<div class="d-flex flex-wrap gap-1 align-items-center small">'
           + '<code class="me-1">{{' + esc(f.key) + '}}</code>'
-          + '<select class="form-select form-select-sm w-auto" data-f="type" aria-label="Type">' + Object.entries(meta.types).map(([k, l]) => '<option value="' + k + '"' + (f.type === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>'
+          + '<select class="form-select form-select-sm w-auto" data-f="type" aria-label="Type">' + Object.entries(meta.types).map(([k, l]) => '<option value="' + esc(k) + '"' + (f.type === k ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>'
           + '<select class="form-select form-select-sm w-auto" data-f="by" aria-label="Who fills it in"' + (f.type === 'initials' ? ' disabled' : '') + '><option value="provider"' + (f.by === 'provider' ? ' selected' : '') + '>You fill in</option><option value="client"' + (f.by === 'client' ? ' selected' : '') + '>Client fills in</option></select>'
           + '<label class="form-check mb-0 ms-1"><input class="form-check-input" type="checkbox" data-f="required"' + (f.required ? ' checked' : '') + '> Required</label></div>'
           + (f.type === 'choice' ? '<textarea class="form-control form-control-sm mt-1" rows="2" data-f="options" placeholder="One choice per line">' + esc((f.options || []).join('\n')) + '</textarea>' : '')
@@ -1070,9 +1089,9 @@
           + '<input class="form-control form-control-sm mb-1" data-s="description" maxlength="300" placeholder="Description (optional)" value="' + esc(r.description) + '">'
           + '<div class="row g-1 small">'
           + '<div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text">' + esc(meta.currency) + '</span><input type="number" step="any" min="0" class="form-control" data-s="price" value="' + esc(r.price) + '" aria-label="Price"></div></div>'
-          + '<div class="col-4"><select class="form-select form-select-sm" data-s="period" aria-label="Billed">' + Object.entries(meta.periods).map(([k, l]) => '<option value="' + k + '"' + (r.period === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>'
+          + '<div class="col-4"><select class="form-select form-select-sm" data-s="period" aria-label="Billed">' + Object.entries(meta.periods).map(([k, l]) => '<option value="' + esc(k) + '"' + (r.period === k ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select></div>'
           + '<div class="col-4"><input class="form-control form-control-sm" data-s="unit" maxlength="40" placeholder="Unit (per user)" value="' + esc(r.unit) + '" aria-label="Unit"></div>'
-          + '<div class="col-8"><select class="form-select form-select-sm" data-s="auto" aria-label="Quantity from"><option value="">Quantity: type it in</option>' + Object.entries(meta.auto).map(([k, l]) => '<option value="' + k + '"' + (r.auto === k ? ' selected' : '') + '>Count: ' + esc(l) + '</option>').join('') + '</select></div>'
+          + '<div class="col-8"><select class="form-select form-select-sm" data-s="auto" aria-label="Quantity from"><option value="">Quantity: type it in</option>' + Object.entries(meta.auto).map(([k, l]) => '<option value="' + esc(k) + '"' + (r.auto === k ? ' selected' : '') + '>Count: ' + esc(l) + '</option>').join('') + '</select></div>'
           + '<div class="col-4"><input type="number" step="any" min="0" class="form-control form-control-sm" data-s="qty" value="' + esc(r.qty) + '" title="Quantity to start with (for new clients)" aria-label="Default quantity"></div>'
           + '</div><label class="form-check small mt-1 mb-0"><input class="form-check-input" type="checkbox" data-s="optional"' + (r.optional ? ' checked' : '') + '> Optional (unticked unless Align counts some)</label>';
         svcEl.appendChild(el);

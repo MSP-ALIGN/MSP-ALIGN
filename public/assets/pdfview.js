@@ -12,6 +12,24 @@
 (() => {
   /** HTML-escapes for element text and quoted attributes (not URLs, CSS or JS). */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  /**
+   * 2.7.6 An <img> for a signature or picture. They come as PNG or JPEG data: URLs; the image is decoded and shown from a
+   * blob: URL of its bytes, so no text from the page ever becomes the image's address (anything else shows nothing).
+   */
+  const img = (src, alt) => {
+    const i = document.createElement('img');
+    i.alt = alt;
+    const m = typeof src === 'string' ? /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(src) : null;
+    if (m) {
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      const url = URL.createObjectURL(new Blob([bytes], { type: m[1] === 'png' ? 'image/png' : 'image/jpeg' }));
+      i.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      i.src = url;
+    }
+    return i;
+  };
   let lib = null;
   /** PDF.js, loaded once (as a module, from /vendor on this server) with its worker from the same place. */
   const pdfjs = (v) => lib || (lib = import('/vendor/pdfjs/pdf.min.js?v=' + encodeURIComponent(v || '')).then((m) => {
@@ -75,11 +93,11 @@
         el.title = it.who === 'client' ? 'The client fills this in' : (it.who === 'provider' ? 'You fill this in, or sign here' : 'Filled in by Align');
         break;
       case 'sig':
-        if (it.img) el.innerHTML = '<img alt="Signature" src="' + esc(it.img) + '">';
+        if (it.img) el.replaceChildren(img(it.img, 'Signature'));
         else { el.textContent = it.text; el.classList.add('pv-script'); }
         break;
       case 'photo':
-        el.innerHTML = '<img alt="" src="' + esc(it.img) + '">';
+        el.replaceChildren(img(it.img, ''));
         break;
       // Signing: the steps the guide on the signing page takes the signer through (contracts.js does the rest)
       case 'sighere':

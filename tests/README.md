@@ -11,9 +11,11 @@ On a **test machine** (the runner drops and recreates its databases and stops an
 8080, 8081 and 8099):
 
 ```bash
-tests/e2e/run.sh                      # everything, about 20 minutes
+tests/e2e/run.sh                      # everything, about 50 minutes
 tests/e2e/run.sh mapping_e2e api_e2e  # some suites, after a fresh seed
 KEEP=1 tests/e2e/run.sh backup_e2e    # again, reusing the last seed and servers
+GROUP=3 tests/e2e/run.sh              # one of the five groups GitHub runs at once (about 10 minutes each)
+                                      # (GitHub also runs everything in order once a week, Sunday night)
 ```
 
 Needs PHP 8.4 (mysql, curl, mbstring, xml, intl, gd), MariaDB with root on the unix socket, the
@@ -39,7 +41,7 @@ another folder).
 
 Suites run in a fixed order and share one database, so a suite leaves things as it found them (or as
 the next suites expect). A new suite: start with `from lib import *`, use `ok(condition, "what it
-checks")`, end with `print("FAILURES:", len(fails))`, and add it to `SUITES` in `run.sh`.
+checks")`, end with `print("FAILURES:", len(fails))`, and add it to `SUITES` in `run.sh` and to one of its `SUITE_GROUPS` (usually the last), in the same place: `tests/e2e/run.sh --check-groups` (part of the GitHub run) fails if a suite is missing from the groups or out of order.
 
 Test accounts (seeded): `admin@example.com` / `LongPassword123!` (admin), `tech@example.com` / `TechPassword123!` (tech),
 `viewer@example.com` / `ViewerPassword123!` (viewer), and `new@example.com` / `FreshAdminPass123!`

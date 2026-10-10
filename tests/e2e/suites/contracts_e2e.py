@@ -392,6 +392,11 @@ with sync_playwright() as p:
     pg.click("[data-pv-accept-all]"); pg.wait_for_timeout(300)
     ok(pg.locator(".pv-box").count() == len([n for n in names if n]) and pg.locator(".pv-suggest").count() == len([n for n in names if not n]), "Add them: a box for each named blank; the price spots stay to choose")
     ok("Contract start date</b> box on page 1 is narrow for a date" in pg.locator("[data-pv-checks]").inner_html(), "the checks say when a date box is too narrow for a date")
+    # 2.7.6: the list and the checks are built as elements (code scanning): every box listed by page, a click selects it
+    links = pg.locator("[data-pv-list] a[data-goto]")
+    ok(links.count() == pg.locator(".pv-box").count() and "Page 1:" in pg.locator("[data-pv-list]").inner_text(), "the list names every box, by page")
+    links.first.click(); pg.wait_for_timeout(200)
+    ok(pg.locator(".pv-box.selected").count() == 1, "clicking a name in the list selects its box")
     # a box placed by hand: your picture, on the last page
     pg.select_option("[data-pv-add]", "photo.provider"); pg.click("[data-pv-place]")
     box = pg.locator(".pv-page").nth(2).bounding_box()
@@ -482,6 +487,23 @@ with sync_playwright() as p:
     pg.goto(xlink); pg.wait_for_selector(".pv-page"); pg.wait_for_timeout(1200)
     ok(pg.locator('[data-step="sign"]').count() == 1 and pg.locator('[data-step="initials"]').count() == 1 and pg.input_value('[data-role="sig_name"]') == ""
        and pg.evaluate("document.querySelector('.pv-canvas').width") > 300 and pg.locator("[data-guide-next]").inner_text().strip() == "Start", "in the browser: the pages with yellow Sign and Initial tags, and Start")
+    # 2.7.7 (code scanning): signature and picture images are drawn from their decoded bytes (a blob: URL); anything
+    # that isn't a PNG or JPEG data: URL shows no image at all
+    PNG1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    res = pg.evaluate("""async (png) => {
+        const v = window.AlignPdf.mount(document.querySelector('[data-pv]'));
+        const keep = v.items;
+        v.setItems([...keep, {page: 0, x: 40, y: 40, w: 120, h: 40, kind: 'sig', img: 'data:image/png;base64,' + png, key: 't1'},
+                    {page: 0, x: 40, y: 100, w: 60, h: 60, kind: 'photo', img: 'javascript:alert(1)', key: 't2'},
+                    {page: 0, x: 120, y: 100, w: 60, h: 60, kind: 'photo', img: '/users/1/avatar', key: 't3'}]);
+        const imgs = [...document.querySelectorAll('.pv-sig img, .pv-photo img')];
+        await new Promise((r) => setTimeout(r, 300));
+        const out = imgs.map((i) => [i.getAttribute('src') || '', i.naturalWidth]);
+        v.setItems(keep);
+        return out;
+    }""", PNG1)
+    ok(len(res) == 3 and res[0][0].startswith("blob:") and res[0][1] == 1 and res[1][0] == "" and res[2][0] == "",
+       f"a signature image shows from its own bytes; a script or outside address shows nothing: {res}")
     pg.click("[data-guide-next]"); pg.wait_for_timeout(600)
     ok(pg.locator(".pv-current").count() == 1 and pg.locator("[data-guide-next]").inner_text().strip() == "Next" and " of " in pg.locator("[data-guide-status]").inner_text(),
        "Start takes them to the first place to fill in: " + pg.locator("[data-guide-status]").inner_text())

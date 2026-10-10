@@ -50,6 +50,11 @@ ok(not bad,"every operation refuses a key without its scope ("+str(len(ops)-1)+"
 
 # ---- 2. client isolation matrix: a key for client 2 never sees client 1
 lim=mk("atk client2", ALL, clients=[cid_b])
+# 2.7.7: a meeting of client 1 to probe, made here when no earlier suite left one (the suites also run in groups)
+if not q("select id from meetings where client_id=1 limit 1"):
+    q("insert into meetings (uid, client_id, title, type, status, starts_at, ends_at) values (%s, 1, 'API isolation probe', 'qbr', 'scheduled', now() + interval 30 day, now() + interval 30 day + interval 1 hour)",
+      "atk-" + __import__("secrets").token_hex(8))
+    __import__("atexit").register(lambda: q("delete from meetings where title='API isolation probe' and client_id=1"))
 one={"project":q("select id from roadmap_items where client_id=1 limit 1")[0]["id"],"line":q("select id from budget_lines where client_id=1 limit 1")[0]["id"],
      "license":q("select id from licenses where client_id=1 limit 1")[0]["id"],"meeting":q("select id from meetings where client_id=1 limit 1")[0]["id"],
      "contact":q("select id from contacts where client_id=1 limit 1")[0]["id"]}
