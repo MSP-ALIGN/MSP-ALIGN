@@ -950,8 +950,8 @@
       if (act === 'down' && i < def.blocks.length - 1) [def.blocks[i + 1], def.blocks[i]] = [def.blocks[i], def.blocks[i + 1]];
       if (act === 'remove') {
         const b = def.blocks[i];
-        // whether the block has any wording: its text as the browser reads it (DOMParser runs no scripts and loads nothing)
-        if (b.type === 'text' && (new DOMParser().parseFromString(b.html || '', 'text/html').body.textContent || '').trim() !== ''
+        // whether the block has any wording: some text between its tags (only tested, nothing is built from it)
+        if (b.type === 'text' && />[^<]*[^\s<]/.test('>' + (b.html || ''))
           && !(await ask({ title: 'Remove this text block?', text: 'Its wording is removed too.', ok: 'Remove', danger: true }))) return;
         def.blocks.splice(def.blocks.indexOf(b), 1);
       }

@@ -12,11 +12,22 @@
 (() => {
   /** HTML-escapes for element text and quoted attributes (not URLs, CSS or JS). */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  /** 2.7.6 An <img> for a signature or picture: only an image data: URL or a path on this site is used as its source. */
+  /**
+   * 2.7.6 An <img> for a signature or picture. They come as PNG or JPEG data: URLs; the image is decoded and shown from a
+   * blob: URL of its bytes, so no text from the page ever becomes the image's address (anything else shows nothing).
+   */
   const img = (src, alt) => {
     const i = document.createElement('img');
     i.alt = alt;
-    if (typeof src === 'string' && (/^data:image\/(png|jpe?g|gif|webp);/i.test(src) || /^\/(?![/\\])/.test(src))) i.src = src;
+    const m = typeof src === 'string' ? /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(src) : null;
+    if (m) {
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      const url = URL.createObjectURL(new Blob([bytes], { type: m[1] === 'png' ? 'image/png' : 'image/jpeg' }));
+      i.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      i.src = url;
+    }
     return i;
   };
   let lib = null;
