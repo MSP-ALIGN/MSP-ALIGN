@@ -1,6 +1,10 @@
 <?php
-/** @var array $dates Contracts::upcoming(); $title; $showClient; $limit */
+/**
+ * @var array $dates Contracts::upcoming(); $title; $showClient; $limit; bool $showVendor (2.9.0: who each date is with;
+ *      staff pages only, the portal leaves it out)
+ */
 $showClient = $showClient ?? false;
+$showVendor = $showVendor ?? false;
 $limit = $limit ?? 12;
 $icons = ['renegotiate' => 'fa-handshake-angle', 'contract_end' => 'fa-file-signature', 'expires' => 'fa-rotate'];
 ?>
@@ -18,6 +22,7 @@ $icons = ['renegotiate' => 'fa-handshake-angle', 'contract_end' => 'fa-file-sign
           <i class="fas <?= $icons[$d['kind']] ?> me-1 text-muted"></i><b><?= e($d['label']) ?>:</b> <a href="<?= e($d['link']) ?>"><?= e($d['name']) ?></a>
           <div class="text-muted"><?= e(implode(' · ', array_filter([
               $showClient ? $d['client_name'] : null,
+              $showVendor ? ($d['vendor'] ?? null) : null,
               $d['term'] ? $d['term'] . ' term' : null,
               $d['annual'] ? money($d['annual']) . '/yr' : null,
               $d['kind'] !== 'renegotiate' ? ($d['auto_renew'] ? 'auto-renews' : 'not renewing') : null,

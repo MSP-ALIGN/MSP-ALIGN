@@ -7,7 +7,8 @@ use Align\Controllers\ClientController;
 use Align\DB;
 
 /**
- * Clients and contacts from a CSV file (1.36): for installs without a PSA, or to add what the PSA doesn't hold.
+ * Clients, contacts and (2.9.0) client vendors from a CSV file (1.36): for installs without a PSA, or to add what the
+ * PSA doesn't hold.
  * A file is read into a plan first (add / update / skip / error per row) that a person checks, then applied.
  *
  * Clients match by name (not case-sensitive); an existing client only gets the columns the file fills in.
@@ -65,6 +66,29 @@ final class CsvImport
         'align_notes' => ['Notes', ['notes', 'note', 'comments']],
     ];
 
+    /** 2.9.0 Client vendors: each row is one client's vendor. */
+    public const VENDOR_COLUMNS = [
+        'client' => ['Client', ['client', 'client name', 'company', 'company name', 'organization', 'organisation', 'customer']],
+        'name' => ['Vendor', ['vendor', 'vendor name', 'name', 'supplier', 'provider']],
+        'template' => ['Template', ['template', 'vendor template']],
+        'category' => ['Category', ['category', 'type', 'kind']],
+        'account_number' => ['Account number', ['account number', 'account', 'account no', 'account #', 'customer number', 'acct']],
+        'contact_name' => ['Contact', ['contact', 'contact name', 'rep', 'account rep', 'account manager']],
+        'support_phone' => ['Support phone', ['support phone', 'phone', 'telephone', 'support number']],
+        'support_email' => ['Support email', ['support email', 'email', 'e mail']],
+        'website' => ['Website', ['website', 'web', 'url', 'site', 'portal']],
+        'hours' => ['Hours', ['hours', 'support hours']],
+        'sla' => ['SLA', ['sla', 'response time']],
+        'services' => ['Services', ['services', 'service', 'products', 'what they have']],
+        'notes' => ['Notes', ['notes', 'note', 'comments', 'description']],
+    ];
+
+    /** The columns a kind of file understands. */
+    public static function columns(string $kind): array
+    {
+        return match ($kind) { 'contacts' => self::CONTACT_COLUMNS, 'vendors' => self::VENDOR_COLUMNS, default => self::CLIENT_COLUMNS };
+    }
+
     /** Fields a client from the PSA still takes from a file (the PSA owns the rest). */
     private const PSA_CLIENT_FIELDS = ['industry', 'notes'];
 
@@ -77,6 +101,11 @@ final class CsvImport
         'contacts' => [
             ['Client', 'Name', 'Title', 'Email', 'Phone', 'Mobile', 'Primary', 'Billing', 'Technical', 'Decision maker', 'Notes'],
             ['Example Dental Group', 'Pat Lee', 'Office Manager', 'pat@dental.example', '555-0100', '555-0101', 'yes', 'yes', '', 'yes', ''],
+        ],
+        'vendors' => [
+            ['Client', 'Vendor', 'Template', 'Category', 'Account number', 'Contact', 'Support phone', 'Support email', 'Website', 'Services', 'Notes'],
+            ['Example Dental Group', 'Example Fiber Co', '', 'Internet provider', 'FBR-1001', 'Dana (account rep)', '555-0110', 'support@fiber.example', 'https://fiber.example', '300 Mbps fiber, 5 static IPs', ''],
+            ['Example Dental Group', 'Example Registrar', '', 'registrar', 'REG-77', '', '', '', 'https://registrar.example', '2 domains', ''],
         ],
     ];
 
@@ -331,6 +360,131 @@ final class CsvImport
         return $plan;
     }
 
+    /**
+     * 2.9.0 The plan for a vendors file (see planClients): each row adds a vendor to its client, or updates the one
+     * the client already has by that name (not case-sensitive). A Template column naming a template uses it (an
+     * unknown one is noted and left out); a vendor named like a template is made from it, as on the Vendors page.
+     * With a template, a value the same as the template's is left blank so it follows the template. Category takes a
+     * key or label (else a guess from the name). A vendor from the PSA only takes Align's own fields (category,
+     * services, and the notes as Align notes); a blank cell never clears anything.
+     */
+    public static function planVendors(array $rows, array $map): array
+    {
+        if (!isset($map['client'])) {
+            throw new \RuntimeException('No column for the client. Name one column "Client" (or Company).');
+        }
+        if (!isset($map['name']) && !isset($map['template'])) {
+            throw new \RuntimeException('No column for the vendor. Name one column "Vendor" (or a "Template" column).');
+        }
+        $V = \Align\Vendors\Vendors::class;
+        $clients = [];
+        foreach (DB::all('SELECT id, name FROM clients WHERE is_archived = 0') as $c) {
+            $clients[mb_strtolower(trim($c['name']))] = $c;
+        }
+        $cats = [];
+        foreach ($V::CATEGORIES as $k => [$label]) {
+            $cats[$k] = $k;
+            $cats[mb_strtolower($label)] = $k;
+        }
+        $tplMemo = [];
+        $tplNamed = function (string $n) use (&$tplMemo, $V) { // one lookup per name in a file
+            return array_key_exists($k = $V::key($n), $tplMemo) ? $tplMemo[$k] : ($tplMemo[$k] = $V::templateNamed($n));
+        };
+        $have = []; // client id => vendor key => vendor row (as shown)
+        $seen = [];
+        $plan = [];
+        foreach ($rows as $i => $r) {
+            $clientName = self::cell($r, $map, 'client', 255) ?? '';
+            $tplName = self::cell($r, $map, 'template');
+            $name = self::cell($r, $map, 'name');
+            $e = ['row' => $i + 2, 'name' => $name ?? ($tplName ?? ''), 'client' => $clientName, 'action' => 'error', 'values' => [], 'note' => ''];
+            $c = $clients[mb_strtolower($clientName)] ?? null;
+            if (!$c) {
+                $plan[] = ['note' => $clientName === '' ? 'No client' : "No client named \"$clientName\" (import clients first)"] + $e;
+                continue;
+            }
+            $notes = [];
+            $tpl = $tplName !== null ? $tplNamed($tplName) : null;
+            if ($tplName !== null && !$tpl) {
+                $notes[] = "no template named \"$tplName\", left out";
+            }
+            $tpl ??= $name !== null ? $tplNamed($name) : null;
+            $shown = $name ?? ($tpl['name'] ?? null);
+            if ($shown === null) {
+                $plan[] = ['note' => 'No vendor name'] + $e;
+                continue;
+            }
+            $e['name'] = $shown;
+            $v = [];
+            foreach (['account_number', 'contact_name', 'support_phone', 'support_email', 'website', 'hours', 'sla', 'services', 'notes'] as $f) {
+                if (($x = self::cell($r, $map, $f, $V::SIZES[$f], $f === 'notes')) !== null) {
+                    $v[$f] = $x;
+                }
+            }
+            if ($name !== null && !($tpl && $V::key($tpl['name']) === $V::key($name))) {
+                $v['name'] = $name;
+            }
+            if (($catCell = self::cell($r, $map, 'category')) !== null) {
+                if (isset($cats[mb_strtolower($catCell)])) {
+                    $v['category'] = $cats[mb_strtolower($catCell)];
+                } else {
+                    $notes[] = "category \"$catCell\" isn't one Align has, guessed instead";
+                }
+            }
+            if ($tpl) {
+                $v['template_id'] = (int) $tpl['id'];
+                $e['template'] = $tpl['name']; // shown on the check
+                foreach ($V::SHARED as $f) { // follows the template where it says the same
+                    if (isset($v[$f]) && $V::key((string) $v[$f]) === $V::key((string) $tpl[$f])) {
+                        unset($v[$f]);
+                    }
+                }
+            }
+            $key = $c['id'] . '|' . $V::key($shown);
+            if (isset($seen[$key])) {
+                $plan[] = ['action' => 'skip', 'note' => 'Same vendor as row ' . $seen[$key]] + $e;
+                continue;
+            }
+            $seen[$key] = $i + 2;
+            $e['client_id'] = (int) $c['id'];
+            if (!isset($have[$c['id']])) {
+                $have[$c['id']] = [];
+                foreach ($V::forClient((int) $c['id'], true) as $x) {
+                    $have[$c['id']][$V::key($x['name'])] ??= $x;
+                }
+            }
+            $ex = $have[$c['id']][$V::key($shown)] ?? null;
+            if ($ex && $ex['source'] === 'psa') {
+                // the PSA owns its details: Align's own fields only (the file's notes become Align's notes)
+                $v = array_intersect_key($v, ['category' => 1, 'services' => 1, 'notes' => 1]);
+                if (isset($v['notes'])) {
+                    $v['align_notes'] = $v['notes'];
+                    unset($v['notes']);
+                }
+                $notes[] = 'from ' . psa_name() . ': only category, services and notes change';
+            }
+            if ($ex) {
+                unset($v['template_id'], $e['template']); // an existing vendor keeps its template
+                // Only what changes: a value it already shows (its own, or its template's) isn't an update, and the name
+                // isn't written when it's the same but for case (a vendor named by its template keeps following it)
+                foreach ($v as $f => $x) {
+                    $now = in_array($f, $V::SHARED, true) ? $ex[$f] : ($ex[$f] ?? null); // as shown (own, else the template's)
+                    if ($V::key((string) $x) === $V::key((string) $now)) {
+                        unset($v[$f]);
+                    }
+                }
+                $plan[] = ($v ? ['action' => 'update', 'values' => $v] : ['action' => 'skip', 'values' => []])
+                    + ['id' => (int) $ex['id'], 'note' => implode('; ', $notes ?: ($v ? [] : ['already here, nothing new']))] + $e;
+            } else {
+                if (!isset($v['category']) && !$tpl) {
+                    $v['category'] = $V::guessCategory($shown);
+                }
+                $plan[] = ['action' => 'add', 'values' => $v, 'note' => implode('; ', $notes)] + $e;
+            }
+        }
+        return $plan;
+    }
+
     /** An active contact at the client with that email, else one with that name and no email (the collation ignores case). */
     private static function findContact(int $clientId, ?string $email, string $name): ?array
     {
@@ -351,9 +505,49 @@ final class CsvImport
         $names = [];
         $label = fn(array $p) => $kind === 'clients' ? (string) $p['name'] : ($p['client'] ?? '') . ': ' . $p['name'];
         DB::transaction(function () use ($kind, $plan, $userId, &$added, &$updated, &$names, $label) {
-            $clientIds = $kind === 'contacts' ? array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients'), 'id'))) : [];
+            $clientIds = $kind !== 'clients' ? array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients'), 'id'))) : [];
+            $touched = [];
+            $vendorNames = []; // client id => Vendors::nameIndex()
             foreach ($plan as $p) {
                 $v = $p['values'];
+                if ($kind === 'vendors') { // 2.9.0
+                    if (!in_array($p['action'], ['add', 'update'], true) || !isset($clientIds[(int) ($p['client_id'] ?? 0)])) {
+                        continue; // nothing to do, or the client was deleted since the file was checked
+                    }
+                    $cid = (int) $p['client_id'];
+                    $V = \Align\Vendors\Vendors::class;
+                    $vendorNames[$cid] ??= $V::nameIndex($cid); // read once per client, kept up to date below
+                    if ($p['action'] === 'add') {
+                        if (isset($vendorNames[$cid][$V::key((string) $p['name'])])) {
+                            continue; // added since the file was checked, or by an earlier row
+                        }
+                        if (isset($v['template_id']) && !DB::value('SELECT 1 FROM vendor_templates WHERE id = ?', [$v['template_id']])) {
+                            $v['template_id'] = null; // deleted since the check
+                            $v['name'] ??= $p['name'];
+                        }
+                        $vendorNames[$cid][$V::key((string) $p['name'])] = DB::insert('client_vendors', $v + ['client_id' => $cid, 'source' => 'manual', 'created_by' => $userId]);
+                        $added++;
+                        $names[] = '+' . $label($p);
+                    } else {
+                        $ex = DB::one('SELECT id, source FROM client_vendors WHERE id = ? AND client_id = ?', [$p['id'], $cid]);
+                        if (!$ex) {
+                            continue; // deleted since the check
+                        }
+                        if ($ex['source'] === 'psa') { // taken over by the PSA since the check
+                            $v = array_intersect_key($v, ['category' => 1, 'services' => 1, 'align_notes' => 1]);
+                        }
+                        if ($v) {
+                            DB::run('UPDATE client_vendors SET ' . implode(', ', array_map(fn($f) => "`$f` = ?", array_keys($v))) . ' WHERE id = ?', [...array_values($v), $ex['id']]);
+                            $updated++;
+                            $names[] = $label($p) . ' (' . implode(', ', array_keys($v)) . ')';
+                            if (isset($v['name'])) {
+                                $V::renameLinked((int) $ex['id'], (string) $v['name']);
+                            }
+                        }
+                    }
+                    $touched[$cid] = true;
+                    continue;
+                }
                 if ($kind === 'clients') {
                     if ($p['action'] === 'add') {
                         if (DB::value('SELECT 1 FROM clients WHERE name = ? AND is_archived = 0', [$p['name']])) {
@@ -390,6 +584,9 @@ final class CsvImport
                         }
                     }
                 }
+            }
+            foreach (array_keys($touched) as $cid) {
+                \Align\Vendors\Vendors::relinkManual($cid); // 2.9.0: licenses and budget lines naming a new vendor link to it
             }
         });
         return [$added, $updated, $names];

@@ -257,6 +257,7 @@ final class Demo
         self::licenses($cid, $i, $staff, $counts);
         self::vendors($cid, $i, $userId);
         self::budget($cid, $managed, $i, $userId);
+        \Align\Vendors\Vendors::relinkManual($cid); // 2.9.0: the budget's internet, phones and domains link to their vendors
         self::roadmap($cid, $i, $userId, $p[0]);
         self::meetings($cid, $i, $cadence, $userId, $p[0], self::email($p[0], $domain));
         self::compliance($cid, $framework, $i, $userId);

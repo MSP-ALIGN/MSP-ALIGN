@@ -40,6 +40,6 @@ $t = $totals;
     <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'back' => $back]) ?>
   </div>
 </div>
-<?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates']); ?>
+<?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates', 'showVendor' => true]); ?>
 <p class="small text-muted"><?php if (psa_on()): ?>Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. <?php endif; ?><?php if (\Align\M365\Tenants::connected($m365['m365'])): ?>Microsoft 365 subscriptions update every hour. <?php endif; ?><?php if (\Align\Google\Clients::connected($gws['gws'])): ?>Google Workspace editions update every hour. <?php endif; ?>Prices, billing cycle, category and seats in use are kept in Align.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('licenses/_modal', ['l' => null, 'cid' => $cid, 'back' => $back]); ?>

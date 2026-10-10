@@ -13,6 +13,7 @@ echo \Align\View::fetch('partials/page_header', [
     'desc' => 'Vendor templates hold what\'s the same for every client: name, category, support line, website and hours. Add a template to a client from its <b>Vendors</b> page; each client keeps its own account number, contact and services, and can override any shared field. '
         . num($clientVendors) . ' client vendor' . ($clientVendors === 1 ? '' : 's') . ' in all.',
     'help' => $canEdit ? 'guide-vendors' : null,
+    'secondary' => $canEdit ? ['<a class="btn btn-sm btn-default ms-1" href="/clients/import?kind=vendors"><i class="fas fa-file-import me-1"></i>Import client vendors</a>'] : [], // 2.9.0
     'primary' => $canEdit ? '<button class="btn btn-sm btn-primary ms-1" data-bs-toggle="modal" data-bs-target="#modal-vtemplate"><i class="fas fa-plus me-1"></i>Add template</button>' : null,
 ]);
 ?>

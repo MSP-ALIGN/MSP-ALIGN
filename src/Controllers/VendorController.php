@@ -39,23 +39,8 @@ final class VendorController
             'showRetired' => $showRetired,
             'templates' => Vendors::templates(),
             'back' => "/clients/$id/vendors" . ($showRetired ? '?retired=1' : ''),
-            'unlinked' => self::unlinked($id),
+            'unlinked' => Vendors::unlinked($id), // 2.9.0: licenses and budget lines
         ]);
-    }
-
-    /**
-     * Vendor names on the client's active licenses that match none of its vendors (case-insensitive), with how many
-     * licenses carry each: offered as one-click "add as a vendor".
-     */
-    private static function unlinked(int $clientId): array
-    {
-        $out = [];
-        // Align licenses only: one from the PSA, Microsoft 365 or Google Workspace links by its sync, never by name
-        foreach (DB::all("SELECT vendor, COUNT(*) AS n FROM licenses WHERE client_id = ? AND source = 'manual' AND retired_at IS NULL AND vendor_id IS NULL
-                AND vendor IS NOT NULL AND vendor <> '' GROUP BY vendor ORDER BY vendor", [$clientId]) as $r) {
-            $out[$r['vendor']] = (int) $r['n'];
-        }
-        return $out;
     }
 
     /** Every vendor template with the clients using it. Any staff role. */
@@ -154,7 +139,7 @@ final class VendorController
         DB::insert('client_vendors', $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()]);
         $linked = Vendors::relinkManual($id);
         Audit::log('vendor.create', "{$client['name']}: $name");
-        flash('success', "Added $name." . ($linked ? " $linked license" . ($linked === 1 ? ' is' : 's are') . ' now linked to it.' : ''));
+        flash('success', "Added $name." . ($linked ? " Linked $linked license" . ($linked === 1 ? ' or budget line' : 's and budget lines') . ' to it.' : ''));
         redirect($back);
     }
 
@@ -177,7 +162,7 @@ final class VendorController
             case 'retire':
                 DB::run("UPDATE client_vendors SET retired_at = NOW(), retired_reason = 'align' WHERE id = ?", [$id]);
                 Audit::log('vendor.retire', $label);
-                flash('success', "Retired {$v['name']}. Licenses stay linked to it." . ($fromPsa ? ' Archive it in ' . psa_name() . ' too.' : ''));
+                flash('success', "Retired {$v['name']}. Licenses and budget lines stay linked to it." . ($fromPsa ? ' Archive it in ' . psa_name() . ' too.' : ''));
                 redirect($back);
             case 'restore':
                 DB::run('UPDATE client_vendors SET retired_at = NULL, retired_reason = NULL WHERE id = ?', [$id]);
@@ -194,7 +179,7 @@ final class VendorController
                     Vendors::relinkManual($cid);
                 });
                 Audit::log('vendor.delete', $label);
-                flash('success', "Deleted {$v['name']}. Its licenses keep the vendor name but aren't linked.");
+                flash('success', "Deleted {$v['name']}. Its licenses and budget lines keep the vendor name but aren't linked.");
                 redirect($back);
             case 'template':
                 self::saveAsTemplate($v, $back);
