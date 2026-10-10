@@ -159,6 +159,8 @@ final class SyncRunner
         if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth UNION SELECT 1 FROM client_email_domains LIMIT 1")) { // 2.7.4: or domains added by hand
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }
+        // 2.10.0 domain registrars and expiry dates from public RDAP (each domain every few days)
+        $this->step('Domain registrations', fn() => \Align\Domains\Rdap::refreshDue());
         $this->step('Warranty lookups', fn() => $this->lookupWarranties());
         if ($psaOk && $psa->supports('assets.write') && Settings::get('psa_writeback', 'off') !== 'off') {
             $this->step("Write warranty dates to $psaName", fn() => $this->writeBack($psa));

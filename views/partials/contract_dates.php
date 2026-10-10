@@ -6,7 +6,7 @@
 $showClient = $showClient ?? false;
 $showVendor = $showVendor ?? false;
 $limit = $limit ?? 12;
-$icons = ['renegotiate' => 'fa-handshake-angle', 'contract_end' => 'fa-file-signature', 'expires' => 'fa-rotate'];
+$icons = ['renegotiate' => 'fa-handshake-angle', 'contract_end' => 'fa-file-signature', 'expires' => 'fa-rotate', 'domain' => 'fa-globe']; // 2.10.0 domain
 ?>
 <div class="card <?= e($cardClass ?? 'card-dark') ?>">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-check me-2"></i><?= e($title ?? 'Upcoming contract dates') ?></h3>
@@ -25,7 +25,7 @@ $icons = ['renegotiate' => 'fa-handshake-angle', 'contract_end' => 'fa-file-sign
               $showVendor ? ($d['vendor'] ?? null) : null,
               $d['term'] ? $d['term'] . ' term' : null,
               $d['annual'] ? money($d['annual']) . '/yr' : null,
-              $d['kind'] !== 'renegotiate' ? ($d['auto_renew'] ? 'auto-renews' : 'not renewing') : null,
+              $d['kind'] !== 'renegotiate' && $d['auto_renew'] !== null ? ($d['auto_renew'] ? 'auto-renews' : 'not renewing') : null, // a domain's is unknown
           ]))) ?></div>
         </div>
       </li>

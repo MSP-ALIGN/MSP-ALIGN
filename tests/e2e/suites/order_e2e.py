@@ -15,8 +15,8 @@ def inorder(t, items, label):
     ok(all(p>=0 for p in pos), label+": "+str(list(zip(items,pos))))
 q=re.sub(r"\s+"," ",text("/clients/1/report/qbr?virtual=1&inventory=1"))
 body=q[q.find("Executive summary",q.find("Appendix")):]
-inorder(body,["Executive summary","Service levels","Fleet at a glance","Software & licensing","Backup & recovery","Compliance","Three-year plan","technology budget","Three-year outlook","Contracts & renewals","Your team & next steps","Full inventory"],"QBR runs in meeting order")
-inorder(q[q.find("Technology Review"):],["01 Executive summary","02 Service levels","03 Assets & lifecycle","04 Software & licensing","05 Backup & recovery","06 Compliance","07 Roadmap & projects","08 Technology budget","09 Your team & next steps","A Appendix: full inventory"],"cover contents match")
+inorder(body,["Executive summary","Service levels","Fleet at a glance","Software & licensing","Your vendors","Backup & recovery","Compliance","Three-year plan","technology budget","Three-year outlook","Contracts & renewals","Your team & next steps","Full inventory"],"QBR runs in meeting order")
+inorder(q[q.find("Technology Review"):],["01 Executive summary","02 Service levels","03 Assets & lifecycle","04 Software & licensing","05 Your vendors","06 Backup & recovery","07 Compliance","08 Roadmap & projects","09 Technology budget","10 Your team & next steps","A Appendix: full inventory"],"cover contents match")
 fleet=body[body.find("By device type"):body.find("Operating systems")]
 inorder(fleet,["Servers & hosts","Virtual servers","Network gear","Desktops","Laptops","Virtual desktops","Printers"],"device-type rows: servers with virtual servers, computers with virtual desktops")
 inv=body[body.find("Full inventory"):]
@@ -35,7 +35,7 @@ ok("Decisions needed" not in q2 and "Your team &amp; next steps" in q2,"no pendi
 db.cursor().execute("update roadmap_items set status='proposed' where id=30")
 try:
     q3=re.sub(r"\s+"," ",text("/clients/1/report/qbr"))
-    inorder(q3,["09 Decisions & next steps","Executive summary","waiting for a decision","Service levels","Decisions & next steps","Decisions needed","Upgrade firewall to FortiGate 60F","Key contacts","Next meeting"],"pending decisions: listed in the closing section, flagged in the summary")
+    inorder(q3,["10 Decisions & next steps","Executive summary","waiting for a decision","Service levels","Decisions & next steps","Decisions needed","Upgrade firewall to FortiGate 60F","Key contacts","Next meeting"],"pending decisions: listed in the closing section, flagged in the summary")
 finally:
     db.cursor().execute("update roadmap_items set status='approved' where id=30")
 print("FAILURES:",len(fails))

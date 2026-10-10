@@ -118,6 +118,7 @@ plain = {
     "notif_backup_failed_extra": "tickets@examplemsp.example", "psa_provider": "itflow", "psa_create_assets": "1",
     "psa_import_types": "network,printer,ups,storage", "psa_sla_supported": "1", "psa_sla_sync": "1", "psa_two_way": "1",
     "psa_writeback": "fill_empty", "sla_target": "90", "source_url": "", "stale_days": "45",
+    "rdap_bootstrap_url": M + "/rdap/dns.json",  # 2.10.0 domain registrations from the mock
 }
 secrets = {"dell_client_secret": "dsecret", "g_client_secret": "g-secret", "itflow_api_key": "itflow-key", "lenovo_client_id": "lkey",
            "m365_client_secret": "m365-secret", "ninja_client_secret": "ninja-secret", "veeam_api_key": "veeam-key",

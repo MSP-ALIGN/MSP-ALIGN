@@ -12,6 +12,7 @@ $items = $pu ? array_filter([
     ['roadmap', '/portal/roadmap', 'Roadmap', 'fa-road', $pu['can_roadmap']],
     ['budget', '/portal/budget', 'Budget', 'fa-coins', $pu['can_budget']],
     ['licensing', '/portal/licensing', 'Licensing', 'fa-key', $pu['can_budget']],
+    ['vendors', '/portal/vendors', 'Vendors', 'fa-store', $pu['can_budget']], // 2.10.0
     ['devices', '/portal/devices', 'Devices', 'fa-desktop', $pu['can_devices']],
     ['compliance', '/portal/compliance', 'Compliance', 'fa-clipboard-check', $pu['can_devices']],
     ['documents', '/portal/documents', 'Documents', 'fa-file-lines', $pu['can_documents']],
@@ -23,7 +24,7 @@ $items = $pu ? array_filter([
 $groups = [
     ['home', 'Home', 'fa-house', ['home']],
     ['plan', 'Plan', 'fa-road', ['roadmap', 'budget']],
-    ['tech', 'Your technology', 'fa-desktop', ['devices', 'licensing']],
+    ['tech', 'Your technology', 'fa-desktop', ['devices', 'licensing', 'vendors']],
     ['compliance', 'Compliance', 'fa-clipboard-check', ['compliance', 'documents']],
     ['meetings', 'Meetings', 'fa-handshake', ['meetings']],
     ['team', 'Your team', 'fa-user-group', ['contacts', 'requests']],
