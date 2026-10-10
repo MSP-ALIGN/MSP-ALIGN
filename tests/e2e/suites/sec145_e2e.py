@@ -124,6 +124,10 @@ cname = q("select name from clients where is_archived=0 and planning_excluded=0 
 ok("Set a new password" in H.unescape(t) and H.escape(cname) not in t and "meeting-modal" not in t, "before the password is changed and 2FA set up, pages carry no client names or meeting form")
 
 # ---- documents: deleting (and its whole history) is for admins
+# 2.7.7: a document of its own when no earlier suite left one (the suites also run in groups)
+if not q("select id from documents limit 1"):
+    q("insert into documents (client_id, title, category, status, body_html) values (2, 'Delete rights probe', 'policy', 'active', '<p>x</p>')")
+    __import__("atexit").register(lambda: q("delete from documents where title='Delete rights probe'"))
 did = q("select id from documents order by id limit 1")[0]["id"]
 r = tech.post(B + f"/documents/{did}/delete", data={"_csrf": csrf(tech, f"/documents/{did}"), "confirm": "DELETE"})
 ok(r.status_code == 403 and q("select id from documents where id=%s", did), "a tech can't delete a document")
@@ -206,6 +210,10 @@ def mk(name, scopes, clients=None, created_by=1):
 def call(k, m, path, body=None):
     return requests.request(m, API + path, headers={"Authorization": "Bearer " + k, **({"Content-Type": "application/json"} if body is not None else {})}, data=json.dumps(body) if body is not None else None)
 lim = mk("sec145 limited", ["meetings:read", "meetings:write"], clients=[1])
+if not q("select id from meetings where client_id=1 limit 1"):  # 2.7.7: one of its own when run in a group
+    q("insert into meetings (uid, client_id, title, type, status, starts_at, ends_at) values (%s, 1, 'Security probe meeting', 'qbr', 'scheduled', now() + interval 30 day, now() + interval 30 day + interval 1 hour)",
+      "sec-" + __import__("secrets").token_hex(8))
+    __import__("atexit").register(lambda: q("delete from meetings where title='Security probe meeting' and client_id=1"))
 mid = q("select id from meetings where client_id=1 order by id limit 1")[0]["id"]
 q("update meetings set invites_sent_at=now(), status='scheduled', attendees='someone@client.example' where id=%s", mid)
 r = call(lim, "PATCH", f"/meetings/{mid}", {"title": "Urgent: reset your password at evil.example"})
@@ -229,6 +237,9 @@ q("delete from api_ip_rate")
 
 # ---- onboarding: a finished onboarding's link stops a week later; typed-in requesters are marked unverified
 q("update client_onboardings set token_expires_at = now() + interval 60 day, completed_at=NULL where client_id=1")
+if not q("select id from client_onboardings where client_id=1"):  # 2.7.7: one of its own when run in a group
+    q("insert into client_onboardings (client_id, token_hash, token_expires_at) values (1, %s, now() + interval 60 day)", __import__("secrets").token_hex(32))
+    __import__("atexit").register(lambda: q("delete from client_onboardings where client_id=1 and sent_at is null"))
 if q("select id from client_onboardings where client_id=1"):
     tech.post(B + "/clients/1/onboarding/status", data={"_csrf": csrf(tech, "/clients/1/onboarding"), "action": "complete"})
     ok(q("select token_expires_at <= now() + interval 7 day + interval 1 minute as soon from client_onboardings where client_id=1")[0]["soon"] == 1, "marking onboarding complete shortens the link to 7 days")

@@ -23,7 +23,7 @@ fine once client names are blurred.
 3. **Set up** as in [Development](README.md#development): PHP 8.4, MariaDB, and the mock server for ITFlow,
    NinjaOne and the rest, so you never need real client data.
 4. **Test.** Add or extend an end-to-end suite in `tests/e2e/suites/` for what you change, and run the suites it
-   touches (`tests/e2e/run.sh your_suite`). GitHub Actions runs everything on your pull request. See
+   touches (`tests/e2e/run.sh your_suite`). GitHub Actions runs everything on your pull request, as five groups at once. See
    [tests/README.md](tests/README.md).
 5. **Keep to the house style:**
    - Plain PHP 8.4 with no framework and no Composer packages; views are plain PHP templates. Anything bundled goes
