@@ -21,6 +21,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "_site"))
 REPO = "https://github.com/MSP-ALIGN/MSP-ALIGN"
+SITE = "https://mspalign.org"   # 2.7.8: the one address search engines are told about (canonical links, sitemap)
+# 2.7.8: the home page's title and description in search results: what it is, in the words people search for
+HOME_TITLE = "MSP Align: free, self-hosted vCIO software for MSPs"
+HOME_DESCRIPTION = ("Free, open-source vCIO software for MSPs: hardware lifecycle, technology roadmaps, IT budgets, QBR reports, "
+                    "compliance and a client portal, self-hosted.")
 SUGGEST = REPO + "/issues/new?template=feature_request.yml"   # the Feature request form (.github/ISSUE_TEMPLATE)
 
 # slug, nav title, source: ("readme", [section headings]) or ("file", path), one-line summary for the home page
@@ -278,14 +283,53 @@ def api_reference(data):
 
 
 
+def url_of(slug):
+    """A page's public address (the home page is the site's root)."""
+    return SITE + "/" if slug == "index" else f"{SITE}/{slug}.html"
+
+
+def seo(slug, description):
+    """2.7.8: what search engines read in the head: the page's one address (canonical), its share card details, and
+    on the home page a description of the software (schema.org SoftwareApplication). The 404 page isn't indexed."""
+    esc = html.escape
+    if slug == "404":
+        return '<meta name="robots" content="noindex">\n'
+    out = (f'<link rel="canonical" href="{esc(url_of(slug))}">\n<meta property="og:url" content="{esc(url_of(slug))}">\n'
+           f'<meta property="og:type" content="website">\n<meta property="og:site_name" content="MSP Align">\n')
+    if slug == "index":
+        app = {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "MSP Align", "url": SITE + "/",
+               "description": description, "applicationCategory": "BusinessApplication", "operatingSystem": "Linux (Debian 13), Docker",
+               "softwareVersion": version(), "license": "https://www.gnu.org/licenses/agpl-3.0.html", "isAccessibleForFree": True,
+               "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "downloadUrl": REPO, "codeRepository": REPO,
+               "image": SITE + "/brand/social.png", "screenshot": SITE + "/screenshots/dashboard.png"}
+        # in a <script>: every "<" is written as its JSON escape \u003c, so nothing in it ("</script>", "<!--") can end
+        # or change the script block; JSON readers decode it back to "<"
+        out += '<script type="application/ld+json">' + json.dumps(app, ensure_ascii=False).replace("<", "\\u003c") + "</script>\n"
+    return out
+
+
+def sitemap(slugs):
+    """2.7.8: sitemap.xml (every page, the home page first) and robots.txt pointing to it. No lastmod: the build
+    can't tell when a page last changed (the build date would mark every page changed on every deploy, and search
+    engines stop trusting a lastmod that is always new)."""
+    rows = "".join(f"  <url><loc>{html.escape(url_of(s))}</loc></url>\n" for s in slugs)
+    with open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8") as f:
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + rows + "</urlset>\n")
+    with open(os.path.join(OUT, "robots.txt"), "w", encoding="utf-8") as f:
+        f.write(f"User-agent: *\nAllow: /\n\nSitemap: {SITE}/sitemap.xml\n")
+
+
 def page(slug, title, body, description):
+    """One page of the site: the template filled with the page's title, description, search details (seo()), the
+    menu with this page marked, and its body."""
     with open(os.path.join(HERE, "template.html"), encoding="utf-8") as f:
         tpl = f.read()
     nav = "".join(
         f'<a href="{s}.html"{CURRENT if s == slug else ""}>{html.escape(t)}</a>' for s, t, _, _ in PAGES)
-    full_title = "MSP Align" if slug == "index" else f"{title} · MSP Align"
+    full_title = HOME_TITLE if slug == "index" else f"{title} · MSP Align"
     return (tpl.replace("{{title}}", html.escape(full_title))
                .replace("{{description}}", html.escape(description))
+               .replace("{{seo}}", seo(slug, description))
                .replace("{{nav}}", nav)
                .replace("{{home_current}}", ' aria-current="page"' if slug == "index" else "")
                .replace("{{body_class}}", "home" if slug == "index" else "doc")
@@ -431,7 +475,7 @@ def main():
     install = install.group(1)
     body = home_body(install)
     with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
-        f.write(page("index", "MSP Align", body, "The free, self-hosted vCIO toolkit for MSPs: lifecycle, roadmaps, budgets, QBRs and a client portal."))
+        f.write(page("index", "MSP Align", body, HOME_DESCRIPTION))
 
     # 2.2.2 brand: the app's own icon and logos, plus docs/brand (the logo with its tagline, the link-preview image)
     for f in ("icon.png", "apple-touch-icon.png", "logo.png", "logo-dark.png"):
@@ -442,6 +486,7 @@ def main():
     with open(os.path.join(OUT, "404.html"), "w", encoding="utf-8") as f:
         f.write(page("404", "Not found", '<h1>Page not found</h1><p><a href="index.html">Back to the documentation</a></p>',
                      "Page not found"))
+    sitemap(["index"] + [slug for slug, _, _, _ in PAGES])
     # Latest release, for servers with 'update_check_url' => 'https://mspalign.org/updates' (see scripts/agent.php)
     os.makedirs(os.path.join(OUT, "updates"))
     with open(os.path.join(OUT, "updates", "main.json"), "w") as f:
