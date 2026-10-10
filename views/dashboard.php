@@ -236,7 +236,7 @@ $cards['backups'] = function () use ($backupIssues, $cardHead) {
 };
 
 $cards['renewals'] = function () use ($contractDates) {
-    return \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Contracts & renewals (90 days)', 'showClient' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90',
+    return \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Contracts & renewals (90 days)', 'showClient' => true, 'showVendor' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90',
         'emptyText' => 'No contract dates or renewals in the next 90 days.']);
 };
 

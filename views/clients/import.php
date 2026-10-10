@@ -3,17 +3,19 @@
  * CSV import of clients or contacts: the upload form, then the check of what would change.
  * @var string $kind; ?array $plan; string $token, $fileName; array $used, $unused
  * Techs and admins (ImportController). Everything from the file (its name, headers and cells) is escaped; at most
- * 500 rows are drawn. $kind is 'clients' or 'contacts' (checked by the controller).
+ * 500 rows are drawn. $kind is 'clients', 'contacts' or 'vendors' (checked by the controller).
  */
 use Align\Import\CsvImport;
 
-$labels = ['clients' => 'Clients', 'contacts' => 'Contacts'];
+$labels = ['clients' => 'Clients', 'contacts' => 'Contacts', 'vendors' => 'Vendors']; // 2.9.0: vendors
+$home = ['clients' => '/clients', 'contacts' => '/contacts', 'vendors' => '/vendors'][$kind];
+$noun = ['clients' => 'client', 'contacts' => 'contact', 'vendors' => 'vendor'][$kind];
 $badge = ['add' => ['success', 'Add'], 'update' => ['info', 'Update'], 'skip' => ['light border', 'Skip'], 'error' => ['danger', 'Can\'t import']];
-$cols = $kind === 'clients' ? CsvImport::CLIENT_COLUMNS : CsvImport::CONTACT_COLUMNS;
+$cols = CsvImport::columns($kind);
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 me-auto"><i class="fas fa-file-import text-secondary me-2"></i>Import <?= e(strtolower($labels[$kind])) ?></h1>
-  <a class="btn btn-sm btn-default" href="/<?= $kind === 'clients' ? 'clients' : 'contacts' ?>"><i class="fas fa-arrow-left me-1"></i>Back to <?= e(strtolower($labels[$kind])) ?></a>
+  <a class="btn btn-sm btn-default" href="<?= e($home) ?>"><i class="fas fa-arrow-left me-1"></i>Back to <?= e(strtolower($labels[$kind])) ?></a>
 </div>
 
 <?php if ($plan === null): ?>
@@ -41,6 +43,8 @@ $cols = $kind === 'clients' ? CsvImport::CLIENT_COLUMNS : CsvImport::CONTACT_COL
     <div class="card"><div class="card-body small">
       <?php if ($kind === 'clients'): ?>
         <p class="mb-2">Each row is a client. A client with the same name that's already here gets only the columns your file fills in; nothing is cleared.<?= \Align\Providers\Providers::psaConfigured() ? ' Clients from ' . e(psa_name()) . ' keep their details from there (only industry and notes change).' : '' ?></p>
+      <?php elseif ($kind === 'vendors'): ?>
+        <p class="mb-2">Each row is one client's vendor, with the client's name in a <b>Client</b> column. Import clients first. A vendor the client already has (same name) gets only the columns your file fills in; nothing is cleared. A <b>Template</b> column, or a vendor named like a template, makes it from that template, and a value the same as the template's is left to follow it. Category takes a name like <i>Internet provider</i> or <i>registrar</i>; without one it's guessed.<?= \Align\Providers\Providers::psaSupports('vendors') ? ' Vendors that come from ' . e(psa_name()) . ' only take category, services and notes.' : '' ?> Licenses and budget lines naming a new vendor link to it. Never put passwords or PINs in a file.</p>
       <?php else: ?>
         <p class="mb-2">Each row is a contact, with the client's name in a <b>Client</b> column. Import clients first. A contact already at that client (same email, or same name when there's no email) is updated.<?= \Align\Providers\Providers::psaConfigured() ? ' Contacts that come from ' . e(psa_name()) . ' are left alone.' : '' ?> Yes / No columns take yes, y, true, 1 or x.</p>
       <?php endif; ?>
@@ -65,19 +69,24 @@ $cols = $kind === 'clients' ? CsvImport::CLIENT_COLUMNS : CsvImport::CONTACT_COL
     </div>
     <a class="btn btn-sm btn-default me-2" href="/clients/import?kind=<?= e($kind) ?>">Choose another file</a>
     <form method="post" action="/clients/import/run"><?= csrf_field() ?><input type="hidden" name="token" value="<?= e($token) ?>">
-      <button class="btn btn-sm btn-primary" <?= $todo ? '' : 'disabled' ?>><i class="fas fa-file-import me-1"></i>Import <?= $todo ?> <?= $kind === 'clients' ? 'client' : 'contact' ?><?= $todo === 1 ? '' : 's' ?></button></form>
+      <button class="btn btn-sm btn-primary" <?= $todo ? '' : 'disabled' ?>><i class="fas fa-file-import me-1"></i>Import <?= $todo ?> <?= $noun ?><?= $todo === 1 ? '' : 's' ?></button></form>
   </div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-striped mb-0">
-      <thead><tr><th class="text-end">Row</th><th>Result</th><?= $kind === 'contacts' ? '<th>Client</th>' : '' ?><th>Name</th><th>Details</th><th>Note</th></tr></thead>
+      <thead><tr><th class="text-end">Row</th><th>Result</th><?= $kind !== 'clients' ? '<th>Client</th>' : '' ?><th>Name</th><th>Details</th><th>Note</th></tr></thead>
       <tbody>
       <?php foreach (array_slice($plan, 0, 500) as $p): [$cls, $txt] = $badge[$p['action']]; ?>
         <tr>
           <td class="text-end text-muted small"><?= (int) $p['row'] ?></td>
           <td><span class="badge text-bg-<?= $cls ?>"><?= e($txt) ?></span></td>
-          <?php if ($kind === 'contacts'): ?><td><?= e($p['client'] ?? '') ?></td><?php endif; ?>
+          <?php if ($kind !== 'clients'): ?><td><?= e($p['client'] ?? '') ?></td><?php endif; ?>
           <td><?= e($p['name']) ?></td>
-          <td class="small"><?= e(implode(' · ', array_map(fn($f, $v) => ($cols[$f][0] ?? $f) . ': ' . (is_int($v) ? ($v ? 'yes' : 'no') : mb_strimwidth(str_replace("\n", ', ', (string) $v), 0, 60, '…')), array_keys(array_diff_key($p['values'], ['name' => 1])), array_diff_key($p['values'], ['name' => 1])))) ?></td>
+          <?php // 2.9.0 vendors: the template by name, the category by its label, Align notes as notes
+            $vals = array_diff_key($p['values'], ['name' => 1, 'template_id' => 1]);
+            if (isset($vals['category'])) { $vals['category'] = \Align\Vendors\Vendors::CATEGORIES[$vals['category']][0] ?? $vals['category']; }
+            if (isset($vals['align_notes']) && $kind === 'vendors') { $vals['notes'] = $vals['align_notes']; unset($vals['align_notes']); }
+            if (!empty($p['template'])) { $vals = ['template' => $p['template']] + $vals; } ?>
+          <td class="small"><?= e(implode(' · ', array_map(fn($f, $v) => ($cols[$f][0] ?? $f) . ': ' . (is_int($v) ? ($v ? 'yes' : 'no') : mb_strimwidth(str_replace("\n", ', ', (string) $v), 0, 60, '…')), array_keys($vals), $vals))) ?></td>
           <td class="small text-muted"><?= e($p['note']) ?></td>
         </tr>
       <?php endforeach; ?>

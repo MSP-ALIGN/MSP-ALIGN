@@ -146,6 +146,7 @@ final class BudgetController
             flash('error', 'That suggestion was already reviewed, so nothing was added.');
             redirect(self::back($id));
         }
+        \Align\Vendors\Vendors::relinkManual($id); // 2.9.0: linked to the client vendor its vendor name matches
         Audit::log($subId ? 'portal.submission_accepted' : 'budget.create', "{$client['name']}: {$f['name']}");
         flash('success', "Added {$f['name']} to the budget." . ($subId ? ' The client sees it as added.' : '') . ($f['category'] === 'managed' && psa_on() ? ' It replaces the managed-services estimate from ' . psa_name() . '.' : ''));
         redirect(self::back($id));
@@ -179,6 +180,7 @@ final class BudgetController
         }
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
         DB::run("UPDATE budget_lines SET $sets WHERE id = ?", [...array_values($f), $id]);
+        \Align\Vendors\Vendors::relinkManual((int) $row['client_id']); // 2.9.0
         Audit::log('budget.update', $f['name'] . ' (client #' . (int) $row['client_id'] . ')');
         flash('success', 'Budget line saved.');
         redirect($back);

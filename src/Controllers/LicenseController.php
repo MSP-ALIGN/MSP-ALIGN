@@ -110,17 +110,43 @@ final class LicenseController
         ]);
     }
 
-    /** Upcoming contract ends, renegotiation dates and license renewals across all clients. Any staff role. */
+    /**
+     * Upcoming contract ends, renegotiation dates and license renewals across all clients (or one, ?client=), with
+     * how many each vendor has (2.9.0; ?vendor= shows one vendor's). Any staff role; ?vendor and ?client are only
+     * compared, never used in SQL.
+     */
     public static function renewals(): void
     {
         Auth::require();
         $days = in_array((int) query('days'), [30, 90, 180, 365], true) ? (int) query('days') : 180;
-        $dates = \Align\Budget\Contracts::upcoming(null, $days);
+        // 2.9.0 one client (?client=) and one vendor (?vendor=, compared as Vendors::key), and the dates by vendor
+        $clientId = ctype_digit(query('client')) ? (int) query('client') : 0;
+        $all = \Align\Budget\Contracts::upcoming(null, $days);
+        if ($clientId) { // (filtered here, not upcoming($clientId), so it stays to clients in planning, like the rest of the page)
+            $all = array_values(array_filter($all, fn($d) => $d['client_id'] === $clientId));
+        }
+        $byVendor = [];
+        foreach ($all as $d) {
+            $k = $d['vendor_key'];
+            $byVendor[$k] ??= ['key' => $k, 'name' => $d['vendor'] ?? 'No vendor', 'count' => 0, 'annual' => 0.0, 'next' => $d['date'], 'clients' => []];
+            $byVendor[$k]['count']++;
+            $byVendor[$k]['annual'] += $d['kind'] === 'renegotiate' ? $d['annual'] : 0.0;
+            $byVendor[$k]['clients'][$d['client_id']] = true;
+        }
+        uasort($byVendor, fn($a, $b) => [$a['key'] === '', $a['next'], $a['name']] <=> [$b['key'] === '', $b['next'], $b['name']]);
+        $asked = \Align\Vendors\Vendors::key(query('vendor'));
+        $vendor = isset($byVendor[$asked]) && $asked !== '' ? $asked : '';
         View::render('licenses/renewals', [
             'title' => 'Renewals & contracts',
             'nav' => 'renewals',
-            'dates' => $dates,
+            'dates' => $vendor === '' ? $all : array_values(array_filter($all, fn($d) => $d['vendor_key'] === $vendor)),
             'days' => $days,
+            'byVendor' => array_values($byVendor),
+            'vendor' => $vendor,
+            'vendorName' => $vendor === '' ? '' : $byVendor[$vendor]['name'],
+            'clientId' => $clientId,
+            'clientName' => $clientId ? (string) DB::value('SELECT name FROM clients WHERE id = ?', [$clientId]) : '',
+            'noVendorDates' => $asked !== '' && $vendor === '', // a vendor was asked for that has no dates in this period
         ]);
     }
 

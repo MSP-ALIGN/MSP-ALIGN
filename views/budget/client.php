@@ -107,7 +107,7 @@ foreach ($b['lines'] as $l) {
   </div>
 </div>
 </div>
-<div class="col-xl-5"><?= \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'limit' => 8]) ?></div>
+<div class="col-xl-5"><?= \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'limit' => 8, 'showVendor' => true]) ?></div>
 </div>
 <p class="small text-muted">The budget updates on its own from licensing, device lifecycle and projects. Proposed projects<?= psa_on() ? ' and the ' . e(psa_name()) . ' managed-services estimate are' : ' are' ?> shown in italics. Add a <b>Managed services</b> line to use your exact agreement amount.</p>
 

@@ -140,9 +140,10 @@ final class Vendors
     }
 
     /**
-     * A client's vendors as shown (effective()), sorted by category then name, each with the licenses linked to it:
-     * 'licenses' (active ones, enriched), 'monthly' (their monthly cost) and 'next' (the soonest renewal, contract end
-     * or renegotiation date among them, Y-m-d, or null). $retired includes retired vendors.
+     * A client's vendors as shown (effective()), sorted by category then name, each with what's linked to it:
+     * 'licenses' (active ones, enriched), 'lines' (2.9.0: budget lines that haven't ended, each with its 'monthly'
+     * cost, counted as the budget counts it), 'monthly' (their monthly cost together) and 'next' (the soonest renewal, contract end or renegotiation
+     * date among them, Y-m-d, or null). $retired includes retired vendors.
      */
     public static function forClient(int $clientId, bool $retired = false): array
     {
@@ -154,14 +155,35 @@ final class Vendors
             }
         }
         $today = date('Y-m-d');
+        $lines = [];
+        $ym = date('Y-m');
+        foreach (DB::all('SELECT * FROM budget_lines WHERE client_id = ? AND vendor_id IS NOT NULL ORDER BY name', [$clientId]) as $b) {
+            // As the budget counts it (Budget::build): by month, ending at its end date, or at its contract end when it
+            // won't renew; one that hasn't started yet is listed but costs nothing this month
+            $end = $b['end_date'] ? substr($b['end_date'], 0, 7) : null;
+            if (!$b['auto_renew'] && $b['contract_end']) {
+                $end = $end ? min($end, substr($b['contract_end'], 0, 7)) : substr($b['contract_end'], 0, 7);
+            }
+            if ($end !== null && $end < $ym) {
+                continue; // ended
+            }
+            $months = \Align\Budget\Budget::FREQUENCIES[$b['frequency']][1] ?? 0;
+            $started = !$b['start_date'] || substr($b['start_date'], 0, 7) <= $ym;
+            $lines[(int) $b['vendor_id']][] = $b + ['monthly' => $months && $started ? (float) $b['amount'] / $months : 0.0];
+        }
         foreach ($rows as &$r) {
             $ls = $byVendor[(int) $r['id']] ?? [];
+            $bs = $lines[(int) $r['id']] ?? [];
             $r['licenses'] = $ls;
-            $r['monthly'] = array_sum(array_column($ls, 'monthly'));
+            $r['lines'] = $bs;
+            $r['monthly'] = array_sum(array_column($ls, 'monthly')) + array_sum(array_column($bs, 'monthly'));
             // the soonest date still ahead (or today); a past one only when nothing is ahead
             $dates = [];
             foreach ($ls as $l) {
                 array_push($dates, ...array_filter([$l['expire_date'], $l['contract_end'] ?? null, $l['renegotiate_date'] ?? null]));
+            }
+            foreach ($bs as $b) {
+                array_push($dates, ...array_filter([$b['contract_end'] ?? null, $b['renegotiate_date'] ?? null]));
             }
             sort($dates);
             $ahead = array_values(array_filter($dates, fn($d) => $d >= $today));
@@ -173,12 +195,32 @@ final class Vendors
         return $rows;
     }
 
-    /** The shown names of a client's active vendors, by name (for a license's vendor suggestions). */
+    /**
+     * 2.9.0 A client's vendors by shown name (key() => id; an active vendor first, else a retired one, the oldest when
+     * two match), without the licenses and budget lines forClient() reads. Not cached: for checks while writing.
+     */
+    public static function nameIndex(int $clientId): array
+    {
+        $out = [];
+        foreach (DB::all(self::select() . ' WHERE v.client_id = ? ORDER BY v.retired_at IS NOT NULL, v.id', [$clientId]) as $r) {
+            $out[self::key(self::effective($r)['name'])] ??= (int) $r['id'];
+        }
+        return $out;
+    }
+
+    /**
+     * The shown names of a client's active vendors, by name (for the vendor suggestions on licenses and budget lines).
+     * Read once per client per request: a budget page has a window for every line.
+     */
     public static function names(int $clientId): array
     {
-        $names = array_map(fn($r) => self::effective($r)['name'], DB::all(self::select() . ' WHERE v.client_id = ? AND v.retired_at IS NULL', [$clientId]));
-        natcasesort($names);
-        return array_values(array_unique($names));
+        static $cache = [];
+        if (!isset($cache[$clientId])) {
+            $names = array_map(fn($r) => self::effective($r)['name'], DB::all(self::select() . ' WHERE v.client_id = ? AND v.retired_at IS NULL', [$clientId]));
+            natcasesort($names);
+            $cache[$clientId] = array_values(array_unique($names));
+        }
+        return $cache[$clientId];
     }
 
     /** Every template, by name, with 'clients' (how many clients have an active vendor made from it). */
@@ -209,9 +251,10 @@ final class Vendors
     }
 
     /**
-     * Links an Align license to the client vendor its vendor name matches (an active vendor first, else a retired
-     * one; the oldest when two match), or to none. Licenses from the PSA, Microsoft 365 or Google Workspace keep the
-     * links their sync gives them. $clientId: one client (null: every client). Returns how many links changed.
+     * Links each Align license and (2.9.0) each budget line to the client vendor its vendor name matches (an active
+     * vendor first, else a retired one; the oldest when two match), or to none. Licenses from the PSA, Microsoft 365
+     * or Google Workspace keep the links their sync gives them (budget lines are all Align's). $clientId: one client
+     * (null: every client). Returns how many links changed.
      */
     public static function relinkManual(?int $clientId = null): int
     {
@@ -222,23 +265,45 @@ final class Vendors
             $names[(int) $e['client_id']][self::key($e['name'])] ??= (int) $e['id'];
         }
         $changed = 0;
-        foreach (DB::all("SELECT id, client_id, vendor, vendor_id FROM licenses WHERE source = 'manual'" . ($clientId === null ? '' : ' AND client_id = ?'), $p) as $l) {
-            $want = $names[(int) $l['client_id']][self::key($l['vendor'])] ?? null;
-            if ($want !== ($l['vendor_id'] === null ? null : (int) $l['vendor_id'])) {
-                DB::run('UPDATE licenses SET vendor_id = ? WHERE id = ?', [$want, $l['id']]);
-                $changed++;
+        foreach (['licenses' => " AND source = 'manual'", 'budget_lines' => ''] as $table => $only) { // fixed table names
+            foreach (DB::all("SELECT id, client_id, vendor, vendor_id FROM $table WHERE 1 = 1$only" . ($clientId === null ? '' : ' AND client_id = ?'), $p) as $l) {
+                $want = $names[(int) $l['client_id']][self::key($l['vendor'])] ?? null;
+                if ($want !== ($l['vendor_id'] === null ? null : (int) $l['vendor_id'])) {
+                    DB::run("UPDATE $table SET vendor_id = ? WHERE id = ?", [$want, $l['id']]);
+                    $changed++;
+                }
             }
         }
         return $changed;
     }
 
     /**
-     * A vendor's shown name changed (renamed, or its template was): the Align licenses linked to it take the new name,
-     * so relinkManual() keeps them linked.
+     * A vendor's shown name changed (renamed, or its template was): the Align licenses and budget lines linked to it
+     * take the new name, so relinkManual() keeps them linked.
      */
     public static function renameLinked(int $vendorId, string $name): void
     {
         DB::run("UPDATE licenses SET vendor = ? WHERE vendor_id = ? AND source = 'manual'", [mb_substr($name, 0, 190), $vendorId]);
+        DB::run('UPDATE budget_lines SET vendor = ? WHERE vendor_id = ?', [mb_substr($name, 0, 190), $vendorId]);
+    }
+
+    /**
+     * 2.9.0 Vendor names on a client's active Align licenses and budget lines that match none of its vendors, with how
+     * many items carry each: offered as one-click "add as a vendor". Name => count, by name.
+     */
+    public static function unlinked(int $clientId): array
+    {
+        $out = [];
+        $today = date('Y-m-d');
+        foreach (DB::all("SELECT vendor FROM licenses WHERE client_id = ? AND source = 'manual' AND retired_at IS NULL AND vendor_id IS NULL AND vendor IS NOT NULL AND vendor <> ''
+                UNION ALL SELECT vendor FROM budget_lines WHERE client_id = ? AND vendor_id IS NULL AND vendor IS NOT NULL AND vendor <> '' AND (end_date IS NULL OR end_date >= ?)",
+                [$clientId, $clientId, $today]) as $r) {
+            $k = self::key($r['vendor']);
+            $out[$k] ??= [trim($r['vendor']), 0];
+            $out[$k][1]++;
+        }
+        uasort($out, fn($a, $b) => strnatcasecmp($a[0], $b[0]));
+        return array_column(array_values($out), 1, 0);
     }
 
     /**

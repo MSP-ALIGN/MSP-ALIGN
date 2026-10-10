@@ -90,7 +90,8 @@ final class Contracts
      * Upcoming contract dates (renegotiate-by, contract end, license expiry) for one client or all
      * clients in planning, from $from (default: 30 days ago, so recently missed dates still show) to $days ahead.
      * Two queries whatever the number of clients (licenses, then budget lines). $from must be a Y-m-d date.
-     * @return array<int, array{date:string,kind:string,label:string,name:string,client_id:int,client_name:string,link:string,annual:float,urgency:string}>
+     * 2.9.0 each date also has 'vendor' (who it's with, or null) and 'vendor_key' (Vendors::key of it, '' for none).
+     * @return array<int, array{date:string,kind:string,label:string,name:string,client_id:int,client_name:string,link:string,annual:float,urgency:string,vendor:?string,vendor_key:string}>
      */
     public static function upcoming(?int $clientId = null, int $days = 365, ?string $from = null): array
     {
@@ -100,7 +101,10 @@ final class Contracts
         $out = [];
         $add = function (?string $date, string $kind, array $r, string $link, float $annual) use (&$out, $from, $to) {
             if ($date && $date >= $from && $date <= $to) {
+                // 2.9.0 who it's with: the linked client vendor's name, else the vendor name typed or synced
+                $vendor = trim((string) (($r['vendor_link'] ?? null) ?: ($r['vendor'] ?? ''))) ?: null;
                 $out[] = [
+                    'vendor' => $vendor, 'vendor_key' => $vendor === null ? '' : \Align\Vendors\Vendors::key($vendor),
                     'date' => $date, 'kind' => $kind,
                     'label' => ['renegotiate' => 'Renegotiate by', 'contract_end' => 'Contract ends', 'expires' => 'License expires / renews'][$kind],
                     'name' => $r['name'], 'client_id' => (int) $r['client_id'], 'client_name' => $r['client_name'],
@@ -117,7 +121,8 @@ final class Contracts
                 $add($l['expire_date'], 'expires', $l, $link, $l['annual']);
             }
         }
-        foreach (DB::all("SELECT b.*, c.name AS client_name FROM budget_lines b JOIN clients c ON c.id = b.client_id WHERE $cw") as $b) {
+        foreach (DB::all("SELECT b.*, c.name AS client_name, COALESCE(NULLIF(v.name, ''), t.name) AS vendor_link FROM budget_lines b JOIN clients c ON c.id = b.client_id
+                LEFT JOIN client_vendors v ON v.id = b.vendor_id LEFT JOIN vendor_templates t ON t.id = v.template_id WHERE $cw") as $b) {
             $months = Budget::FREQUENCIES[$b['frequency']][1];
             $annual = $months ? (float) $b['amount'] * 12 / $months : 0.0;
             $link = '/clients/' . $b['client_id'] . '/budget';

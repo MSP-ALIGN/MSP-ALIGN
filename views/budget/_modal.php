@@ -1,7 +1,7 @@
 <?php
 use Align\Budget\Budget;
 
-/** @var ?array $m budget_lines row (null = new); $cid; $back */
+/** @var ?array $m budget_lines row (null = new); $cid; $back. 2.9.0: the vendor field suggests the client's vendors. */
 $m = $m ?? null;
 $edit = $m && !empty($m['id']); // without an id: a new line filled in from a client's suggestion
 $sub = !$edit && !empty($m['submission_id']) ? (int) $m['submission_id'] : 0;
@@ -25,7 +25,12 @@ $sel = fn($a, $b) => (string) $a === (string) $b ? 'selected' : '';
             <div class="mb-3 col-md-6"><label>Name</label><input name="name" class="form-control" required value="<?= e($m['name'] ?? '') ?>" placeholder="Fiber internet, Hosted VoIP, Azure…"></div>
             <div class="mb-3 col-md-3"><label>Category</label>
               <select name="category" class="form-select"><?php foreach (Budget::CATEGORIES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $m['category'] ?? 'connectivity') ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-            <div class="mb-3 col-md-3"><label>Vendor <small class="text-muted">(optional)</small></label><input name="vendor" class="form-control" value="<?= e($m['vendor'] ?? '') ?>"></div>
+            <?php // 2.9.0: linked to the client vendor its vendor name matches (suggested from the client's vendors)
+                $vendorNames = \Align\Vendors\Vendors::names($edit ? (int) $m['client_id'] : (int) ($cid ?? 0)); ?>
+            <div class="mb-3 col-md-3"><label>Vendor <small class="text-muted">(optional)</small></label><input name="vendor" class="form-control" value="<?= e($m['vendor'] ?? '') ?>" list="<?= $id ?>-vendors" autocomplete="off" maxlength="190">
+              <datalist id="<?= $id ?>-vendors"><?php foreach ($vendorNames as $vn): ?><option value="<?= e($vn) ?>"></option><?php endforeach; ?></datalist>
+              <?php if ($edit && !empty($m['vendor_id'])): ?><div class="form-text"><i class="fas fa-link me-1"></i>Linked to the client's vendor</div>
+              <?php elseif ($vendorNames): ?><div class="form-text">Pick one of the client's vendors to link it</div><?php endif; ?></div>
           </div>
           <div class="row g-2">
             <div class="mb-3 col-md-3"><label>Amount</label>

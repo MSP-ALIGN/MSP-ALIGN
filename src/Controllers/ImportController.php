@@ -9,16 +9,16 @@ use Align\Import\CsvImport;
 use Align\View;
 
 /**
- * Clients and contacts from a CSV file: upload, check what would change, then import (see CsvImport).
+ * Clients, contacts and (2.9.0) client vendors from a CSV file: upload, check what would change, then import (see CsvImport).
  * Security assumptions: techs and admins only (each action checks the role; the router checks CSRF). The file is
  * untrusted: CsvImport limits its size and rows and reads it as data only. The checked plan waits in a file named by
  * a 128-bit random token in the web server's own data folder, tied to the user who checked it, and runs once.
  */
 final class ImportController
 {
-    private const KINDS = ['clients' => 'Clients', 'contacts' => 'Contacts'];
+    private const KINDS = ['clients' => 'Clients', 'contacts' => 'Contacts', 'vendors' => 'Vendors']; // 2.9.0: vendors
 
-    /** 'clients' or 'contacts' (anything else becomes 'clients'). */
+    /** 'clients', 'contacts' or 'vendors' (anything else becomes 'clients'). */
     private static function kind(string $k): string
     {
         return isset(self::KINDS[$k]) ? $k : 'clients';
@@ -79,8 +79,8 @@ final class ImportController
         }
         try {
             [$headers, $rows] = CsvImport::read($f['tmp_name']);
-            [$map, $unused] = CsvImport::mapHeaders($headers, $kind === 'clients' ? CsvImport::CLIENT_COLUMNS : CsvImport::CONTACT_COLUMNS);
-            $plan = $kind === 'clients' ? CsvImport::planClients($rows, $map) : CsvImport::planContacts($rows, $map);
+            [$map, $unused] = CsvImport::mapHeaders($headers, CsvImport::columns($kind));
+            $plan = match ($kind) { 'contacts' => CsvImport::planContacts($rows, $map), 'vendors' => CsvImport::planVendors($rows, $map), default => CsvImport::planClients($rows, $map) };
         } catch (\RuntimeException $e) {
             flash('error', 'That file can\'t be imported: ' . $e->getMessage());
             redirect('/clients/import?kind=' . $kind);
@@ -95,7 +95,7 @@ final class ImportController
             flash('error', 'The checked file couldn\'t be kept for importing. Try again.');
             redirect('/clients/import?kind=' . $kind);
         }
-        $cols = $kind === 'clients' ? CsvImport::CLIENT_COLUMNS : CsvImport::CONTACT_COLUMNS;
+        $cols = CsvImport::columns($kind);
         View::render('clients/import', [
             'title' => 'Import ' . strtolower(self::KINDS[$kind]), 'nav' => 'clients', 'kind' => $kind, 'plan' => $plan, 'token' => $token,
             'fileName' => (string) $f['name'], 'used' => array_map(fn($field) => $cols[$field][0], array_keys($map)), 'unused' => $unused,
@@ -123,8 +123,8 @@ final class ImportController
         [$added, $updated, $names] = CsvImport::apply($kind, (array) $data['plan'], Auth::id());
         // Names which records were added (+) or changed (with the fields), so a changed contact can be found (2.2.1)
         Audit::log('import.' . $kind, ($data['file'] ?? 'CSV') . ": $added added, $updated updated" . ($names ? ' (' . mb_strimwidth(implode(', ', $names), 0, 1000, '…') . ')' : ''));
-        $noun = $kind === 'clients' ? 'client' : 'contact';
+        $noun = ['clients' => 'client', 'contacts' => 'contact', 'vendors' => 'vendor'][$kind];
         flash('success', "Imported $added new $noun" . ($added === 1 ? '' : 's') . " and updated $updated.");
-        redirect($kind === 'clients' ? '/clients' : '/contacts');
+        redirect(['clients' => '/clients', 'contacts' => '/contacts', 'vendors' => '/vendors'][$kind]);
     }
 }

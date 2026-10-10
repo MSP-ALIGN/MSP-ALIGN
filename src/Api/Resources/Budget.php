@@ -170,6 +170,7 @@ final class Budget
         $row['auto_renew'] = !empty($row['auto_renew']) ? 1 : 0;
         $row = self::contractDates($row, $in);
         $id = DB::insert('budget_lines', $row + ['created_by' => null]);
+        \Align\Vendors\Vendors::relinkManual((int) $row['client_id']); // 2.9.0: linked to the client vendor its vendor name matches
         \Align\Audit::log('budget.create', "{$client['name']}: {$in['name']}");
         return Out::one(self::shape(self::load($id)), 201);
     }
@@ -201,6 +202,9 @@ final class Budget
         $changes = array_intersect_key($merged, $in + ['contract_end' => 1, 'renegotiate_date' => 1]);
         $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($changes)));
         DB::run("UPDATE budget_lines SET $sets WHERE id = ?", [...array_values($changes), $id]);
+        if (array_key_exists('vendor', $changes)) {
+            \Align\Vendors\Vendors::relinkManual((int) $l['client_id']); // 2.9.0
+        }
         \Align\Audit::log('budget.update', "{$l['client_name']}: " . ($in['name'] ?? $l['name']) . ' (' . implode(', ', array_keys($in)) . ')');
         return Out::one(self::shape(self::load($id)));
     }
