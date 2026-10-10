@@ -36,7 +36,8 @@ $cols = $showClient ? 9 : 8;
           <?php if ($l['source'] === 'm365'): // 2.6.0 ?><span class="badge text-bg-light border" title="From the client's Microsoft 365 tenant, updated hourly"><i class="fab fa-microsoft me-1"></i>Microsoft 365</span><?php endif; ?>
           <?php if ($l['source'] === 'gws'): // 2.6.3 ?><span class="badge text-bg-light border" title="From the client's Google Workspace, updated hourly"><i class="fab fa-google me-1"></i>Google Workspace</span><?php endif; ?>
           <?php if ($l['retired_at']): ?><span class="badge text-bg-secondary">retired<?= $l['retired_reason'] === 'psa' ? ' in ' . psa_name() : ($l['retired_reason'] === 'm365' ? ' in Microsoft 365' : ($l['retired_reason'] === 'gws' ? ' in Google Workspace' : '')) ?></span><?php endif; ?>
-          <?php if ($l['vendor'] || $l['version']): ?><div class="small text-muted"><?= e(implode(' · ', array_filter([$l['vendor'], $l['version']]))) ?></div><?php endif; ?>
+          <?php $vn = Licenses::vendorName($l); // 2.8.0: the linked vendor's name, linking to the client's vendors
+          if ($vn || $l['version']): ?><div class="small text-muted"><?php if (!empty($l['vendor_link'])): ?><a class="text-muted" href="/clients/<?= (int) $l['client_id'] ?>/vendors" title="Linked vendor"><i class="fas fa-store me-1"></i><?= e($vn) ?></a><?= $l['version'] ? ' · ' . e($l['version']) : '' ?><?php else: ?><?= e(implode(' · ', array_filter([$vn, $l['version']]))) ?><?php endif; ?></div><?php endif; ?>
           <?php if ($cs = \Align\Budget\Contracts::summary($l)): $u = \Align\Budget\Contracts::urgency($l['renegotiate_date'] ?: $l['contract_end']); ?>
             <div class="small <?= $u === 'past' ? 'text-danger' : ($u === 'soon' ? 'text-warning fw-bold' : 'text-muted') ?>"><i class="fas fa-file-signature me-1"></i><?= e($cs) ?></div>
           <?php endif; ?>

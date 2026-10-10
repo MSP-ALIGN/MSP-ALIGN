@@ -70,6 +70,15 @@ $r->get('/clients/{id}/logo', [ClientController::class, 'logo']);
 $r->get('/clients/{id}/licenses', [\Align\Controllers\LicenseController::class, 'clientIndex']);
 $r->post('/clients/{id}/licenses', [\Align\Controllers\LicenseController::class, 'create']);
 $r->get('/licenses', [\Align\Controllers\LicenseController::class, 'index']);
+// 2.8.0 vendors: each client's, and the shared templates
+$r->get('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'client']);
+$r->post('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'create']);
+$r->get('/vendors', [\Align\Controllers\VendorController::class, 'index']);
+$r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
+$r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
+$r->get('/vendors/templates/{id}/form', [\Align\Controllers\FormController::class, 'vendorTemplate']);
+$r->post('/vendors/{id}', [\Align\Controllers\VendorController::class, 'update']);
+$r->get('/vendors/{id}/form', [\Align\Controllers\FormController::class, 'vendor']);
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
 $r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
 $r->get('/help', [\Align\Controllers\HelpController::class, 'show']);

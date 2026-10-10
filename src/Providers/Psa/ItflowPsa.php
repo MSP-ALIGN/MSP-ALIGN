@@ -358,7 +358,7 @@ final class ItflowPsa implements PsaProvider
     {
         $vendors = [];
         try {
-            foreach (self::rows($this->api->vendors()) as $v) {
+            foreach ($this->vendorRows() as $v) {
                 if (($vid = self::id($v['vendor_id'] ?? null)) !== '') { // a vendor without an id must not name every license without one
                     $vendors[$vid] = (string) self::text($v['vendor_name'] ?? '', 190);
                 }
@@ -367,6 +367,7 @@ final class ItflowPsa implements PsaProvider
             // vendor names are optional
         }
         return array_map(fn(array $r) => [
+            'vendor_id' => self::id($r['software_vendor_id'] ?? null) ?: null, // 2.8.0: links the license to the client's vendor
             'id' => self::id($r['software_id'] ?? null),
             'client_id' => self::id($r['software_client_id'] ?? null),
             'name' => self::str($r, 'software_name'),
@@ -381,6 +382,51 @@ final class ItflowPsa implements PsaProvider
             'notes' => self::str($r, 'software_notes', 5000, true),
             'archived' => !empty($r['software_archived_at']),
         ], self::rows($this->api->software()));
+    }
+
+    /** 2.8.0 ITFlow's vendors as sent (untrusted), read once per provider: the license and vendor syncs both use them. */
+    private ?array $vendorRows = null;
+
+    /** The raw vendor rows (see $vendorRows); throws when ITFlow can't be read. */
+    private function vendorRows(): array
+    {
+        return $this->vendorRows ??= self::rows($this->api->vendors());
+    }
+
+    /**
+     * 2.8.0 ITFlow vendors as neutral vendor records. ITFlow's API returns only vendors that aren't archived; one
+     * with no client (vendor_client_id 0) is the MSP's own (a distributor like Pax8) and comes back with client_id ''
+     * (Vendors::syncFromPsa skips it). vendor_template_id says which ITFlow vendor template a client vendor was made
+     * from (ITFlow's API can't read the templates themselves). The phone joins ITFlow's country code, number and
+     * extension. vendor_code (ITFlow's own short code) and favourites aren't read.
+     */
+    public function vendors(): array
+    {
+        return array_map(function (array $r) {
+            $phone = trim(implode(' ', array_filter([
+                ($cc = (string) self::text($r['vendor_phone_country_code'] ?? '', 10)) !== '' ? '+' . ltrim($cc, '+') : '',
+                (string) self::text($r['vendor_phone'] ?? '', 60),
+                ($x = (string) self::text($r['vendor_extension'] ?? '', 20)) !== '' ? "ext. $x" : '',
+            ])));
+            // a country code alone isn't a phone number
+            $phone = (string) self::text($r['vendor_phone'] ?? '', 60) === '' ? '' : $phone;
+            return [
+                'id' => self::id($r['vendor_id'] ?? null),
+                'client_id' => self::id($r['vendor_client_id'] ?? null),
+                'template_id' => self::id($r['vendor_template_id'] ?? null) ?: null,
+                'name' => self::str($r, 'vendor_name', 190),
+                'description' => self::str($r, 'vendor_description', 255),
+                'contact_name' => self::str($r, 'vendor_contact_name', 190),
+                'phone' => mb_substr($phone, 0, 100),
+                'email' => self::str($r, 'vendor_email', 190),
+                'website' => self::str($r, 'vendor_website', 255),
+                'hours' => self::str($r, 'vendor_hours', 190),
+                'sla' => self::str($r, 'vendor_sla', 190),
+                'account_number' => self::str($r, 'vendor_account_number', 190),
+                'notes' => self::str($r, 'vendor_notes', 5000, true),
+                'archived' => !empty($r['vendor_archived_at']),
+            ];
+        }, $this->vendorRows());
     }
 
     /**

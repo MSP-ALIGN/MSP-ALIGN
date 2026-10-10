@@ -47,7 +47,12 @@ $mtag = $fromM365 ? ' <span class="badge text-bg-light border fw-normal" title="
           <?php endif; ?>
           <div class="row g-2">
             <div class="mb-3 col-md-6"><label>Product<?= $mtag ?></label><input name="name" class="form-control" value="<?= e($l['name'] ?? '') ?>" <?= $mro ?: 'required' ?> placeholder="Microsoft 365 Business Premium"></div>
-            <div class="mb-3 col-md-3"><label>Vendor<?= $mtag ?></label><input name="vendor" class="form-control" value="<?= e($l['vendor'] ?? '') ?>" <?= $mro ?> placeholder="Pax8, Microsoft…"></div>
+            <?php // 2.8.0: an Align license links to the client vendor its vendor name matches (suggested from the client's vendors)
+                $vendorNames = \Align\Vendors\Vendors::names($edit ? (int) $l['client_id'] : (int) ($cid ?? 0)); ?>
+            <div class="mb-3 col-md-3"><label>Vendor<?= $mtag ?></label><input name="vendor" class="form-control" value="<?= e($l['vendor'] ?? '') ?>" <?= $mro ?> placeholder="Pax8, Microsoft…" list="<?= $id ?>-vendors" autocomplete="off">
+              <datalist id="<?= $id ?>-vendors"><?php foreach ($vendorNames as $vn): ?><option value="<?= e($vn) ?>"></option><?php endforeach; ?></datalist>
+              <?php if ($edit && !empty($l['vendor_id'])): ?><div class="form-text"><i class="fas fa-link me-1"></i>Linked to the client's vendor</div>
+              <?php elseif (!$mro && $vendorNames): ?><div class="form-text">Pick one of the client's vendors to link it</div><?php endif; ?></div>
             <div class="mb-3 col-md-3"><label>Category</label>
               <select name="category" class="form-select"><?php foreach (Licenses::CATEGORIES as $k => [$label]): ?><option value="<?= $k ?>" <?= $sel($k, $l['category'] ?? 'productivity') ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
           </div>

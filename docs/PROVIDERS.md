@@ -5,14 +5,14 @@ portal and the REST API read only neutral tables, so they don't know or care whi
 
 | Area | Provider today | Neutral tables |
 |---|---|---|
-| PSA (at most one per install; none is fine) | ITFlow | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
+| PSA (at most one per install; none is fine) | ITFlow | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `client_vendors.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
 | RMM (any number) | NinjaOne | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links` |
 | Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
 
 ## PSA providers
 
 A PSA provider implements [`Align\Providers\Psa\PsaProvider`](../src/Providers/Psa/PsaProvider.php). It turns
-the PSA's API responses into **neutral records** (client, contact, location, asset, license, invoice, ticket),
+the PSA's API responses into **neutral records** (client, contact, location, asset, license, vendor, invoice, ticket),
 documented at the top of that interface. IDs are the PSA's own ids as non-empty strings of up to 64
 characters (ITFlow's numbers arrive as `'123'`; a PSA with GUIDs passes them as they are). A provider whose API
 needs numbers converts at its own boundary, as `ItflowPsa` does, and treats an id it can't use as "not found"
@@ -22,7 +22,7 @@ would need the id columns switched to a binary collation first.
 
 A provider declares what it can do with `supports()` (see `PsaProvider::CAPABILITIES`): read contacts,
 update contacts, create assets, read tickets with SLA results, create tickets and so on. Align hides
-features the PSA can't support. For example, two-way sync only appears when the provider can update assets, and contacts are only created, updated or archived in the PSA when it can do that (`contacts.create`, `contacts.write`, `contacts.archive`).
+features the PSA can't support. For example, two-way sync only appears when the provider can update assets, and contacts are only created, updated or archived in the PSA when it can do that (`contacts.create`, `contacts.write`, `contacts.archive`). A PSA without `vendors` simply leaves client vendors to be added by hand (2.8.0); with it, the PSA's client vendors sync in read-only, a vendor's `template_id` groups the client vendors made from one PSA template under one Align vendor template, and a license's `vendor_id` links it to its vendor.
 
 To add one:
 
@@ -35,7 +35,7 @@ The first PSA an admin sets up becomes the install's PSA (the `psa_provider` set
 from it have `source = 'psa'`; the API reports the provider's key (for example `itflow`).
 
 Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`, the `msp-align-psa` timer): clients → client details, contacts and
-locations → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,
+locations → vendors → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,
 reconciled field by field with newest-edit-wins) → tickets and SLAs → invoices (managed-services estimate: an invoice's `schedule` says which recurring invoice made it, and each schedule's frequency, monthly or yearly, is worked out from its own invoices' dates).
 
 ## RMM providers

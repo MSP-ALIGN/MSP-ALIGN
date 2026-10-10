@@ -28,6 +28,23 @@ final class FormController
         self::send($l ? View::fetch('licenses/_modal', ['l' => \Align\Licensing\Licenses::enrich($l), 'back' => self::back("/clients/{$l['client_id']}/licenses")]) : null);
     }
 
+    /** 2.8.0 A client vendor's edit form (tech). */
+    public static function vendor(int $id): void
+    {
+        Auth::requireRole('tech');
+        $v = \Align\Vendors\Vendors::one($id);
+        self::send($v ? View::fetch('vendors/_modal', ['v' => $v, 'cid' => (int) $v['client_id'], 'templates' => \Align\Vendors\Vendors::templates(),
+            'back' => self::back("/clients/{$v['client_id']}/vendors")]) : null);
+    }
+
+    /** 2.8.0 A vendor template's edit form (tech). */
+    public static function vendorTemplate(int $id): void
+    {
+        Auth::requireRole('tech');
+        $t = DB::one('SELECT * FROM vendor_templates WHERE id = ?', [$id]);
+        self::send($t ? View::fetch('vendors/_template_modal', ['t' => $t, 'back' => self::back('/vendors')]) : null);
+    }
+
     /** A contact's edit form (tech); audited as a contacts view. */
     public static function contact(int $id): void
     {
