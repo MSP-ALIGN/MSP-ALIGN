@@ -38,6 +38,12 @@ final class Licenses
     /** Fields the PSA manages for synced licenses (read-only in Align). */
     public const PSA_FIELDS = ['name', 'version', 'software_type', 'license_type', 'seats', 'vendor', 'purchase_date', 'expire_date', 'notes'];
 
+    /** 2.8.0 How a license's vendor reads: the linked client vendor's name, else the vendor name typed or synced. */
+    public static function vendorName(array $l): ?string
+    {
+        return ($l['vendor_link'] ?? null) ?: ($l['vendor'] ?? null);
+    }
+
     /** Cost per billing period (0 when there's no price). */
     public static function cycleCost(array $l): float
     {
@@ -99,7 +105,9 @@ final class Licenses
         if (!$includeRetired) {
             $where[] = 'l.retired_at IS NULL';
         }
-        $rows = DB::all('SELECT l.*, c.name AS client_name FROM licenses l JOIN clients c ON c.id = l.client_id WHERE '
+        // 2.8.0 vendor_link: the shown name of the client vendor the license is linked to (its own, else its template's)
+        $rows = DB::all("SELECT l.*, c.name AS client_name, COALESCE(NULLIF(v.name, ''), t.name) AS vendor_link FROM licenses l JOIN clients c ON c.id = l.client_id
+            LEFT JOIN client_vendors v ON v.id = l.vendor_id LEFT JOIN vendor_templates t ON t.id = v.template_id WHERE "
             . implode(' AND ', $where) . ' ORDER BY c.name, l.category, l.name', $p);
         return array_map([self::class, 'enrich'], $rows);
     }
@@ -157,9 +165,14 @@ final class Licenses
         $clients = array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id IS NOT NULL'), 'id', 'psa_id');
         $existing = [];
         // The PSA-owned columns too, so a changed license is counted for the poll's audit entry (2.2.1)
-        foreach (DB::all("SELECT id, psa_id, retired_at, retired_reason, client_id, name, version, software_type, license_type, seats, vendor, purchase_date,
-                expire_date, notes FROM licenses WHERE psa_id IS NOT NULL") as $r) {
+        foreach (DB::all("SELECT id, psa_id, retired_at, retired_reason, client_id, name, version, software_type, license_type, seats, vendor, vendor_id,
+                psa_vendor_id, purchase_date, expire_date, notes FROM licenses WHERE psa_id IS NOT NULL") as $r) {
             $existing[(string) $r['psa_id']] = $r;
+        }
+        // 2.8.0 the PSA's vendor ids => [Align client vendor, its client] (Vendors::syncFromPsa runs first)
+        $vendorIds = [];
+        foreach (DB::all('SELECT id, psa_id, client_id FROM client_vendors WHERE psa_id IS NOT NULL') as $v) {
+            $vendorIds[(string) $v['psa_id']] = [(int) $v['id'], (int) $v['client_id']];
         }
         // Refused unless the PSA has kept answering "none" for a day (all software really deleted there)
         if (!$rows && ($active = count(array_filter($existing, fn($r) => !$r['retired_at'])))) {
@@ -187,7 +200,7 @@ final class Licenses
         $seen = [];
         $added = 0;
         $retired = 0;
-        DB::transaction(function () use ($rows, $clients, $existing, $t, $now, $n, &$seen, &$added, &$retired) {
+        DB::transaction(function () use ($rows, $clients, $existing, $vendorIds, $t, $now, $n, &$seen, &$added, &$retired) {
         foreach ($rows as $r) {
             $sid = is_scalar($r['id'] ?? null) ? ext_id($r['id']) : '';
             $clientId = is_scalar($r['client_id'] ?? null) ? ($clients[ext_id($r['client_id'])] ?? null) : null;
@@ -209,8 +222,18 @@ final class Licenses
                 'notes' => $t($r['notes'] ?? '', 5000, true),
                 'synced_at' => $now,
             ];
-            $archived = !empty($r['archived']);
+            // 2.8.0 the client vendor it's bought from: the PSA's vendor when it's this client's (a distributor the
+            // MSP buys through isn't one of the client's vendors); kept while that vendor hasn't been synced yet
+            $pv = is_scalar($r['vendor_id'] ?? null) ? ext_id($r['vendor_id']) : '';
+            $pv = mb_strlen($pv) <= 64 ? $pv : '';
             $ex = $existing[$sid] ?? null;
+            $vals['psa_vendor_id'] = $pv ?: null;
+            $vals['vendor_id'] = match (true) {
+                $pv === '' => null,
+                isset($vendorIds[$pv]) => $vendorIds[$pv][1] === (int) $clientId ? $vendorIds[$pv][0] : null,
+                default => $ex && (string) $ex['psa_vendor_id'] === $pv ? $ex['vendor_id'] : null,
+            };
+            $archived = !empty($r['archived']);
             if ($ex) {
                 if ($archived && !$ex['retired_at']) {
                     $vals += ['retired_at' => $now, 'retired_reason' => 'psa'];
@@ -218,8 +241,8 @@ final class Licenses
                 } elseif (!$archived && $ex['retired_reason'] === 'psa') {
                     $vals += ['retired_at' => null, 'retired_reason' => null];
                     self::$changes++;
-                } elseif (array_any(array_keys($vals), fn($k) => $k !== 'synced_at' && array_key_exists($k, $ex) && (string) ($ex[$k] ?? '') !== (string) ($vals[$k] ?? ''))) {
-                    self::$changes++; // seats, dates, name or client changed in the PSA
+                } elseif (array_any(array_keys($vals), fn($k) => !in_array($k, ['synced_at', 'vendor_id', 'psa_vendor_id'], true) && array_key_exists($k, $ex) && (string) ($ex[$k] ?? '') !== (string) ($vals[$k] ?? ''))) {
+                    self::$changes++; // seats, dates, name or client changed in the PSA (2.8.0: the vendor link isn't counted, nor its first filling-in)
                 }
                 $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($vals)));
                 DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($vals), $ex['id']]);

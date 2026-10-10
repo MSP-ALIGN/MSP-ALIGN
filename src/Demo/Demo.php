@@ -202,6 +202,8 @@ final class Demo
             DB::run("DELETE FROM backup_assignments WHERE client_id IN ($in)");
             DB::run("DELETE FROM psa_tickets WHERE client_id IN ($in)");
             $n = DB::run("DELETE FROM clients WHERE id IN ($in) AND is_demo = 1")->rowCount();
+            // 2.8.0 the demo's vendor templates, unless a real client's vendor was made from one since
+            DB::run('DELETE FROM vendor_templates WHERE is_demo = 1 AND id NOT IN (SELECT template_id FROM client_vendors WHERE template_id IS NOT NULL)');
             // Records of demo clients removed some other way (deleted on their own page, or by an older version):
             // only ids in exactly the form backups() makes, whose client no longer exists
             $gone = fn(string $col, string $re, int $at) => "($col REGEXP '$re' AND CAST(SUBSTRING_INDEX(SUBSTRING($col, $at), '-', 1) AS UNSIGNED) NOT IN (SELECT id FROM clients))";
@@ -253,6 +255,7 @@ final class Demo
         }
         $deviceIds = self::devices($cid, $i, $counts, $slug, $people);
         self::licenses($cid, $i, $staff, $counts);
+        self::vendors($cid, $i, $userId);
         self::budget($cid, $managed, $i, $userId);
         self::roadmap($cid, $i, $userId, $p[0]);
         self::meetings($cid, $i, $cadence, $userId, $p[0], self::email($p[0], $domain));
@@ -356,6 +359,42 @@ final class Demo
                 'seats_used' => $type === 'user' ? max(0, $seats - ($i % 2)) : null, 'pricing' => $pricing, 'unit_price' => $price, 'billing_cycle' => $cycle,
                 'expire_date' => $exp ? self::d($exp) : null, 'auto_renew' => 1, 'purchase_date' => self::d('-' . (1 + $i) . ' years')]);
         }
+    }
+
+    /**
+     * 2.8.0 Vendors for client $cid: internet, registrar, phones, Microsoft and the security vendor from shared demo
+     * templates (made once, marked is_demo), plus the client's own line-of-business vendor; the licenses above link
+     * to them by name. All names are made up (example.com addresses, 555 numbers).
+     */
+    private static function vendors(int $cid, int $i, ?int $userId): void
+    {
+        $templates = [
+            'Example Fiber' => ['internet', 'https://www.example.com/fiber-support', '(555) 010-2000', 'support@fiber.example.com', '24/7', '4-hour outage response'],
+            'Example Registrar' => ['registrar', 'https://www.example.com/registrar', '(555) 010-2100', 'help@registrar.example.com', 'M-F 6am-6pm', null],
+            'Example Voice' => ['phone', 'https://www.example.com/voice', '(555) 010-2200', 'support@voice.example.com', '24/7', 'Next business day'],
+            'Microsoft' => ['software', 'https://admin.microsoft.com', null, null, '24/7', null],
+            'Example Security Co.' => ['security', 'https://www.example.com/security', '(555) 010-2300', 'soc@security.example.com', '24/7', '1-hour critical response'],
+        ];
+        $ids = [];
+        foreach ($templates as $name => [$cat, $web, $phone, $email, $hours, $sla]) {
+            $ids[$name] = (int) (DB::value('SELECT id FROM vendor_templates WHERE name = ?', [$name]) ?: DB::insert('vendor_templates', ['name' => $name, 'category' => $cat,
+                'website' => $web, 'support_phone' => $phone, 'support_email' => $email, 'hours' => $hours, 'sla' => $sla, 'is_demo' => 1, 'created_by' => $userId]));
+        }
+        $rows = [
+            ['Example Fiber', sprintf('FBR-%06d', 104200 + $i * 37), ['300 Mbps fiber, 5 static IPs', '1 Gbps fiber, 1 static IP', '200 Mbps fiber', '100 Mbps fiber, backup LTE'][$i], 'Dana (account rep)'],
+            ['Example Registrar', sprintf('REG-%05d', 5300 + $i), ['2 domains', '3 domains, DNS hosting', '1 domain', '2 domains'][$i], null],
+            ['Example Voice', sprintf('VOX-%05d', 7700 + $i * 3), 'Hosted phones', null],
+            ['Microsoft', null, 'Microsoft 365 through the MSP', null],
+            ['Example Security Co.', null, 'Endpoint detection & response', null],
+        ];
+        foreach ($rows as [$tpl, $account, $services, $contact]) {
+            DB::insert('client_vendors', ['client_id' => $cid, 'template_id' => $ids[$tpl], 'source' => 'manual', 'account_number' => $account,
+                'services' => $services, 'contact_name' => $contact, 'created_by' => $userId]);
+        }
+        DB::insert('client_vendors', ['client_id' => $cid, 'source' => 'manual', 'name' => 'Example Software Inc.', 'category' => 'lob',
+            'account_number' => sprintf('ESI-%04d', 210 + $i), 'support_phone' => '(555) 010-2400', 'website' => 'https://www.example.com/software',
+            'services' => 'Line-of-business application, annual license', 'created_by' => $userId]);
+        \Align\Vendors\Vendors::relinkManual($cid);
     }
 
     /** Budget lines for client $cid: managed services, internet, phones and domains, some with contract terms. */

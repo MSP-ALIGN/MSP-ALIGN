@@ -23,6 +23,20 @@ if ($path === '/mock/reset') {
     $json(['ok' => true]);
     return;
 }
+// 2.8.0 vendors: change, delete (archive) or add a vendor between syncs
+if (in_array($path, ['/mock/vendor-edit', '/mock/vendor-delete', '/mock/vendor-add'], true)) {
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $loadState();
+    $vid = (string) (int) ($in['vendor_id'] ?? 0);
+    match ($path) {
+        '/mock/vendor-delete' => $st['deleted_vendors'][] = (int) $vid,
+        '/mock/vendor-add' => [$st['added_vendors'][$vid] = $in['fields'] ?? [], $st['deleted_vendors'] = array_values(array_diff($st['deleted_vendors'] ?? [], [(int) $vid]))],
+        default => $st['vendor_updates'][$vid] = ($in['fields'] ?? []) + ($st['vendor_updates'][$vid] ?? []),
+    };
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
 if ($path === '/mock/software-edit' || $path === '/mock/software-delete') {
     $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
     $st = $loadState();
@@ -1254,7 +1268,7 @@ switch (true) {
                 [102, 1, 'Dentrix G7', 'G7.4', 'Desktop', 'Device', 8, 2, '2021-04-15', '2027-04-15', ''],
                 [103, 1, 'Datto SIRIS cloud retention', '', 'SaaS', 'Site', 1, 3, '2024-02-01', '2026-10-15', '1 year cloud retention'],
                 [104, 1, 'SentinelOne Control', '', 'SaaS', 'Device', 16, 4, null, null, ''],
-                [105, 1, 'Adobe Acrobat Pro', '2024', 'SaaS', 'User', 3, 0, '2024-06-01', '2025-06-01', 'Lapsed?'],
+                [105, 1, 'Adobe Acrobat Pro', '2024', 'SaaS', 'User', 3, 13, '2024-06-01', '2025-06-01', 'Lapsed?'], // 2.8.0: from client 1's vendor Adobe
                 [106, 1, 'Old fax software', '', 'Desktop', 'Device', 2, 0, null, null, ''],
                 [201, 2, 'QuickBooks Desktop Enterprise', '24.0', 'Desktop', 'User', 5, 0, '2025-09-01', '2026-09-01', ''],
                 [202, 2, 'Microsoft 365 Business Standard', '', 'SaaS', 'User', 9, 1, null, null, ''],
@@ -1306,10 +1320,28 @@ switch (true) {
                 $rows = array_slice($all, $offset, $limit);
             }
         } elseif ($path === '/api/v1/vendors/read.php') {
-            $rows = array_slice([
+            // Vendors 1-4 are the MSP's own (no client), as ITFlow returns them for a distributor; 10+ are client
+            // vendors (2.8.0), 10 and 12 made from the same ITFlow vendor template, 14 for a client not linked in Align
+            $v = fn(int $id, int $cid, string $name, int $tpl = 0, array $more = []) => ['vendor_id' => $id, 'vendor_client_id' => $cid, 'vendor_template_id' => $tpl,
+                'vendor_name' => $name, 'vendor_archived_at' => null] + $more;
+            $st = $loadState();
+            $all = [
                 ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],
                 ['vendor_id' => 3, 'vendor_name' => 'Datto / Kaseya'], ['vendor_id' => 4, 'vendor_name' => 'SentinelOne'],
-            ], $offset, $limit);
+                $v(10, 1, 'Comcast Business', 5, ['vendor_account_number' => 'CB-1001', 'vendor_phone_country_code' => '1', 'vendor_phone' => '800-555-0101', 'vendor_extension' => '2',
+                    'vendor_email' => 'support@comcast.example.com', 'vendor_website' => 'business.comcast.example.com', 'vendor_hours' => '24/7', 'vendor_sla' => '4 hours',
+                    'vendor_contact_name' => 'Pat Rep', 'vendor_notes' => "Circuit 12/ABCD/345\nStatic block /29", 'vendor_description' => 'Fiber internet']),
+                $v(11, 1, 'GoDaddy', 0, ['vendor_account_number' => 'GD-77', 'vendor_website' => 'https://www.godaddy.example.com']),
+                $v(12, 2, 'Comcast Business', 5, ['vendor_account_number' => 'CB-2002', 'vendor_phone' => '800-555-0101']),
+                $v(13, 1, 'Adobe', 0, ['vendor_website' => 'javascript:alert(1)', 'vendor_account_number' => "AD\r\n-9\x00"]),
+                $v(14, 9, 'Unmapped client vendor'),
+            ];
+            foreach ($st['added_vendors'] ?? [] as $id => $f) {
+                $all[] = $f + $v((int) $id, 1, "Vendor $id");
+            }
+            $all = array_values(array_filter(array_map(fn($r) => ($st['vendor_updates'][(string) $r['vendor_id']] ?? []) + $r, $all),
+                fn($r) => !in_array((int) $r['vendor_id'], $st['deleted_vendors'] ?? [], true) && empty($r['vendor_archived_at']))); // ITFlow leaves archived ones out
+            $rows = array_slice($all, $offset, $limit);
         } elseif ($path === '/api/v1/contacts/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['contact_update' => $body]) . "\n", FILE_APPEND);
             $st = $loadState();

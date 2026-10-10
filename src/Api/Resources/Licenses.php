@@ -155,6 +155,7 @@ final class Licenses
             $cols[$k] ??= $d;
         }
         $id = DB::insert('licenses', $cols + ['source' => 'manual', 'created_by' => null]);
+        \Align\Vendors\Vendors::relinkManual((int) $in['client_id']); // 2.8.0: linked to the client vendor its vendor name matches
         \Align\Audit::log('license.create', "{$client['name']}: {$in['name']}");
         return Out::one(self::shape(self::load($id)), 201);
     }
@@ -201,6 +202,9 @@ final class Licenses
         if ($cols) {
             $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($cols)));
             DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($cols), $id]);
+            if ($l['source'] === 'manual' && array_key_exists('vendor', $cols)) {
+                \Align\Vendors\Vendors::relinkManual((int) $l['client_id']); // 2.8.0
+            }
         }
         \Align\Audit::log(isset($in['retired']) && count($in) === 1 ? ($in['retired'] ? 'license.retire' : 'license.restore') : 'license.update',
             "{$l['client_name']}: {$l['name']} (" . implode(', ', array_keys($in)) . ')');

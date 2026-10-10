@@ -197,6 +197,7 @@ final class LicenseController
             flash('error', 'That suggestion was already reviewed, so nothing was added.');
             redirect($back);
         }
+        \Align\Vendors\Vendors::relinkManual($clientId); // 2.8.0: linked to the client vendor its vendor name matches
         Audit::log($subId ? 'portal.submission_accepted' : 'license.create', "{$client['name']}: {$f['name']}");
         flash('success', "Added {$f['name']}." . ($subId ? ' The client sees it as added.' : ''));
         redirect($back);
@@ -258,6 +259,9 @@ final class LicenseController
         DB::run("UPDATE licenses SET $sets WHERE id = ?", [...array_values($f), $id]);
         if ($fromM365 && post('use_list_price') === '1') {
             $l['source'] === 'gws' ? \Align\Google\Clients::useListPrice($id) : \Align\M365\Tenants::useListPrice($id); // 2.6.0, 2.6.3
+        }
+        if ($l['source'] === 'manual') {
+            \Align\Vendors\Vendors::relinkManual((int) $l['client_id']); // 2.8.0: the vendor name may now match another vendor
         }
         Audit::log('license.update', "{$l['client_name']}: {$l['name']}");
         $e = Licenses::enrich(DB::one('SELECT * FROM licenses WHERE id = ?', [$id]));

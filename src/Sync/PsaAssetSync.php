@@ -742,10 +742,21 @@ final class PsaAssetSync
             $parts = [count($assets) . ' assets read'];
             SyncRunner::$detailChanges = 0;
             \Align\Licensing\Licenses::$changes = 0;
+            \Align\Vendors\Vendors::$changes = 0;
             try {
                 $parts[] = SyncRunner::syncClientDetails($p);
             } catch (\Throwable $e) {
                 $say('Client details not refreshed: ' . safe_error($e));
+            }
+            // 2.8.0 vendors before licenses, so a license links to a vendor that arrived in the same run
+            if ($p->supports('vendors')) {
+                try {
+                    $parts[] = \Align\Vendors\Vendors::syncFromPsa($p);
+                } catch (\Throwable $e) {
+                    $msg = safe_error($e);
+                    $say('Vendors not refreshed: ' . $msg);
+                    $parts[] = 'vendors not refreshed (' . $msg . ')';
+                }
             }
             if ($p->supports('licenses')) {
                 try {
@@ -769,10 +780,10 @@ final class PsaAssetSync
             // client contact details, contacts and licenses the poll changed: a compromised PSA account could
             // otherwise retire a client's software or change its primary contact with no trace (2.2.1)
             $changes = (int) DB::value('SELECT COUNT(*) FROM device_changes WHERE id > ? AND user_id IS NULL', [$changesBefore]) + self::$changed;
-            $other = SyncRunner::$detailChanges + \Align\Licensing\Licenses::$changes;
+            $other = SyncRunner::$detailChanges + \Align\Licensing\Licenses::$changes + \Align\Vendors\Vendors::$changes;
             if ($changes + $other > 0) {
                 \Align\Audit::log('sync.psa_poll', "$changes device change" . ($changes === 1 ? '' : 's')
-                    . ($other ? ", $other client, contact or license change" . ($other === 1 ? '' : 's') : '') . " to or from $n: $result");
+                    . ($other ? ", $other client, contact, vendor or license change" . ($other === 1 ? '' : 's') : '') . " to or from $n: $result");
             }
             return $result;
         } catch (\Throwable $e) {

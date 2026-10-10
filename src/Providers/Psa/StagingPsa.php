@@ -64,6 +64,9 @@ final class StagingPsa implements PsaProvider
     public function archiveContact(string $clientId, string $contactId, bool $archived = true): bool { $this->refuse(); }
     /** Read: passed through to the real PSA. */
     public function licenses(): array { return $this->inner->licenses(); }
+
+    /** 2.8.0 Vendors are read-only, so a test server reads them too. */
+    public function vendors(): array { return $this->inner->vendors(); }
     /** Read: passed through to the real PSA. */
     public function invoices(): array { return $this->inner->invoices(); }
     /** Read: passed through to the real PSA. */

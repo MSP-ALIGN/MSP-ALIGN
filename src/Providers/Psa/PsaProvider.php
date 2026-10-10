@@ -20,7 +20,9 @@ namespace Align\Providers\Psa;
  *            purchase_date, warranty_expire, install_date (Y-m-d), status, archived (bool),
  *            ip_address, mac, location_id, updated_at (Y-m-d H:i:s)
  *   license  id, client_id, name, version, software_type, license_type (free text), seats, vendor,
- *            purchase_date, expire_date, notes, archived (bool)
+ *            vendor_id (the PSA's vendor id, 2.8.0), purchase_date, expire_date, notes, archived (bool)
+ *   vendor   id, client_id ('' for the MSP's own vendors), template_id (the PSA's vendor template, or null), name,
+ *            description, contact_name, phone, email, website, hours, sla, account_number, notes, archived (bool)  (2.8.0)
  *   invoice  client_id, date (Y-m-d), status, amount (float), recurring (bool), schedule (?string: which recurring schedule made it)
  *   ticket   id, client_id, number, subject, category, source, priority, status_id, sla_id, created_at,
  *            first_response_at, response_due_at, resolution_due_at, resolved_at, closed_at, archived_at,
@@ -51,6 +53,7 @@ interface PsaProvider
         'assets.write' => 'Update assets',
         'assets.create' => 'Create assets',
         'licenses' => 'Read software licenses',
+        'vendors' => 'Read vendors', // 2.8.0
         'invoices' => 'Read invoices',
         'tickets' => 'Read tickets',
         'sla' => 'Ticket SLA results',
@@ -116,6 +119,9 @@ interface PsaProvider
 
     /** Every software license (neutral license records). Never includes license keys. */
     public function licenses(): array;
+
+    /** 2.8.0 Vendor records (only called when supports('vendors')). */
+    public function vendors(): array;
 
     /** Invoices for the managed-services estimate (neutral invoice records). */
     public function invoices(): array;

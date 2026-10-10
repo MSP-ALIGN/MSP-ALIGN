@@ -633,11 +633,11 @@ r = phpv(FAKE + 'echo Align\\Sync\\PsaAssetSync::run(aq_fake(["contacts" => fn($
          ' "name" => "Example Auditq Person", "title" => "Office", "department" => "", "email" => "person@auditq.example", "phone" => "", "extension" => "", "mobile" => "",'
          ' "location_id" => null, "primary" => false, "important" => false, "billing" => false, "technical" => false, "notes" => "", "archived" => false]])]));')
 a = audits(m, "sync.psa_poll")
-ok(q("select id from contacts where psa_id='auditq-77'") and a and "0 device changes, 1 client, contact or license change" in a[0]["detail"],
+ok(q("select id from contacts where psa_id='auditq-77'") and a and "0 device changes, 1 client, contact, vendor or license change" in a[0]["detail"],
    "a poll that only added a contact is audited as sync.psa_poll: " + (a[0]["detail"][:110] if a else r[-120:]))
 m = maxid(); poll()
 a = audits(m, "sync.psa_poll")
-ok(q("select archived_at from contacts where psa_id='auditq-77'")[0]["archived_at"] and a and "contact or license change" in a[0]["detail"],
+ok(q("select archived_at from contacts where psa_id='auditq-77'")[0]["archived_at"] and a and "vendor or license change" in a[0]["detail"],
    "the next poll archives it (gone from the PSA) and that is audited too")
 q("delete from contacts where psa_id='auditq-77'")
 lic = q("select psa_id from licenses where psa_id is not null and retired_at is null limit 1")
@@ -645,7 +645,7 @@ if lic:
     m = maxid()
     phpv(FAKE + 'echo Align\\Sync\\PsaAssetSync::run(aq_fake(["licenses" => fn($i) => array_values(array_filter($i->licenses(), fn($l) => (string) ($l["id"] ?? "") !== "' + str(lic[0]["psa_id"]) + '"))]));')
     a = audits(m, "sync.psa_poll")
-    ok(q("select retired_at from licenses where psa_id=%s", lic[0]["psa_id"])[0]["retired_at"] and a and "1 client, contact or license change" in a[0]["detail"],
+    ok(q("select retired_at from licenses where psa_id=%s", lic[0]["psa_id"])[0]["retired_at"] and a and "1 client, contact, vendor or license change" in a[0]["detail"],
        "a poll that only retired a license is audited: " + (a[0]["detail"][:100] if a else "none"))
     m = maxid(); poll()
     a = audits(m, "sync.psa_poll")
@@ -660,11 +660,11 @@ if kc:
     phpv(FAKE + 'echo Align\\Sync\\PsaAssetSync::run(aq_fake(["contacts" => fn($i) => array_map(fn($c) => (string) $c["id"] === "' + str(kc["psa_id"])
          + '" ? ["email" => "changed@auditq.example"] + $c : $c, $i->contacts())]));')
     a = audits(m, "sync.psa_poll")
-    ok(q("select email from contacts where psa_id=%s", kc["psa_id"])[0]["email"] == "changed@auditq.example" and a and "0 device changes, 1 client, contact or license change" in a[0]["detail"],
+    ok(q("select email from contacts where psa_id=%s", kc["psa_id"])[0]["email"] == "changed@auditq.example" and a and "0 device changes, 1 client, contact, vendor or license change" in a[0]["detail"],
        "a poll that only changed an existing PSA contact's email is audited as sync.psa_poll: " + (a[0]["detail"][:100] if a else "none"))
     m = maxid(); poll()
     a = audits(m, "sync.psa_poll")
-    ok(q("select email from contacts where psa_id=%s", kc["psa_id"])[0]["email"] == kc["email"] and a and "contact or license change" in a[0]["detail"],
+    ok(q("select email from contacts where psa_id=%s", kc["psa_id"])[0]["email"] == kc["email"] and a and "vendor or license change" in a[0]["detail"],
        "changing it back in the next poll is audited too")
 else:
     ok(False, "a PSA contact that isn't a primary contact exists (test data)")
@@ -674,7 +674,7 @@ if lic:
     phpv(FAKE + 'echo Align\\Sync\\PsaAssetSync::run(aq_fake(["licenses" => fn($i) => array_map(fn($l) => (string) ($l["id"] ?? "") === "' + str(lic[0]["psa_id"])
          + '" ? ["seats" => 777] + $l : $l, $i->licenses())]));')
     a = audits(m, "sync.psa_poll")
-    ok(q("select seats from licenses where psa_id=%s", lic[0]["psa_id"])[0]["seats"] == 777 and a and "0 device changes, 1 client, contact or license change" in a[0]["detail"],
+    ok(q("select seats from licenses where psa_id=%s", lic[0]["psa_id"])[0]["seats"] == 777 and a and "0 device changes, 1 client, contact, vendor or license change" in a[0]["detail"],
        "a poll that only changed a license's seats is audited: " + (a[0]["detail"][:100] if a else "none"))
     m = maxid(); poll()
     a = audits(m, "sync.psa_poll")
