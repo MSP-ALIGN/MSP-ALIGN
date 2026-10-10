@@ -250,6 +250,21 @@ if b.returncode==0:
     ok(d["paths"]==s["paths"] and d["components"]==s["components"],"the docs' OpenAPI description matches what the server serves")
     ok(all(f'id="{i}"' in page for i in ids) and 'href="releases.html"' in page,"the docs' API page has every endpoint")
     ok(d["components"]["schemas"]["Client"]["properties"]["psa_id"]["type"]==["string","null"] and "Ids from your PSA are text" in page,"and says PSA ids are text")
+    # 2.7.8 search engines: every page in the sitemap, robots.txt pointing to it, one canonical address per page,
+    # the software described on the home page, the 404 page left out
+    import glob, xml.etree.ElementTree as ET
+    locs=[e.text for e in ET.parse(site+"/sitemap.xml").getroot().iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
+    pages_built=sorted(os.path.basename(f) for f in glob.glob(site+"/*.html") if not f.endswith("404.html"))
+    ok(sorted(("index.html" if u.endswith("/") else u.rsplit("/",1)[1]) for u in locs)==pages_built and all(u.startswith("https://mspalign.org/") for u in locs),
+       f"the sitemap lists every page ({len(locs)}) at mspalign.org")
+    ok("Sitemap: https://mspalign.org/sitemap.xml" in open(site+"/robots.txt").read(),"robots.txt points to the sitemap")
+    home=open(site+"/index.html").read(); inst=open(site+"/install.html").read()
+    ld=json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>',home,re.S).group(1))
+    canon=lambda t: re.findall(r"""<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)""",t)
+    ok(canon(home)==["https://mspalign.org/"] and canon(inst)==["https://mspalign.org/install.html"] and "</" not in ld["description"]
+       and ld["@type"]=="SoftwareApplication" and ld["offers"]["price"]=="0","each page names its one address; the home page describes the software (free)")
+    nf=open(site+"/404.html").read()
+    ok(re.search(r"""<meta[^>]+name=["']robots["'][^>]+content=["'][^"']*noindex""",nf) and not canon(nf),"the not-found page isn't indexed")
 shutil.rmtree(site,ignore_errors=True)
 
 # ---- request log & key usage
