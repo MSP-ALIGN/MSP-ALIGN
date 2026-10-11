@@ -84,9 +84,9 @@ for p in ["/","/clients",f"/clients/{cid}",f"/clients/{cid}/devices",f"/devices/
     rr=st.get(B+p)
     if rr.status_code>=500 or errs(rr.text): bad.append((p,rr.status_code,errs(rr.text)[:1]))
 ok(not bad,"pages render with no RMM connected: "+str(bad))
-out=php('echo json_encode([Align\\Providers\\Providers::anyRmm(), Align\\Providers\\Providers::rmmNames()]);').stdout; ok(json.loads(out)==[False,"NinjaOne"],"no RMM set up: still named NinjaOne (the only RMM Align supports): "+out)
+out=php('echo json_encode([Align\\Providers\\Providers::anyRmm(), Align\\Providers\\Providers::rmmNames()]);').stdout; ok(json.loads(out)==[False,"your RMM"],"no RMM set up: 'your RMM' (2.11.0: Align supports more than one): "+out)
 r=align("sync","--quiet"); run=json.loads(q("select summary from sync_runs order by id desc limit 1")[0]["summary"])
-ok(run.get("NinjaOne")=="not configured" and "NinjaOne devices" not in run,"sync notes NinjaOne as not configured")
+ok("NinjaOne" not in run and "NinjaOne devices" not in run,"sync leaves out an RMM that isn't set up (2.11.0: no 'not configured' line for each one)")
 ok(q("select count(*) n from devices where rmm_provider='ninjaone' and removed_at is null")[0]["n"]>1000,"devices are kept while NinjaOne isn't connected")
 q("update settings set value=%s where name='ninja_client_id'",sid)
 

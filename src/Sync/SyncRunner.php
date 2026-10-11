@@ -99,14 +99,14 @@ final class SyncRunner
         // No PSA set up is a normal way to run (clients by hand, by CSV or from the RMM), not a skipped step
         $psa = Providers::psaConfigured() ? $this->client(fn() => Providers::psa(), $psaName) : null;
         $rmms = [];
-        foreach (Providers::rmmConnectors() as $key => $c) {
+        foreach (Providers::rmmConfigured() as $key => $c) { // 2.11.0: only those set up (no "Skipping" line for an RMM nobody uses)
             if ($p = $this->client(fn() => Providers::rmm($key), $c->name())) {
                 $rmms[$key] = $p;
             }
         }
 
         $psaOk = $psa && $this->step("$psaName clients", fn() => $this->syncPsaClients($psa));
-        $single = count(Providers::rmmConnectors()) === 1;
+        $single = count(Providers::rmmConfigured()) <= 1; // one RMM in use: the steps keep their short names
         foreach ($rmms as $rmm) {
             $n = $rmm->name();
             if (!$this->step("$n organizations", fn() => $this->syncRmmOrgs($rmm))) {

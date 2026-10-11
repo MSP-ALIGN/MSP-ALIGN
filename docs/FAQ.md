@@ -25,20 +25,22 @@ through API keys limited to them.
 ## Tools it works with
 
 **Which PSA, RMM and backup tools are supported?**
-ITFlow as the PSA, NinjaOne as the RMM and Veeam Service Provider Console for backups, plus Dell and Lenovo warranty
-lookups and email through Microsoft 365, Google Workspace or SMTP.
+ITFlow as the PSA, NinjaOne or Tactical RMM (beta, since 2.11.0) as the RMM, both at once if you like, and Veeam Service
+Provider Console for backups, plus Dell and Lenovo warranty lookups and email through Microsoft 365, Google Workspace or SMTP.
 
 **Do I need a PSA?**
 No. Without one, clients come from your RMM's organizations, a CSV import or are added by hand, and screens that need a
 PSA (tickets, invoice estimates) are left out.
 
 **Can it support another PSA or RMM?**
-Yes: each product is a provider behind a common interface, so adding one is a contained piece of work. See
+Yes: each product is a provider behind a common interface, so adding one is a contained piece of work. New
+integrations start as **beta**: built from the product's API and only reading from it, until people using that product
+confirm it works. See
 [Connecting tools](PROVIDERS.md), and say which tool you'd like in
 [Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN/discussions).
 
 **Does it change anything in my PSA or RMM?**
-It only reads from NinjaOne and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
+It only reads from NinjaOne, Tactical RMM and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
 device lifecycle details and warranty dates, contacts (including archiving), and tickets for client requests.
 
 **Is there an API?**

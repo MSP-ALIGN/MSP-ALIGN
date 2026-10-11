@@ -49,6 +49,8 @@ system answered.
 | *…returned a non-JSON response. Check the ITFlow URL.* | Use ITFlow's base address (`https://itflow.example.com`), not a page inside it. |
 | *(no clients returned - check the key user's client access)* | The ITFlow API key works but its user can't see any clients. |
 | *NinjaOne did not return an access token.* | Check the client ID and secret, the grant type (*Client credentials*), the *Monitoring* scope and the **Instance** (US, US2, CA, EU or OC). |
+| *Tactical RMM sent something other than a list…* or *has no /clients/ at that address* | Enter Tactical's **API** address, the one its agents report to (often `https://api.your-domain`), not the dashboard's (`https://rmm.your-domain`). |
+| *Tactical RMM refused the API key* | Check the key under Settings → Global Settings → API Keys, and that its user's role has **List clients** and **List agents**. The role must cover every client: agents the key can't see are marked removed in Align. |
 | *this does not look like the VSPC REST API v3* | Enter the Veeam Service Provider Console's own address; the API is `/api/v3` on the same host. |
 | Microsoft 365: *AADSTS7000215* | Paste the secret's **Value**, not its Secret ID. |
 | Microsoft 365: *AADSTS7000222* | The client secret has expired: make a new one in Entra. |

@@ -373,7 +373,7 @@ final class Diagnostics
     {
         $rows = [];
         $late = fn(string $job, ?float $min) => $min !== null && $min > self::JOBS[$job][1];
-        $integrations = self::try(fn() => \Align\Providers\Providers::psaConfigured() || (bool) \Align\Providers\Providers::rmmNames() || (bool) \Align\Providers\Providers::backupNames(), false);
+        $integrations = self::try(fn() => \Align\Providers\Providers::psaConfigured() || \Align\Providers\Providers::anyRmm() || (bool) \Align\Providers\Providers::backupNames(), false);
         // Sync
         $sync = self::try(fn() => DB::one("SELECT * FROM sync_runs WHERE status <> 'running' ORDER BY id DESC LIMIT 1"));
         $running = self::try(fn() => DB::one("SELECT started_at FROM sync_runs WHERE status = 'running' ORDER BY id DESC LIMIT 1"));

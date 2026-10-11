@@ -29,10 +29,13 @@ abstract class RmmConnector extends Connector implements LinksClients
         return ['rmm'];
     }
 
-    /** Sync steps whose results show as this integration's status. */
+    /**
+     * Sync steps whose results show as this integration's status: its own steps, and client matching (named for it
+     * when more than one RMM is set up, so another RMM's matching error doesn't show on this card; 2.11.0).
+     */
     public function syncSteps(): array
     {
-        return [$this->name(), 'Match clients'];
+        return [$this->name(), 'Match clients to organizations', "Match clients to {$this->name()}"];
     }
 
     /** Every RMM has a connection test. */
