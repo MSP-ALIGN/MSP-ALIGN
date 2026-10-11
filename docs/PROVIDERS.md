@@ -5,7 +5,7 @@ portal and the REST API read only neutral tables, so they don't know or care whi
 
 | Area | Provider today | Neutral tables |
 |---|---|---|
-| PSA (at most one per install; none is fine) | ITFlow | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `client_vendors.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
+| PSA (at most one per install; none is fine) | ITFlow, HaloPSA (beta, read-only) | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `client_vendors.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
 | RMM (any number) | NinjaOne, Tactical RMM (beta) | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links` |
 | Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
 
@@ -32,7 +32,14 @@ To add one:
 4. **Test it:** build a mock of the PSA's API from its documentation (see `tests/mock-server.php`) and run the end-to-end suites against it.
 
 The first PSA an admin sets up becomes the install's PSA (the `psa_provider` setting). Records that came
-from it have `source = 'psa'`; the API reports the provider's key (for example `itflow`).
+from it have `source = 'psa'`; the API reports the provider's key (for example `itflow`). Setting up a second PSA
+never switches it (2.12.0): the second one's card shows **Not in use** and nothing is read from it, because the two
+PSAs' client ids would not match. A connector whose `polls()` is false (HaloPSA, read-only) is left out of the
+2-minute asset check and read by the hourly sync only.
+
+[`HaloPsa`](../src/Providers/Psa/HaloPsa.php) (2.12.0, beta) is a read-only example: it supports only `contacts`,
+`locations`, `assets` and `invoices`, every write method refuses, it signs in with OAuth2 client credentials, and it
+pages Halo's lists by `record_count`.
 
 Sync flow (hourly, plus a 2-minute asset check via `align psa:poll`, the `msp-align-psa` timer): clients → client details, contacts and
 locations → vendors → licenses → assets (cached in `psa_assets`, linked to RMM devices by serial then name,

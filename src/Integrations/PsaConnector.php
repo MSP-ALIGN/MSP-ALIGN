@@ -99,7 +99,12 @@ abstract class PsaConnector extends Connector
     {
         $n = $this->name();
         $out = '';
-        if ($this->can('assets')) {
+        if ($this->configured() && !$this->inUse()) { // 2.12.0
+            $cur = \Align\Providers\Providers::psaConnector();
+            return e(\Align\Providers\Providers::psaName()) . ' is this install\'s PSA' . ($cur && !$cur->configured() ? ' (not set up now; its clients stay)' : '')
+                . ', so nothing is read from ' . e($n) . '. An install has one PSA: it decides the client list, and once clients have come from one it isn\'t switched (the other PSA\'s ids wouldn\'t match). Test still checks the connection.';
+        }
+        if ($this->can('assets') && $this->polls()) {
             $p = \Align\DB::one('SELECT * FROM psa_poll_state WHERE id = 1');
             $out = $p ? "Last 2-minute $n check: " . ($p['last_run'] ? e(rel_time($p['last_run'])) . ' · ' . e((string) $p['last_result']) : 'not run yet') : '';
         }
@@ -123,6 +128,30 @@ abstract class PsaConnector extends Connector
     public function noSlaMessage(): string
     {
         return 'this ' . $this->name() . ' has no SLA fields';
+    }
+
+    /** 2.12.0 Whether `align psa:poll` checks this PSA's assets every 2 minutes (a read-only PSA waits for the hourly sync). */
+    public function polls(): bool
+    {
+        return true;
+    }
+
+    /** 2.12.0 Whether this is the install's PSA (an install has one; another one set up isn't read). */
+    public function inUse(): bool
+    {
+        return \Align\Providers\Providers::psaKey() === $this->key();
+    }
+
+    /**
+     * The status badge, but a second PSA that's set up shows "Not in use" (2.12.0): the install's PSA is the source of
+     * truth for clients, and switching would bring in a different client list with different ids.
+     */
+    public function status(): array
+    {
+        if ($this->configured() && !$this->inUse()) {
+            return ['warning', 'Not in use', \Align\Providers\Providers::psaName() . ' is this install\'s PSA'];
+        }
+        return parent::status();
     }
 
     /** Every PSA has a connection test. */

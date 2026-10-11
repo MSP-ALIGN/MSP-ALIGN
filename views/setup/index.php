@@ -120,7 +120,7 @@ case 'company': ?>
     <?= $footer(false) ?>
 <?php break; case 'psa': case 'rmm': case 'more':
     $intro = [
-        'psa' => ['Your PSA', 'Clients, contacts, assets, licenses, invoices and tickets come from your PSA. MSP Align works without one too: clients can then come from your RMM, a CSV file or be added by hand, and Ready to start marks projects started instead of making tickets.', 'No PSA? Just continue.'],
+        'psa' => ['Your PSA', 'Clients, contacts, assets, licenses, invoices and tickets come from your PSA. Set up one: it decides the client list. MSP Align works without one too: clients can then come from your RMM, a CSV file or be added by hand, and Ready to start marks projects started instead of making tickets.', 'No PSA? Just continue.'],
         'rmm' => ['Your RMM', 'Computers, servers, operating systems and warranty data come from your RMM, and it links each device to its client.', ''],
         'more' => ['Backups & warranty', 'Optional: backup results for each client, and warranty end dates looked up from Dell and Lenovo.', ''],
     ][$step]; ?>
