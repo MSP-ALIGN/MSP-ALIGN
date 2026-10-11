@@ -317,6 +317,45 @@ if ($path === '/dns') {
     $json(['txt' => $st['dns'][$name] ?? []]);
     return;
 }
+// 2.10.0 RDAP: IANA's bootstrap file and one registry for .example and .test domains. cedarridgedental.example is
+// registered at a GoDaddy-like registrar and expires in 40 days; failing.test answers 500; anything else isn't registered.
+// /mock/rdap-set {"domains": {"name": {...}}} overrides an answer (registrar, expires, status).
+if ($path === '/mock/rdap-set') {
+    $st = $loadState();
+    $st['rdap'] = (json_decode((string) file_get_contents('php://input'), true) ?: [])['domains'] ?? [];
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/rdap/dns.json') {
+    $host = 'http://' . ($_SERVER['HTTP_HOST'] ?? '127.0.0.1:8099');
+    $json(['version' => '1.0', 'services' => [[['example', 'test'], [$host . '/rdap/']], [['insecure'], ['ftp://nowhere.example/']]]]);
+    return;
+}
+if (preg_match('#^/rdap/domain/([a-z0-9.-]+)$#', $path, $rm)) {
+    $st = $loadState();
+    $st['rdap_calls'][] = $rm[1];
+    $saveState($st);
+    $known = ['cedarridgedental.example' => ['registrar' => "GoDaddy.com, LLC\x07", 'expires' => date('Y-m-d', strtotime('+40 days')) . 'T04:00:00Z'],
+        'noexpiry.test' => ['registrar' => 'Example Registrar, Inc.', 'expires' => null]] + ($st['rdap'] ?? []);
+    if ($rm[1] === 'failing.test') {
+        http_response_code(500);
+        $json(['errorCode' => 500]);
+        return;
+    }
+    $d = $known[$rm[1]] ?? null;
+    if (!$d || ($d['status'] ?? 200) === 404) {
+        http_response_code(404);
+        $json(['errorCode' => 404, 'title' => 'Not Found']);
+        return;
+    }
+    $json(['objectClassName' => 'domain', 'ldhName' => strtoupper($rm[1]),
+        'events' => array_values(array_filter([['eventAction' => 'registration', 'eventDate' => '2015-03-01T00:00:00Z'],
+            $d['expires'] ? ['eventAction' => 'expiration', 'eventDate' => $d['expires']] : null, ['eventAction' => 'expiration', 'eventDate' => 'garbage']])),
+        'entities' => [['objectClassName' => 'entity', 'roles' => ['registrar'], 'vcardArray' => ['vcard', [['version', [], 'text', '4.0'], ['fn', [], 'text', $d['registrar']]]]],
+            ['objectClassName' => 'entity', 'roles' => ['registrant'], 'vcardArray' => ['vcard', [['fn', [], 'text', 'Should Not Be Read']]]]]]);
+    return;
+}
 if (preg_match('#^/doh/(a|b)$#', $path, $dm)) {
     // 2.7.4 DNS-over-HTTPS (JSON API) as Cloudflare and Google answer it, from the same records as /dns. Per resolver
     // (/mock/gws-set {"doh": {"a": {...}, "b": {...}}}): 'missing' names it answers without (a resolver's bad moment),

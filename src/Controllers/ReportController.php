@@ -147,7 +147,7 @@ final class ReportController
     }
 
     /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
-    public const QBR_SECTIONS = ['s_health' => 'Health', 's_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_backup' => 'Backups', 's_security' => 'Security', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
+    public const QBR_SECTIONS = ['s_health' => 'Health', 's_changes' => 'What changed', 's_sla' => 'Service levels', 's_assets' => 'Assets', 's_licensing' => 'Licensing', 's_vendors' => 'Vendors', 's_backup' => 'Backups', 's_security' => 'Security', 's_compliance' => 'Compliance', 's_alignment' => 'Alignment', 's_roadmap' => 'Roadmap', 's_budget' => 'Budget'];
 
     /** Section switches from the query string (all on by default). */
     public static function qbrSections(bool $default): array
@@ -203,6 +203,11 @@ final class ReportController
         $bd = in_array('s_budget', $allowed, true) ? ReportData::budget($id, $q['year']) : null;
         $comp = in_array('s_compliance', $allowed, true) ? ReportData::compliance($id) : null;
         $lic = in_array('s_licensing', $allowed, true) ? ReportData::licensing($id) : null;
+        // 2.10.0 vendors: none = no switch
+        $ven = in_array('s_vendors', $allowed, true) ? ReportData::vendors($id) : null;
+        if (!$ven) {
+            $allowed = array_values(array_diff($allowed, ['s_vendors']));
+        }
         $bk = in_array('s_backup', $allowed, true) ? ReportData::backup($id) : null;
         // 2.3.0 (staff packs only: the portal doesn't pass s_alignment); no review yet = no switch in the toolbar
         $al = in_array('s_alignment', $allowed, true) ? ReportData::alignment($id) : null;
@@ -238,6 +243,7 @@ final class ReportController
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'al' => $on('s_alignment') ? $al : null,
             'sec' => $on('s_security') ? $sec : null, // 2.7.0
+            'ven' => $on('s_vendors') ? $ven : null, // 2.10.0
             'ch' => $on('s_changes') ? $ch : null,
             'hl' => $on('s_health') ? $hl : null, // 2.5.0
             'people' => $people ? ReportData::people($id) : ['contacts' => [], 'nextMeeting' => null, 'lastMeeting' => null, 'hidden' => true],

@@ -288,6 +288,18 @@ final class ReportData
     }
 
     /**
+     * 2.10.0 The client's active vendors for the QBR pack: name, category, services, support phone, website (http(s)
+     * only), hours, monthly cost of what's linked to them and the next date. Account numbers, contacts and notes are
+     * left out (client-facing). Null when the client has no vendors (no section, no switch).
+     */
+    public static function vendors(int $clientId): ?array
+    {
+        $keep = ['name', 'category', 'services', 'support_phone', 'support_email', 'link', 'hours', 'monthly', 'next'];
+        $vs = array_map(fn($v) => array_intersect_key($v, array_flip($keep)), \Align\Vendors\Vendors::forClient($clientId));
+        return $vs ? ['vendors' => $vs, 'monthly' => array_sum(array_column($vs, 'monthly'))] : null;
+    }
+
+    /**
      * Key contacts and the next and last client meetings (internal ones left out). Contacts are personal data:
      * the portal leaves this out for users without the contacts permission (ReportController::renderQbr).
      */

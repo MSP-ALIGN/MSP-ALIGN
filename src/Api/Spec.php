@@ -69,6 +69,18 @@ final class Spec
             'priced' => ['boolean', ''], 'cost_per_cycle' => ['number', ''], 'monthly' => ['number', ''], 'annual' => ['number', ''], 'purchase_date' => ['date', ''], 'expire_date' => ['date', ''],
             'auto_renew' => ['boolean', ''], 'contract_start' => ['date', ''], 'contract_term_months' => ['integer', ''], 'contract_end' => ['date', ''], 'notice_days' => ['integer', ''],
             'renegotiate_date' => ['date', ''], 'notes' => ['string', 'Align notes.'], 'psa_notes' => ['string', 'Notes from the PSA.'], 'itflow_notes' => ['string', 'Older name for psa_notes, kept for existing integrations.'], 'retired' => ['boolean', ''], 'updated_at' => ['date-time', '']]],
+        'Vendor' => ['A client\'s vendor (2.10.0), as its Vendors page shows it.', [
+            'id' => ['integer', ''], 'client_id' => ['integer', ''], 'client_name' => ['string', ''], 'source' => ['string', 'The PSA\'s key (e.g. itflow) for vendors synced from it, else manual.'],
+            'psa_id' => ['id', 'The vendor\'s id in the PSA.'], 'template_id' => ['integer', 'The vendor template it uses, or null.'], 'template_name' => ['string', ''],
+            'name' => ['string', ''], 'category' => ['string', 'internet, phone, registrar, hosting, software, lob, security, print, hardware or other.'], 'description' => ['string', 'From the PSA.'],
+            'account_number' => ['string', ''], 'contact_name' => ['string', ''], 'support_phone' => ['string', ''], 'support_email' => ['string', ''], 'website' => ['string', ''],
+            'hours' => ['string', ''], 'sla' => ['string', ''], 'services' => ['string', 'What the client has from this vendor.'], 'notes' => ['string', 'Align notes.'],
+            'psa_notes' => ['string', 'Notes from the PSA (synced vendors).'], 'from_template' => ['string[]', 'The fields shown from the template (blank on the vendor itself).'],
+            'retired' => ['boolean', ''], 'retired_reason' => ['string', 'psa (archived or deleted in the PSA) or align.'], 'created_at' => ['date-time', ''], 'updated_at' => ['date-time', '']]],
+        'VendorTemplate' => ['A vendor template (2.10.0): details shared by every client that uses it.', [
+            'id' => ['integer', ''], 'name' => ['string', ''], 'category' => ['string', ''], 'website' => ['string', ''], 'support_phone' => ['string', ''], 'support_email' => ['string', ''],
+            'hours' => ['string', ''], 'sla' => ['string', ''], 'notes' => ['string', ''], 'psa_template_id' => ['id', 'The PSA\'s vendor template it stands for, or null.'],
+            'clients' => ['integer', 'Clients with an active vendor made from it.'], 'updated_at' => ['date-time', '']]],
         'Meeting' => ['A meeting.', [
             'id' => ['integer', ''], 'client_id' => ['integer', 'null = internal.'], 'title' => ['string', ''], 'type' => ['string', ''], 'type_label' => ['string', ''],
             'status' => ['string', 'scheduled, completed, cancelled.'], 'starts_at' => ['date-time', ''], 'ends_at' => ['date-time', ''], 'duration_minutes' => ['integer', ''],

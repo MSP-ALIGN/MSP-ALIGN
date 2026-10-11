@@ -19,7 +19,7 @@ foreach ([30 => '30 days', 90 => '90 days', 180 => '6 months', 365 => '12 months
 $dayBtns .= '</div>';
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-calendar-check', 'title' => 'Renewals & contracts', 'count' => count($dates),
-    'desc' => 'Contract ends, renegotiate-by dates and license renewals across every client, soonest first.',
+    'desc' => 'Contract ends, renegotiate-by dates, license renewals and domain expiry dates across every client, soonest first.',
     'secondary' => [$dayBtns, '<a class="btn btn-sm btn-default" href="/licenses"><i class="fas fa-key me-1"></i>Licensing</a>'],
 ]);
 ?>
@@ -62,4 +62,4 @@ echo \Align\View::fetch('partials/page_header', [
     </div>
   </div>
 </div>
-<p class="small text-muted">Dates come from the contract details on licenses and budget lines (renegotiate-by, contract end) and from license expiry dates<?= psa_on() ? ' synced from ' . e(psa_name()) : '' ?>. They also appear on the calendar. A date's vendor is the client vendor its license or budget line is linked to, else the vendor name on it; the same vendor at several clients counts once here.</p>
+<p class="small text-muted">Dates come from the contract details on licenses and budget lines (renegotiate-by, contract end) and from license expiry dates<?= psa_on() ? ' synced from ' . e(psa_name()) : '' ?>; domain expiry dates come from the domains' public registration records (RDAP). They also appear on the calendar. A date's vendor is the client vendor its license or budget line is linked to, else the vendor name on it; the same vendor at several clients counts once here.</p>

@@ -1,7 +1,7 @@
 <?php
 /**
  * 2.8.0 One client's vendors. @var array $client; array $vendors Vendors::forClient(); int $retiredCount; bool $showRetired;
- *      array $templates; array $unlinked vendor name => count (Vendors::unlinked: license and budget line vendors not on the list); string $back
+ *      array $domains (2.10.0 Rdap::forClient); array $templates; array $unlinked vendor name => count (Vendors::unlinked: license and budget line vendors not on the list); string $back
  * Grouped by category; each vendor shows its account number, support details (its own, else its template's), the
  * licenses linked to it with their monthly cost, and the soonest renewal among them. Every value is escaped;
  * websites are linked only when they are http(s) (Vendors::url).
@@ -80,6 +80,35 @@ $soon = date('Y-m-d', strtotime('+90 days'));
       </table>
     </div>
   </div>
+</div>
+<?php // 2.10.0 the client's domains: registrar and expiry from public RDAP ?>
+<div class="card card-dark" id="domains">
+  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-globe me-2"></i>Domains</h3>
+    <?php if ($canEdit && $domains): ?><div class="card-tools"><form method="post" action="/clients/<?= $cid ?>/domains/check" class="d-inline"><?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>"><button class="btn btn-tool"><i class="fas fa-rotate me-1"></i>Check now</button></form></div><?php endif; ?></div>
+  <?php if (!$domains): ?>
+    <div class="card-body small text-muted">No domains yet. The client's email domains (on its <?= $canEdit ? '<a href="/clients/' . $cid . '/connectors#email-auth">Connectors</a>' : 'Connectors' ?> page) and its website's domain are read here, with their registrar and expiry date.</div>
+  <?php else: ?>
+  <div class="table-responsive"><table class="table table-sm mb-0 small" id="domains-table">
+    <thead><tr><th>Domain</th><th>Registrar</th><th>Expires</th><th class="text-muted fw-normal">Checked</th></tr></thead>
+    <tbody>
+    <?php foreach ($domains as $d): ?>
+      <tr>
+        <td class="fw-bold"><?= e($d['domain']) ?></td>
+        <td><?php if ($d['vendor']): ?><i class="fas fa-store text-muted me-1" title="One of the client's vendors"></i><?= e($d['vendor']) ?><?= $d['registrar'] && Vendors::key($d['registrar']) !== Vendors::key($d['vendor']) ? '<div class="text-muted">' . e($d['registrar']) . '</div>' : '' ?>
+          <?php elseif ($d['registrar']): ?><?= e($d['registrar']) ?>
+            <?php if ($canEdit): ?><form method="post" action="/clients/<?= $cid ?>/vendors" class="d-inline"><?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>"><input type="hidden" name="name" value="<?= e(\Align\Domains\Rdap::shortName($d['registrar'])) ?>"><input type="hidden" name="category" value="registrar">
+              <button class="btn btn-sm btn-default py-0 ms-1" title="Add <?= e(\Align\Domains\Rdap::shortName($d['registrar'])) ?> as one of the client's vendors"><i class="fas fa-plus me-1"></i>Add as vendor</button></form><?php endif; ?>
+          <?php else: ?><span class="text-muted">—</span><?php endif; ?></td>
+        <td class="text-nowrap"><?php if ($d['expires_on']): $u = \Align\Budget\Contracts::urgency($d['expires_on']); ?><span class="<?= $u === 'past' ? 'text-danger fw-bold' : ($u === 'soon' ? 'text-warning fw-bold' : '') ?>"><?= e(fmt_date($d['expires_on'])) ?></span><div class="text-muted"><?= e(days_from_now($d['expires_on'])) ?></div>
+          <?php elseif ($d['status'] === null): ?><span class="text-muted">Not read yet</span>
+          <?php else: ?><span class="text-muted" title="<?= e((string) $d['detail']) ?>"><?= $d['status'] === 'missing' ? 'Not registered' : 'Unknown' ?></span><?php if ($d['detail']): ?><div class="text-muted"><?= e($d['detail']) ?></div><?php endif; ?><?php endif; ?></td>
+        <td class="text-muted text-nowrap"><?= $d['checked_at'] ? e(rel_time($d['checked_at'])) : '—' ?></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table></div>
+  <?php endif; ?>
+  <div class="card-footer small text-muted py-2">From each domain's public registration record (RDAP), read every few days and daily once expiry is close. Expiry dates also show on <a href="/renewals?days=365&amp;client=<?= $cid ?>">Renewals</a>. Whether a domain renews by itself is set at the registrar.</div>
 </div>
 <p class="small text-muted">Costs are the vendor's licenses and budget lines that haven't ended. Next renewal is the soonest license renewal, contract end or renegotiation date among them (<a href="/renewals?days=365&amp;client=<?= $cid ?>">Renewals</a> by vendor). With a template, a blank field shows the template's; edit the template on <a href="/vendors">Vendors</a> to change it for every client.<?= psa_on() && \Align\Providers\Providers::psaSupports('vendors') ? ' Vendors archived or deleted in ' . e(psa_name()) . ' are retired here.' : '' ?></p>
 <?php if ($canEdit) echo \Align\View::fetch('vendors/_modal', ['v' => null, 'cid' => $cid, 'templates' => $templates, 'back' => $back]); ?>
