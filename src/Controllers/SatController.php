@@ -11,9 +11,11 @@ use Align\Sat\Sat;
 /**
  * 2.7.0 Security awareness training uploads on a client's overview: upload a Huntress SAT export (its totals are
  * stored, see Sat\Sat) and delete one. 2.7.2: read the client's results from the Curricula API now (Refresh), and
- * open one of its Curricula summary reports.
+ * open one of its Curricula summary reports. 2.14.0: save or remove the client's KnowBe4 token (admins), and Refresh
+ * reads KnowBe4 for a client that has one.
  *
- * Security assumptions: the router checks CSRF; techs and admins only (who see every client); ClientController::load()
+ * Security assumptions: the router checks CSRF; techs and admins only (who see every client), and admins only for
+ * saving or removing a KnowBe4 token (the token is never shown back or logged); ClientController::load()
  * refuses a client that doesn't exist. The file is untrusted: size-limited, read as text and parsed into counts, then thrown away (never
  * moved into storage or served). Deleting checks the row belongs to the client in the address. Audited.
  */
@@ -55,11 +57,27 @@ final class SatController
         redirect("/clients/$id#sat");
     }
 
-    /** Reads the client's results from Curricula now (2.7.2; techs and admins). */
+    /** Reads the client's results from Curricula now (2.7.2; techs and admins). 2.14.0: from KnowBe4 when the client has a token. */
     public static function refresh(int $id): void
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        if (\Align\Sat\KnowBe4::connected($id)) {
+            if (\Align\Sync\SyncRunner::isRunning()) { // two readers on one token could pass KnowBe4's per-minute limit
+                flash('info', 'A sync is running and reads KnowBe4 too. Try again when it has finished.');
+                redirect("/clients/$id#sat");
+            }
+            @set_time_limit(300); // a few requests, spaced for KnowBe4's limit
+            try {
+                \Align\Sat\KnowBe4::refresh($id);
+            } catch (\Throwable $e) {
+                flash('error', 'KnowBe4: ' . safe_error($e));
+                redirect("/clients/$id#sat");
+            }
+            Audit::log('sat.refresh', $client['name'] . ' (KnowBe4)');
+            flash('success', 'Read the training and phishing results from KnowBe4.');
+            redirect("/clients/$id#sat");
+        }
         try {
             if (!\Align\Sat\Curricula::refresh($id)) {
                 flash('error', 'This client isn\'t linked to a Curricula account. Link it on Client mapping.');
@@ -96,6 +114,58 @@ final class SatController
         header('Referrer-Policy: no-referrer');
         header('Location: ' . $url, true, 302);
         exit;
+    }
+
+    /**
+     * 2.14.0 Saves the client's KnowBe4 region and Reporting API token (admins only: it is a key to the client's
+     * training data). The token is checked with one read before it's kept (encrypted); a refused one isn't saved. The
+     * change is audited (never the token) and raises a security alert, like an integration key. Results are read now.
+     */
+    public static function knowbe4Save(int $id): void
+    {
+        $u = Auth::requireRole('admin');
+        $client = ClientController::load($id);
+        if (!\Align\Sat\KnowBe4::enabled() && !\Align\Sat\KnowBe4::connected($id)) {
+            flash('error', 'Switch KnowBe4 on under Integrations → KnowBe4 first.');
+            redirect("/clients/$id#sat");
+        }
+        try {
+            $name = \Align\Sat\KnowBe4::save($id, post('region'), is_string($_POST['token'] ?? null) ? $_POST['token'] : '', (int) $u['id']);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage() . ' Nothing was saved.');
+            redirect("/clients/$id#sat");
+        } catch (\Throwable $e) {
+            flash('error', 'KnowBe4: ' . safe_error($e) . ' Nothing was saved.');
+            redirect("/clients/$id#sat");
+        }
+        Audit::log('sat.knowbe4', "{$client['name']}: token saved for KnowBe4 account $name");
+        \Align\Mail\Notify::security('KnowBe4 token saved', "{$client['name']}: KnowBe4 account $name by " . ($u['email'] ?? ''));
+        if (\Align\Sync\SyncRunner::isRunning()) {
+            flash('success', "Connected to KnowBe4 account $name. Its results are read by the sync that's running now, or the next one.");
+            redirect("/clients/$id#sat");
+        }
+        @set_time_limit(300);
+        try {
+            \Align\Sat\KnowBe4::refresh($id);
+            flash('success', "Connected to KnowBe4 account $name and read its results.");
+        } catch (\Throwable $e) {
+            flash('warning', "Connected to KnowBe4 account $name, but reading its results failed: " . safe_error($e) . ' The next sync tries again.');
+        }
+        redirect("/clients/$id#sat");
+    }
+
+    /** 2.14.0 Removes the client's KnowBe4 token and the results read with it (admins only; audited). */
+    public static function knowbe4Remove(int $id): void
+    {
+        $u = Auth::requireRole('admin');
+        $client = ClientController::load($id);
+        if (\Align\Sat\KnowBe4::connected($id)) {
+            \Align\Sat\KnowBe4::remove($id);
+            Audit::log('sat.knowbe4', "{$client['name']}: KnowBe4 token removed");
+            \Align\Mail\Notify::security('KnowBe4 token removed', "{$client['name']}: by " . ($u['email'] ?? ''));
+            flash('success', 'KnowBe4 removed for this client.');
+        }
+        redirect("/clients/$id#sat");
     }
 
     /** Deletes one upload's results (uploads only: results read from Curricula are replaced by its next read). */

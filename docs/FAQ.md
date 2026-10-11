@@ -40,7 +40,7 @@ confirm it works. See
 [Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN/discussions).
 
 **Does it change anything in my PSA or RMM?**
-It only reads from HaloPSA, NinjaOne, Tactical RMM, Datto RMM and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
+It only reads from HaloPSA, NinjaOne, Tactical RMM, Datto RMM, KnowBe4 and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
 device lifecycle details and warranty dates, contacts (including archiving), and tickets for client requests.
 
 **Is there an API?**

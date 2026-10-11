@@ -9,6 +9,7 @@
  * 2.7.0: ?array $huntress (Huntress\Clients::forClient(), null without a Huntress organization); ?array $sat
  *        (['history', 'checks'] from Sat\Sat, null when Huntress isn't set up and the client has no SAT results)
  * 2.7.2: $sat also has source ('upload' or 'api'), curricula (the linked Curricula account or null) and reports
+ * 2.14.0: and knowbe4 (the client's KnowBe4 row without its token, or null; with one, curricula is null)
  * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
  * classes come from fixed tone lists.
  */

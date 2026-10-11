@@ -263,6 +263,8 @@ $r->post('/clients/{id}/sat', [\Align\Controllers\SatController::class, 'upload'
 $r->post('/clients/{id}/sat/{sid}/delete', [\Align\Controllers\SatController::class, 'delete']);
 $r->post('/clients/{id}/sat/refresh', [\Align\Controllers\SatController::class, 'refresh']); // 2.7.2
 $r->get('/clients/{id}/sat/report/{rid:str}', [\Align\Controllers\SatController::class, 'report']); // 2.7.2
+$r->post('/clients/{id}/sat/knowbe4', [\Align\Controllers\SatController::class, 'knowbe4Save']); // 2.14.0
+$r->post('/clients/{id}/sat/knowbe4/remove', [\Align\Controllers\SatController::class, 'knowbe4Remove']); // 2.14.0
 $r->get('/clients/{id}/connectors', [\Align\Controllers\ConnectorsController::class, 'client']); // 2.6.1
 $r->post('/clients/{id}/m365/connect', [$M, 'connect']);
 $r->post('/clients/{id}/m365/link', [$M, 'link']);

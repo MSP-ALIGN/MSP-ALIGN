@@ -378,7 +378,7 @@ FEATURES = [
     ("key", "Licensing and renewals", "Every license and contract with its cost and renewal date, so nothing renews unnoticed."),
     ("plug", "To do and automation", "One list of what's waiting on your team, and a REST API for n8n, Zapier and scripts."),
 ]
-TOOLS = ["ITFlow", "HaloPSA (beta)", "NinjaOne", "Tactical RMM (beta)", "Datto RMM (beta)", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)",
+TOOLS = ["ITFlow", "HaloPSA (beta)", "NinjaOne", "Tactical RMM (beta)", "Datto RMM (beta)", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)", "KnowBe4 (beta)",
          "SMTP", "Dell warranties", "Lenovo warranties", "CSV import"]
 TRUST = [
     ("server", "Your server, your data", "Self-hosted on a Debian VM or Docker. No telemetry, no cloud account."),
