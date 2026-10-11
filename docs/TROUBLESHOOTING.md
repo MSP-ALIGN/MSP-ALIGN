@@ -50,6 +50,10 @@ system answered.
 | *(no clients returned - check the key user's client access)* | The ITFlow API key works but its user can't see any clients. |
 | *NinjaOne did not return an access token.* | Check the client ID and secret, the grant type (*Client credentials*), the *Monitoring* scope and the **Instance** (US, US2, CA, EU or OC). |
 | *Tactical RMM sent something other than a list…* or *has no /clients/ at that address* | Enter Tactical's **API** address, the one its agents report to (often `https://api.your-domain`), not the dashboard's (`https://rmm.your-domain`). |
+| *HaloPSA refused the client ID or secret* or *has no token address* | Check the client ID and secret (a new secret is made when the authentication method changes), that the application is **Active** and uses *Client ID and Secret (Services)*. Leave the authorisation server and tenant empty unless Halo's API page (Configuration → Integrations → HaloPSA API) shows ones that differ from your Halo address. |
+| *HaloPSA won't let the API application read…* or *refused the read permissions* | On the application's **Permissions** tab allow read:customers, read:assets and read:invoices, and make sure the agent it logs in as can see every client: clients it can't see are archived in Align. |
+| *HaloPSA has no /api/… at that address* or *sent something other than a list* | Enter your Halo web address (`https://yourco.halopsa.com`), without `/api`. |
+| HaloPSA shows **Not in use** | Another PSA (ITFlow) is this install's PSA. An install has one PSA because it decides the client list; nothing is read from the other. |
 | *Tactical RMM refused the API key* | Check the key under Settings → Global Settings → API Keys, and that its user's role has **List clients** and **List agents**. The role must cover every client: agents the key can't see are marked removed in Align. |
 | *this does not look like the VSPC REST API v3* | Enter the Veeam Service Provider Console's own address; the API is `/api/v3` on the same host. |
 | Microsoft 365: *AADSTS7000215* | Paste the secret's **Value**, not its Secret ID. |

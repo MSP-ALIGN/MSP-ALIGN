@@ -317,6 +317,143 @@ if ($path === '/dns') {
     $json(['txt' => $st['dns'][$name] ?? []]);
     return;
 }
+// 2.12.0 HaloPSA: POST /halo/auth/token (client credentials: "halo-id" / "halo-secret", read scopes only) gives a bearer
+// token for GET /halo/api/{Client,Site,Users,Asset,Invoice}. Lists page at most 2 rows whatever page_size asks for
+// (Halo caps pages silently), so readers must follow record_count. Every request is logged (method and path) so tests
+// can check nothing but reads was sent. A tenant, when sent, must be "acme". /mock/halo-set {"mode": "html"|"object"|
+// "down"|"repeat"|"forbid-assets"|"short" (record_count 5 too high)|"strcount"|"nocount"|"nototal" (invoices without totals),
+// "drop": ["Client" id, ...]} changes the answers between syncs and empties the log; /mock/halo-log returns it.
+if ($path === '/mock/halo-set') {
+    $st = $loadState();
+    $st['halo'] = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st['halo_log'] = [];
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/halo-log') {
+    $json($loadState()['halo_log'] ?? []);
+    return;
+}
+if (str_starts_with($path, '/halo/')) {
+    $st = $loadState();
+    $h = $st['halo'] ?? [];
+    $st['halo_log'][] = $method . ' ' . $path;
+    $saveState($st);
+    if ($path === '/halo/auth/token') {
+        if ($method !== 'POST' || ($_POST['grant_type'] ?? '') !== 'client_credentials' || ($_POST['client_id'] ?? '') !== 'halo-id' || ($_POST['client_secret'] ?? '') !== 'halo-secret') {
+            http_response_code(401);
+            $json(['error' => 'invalid_client']);
+            return;
+        }
+        if (isset($_GET['tenant']) && $_GET['tenant'] !== 'acme') {
+            http_response_code(400);
+            $json(['error' => 'invalid_client']);
+            return;
+        }
+        if (($_POST['scope'] ?? '') !== 'read:customers read:assets read:invoices') {
+            http_response_code(400);
+            $json(['error' => 'invalid_scope']);
+            return;
+        }
+        $json(['access_token' => 'halo-token-0123456789', 'token_type' => 'Bearer', 'expires_in' => 3600, 'scope' => $_POST['scope']]);
+        return;
+    }
+    if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer halo-token-0123456789') {
+        http_response_code(401);
+        $json(['error' => 'unauthorized']);
+        return;
+    }
+    $mode = $h['mode'] ?? '';
+    if ($mode === 'html') {
+        header('Content-Type: text/html');
+        echo '<!doctype html><html><body>Halo sign-in page</body></html>';
+        return;
+    }
+    if ($mode === 'down') {
+        http_response_code(502);
+        $json(['error' => 'Bad gateway']);
+        return;
+    }
+    if ($mode === 'forbid-assets' && $path === '/halo/api/Asset') {
+        http_response_code(403);
+        $json(['error' => 'Forbidden']);
+        return;
+    }
+    $months = fn(int $m) => (new DateTime('first day of this month', new DateTimeZone(getenv('TZ') ?: 'UTC')))->modify("-$m months")->format('Y-m-d') . 'T00:00:00';
+    $lists = [
+        '/halo/api/Client' => ['clients', [
+            ['id' => 1, 'name' => 'Cedar Ridge Family Dental, Inc.', 'inactive' => false, 'main_site_id' => 11, 'website' => 'cedarridgedental.example', 'toplevel_id' => 1],
+            ['id' => 2, 'name' => "Harbor Point\x07 Law", 'inactive' => false, 'main_site_id' => 21, 'website' => 'javascript:alert(1)'],
+            ['id' => 3, 'name' => 'Old Closed Co', 'inactive' => true, 'main_site_id' => 31],
+        ]],
+        '/halo/api/Site' => ['sites', [
+            ['id' => 11, 'client_id' => 1, 'name' => 'Main office', 'inactive' => false, 'phonenumber' => '555-0100',
+                'delivery_address' => ['line1' => '100 Cedar Ridge Rd', 'line2' => 'Suite 4', 'line3' => 'Springfield', 'line4' => 'OR', 'postcode' => '97000', 'country' => 'United States']],
+            ['id' => 12, 'client_id' => 1, 'name' => 'Annex', 'inactive' => false, 'phonenumber' => '555-0101'],
+            ['id' => 21, 'client_id' => 2, 'name' => 'Harbor office', 'inactive' => false, 'delivery_address_line1' => '9 Harbor Way', 'delivery_address_line5' => '97001'],
+            ['id' => 31, 'client_id' => 3, 'name' => 'Closed site', 'inactive' => true],
+        ]],
+        '/halo/api/Users' => ['users', [
+            ['id' => 101, 'name' => 'Dana Example', 'client_id' => 1, 'site_id' => 11, 'emailaddress' => 'dana@cedarridgedental.example', 'phonenumber' => '555-0110',
+                'mobilenumber' => '555-0111', 'title' => 'Office Manager', 'ismaincontact' => true, 'isimportantcontact' => false, 'inactive' => false],
+            ['id' => 102, 'name' => 'General User', 'client_id' => 1, 'site_id' => 11, 'inactive' => false],
+            ['id' => 103, 'name' => 'Lee Sample', 'site_id' => 12, 'emailaddress' => 'not an email', 'isimportantcontact' => true, 'inactive' => false],
+            ['id' => 104, 'firstname' => 'Pat', 'surname' => 'Former', 'client_id' => 2, 'site_id' => 21, 'emailaddress' => 'pat@harborpoint.example', 'inactive' => false],
+            ['id' => 106, 'name' => 'Gone Person', 'client_id' => 2, 'site_id' => 21, 'inactive' => true],
+            ['id' => 105, 'name' => 'Nowhere Person', 'site_id' => 999, 'inactive' => false],
+        ]],
+        '/halo/api/Asset' => ['assets', [
+            ['id' => 201, 'client_id' => 1, 'site_id' => 11, 'inventory_number' => 'CR-WS-HALO', 'assettype_name' => 'Workstation', 'manufacturer_name' => 'Dell Inc.', 'inactive' => false,
+                'warranty_end' => '2027-03-31T00:00:00', 'dlastupdate' => '2026-09-01T12:00:00',
+                'fields' => [['id' => 1, 'name' => 'Serial Number', 'value' => 'HALOSN201'], ['id' => 2, 'name' => 'Model', 'value' => 'OptiPlex 7090'], ['id' => 3, 'name' => 'Operating System', 'value' => 'Windows 11 Pro']]],
+            ['id' => 202, 'client_id' => 1, 'site_id' => 12, 'inventory_number' => 'CR-PRN-HALO', 'assettype_name' => 'Printer', 'inactive' => false,
+                'fields' => [['name' => 'Serial Number', 'value' => 'To be filled by O.E.M.'], ['name' => 'Model', 'value' => 'LaserJet M404']]],
+            ['id' => 203, 'client_id' => 1, 'site_id' => 11, 'inventory_number' => 'CR-OLD-SRV', 'assettype_name' => 'Server', 'inactive' => true, 'warranty_end' => '0001-01-01T00:00:00'],
+            ['id' => 204, 'site_id' => 21, 'key_field' => 'HP-LAPTOP-HALO', 'assettype_name' => 'Laptop', 'manufacturer_name' => 'HP', 'inactive' => false,
+                'fields' => [['name' => 'serial number', 'value' => 'HALOSN204']]],
+            ['id' => 'x5', 'client_id' => 1, 'inventory_number' => 'BAD-ID-HALO'],
+        ]],
+        '/halo/api/Invoice' => ['invoices', array_merge(
+            array_map(fn($m) => ['id' => 300 + $m, 'client_id' => 1, 'invoice_date' => $months($m), 'total' => 1250.5, 'recurring_invoice_id' => 7], range(1, 6)),
+            [['id' => 320, 'client_id' => 2, 'invoice_date' => $months(1), 'total' => '400', 'recurring_invoice_id' => 0]],
+        )],
+    ];
+    if (!isset($lists[$path])) {
+        if (preg_match('#^/halo/api/Asset/(\d+)$#', $path, $am)) {
+            foreach ($lists['/halo/api/Asset'][1] as $a) {
+                if (($a['id'] ?? null) === (int) $am[1]) {
+                    $json($a);
+                    return;
+                }
+            }
+        }
+        http_response_code(404);
+        $json(['error' => 'Not found']);
+        return;
+    }
+    [$key, $rows] = $lists[$path];
+    if ($path === '/halo/api/Client' && !empty($h['drop'])) {
+        $rows = array_values(array_filter($rows, fn($r) => !in_array($r['id'], $h['drop'], true)));
+    }
+    if ($mode === 'object') {
+        $json(['record_count' => 1, $key => ['id' => 1]]);
+        return;
+    }
+    if ($mode === 'nototal' && $key === 'invoices') {
+        $rows = array_map(fn($r) => array_diff_key($r, ['total' => 1]), $rows);
+    }
+    $size = min(2, max(1, (int) ($_GET['page_size'] ?? 50)));
+    $page = $mode === 'repeat' ? 1 : max(1, (int) ($_GET['page_no'] ?? 1));
+    $out = ['record_count' => count($rows) + ($mode === 'short' ? 5 : 0), 'page_no' => $page, 'page_size' => $size, $key => array_slice($rows, ($page - 1) * $size, $size)];
+    if ($mode === 'strcount') {
+        $out['record_count'] = (string) $out['record_count'];
+    } elseif ($mode === 'nocount') {
+        unset($out['record_count']);
+    }
+    $json($out);
+    return;
+}
 // 2.11.0 Tactical RMM: GET /trmm/clients/ and /trmm/agents/?detail=true with the key "trmm-key" in X-API-KEY.
 // /mock/trmm-set {"mode": "html"|"object"|"down", "drop": ["agent id", ...]} changes the answers between syncs.
 if ($path === '/mock/trmm-set') {

@@ -12,6 +12,7 @@ final class Registry
 {
     public const CONNECTORS = [
         Connectors\Itflow::class,
+        Connectors\HaloPsa::class, // 2.12.0 (beta)
         Connectors\NinjaOne::class,
         Connectors\TacticalRmm::class, // 2.11.0 (beta)
         Connectors\Veeam::class,

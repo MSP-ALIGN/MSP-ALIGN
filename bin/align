@@ -91,8 +91,8 @@ try {
 
         case 'psa:poll':
         case 'itflow:poll': // name used before 1.28 (older timer units still call it)
-            if (!Align\Providers\Providers::psaSupports('assets')) {
-                exit(0); // no PSA with assets set up yet: nothing to do
+            if (!Align\Providers\Providers::psaSupports('assets') || !Align\Providers\Providers::psaConnector()?->polls()) {
+                exit(0); // no PSA with assets set up yet, or one read only by the hourly sync (2.12.0): nothing to do
             }
             if (SyncRunner::isRunning()) {
                 exit(0); // the hourly sync covers PSA assets too

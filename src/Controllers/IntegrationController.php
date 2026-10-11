@@ -89,14 +89,23 @@ final class IntegrationController
             flash('error', 'Remove the demo data first (Settings → General → Demo data): ' . $c->name() . ' would bring your real clients in next to the made-up ones.');
             redirect(setup_return('/integrations/' . $key));
         }
+        // 2.12.0 The PSA in use before this save (on an install from before psa_provider was always set, the first one set up)
+        $psaBefore = \Align\Providers\Providers::psaConfigured() ? \Align\Providers\Providers::psaKey() : null;
         try {
             $changed = $c->save($_POST);
         } catch (\InvalidArgumentException $e) {
             flash('error', $e->getMessage() . ' Nothing was saved.');
             redirect(setup_return('/integrations/' . $key));
         }
-        // The first PSA set up becomes the install's PSA (the source of truth for clients)
+        // The first PSA set up becomes the install's PSA (the source of truth for clients). 2.12.0: when one was already
+        // in use without the setting, that one is written down, so setting up a second PSA never switches the client list
         if ($c instanceof \Align\Integrations\PsaConnector && $c->configured() && (string) \Align\Settings::get('psa_provider', '') === '') {
+            \Align\Settings::set('psa_provider', $psaBefore ?? $c->key());
+            $changed[] = 'psa_provider';
+        } elseif ($c instanceof \Align\Integrations\PsaConnector && $c->configured() && $psaBefore === null && !$c->inUse()
+            && !\Align\DB::value('SELECT 1 FROM clients WHERE psa_id IS NOT NULL LIMIT 1')) {
+            // 2.12.0 The named PSA isn't set up any more and no client came from one: this PSA takes over. Once clients
+            // have come from a PSA it never switches (the other PSA's ids would land on them)
             \Align\Settings::set('psa_provider', $c->key());
             $changed[] = 'psa_provider';
         }
