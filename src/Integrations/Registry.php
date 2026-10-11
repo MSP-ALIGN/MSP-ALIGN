@@ -15,6 +15,7 @@ final class Registry
         Connectors\HaloPsa::class, // 2.12.0 (beta)
         Connectors\NinjaOne::class,
         Connectors\TacticalRmm::class, // 2.11.0 (beta)
+        Connectors\DattoRmm::class, // 2.13.0 (beta)
         Connectors\Veeam::class,
         Connectors\Email::class,
         Connectors\Microsoft365::class, // 2.6.0

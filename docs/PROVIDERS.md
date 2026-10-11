@@ -6,7 +6,7 @@ portal and the REST API read only neutral tables, so they don't know or care whi
 | Area | Provider today | Neutral tables |
 |---|---|---|
 | PSA (at most one per install; none is fine) | ITFlow, HaloPSA (beta, read-only) | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `client_vendors.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
-| RMM (any number) | NinjaOne, Tactical RMM (beta) | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links` |
+| RMM (any number) | NinjaOne, Tactical RMM (beta), Datto RMM (beta) | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links`, `rmm_hardware` (hardware read per device, 2.13.0) |
 | Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
 
 ## PSA providers

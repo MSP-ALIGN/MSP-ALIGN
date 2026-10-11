@@ -503,7 +503,9 @@ final class SyncRunner
             }
         });
         $removed = (int) DB::value('SELECT COUNT(*) FROM devices WHERE removed_at = ? AND rmm_provider = ?', [$now, $key]);
-        return count($devices) . ' devices' . ($removed ? ", $removed no longer in $n" : '');
+        // 2.13.0 a provider can add a note (Datto RMM: how many devices' hardware was read this run)
+        $note = method_exists($rmm, 'syncNote') ? (string) $rmm->syncNote() : '';
+        return count($devices) . ' devices' . ($removed ? ", $removed no longer in $n" : '') . ($note !== '' ? "; $note" : '');
     }
 
     /** The warranty lookup for a manufacturer name: dell, lenovo or null. */

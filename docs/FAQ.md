@@ -25,7 +25,7 @@ through API keys limited to them.
 ## Tools it works with
 
 **Which PSA, RMM and backup tools are supported?**
-ITFlow or HaloPSA (beta, since 2.12.0; read-only) as the PSA, NinjaOne or Tactical RMM (beta, since 2.11.0) as the RMM, both at once if you like, and Veeam Service
+ITFlow or HaloPSA (beta, since 2.12.0; read-only) as the PSA, NinjaOne, Tactical RMM (beta, since 2.11.0) or Datto RMM (beta, since 2.13.0) as the RMM, several at once if you like, and Veeam Service
 Provider Console for backups, plus Dell and Lenovo warranty lookups and email through Microsoft 365, Google Workspace or SMTP.
 
 **Do I need a PSA?**
@@ -40,7 +40,7 @@ confirm it works. See
 [Discussions](https://github.com/MSP-ALIGN/MSP-ALIGN/discussions).
 
 **Does it change anything in my PSA or RMM?**
-It only reads from HaloPSA, NinjaOne, Tactical RMM and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
+It only reads from HaloPSA, NinjaOne, Tactical RMM, Datto RMM and Veeam. With ITFlow it writes back the things you change in MSP Align on purpose:
 device lifecycle details and warranty dates, contacts (including archiving), and tickets for client requests.
 
 **Is there an API?**

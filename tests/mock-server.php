@@ -317,6 +317,134 @@ if ($path === '/dns') {
     $json(['txt' => $st['dns'][$name] ?? []]);
     return;
 }
+// 2.13.0 Datto RMM: POST /drmm/auth/oauth/token (password grant: "drmm-key" / "drmm-secret", Basic public-client:public)
+// gives a bearer token for GET /drmm/api/v2/account/sites, /account/devices (pages of at most 2, numbered from 0, with
+// pageDetails) and /audit/device/{uid}. Requests are logged. /mock/drmm-set {"mode": "html"|"object"|"down"|"short"|
+// "lowcount"|"fullnototal"|"repeat"|"expire"|"throttle-audit"|"audit-fail", "drop": [uid, ...], "reaudit": [uid, ...]}
+// changes the answers and empties the log;
+// /mock/drmm-log returns it.
+if ($path === '/mock/drmm-set') {
+    $st = $loadState();
+    $st['drmm'] = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st['drmm_log'] = [];
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/drmm-log') {
+    $json($loadState()['drmm_log'] ?? []);
+    return;
+}
+if (str_starts_with($path, '/drmm/')) {
+    $st = $loadState();
+    $d = $st['drmm'] ?? [];
+    $st['drmm_log'][] = $method . ' ' . $path;
+    $saveState($st);
+    if ($path === '/drmm/auth/oauth/token') {
+        if ($method !== 'POST' || ($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Basic ' . base64_encode('public-client:public')
+            || ($_POST['grant_type'] ?? '') !== 'password' || ($_POST['username'] ?? '') !== 'drmm-key' || ($_POST['password'] ?? '') !== 'drmm-secret') {
+            http_response_code(400);
+            $json(['error' => 'invalid_grant']);
+            return;
+        }
+        $json(['access_token' => 'drmm-token-0123456789', 'token_type' => 'bearer', 'expires_in' => 359999]);
+        return;
+    }
+    $mode = $d['mode'] ?? '';
+    // expire: the first token is refused once, after the sites list, as if it ran out mid-sync
+    $expired = $mode === 'expire' && str_ends_with($path, '/account/devices') && count(array_filter($st['drmm_log'], fn($l) => str_contains($l, 'oauth/token'))) === 1;
+    if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer drmm-token-0123456789' || $expired) {
+        http_response_code(401);
+        $json(['error' => 'invalid_token']);
+        return;
+    }
+    if ($mode === 'html') {
+        header('Content-Type: text/html');
+        echo '<!doctype html><html><body>Datto RMM</body></html>';
+        return;
+    }
+    if ($mode === 'down') {
+        http_response_code(502);
+        $json(['error' => 'Bad gateway']);
+        return;
+    }
+    $ms = fn(int $minutesAgo) => (time() - $minutesAgo * 60) * 1000;
+    $hw = [ // uid => [manufacturer, model, serial]
+        'drmm-dev-0001' => ['Dell Inc.', 'PowerEdge R450', 'DRMMSRV1'],
+        'drmm-dev-0002' => ['LENOVO', '20W0 ThinkPad T14 Gen 2i', 'PF4DRMM2'],
+        'drmm-dev-0003' => ['Apple Inc.', 'MacBookPro18,1', 'C02DRMM3'],
+        'drmm-dev-0005' => ['VMware, Inc.', 'VMware Virtual Platform', 'VMware-56 4d 11 22'],
+        'drmm-dev-0007' => ['HP', 'EliteDesk 800 G6', 'MXLDRMM7'],
+        'drmm-dev-0009' => ["Micro-Star\x07 International", 'MS-7C02', 'To be filled by O.E.M.'],
+    ];
+    if (preg_match('#^/drmm/api/v2/audit/device/([A-Za-z0-9-]+)$#', $path, $am)) {
+        if ($mode === 'throttle-audit' && count(array_filter($st['drmm_log'], fn($l) => str_contains($l, '/audit/'))) > 1) {
+            http_response_code(429);
+            $json(['error' => 'Too many requests']);
+            return;
+        }
+        if ($am[1] === 'drmm-dev-0008' || $mode === 'audit-fail') {
+            http_response_code(500);
+            $json(['error' => 'Audit not available']);
+            return;
+        }
+        $h = $hw[$am[1]] ?? null;
+        if (!$h) {
+            http_response_code(404);
+            $json(['error' => 'Not found']);
+            return;
+        }
+        $json(['portalUrl' => 'https://example.invalid/device', 'systemInfo' => ['manufacturer' => $h[0], 'model' => $h[1], 'totalCpuCores' => 8],
+            'bios' => ['serialNumber' => $h[2], 'releaseDate' => 1577836800000], 'nics' => []]);
+        return;
+    }
+    $sites = [
+        ['id' => 1, 'uid' => 'drmm-site-0001', 'name' => 'Cedar Ridge Family Dental, Inc.', 'devicesStatus' => ['numberOfDevices' => 6]],
+        ['id' => 2, 'uid' => 'drmm-site-0002', 'name' => 'Datto Only Co', 'description' => 'Managed since 2024', 'devicesStatus' => ['numberOfDevices' => 1]],
+        ['id' => 3, 'uid' => 'drmm-site-0003', 'name' => 'Deleted Devices'],
+    ];
+    $audit = fn(string $uid) => in_array($uid, $d['reaudit'] ?? [], true) ? 1780000000000 : 1767225600000; // fixed times, as Datto's are
+    $dev = fn(string $uid, string $site, string $host, string $cat, string $class, string $os, bool $online, string $user, int $seen, array $extra = []) => $extra + [
+        'id' => crc32($uid), 'uid' => $uid, 'siteUid' => $site, 'siteName' => 'x', 'hostname' => $host, 'deviceType' => ['category' => $cat, 'type' => $cat],
+        'deviceClass' => $class, 'operatingSystem' => $os, 'online' => $online, 'lastLoggedInUser' => $user, 'lastSeen' => $ms($seen), 'creationDate' => $ms(60 * 24 * 400),
+        'lastAuditDate' => $audit($uid), 'deleted' => false, 'suspended' => false, 'intIpAddress' => '10.0.0.9', 'udf' => ['udf1' => 'secret note'],
+    ];
+    $devices = [
+        $dev('drmm-dev-0001', 'drmm-site-0001', 'CR-SRV-DRMM', 'Server', 'device', 'Microsoft Windows Server 2022 Standard 10.0.20348', true, 'CEDAR\\admin', 3),
+        $dev('drmm-dev-0002', 'drmm-site-0001', 'CR-LT-DRMM', 'Laptop', 'device', 'Microsoft Windows 11 Pro 10.0.22631', false, 'dana', 60 * 24 * 2),
+        $dev('drmm-dev-0003', 'drmm-site-0001', 'CR-MAC-DRMM', 'Laptop', 'device', 'macOS Sonoma 14.5', true, 'jlee', 10),
+        $dev('drmm-dev-0004', 'drmm-site-0001', 'CR-PRN-DRMM', 'Printer', 'printer', '', true, '', 30),
+        $dev('drmm-dev-0005', 'drmm-site-0001', 'CR-VM-DRMM', 'Server', 'device', 'Microsoft Windows Server 2019 Standard 10.0.17763', true, '', 2),
+        $dev('drmm-dev-0006', 'drmm-site-0001', 'CR-GONE-DRMM', 'Desktop', 'device', 'Microsoft Windows 10 Pro 10.0.19045', false, '', 99999, ['deleted' => true]),
+        $dev('drmm-dev-0007', 'drmm-site-0003', 'OLD-PC-DRMM', 'Desktop', 'device', 'Microsoft Windows 10 Pro 10.0.19045', false, '', 99999),
+        $dev('drmm-dev-0008', 'drmm-site-0001', "CR-PC\x07-DRMM", 'Desktop', 'device', 'Microsoft Windows 11 Pro 10.0.26100', true, '', 5),
+        $dev('drmm-dev-0009', 'drmm-site-0002', 'DOC-PC-DRMM', 'Desktop', 'device', 'Microsoft Windows 11 Pro 10.0.26100', true, 'pat', 5),
+        ['uid' => 'bad uid!', 'hostname' => 'BAD-UID'],
+    ];
+    $lists = ['/drmm/api/v2/account/sites' => ['sites', $sites],
+        '/drmm/api/v2/account/devices' => ['devices', array_values(array_filter($devices, fn($r) => !in_array($r['uid'], $d['drop'] ?? [], true)))]];
+    if (!isset($lists[$path])) {
+        http_response_code(404);
+        $json(['error' => 'Not found']);
+        return;
+    }
+    [$key, $rows] = $lists[$path];
+    if ($mode === 'object') {
+        $json(['pageDetails' => ['count' => 1, 'totalCount' => 1], $key => ['uid' => 'x']]);
+        return;
+    }
+    if ($mode === 'fullnototal') { // one full page of 250, no total, no next page
+        $json(['pageDetails' => ['count' => 250, 'nextPageUrl' => null], $key => array_map(fn($i) => ['uid' => "drmm-filler-$i", 'hostname' => "F$i", 'siteUid' => 'drmm-site-0001'], range(1, 250))]);
+        return;
+    }
+    $page = $mode === 'repeat' ? 0 : max(0, (int) ($_GET['page'] ?? 0));
+    $slice = array_slice($rows, $page * 2, 2);
+    $total = $mode === 'lowcount' ? 2 : count($rows) + ($mode === 'short' ? 3 : 0);
+    $more = ($page + 1) * 2 < count($rows);
+    $json(['pageDetails' => ['count' => count($slice), 'totalCount' => $total, 'prevPageUrl' => $page ? 'https://elsewhere.example/prev' : null,
+        'nextPageUrl' => $more ? 'https://elsewhere.example/api/v2' . substr($path, strlen('/drmm/api/v2')) . '?page=' . ($page + 1) : null], $key => $slice]);
+    return;
+}
 // 2.12.0 HaloPSA: POST /halo/auth/token (client credentials: "halo-id" / "halo-secret", read scopes only) gives a bearer
 // token for GET /halo/api/{Client,Site,Users,Asset,Invoice}. Lists page at most 2 rows whatever page_size asks for
 // (Halo caps pages silently), so readers must follow record_count. Every request is logged (method and path) so tests
