@@ -26,6 +26,7 @@ final class Keys
         'projects' => ['Projects & roadmap', 'Roadmap projects and their status', 'Create, change and delete projects (title, quarter, cost, priority, status)'],
         'budget' => ['Budget', 'Technology budget by quarter and category, and budget lines', 'Create, change and delete budget lines'],
         'licenses' => ['Licensing', 'Licenses with prices, contract dates and renewals', 'Prices, billing cycle, contract dates and notes; add, retire and delete licenses you added'],
+        'vendors' => ['Vendors', 'Client vendors (account numbers, support details, services, notes) and vendor templates (2.10.0)', null],
         'meetings' => ['Meetings', 'Meetings, agendas and notes', 'Schedule, change, complete, cancel and delete meetings (optionally sending calendar invitations)'],
         'compliance' => ['Compliance', 'Frameworks, scores and each control\'s status', 'Control status, notes, evidence, owner and due date; assign and remove frameworks'],
         'alignment' => ['Alignment', 'Standards, clients\' alignment scores, gaps and reviews with their answers', 'Start reviews, answer standards, finish and discard reviews (2.3.0)'],

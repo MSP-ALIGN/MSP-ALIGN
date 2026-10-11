@@ -397,6 +397,19 @@ final class PortalController
     }
 
     /**
+     * 2.10.0 The client's vendors (can_budget): who to call for what. Only what helps the client reach a vendor is
+     * passed to the view (name, category, services, support phone, email, website, hours, SLA); account numbers,
+     * contacts, notes and costs stay staff-only. Retired vendors aren't shown.
+     */
+    public static function vendors(): void
+    {
+        $pu = PortalAuth::require('can_budget');
+        $keep = ['name', 'category', 'services', 'support_phone', 'support_email', 'website', 'link', 'hours', 'sla'];
+        $vs = array_map(fn($v) => array_intersect_key($v, array_flip($keep)), \Align\Vendors\Vendors::forClient((int) $pu['client_id']));
+        self::render('vendors', ['title' => 'Vendors', 'nav' => 'vendors', 'vendors' => $vs], $pu);
+    }
+
+    /**
      * A license or budget item the client suggests; staff review it before anything is added (1.39). Needs can_budget
      * and can_submit with suggestions switched on; 20 an hour per user. The client always comes from the user, never
      * the form; Submissions::fromPost() checks and cleans every field.
@@ -621,7 +634,7 @@ final class PortalController
         if ($kind === 'qbr') {
             // Only the sections this user may see; costs only with budget access
             $allowed = array_keys(array_filter(['s_roadmap' => $pu['can_roadmap'], 's_budget' => $pu['can_budget'], 's_assets' => $pu['can_devices'],
-                's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget'],
+                's_backup' => $pu['can_devices'], 's_sla' => $pu['can_devices'], 's_compliance' => $pu['can_devices'], 's_licensing' => $pu['can_budget'], 's_vendors' => $pu['can_budget'], // 2.10.0
                 's_changes' => (bool) \Align\Changes\Changes::portalParts($pu), // 2.4.0, only the parts this user may see
                 's_health' => $pu['can_devices'] && \Align\Health\Health::inPortal($client)])); // 2.5.0, when staff switched it on
             $opt = ['costs' => $pu['can_budget'] && query('costs', '1') === '1', 'inventory' => query('inventory', '0') === '1', 'users' => query('users', '1') === '1',

@@ -8,6 +8,7 @@ use Align\View;
  *   2 Service levels           how we did (look back)
  *   3 Assets & lifecycle       what you have: servers with hosts and VMs, network, computers
  *   4 Software & licensing     what you have: subscriptions and renewals
+ *     Your vendors (2.10.0)    who they buy from and how to reach them
  *   5 Backup & recovery        is it protected
  *     Security (2.7.0)         Huntress, training and the security checks
  *   6 Compliance               is it secure and compliant
@@ -17,7 +18,7 @@ use Align\View;
  *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
  * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed),
- *   $hl (2.5.0 health headline: h, since), $sec (2.7.0 ReportData::security())
+ *   $hl (2.5.0 health headline: h, since), $sec (2.7.0 ReportData::security()), $ven (2.10.0 ReportData::vendors())
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -30,6 +31,7 @@ if (!empty($ch)) $sections['changes'] = 'Since our last review'; // 2.4.0: right
 if (!empty($sla)) $sections['sla'] = 'Service levels';
 if ($on('s_assets') && $a) $sections['assets'] = 'Assets & lifecycle';
 if ($on('s_licensing') && $lic && $costs) $sections['licensing'] = 'Software & licensing'; // budget and licensing are all prices: left out when costs are off
+if (!empty($ven)) $sections['vendors'] = 'Your vendors'; // 2.10.0 (costs only shown with costs on)
 if ($bk) $sections['backup'] = 'Backup & recovery';
 if (!empty($sec)) $sections['security'] = 'Security'; // 2.7.0
 if ($on('s_compliance') && $comp && $comp['frameworks']) $sections['compliance'] = 'Compliance';
@@ -144,6 +146,11 @@ foreach ($sections as $k => $_) {
 <?php if (isset($sections['licensing'])): ?>
 <div class="page-break"></div>
 <?= View::fetch('reports/sections/licensing', ['l' => $lic, 'num' => $numOf['licensing']]) ?>
+<?php endif; ?>
+
+<?php if (isset($sections['vendors'])): // 2.10.0 ?>
+<div class="page-break"></div>
+<?= View::fetch('reports/sections/vendors', ['v' => $ven, 'num' => $numOf['vendors'], 'costs' => $costs]) ?>
 <?php endif; ?>
 
 <?php if (isset($sections['backup'])): ?>

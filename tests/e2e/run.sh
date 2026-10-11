@@ -33,7 +33,7 @@ case "$(realpath -m "$W")" in /|/tmp|"$HOME"|"$ROOT"|"$ROOT"/*) echo "Refusing t
 
 SUITES=(portal_e2e sec_e2e e2e ex_e2e rep_e2e order_e2e mail_e2e google_e2e smtp_e2e int_e2e legal_e2e replace_e2e dnd_e2e
   compliance_e2e sla_e2e dash_e2e onb_e2e hosted_e2e api_e2e api_ui_e2e api_attack_e2e psa_e2e rmm_e2e backup_e2e
-  mapping_e2e nopsa_e2e setup_e2e demo_e2e locale_e2e suggest_e2e staging_e2e sys_e2e move_e2e upd_ui_e2e lists_e2e docker_e2e contacts_e2e sec145_e2e rem_e2e brand_e2e sign_e2e confirm_e2e m365_e2e devproj_e2e contracts_e2e core_auth_e2e core_db_e2e api_core_e2e api_res_e2e portal_q_e2e sign_q_e2e pdf_q_e2e onb_q_e2e upload_q_e2e mail_q_e2e int_q_e2e prov_q_e2e sync_q_e2e agent_q_e2e install_q_e2e docker_q_e2e acct_q_e2e clients_q_e2e plan_q_e2e js_q_e2e audit_q_e2e rts_e2e devfilter_e2e diag_e2e logos_e2e favicon_e2e clean226_e2e alignment_e2e api_align_e2e legal231_e2e changes_e2e health_e2e m365_clients_e2e m365_security_e2e gws_e2e huntress_e2e curricula_e2e emailauth_e2e backuplink_e2e vendor_e2e vendor2_e2e contrast_e2e crawl crawl_fresh)
+  mapping_e2e nopsa_e2e setup_e2e demo_e2e locale_e2e suggest_e2e staging_e2e sys_e2e move_e2e upd_ui_e2e lists_e2e docker_e2e contacts_e2e sec145_e2e rem_e2e brand_e2e sign_e2e confirm_e2e m365_e2e devproj_e2e contracts_e2e core_auth_e2e core_db_e2e api_core_e2e api_res_e2e portal_q_e2e sign_q_e2e pdf_q_e2e onb_q_e2e upload_q_e2e mail_q_e2e int_q_e2e prov_q_e2e sync_q_e2e agent_q_e2e install_q_e2e docker_q_e2e acct_q_e2e clients_q_e2e plan_q_e2e js_q_e2e audit_q_e2e rts_e2e devfilter_e2e diag_e2e logos_e2e favicon_e2e clean226_e2e alignment_e2e api_align_e2e legal231_e2e changes_e2e health_e2e m365_clients_e2e m365_security_e2e gws_e2e huntress_e2e curricula_e2e emailauth_e2e backuplink_e2e vendor_e2e vendor2_e2e vendor3_e2e contrast_e2e crawl crawl_fresh)
 # 2.7.7 GitHub runs the suites in parallel: each group on its own machine, with its own fresh seed (GROUP=1..5
 # tests/e2e/run.sh). The groups are the list above cut into five runs of about ten minutes, in the same order, so a
 # suite still runs after the ones before it in its group. --check-groups fails unless they are exactly that list.
@@ -42,7 +42,7 @@ SUITE_GROUPS=(
   "onb_e2e hosted_e2e api_e2e api_ui_e2e api_attack_e2e psa_e2e rmm_e2e backup_e2e mapping_e2e nopsa_e2e setup_e2e demo_e2e locale_e2e suggest_e2e staging_e2e sys_e2e move_e2e upd_ui_e2e lists_e2e"
   "docker_e2e contacts_e2e sec145_e2e rem_e2e brand_e2e sign_e2e confirm_e2e m365_e2e devproj_e2e contracts_e2e core_auth_e2e core_db_e2e api_core_e2e api_res_e2e portal_q_e2e sign_q_e2e pdf_q_e2e onb_q_e2e upload_q_e2e mail_q_e2e int_q_e2e"
   "prov_q_e2e sync_q_e2e agent_q_e2e install_q_e2e docker_q_e2e acct_q_e2e clients_q_e2e plan_q_e2e js_q_e2e audit_q_e2e rts_e2e devfilter_e2e diag_e2e logos_e2e favicon_e2e clean226_e2e"
-  "alignment_e2e api_align_e2e legal231_e2e changes_e2e health_e2e m365_clients_e2e m365_security_e2e gws_e2e huntress_e2e curricula_e2e emailauth_e2e backuplink_e2e vendor_e2e vendor2_e2e contrast_e2e crawl crawl_fresh"
+  "alignment_e2e api_align_e2e legal231_e2e changes_e2e health_e2e m365_clients_e2e m365_security_e2e gws_e2e huntress_e2e curricula_e2e emailauth_e2e backuplink_e2e vendor_e2e vendor2_e2e vendor3_e2e contrast_e2e crawl crawl_fresh"
 )
 if [[ "${1:-}" == --check-groups ]]; then
   joined=$(printf '%s ' "${SUITE_GROUPS[@]}" | tr -s ' ' '\n' | sed '/^$/d')

@@ -122,6 +122,9 @@ final class LicenseController
         // 2.9.0 one client (?client=) and one vendor (?vendor=, compared as Vendors::key), and the dates by vendor
         $clientId = ctype_digit(query('client')) ? (int) query('client') : 0;
         $all = \Align\Budget\Contracts::upcoming(null, $days);
+        // 2.10.0 domain expiry dates (from public RDAP) on this page too
+        $all = array_merge($all, \Align\Domains\Rdap::upcoming(null, $days));
+        usort($all, fn($a, $b) => [$a['date'], $a['client_name']] <=> [$b['date'], $b['client_name']]);
         if ($clientId) { // (filtered here, not upcoming($clientId), so it stays to clients in planning, like the rest of the page)
             $all = array_values(array_filter($all, fn($d) => $d['client_id'] === $clientId));
         }

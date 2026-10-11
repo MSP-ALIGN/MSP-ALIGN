@@ -73,6 +73,7 @@ $r->get('/licenses', [\Align\Controllers\LicenseController::class, 'index']);
 // 2.8.0 vendors: each client's, and the shared templates
 $r->get('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'client']);
 $r->post('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'create']);
+$r->post('/clients/{id}/domains/check', [\Align\Controllers\VendorController::class, 'checkDomains']); // 2.10.0
 $r->get('/vendors', [\Align\Controllers\VendorController::class, 'index']);
 $r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
 $r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
@@ -439,6 +440,7 @@ $r->get('/portal/changes', [PortalController::class, 'changes']); // 2.4.0
 $r->post('/portal/projects/{id}/decide', [PortalController::class, 'decide']);
 $r->get('/portal/budget', [PortalController::class, 'budget']);
 $r->get('/portal/licensing', [PortalController::class, 'licensing']);
+$r->get('/portal/vendors', [PortalController::class, 'vendors']); // 2.10.0
 $r->get('/portal/devices', [PortalController::class, 'devices']);
 $r->get('/portal/compliance', [PortalController::class, 'compliance']);
 $r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);

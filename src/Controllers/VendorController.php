@@ -40,7 +40,19 @@ final class VendorController
             'templates' => Vendors::templates(),
             'back' => "/clients/$id/vendors" . ($showRetired ? '?retired=1' : ''),
             'unlinked' => Vendors::unlinked($id), // 2.9.0: licenses and budget lines
+            'domains' => \Align\Domains\Rdap::forClient($id, $active), // 2.10.0 registrars and expiry dates
         ]);
+    }
+
+    /** 2.10.0 Reads the client's domains from public RDAP now (Check now). Techs and admins; audited. */
+    public static function checkDomains(int $id): void
+    {
+        Auth::requireRole('tech');
+        $client = ClientController::load($id);
+        $n = \Align\Domains\Rdap::refreshClient($id);
+        Audit::log('vendor.domains_check', "{$client['name']}: $n domain" . ($n === 1 ? '' : 's'));
+        flash($n ? 'success' : 'error', $n ? "Read $n domain" . ($n === 1 ? '' : 's') . ' from public registration records.' : 'This client has no domains yet: add its email domains on its Connectors page, or its website on its details.');
+        redirect(self::back("/clients/$id/vendors") . '#domains');
     }
 
     /** Every vendor template with the clients using it. Any staff role. */

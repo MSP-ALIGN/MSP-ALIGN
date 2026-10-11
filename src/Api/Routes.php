@@ -15,6 +15,7 @@ use Align\Api\Resources\Licenses;
 use Align\Api\Resources\Meetings;
 use Align\Api\Resources\Projects;
 use Align\Api\Resources\ServiceLevels;
+use Align\Api\Resources\Vendors;
 
 /**
  * Every v1 endpoint, with what the OpenAPI spec and the docs page need. Paths are relative to /api/v1.
@@ -104,6 +105,14 @@ final class Routes
             $r('PATCH', '/licenses/{id}', 'licenses:write', [Licenses::class, 'update'], 'Licensing', 'Change a license', ['returns' => 'License', 'body' => fn() => Licenses::rules(),
                 'description' => 'For licenses synced from the PSA, name, version, type, seats, vendor and dates are managed there and refused here.']),
             $r('DELETE', '/licenses/{id}', 'licenses:write', [Licenses::class, 'delete'], 'Licensing', 'Delete a license you added', ['status' => 204]),
+
+            // 2.10.0 vendors, read-only
+            $r('GET', '/vendors', 'vendors:read', [Vendors::class, 'index'], 'Vendors', 'List client vendors', ['list' => true, 'returns' => 'Vendor',
+                'query' => $client + ['category' => ['string', 'Vendor category (its own, else its template\'s).'], 'include_retired' => ['bool', 'Include retired vendors.']] + $since + $page,
+                'description' => 'Each client\'s vendors as its Vendors page shows them: a field left blank on the vendor takes its template\'s value (from_template lists which).']),
+            $r('GET', '/vendors/{id}', 'vendors:read', [Vendors::class, 'show'], 'Vendors', 'Get a client vendor', ['returns' => 'Vendor']),
+            $r('GET', '/vendor-templates', 'vendors:read', [Vendors::class, 'templates'], 'Vendors', 'List vendor templates', ['returns' => 'VendorTemplate',
+                'description' => 'The shared vendor details entered once, with how many clients use each. Not paginated.']),
 
             $r('GET', '/meetings', 'meetings:read', [Meetings::class, 'index'], 'Meetings', 'List meetings', ['list' => true, 'returns' => 'Meeting',
                 'query' => $client + ['from' => ['string', 'Starting on or after (date or date-time).'], 'to' => ['string', 'Starting on or before.'],

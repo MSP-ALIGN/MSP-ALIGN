@@ -2,10 +2,14 @@
 
 MSP Align has a REST API for automation tools (n8n, Zapier, Power Automate), AI agents, scripts and other systems.
 It reads and changes planning data: clients, contacts, devices, projects, budgets, licensing, meetings, compliance,
-alignment reviews, health scores, backups and service levels. JSON in and out.
+alignment reviews, health scores, backups, service levels and vendors. JSON in and out.
 
 **Alignment (2.3.0)** has its own scope, `alignment:read` / `alignment:write`. Keys made before 2.3.0 don't have it:
 edit the key under Settings → API and tick Alignment.
+
+**Vendors (2.10.0)** are read-only, with their own scope `vendors:read`: `GET /vendors` (each client's vendors as its
+Vendors page shows them; `client_id`, `category`, `include_retired`, `updated_since`), `GET /vendors/{id}` and
+`GET /vendor-templates`. Keys made before 2.10.0 don't have it: edit the key under Settings → API and tick Vendors.
 
 **What changed (2.4.0):** `GET /clients/{id}/changes` returns what changed since the client's last completed business
 review (or `?since=m<meeting id>` / `?since=YYYY-MM-DD`). It needs `clients:read`; each part (devices, projects,
