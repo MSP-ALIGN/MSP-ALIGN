@@ -13,6 +13,7 @@ final class Registry
     public const CONNECTORS = [
         Connectors\Itflow::class,
         Connectors\NinjaOne::class,
+        Connectors\TacticalRmm::class, // 2.11.0 (beta)
         Connectors\Veeam::class,
         Connectors\Email::class,
         Connectors\Microsoft365::class, // 2.6.0

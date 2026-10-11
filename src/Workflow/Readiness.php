@@ -82,7 +82,7 @@ final class Readiness
                 'detail' => $client['psa_id'] ? 'Contacts, assets and licenses sync' : 'Added in Align; links automatically when the same name appears in ' . psa_name(),
                 'link' => '/mapping', 'action' => 'Client mapping']] : []),
             ['key' => 'rmm', 'label' => 'Linked to ' . \Align\Providers\Providers::rmmNames(), 'ok' => !\Align\Providers\Providers::anyRmm() && !$rmmLinked ? null : $rmmLinked,
-                'detail' => $rmmLinked ? count($devices) . ' devices tracked' : 'Link the ' . \Align\Providers\Providers::rmmNames() . ' organization so computers and servers come in',
+                'detail' => $rmmLinked ? count($devices) . ' devices tracked' : (\Align\Providers\Providers::anyRmm() ? 'Link the ' . \Align\Providers\Providers::rmmNames() . ' organization so computers and servers come in' : 'Connect your RMM, then link this client so computers and servers come in'),
                 'link' => '/mapping', 'action' => 'Link organization'],
             ['key' => 'contacts', 'label' => 'Key contacts identified', 'ok' => (int) $contacts['key_people'] > 0,
                 'detail' => (int) $contacts['key_people'] > 0 ? $plural((int) $contacts['key_people'], 'decision maker/invitee') . ' marked' : ((int) $contacts['n'] ? 'Mark who signs off and who attends reviews' : 'No contacts yet'),

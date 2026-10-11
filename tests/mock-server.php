@@ -317,6 +317,78 @@ if ($path === '/dns') {
     $json(['txt' => $st['dns'][$name] ?? []]);
     return;
 }
+// 2.11.0 Tactical RMM: GET /trmm/clients/ and /trmm/agents/?detail=true with the key "trmm-key" in X-API-KEY.
+// /mock/trmm-set {"mode": "html"|"object"|"down", "drop": ["agent id", ...]} changes the answers between syncs.
+if ($path === '/mock/trmm-set') {
+    $st = $loadState();
+    $st['trmm'] = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
+if (str_starts_with($path, '/trmm/')) {
+    $st = $loadState();
+    $t = $st['trmm'] ?? [];
+    if (($_SERVER['HTTP_X_API_KEY'] ?? '') !== 'trmm-key') {
+        http_response_code(401);
+        $json(['detail' => 'Invalid token.']);
+        return;
+    }
+    if (($t['mode'] ?? '') === 'html') {
+        header('Content-Type: text/html');
+        echo '<!doctype html><html><body>Tactical RMM dashboard</body></html>';
+        return;
+    }
+    if (($t['mode'] ?? '') === 'object') {
+        $json(['detail' => 'Not a list']);
+        return;
+    }
+    if (($t['mode'] ?? '') === 'down') {
+        http_response_code(502);
+        $json(['detail' => 'Bad gateway']);
+        return;
+    }
+    if ($path === '/trmm/clients/') {
+        $json([
+            ['id' => 1, 'name' => 'Cedar Ridge Family Dental, Inc.', 'sites' => [['id' => 1, 'name' => 'Main office'], ['id' => 2, 'name' => 'Annex']], 'agent_count' => 4],
+            ['id' => 2, 'name' => 'Tactical Only Co', 'sites' => [['id' => 3, 'name' => 'HQ']], 'agent_count' => 1],
+            ['id' => 4, 'name' => 'TACTICAL ONLY CO', 'sites' => []], // differs from client 2 only in case
+            ['id' => 'x7', 'name' => 'Bad id client', 'sites' => []],
+        ]);
+        return;
+    }
+    if ($path === '/trmm/agents/') {
+        $ago = fn(int $m) => gmdate('Y-m-d\TH:i:s', time() - $m * 60) . '.123456Z';
+        $a = fn(string $id, string $host, string $client, string $mon, string $plat, string $mm, string $sn, string $os, string $status, string $user, int $seenAgo) => [
+            'agent_id' => $id, 'hostname' => $host, 'client_name' => $client, 'site_name' => 'Main office', 'monitoring_type' => $mon, 'plat' => $plat,
+            'make_model' => $mm, 'serial_number' => $sn, 'operating_system' => $os, 'status' => $status, 'logged_username' => $user, 'last_seen' => $ago($seenAgo),
+            'cpu_model' => ['Intel(R) Xeon(R)'], 'local_ips' => '10.0.0.5', 'public_ip' => '203.0.113.9', 'needs_reboot' => false];
+        $all = [
+            $a('TRMMagentServer01aaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'CR-SRV-TRMM', 'Cedar Ridge Family Dental, Inc.', 'server', 'windows', 'Dell Inc. PowerEdge T350', 'TRMMSRV01',
+                'Windows Server 2022 Standard, 64 bit (build 20348)', 'online', 'CEDAR\\admin', 3),
+            $a('TRMMagentLaptop02bbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'CR-LT-TRMM', 'Cedar Ridge Family Dental, Inc.', 'workstation', 'windows', 'LENOVO ThinkPad T14 Gen 2', 'PF3TRMM2',
+                'Windows 11 Pro, 64bit (build 22631.4317)', 'overdue', 'dana', 60 * 24 * 3),
+            $a('TRMMagentMac03ccccccccccccccccccccccccccccccc', 'CR-MAC-TRMM', 'cedar ridge family dental, inc.', 'workstation', 'darwin', 'Apple MacBook Pro', 'C02TRMM03',
+                'Darwin 23.5.0 (macOS 14.5)', 'online', 'jlee', 10),
+            $a('TRMMagentUnknown04dddddddddddddddddddddddddd', "CR-PC\x07-TRMM", 'Cedar Ridge Family Dental, Inc.', 'workstation', 'windows', 'error getting make/model', '',
+                'Windows 10 Pro, 64 bit (build 19045)', 'offline', '-', 60 * 24 * 40),
+            $a('TRMMagentVm05eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'TOC-VM-TRMM', 'Tactical Only Co', 'server', 'linux', 'QEMU Standard PC (Q35 + ICH9, 2009)', 'Not Specified',
+                'Ubuntu 24.04.1 LTS, 64 bit', 'online', '-', 1),
+            $a('TRMMagentStray06ffffffffffffffffffffffffffff', 'STRAY-TRMM', 'Client Not In Tactical List', 'workstation', 'windows', 'HP EliteDesk 800 G6', 'MXLTRMM6',
+                'Windows 11 Pro, 64 bit (build 26100)', 'online', 'x', 5),
+            $a('TRMMagentAmbig07gggggggggggggggggggggggggggg', 'AMBIG-TRMM', 'tactical ONLY co', 'workstation', 'windows', 'HP ProBook 450 G9', 'TRMMAMB07',
+                'Windows 11 Pro, 64 bit (build 26100)', 'online', 'x', 5),
+            ['agent_id' => 'bad id!', 'hostname' => 'BAD-ID'],
+            ['agent_id' => ['TRMMarray'], 'hostname' => 'ARRAY-ID'],
+            'not an object',
+        ];
+        $json(array_values(array_filter($all, fn($r) => !is_array($r) || !in_array($r['agent_id'] ?? null, $t['drop'] ?? [], true))));
+        return;
+    }
+    http_response_code(404);
+    $json(['detail' => 'Not found.']);
+    return;
+}
 // 2.10.0 RDAP: IANA's bootstrap file and one registry for .example and .test domains. cedarridgedental.example is
 // registered at a GoDaddy-like registrar and expires in 40 days; failing.test answers 500; anything else isn't registered.
 // /mock/rdap-set {"domains": {"name": {...}}} overrides an answer (registrar, expires, status).
