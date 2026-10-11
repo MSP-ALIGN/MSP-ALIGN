@@ -336,7 +336,7 @@ if (preg_match('#^/rdap/domain/([a-z0-9.-]+)$#', $path, $rm)) {
     $st = $loadState();
     $st['rdap_calls'][] = $rm[1];
     $saveState($st);
-    $known = ['cedarridgedental.example' => ['registrar' => "GoDaddy.com, LLC\x07", 'expires' => date('Y-m-d', strtotime('+40 days')) . 'T04:00:00Z'],
+    $known = ['cedarridgedental.example' => ['registrar' => "GoDaddy.com, LLC\x07", 'expires' => (new DateTime('+40 days', new DateTimeZone(getenv('TZ') ?: 'UTC')))->format('Y-m-d') . 'T04:00:00Z'], // the tests' timezone (PHP's own default is UTC)
         'noexpiry.test' => ['registrar' => 'Example Registrar, Inc.', 'expires' => null]] + ($st['rdap'] ?? []);
     if ($rm[1] === 'failing.test') {
         http_response_code(500);

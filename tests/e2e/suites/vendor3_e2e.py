@@ -46,12 +46,12 @@ ok(m == "ynnyn", "a registrar matches a vendor by its whole distinctive name, no
 
 # ---- what the seed's sync read (client 1's website domain, from the mock registry)
 r1 = rd("cedarridgedental.example")
-ok(r1 and r1["status"] == "ok" and r1["registrar"] == "GoDaddy.com, LLC" and str(r1["expires_on"]) == (date.today() + timedelta(days=40)).isoformat(),
+ok(r1 and r1["status"] == "ok" and r1["registrar"] == "GoDaddy.com, LLC" and str(r1["expires_on"]) in [(date.today() + timedelta(days=d)).isoformat() for d in (39, 40, 41)],  # a day either way near midnight
    "the sync reads a domain's registrar (cleaned) and expiry date: %s" % (r1,))
 ok(not q("select 1 from domain_rdap where registrar like 'Should Not%%'"), "only the registrar's name is read (not the registrant's)")
 vp = tech.get(B + f"/clients/{C1}/vendors").text
 dom = vp[vp.find('id="domains"'):]
-ok('id="domains-table"' in vp and "cedarridgedental.example" in dom and re.search(r'fa-store[^>]*></i>GoDaddy', dom) and "GoDaddy.com, LLC" in dom and "in 40 days" in text(dom),
+ok('id="domains-table"' in vp and "cedarridgedental.example" in dom and re.search(r'fa-store[^>]*></i>GoDaddy', dom) and "GoDaddy.com, LLC" in dom and re.search(r"in (39|40|41) days", text(dom)),
    "the Vendors page shows the domain, matched to the client's vendor GoDaddy, and its expiry")
 rp = tech.get(B + "/renewals?days=90").text
 ok(re.search(r"Domain expires:.{0,40}cedarridgedental\.example", text(rp)) and re.search(r'vendor=godaddy">GoDaddy</a>', rp), "Renewals shows the domain's expiry, by vendor too")
