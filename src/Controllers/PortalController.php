@@ -595,7 +595,8 @@ final class PortalController
     /**
      * The client's tech closet (can_closet): its stock (what's on the shelf and how many are out, never staff notes),
      * its spare devices, and what its people have (from its closet and the MSP's loaners). Users with can_checkout
-     * get the check-out, check-in and request forms.
+     * get the check-out, check-in and request forms; users with can_closet_edit can add items and open each one to
+     * update it (closetItem).
      */
     public static function closet(): void
     {
@@ -608,7 +609,7 @@ final class PortalController
         $spares = array_map(fn($s) => array_intersect_key($s, array_flip(['id', 'display_name', 'system_name', 'manufacturer', 'model', 'device_type', 'checkout_id', 'person', 'due_on'])),
             \Align\Closet\Closet::spares($cid));
         self::render('closet', ['title' => 'Tech closet', 'nav' => 'closet', 'items' => $items, 'out' => $out, 'spares' => $spares,
-            'canCheckout' => !empty($pu['can_checkout']),
+            'canCheckout' => !empty($pu['can_checkout']), 'canEdit' => !empty($pu['can_closet_edit']),
             'contacts' => DB::all('SELECT id, name, email FROM contacts WHERE client_id = ? AND archived_at IS NULL ORDER BY name', [$cid])], $pu);
     }
 
@@ -732,6 +733,127 @@ final class PortalController
         }
         flash($how === 'failed' ? 'warning' : 'success', $how === 'failed' ? 'Your request was saved, but it couldn\'t be sent to your IT provider automatically. Please contact them too.' : 'Request sent to your IT provider.');
         redirect('/portal/closet');
+    }
+
+    /** require('can_closet') plus can_closet_edit, or a 403 page. */
+    private static function requireClosetEdit(): array
+    {
+        $pu = PortalAuth::require('can_closet');
+        if (empty($pu['can_closet_edit'])) {
+            http_response_code(403);
+            self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can see the tech closet but not change it. Ask your IT provider if you need to.'], $pu);
+            exit;
+        }
+        return $pu;
+    }
+
+    /**
+     * One of the client's own (not retired) closet items, as the portal may see it: the staff-only fields (serial,
+     * notes, who created it) are left out. Null for anything else, the MSP's own stock included.
+     */
+    private static function closetOwnItem(array $pu, int $id): ?array
+    {
+        $i = \Align\Closet\Closet::item($id);
+        if (!$i || $i['client_id'] === null || (int) $i['client_id'] !== (int) $pu['client_id'] || $i['retired_at']) {
+            return null;
+        }
+        return array_intersect_key($i, array_flip(['id', 'client_id', 'kind', 'category', 'name', 'manufacturer', 'model', 'location', 'quantity', 'min_quantity', 'out', 'low']));
+    }
+
+    /**
+     * The fields a portal user may set, checked by Closet::clean. The staff-only serial and notes are never in them
+     * (so Closet::update leaves those columns as they are, even if staff change them meanwhile), and on an edit the
+     * kind is the item's own ($kind: what kind of item it is stays with the MSP; Closet::update needs it). Always for the portal user's own
+     * client, so no office (that's for the MSP's own stock) can be set.
+     */
+    private static function closetFields(int $clientId, ?string $kind): array
+    {
+        $p = array_intersect_key($_POST, array_flip(['name', 'kind', 'category', 'manufacturer', 'model', 'location', 'min_quantity', 'quantity']));
+        if ($kind !== null) {
+            $p['kind'] = $kind; // a tracked item has no minimum
+        }
+        $f = \Align\Closet\Closet::clean($p, $clientId, $kind === null);
+        unset($f['serial'], $f['notes']);
+        return $f;
+    }
+
+    /** Adds an item to the client's own closet (can_closet_edit; counts toward the 30 changes an hour). */
+    public static function closetAdd(): void
+    {
+        $pu = self::requireClosetEdit();
+        self::closetThrottle($pu);
+        try {
+            $f = self::closetFields((int) $pu['client_id'], null);
+            $id = \Align\Closet\Closet::create((int) $pu['client_id'], $f, ['portal_user_id' => (int) $pu['id']]);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect('/portal/closet#closet-add');
+        }
+        Audit::log('closet.add', "{$pu['client_name']}: {$f['name']} (portal: {$pu['email']})");
+        flash('success', "Added {$f['name']}.");
+        redirect('/portal/closet/items/' . $id);
+    }
+
+    /**
+     * One of the client's items, to keep up to date (can_closet_edit): its details, how many are on the shelf, remove
+     * it, and its recent history. Staff changes show as the MSP, never a staff member's name.
+     */
+    public static function closetItem(int $id): void
+    {
+        $pu = self::requireClosetEdit();
+        $i = self::closetOwnItem($pu, $id);
+        if (!$i) {
+            flash('error', 'That item isn\'t in your closet.');
+            redirect('/portal/closet');
+        }
+        $history = array_map(fn($h) => ['at' => $h['at'], 'action' => $h['action'], 'who' => $h['portal_user_id'] ? ($h['portal_name'] ?: 'A former portal user') : null,
+            // the note staff type with a count change ("+2 (now 5): <note>") is for their team; the change itself shows
+            'detail' => $h['action'] === 'adjusted' && !$h['portal_user_id'] ? preg_replace('/^([+-]?\d+ \(now \d+\)).*$/s', '$1', (string) $h['detail']) : $h['detail']],
+            \Align\Closet\Closet::history($id, null, 50));
+        self::render('closet_item', ['title' => $i['name'], 'nav' => 'closet', 'i' => $i, 'history' => $history], $pu);
+    }
+
+    /**
+     * Saves a change to one of the client's items (can_closet_edit): action 'save' (details), 'adjust' (how many are on
+     * the shelf, with a note) or 'retire' (it's gone: it leaves the list; the MSP can bring it back).
+     */
+    public static function closetUpdate(int $id): void
+    {
+        $pu = self::requireClosetEdit();
+        $i = self::closetOwnItem($pu, $id);
+        if (!$i) {
+            flash('error', 'That item isn\'t in your closet.');
+            redirect('/portal/closet');
+        }
+        self::closetThrottle($pu);
+        $by = ['portal_user_id' => (int) $pu['id']];
+        $back = '/portal/closet/items/' . $id;
+        $action = post('action');
+        $change = null;
+        try {
+            if ($action === 'save') {
+                \Align\Closet\Closet::update($id, self::closetFields((int) $pu['client_id'], $i['kind']), $by);
+                $msg = 'Saved.';
+            } elseif ($action === 'adjust') {
+                $change = \Align\Closet\Closet::adjust($id, post('quantity'), post('note'), $by);
+                $msg = $change === 0 ? 'No change to the count.' : 'Count updated.';
+            } elseif ($action === 'retire') {
+                \Align\Closet\Closet::retire($id, true, $by);
+                Audit::log('closet.retire', "{$pu['client_name']}: {$i['name']} (portal: {$pu['email']})");
+                flash('success', "Removed {$i['name']} from your closet.");
+                redirect('/portal/closet');
+            } else {
+                redirect($back);
+            }
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect($back);
+        }
+        if ($action === 'save' || $change !== 0) {
+            Audit::log('closet.' . ($action === 'save' ? 'edit' : 'adjust'), "{$pu['client_name']}: {$i['name']} (portal: {$pu['email']})");
+        }
+        flash('success', $msg);
+        redirect($back);
     }
 
     /** A due date from the portal can't be in the past (throws \InvalidArgumentException; Closet::checkout checks it's a date). */

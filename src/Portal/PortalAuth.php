@@ -37,6 +37,7 @@ final class PortalAuth
         // Contacts are view-only in the portal since 1.39; this permission now only sends requests
         'can_contacts' => 'Send new user and termination requests',
         'can_checkout' => 'Check tech closet items out and in, and ask for parts', // 2.15.0
+        'can_closet_edit' => 'Add tech closet items and keep them up to date', // 2.15.1
     ];
 
     /** The signed-in user's row for this request, once user() has checked it. */

@@ -43,14 +43,17 @@ if ($client) {
       <a class="btn btn-default" href="<?= e($psaAssetUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-up-right-from-square me-1"></i><?= e($psa) ?> asset</a>
     <?php endif; ?>
     <?php if ($canEdit && $retired): ?>
-      <form method="post" action="/devices/<?= (int) $d['id'] ?>/restore" class="d-inline"><?= csrf_field() ?><button class="btn btn-sm btn-success rounded-0" data-confirm="<?= e('Restore ' . $d['name'] . '? It counts in plans and reports again' . ($linked && $twoWay && !$alignOnly ? ', and the ' . psa_name() . ' asset is marked Deployed.' : '.')) ?>" data-confirm-danger="0"><i class="fas fa-rotate-left me-1"></i>Restore</button></form>
+      <button form="device-restore-form" class="btn btn-success" data-confirm="<?= e('Restore ' . $d['name'] . '? It counts in plans and reports again' . ($linked && $twoWay && !$alignOnly ? ', and the ' . psa_name() . ' asset is marked Deployed.' : '.')) ?>" data-confirm-danger="0"><i class="fas fa-rotate-left me-1"></i>Restore</button>
     <?php endif; ?>
     <?php if ($canEdit && $client && !$retired && !$d['removed_at'] && empty($d['is_spare'])): // 2.15.0 ?>
-      <form method="post" action="/devices/<?= (int) $d['id'] ?>/spare" class="d-inline"><?= csrf_field() ?><input type="hidden" name="spare" value="1">
-        <button class="btn btn-sm btn-default rounded-0" title="On the shelf: into the tech closet" data-confirm="<?= e('Mark ' . $d['name'] . ' spare? It goes into the client\'s tech closet. It stays in replacement plans and reports, but isn\'t flagged stale or counted in health, compliance, backup and security coverage until it\'s back in use.') ?>" data-confirm-danger="0"><i class="fas fa-box-archive me-1"></i>Mark spare</button></form>
+      <button form="device-spare-form" class="btn btn-default" title="On the shelf: into the tech closet" data-confirm="<?= e('Mark ' . $d['name'] . ' spare? It goes into the client\'s tech closet. It stays in replacement plans and reports, but isn\'t flagged stale or counted in health, compliance, backup and security coverage until it\'s back in use.') ?>" data-confirm-danger="0"><i class="fas fa-box-archive me-1"></i>Mark spare</button>
     <?php endif; ?>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-device-edit"><i class="fas fa-pen me-1"></i>Edit</button><?php endif; ?>
   </div>
+  <?php // The forms behind Restore and Mark spare sit outside the button group (their buttons point at them with form=),
+        // so each button is a direct child of the group and lines up with the links beside it. ?>
+  <?php if ($canEdit && $retired): ?><form method="post" action="/devices/<?= (int) $d['id'] ?>/restore" id="device-restore-form" class="d-none"><?= csrf_field() ?></form><?php endif; ?>
+  <?php if ($canEdit && $client && !$retired && !$d['removed_at'] && empty($d['is_spare'])): ?><form method="post" action="/devices/<?= (int) $d['id'] ?>/spare" id="device-spare-form" class="d-none"><?= csrf_field() ?><input type="hidden" name="spare" value="1"></form><?php endif; ?>
 </div>
 
 <?php // 2.15.0 A spare: in the client's tech closet; who has it, check out, back in use ?>

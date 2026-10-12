@@ -108,7 +108,7 @@ foreach ((new ReflectionProperty($r, 'routes'))->getValue($r) as [$m, $path, $h]
     $rm = new ReflectionMethod($c, $fn);
     $body = preg_replace('#//[^\n]*#', '', implode('', array_slice(file($rm->getFileName()), $rm->getStartLine() - 1, $rm->getEndLine() - $rm->getStartLine() + 1)));
     $guard = in_array((new ReflectionClass($c))->getShortName(), ['WelcomeController', 'SignController'], true)
-        ? '/self::load\(\$token\)/' : '/Auth::require(Role)?\(|PortalAuth::require\(|self::requireRequests\(|self::requireCheckout\(/';
+        ? '/self::load\(\$token\)/' : '/Auth::require(Role)?\(|PortalAuth::require\(|self::requireRequests\(|self::requireCheckout\(|self::requireClosetEdit\(/';
     $act = '/DB::|Audit::|View::|redirect\(|header\(|echo |readfile\(|self::render\(/';
     $g = preg_match($guard, $body, $gm, PREG_OFFSET_CAPTURE) ? $gm[0][1] : PHP_INT_MAX;
     $a = preg_match($act, $body, $am, PREG_OFFSET_CAPTURE) ? $am[0][1] : PHP_INT_MAX;

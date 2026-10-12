@@ -5,6 +5,7 @@ use Align\Closet\Closet;
  * 2.15.0 Client portal: the tech closet. @var array $items (only id, kind, category, name, manufacturer, model,
  * location, quantity, out, low, min_quantity: PortalController::closet leaves out serials, notes and staff fields);
  * array $spares; array $out (what the client's people have: from its closet, and the MSP's loaners); bool $canCheckout;
+ * bool $canEdit (can_closet_edit: the Add item form, and each item links to its page to update it);
  * array $contacts (id, name, email) of this client. Every value is escaped; forms post with CSRF and PortalController
  * checks every id belongs to this client.
  */
@@ -22,7 +23,8 @@ $who = function (string $pid) use ($contacts): string {
 ?>
 <div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-boxes-stacked me-2 text-secondary"></i>Tech closet</h1>
-    <div class="small text-muted">Spare parts and equipment kept for you, and who has what.<?= $canCheckout ? ' Check something out when you take it, and back in when it\'s returned.' : '' ?></div></div>
+    <div class="small text-muted">Spare parts and equipment kept for you, and who has what.<?= $canCheckout ? ' Check something out when you take it, and back in when it\'s returned.' : '' ?><?= $canEdit ? ' You and your IT provider keep this list up to date together: add what you have, and open an item to fix its details or count.' : '' ?></div></div>
+  <?php if ($canEdit): ?><a class="btn btn-sm btn-primary mt-2 mt-md-0" href="#closet-add"><i class="fas fa-plus me-1"></i>Add item</a><?php endif; ?>
 </div>
 
 <div class="card">
@@ -35,7 +37,7 @@ $who = function (string $pid) use ($contacts): string {
         <tr class="proj-quarter"><th colspan="4"><i class="fas fa-fw <?= e($icon) ?> text-secondary me-1"></i><?= e($label) ?></th></tr>
         <?php foreach ($rows as $it): $id = (int) $it['id']; ?>
           <tr>
-            <td><b><?= e($it['name']) ?></b><?= $it['low'] ? ' <span class="badge text-bg-warning">running low</span>' : '' ?>
+            <td><b><?= $canEdit ? '<a href="/portal/closet/items/' . $id . '" title="Update this item">' . e($it['name']) . '</a>' : e($it['name']) ?></b><?= $it['low'] ? ' <span class="badge text-bg-warning">running low</span>' : '' ?>
               <?php if ($it['manufacturer'] || $it['model']): ?><div class="small text-muted"><?= e(trim($it['manufacturer'] . ' ' . $it['model'])) ?></div><?php endif; ?></td>
             <td class="small"><?= e((string) $it['location']) ?: '<span class="text-muted">—</span>' ?></td>
             <td class="text-end"><?= $it['kind'] === 'tracked' ? ((int) $it['quantity'] ? 'Yes' : '<span class="text-muted">checked out</span>') : (int) $it['quantity'] . ($it['out'] ? ' <span class="small text-muted">(' . (int) $it['out'] . ' out)</span>' : '') ?></td>
@@ -99,6 +101,30 @@ $who = function (string $pid) use ($contacts): string {
     </table>
   </div>
 </div>
+
+<?php if ($canEdit): ?>
+<div class="card" id="closet-add">
+  <div class="card-header"><b><i class="fas fa-plus me-1 text-secondary"></i>Add an item</b></div>
+  <div class="card-body">
+    <form method="post" action="/portal/closet/items" class="row g-2 align-items-end small"><?= csrf_field() ?>
+      <div class="col-md-5"><label for="add-name">Name</label><input id="add-name" name="name" class="form-control form-control-sm" maxlength="190" required placeholder="e.g. USB-C to HDMI adapter"></div>
+      <div class="col-md-3"><label for="add-category">Category</label><select id="add-category" name="category" class="form-select form-select-sm">
+        <?php foreach (Closet::CATEGORIES as $k => [$label]): ?><option value="<?= e($k) ?>"<?= $k === 'other' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+      <div class="col-md-2"><label for="add-qty">How many</label><input id="add-qty" name="quantity" type="number" min="0" max="<?= Closet::MAX_QTY ?>" value="1" class="form-control form-control-sm"></div>
+      <div class="col-md-2"><label for="add-min">Warn below <span class="text-muted">(optional)</span></label><input id="add-min" name="min_quantity" type="number" min="0" max="<?= Closet::MAX_QTY ?>" class="form-control form-control-sm"></div>
+      <div class="col-md-4"><label for="add-loc">Where <span class="text-muted">(shelf, bin)</span></label><input id="add-loc" name="location" class="form-control form-control-sm" maxlength="190"></div>
+      <div class="col-md-3"><label for="add-make">Manufacturer</label><input id="add-make" name="manufacturer" class="form-control form-control-sm" maxlength="190"></div>
+      <div class="col-md-3"><label for="add-model">Model</label><input id="add-model" name="model" class="form-control form-control-sm" maxlength="190"></div>
+      <div class="col-md-2"><button class="btn btn-sm btn-primary w-100">Add</button></div>
+      <div class="col-12">
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="kind" value="stock" id="add-k-stock" checked><label class="form-check-label" for="add-k-stock">Counted <span class="text-muted">(cables, mice: how many are on the shelf)</span></label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="kind" value="tracked" id="add-k-tracked"><label class="form-check-label" for="add-k-tracked">One item <span class="text-muted">(a monitor, a dock: checked out as a whole; How many and Warn below don't apply)</span></label></div>
+      </div>
+      <div class="col-12 text-muted">Your IT provider sees what you add, and who added it.</div>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php if ($canCheckout): ?>
 <div class="card" id="closet-request">

@@ -1,0 +1,101 @@
+<h1>Risk Management Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy sets out how {{client_name}} finds, rates and deals with risks to its information and systems: who runs the process, how often, and how decisions are made and tracked. The Security Risk Assessment Report records the results of each assessment; this policy is the standing process that produces it and keeps it current between assessments.</p>
+
+<h2>2. Scope</h2>
+<p>This policy covers risks to the confidentiality, integrity and availability of all {{client_name}} information and the systems, people, facilities and vendors that handle it. It applies to everyone involved in assessing or treating those risks.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Executive sponsor ([name, title]):</strong> sets how much risk the business is willing to accept, makes treatment decisions for High and Critical risks, approves the budget for risk reduction and signs risk acceptances.</li>
+<li><strong>Security lead ([name, title]):</strong> owns the process day to day, keeps the risk register, makes sure each risk has an owner and follows up on overdue items.</li>
+<li><strong>Risk owners:</strong> the managers responsible for the affected business process or system. Decide, within their authority, how their risks are treated, and carry out the agreed actions.</li>
+<li><strong>{{company_name}} ({{vcio_name}}, vCIO):</strong> facilitates assessments, provides technical findings and threat information, recommends controls with cost estimates, and reviews the risk register with {{client_name}} at each quarterly business review.</li>
+</ul>
+
+<h2>4. When risk is assessed</h2>
+<ul>
+<li>A full risk assessment is performed <strong>at least once a year</strong>.</li>
+<li>An assessment, or an update to the last one, is also performed after a major change, such as a new line-of-business system, a move to a new cloud service, a new office, a merger or acquisition, a significant security incident, or a new legal or contractual requirement.</li>
+<li>The risk register is reviewed at each quarterly business review, where new risks are added, progress on open items is checked and closed items are confirmed.</li>
+</ul>
+
+<h2>5. Assessment process</h2>
+<p>Assessments follow a process based on NIST SP 800-30, scaled to the size of the business:</p>
+<ol>
+<li><strong>System characterization:</strong> identify the systems, data, people, facilities and vendors in scope, what each is used for, and how sensitive the information is under the Data Classification &amp; Handling Policy.</li>
+<li><strong>Threat identification:</strong> list the threats that could reasonably affect those systems, both deliberate (for example phishing, ransomware, insider misuse) and accidental or environmental (for example misdirected email, hardware failure, fire or flood).</li>
+<li><strong>Vulnerability identification:</strong> find the weaknesses those threats could exploit, using vulnerability scans, configuration reviews, interviews and the results of past incidents and audits.</li>
+<li><strong>Control analysis:</strong> record the controls already in place or planned, and how well they work.</li>
+<li><strong>Likelihood:</strong> rate how likely each threat is to exploit each vulnerability, given current controls.</li>
+<li><strong>Impact:</strong> rate the harm if it happened: to operations, finances, legal standing, reputation, customers and staff.</li>
+<li><strong>Risk level:</strong> combine likelihood and impact into a risk rating (Critical, High, Medium or Low) using the scales in the Security Risk Assessment Report.</li>
+<li><strong>Control recommendations:</strong> recommend controls or other actions that would reduce each significant risk.</li>
+<li><strong>Results documentation:</strong> record the findings in the Security Risk Assessment Report and the risk register, and present them to the executive sponsor.</li>
+</ol>
+
+<h2>6. Risk treatment</h2>
+<p>Every risk rated Medium or higher gets a documented treatment decision. The options are:</p>
+<ul>
+<li><strong>Mitigate:</strong> add or improve controls to lower the likelihood or impact.</li>
+<li><strong>Transfer:</strong> shift part of the impact to another party, for example through cyber insurance or a contract.</li>
+<li><strong>Avoid:</strong> stop the activity or retire the system that creates the risk.</li>
+<li><strong>Accept:</strong> knowingly keep the risk, in writing, as described in section 8.</li>
+</ul>
+<p>Mitigation follows these steps:</p>
+<ol>
+<li><strong>Prioritize:</strong> work on risks in order of their rating, starting with Critical and High.</li>
+<li><strong>Evaluate options:</strong> compare the control options recommended in the assessment, including how well each would work and how practical it is.</li>
+<li><strong>Cost-benefit analysis:</strong> weigh the cost of each option (purchase, labor, ongoing fees, disruption) against the reduction in risk.</li>
+<li><strong>Select controls:</strong> choose the controls to implement; High and Critical decisions are made by the executive sponsor.</li>
+<li><strong>Assign responsibility:</strong> name an owner for each action.</li>
+<li><strong>Plan:</strong> set a target date, budget and resources. Larger actions become projects on {{client_name}}'s technology roadmap with {{company_name}}.</li>
+<li><strong>Implement and verify:</strong> put the controls in place, confirm they work, and update the risk register with the new rating.</li>
+</ol>
+
+<h2>7. Treatment timeframes</h2>
+<ul>
+<li><strong>Critical:</strong> contained immediately where possible, and remediated, or a signed treatment decision recorded, within 30 days of the assessment.</li>
+<li><strong>High:</strong> remediated within 90 days, or a treatment decision recorded within 30 days.</li>
+<li><strong>Medium:</strong> remediated within 6 months or planned in the next budget cycle.</li>
+<li><strong>Low:</strong> addressed as resources allow, or accepted.</li>
+</ul>
+
+<h2>8. Risk acceptance</h2>
+<ul>
+<li>A risk may be accepted when it is within the level of risk the executive sponsor has set as acceptable, when the cost or impact of treating it outweighs the benefit, or while treatment is in progress.</li>
+<li>Acceptance is in writing and records the reason, any compensating controls and an expiry date of no more than 12 months. Critical and High risks are accepted only by the executive sponsor; Medium and Low risks may be accepted by the risk owner together with the security lead. The person who owns the affected control cannot accept the risk alone.</li>
+<li>Accepted risks are re-reviewed at least annually and whenever circumstances change.</li>
+</ul>
+
+<h2>9. Risk register</h2>
+<p>The security lead keeps a risk register with, for each risk: an ID, a description, the affected systems or data, the likelihood, impact and rating, the treatment decision, the owner, the target date and the current status. The register is kept in [location, e.g. the compliance section of {{company_name}}'s client planning tool] and its history is retained for at least [6 years].</p>
+
+<h2>10. Regulatory requirements</h2>
+<p>Where {{client_name}} is subject to specific rules, this process is used to meet them. Delete the items that don't apply.</p>
+<ul>
+<li><strong>[HIPAA]</strong> If {{client_name}} creates, receives, keeps or sends electronic protected health information (ePHI), this process covers the required risk analysis (164.308(a)(1)(ii)(A)), documented in the HIPAA Security Risk Analysis, and the required risk management (164.308(a)(1)(ii)(B)): reducing risks to ePHI to a reasonable and appropriate level.</li>
+<li><strong>[FTC Safeguards Rule]</strong> The written risk assessment required by 16 CFR 314.4(b) for customer information.</li>
+<li><strong>[CMMC / NIST SP 800-171]</strong> Periodic risk assessment of systems that handle CUI (RA.L2-3.11.1) and vulnerability remediation in line with risk (RA.L2-3.11.3).</li>
+<li><strong>[PCI DSS]</strong> Targeted risk analyses for requirements that allow flexibility in frequency (PCI DSS 12.3.1).</li>
+</ul>
+
+<h2>11. Exceptions</h2>
+<p>Exceptions to this policy are requested in writing to the security lead, approved by the executive sponsor and recorded in the risk register.</p>
+
+<h2>12. Related documents</h2>
+<ul>
+<li>Security Risk Assessment Report</li>
+<li>HIPAA Security Risk Analysis (healthcare)</li>
+<li>Information Security Policy (section 5, Risk management)</li>
+<li>Data Classification &amp; Handling Policy</li>
+<li>Vulnerability &amp; Patch Management Policy</li>
+<li>Vendor &amp; Third-Party Risk Management Policy</li>
+</ul>
+<p>Supports: CMMC RA.L2-3.11.1, RA.L2-3.11.3, CA.L2-3.12.2 · CIS 7.1 · HIPAA 164.308(a)(1)(ii)(A), 164.308(a)(1)(ii)(B), 164.316(b) · FTC Safeguards Rule 314.4(b) · NIST CSF GV.RM-01, GV.RM-02, ID.RA-01, ID.RA-05, ID.RA-06 · PCI DSS 12.3.1</p>
+
+<h2>13. Review and approval</h2>
+<p>This policy is reviewed at least annually by the security lead with {{vcio_name}} of {{company_name}}.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>
