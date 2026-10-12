@@ -30,7 +30,7 @@ foreach ($out as $c) {
     <?php if ($canEdit): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-closet-add"><i class="fas fa-plus me-1"></i>Add item</button><?php endif; ?>
   </div>
 </div>
-<p class="small text-muted">Spare parts and equipment kept at the client, and who has what. <?= e($client['name']) ?>'s portal users with Tech closet access see this list and can check things out, in and ask for more.</p>
+<p class="small text-muted">Spare parts and equipment kept at the client, and who has what. <?= e($client['name']) ?>'s portal users with Tech closet access see this list; with the other closet permissions they can check things out and in, ask for more, and add items and update counts. Their changes show with a <b>portal</b> badge in each item's history.</p>
 
 <div class="card card-dark">
   <div class="card-body p-0"><?= View::fetch('closet/_items', ['items' => $items, 'empty' => 'Nothing in this closet yet.' . ($canEdit ? ' Add spare cables, keyboards, monitors and other parts kept here.' : '')]) ?></div>

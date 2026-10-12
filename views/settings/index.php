@@ -25,6 +25,8 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <div class="row g-2">
             <div class="mb-3 col-md-6"><label>Company name</label><input name="company_name" class="form-control" value="<?= e($v['company_name']) ?>"></div>
             <div class="mb-3 col-md-6"><label>Phone</label><input name="company_phone" class="form-control" value="<?= e($v['company_phone']) ?>"></div>
+            <div class="mb-3 col-md-6"><label for="company_emergency_phone">24/7 security phone</label><input id="company_emergency_phone" name="company_emergency_phone" class="form-control" maxlength="60" value="<?= e($v['company_emergency_phone'] ?? '') ?>" placeholder="Same as Phone">
+              <small class="text-muted">Used in incident response documents (<code>{{company_emergency_phone}}</code>). Leave blank to use the phone above.</small></div>
             <div class="mb-3 col-md-6"><label>Email</label><input name="company_email" class="form-control" value="<?= e($v['company_email']) ?>"></div>
             <div class="mb-3 col-md-6"><label>Website</label><input name="company_website" class="form-control" value="<?= e($v['company_website']) ?>"></div>
           </div>

@@ -1,0 +1,127 @@
+<h1>Incident Response Plan</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+<p><em>Keep a printed copy of this plan, and a copy somewhere you can reach if company systems are down. Replace every [bracketed] item before relying on it.</em></p>
+
+<h2>1. Purpose</h2>
+<p>This plan describes how {{client_name}} and its managed service provider, {{company_name}}, detect, report, respond to and recover from information security incidents such as ransomware, compromised email accounts, lost or stolen devices, payment fraud and unauthorized disclosure of sensitive information. It is written so that staff know exactly what to do in the first few minutes, and so that everyone knows who makes which decisions.</p>
+<p>The response model is simple: <strong>{{client_name}} reports, and {{company_name}} runs the technical response.</strong> {{client_name}} provides business context and makes the business decisions; {{company_name}} investigates, contains and recovers, and keeps {{client_name}} informed at every stage.</p>
+
+<h2>2. Scope</h2>
+<p>This plan covers all {{client_name}} staff, locations, devices, accounts, cloud services and data, in any format, and vendors that hold {{client_name}} information. Outages that are not security related are handled under the Business Continuity &amp; Disaster Recovery Plan; when an incident also disrupts operations, both plans are used together.</p>
+
+<h2>3. Definitions</h2>
+<ul>
+<li><strong>Event:</strong> anything observable that happens on a system or network, such as a sign-in, a blocked email or an antivirus alert. Most events are harmless.</li>
+<li><strong>Security incident:</strong> an event, or a series of events, that actually or potentially harms the confidentiality, integrity or availability of {{client_name}}'s information or systems, or that violates its security policies. Examples: a clicked phishing link followed by an unusual sign-in, malware on a device, a lost laptop, or a payment sent to a fraudster.</li>
+<li><strong>Breach:</strong> a security incident in which protected information (for example personal information, protected health information or card data) is, or is reasonably believed to have been, acquired, accessed, used or disclosed by someone not authorized to see it. Whether an incident is a breach under a particular law is decided with legal counsel, and may trigger notification duties.</li>
+</ul>
+
+<h2>4. Roles and responsibilities</h2>
+<ul>
+<li><strong>Service Manager ({{client_name}}): [name, title, mobile]</strong>. Alternate: [name, title, mobile]. The client's decision-maker during an incident: approves business decisions such as taking systems offline, notifying the cyber insurer, engaging counsel, spending and customer communications. Provides business context, confirms who owns affected data, and is the single point of contact for {{company_name}}.</li>
+<li><strong>Incident Handler ({{company_name}}): [name or role, e.g. security engineer on duty]</strong>. Leads the technical response: triage, investigation, containment, eradication and recovery. Keeps the incident log and gives the Service Manager regular updates. Escalates to {{vcio_name}} for Critical and High incidents.</li>
+<li><strong>{{vcio_name}} ({{company_name}}, vCIO):</strong> coordinates between {{company_name}} and {{client_name}} leadership for serious incidents, and leads the post-incident review.</li>
+<li><strong>Legal counsel / breach coach:</strong> decides, with the Service Manager, whether notification laws apply and reviews outside communications.</li>
+<li><strong>Cyber insurance carrier:</strong> may require early notice and may assign approved forensic, legal and recovery vendors.</li>
+<li><strong>All staff:</strong> report anything suspicious immediately, follow the first steps in section 7, and do not discuss the incident outside the company or on social media.</li>
+</ul>
+
+<h2>5. Contacts</h2>
+<ul>
+<li><strong>{{company_name}} 24/7 security line:</strong> {{company_emergency_phone}} · {{company_email}}</li>
+<li><strong>Service Manager and alternate:</strong> [names, mobiles]</li>
+<li><strong>Primary business contact:</strong> {{client_contact}} · {{client_contact_email}} · {{client_phone}}</li>
+<li><strong>Cyber insurance carrier / breach hotline:</strong> [carrier, policy number, 24/7 hotline]</li>
+<li><strong>Legal counsel / breach coach:</strong> [name, firm, phone]</li>
+<li><strong>Bank fraud line (for payment fraud):</strong> [bank, phone]</li>
+<li><strong>Law enforcement:</strong> 911 for emergencies; local police non-emergency [number]; FBI Internet Crime Complaint Center (ic3.gov) for cybercrime and wire fraud</li>
+</ul>
+
+<h2>6. What to report</h2>
+<p>Report right away, even if you're not sure it's a problem:</p>
+<ul>
+<li>You clicked a link, opened an attachment or entered your password after a suspicious email, text or call.</li>
+<li>Unexpected MFA prompts, password reset emails or sign-in alerts.</li>
+<li>Ransom notes, files you can't open, or files with strange new names or extensions.</li>
+<li>Pop-ups claiming your computer is infected and asking you to call a number or allow remote access.</li>
+<li>A lost or stolen laptop, phone, USB drive or paper file.</li>
+<li>A request to change payment, banking or payroll details, especially an urgent one.</li>
+<li>A suspected deepfake call or video, or sensitive data entered into an unapproved AI tool.</li>
+<li>Email sent to the wrong person, or any other possible exposure of customer or employee information.</li>
+<li>Security alerts from {{company_name}}'s managed detection and response service or other [security tools].</li>
+</ul>
+
+<h2>7. Staff first steps</h2>
+<ol>
+<li><strong>Stop and don't try to fix it.</strong> Do not reboot, shut down, run antivirus scans, delete files or emails, or clear browser history or logs. These steps can destroy the evidence needed to understand what happened.</li>
+<li><strong>Disconnect only if told to.</strong> If {{company_name}} or the Service Manager tells you to, unplug the network cable and turn off Wi-Fi, but leave the device powered on.</li>
+<li><strong>Note what you know:</strong> who noticed it and how to reach them; what they saw (exact messages, pop-ups, sender addresses; a photo of the screen with your phone helps); the device name (on the label or under Settings → System → About) and the account involved; roughly when it started; and whether work has stopped, and for how many people.</li>
+<li><strong>Report it</strong> to {{company_name}} by calling {{company_emergency_phone}}, and tell the Service Manager. Always call rather than email; use {{company_email}} only to add details afterwards. <strong>Never report from a device or email account that might be compromised</strong>: use your phone or a coworker's computer.</li>
+<li><strong>Keep it confidential.</strong> Don't discuss it with customers, vendors or the media, or post about it, unless the Service Manager asks you to.</li>
+</ol>
+
+<h2>8. Severity levels</h2>
+<p>The Incident Handler assigns a severity at intake and changes it as facts emerge. Targets are measured from when {{company_name}} receives the report.</p>
+<ul>
+<li><strong>Critical:</strong> widespread impact or confirmed exposure of Restricted data. Example: ransomware encrypting servers, or an attacker with administrator access. Response: Incident Handler engaged within [15 minutes], 24/7; Service Manager and {{vcio_name}} notified immediately; insurer and counsel contacted the same day.</li>
+<li><strong>High:</strong> a confirmed compromise of an account or device, or possible exposure of sensitive data, with limited spread. Example: a compromised mailbox sending phishing, or a lost unencrypted laptop. Response: engaged within [1 hour], 24/7; Service Manager notified within [1 hour].</li>
+<li><strong>Medium:</strong> a contained threat with no evidence of data access. Example: malware blocked and quarantined on one workstation, or a user who clicked a link but entered nothing. Response: engaged within [4 business hours].</li>
+<li><strong>Low:</strong> a suspicious event with no sign of compromise. Example: a reported phishing email that nobody clicked. Response: reviewed within [1 business day].</li>
+</ul>
+
+<h2>9. Intake and triage ({{company_name}})</h2>
+<ol>
+<li><strong>Validate:</strong> confirm whether the report is a real security incident or a harmless event.</li>
+<li><strong>Gather data:</strong> pull telemetry, alerts and logs from endpoint protection, email, identity, firewall and cloud services, and from {{company_name}}'s managed detection and response service.</li>
+<li><strong>Classify:</strong> assign a severity from section 8, open an incident record and start the incident log.</li>
+<li><strong>Check for regulated data:</strong> decide whether personal information, PHI, card data, CUI or other regulated data could be involved. If so, follow section 11 as well.</li>
+<li><strong>Notify:</strong> tell the Service Manager what is known, the severity and the next steps.</li>
+</ol>
+
+<h2>10. Containment, eradication and recovery</h2>
+<p>{{company_name}} works through this checklist, adapting it to the incident. Steps that disrupt the business are agreed with the Service Manager first unless waiting would make the incident worse.</p>
+<ul>
+<li>☐ <strong>Contain:</strong> isolate affected devices through endpoint protection, disable or block affected accounts, revoke active sessions and block malicious senders, domains and IP addresses.</li>
+<li>☐ <strong>Notify the insurer:</strong> with the Service Manager's approval, contact the cyber insurance carrier before engaging outside vendors or rebuilding systems, if the policy requires it.</li>
+<li>☐ <strong>Accounts:</strong> reset passwords for affected accounts (and privileged accounts if there is any sign of wider access), verify each account's MFA methods and remove any the user didn't add, and check mailbox rules, forwarding and app consents.</li>
+<li>☐ <strong>Devices:</strong> clean or reimage affected devices; reimage when in doubt.</li>
+<li>☐ <strong>Persistence:</strong> find and remove anything the attacker left behind, such as new accounts, scheduled tasks, remote access tools or OAuth apps.</li>
+<li>☐ <strong>Patch:</strong> fix the weakness that was exploited, such as a missing update, a misconfiguration or a missing MFA requirement.</li>
+<li>☐ <strong>Restore:</strong> restore data and systems from known-good backups, after confirming the backups are clean; verify before returning them to use.</li>
+<li>☐ <strong>Watch:</strong> monitor closely for signs of reinfection or repeat access for at least [30 days].</li>
+<li>☐ <strong>Close:</strong> close the incident with documented findings: what happened, how, what was affected, what was done and what will change.</li>
+</ul>
+<p>The Service Manager is kept informed at each stage: at intake, after containment, when recovery starts and at closure, and at least every [4] hours during a Critical or High incident.</p>
+
+<h2>11. Incidents that may involve sensitive data</h2>
+<ul>
+<li><strong>Preserve evidence:</strong> keep logs, images of affected devices and the incident log; extend log retention where needed. Nothing is deleted until counsel agrees.</li>
+<li><strong>Determine what was accessed:</strong> {{company_name}} establishes which systems, accounts, files and records were reached, for how long, and whether data left the environment.</li>
+<li><strong>Scope:</strong> identify whose information was involved (customers, patients, employees) and in which states or countries they live, since notification laws depend on residence.</li>
+<li><strong>The client's part:</strong> the Service Manager provides business context, confirms who owns the affected data and what it contains, and approves notifications.</li>
+<li><strong>Notifications:</strong> {{company_name}} guides {{client_name}} through the process; {{client_name}}, with legal counsel, decides on notices to affected individuals, regulators (for example HHS under HIPAA, or the FTC within 30 days for 500 or more consumers under the Safeguards Rule), state attorneys general, the acquiring bank or payment processor for card data, and the DoD within 72 hours for CUI (through DIBNet, under DFARS 252.204-7012), within the required timeframes. Healthcare incidents also follow the HIPAA Breach Notification Procedure.</li>
+</ul>
+
+<h2>12. Documentation</h2>
+<p>The Incident Handler keeps an incident log with the timeline, actions taken, people involved, systems and data affected, decisions and who made them, and costs. The log and evidence are kept for at least [6 years] or longer if required by law, a contract or a legal hold.</p>
+
+<h2>13. Post-incident review</h2>
+<p>For every Critical and High incident, and any other incident the Service Manager requests, {{vcio_name}} leads a review within two weeks of closure with the Service Manager and the Incident Handler. The review records what worked, what didn't and the improvements agreed, each with an owner and date, and updates this plan, the risk register and training as needed.</p>
+
+<h2>14. Testing</h2>
+<p>This plan is reviewed and tested at least annually through a tabletop exercise facilitated by {{company_name}}, using a realistic scenario such as ransomware or a compromised mailbox. Results and corrective actions are documented. Last exercise: [date]. Next exercise: [date].</p>
+
+<h2>15. Related documents</h2>
+<ul>
+<li>Information Security Policy</li>
+<li>Acceptable Use Policy</li>
+<li>Business Continuity &amp; Disaster Recovery Plan</li>
+<li>Data Classification &amp; Handling Policy</li>
+<li>Logging &amp; Monitoring Policy</li>
+<li>HIPAA Breach Notification Procedure (healthcare)</li>
+</ul>
+<p>Supports: CMMC IR.L2-3.6.1, IR.L2-3.6.2, IR.L2-3.6.3 · CIS 17.1–17.6 · HIPAA 164.308(a)(6) · FTC Safeguards Rule 314.4(h) · NIST CSF RS.MA-01, RS.MA-03, RS.CO-02, RC.RP-01 · PCI DSS 12.10.1</p>
+
+<h2>16. Review and approval</h2>
+<p>This plan is reviewed at least annually, after every tabletop exercise and after every Critical or High incident.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

@@ -1,0 +1,89 @@
+<h1>Mobile Device &amp; BYOD Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>Phones, tablets and laptops make it easy to work from anywhere, but they are also easily lost, stolen or shared. This policy sets the minimum security requirements for company-owned mobile devices and for personal devices ("bring your own device" or BYOD) used to access {{client_name}} email, files and applications, while respecting employees' privacy on their personal devices.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all smartphones and tablets, and to personal laptops or home computers, used by workforce members, contractors or vendors to access {{client_name}} information or systems. Company-owned laptops and workstations are also covered by the Asset Management and Encryption policies.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy, approves BYOD participation and exceptions.</li>
+<li><strong>{{company_name}}:</strong> administers mobile device management (MDM) and app protection ([e.g. Microsoft Intune]), enforces the requirements in this policy, performs remote wipes when required, and supports enrollment.</li>
+<li><strong>Device users:</strong> enroll devices as required, keep them updated and secured, and report loss or theft immediately.</li>
+</ul>
+
+<h2>4. Device ownership models</h2>
+<ul>
+<li><strong>Company-owned devices</strong> are fully enrolled in MDM. {{client_name}} may configure, monitor, locate and fully wipe them. Personal use is allowed within the Acceptable Use Policy, but users should have no expectation of privacy on company devices.</li>
+<li><strong>Personal devices (BYOD)</strong> may be used for company email, Teams and approved apps only after the user signs the BYOD acknowledgment in section 11. Personal phones and tablets are protected with app protection policies (MAM) or a work profile, which manage only company apps and data, and do not give {{client_name}} access to personal photos, messages, browsing history or personal apps.</li>
+<li>Personal laptops and home computers may access company data only through web browsers with session controls or virtual desktops that prevent downloading, unless the device is enrolled in MDM and meets the company baseline.</li>
+</ul>
+
+<h2>5. Minimum security requirements</h2>
+<p>These requirements apply to every mobile device accessing company data and are enforced by MDM, app protection or conditional access. Devices that do not comply are blocked until fixed.</p>
+<ul>
+<li><strong>Supported operating system:</strong> the device runs a version still receiving security updates from the manufacturer, and updates are installed within 14 days of release (7 days for updates fixing actively exploited vulnerabilities). Jailbroken or rooted devices are blocked.</li>
+<li><strong>Screen lock:</strong> a PIN of at least 6 digits, a passcode, or biometrics backed by a PIN is required. Simple patterns, 4-digit PINs and repeated digits are not allowed. The screen locks automatically after no more than 5 minutes of inactivity.</li>
+<li><strong>Failed attempts:</strong> the device or company container is wiped, or locked for an increasing delay, after 10 failed unlock attempts.</li>
+<li><strong>Encryption:</strong> device storage encryption must be enabled (enabled by default on modern iOS and Android devices with a passcode).</li>
+<li><strong>Remote wipe capability:</strong> company devices can be fully wiped; personal devices can have company apps and data selectively wiped.</li>
+<li><strong>App sources:</strong> apps are installed only from official app stores (Apple App Store, Google Play). Sideloading apps from other sources is not permitted on devices with company data.</li>
+<li><strong>Approved apps:</strong> company data is accessed only through approved apps such as Outlook, Teams, OneDrive, SharePoint and [line-of-business apps]. Native mail apps are blocked for company email where app protection is used.</li>
+<li><strong>Threat protection:</strong> company-owned devices run mobile threat defense ([product]) where licensed.</li>
+</ul>
+
+<h2>6. Separation of company and personal data</h2>
+<ul>
+<li>Company data may not be copied from managed apps into personal apps, personal cloud storage, or personal email. App protection policies block copy/paste, "Save As" and screenshots of company data into unmanaged apps where configured.</li>
+<li>Company files may not be saved to the device's personal photo library or local storage outside the managed container.</li>
+<li>Personal iCloud or Google backups must not include company data; managed apps are excluded from personal backups by policy.</li>
+<li>Text messaging (SMS/iMessage/WhatsApp) must not be used to send Confidential or Restricted information such as PHI, SSNs or account numbers. Use Teams or other approved channels.</li>
+<li>Where CUI is involved, mobile access is permitted only on company-managed devices approved by the security lead.</li>
+</ul>
+
+<h2>7. Lost or stolen devices</h2>
+<ul>
+<li>Users must report a lost or stolen device containing company data to {{company_name}} at {{company_phone}} and to [security lead name] <strong>as soon as possible and within 4 hours</strong> of noticing it missing, including nights and weekends.</li>
+<li>{{company_name}} will attempt to locate the device (company-owned only), lock it, revoke the user's sessions and tokens, and wipe company data. Company-owned devices not recovered within [24] hours are fully wiped.</li>
+<li>The loss is recorded as a security incident. If the device may have contained unencrypted Restricted data, the Incident Response Plan is followed to assess notification obligations.</li>
+<li>Theft should also be reported to police; users provide the report number if available.</li>
+</ul>
+
+<h2>8. Privacy on personal devices</h2>
+<p>For BYOD devices using app protection or a work profile, {{client_name}} and {{company_name}} can see only: the device model and operating system version, the managed apps and their compliance status, and company data within those apps. They <strong>cannot</strong> see personal email, texts, photos, call history, browsing history, location, or personal apps. A selective wipe removes only company apps and data.</p>
+
+<h2>9. Offboarding and device changes</h2>
+<ul>
+<li>When a user leaves, or replaces or sells a device, company data is removed by selective wipe (BYOD) or full wipe (company-owned) as part of offboarding.</li>
+<li>Company-owned devices must be returned on or before the last day of work, with passcodes removed or provided to {{company_name}}, so the device can be reset and reassigned. Activation Lock / Factory Reset Protection must be released.</li>
+<li>Before selling, trading in or recycling a personal device that had company data, the user must confirm with {{company_name}} that company data has been removed and perform a factory reset.</li>
+</ul>
+
+<h2>10. Costs and support</h2>
+<p>[Describe stipend or reimbursement arrangements, if any.] {{company_name}} supports enrollment and company apps; support for personal device hardware and personal apps is the user's responsibility.</p>
+
+<h2>11. BYOD acknowledgment</h2>
+<p>I agree to follow this policy for any personal device I use for {{client_name}} work. I understand {{client_name}} may remove company data from my device, including if the device is lost or I leave the company, and that {{client_name}} will not access my personal data.</p>
+<p>Name: ______________________<br>Device type and model: ______________________<br>Signature: ______________________<br>Date: __________</p>
+
+<h2>12. Exceptions</h2>
+<p>Exceptions (for example a device that cannot run the approved app protection) require written approval from the security lead, documented compensating controls, and review at least annually.</p>
+
+<h2>13. Enforcement</h2>
+<p>Non-compliant devices are automatically blocked from company resources. Deliberately circumventing controls, jailbreaking devices with company data, or failing to report a lost device may result in disciplinary action up to and including termination.</p>
+
+<h2>14. Related documents</h2>
+<ul>
+<li>Acceptable Use Policy</li>
+<li>Remote Access Policy</li>
+<li>Encryption Policy</li>
+<li>Asset Management Policy</li>
+<li>Incident Response Plan</li>
+</ul>
+<p>Supports: CMMC AC.L2-3.1.18, AC.L2-3.1.19, AC.L2-3.1.10 · CIS 4.10, 4.11, 4.12, 3.6 · HIPAA 164.310(b), 164.310(c), 164.310(d)(1), 164.312(a)(2)(iv) · NIST CSF PR.AA-05, PR.DS-01, PR.PS-01 · PCI DSS 12.2.1, 12.3.4</p>
+
+<h2>15. Review and approval</h2>
+<p>This policy is reviewed at least annually and when mobile management tools or device platforms change significantly.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

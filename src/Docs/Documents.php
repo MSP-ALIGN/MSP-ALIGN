@@ -65,6 +65,8 @@ final class Documents
             'vcio_name' => $vcio ?: (Auth::user()['name'] ?? '[vCIO]'),
             'company_name' => Settings::get('company_name') ?: 'Your company',
             'company_phone' => Settings::get('company_phone') ?: '[our phone]',
+            // 2.15.1: the 24/7 security line for incident plans; the office phone when none is set
+            'company_emergency_phone' => Settings::get('company_emergency_phone') ?: (Settings::get('company_phone') ?: '[our 24/7 phone]'),
             'company_email' => Settings::get('company_email') ?: '[our email]',
             'company_website' => Settings::get('company_website') ?: '[our website]',
             'today' => \Align\Fmt::date(time(), 'long'),

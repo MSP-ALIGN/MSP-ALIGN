@@ -34,7 +34,7 @@
 
 <h2>5. Emergency contacts</h2>
 <ul>
-<li><strong>{{company_name}} (IT / MSP):</strong> {{company_phone}}, {{company_email}}; after-hours emergency: [number]</li>
+<li><strong>{{company_name}} (IT / MSP):</strong> {{company_phone}}, {{company_email}}; after-hours emergency: {{company_emergency_phone}}</li>
 <li><strong>Owner / executive sponsor:</strong> [name, mobile, personal email]</li>
 <li><strong>Continuity lead and alternate:</strong> [names, mobiles]</li>
 <li><strong>Cyber insurance carrier and breach hotline:</strong> [carrier, policy number, 24/7 hotline] — call before engaging outside incident response firms for a security incident</li>
@@ -78,8 +78,8 @@
 </ul>
 <h3>7.3 Loss of the office (fire, flood, wildfire, earthquake, extended power loss)</h3>
 <ul>
-<li>Ensure everyone is safe; follow evacuation procedures and emergency services instructions. Wildfire smoke and public safety power shutoffs are foreseeable events in California; monitor alerts.</li>
-<li>Staff work from home or the alternate location in section 9 using company laptops and cloud services.</li>
+<li>Ensure everyone is safe; follow evacuation procedures and emergency services instructions. Wildfire smoke, severe storms and utility power shutoffs may be foreseeable where you operate; monitor local alerts.</li>
+<li>Staff work from home or the alternate location in section 10 using company laptops and cloud services.</li>
 <li>Forward phones through the VoIP provider portal.</li>
 <li>{{company_name}} restores on-premises servers to cloud recovery or replacement hardware; order replacement equipment ([vendor, lead time]).</li>
 <li>Contact the insurance carrier for property claims; document damaged equipment.</li>
@@ -98,7 +98,35 @@
 <li>{{company_name}} opens a ticket with the ISP or phone provider and reports estimated restoration.</li>
 </ul>
 
-<h2>8. Communications</h2>
+<h2>8. Emergency mode operation</h2>
+<p>While systems are down or being recovered, the business keeps its critical work going and keeps its information protected. Each department lead keeps the procedures for their area current and makes sure their staff know where to find them.</p>
+<h3>8.1 Downtime procedures</h3>
+<ul>
+<li><strong>Paper forms:</strong> printed blank forms for critical work ([e.g. intake, orders, sign-in sheets, schedules]) are kept at [location], with instructions for entering the information once systems are back.</li>
+<li><strong>Phones:</strong> if the phone system is down, staff use mobile phones and the main number is forwarded as described in section 7.5. A printed staff and customer contact list is kept at [location].</li>
+<li><strong>Essential records:</strong> a current printout or offline copy of the records needed to keep working ([e.g. today's schedule, open orders, medication or care lists]) is kept at [location] and refreshed [daily / weekly]. Before a planned evacuation or forecast outage (such as a storm or public safety power shutoff), essential records are printed or downloaded to an encrypted device.</li>
+<li>Paper records created during downtime are handled as Confidential or Restricted information under the Data Classification &amp; Handling Policy and are stored securely until they are entered, then kept or destroyed under the Data Retention &amp; Disposal Policy.</li>
+</ul>
+<h3>8.2 Emergency access</h3>
+<ul>
+<li>Emergency access to systems or data outside normal permissions (for example a break-glass administrator account, or granting a coworker access to an absent person's mailbox) may be authorized only by <strong>[continuity lead or executive sponsor]</strong>, or by [alternate] when they can't be reached.</li>
+<li>{{company_name}} grants the access, records who authorized it, who received it, what it covered, and when it started and ended, and removes it when the emergency ends. Break-glass account credentials are stored in the password manager with an alert on use.</li>
+</ul>
+<h3>8.3 Power and remote access</h3>
+<ul>
+<li><strong>Backup power:</strong> [generator / UPS units] protect [servers, network equipment, phones]. Expected UPS runtime: [minutes]; generator fuel: [hours]. {{company_name}} configures servers to shut down cleanly before UPS batteries run out.</li>
+<li><strong>Remote access as fallback:</strong> when the office has no power or can't be used, staff work remotely as described in section 10 using company laptops, which should be kept charged.</li>
+</ul>
+<h3>8.4 Protecting data during moves and replacements</h3>
+<ul>
+<li>A system is backed up, and the backup verified, before it is moved, repaired or replaced, including during an emergency relocation.</li>
+</ul>
+<h3>8.5 Testing</h3>
+<ul>
+<li>Emergency mode procedures are tested at least once a year, alongside the annual test in section 12, for example by working a short period on paper forms and forwarded phones.</li>
+</ul>
+
+<h2>9. Communications</h2>
 <ul>
 <li><strong>Staff:</strong> initial message within [1] hour of declaration and updates at least every [4] hours during business hours.</li>
 <li><strong>Customers:</strong> the communications lead notifies affected customers when an outage will noticeably affect service, using pre-approved message templates ([location]). Messages about security incidents are reviewed by legal counsel first.</li>
@@ -107,36 +135,37 @@
 <li>Out-of-band communications (personal mobile phones, a pre-created group text or [Signal group]) are used if company email or Teams may be compromised.</li>
 </ul>
 
-<h2>9. Alternate work locations</h2>
+<h2>10. Alternate work locations</h2>
 <ul>
 <li><strong>Primary alternate:</strong> staff work from home using company laptops, VPN/ZTNA and cloud services. Staff without laptops: [plan, e.g. spare laptops kept at [location], or loaner devices from {{company_name}}].</li>
 <li><strong>Secondary alternate site:</strong> [address or arrangement, e.g. another branch, shared office space, owner's home].</li>
 <li>Critical paper records and supplies needed for continuity are kept at [location].</li>
 </ul>
 
-<h2>10. Return to normal operations</h2>
+<h2>11. Return to normal operations</h2>
 <ul>
 <li>Systems are returned to production only after {{company_name}} verifies they are clean and working, and business owners confirm data is correct.</li>
 <li>The continuity lead declares the end of the disaster and notifies staff and customers.</li>
 <li>A lessons-learned review is held within 2 weeks, and this plan is updated.</li>
 </ul>
 
-<h2>11. Testing and maintenance</h2>
+<h2>12. Testing and maintenance</h2>
 <ul>
-<li>This plan is tested <strong>at least annually</strong> through a tabletop exercise covering at least one scenario from section 7, facilitated by {{company_name}}. Results, issues found and corrective actions are documented.</li>
+<li>This plan is tested <strong>at least annually</strong> through a tabletop exercise covering at least one scenario from section 7, facilitated by {{company_name}}, together with a test of the emergency mode procedures in section 8. Results, issues found and corrective actions are documented.</li>
 <li>Backup restore tests are performed quarterly per the Backup &amp; Recovery Policy, and a full failover or recovery test of at least one critical system is performed annually to confirm RTO and RPO can be met.</li>
 <li>Contact lists are verified quarterly. The plan is updated after organizational or system changes and after any activation.</li>
 </ul>
 
-<h2>12. Related documents</h2>
+<h2>13. Related documents</h2>
 <ul>
 <li>Incident Response Plan</li>
 <li>Backup &amp; Recovery Policy</li>
 <li>Information Security Policy</li>
 <li>Vendor &amp; Third-Party Risk Management Policy</li>
+<li>Data Classification &amp; Handling Policy</li>
 </ul>
-<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 17.4 · HIPAA 164.308(a)(7)(i), 164.308(a)(7)(ii)(A)–(E) · NIST CSF ID.IM-04, PR.IR-03, RC.RP-01, RC.CO-03 · PCI DSS 12.10.1</p>
+<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 17.4 · HIPAA 164.308(a)(7)(i), 164.308(a)(7)(ii)(A)–(E), 164.310(a)(2)(i), 164.310(d)(2)(iv), 164.312(a)(2)(ii) · NIST CSF ID.IM-04, PR.IR-03, RC.RP-01, RC.CO-03 · PCI DSS 12.10.1</p>
 
-<h2>13. Review and approval</h2>
+<h2>14. Review and approval</h2>
 <p>This plan is reviewed at least annually, after every test, and after any activation.</p>
 <p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Last test date and type: [date, tabletop/technical]<br>Next review date: [date]</p>

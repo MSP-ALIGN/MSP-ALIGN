@@ -1,0 +1,116 @@
+<h1>Data Classification &amp; Handling Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy tells everyone at {{client_name}} how sensitive each kind of information is and how to store, share, send, print, keep and dispose of it. Classifying information lets the business spend its protection effort where it matters most, and makes it easy for staff to know the right way to handle a file or a record without having to ask each time.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all information {{client_name}} creates, receives, stores or sends, in any format (electronic, paper or spoken), wherever it is kept, including cloud services and vendors' systems. It applies to all employees, contractors and vendors who handle that information.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Data owner:</strong> the manager responsible for the business process that creates or uses the information ([e.g. office manager for customer records, controller for financial records]). Assigns its classification, approves who may access it, and reviews both at least annually.</li>
+<li><strong>Data custodian:</strong> whoever operates the systems that hold the information, usually {{company_name}} together with the security lead. Applies the controls this policy requires, such as access permissions, encryption, backups, labels and logging, and reports problems to the data owner.</li>
+<li><strong>Users:</strong> everyone who handles the information. Follow the handling rules for its classification, and ask the data owner or security lead when unsure.</li>
+<li><strong>Security lead ([name, title]):</strong> maintains this policy, answers questions and approves exceptions together with management.</li>
+</ul>
+
+<h2>4. Classification levels</h2>
+<p>These are the same four levels defined in the Information Security Policy. When information could fit two levels, use the higher one. A collection of information takes the level of its most sensitive part.</p>
+<ul>
+<li><strong>Public:</strong> approved for release to anyone. Examples: the public website, marketing material, published price lists, job postings.</li>
+<li><strong>Internal:</strong> everyday business information not meant for the public, whose disclosure would cause little harm. Examples: internal procedures, schedules, general email, the staff directory.</li>
+<li><strong>Confidential:</strong> information whose disclosure could harm {{client_name}}, its customers or its staff. Examples: customer lists and contact details, contracts, pricing, financial statements, HR records, internal network diagrams.</li>
+<li><strong>Restricted:</strong> the most sensitive information, where disclosure could trigger legal notification duties, fines or serious harm. Examples: Social Security numbers, bank and card numbers, protected health information (PHI), Controlled Unclassified Information (CUI), tax records, passwords, encryption keys and security-system details.</li>
+</ul>
+
+<h2>5. Labeling</h2>
+<ul>
+<li>Restricted documents and email are labeled "Restricted" in the header, footer, subject line or sensitivity label. Confidential documents are labeled where practical.</li>
+<li>Unlabeled information is classified by its content. When unsure, treat it as Confidential until the data owner decides.</li>
+<li>{{company_name}} can apply labels and data loss prevention automatically, for example with Microsoft Purview sensitivity labels in Microsoft 365: [labels in use, or "not yet in use"].</li>
+</ul>
+
+<h2>6. Handling rules</h2>
+<p>Each level includes the rules of the levels before it.</p>
+<h3>6.1 Public</h3>
+<ul>
+<li><strong>Storage and sharing:</strong> no restrictions once approved for release by [marketing owner or management].</li>
+<li><strong>Disposal:</strong> no special requirements.</li>
+</ul>
+<h3>6.2 Internal</h3>
+<ul>
+<li><strong>Storage:</strong> only in company-approved systems, never in personal email or personal cloud storage.</li>
+<li><strong>Sharing:</strong> with staff and authorized vendors who need it for their work.</li>
+<li><strong>Email:</strong> normal company email.</li>
+<li><strong>Printing:</strong> collect printouts promptly.</li>
+<li><strong>Retention and disposal:</strong> follow the Data Retention &amp; Disposal Policy; recycle or shred paper.</li>
+</ul>
+<h3>6.3 Confidential</h3>
+<ul>
+<li><strong>Storage:</strong> in approved systems with access limited to the people who need it; on encrypted devices only; never on removable media unless encrypted.</li>
+<li><strong>Sharing:</strong> only with people the data owner has approved. Share links go to named people, not "anyone with the link". Vendors sign a confidentiality agreement first.</li>
+<li><strong>Email:</strong> encrypted email or approved secure file sharing when sent outside the company. Double-check recipients before sending.</li>
+<li><strong>Printing:</strong> print only when needed, collect immediately, and lock printouts away when unattended.</li>
+<li><strong>Retention and disposal:</strong> keep only as long as the retention schedule allows; cross-cut shred paper; wipe or destroy media under the Asset Management Policy.</li>
+</ul>
+<h3>6.4 Restricted</h3>
+<ul>
+<li><strong>Storage:</strong> only in systems approved for Restricted data ([list systems]), with access limited to named people, reviewed at least quarterly, and logged. Never on personal devices or removable media unless specifically approved and encrypted.</li>
+<li><strong>Sharing:</strong> only with named people approved by the data owner, and with vendors only under a written agreement that covers the data (for example a business associate agreement for PHI).</li>
+<li><strong>Email:</strong> always encrypted, including inside the company where possible; never put Restricted information itself in the subject line, which isn't encrypted. Passwords for encrypted files go by a different channel than the file.</li>
+<li><strong>Printing:</strong> avoid printing; when needed, use a printer in a controlled area, never leave it on the printer and lock it up until it is shredded.</li>
+<li><strong>Retention and disposal:</strong> keep the minimum required by law or contract; shred paper in a locked shred bin or by a bonded service; destroy media with a certificate of destruction from {{company_name}} or the disposal vendor.</li>
+<li><strong>AI tools:</strong> never entered into an AI tool unless that tool is specifically approved for Restricted data.</li>
+</ul>
+
+<h2>7. Additional rules by data type</h2>
+<p>Some Restricted data carries legal or contractual rules of its own. The rules below apply only where that kind of data is present; delete the sections that don't apply to {{client_name}}.</p>
+<h3>[PHI] Protected health information</h3>
+<ul>
+<li>Use and disclose only the minimum necessary PHI for the task (HIPAA 164.502(b)).</li>
+<li>Every vendor that creates, receives, keeps or sends PHI has a signed business associate agreement before access (164.308(b)); see the BAA Checklist &amp; Inventory.</li>
+<li>Access to systems holding ePHI is logged and the logs are reviewed (164.312(b)).</li>
+<li>Suspected improper disclosures follow the HIPAA Breach Notification Procedure.</li>
+</ul>
+<h3>[Card data] Payment card information</h3>
+<ul>
+<li>Card numbers are never written down, emailed, texted, or stored in spreadsheets, notes or line-of-business systems. Sensitive authentication data (the security code, PIN or magnetic stripe data) is never stored after authorization (PCI DSS 3.3.1).</li>
+<li>Cards are taken only through approved payment terminals or payment pages: [approved terminals / payment pages].</li>
+<li>If a card number must be displayed, show no more than the first six and last four digits (PCI DSS 3.4.1).</li>
+</ul>
+<h3>[CUI] Controlled Unclassified Information</h3>
+<ul>
+<li>CUI is marked, stored, shared and destroyed according to the CUI Handling Policy and the System Security Plan, and only inside the defined CUI boundary.</li>
+<li>CUI is kept only on systems that meet NIST SP 800-171 and, where required, in cloud services meeting FedRAMP Moderate or equivalent (DFARS 252.204-7012).</li>
+<li>Suspected CUI incidents are reported to the DoD within 72 hours of discovery, through {{company_name}} and the security lead.</li>
+</ul>
+<h3>[Other] Other regulated data</h3>
+<ul>
+<li>[e.g. student records under FERPA, attorney-client privileged material, consumer financial information under the FTC Safeguards Rule: add the rules that apply.]</li>
+</ul>
+
+<h2>8. Misclassified or mishandled information</h2>
+<p>If you find information that seems to be classified too low, or handled in a way this policy doesn't allow, tell the data owner or security lead. If Confidential or Restricted information may have reached the wrong person, report it right away as a security incident under the Incident Response Plan.</p>
+
+<h2>9. Exceptions</h2>
+<p>Exceptions must be requested in writing to the security lead, with the business reason, the risk and compensating controls. They are approved by management, recorded in the risk register and reviewed at least annually.</p>
+
+<h2>10. Enforcement</h2>
+<p>Violations of this policy may result in loss of access and disciplinary action, up to and including termination of employment or contract.</p>
+
+<h2>11. Related documents</h2>
+<ul>
+<li>Information Security Policy (section 7, Data classification)</li>
+<li>Acceptable Use Policy</li>
+<li>Encryption Policy</li>
+<li>Data Retention &amp; Disposal Policy</li>
+<li>Asset Management Policy</li>
+<li>Incident Response Plan</li>
+<li>CUI Handling Policy, HIPAA Breach Notification Procedure (where they apply)</li>
+</ul>
+<p>Supports: CMMC MP.L2-3.8.1, MP.L2-3.8.4, AC.L2-3.1.3 · CIS 3.1, 3.2, 3.7, 3.12 · HIPAA 164.308(a)(4), 164.312(e)(1) · NIST CSF ID.AM-07, PR.DS-01, PR.DS-02 · PCI DSS 3.2.1, 9.4.2</p>
+
+<h2>12. Review and approval</h2>
+<p>This policy and the classification of key information are reviewed at least annually by the security lead and data owners with {{vcio_name}} of {{company_name}}.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

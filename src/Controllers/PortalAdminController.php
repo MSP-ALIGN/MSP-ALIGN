@@ -20,7 +20,7 @@ use Align\View;
 final class PortalAdminController
 {
     /** The permission columns, in the order the form and the UPDATE use them. */
-    private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts', 'can_closet', 'can_checkout']; // 2.15.0: closet
+    private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts', 'can_closet', 'can_checkout', 'can_closet_edit']; // 2.15.0: closet
 
     /** Every portal user across clients (tech). The view is audited (once per 15 minutes per session). */
     public static function index(): void
@@ -130,6 +130,7 @@ final class PortalAdminController
         }
         if (!$p['can_closet']) { // 2.15.0
             $p['can_checkout'] = 0;
+            $p['can_closet_edit'] = 0;
         }
         return $p;
     }

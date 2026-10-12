@@ -21,11 +21,13 @@ return [
     ['logging-monitoring-policy', 'Logging & Monitoring Policy', 'policy', 'What is logged, how long logs are kept, who reviews alerts and how time is synchronized.'],
     ['change-management-policy', 'Change Management Policy', 'policy', 'How changes to systems are requested, tested, approved, recorded and rolled back.'],
     ['asset-management-policy', 'Asset Management Policy', 'policy', 'Hardware and software inventory, ownership, approved software, lifecycle replacement and secure disposal.'],
+    ['data-classification-policy', 'Data Classification & Handling Policy', 'policy', 'The four classification levels, data owner and custodian roles, how each level is stored, shared, emailed, printed, kept and destroyed, and extra rules for PHI, card data and CUI where present.'],
     ['security-awareness-policy', 'Security Awareness Training Policy', 'policy', 'Onboarding and annual training, phishing simulations, role-based training and records.'],
     ['vendor-risk-policy', 'Vendor & Third-Party Risk Management Policy', 'policy', 'Vendor inventory, due diligence by risk tier, contract security terms and periodic reviews.'],
     // Continuity & risk
     ['bcdr-plan', 'Business Continuity & Disaster Recovery Plan', 'plan', 'Critical systems with recovery time and point objectives, contacts, recovery procedures and testing.'],
     ['backup-recovery-policy', 'Backup & Recovery Policy', 'policy', 'What is backed up, how often, retention, off-site and immutable copies, and restore testing.'],
+    ['risk-management-policy', 'Risk Management Policy', 'policy', 'Who runs risk assessments and how often, the NIST SP 800-30 based assessment and mitigation steps, treatment timeframes, risk acceptance and the risk register reviewed at each QBR.'],
     ['risk-assessment-report', 'Security Risk Assessment Report', 'assessment', 'Assets and threats, likelihood and impact scoring, risk register and treatment decisions with owners.'],
     // Healthcare & privacy
     ['hipaa-risk-analysis', 'HIPAA Security Risk Analysis', 'assessment', 'The risk analysis required by 45 CFR 164.308(a)(1)(ii)(A): where ePHI lives, threats and vulnerabilities, current safeguards, risk levels and the risk management plan.'],

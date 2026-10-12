@@ -461,6 +461,9 @@ $r->post('/portal/closet/items/{id}/checkout', [PortalController::class, 'closet
 $r->post('/portal/closet/devices/{id}/checkout', [PortalController::class, 'closetCheckoutDevice']);
 $r->post('/portal/closet/checkouts/{id}/checkin', [PortalController::class, 'closetCheckin']);
 $r->post('/portal/closet/request', [PortalController::class, 'closetRequest']);
+$r->post('/portal/closet/items', [PortalController::class, 'closetAdd']); // 2.15.1: clients keep their closet up to date too
+$r->get('/portal/closet/items/{id}', [PortalController::class, 'closetItem']);
+$r->post('/portal/closet/items/{id}', [PortalController::class, 'closetUpdate']);
 $r->get('/portal/devices', [PortalController::class, 'devices']);
 $r->get('/portal/compliance', [PortalController::class, 'compliance']);
 $r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);

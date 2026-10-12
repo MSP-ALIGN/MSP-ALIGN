@@ -1,0 +1,109 @@
+<h1>Asset Management Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>You can't protect what you don't know you have. This policy ensures {{client_name}} keeps an accurate inventory of its hardware, software and cloud services, assigns an owner to each, manages assets through their lifecycle from purchase to disposal, and destroys data securely when equipment is retired.</p>
+
+<h2>2. Scope</h2>
+<p>This policy covers all information technology assets owned, leased or managed by {{client_name}}, including workstations, laptops, servers, virtual machines, mobile devices, network equipment, printers and multifunction devices, storage devices and removable media, IoT devices (cameras, access control, phones), software and licenses, SaaS and cloud subscriptions, and domain names. Personal devices used under the Mobile Device &amp; BYOD Policy are tracked for their enrollment only.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy and approves exceptions and software requests outside the approved list.</li>
+<li><strong>Asset owners:</strong> the manager or person responsible for each asset or system; ensures it is used appropriately and approves changes.</li>
+<li><strong>{{company_name}}:</strong> maintains the inventory through its RMM and documentation platform, procures and deploys standard equipment, tracks warranties and lifecycle, and handles secure disposal.</li>
+<li><strong>Users:</strong> care for assigned equipment, keep it physically secure, never install unapproved software, and report loss or theft immediately.</li>
+</ul>
+
+<h2>4. Hardware inventory</h2>
+<ul>
+<li>Every hardware asset is recorded in the inventory before it is put into use. Records include: asset tag or serial number, make and model, device name, assigned user or location, asset owner, purchase date, warranty expiration, operating system, data classification of data stored, encryption status, and status (in use, in storage, retired).</li>
+<li>Workstations and servers are discovered and tracked automatically by the {{company_name}} RMM agent. Network, printer and IoT devices are recorded manually and confirmed by network scans.</li>
+<li>{{company_name}} reconciles the inventory at least <strong>monthly</strong> against RMM, endpoint protection, MDM and directory data. Unknown devices discovered on the network are investigated within 2 business days and either enrolled, moved to the guest network, or removed.</li>
+<li>A full physical inventory check is completed at least <strong>annually</strong>.</li>
+</ul>
+
+<h2>5. Software and cloud service inventory</h2>
+<ul>
+<li>{{company_name}} maintains a list of installed software from RMM data, and a list of SaaS and cloud subscriptions including owner, number of licenses, data stored, admin contacts and renewal date.</li>
+<li>{{client_name}} maintains an <strong>approved software list</strong>. Only software on the list may be installed. Users request new software through {{company_name}}; requests are reviewed for security, licensing and vendor risk, and approved by the security lead or asset owner.</li>
+<li>Unapproved or unlicensed software discovered on company devices is removed within 14 days unless an exception is approved.</li>
+<li>Software must be a version supported by its vendor with security updates. Unsupported software is handled under the Vulnerability &amp; Patch Management Policy.</li>
+<li>Where practical, application control or allow-listing prevents unapproved executables from running.</li>
+<li>Users do not have local administrator rights and cannot install software themselves.</li>
+</ul>
+
+<h2>6. Asset lifecycle</h2>
+<ul>
+<li><strong>Procurement:</strong> IT equipment is purchased through or in consultation with {{company_name}} to ensure it meets business-class standards (for example TPM 2.0, supported OS, business warranty). Consumer-grade network equipment is not used for business networks.</li>
+<li><strong>Deployment:</strong> devices are configured to the security baseline, encrypted, enrolled in RMM/MDM, and recorded in the inventory before being issued. Users sign for laptops and mobile devices.</li>
+<li><strong>Maintenance:</strong> assets are kept under warranty or a support contract while in production. Servers and network equipment critical to operations should have next-business-day or better hardware support.</li>
+<li><strong>Replacement targets:</strong>
+<ul>
+<li>Workstations and laptops: <strong>5 years</strong> (or earlier if they cannot run a supported operating system)</li>
+<li>Servers and storage: 5–6 years or end of warranty/support</li>
+<li>Firewalls, switches and wireless: 5–7 years or vendor end of support, whichever comes first</li>
+<li>Mobile phones and tablets: 3–4 years or end of OS security updates</li>
+<li>Backup appliances: aligned with warranty and vendor support</li>
+</ul>
+</li>
+<li>{{company_name}} provides a lifecycle report at each quarterly business review showing assets due for replacement in the next 12 months, to support budgeting.</li>
+<li><strong>Reassignment:</strong> before a device is reassigned to another user, it is wiped and re-imaged or reset, unless the device is being transferred with its data by manager direction.</li>
+</ul>
+
+<h2>7. Physical security and custody</h2>
+<ul>
+<li>Servers and network equipment are kept in a locked room, closet or rack accessible only to authorized staff and {{company_name}}.</li>
+<li>Laptops must not be left unattended in vehicles or public places. Devices in storage are kept in a locked area.</li>
+<li>Assets may not be removed from company premises unless they are portable devices assigned to the user or removal is approved by the asset owner.</li>
+<li>Returned equipment from departing users is collected on or before the last day of employment and recorded in the inventory.</li>
+</ul>
+
+<h2>8. Lost or stolen assets</h2>
+<ul>
+<li>Users report lost or stolen devices to {{company_name}} ({{company_phone}}) and [security lead name] as soon as possible and within 4 hours of discovery.</li>
+<li>{{company_name}} locks or wipes the device, revokes sessions and credentials associated with it, and records the loss in the inventory.</li>
+<li>The loss is recorded as a security incident. If the device contained Restricted data and was not encrypted, or its encryption key may have been exposed, the Incident Response Plan is followed to assess breach notification requirements.</li>
+<li>A police report is filed for theft.</li>
+</ul>
+
+<h2>9. Secure disposal and sanitization</h2>
+<ul>
+<li>All storage media leaving {{client_name}}'s control, including computers, servers, drives, copiers and printers with hard drives, phones, USB drives and backup media, is sanitized according to <strong>NIST SP 800-88</strong> (Guidelines for Media Sanitization):
+<ul>
+<li><strong>Clear:</strong> overwrite or factory reset; acceptable for devices being reused inside the company.</li>
+<li><strong>Purge:</strong> cryptographic erase, secure erase commands, or degaussing; required for devices leaving the company for resale, donation or return to a lessor.</li>
+<li><strong>Destroy:</strong> shredding, disintegration or pulverizing; required for failed drives and media that held Restricted data and cannot be purged.</li>
+</ul>
+</li>
+<li>Leased copiers and multifunction printers have their internal drives wiped or removed before return.</li>
+<li>Disposal is performed by {{company_name}} or a certified e-waste/ITAD vendor (for example e-Stewards or R2 certified). A <strong>certificate of sanitization or destruction</strong> listing the serial numbers of each item is obtained and kept for at least [3/6] years.</li>
+<li>The inventory record is updated to "disposed" with the date, method and certificate reference.</li>
+<li>Electronic waste is disposed of in accordance with California law; devices may not be placed in regular trash.</li>
+</ul>
+
+<h2>10. Licenses and subscriptions</h2>
+<ul>
+<li>Software licenses and subscriptions are tracked to ensure {{client_name}} is properly licensed and not paying for unused seats. {{company_name}} reviews license counts at least quarterly and at each offboarding.</li>
+<li>Domain names, DNS hosting and critical subscriptions are registered to company accounts (not individual employees' personal accounts), have auto-renew enabled, and have at least two authorized administrators.</li>
+</ul>
+
+<h2>11. Exceptions</h2>
+<p>Exceptions (for example keeping a device beyond its replacement target) require security lead approval, documented risk and compensating controls, and are reviewed at least annually.</p>
+
+<h2>12. Enforcement</h2>
+<p>Installing unapproved software, removing management agents, failing to return equipment, or disposing of equipment outside this policy may result in disciplinary action and, where applicable, recovery of costs.</p>
+
+<h2>13. Related documents</h2>
+<ul>
+<li>Vulnerability &amp; Patch Management Policy</li>
+<li>Encryption Policy</li>
+<li>Mobile Device &amp; BYOD Policy</li>
+<li>Data Retention &amp; Disposal Policy</li>
+<li>Vendor &amp; Third-Party Risk Management Policy</li>
+</ul>
+<p>Supports: CMMC CM.L2-3.4.1, CM.L2-3.4.8, CM.L2-3.4.9, MP.L2-3.8.3 · CIS 1.1, 1.2, 2.1, 2.2, 2.3, 3.5 · HIPAA 164.310(d)(1), 164.310(d)(2)(i), 164.310(d)(2)(ii), 164.310(d)(2)(iii) · NIST CSF ID.AM-01, ID.AM-02, ID.AM-08, PR.PS-05 · PCI DSS 9.4.7, 12.5.1</p>
+
+<h2>14. Review and approval</h2>
+<p>This policy is reviewed at least annually.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

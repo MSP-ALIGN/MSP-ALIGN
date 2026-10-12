@@ -22,7 +22,7 @@ use Align\Settings;
  * is a closet_events row (the item's history), by a staff user or a portal user.
  *
  * Security assumptions: callers check the role (viewers read; techs and admins change; admins manage offices) or the
- * portal permission (can_closet to see, can_checkout to check out, in and request), and that the client is the
+ * portal permission (can_closet to see, can_checkout to check out, in and request, can_closet_edit to add and update), and that the client is the
  * portal user's own; methods here re-check that an item, device, contact or checkout belongs to the client named
  * (ownsItem etc.), so ids from a form can't reach another client's closet. Every text value is cleaned (control
  * characters removed) and cut to its column; quantities are whole numbers within limits. A checkout locks the item

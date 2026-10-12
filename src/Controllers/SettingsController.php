@@ -19,9 +19,9 @@ use Align\View;
  */
 final class SettingsController
 {
-    public const TEXT = ['company_name', 'company_phone', 'company_email', 'company_website', 'report_footer', 'source_url'];
+    public const TEXT = ['company_name', 'company_phone', 'company_emergency_phone', 'company_email', 'company_website', 'report_footer', 'source_url'];
     /** Longest value kept for each TEXT setting (the setup wizard uses the same for the company fields). */
-    private const TEXT_MAX = ['company_name' => 190, 'company_phone' => 60, 'company_email' => 190, 'company_website' => 190, 'report_footer' => 1000, 'source_url' => 500];
+    private const TEXT_MAX = ['company_name' => 190, 'company_phone' => 60, 'company_emergency_phone' => 60, 'company_email' => 190, 'company_website' => 190, 'report_footer' => 1000, 'source_url' => 500];
     /** setting => [min, max]. All are whole numbers except the cost_* amounts (see save()). */
     public const NUMBERS = [
         'lifespan_desktop' => [1, 20], 'lifespan_laptop' => [1, 20], 'lifespan_server' => [1, 20], 'lifespan_network' => [1, 20],
