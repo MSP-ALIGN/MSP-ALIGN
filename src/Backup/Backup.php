@@ -242,7 +242,7 @@ final class Backup
         $covered = array_flip(array_filter(array_map(fn($w) => (int) $w['device_id'], $workloads)));
         $unprotected = [];
         foreach ($devices ?? [] as $d) {
-            if ($d['device_class'] === 'server' && $d['type'] !== 'Hypervisor host' && $d['status'] !== 'excluded' && !isset($covered[(int) $d['id']])
+            if ($d['device_class'] === 'server' && $d['type'] !== 'Hypervisor host' && !\Align\Lifecycle\Lifecycle::notInUse($d) && !isset($covered[(int) $d['id']])
                 && !isset($ex['devices'][(int) $d['id']])) {
                 $unprotected[] = $d;
             }

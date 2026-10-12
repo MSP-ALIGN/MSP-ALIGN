@@ -63,6 +63,9 @@ final class DeviceController
             'backups' => $client && \Align\Backup\Backup::has($client) ? DB::all('SELECT * FROM backup_workloads WHERE device_id = ? ORDER BY last_point DESC', [$id]) : null,
             'backupExempt' => DB::one('SELECT e.*, u.name AS created_by_name FROM backup_exemptions e LEFT JOIN users u ON u.id = e.created_by
                 WHERE e.device_id = ? OR e.item_uid IN (SELECT uid FROM backup_workloads WHERE device_id = ?) LIMIT 1', [$id, $id]),
+            // 2.15.0 tech closet: a spare's open checkout, and the client's contacts to check it out to
+            'spareOut' => !empty($d['is_spare']) ? (\Align\Closet\Closet::open(['device' => $id])[0] ?? null) : null,
+            'spareContacts' => !empty($d['is_spare']) && $client ? DB::all('SELECT id, name FROM contacts WHERE client_id = ? AND archived_at IS NULL ORDER BY name', [$client['id']]) : [],
         ]);
     }
 
@@ -575,6 +578,9 @@ final class DeviceController
         }
         $before = PsaAssetSync::snapshot($id);
         DB::run('UPDATE devices SET retired_at = NOW(), removed_at = COALESCE(removed_at, NOW()) WHERE id = ?', [$id]);
+        // 2.15.0 a retired device leaves the tech closet: no longer spare, and an open checkout ends (it isn't coming back)
+        DB::run("UPDATE closet_checkouts SET in_at = NOW(), in_user_id = ?, outcome = 'used' WHERE device_id = ? AND in_at IS NULL", [Auth::id(), $id]);
+        DB::run('UPDATE devices SET is_spare = 0, spare_since = NULL WHERE id = ?', [$id]);
         PsaAssetSync::recordAlignEdit($id, $before);
         Audit::log('device.retire', $d['name']);
         $r = PsaAssetSync::pushDevice($id, Auth::id());

@@ -96,7 +96,8 @@ or clients.
 **What do clients see?**
 In the client portal (two-factor sign-in required, with sections you choose per person): their roadmap, budget, devices,
 documents and reports, and forms to request new users, terminations, licenses and budget items. They can approve or
-decline proposed projects there.
+decline proposed projects there, and (since 2.15.0, with its permission) see their tech closet, check spare parts and
+spare devices out and in, and ask for parts.
 
 **Can I use my own branding?**
 Yes: your company name, logo and colours under **Settings → Branding**, for the app, the sign-in pages, the client

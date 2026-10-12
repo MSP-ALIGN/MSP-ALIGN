@@ -74,7 +74,7 @@ final class ReportData
     public static function devices(int $clientId, bool $virtual = true): array
     {
         self::$deviceCache[$clientId] ??= (new Lifecycle())->devices($clientId);
-        return array_values(array_filter(self::$deviceCache[$clientId], fn($d) => $d['status'] !== 'excluded' && ($virtual || !$d['is_virtual'])));
+        return array_values(array_filter(self::$deviceCache[$clientId], fn($d) => !\Align\Lifecycle\Lifecycle::inactive($d) && ($virtual || !$d['is_virtual'])));
     }
 
     /** Sort rank of a device's status: replace first, then unsupported OS, plan, OS ending, warranty. */

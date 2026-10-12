@@ -156,7 +156,7 @@ final class Changes
         $today = date('Y-m-d');
         // A device has left when it was removed from the RMM/PSA or retired in Align
         $gone = fn($d) => !empty($d['removed_at']) || !empty($d['retired_at']);
-        $live = array_values(array_filter($all, fn($d) => !$gone($d) && $d['status'] !== 'excluded'));
+        $live = array_values(array_filter($all, fn($d) => !$gone($d) && !\Align\Lifecycle\Lifecycle::inactive($d)));
         $liveIds = array_flip(array_map(fn($d) => (int) $d['id'], $live));
         $byId = [];
         foreach ($all as $d) {
@@ -187,7 +187,7 @@ final class Changes
             // Devices that left this client: their names from this client's rows, else (moved away) a plain label
             foreach ($missing as $id) {
                 $d = $byId[$id] ?? null;
-                if ($d && $d['status'] === 'excluded' && !$gone($d)) {
+                if ($d && \Align\Lifecycle\Lifecycle::inactive($d) && !$gone($d)) {
                     continue; // excluded since: not "removed"
                 }
                 $removed[] = $d ? $item($d, ['date' => substr((string) ($d['removed_at'] ?: $d['retired_at']), 0, 10) ?: null, 'project' => $projectOf[$id] ?? null])
@@ -220,7 +220,7 @@ final class Changes
             foreach ($all as $d) {
                 $created = (string) $d['created_at'];
                 $when = (string) ($d['removed_at'] ?: $d['retired_at']);
-                if ($d['status'] === 'excluded' || ($created > $at && (!$initial || $created > $initial)) || ($gone($d) && $when <= $at)) {
+                if (\Align\Lifecycle\Lifecycle::inactive($d) || ($created > $at && (!$initial || $created > $initial)) || ($gone($d) && $when <= $at)) {
                     continue;
                 }
                 $thenSummary['total']++;

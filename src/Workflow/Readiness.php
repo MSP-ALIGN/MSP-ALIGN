@@ -70,7 +70,7 @@ final class Readiness
     {
         $id = (int) $client['id'];
         $devices ??= (new Lifecycle())->devices($id);
-        $unassigned = count(array_filter($devices, fn($d) => $d['type'] === Lifecycle::UNASSIGNED && $d['status'] !== 'excluded'));
+        $unassigned = count(array_filter($devices, fn($d) => $d['type'] === Lifecycle::UNASSIGNED && !\Align\Lifecycle\Lifecycle::inactive($d)));
         $noDate = count(Lifecycle::unplanned($devices));
         ['lic' => $lic, 'contacts' => $contacts, 'frameworks' => $frameworks, 'projects' => $projects, 'managed' => $managed, 'next' => $next, 'rmm' => $rmmLinked] = self::$pre[$id] ?? self::counts([$id])[$id];
         $nextMeeting = $next ? ['starts_at' => $next] : null;

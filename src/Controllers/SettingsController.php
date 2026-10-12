@@ -147,6 +147,14 @@ final class SettingsController
             Settings::set('plan_start', $ps);
             $changed[] = 'plan_start';
         }
+        // 2.15.0 spare devices in contract seat counts (a checkbox on the Planning tab; the hidden _present field says it was on the form)
+        if (isset($_POST['spares_in_seats_present'])) {
+            $v = isset($_POST['spares_in_seats']) ? '1' : '0';
+            if ($v !== (string) Settings::get('spares_in_seats', '1')) {
+                Settings::set('spares_in_seats', $v);
+                $changed[] = 'spares_in_seats';
+            }
+        }
         foreach (self::NUMBERS as $k => [$min, $max]) {
             $v = post($k);
             if ($v === '' || !is_numeric($v)) {

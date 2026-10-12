@@ -12,8 +12,8 @@
         <tr class="<?= $u['is_active'] ? '' : 'text-muted' ?>">
           <td><b><?= e($u['name']) ?></b><div class="small text-muted"><?= e($u['email']) ?></div></td>
           <td><a href="/clients/<?= (int) $u['client_id'] ?>/portal"><?= e($u['client_name']) ?></a></td>
-          <td class="small"><?= e(implode(', ', array_filter([$u['can_roadmap'] ? 'Roadmap' : null, $u['can_budget'] ? 'Budget' : null, $u['can_devices'] ? 'Devices' : null, $u['can_documents'] ? 'Documents' : null]))) ?>
-            <?= $u['can_approve'] ? '<span class="badge text-bg-light border">approves</span>' : '' ?><?= $u['can_submit'] ? '<span class="badge text-bg-light border">suggests</span>' : '' ?><?= $u['can_contacts'] ? '<span class="badge text-bg-light border">requests</span>' : '' ?></td>
+          <td class="small"><?= e(implode(', ', array_filter([$u['can_roadmap'] ? 'Roadmap' : null, $u['can_budget'] ? 'Budget' : null, $u['can_devices'] ? 'Devices' : null, $u['can_documents'] ? 'Documents' : null, !empty($u['can_closet']) ? 'Tech closet' : null]))) ?>
+            <?= $u['can_approve'] ? '<span class="badge text-bg-light border">approves</span>' : '' ?><?= $u['can_submit'] ? '<span class="badge text-bg-light border">suggests</span>' : '' ?><?= $u['can_contacts'] ? '<span class="badge text-bg-light border">requests</span>' : '' ?><?= !empty($u['can_checkout']) ? '<span class="badge text-bg-light border">checks out</span>' : '' ?></td>
           <td><span class="badge text-bg-<?= !$u['is_active'] ? 'secondary' : ($u['password_hash'] ? 'success' : 'info') ?>"><?= !$u['is_active'] ? 'Disabled' : ($u['password_hash'] ? 'Active' : 'Invited') ?></span><?= $u['totp_enabled'] ? ' <span class="badge text-bg-light border">2FA</span>' : '' ?></td>
           <td class="small"><?= $u['last_login_at'] ? e(rel_time($u['last_login_at'])) : '<span class="text-muted">never</span>' ?></td>
         </tr>

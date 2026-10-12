@@ -101,7 +101,7 @@ final class Clients
         $cut = time() - self::offlineDays() * 86400;
         $needed = $missing = $offline = $used = [];
         foreach ($devices as $d) {
-            if (($d['status'] ?? '') === 'excluded' || !empty($d['retired_at']) || ($d['source'] ?? '') !== 'rmm' || !empty($d['stale'])
+            if (\Align\Lifecycle\Lifecycle::notInUse($d) || !empty($d['retired_at']) || ($d['source'] ?? '') !== 'rmm' || !empty($d['stale'])
                 || !in_array($d['device_class'] ?? '', self::NEEDS_AGENT, true) || preg_match(self::NO_AGENT_OS, (string) ($d['os_name'] ?? ''))
                 || (stripos((string) ($d['type'] ?? ''), 'hypervisor') !== false && stripos((string) ($d['os_name'] ?? ''), 'windows') === false)) { // e.g. Proxmox on Debian
                 continue;

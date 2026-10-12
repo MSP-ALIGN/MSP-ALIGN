@@ -33,7 +33,7 @@ final class BackupController
         $claim = null;
         if (Auth::can('tech') && Backup::hostedUnmatched() > 0) {
             $servers = $b ? array_column($b['unprotected'], 'name')
-                : array_column(array_filter($devices, fn($d) => $d['device_class'] === 'server' && $d['status'] !== 'excluded'), 'name');
+                : array_column(array_filter($devices, fn($d) => $d['device_class'] === 'server' && !\Align\Lifecycle\Lifecycle::notInUse($d)), 'name');
             $claim = Backup::claimable($client, $servers);
         }
         View::render('backups/client', [
@@ -231,7 +231,7 @@ final class BackupController
                 $unlinked[] = $c['name'];
                 continue;
             }
-            $devs = array_values(array_filter($byClient[(int) $c['id']] ?? [], fn($d) => $d['status'] !== 'excluded'));
+            $devs = array_values(array_filter($byClient[(int) $c['id']] ?? [], fn($d) => !\Align\Lifecycle\Lifecycle::notInUse($d)));
             $b = \Align\Backup\Backup::forClient($c, $devs);
             if ($b) {
                 $rows[] = ['client' => $c, 'b' => $b];

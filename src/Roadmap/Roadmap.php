@@ -77,7 +77,7 @@ final class Roadmap
         // Hardware replacements, OS end of support, warranty expirations
         $osGroups = [];
         foreach ($devices as $d) {
-            if ($d['status'] === 'excluded') {
+            if (\Align\Lifecycle\Lifecycle::inactive($d)) {
                 continue;
             }
             if ($d['replace_by'] !== null && ($i = Plan::indexFor($d['replace_by'])) !== null) {

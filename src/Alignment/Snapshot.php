@@ -36,7 +36,7 @@ final class Snapshot
     {
         $client = DB::one('SELECT * FROM clients WHERE id = ?', [$clientId]) ?? ['id' => $clientId];
         $devices = (new \Align\Lifecycle\Lifecycle())->devices($clientId);
-        $live = array_filter($devices, fn($d) => $d['status'] !== 'excluded');
+        $live = array_filter($devices, fn($d) => !\Align\Lifecycle\Lifecycle::notInUse($d));
         $ids = fn(string $flag) => array_values(array_map(fn($d) => (int) $d['id'], array_filter($live, fn($d) => in_array($flag, $d['flags'], true))));
         $al = Alignment::latest($clientId);
         $lic = \Align\Licensing\Licenses::totals(\Align\Licensing\Licenses::load($clientId));

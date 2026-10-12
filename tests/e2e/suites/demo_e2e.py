@@ -60,7 +60,10 @@ ok(n(f"select count(*) from clients where id in ({inn}) and is_demo = 1") == 4, 
 # lifecycle: a mix, not everything in trouble
 php_out = php(f'$l = new Align\\Lifecycle\\Lifecycle(); $d = array_filter($l->devices({ids[0]}), fn($x) => $x["is_hardware"]); $s = array_count_values(array_column($d, "status")); ksort($s); echo json_encode($s);', env=FENV).stdout
 mix = json.loads(php_out or "{}")
-ok(mix.get("ok", 0) >= len(sum([[1] * v for v in mix.values()], [])) // 2 and (mix.get("replace", 0) + mix.get("os_eos", 0)) >= 1, "devices: mostly healthy, some to replace or out of OS support: " + php_out)
+# (os_soon counts as fine here: the newest Windows 11 release in the OS table is itself within the planning window
+# whenever Microsoft hasn't shipped a newer one yet, e.g. from Oct 2026 for 25H2, so "current" machines show it)
+ok(mix.get("ok", 0) + mix.get("os_soon", 0) >= len(sum([[1] * v for v in mix.values()], [])) // 2 and (mix.get("replace", 0) + mix.get("os_eos", 0)) >= 1,
+   "devices: mostly healthy, some to replace or out of OS support: " + php_out)
 # backups stay attached when backup matching runs again (mapping saves, backup syncs)
 r_as = php("Align\\Sync\\BackupSync::assign();", env=FENV); ok(r_as.returncode == 0, "backup matching runs: " + r_as.stderr[:120])
 t = st.get(FB + f"/clients/{ids[0]}/backups").text; ok("Servers nightly" in t, "backups still attached after matching runs again")

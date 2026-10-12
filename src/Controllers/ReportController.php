@@ -268,7 +268,7 @@ final class ReportController
         $clients = DB::all('SELECT id, name, industry FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
         $byClient = [];
         foreach ($lc->devices() as $d) {
-            if ($d['client_id'] !== null && $d['status'] !== 'excluded' && !$d['is_virtual']) {
+            if ($d['client_id'] !== null && !\Align\Lifecycle\Lifecycle::inactive($d) && !$d['is_virtual']) {
                 $byClient[(int) $d['client_id']][] = $d;
             }
         }
