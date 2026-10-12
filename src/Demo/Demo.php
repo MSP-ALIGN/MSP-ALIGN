@@ -266,6 +266,7 @@ final class Demo
         self::documents($cid, $i, $userId);
         self::backups($cid, $i, $deviceIds, $name);
         self::training($cid, $i, (int) $staff); // 2.7.3
+        self::closet($cid, $i, $userId); // 2.15.0
         // A portal user for the main contact (invited, no password yet: send yourself the invite to see the portal)
         DB::insert('portal_users', ['client_id' => $cid, 'email' => self::email($p[0], $domain), 'name' => $p[0], 'can_roadmap' => 1, 'can_budget' => 1, 'can_devices' => 1,
             'can_documents' => 1, 'can_approve' => 1, 'can_submit' => 1, 'can_contacts' => 1, 'invited_by' => $userId,
@@ -396,6 +397,28 @@ final class Demo
             'account_number' => sprintf('ESI-%04d', 210 + $i), 'support_phone' => '(555) 010-2400', 'website' => 'https://www.example.com/software',
             'services' => 'Line-of-business application, annual license', 'created_by' => $userId]);
         \Align\Vendors\Vendors::relinkManual($cid);
+    }
+
+    /**
+     * 2.15.0 A small tech closet: spare cables, keyboards, mice and headsets (one running low), a spare monitor, and a
+     * headset checked out to the client's first contact, due back last week on the first demo client. Gone with the
+     * client (ON DELETE CASCADE).
+     */
+    private static function closet(int $cid, int $i, ?int $userId): void
+    {
+        $by = ['user_id' => $userId];
+        $ids = [];
+        foreach ([['USB-C to HDMI adapter', 'cables', 6, 2], ['Cat6 patch cable, 7 ft', 'cables', 12, 5], ['Wireless keyboard and mouse', 'peripherals', 2, 2],
+            ['USB headset', 'audio', $i === 1 ? 1 : 3, 2]] as [$name, $cat, $qty, $min]) {
+            $ids[$name] = \Align\Closet\Closet::create($cid, ['name' => $name, 'kind' => 'stock', 'category' => $cat, 'manufacturer' => null, 'model' => null, 'serial' => null,
+                'location' => 'Server closet, shelf 2', 'quantity' => $qty, 'min_quantity' => $min, 'notes' => null], $by);
+        }
+        \Align\Closet\Closet::create($cid, ['name' => '24" monitor', 'kind' => 'tracked', 'category' => 'monitors', 'manufacturer' => 'Dell', 'model' => 'P2422H',
+            'serial' => 'DEMO' . strtoupper(substr(md5("mon$cid"), 0, 7)), 'location' => 'Server closet', 'quantity' => 1, 'min_quantity' => null, 'notes' => null], $by);
+        $contact = DB::one('SELECT id FROM contacts WHERE client_id = ? ORDER BY id LIMIT 1', [$cid]);
+        if ($contact && (int) DB::value('SELECT quantity FROM closet_items WHERE id = ?', [$ids['USB headset']]) > 0) {
+            \Align\Closet\Closet::checkout($ids['USB headset'], null, 1, $cid, (int) $contact['id'], '', $i === 1 ? date('Y-m-d', strtotime('-7 days')) : '', 'Loaner while theirs is repaired', $by);
+        }
     }
 
     /** Budget lines for client $cid: managed services, internet, phones and domains, some with contract terms. */

@@ -174,6 +174,12 @@ final class Contracts
 
     // ---- Quantities Align can count ---------------------------------------------------------------------------
 
+    /** 2.15.0 Whether spare devices (tech closet) count in contract seat counts: Settings → Planning, on by default. */
+    public static function sparesAreSeats(): bool
+    {
+        return \Align\Settings::get('spares_in_seats', '1') === '1';
+    }
+
     /**
      * Counts for Template::AUTO for an existing client (staff only; the caller checked the client exists). A failing
      * source counts 0 and is logged, so a broken integration never stops a contract being made.
@@ -183,7 +189,8 @@ final class Contracts
         $n = array_fill_keys(array_keys(Template::AUTO), 0);
         try {
             foreach ((new \Align\Lifecycle\Lifecycle())->devices($clientId) as $d) {
-                if (!empty($d['o_excluded']) || !empty($d['retired_at'])) {
+                // 2.15.0: spares count as seats unless Settings → Planning says otherwise (MSPs bill them differently)
+                if (!empty($d['o_excluded']) || !empty($d['retired_at']) || (!empty($d['is_spare']) && !self::sparesAreSeats())) {
                     continue;
                 }
                 $type = $d['type'];

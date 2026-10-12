@@ -356,6 +356,7 @@ ICONS = {
     "server": '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
     "lock": '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     "pulse": '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+    "box": '<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
     "check": '<path d="M12 2l2.4 2.2 3.2-.4.9 3.1 2.8 1.6-1.2 3 1.2 3-2.8 1.6-.9 3.1-3.2-.4L12 22l-2.4-2.2-3.2.4-.9-3.1-2.8-1.6 1.2-3-1.2-3 2.8-1.6.9-3.1 3.2.4z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
 }
 
@@ -371,11 +372,12 @@ FEATURES = [
     ("target", "Alignment reviews", "Score every client against your own standards, then turn each gap into a roadmap project."),
     ("roadmap", "Roadmaps and budgets", "Projects by quarter and a three-year budget that fills itself from hardware, licenses and services."),
     ("report", "QBRs in one click", "A polished pack that opens with what changed since the last review, then lifecycle, backups, compliance, roadmap and budget."),
-    ("portal", "Client portal", "Clients see their plan, approve projects and send requests, with two-factor sign-in."),
+    ("portal", "Client portal", "Clients see their plan, approve projects, send requests and check out spare parts, with two-factor sign-in."),
     ("pulse", "Security and client health", "Huntress, security awareness training, Microsoft 365 and Google Workspace checked daily, rolled into one health score per client."),
     ("shield", "Compliance and policies", "CIS, NIST CSF, CMMC, PCI DSS, SOC 2, ISO 27001 and more, plus 27 policy templates."),
     ("pen", "Contracts and e-signatures", "Upload your agreement, send it to sign online, countersign and keep the certificate."),
     ("key", "Licensing and renewals", "Every license and contract with its cost and renewal date, so nothing renews unnoticed."),
+    ("box", "Tech closet", "Spare parts, loaners and spare computers for each client and each of your offices, checked out to people, from your side or the client portal."),
     ("plug", "To do and automation", "One list of what's waiting on your team, and a REST API for n8n, Zapier and scripts."),
 ]
 TOOLS = ["ITFlow", "HaloPSA (beta)", "NinjaOne", "Tactical RMM (beta)", "Datto RMM (beta)", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)", "KnowBe4 (beta)",

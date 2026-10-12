@@ -3,7 +3,7 @@ use Align\Portal\PortalAuth;
 
 /** Permission checkboxes. @var ?array $u existing portal user (null = defaults for a new one); $pid unique id prefix (fixed by the caller) */
 $u = $u ?? null;
-$def = ['can_roadmap' => 1, 'can_budget' => 0, 'can_devices' => 1, 'can_documents' => 1, 'can_approve' => 0, 'can_submit' => 1, 'can_contacts' => 0];
+$def = ['can_roadmap' => 1, 'can_budget' => 0, 'can_devices' => 1, 'can_documents' => 1, 'can_approve' => 0, 'can_submit' => 1, 'can_contacts' => 0, 'can_closet' => 0, 'can_checkout' => 0];
 $val = fn(string $k) => $u ? (int) $u[$k] : $def[$k];
 $hints = [
     'can_roadmap' => 'Roadmap, projects and replacement timeline',
@@ -13,6 +13,8 @@ $hints = [
     'can_approve' => 'Needs Roadmap & projects',
     'can_submit' => 'Needs Budget & licensing. You review each one before it\'s added',
     'can_contacts' => 'Needs Documents, contacts & meetings. Contacts themselves are view-only',
+    'can_closet' => 'Spare parts and equipment kept for them, spare devices, and who has what',
+    'can_checkout' => 'Needs Tech closet. Adding items and changing counts stay with your team',
 ];
 ?>
 <div class="row">

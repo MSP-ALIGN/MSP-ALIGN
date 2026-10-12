@@ -187,7 +187,7 @@ final class Notify
             OR EXISTS (SELECT 1 FROM backup_job_clients x WHERE x.client_id = c.id)) AND c.is_archived = 0 AND c.planning_excluded = 0' . self::clientFilter($ids) . ' ORDER BY c.name');
         foreach ($clients as $c) {
             $b = self::$backups[(int) $c['id']] ??= \Align\Backup\Backup::forClient($c,
-                array_values(array_filter(self::devicesByClient()[(int) $c['id']] ?? [], fn($d) => $d['status'] !== 'excluded')));
+                array_values(array_filter(self::devicesByClient()[(int) $c['id']] ?? [], fn($d) => !\Align\Lifecycle\Lifecycle::notInUse($d))));
             if ($b && $b['stats']['tone'] !== 'ok') {
                 $out[] = ['client' => $c, 'b' => $b];
             }
@@ -288,7 +288,7 @@ final class Notify
         $until = date('Y-m-d', strtotime('+90 days'));
         $rows = [];
         foreach (array_merge(...array_values(self::devicesByClient())) as $d) {
-            if (!$d['client_id'] || $d['client_inactive'] || $d['status'] === 'excluded' || !$d['is_hardware'] || !empty($d['project']) || ($ids !== null && !in_array((int) $d['client_id'], $ids, true))) {
+            if (!$d['client_id'] || $d['client_inactive'] || \Align\Lifecycle\Lifecycle::notInUse($d) || !$d['is_hardware'] || !empty($d['project']) || ($ids !== null && !in_array((int) $d['client_id'], $ids, true))) {
                 continue;
             }
             $due = $d['replace_planned'] ? $d['replace_by'] : $d['eol_date'];

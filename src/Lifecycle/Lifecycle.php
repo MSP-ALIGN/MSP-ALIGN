@@ -101,6 +101,26 @@ final class Lifecycle
         'virtual' => ['Virtual (OS only)', 'muted'],
     ];
 
+    /** Statuses that leave a device out of plans, budgets, warnings and reports: excluded by hand. */
+    public const INACTIVE = ['excluded'];
+
+    /** Whether an evaluated device is left out of plans, budgets, warnings and reports (excluded; see INACTIVE). */
+    public static function inactive(array $d): bool
+    {
+        return in_array($d['status'] ?? '', self::INACTIVE, true);
+    }
+
+    /**
+     * 2.15.0 Whether a device is out of use: excluded, or a spare on the shelf (tech closet). A spare stays in
+     * replacement plans, budgets and reports (it still has to be replaced one day), but it isn't stale, and it's left
+     * out of what measures devices in use: health score, compliance and alignment indicators, the email digest, backup
+     * and Huntress coverage (contract seats: Contracts::sparesAreSeats). Use this there, and inactive() for planning and reports.
+     */
+    public static function notInUse(array $d): bool
+    {
+        return self::inactive($d) || !empty($d['is_spare']);
+    }
+
     /** Lifespans, costs and warning windows from Settings (see __construct). */
     private array $policy;
     /** OS support rules (os_support), longest name match first. */
@@ -357,7 +377,8 @@ final class Lifecycle
             }
         }
 
-        $stale = $d['last_contact'] && strtotime($d['last_contact']) < time() - $this->policy['stale_days'] * 86400;
+        // A spare on the shelf is expected to be switched off (2.15.0)
+        $stale = empty($d['is_spare']) && $d['last_contact'] && strtotime($d['last_contact']) < time() - $this->policy['stale_days'] * 86400;
 
         // Replacement date used for budget forecasting (hardware only, not excluded). A device a project replaces
         // (2.1) leaves the automatic plan: the project's own quarter and cost count instead, so nothing counts twice.
@@ -367,7 +388,7 @@ final class Lifecycle
             $project = null; // the device moved to another client: that client's plan counts it again
         }
         $replaceBy = null;
-        if ($isHardware && $status !== 'excluded' && !$project) {
+        if ($isHardware && !in_array($status, self::INACTIVE, true) && !$project) {
             $replaceBy = $due;
         }
         $plannedQ = $planned ? \Align\Roadmap\Plan::quarterFor($planned) : null;
@@ -397,7 +418,7 @@ final class Lifecycle
             'replace_note' => $planned ? ($d['o_replace_note'] ?? null) : null,
             'replace_deferred' => $planned !== null && $eol !== null && $planned > $eol,
             'replacement_cost' => $cost,
-            'replace_due' => $isHardware && $status !== 'excluded' ? $due : null,
+            'replace_due' => $isHardware && !in_array($status, self::INACTIVE, true) ? $due : null,
             'project' => $project,
         ];
     }
@@ -511,7 +532,7 @@ final class Lifecycle
     /** Hardware that should be budgeted but can't be placed in the plan (no in-service date, no planned quarter, no project). */
     public static function unplanned(array $devices): array
     {
-        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'] && empty($d['replace_planned']) && empty($d['project'])));
+        return array_values(array_filter($devices, fn($d) => $d['is_hardware'] && !self::inactive($d) && !$d['start_date'] && empty($d['replace_planned']) && empty($d['project'])));
     }
 
     /** Totals per plan year from forecast() output. */
@@ -542,7 +563,7 @@ final class Lifecycle
         $s = ['total' => 0, 'hardware' => 0, 'replace' => 0, 'plan' => 0, 'deferred' => 0, 'os_eos' => 0, 'os_soon' => 0,
             'warranty_expired' => 0, 'warranty_soon' => 0, 'no_warranty' => 0, 'stale' => 0, 'overdue_cost' => 0.0];
         foreach ($devices as $d) {
-            if ($d['status'] === 'excluded') {
+            if (self::inactive($d)) {
                 continue;
             }
             $s['total']++;

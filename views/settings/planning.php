@@ -62,6 +62,9 @@ foreach (Lifecycle::CLASSES as $class => $label) {
             <div class="col-md-6"><?= $num('warranty_warn_days', 'Flag warranty expiring within', '', 'days') ?></div>
             <div class="col-md-6"><?= $num('stale_days', 'Mark stale after no check-in for', '', 'days') ?></div>
             <div class="col-md-6"><?= $num('warranty_recheck_days', 'Re-check vendor warranties every', '', 'days') ?></div>
+            <div class="col-12"><input type="hidden" name="spares_in_seats_present" value="1">
+              <div class="form-check"><input class="form-check-input" type="checkbox" name="spares_in_seats" value="1" id="spares-in-seats"<?= \Align\Contracts\Contracts::sparesAreSeats() ? ' checked' : '' ?>>
+                <label class="form-check-label fw-normal" for="spares-in-seats">Count spare devices (tech closet) in contract seat counts <span class="small text-muted d-block">Untick if you don't bill for computers on the shelf.</span></label></div></div>
           </div>
         </div>
       </div>

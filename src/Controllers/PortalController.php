@@ -468,7 +468,7 @@ final class PortalController
     public static function devices(): void
     {
         $pu = PortalAuth::require('can_devices');
-        $all = array_values(array_filter((new Lifecycle())->devices((int) $pu['client_id']), fn($d) => $d['status'] !== 'excluded'));
+        $all = array_values(array_filter((new Lifecycle())->devices((int) $pu['client_id']), fn($d) => !\Align\Lifecycle\Lifecycle::inactive($d)));
         $filter = in_array(query('filter'), ['attention', 'virtual'], true) ? query('filter') : '';
         $rows = array_values(array_filter($all, fn($d) => match ($filter) {
             'attention' => in_array($d['status_tone'], ['bad', 'warn'], true),
@@ -588,6 +588,168 @@ final class PortalController
             ? 'We saved your request but couldn\'t send it to the service desk automatically. Please call us so nothing is missed.'
             : 'Request sent: ' . $r['title'] . '. Your IT team will follow up.');
         redirect('/portal/requests');
+    }
+
+    // ---- 2.15.0 Tech closet -------------------------------------------------------------------
+
+    /**
+     * The client's tech closet (can_closet): its stock (what's on the shelf and how many are out, never staff notes),
+     * its spare devices, and what its people have (from its closet and the MSP's loaners). Users with can_checkout
+     * get the check-out, check-in and request forms.
+     */
+    public static function closet(): void
+    {
+        $pu = PortalAuth::require('can_closet');
+        $cid = (int) $pu['client_id'];
+        $keep = ['id', 'kind', 'category', 'name', 'manufacturer', 'model', 'location', 'quantity', 'out', 'low', 'min_quantity'];
+        $items = array_map(fn($i) => array_intersect_key($i, array_flip($keep)), \Align\Closet\Closet::items($cid));
+        $out = array_map(fn($c) => array_intersect_key($c, array_flip(['id', 'item_id', 'item_kind', 'device_id', 'what', 'person', 'quantity', 'due_on', 'out_at', 'overdue', 'msp', 'owner_client_id'])),
+            \Align\Closet\Closet::open(['borrower' => $cid]));
+        $spares = array_map(fn($s) => array_intersect_key($s, array_flip(['id', 'display_name', 'system_name', 'manufacturer', 'model', 'device_type', 'checkout_id', 'person', 'due_on'])),
+            \Align\Closet\Closet::spares($cid));
+        self::render('closet', ['title' => 'Tech closet', 'nav' => 'closet', 'items' => $items, 'out' => $out, 'spares' => $spares,
+            'canCheckout' => !empty($pu['can_checkout']),
+            'contacts' => DB::all('SELECT id, name, email FROM contacts WHERE client_id = ? AND archived_at IS NULL ORDER BY name', [$cid])], $pu);
+    }
+
+    /** require('can_closet') plus can_checkout, or a 403 page. */
+    private static function requireCheckout(): array
+    {
+        $pu = PortalAuth::require('can_closet');
+        if (empty($pu['can_checkout'])) {
+            http_response_code(403);
+            self::render('error', ['title' => 'Not allowed', 'message' => 'Your account can see the tech closet but not check things out. Ask your IT provider if you need to.'], $pu);
+            exit;
+        }
+        return $pu;
+    }
+
+    /**
+     * Who a portal checkout is for: a contact of the user's own client chosen in the form ('me' = the contact with the
+     * user's email, else the user's own name as typed). Never another client's contact.
+     */
+    private static function closetPerson(array $pu): array
+    {
+        $cid = (int) $pu['client_id'];
+        $pick = post('contact_id');
+        if ($pick === '' || $pick === 'me') {
+            $me = DB::value('SELECT id FROM contacts WHERE client_id = ? AND email = ? AND archived_at IS NULL LIMIT 1', [$cid, $pu['email']]);
+            return [$me ? (int) $me : null, (string) $pu['name']];
+        }
+        return [(int) $pick ?: null, ''];
+    }
+
+    /** Checks out some of an item from the client's own closet (can_checkout; 30 actions an hour per user). */
+    public static function closetCheckout(int $id): void
+    {
+        $pu = self::requireCheckout();
+        $cid = (int) $pu['client_id'];
+        $i = \Align\Closet\Closet::item($id);
+        if (!$i || (int) $i['client_id'] !== $cid || $i['client_id'] === null) {
+            flash('error', 'That item isn\'t in your closet.');
+            redirect('/portal/closet');
+        }
+        self::closetThrottle($pu);
+        [$contact, $person] = self::closetPerson($pu);
+        try {
+            self::closetDue();
+            \Align\Closet\Closet::checkout($id, null, post('quantity') === '' ? '1' : post('quantity'), $cid, $contact, $person, post('due_on'), post('note'), ['portal_user_id' => (int) $pu['id']]);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect('/portal/closet');
+        }
+        Audit::log('closet.checkout', "{$pu['client_name']}: {$i['name']} (portal: {$pu['email']})");
+        flash('success', "Checked out {$i['name']}.");
+        redirect('/portal/closet');
+    }
+
+    /** Checks out one of the client's spare devices (can_checkout). */
+    public static function closetCheckoutDevice(int $id): void
+    {
+        $pu = self::requireCheckout();
+        $cid = (int) $pu['client_id'];
+        $d = DB::one('SELECT id, display_name, system_name FROM devices WHERE id = ? AND is_spare = 1 AND removed_at IS NULL', [$id]);
+        if (!$d || \Align\Closet\Closet::deviceClient($id) !== $cid) { // its own client, or the one its RMM organization is linked to
+            flash('error', 'That isn\'t one of your spare devices.');
+            redirect('/portal/closet');
+        }
+        self::closetThrottle($pu);
+        [$contact, $person] = self::closetPerson($pu);
+        try {
+            self::closetDue();
+            \Align\Closet\Closet::checkout(null, $id, 1, $cid, $contact, $person, post('due_on'), post('note'), ['portal_user_id' => (int) $pu['id']]);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect('/portal/closet');
+        }
+        $name = $d['display_name'] ?: $d['system_name'];
+        Audit::log('closet.checkout', "{$pu['client_name']}: $name (spare device; portal: {$pu['email']})");
+        flash('success', "Checked out $name.");
+        redirect('/portal/closet');
+    }
+
+    /** Checks something back in to the client's own closet (can_checkout); the MSP's loaners go back through the MSP. */
+    public static function closetCheckin(int $id): void
+    {
+        $pu = self::requireCheckout();
+        $cid = (int) $pu['client_id'];
+        $c = \Align\Closet\Closet::checkoutRow($id);
+        $owner = $c ? (int) ($c['item_client_id'] ?? $c['device_client_id'] ?? 0) : 0;
+        if (!$c || $owner !== $cid) {
+            flash('error', 'That isn\'t checked out from your closet.');
+            redirect('/portal/closet');
+        }
+        self::closetThrottle($pu);
+        $outcome = post('outcome') === 'used' && $c['item_id'] ? 'used' : 'returned'; // a spare device comes back; keeping one is for the MSP to decide
+        try {
+            if (!\Align\Closet\Closet::checkin($id, $outcome, ['portal_user_id' => (int) $pu['id']])) {
+                flash('error', 'That was already checked in.');
+                redirect('/portal/closet');
+            }
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect('/portal/closet');
+        }
+        Audit::log('closet.checkin', "{$pu['client_name']}: {$c['what']} from {$c['person']} ($outcome; portal: {$pu['email']})");
+        flash('success', $outcome === 'used' ? 'Marked used up.' : 'Checked back in. Thank you!');
+        redirect('/portal/closet');
+    }
+
+    /** Asks the MSP for a part (can_checkout): a ticket in the PSA, else an email (Closet::request). */
+    public static function closetRequest(): void
+    {
+        $pu = self::requireCheckout();
+        $client = self::client($pu);
+        $itemId = (int) post('item_id') ?: null;
+        if ($itemId && (int) DB::value('SELECT client_id FROM closet_items WHERE id = ?', [$itemId]) !== (int) $pu['client_id']) {
+            $itemId = null; // only the client's own items are named
+        }
+        try {
+            $how = \Align\Closet\Closet::request($client, $pu, $itemId, post('what'), post('quantity'), post('note'));
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect('/portal/closet');
+        }
+        flash($how === 'failed' ? 'warning' : 'success', $how === 'failed' ? 'Your request was saved, but it couldn\'t be sent to your IT provider automatically. Please contact them too.' : 'Request sent to your IT provider.');
+        redirect('/portal/closet');
+    }
+
+    /** A due date from the portal can't be in the past (throws \InvalidArgumentException; Closet::checkout checks it's a date). */
+    private static function closetDue(): void
+    {
+        $due = post('due_on');
+        if ($due !== '' && $due < date('Y-m-d')) {
+            throw new \InvalidArgumentException('The due date is in the past.');
+        }
+    }
+
+    /** At most 30 closet changes an hour per portal user (a stuck script or a curious click-through can't flood the history). */
+    private static function closetThrottle(array $pu): void
+    {
+        if ((int) DB::value('SELECT COUNT(*) FROM closet_events WHERE portal_user_id = ? AND at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 30) {
+            flash('error', 'That\'s a lot of changes in an hour. Please try again later, or contact your IT provider.');
+            redirect('/portal/closet');
+        }
     }
 
     /** require('can_documents') plus can_contacts and requests switched on, or a 403 page. */

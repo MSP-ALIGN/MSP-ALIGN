@@ -1,7 +1,7 @@
 <?php
 /**
  * A device's page. @var array $d, $sync, $syncRow; ?array $client, $lookup, $backups, $backupExempt; ?string $rmmUrl;
- * string $rmmName; bool $twoWay, $clientInPsa
+ * string $rmmName; bool $twoWay, $clientInPsa; ?array $spareOut (2.15.0: a spare's open checkout); array $spareContacts
  * Device data comes from the RMM and PSA and is escaped. The RMM and PSA links come from their providers, which only
  * build http(s) links to the configured address. Edit, sync and backup forms are for techs and admins.
  */
@@ -30,6 +30,7 @@ if ($client) {
   <div class="me-auto">
     <?php // One status here (1.42); the other lifecycle flags are listed on the Lifecycle tab ?>
     <span class="badge text-bg-<?= tone_class($d['status_tone']) ?>"><?= e($d['status_label']) ?></span>
+    <?php if (!empty($d['is_spare'])): // 2.15.0 ?><span class="badge text-bg-secondary"><i class="fas fa-box-archive me-1"></i>Spare</span><?php endif; ?>
     <span class="badge text-bg-light border"><?= $d['source'] === 'rmm' ? '<i class="' . e(\Align\Providers\Providers::rmmIcon($d['rmm_provider'])) . ' me-1"></i>' : ($d['source'] === 'psa' ? '<i class="fas fa-screwdriver-wrench me-1"></i>' : '') ?><?= e($srcLabel) ?></span>
     <?php if ($retired): ?><span class="badge text-bg-dark"><i class="fas fa-box-archive me-1"></i>Retired <?= e(fmt_date($syncRow['retired_at'])) ?></span>
     <?php elseif ($d['removed_at']): ?><span class="badge text-bg-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
@@ -44,9 +45,29 @@ if ($client) {
     <?php if ($canEdit && $retired): ?>
       <form method="post" action="/devices/<?= (int) $d['id'] ?>/restore" class="d-inline"><?= csrf_field() ?><button class="btn btn-sm btn-success rounded-0" data-confirm="<?= e('Restore ' . $d['name'] . '? It counts in plans and reports again' . ($linked && $twoWay && !$alignOnly ? ', and the ' . psa_name() . ' asset is marked Deployed.' : '.')) ?>" data-confirm-danger="0"><i class="fas fa-rotate-left me-1"></i>Restore</button></form>
     <?php endif; ?>
+    <?php if ($canEdit && $client && !$retired && !$d['removed_at'] && empty($d['is_spare'])): // 2.15.0 ?>
+      <form method="post" action="/devices/<?= (int) $d['id'] ?>/spare" class="d-inline"><?= csrf_field() ?><input type="hidden" name="spare" value="1">
+        <button class="btn btn-sm btn-default rounded-0" title="On the shelf: into the tech closet" data-confirm="<?= e('Mark ' . $d['name'] . ' spare? It goes into the client\'s tech closet. It stays in replacement plans and reports, but isn\'t flagged stale or counted in health, compliance, backup and security coverage until it\'s back in use.') ?>" data-confirm-danger="0"><i class="fas fa-box-archive me-1"></i>Mark spare</button></form>
+    <?php endif; ?>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-device-edit"><i class="fas fa-pen me-1"></i>Edit</button><?php endif; ?>
   </div>
 </div>
+
+<?php // 2.15.0 A spare: in the client's tech closet; who has it, check out, back in use ?>
+<?php if (!empty($d['is_spare']) && $client && !$retired && !$d['removed_at']): ?>
+  <div class="alert alert-light border small" id="spare">
+    <div class="d-flex flex-wrap align-items-center">
+      <div class="me-auto"><i class="fas fa-box-archive me-1"></i><b>Spare</b> in <a href="/clients/<?= (int) $client['id'] ?>/closet">the tech closet</a><?= $d['spare_since'] ? ' since ' . e(fmt_date($d['spare_since'])) : '' ?>: still in replacement plans and reports, but not flagged stale and left out of the health score, compliance, and backup and security coverage.
+        <?php if ($spareOut): ?><div class="mt-1"><i class="fas fa-right-from-bracket me-1"></i>Checked out to <b><?= e($spareOut['person']) ?></b> since <?= e(fmt_date($spareOut['out_at'])) ?><?= $spareOut['due_on'] ? ', due back <span class="' . ($spareOut['overdue'] ? 'text-danger fw-bold' : '') . '">' . e(fmt_date($spareOut['due_on'])) . '</span>' : '' ?>.</div><?php endif; ?></div>
+      <?php if ($canEdit): ?>
+        <?php if ($spareOut): ?><form method="post" action="/closet/checkouts/<?= (int) $spareOut['id'] ?>/checkin" class="d-inline me-1"><?= csrf_field() ?><input type="hidden" name="back" value="/devices/<?= (int) $d['id'] ?>"><input type="hidden" name="outcome" value="returned"><button class="btn btn-sm btn-default">Check in</button></form><?php endif; ?>
+        <form method="post" action="/devices/<?= (int) $d['id'] ?>/spare" class="d-inline"><?= csrf_field() ?><input type="hidden" name="spare" value="0"><button class="btn btn-sm btn-default" title="It's in use again: counted in health and coverage again"<?= $spareOut ? ' data-confirm="' . e('Back in use? ' . $spareOut['person'] . ' keeps it as their device, and the checkout ends.') . '" data-confirm-danger="0"' : '' ?>>Back in use</button></form>
+      <?php endif; ?>
+    </div>
+    <?php if ($canEdit && !$spareOut): ?><div class="mt-2"><?= \Align\View::fetch('closet/_checkout_form', ['action' => '/devices/' . (int) $d['id'] . '/checkout', 'back' => '/devices/' . (int) $d['id'],
+      'contacts' => $spareContacts, 'clients' => [], 'qty' => false, 'max' => 1, 'pid' => 'spare-co']) ?></div><?php endif; ?>
+  </div>
+<?php endif; ?>
 
 <?php
 $labels = array_map(fn($f) => $f[0], PsaAssetSync::FIELDS);
@@ -93,7 +114,7 @@ $hasSync = psa_on() || $sync['history'];
           <?php if (!empty($d['project'])): $pj = $d['project']; $pt = $pj['psa_ticket_id'] ? \Align\Providers\Providers::psaLink('ticket', (string) $pj['psa_ticket_id']) : null; ?>
           <?= $row('Project', '<a href="/clients/' . (int) $pj['client_id'] . '/roadmap#modal-roadmap-' . (int) $pj['id'] . '" class="fw-bold">' . e($pj['title']) . '</a> <span class="badge text-bg-' . e(\Align\Roadmap\Roadmap::STATUSES[$pj['status']][1]) . '">' . e(\Align\Roadmap\Roadmap::STATUSES[$pj['status']][0]) . '</span> <span class="small text-muted">' . e($pj['quarter_label'] ?? 'unscheduled') . '</span>'
               . ($pj['psa_ticket_id'] ? ' <span class="small ms-1">' . ($pt ? '<a href="' . e($pt) . '" target="_blank" rel="noopener">' . e(\Align\Roadmap\ProjectTickets::ticketLabel((string) $pj['psa_ticket_id'])) . '</a>' : e(\Align\Roadmap\ProjectTickets::ticketLabel((string) $pj['psa_ticket_id']))) . '</span>' : '')) ?>
-          <?php elseif ($d['is_hardware'] && $d['status'] !== 'excluded'): ?>
+          <?php elseif ($d['is_hardware'] && !\Align\Lifecycle\Lifecycle::inactive($d)): ?>
           <?= $row('Replace in', ($d['replace_planned']
               ? '<span class="badge text-bg-' . ($d['replace_deferred'] ? 'warning' : 'info') . '">' . e($d['replace_label']) . '</span> <span class="small text-muted">' . ($d['replace_deferred'] ? 'put off from end of life' : 'set by hand') . ($d['replace_note'] ? ': ' . e($d['replace_note']) : '') . '</span>'
               : ($d['eol_date'] ? e(\Align\Roadmap\Plan::quarterFor($d['eol_date'])['label'] ?? '') . ' <span class="small text-muted">(end of life)</span>' : '<span class="text-muted">—</span>'))
@@ -109,8 +130,8 @@ $hasSync = psa_on() || $sync['history'];
           <?php if ($lookup) echo $row('Vendor lookup', e(ucfirst($lookup['vendor'])) . ': ' . e($lookup['status']) . ' · ' . e(rel_time($lookup['looked_up_at'])) . ($lookup['description'] ? '<div class="small text-muted">' . e($lookup['description']) . '</div>' : '')); ?>
           <?php if ($d['o_notes']) echo $row('Notes', '<span class="pre-line">' . e($d['o_notes']) . '</span>'); ?>
         </table>
-        <?php if ($canEdit && $d['is_hardware'] && $d['status'] !== 'excluded' && empty($d['project']) && !empty($d['client_id']) && empty($d['removed_at'])) echo \Align\View::fetch('devices/_project_modal', ['client' => \Align\DB::one('SELECT * FROM clients WHERE id = ?', [(int) $d['client_id']]), 'device' => $d, 'back' => '/devices/' . (int) $d['id']]); ?>
-        <?php if ($canEdit && $d['is_hardware'] && $d['status'] !== 'excluded' && empty($d['project'])): $choices = \Align\Roadmap\Plan::choices(6); ?>
+        <?php if ($canEdit && $d['is_hardware'] && !\Align\Lifecycle\Lifecycle::inactive($d) && empty($d['project']) && !empty($d['client_id']) && empty($d['removed_at'])) echo \Align\View::fetch('devices/_project_modal', ['client' => \Align\DB::one('SELECT * FROM clients WHERE id = ?', [(int) $d['client_id']]), 'device' => $d, 'back' => '/devices/' . (int) $d['id']]); ?>
+        <?php if ($canEdit && $d['is_hardware'] && !\Align\Lifecycle\Lifecycle::inactive($d) && empty($d['project'])): $choices = \Align\Roadmap\Plan::choices(6); ?>
         <form method="post" action="/devices/<?= (int) $d['id'] ?>/replacement" class="collapse border-top p-3" id="replace-form">
           <?= csrf_field() ?>
           <div class="row g-2">

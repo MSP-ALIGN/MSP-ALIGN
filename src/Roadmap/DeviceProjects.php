@@ -58,7 +58,7 @@ final class DeviceProjects
             if (!$d) {
                 continue; // not this client's
             }
-            if (!$d['is_hardware'] || $d['status'] === 'excluded') {
+            if (!$d['is_hardware'] || \Align\Lifecycle\Lifecycle::inactive($d)) {
                 $skipped[] = $d['name'] . ' (not replaced as hardware)';
             } elseif ($d['project']) {
                 $skipped[] = $d['name'] . ' (already in "' . $d['project']['title'] . '")';

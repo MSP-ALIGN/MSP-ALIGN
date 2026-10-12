@@ -37,6 +37,7 @@ $navSections = [
         ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
         ['devices', '/devices', 'Devices & assets', 'fa-desktop', 'viewer'],
         ['vendors', '/vendors', 'Vendors', 'fa-store', 'viewer'], // 2.8.0: the shared vendor templates
+        ['closet', '/closet', 'Tech closet', 'fa-boxes-stacked', 'viewer'], // 2.15.0: spare parts and loaners
     ],
     'ONBOARDING' => [
         ...(($h = $firstTab('contracts')) ? [['contracts', $h, 'Contracts', 'fa-file-signature', 'tech', $ready && Auth::can('tech') ? \Align\Workflow\Todo::contractsWaiting() : 0]] : []),
@@ -79,6 +80,7 @@ $clientMenu = $client ? [
     ['devices', "/clients/$cidM/devices", 'Devices & assets', 'fa-desktop'],
     ['licenses', "/clients/$cidM/licenses", 'Licensing', 'fa-key'],
     ['vendors', "/clients/$cidM/vendors", 'Vendors', 'fa-store'], // 2.8.0
+    ['closet', "/clients/$cidM/closet", 'Tech closet', 'fa-boxes-stacked'], // 2.15.0
     ...(\Align\Backup\Backup::has($client) || \Align\Providers\Providers::anyBackup() ? [['backups', "/clients/$cidM/backups", 'Backups', 'fa-database']] : []),
     ...(\Align\Service\Sla::enabled() && !empty($client['psa_id']) ? [['service', "/clients/$cidM/service-levels", 'Service levels', 'fa-stopwatch']] : []),
     'THE PLAN',

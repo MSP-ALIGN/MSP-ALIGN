@@ -104,7 +104,7 @@ final class Clients
         $id = (int) $c['id'];
         $out = [];
         if (Context::can('devices:read')) {
-            $devs = array_values(array_filter((new \Align\Lifecycle\Lifecycle())->devices($id), fn($d) => $d['status'] !== 'excluded'));
+            $devs = array_values(array_filter((new \Align\Lifecycle\Lifecycle())->devices($id), fn($d) => !\Align\Lifecycle\Lifecycle::inactive($d)));
             $s = \Align\Lifecycle\Lifecycle::summarize($devs);
             $out['devices'] = ['total' => (int) $s['total'], 'healthy' => count(array_filter($devs, fn($d) => !in_array($d['status_tone'], ['bad', 'warn'], true))),
                 'past_end_of_life' => (int) $s['replace'], 'unsupported_os' => (int) $s['os_eos'], 'out_of_warranty' => (int) $s['warranty_expired']];

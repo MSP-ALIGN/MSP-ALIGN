@@ -85,6 +85,25 @@ final class Todo
                     'detail' => 'Backups on your own backup server that aren\'t assigned to a client yet.',
                     'link' => '/mapping/backups', 'action' => 'Match', 'count' => $n];
             }
+            // 2.15.0 Tech closet: overdue checkouts and low stock, one line per closet
+            try {
+                foreach (\Align\Closet\Closet::overdueByOwner() as $o) {
+                    $n = (int) $o['n'];
+                    $out[] = ['key' => 'closet-overdue-' . ($o['owner'] ?? 'msp'), 'category' => 'hardware', 'icon' => 'fa-boxes-stacked', 'tone' => 'warning',
+                        'title' => $plural($n, 'checkout', 'checkouts') . ' overdue' . ($o['owner'] ? " at {$o['name']}" : ' from your stock'),
+                        'detail' => 'Tech closet items past their due date. Check them in, or chase them up.',
+                        'link' => $o['owner'] ? '/clients/' . (int) $o['owner'] . '/closet#checked-out' : '/closet', 'action' => 'Tech closet', 'count' => $n];
+                }
+                foreach (\Align\Closet\Closet::lowByOwner() as $o) {
+                    $n = (int) $o['n'];
+                    $out[] = ['key' => 'closet-low-' . ($o['owner'] ?? 'msp'), 'category' => 'hardware', 'icon' => 'fa-arrow-trend-down', 'tone' => 'info',
+                        'title' => $plural($n, 'closet item', 'closet items') . ' running low' . ($o['owner'] ? " at {$o['name']}" : ' in your stock'),
+                        'detail' => 'Fewer on the shelf than the minimum you set.',
+                        'link' => $o['owner'] ? '/clients/' . (int) $o['owner'] . '/closet' : '/closet', 'action' => 'Restock', 'count' => $n];
+                }
+            } catch (\Throwable) {
+                // before the 2.15.0 migration has run
+            }
             try {
                 $subs = DB::all("SELECT s.client_id, c.name, s.kind, COUNT(*) AS n FROM portal_submissions s JOIN clients c ON c.id = s.client_id
                     WHERE s.status = 'pending' GROUP BY s.client_id, c.name, s.kind ORDER BY c.name, s.kind");

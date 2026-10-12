@@ -102,7 +102,7 @@ final class Compliance
      */
     public static function indicators(array $devices): array
     {
-        $active = array_filter($devices, fn($d) => $d['status'] !== 'excluded');
+        $active = array_filter($devices, fn($d) => !\Align\Lifecycle\Lifecycle::notInUse($d));
         $count = fn(callable $f) => count(array_filter($active, $f));
         $withOs = $count(fn($d) => $d['os_rule'] !== null);
         $hw = $count(fn($d) => $d['is_hardware']);

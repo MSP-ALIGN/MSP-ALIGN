@@ -320,7 +320,7 @@ final class Health
     private static function compute(array $client, array $devices, array $ctx): array
     {
         $cid = (int) $client['id'];
-        $devices = array_values(array_filter($devices, fn($d) => $d['status'] !== 'excluded'));
+        $devices = array_values(array_filter($devices, fn($d) => !\Align\Lifecycle\Lifecycle::notInUse($d)));
         $p = [];
 
         // Lifecycle: the four device checks, each the share of devices that pass

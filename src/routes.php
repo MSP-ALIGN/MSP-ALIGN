@@ -265,6 +265,19 @@ $r->post('/clients/{id}/sat/refresh', [\Align\Controllers\SatController::class, 
 $r->get('/clients/{id}/sat/report/{rid:str}', [\Align\Controllers\SatController::class, 'report']); // 2.7.2
 $r->post('/clients/{id}/sat/knowbe4', [\Align\Controllers\SatController::class, 'knowbe4Save']); // 2.14.0
 $r->post('/clients/{id}/sat/knowbe4/remove', [\Align\Controllers\SatController::class, 'knowbe4Remove']); // 2.14.0
+// 2.15.0 Tech closet
+$r->get('/closet', [\Align\Controllers\ClosetController::class, 'index']);
+$r->post('/closet/items', [\Align\Controllers\ClosetController::class, 'createMsp']);
+$r->post('/closet/offices', [\Align\Controllers\ClosetController::class, 'office']);
+$r->get('/closet/items/{id}', [\Align\Controllers\ClosetController::class, 'item']);
+$r->post('/closet/items/{id}', [\Align\Controllers\ClosetController::class, 'update']);
+$r->post('/closet/items/{id}/checkout', [\Align\Controllers\ClosetController::class, 'checkoutItem']);
+$r->post('/closet/checkouts/{id}/checkin', [\Align\Controllers\ClosetController::class, 'checkin']);
+$r->get('/clients/{id}/closet', [\Align\Controllers\ClosetController::class, 'client']);
+$r->post('/clients/{id}/closet/items', [\Align\Controllers\ClosetController::class, 'createClient']);
+$r->post('/clients/{id}/closet/spare', [\Align\Controllers\ClosetController::class, 'spareClient']);
+$r->post('/devices/{id}/spare', [\Align\Controllers\ClosetController::class, 'spare']);
+$r->post('/devices/{id}/checkout', [\Align\Controllers\ClosetController::class, 'checkoutDevice']);
 $r->get('/clients/{id}/connectors', [\Align\Controllers\ConnectorsController::class, 'client']); // 2.6.1
 $r->post('/clients/{id}/m365/connect', [$M, 'connect']);
 $r->post('/clients/{id}/m365/link', [$M, 'link']);
@@ -443,6 +456,11 @@ $r->post('/portal/projects/{id}/decide', [PortalController::class, 'decide']);
 $r->get('/portal/budget', [PortalController::class, 'budget']);
 $r->get('/portal/licensing', [PortalController::class, 'licensing']);
 $r->get('/portal/vendors', [PortalController::class, 'vendors']); // 2.10.0
+$r->get('/portal/closet', [PortalController::class, 'closet']); // 2.15.0
+$r->post('/portal/closet/items/{id}/checkout', [PortalController::class, 'closetCheckout']);
+$r->post('/portal/closet/devices/{id}/checkout', [PortalController::class, 'closetCheckoutDevice']);
+$r->post('/portal/closet/checkouts/{id}/checkin', [PortalController::class, 'closetCheckin']);
+$r->post('/portal/closet/request', [PortalController::class, 'closetRequest']);
 $r->get('/portal/devices', [PortalController::class, 'devices']);
 $r->get('/portal/compliance', [PortalController::class, 'compliance']);
 $r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);

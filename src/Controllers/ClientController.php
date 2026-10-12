@@ -424,7 +424,7 @@ final class ClientController
                 'psa' => $d['source'] === 'psa',
                 'virtual' => (bool) $d['is_virtual'],
                 'unassigned' => $d['type'] === Lifecycle::UNASSIGNED,
-                'noplan' => $d['is_hardware'] && $d['status'] !== 'excluded' && !$d['start_date'],
+                'noplan' => $d['is_hardware'] && !\Align\Lifecycle\Lifecycle::inactive($d) && !$d['start_date'],
                 default => true,
             };
         }));
