@@ -610,7 +610,9 @@ final class PortalController
             \Align\Closet\Closet::spares($cid));
         self::render('closet', ['title' => 'Tech closet', 'nav' => 'closet', 'items' => $items, 'out' => $out, 'spares' => $spares,
             'canCheckout' => !empty($pu['can_checkout']), 'canEdit' => !empty($pu['can_closet_edit']),
-            'contacts' => DB::all('SELECT id, name, email FROM contacts WHERE client_id = ? AND archived_at IS NULL ORDER BY name', [$cid])], $pu);
+            // 2.15.2: the "who it's for" list names the client's contacts only for users who may see the contacts
+            // (can_documents); others check things out to themselves
+            'contacts' => !empty($pu['can_documents']) ? DB::all('SELECT id, name FROM contacts WHERE client_id = ? AND archived_at IS NULL ORDER BY name', [$cid]) : []], $pu);
     }
 
     /** require('can_closet') plus can_checkout, or a 403 page. */
@@ -627,12 +629,13 @@ final class PortalController
 
     /**
      * Who a portal checkout is for: a contact of the user's own client chosen in the form ('me' = the contact with the
-     * user's email, else the user's own name as typed). Never another client's contact.
+     * user's email, else the user's own name as typed). Never another client's contact; always 'me' for a user who
+     * can't see the contacts (can_documents).
      */
     private static function closetPerson(array $pu): array
     {
         $cid = (int) $pu['client_id'];
-        $pick = post('contact_id');
+        $pick = !empty($pu['can_documents']) ? post('contact_id') : 'me'; // 2.15.2: without the contacts permission, only themselves
         if ($pick === '' || $pick === 'me') {
             $me = DB::value('SELECT id FROM contacts WHERE client_id = ? AND email = ? AND archived_at IS NULL LIMIT 1', [$cid, $pu['email']]);
             return [$me ? (int) $me : null, (string) $pu['name']];
@@ -868,6 +871,11 @@ final class PortalController
     /** At most 30 closet changes an hour per portal user (a stuck script or a curious click-through can't flood the history). */
     private static function closetThrottle(array $pu): void
     {
+        // 2.15.2: counted under the user's closet lock (held to the end of the request), so parallel posts can't all pass
+        if (!\Align\Closet\Closet::lockPortalUser((int) $pu['id'])) {
+            flash('error', 'Another of your changes is still being saved. Please try again in a moment.');
+            redirect('/portal/closet');
+        }
         if ((int) DB::value('SELECT COUNT(*) FROM closet_events WHERE portal_user_id = ? AND at > NOW() - INTERVAL 1 HOUR', [$pu['id']]) >= 30) {
             flash('error', 'That\'s a lot of changes in an hour. Please try again later, or contact your IT provider.');
             redirect('/portal/closet');

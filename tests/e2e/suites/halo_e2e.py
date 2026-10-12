@@ -143,6 +143,11 @@ for mode in ("strcount", "nocount"):
     run = json.loads(h("select summary from sync_runs order by id desc limit 1")[0]["summary"])
     ok(not str(run.get("HaloPSA clients", "")).startswith("ERROR") and h("select count(*) n from clients where source='psa'")[0]["n"] == 3 and len(h("select * from psa_assets")) == 4,
        f"{mode}: every page is still read: " + str(run.get("HaloPSA clients", ""))[:80])
+# 2.15.2: records added during the read push the last originals onto later pages: the read goes on to an empty page
+mock("/mock/halo-set", {"mode": "grow"})
+got = php('echo json_encode(array_map(fn($a) => $a["id"] ?? $a["psa_id"] ?? null, Align\\Providers\\Providers::psa()->assets()));', HENV)
+ids = {str(x) for x in json.loads(got.stdout or "[]")}
+ok({"201", "202", "203", "204"} <= ids and {"9901", "9902"} <= ids, f"grow: assets added during the read don't push the last originals out: {sorted(ids)} {got.stderr[-200:]}")
 mock("/mock/halo-set", {})
 h("insert into settings (name,value,is_secret) values ('halo_tenant','acme',0) on duplicate key update value='acme'")
 hal("sync", "--quiet")

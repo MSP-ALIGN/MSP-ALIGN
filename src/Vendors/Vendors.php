@@ -209,6 +209,21 @@ final class Vendors
     }
 
     /**
+     * 2.15.2 The id of the client's active vendor shown as $name (key() comparison), other than $except, or null. The
+     * one rule for duplicates when adding, editing and restoring: a retired vendor never blocks a name. Light: no
+     * licenses or budget lines are read.
+     */
+    public static function activeNamed(int $clientId, string $name, ?int $except = null): ?int
+    {
+        foreach (DB::all(self::select() . ' WHERE v.client_id = ? AND v.retired_at IS NULL', [$clientId]) as $r) {
+            if ((int) $r['id'] !== $except && self::key(self::effective($r)['name']) === self::key($name)) {
+                return (int) $r['id'];
+            }
+        }
+        return null;
+    }
+
+    /**
      * The shown names of a client's active vendors, by name (for the vendor suggestions on licenses and budget lines).
      * Read once per client per request: a budget page has a window for every line.
      */

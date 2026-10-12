@@ -104,7 +104,7 @@ final class KnowBe4
                 $e->status === 403 => 'KnowBe4 refused ' . $path . ' (HTTP 403): the Reporting API needs a Platinum, Diamond or SAT Foundations/Advanced subscription.',
                 $e->status === 404 => 'KnowBe4 has no ' . $path . ' in that region (HTTP 404). Check the region: it is the start of the console\'s address.',
                 $e->status === 429 => 'KnowBe4\'s request limit for this account was reached; it is read again at the next sync.',
-                default => 'KnowBe4 couldn\'t be read: ' . $e->getMessage(),
+                default => 'KnowBe4 couldn\'t be read: ' . safe_error($e),
             }, $e->status, $e);
         }
     }
@@ -277,7 +277,7 @@ final class KnowBe4
             }
             self::read($clientId, (string) $k['region'], $token);
         } catch (\Throwable $e) {
-            DB::run('UPDATE client_knowbe4 SET error = ? WHERE client_id = ?', [mb_substr($e->getMessage(), 0, 500), $clientId]);
+            DB::run('UPDATE client_knowbe4 SET error = ? WHERE client_id = ?', [mb_substr(safe_error($e), 0, 500), $clientId]);
             throw $e;
         }
         return true;

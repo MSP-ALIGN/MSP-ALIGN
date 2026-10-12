@@ -187,6 +187,27 @@ cset(fail={})
 run(True)
 ok(q("select error from sat_accounts where account_id='acc1'")[0]["error"] is None, "the next good read clears the error")
 
+# ---- 2.15.2: a long campaign title, an odd reply, a long report history (the mock has no campaigns or reports here)
+long = "A very long phishing campaign title that goes well past the sixty characters the column holds"
+cset(campaigns={"acc1": [res("phishingCampaigns", "pc9", title=long, status="completed", isParent=False, firstSentAt=iso(10), campaignStartsAt=iso(11),
+     attemptStats={"sent": 3, "uniqueClicks": 1})]})
+out = run(True)
+reps = [x["report"] for x in q("select report from sat_results where client_id=%s and source='api' and kind='phishing'", C1)]
+ok(any(r.startswith("Curricula: A very long") and len(r) == 60 for r in reps) and q("select error from sat_accounts where account_id='acc1'")[0]["error"] is None,
+   "a campaign title over 49 characters is cut to the column instead of failing the read: " + out)
+before = q("select count(*) n from sat_results where client_id=%s and source='api'", C1)[0]["n"]
+cset(malformed={"accounts/acc1/phishing-campaigns": True})
+out = run(True)
+ok(q("select count(*) n from sat_results where client_id=%s and source='api'", C1)[0]["n"] == before and "list" in (q("select error from sat_accounts where account_id='acc1'")[0]["error"] or ""),
+   "a reply that isn't a list fails the read and keeps the results, instead of reading as no campaigns")
+cset(malformed={}, campaigns={}, reports={"acc1": [res("accountSummaryReports", f"rr{i}", startDate=day(400 - i * 10), endDate=day(390 - i * 10),
+     pdf=f"https://reports.example/rr{i}.pdf", generatedAt=iso(390 - i * 10)) for i in range(30)]})
+out = run(True)
+ok(q("select error from sat_accounts where account_id='acc1'")[0]["error"] is None and q("select count(*) n from sat_reports where account_id='acc1'")[0]["n"] >= 1,
+   "an account with a long report history still reads (only the newest page is asked for): " + out)
+cset(reports={})
+run(True)
+
 # ---- an account that isn't active any more: its results go
 cset(accounts=[res("accounts", "acc1", name="Different Name In Curricula", status="inactive", ioOrgId="101"), res("accounts", "acc2", name=cname(C2), status="active"),
                res("accounts", "acc3", name="Nobody Matches This", status="active")])

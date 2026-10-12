@@ -162,10 +162,10 @@ final class HaloPsa implements PsaProvider
      * Every row of a list, read a page at a time. $key: the list's name in Halo's reply ("clients").
      *
      * A short list would archive clients (the sync archives any the PSA no longer lists), so it is an error, never a
-     * shorter answer: Halo may send fewer rows per page than asked for, so with a record_count the read goes on until
-     * that many different records have come back, and an empty page before then throws (records added or removed
-     * during the read move Halo's pages; the next sync tries again). Without a record_count it reads until an empty
-     * page. Also throws when a page isn't that list, when a page starts with the same record as the one before
+     * shorter answer: Halo may send fewer rows per page than asked for, so the read goes on until an empty page (one
+     * request more than the rows need, 2.15.2), and with a record_count, an empty page before that many different
+     * records have come back throws (records added or removed during the read move Halo's pages; the next sync tries
+     * again). Also throws when a page isn't that list, when a page starts with the same record as the one before
      * (page_no ignored) or after MAX_PAGES pages. Rows are kept once per id.
      */
     private function all(string $path, string $key, array $query = []): array
@@ -194,11 +194,10 @@ final class HaloPsa implements PsaProvider
                 }
             }
             $have = count($byId) + count($noId);
-            if ($total !== null && $have >= $total) {
-                break;
-            }
+            // 2.15.2: read on to an empty page even once the count is reached: a record added during the read, sorting
+            // after the read position, would otherwise make up the count while the last original record goes unread
             if (!$j[$key]) {
-                if ($total !== null) {
+                if ($total !== null && $have < $total) {
                     throw new \RuntimeException("HaloPSA's list of $key ended early ($have of $total); nothing was changed and the next sync tries again.");
                 }
                 break;

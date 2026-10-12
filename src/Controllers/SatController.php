@@ -84,7 +84,7 @@ final class SatController
                 redirect("/clients/$id#sat");
             }
         } catch (\Throwable $e) {
-            flash('error', 'Curricula: ' . $e->getMessage());
+            flash('error', 'Curricula: ' . safe_error($e));
             redirect("/clients/$id#sat");
         }
         Audit::log('sat.refresh', $client['name']);
@@ -104,7 +104,7 @@ final class SatController
         try {
             $url = \Align\Sat\Curricula::reportUrl($id, $rid);
         } catch (\Throwable $e) {
-            flash('error', 'Curricula: ' . $e->getMessage());
+            flash('error', 'Curricula: ' . safe_error($e));
             redirect("/clients/$id#sat");
         }
         if ($url === null) {

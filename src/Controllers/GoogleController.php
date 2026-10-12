@@ -125,7 +125,7 @@ final class GoogleController
         try {
             $name = Clients::connect($id, post('domain'), post('admin_email'), $own, $own ? post('key') : '');
         } catch (\InvalidArgumentException | \Align\Google\GwsException | \RuntimeException $e) {
-            flash('error', 'Not connected: ' . $e->getMessage());
+            flash('error', 'Not connected: ' . safe_error($e)); // 2.15.2: a PDOException is a RuntimeException too
             redirect("/clients/$id/connectors#gws");
         } catch (\Throwable $e) {
             // Anything else (e.g. a database error) isn't for the page: logged, with a plain message
@@ -174,6 +174,10 @@ final class GoogleController
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         $row = Clients::row($id);
+        if ($row && $row['mode'] === 'own' && !Auth::can('admin')) { // 2.15.2: deleting the client's own key is for admins, as saving it is
+            flash('error', 'This client uses its own service account key, so only an admin can disconnect it.');
+            redirect("/clients/$id/connectors#gws");
+        }
         $n = Clients::disconnect($id);
         Audit::log('gws.disconnected', $client['name'] . ($row ? ": {$row['domain']}" : '') . ($n ? ", $n licenses retired" : ''));
         flash('success', 'Disconnected.' . ($n ? " $n Google Workspace license" . ($n === 1 ? ' was' : 's were') . ' retired (restored if you connect again).' : '')

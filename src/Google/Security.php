@@ -78,7 +78,7 @@ final class Security
             $checks[$k] = ['status' => $pass === null ? 'unknown' : ($pass ? 'pass' : 'fail'), 'detail' => mb_substr($detail, 0, 300)];
         };
         // A failed call: unknown, saying why (GwsException's message already says what to fix)
-        $why = fn(\Throwable $e) => 'Couldn\'t be read: ' . mb_strimwidth($e->getMessage(), 0, 220, '…');
+        $why = fn(\Throwable $e) => 'Couldn\'t be read: ' . mb_strimwidth(safe_error($e), 0, 220, '…');
         $plural = fn(int $n, string $w) => "$n $w" . ($n === 1 ? '' : 's');
 
         // ---- Users (Directory API): active = not suspended and not archived

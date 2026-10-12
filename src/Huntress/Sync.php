@@ -53,7 +53,7 @@ final class Sync
             try {
                 $parts[] = $fn() . " $what";
             } catch (\Throwable $e) {
-                $parts[] = "$what not read (" . mb_strimwidth($e->getMessage(), 0, 120, '…') . ')';
+                $parts[] = "$what not read (" . mb_strimwidth(safe_error($e), 0, 120, '…') . ')';
             }
         }
         return implode(', ', $parts);

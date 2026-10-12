@@ -15,10 +15,10 @@ use Align\View;
  * items, changing quantities, checking out and in, marking devices spare, and the MSP's offices.
  *
  * Security assumptions: the router checks CSRF on every POST. Any staff role reads; techs and admins change things;
- * admins manage offices. Ids in the address and the form are checked against each other: an item or checkout must
- * belong to the closet the form names, a contact to the borrowing client, a device to a client (ClientController::load
- * and DeviceController-style lookups refuse ones that don't exist). Closet::* cleans every value. Every change is
- * audited (names, never notes).
+ * admins manage offices. Ids in the address and the form are checked: an item must belong to the closet the form
+ * names, a contact to the borrowing client and a device to a client (ClientController::load and DeviceController-style
+ * lookups refuse ones that don't exist). Staff may check in any open checkout, whichever closet it came from.
+ * Closet::* cleans every value. Every change is audited (names, never notes).
  */
 final class ClosetController
 {
@@ -67,7 +67,7 @@ final class ClosetController
     {
         Auth::require();
         $office = query('office');
-        $officeId = $office === '' || $office === null ? null : (int) $office;
+        $officeId = ctype_digit($office) ? (int) $office : null; // 2.15.2: anything but a number shows all offices
         $showRetired = query('retired') === '1';
         View::render('closet/index', [
             'title' => 'Tech closet',
