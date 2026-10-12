@@ -185,15 +185,17 @@ final class Curricula
         $matched = self::matchByHuntress() + ClientLinks::autoMatch(self::PROVIDER, true);
         // Results that are no longer read go, so the client's uploads count again: clients no longer linked, archived,
         // or whose account isn't active; and reports of accounts that are gone
-        DB::run("DELETE FROM sat_results WHERE source = 'api' AND client_id NOT IN (SELECT l.client_id FROM client_links l
+        // (2.14.0: only Curricula's own rows; and a client with KnowBe4 reads that instead, so its Curricula rows go too)
+        DB::run("DELETE FROM sat_results WHERE source = 'api' AND (provider = 'curricula' OR provider IS NULL) AND (client_id NOT IN (SELECT l.client_id FROM client_links l
             JOIN sat_accounts a ON a.provider = l.provider AND a.account_id = l.external_id JOIN clients c ON c.id = l.client_id
-            WHERE l.provider = ? AND c.is_archived = 0 AND COALESCE(a.status, 'active') = 'active')", [self::PROVIDER]);
+            WHERE l.provider = ? AND c.is_archived = 0 AND COALESCE(a.status, 'active') = 'active') OR client_id IN (SELECT client_id FROM client_knowbe4))", [self::PROVIDER]);
         DB::run('DELETE FROM sat_reports WHERE account_id NOT IN (SELECT account_id FROM sat_accounts WHERE provider = ?)', [self::PROVIDER]);
 
         // Results for linked, active accounts that are due
         $read = $failed = 0;
         $due = DB::all("SELECT a.account_id, a.synced_at, l.client_id FROM sat_accounts a JOIN client_links l ON l.provider = a.provider AND l.external_id = a.account_id
-            JOIN clients c ON c.id = l.client_id WHERE a.provider = ? AND c.is_archived = 0 AND COALESCE(a.status, 'active') = 'active'", [self::PROVIDER]);
+            JOIN clients c ON c.id = l.client_id WHERE a.provider = ? AND c.is_archived = 0 AND COALESCE(a.status, 'active') = 'active'
+            AND l.client_id NOT IN (SELECT client_id FROM client_knowbe4)", [self::PROVIDER]); // 2.14.0: KnowBe4 clients read that instead
         foreach ($due as $d) {
             if (!$force && $d['synced_at'] && strtotime($d['synced_at']) > time() - self::REFRESH_HOURS * 3600) {
                 continue;
@@ -322,14 +324,14 @@ final class Curricula
         $reports = self::all('/accounts/' . rawurlencode($account) . '/account-summary-reports', ['sort' => '-endDate'], 2);
 
         DB::transaction(function () use ($clientId, $account, $learners, $assignments, $first, $last, $campaigns, $reports, $now) {
-            DB::run("DELETE FROM sat_results WHERE client_id = ? AND source = 'api'", [$clientId]);
+            DB::run("DELETE FROM sat_results WHERE client_id = ? AND source = 'api' AND (provider = 'curricula' OR provider IS NULL)", [$clientId]);
             if ($learners) {
-                DB::insert('sat_results', ['client_id' => $clientId, 'kind' => 'training', 'source' => 'api', 'report' => 'Curricula: training',
+                DB::insert('sat_results', ['client_id' => $clientId, 'kind' => 'training', 'source' => 'api', 'provider' => self::PROVIDER, 'report' => 'Curricula: training',
                     'learners' => count($learners), 'completed' => count(array_filter($learners)), 'assignments' => $assignments,
                     'covers_from' => $first, 'covers_to' => $last ?? $first ?? date('Y-m-d'), 'uploaded_at' => $now]);
             }
             foreach ($campaigns as $c) {
-                DB::insert('sat_results', ['client_id' => $clientId, 'kind' => 'phishing', 'source' => 'api', 'report' => 'Curricula: ' . ($c['title'] ?? 'phishing campaign'),
+                DB::insert('sat_results', ['client_id' => $clientId, 'kind' => 'phishing', 'source' => 'api', 'provider' => self::PROVIDER, 'report' => 'Curricula: ' . ($c['title'] ?? 'phishing campaign'),
                     'sent' => $c['sent'], 'clicked' => $c['clicked'], 'reported' => $c['reported'], 'compromised' => $c['compromised'], 'campaigns' => 1,
                     'covers_from' => $c['from'], 'covers_to' => $c['from'] ?? $c['to'], 'uploaded_at' => $now]);
             }
@@ -352,7 +354,7 @@ final class Curricula
     public static function refresh(int $clientId): bool
     {
         $a = self::account($clientId);
-        if ($a === null) {
+        if ($a === null || KnowBe4::connected($clientId)) { // 2.14.0: a client with KnowBe4 reads that instead
             return false;
         }
         $now = date('Y-m-d H:i:s');

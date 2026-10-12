@@ -156,6 +156,10 @@ final class SyncRunner
         if (\Align\Sat\Curricula::configured()) {
             $this->step('Curricula (Huntress SAT)', fn() => \Align\Sat\Curricula::run());
         }
+        // 2.14.0: KnowBe4, each client with its own Reporting API token (once a day each)
+        if (\Align\DB::value('SELECT 1 FROM client_knowbe4 LIMIT 1')) {
+            $this->step('KnowBe4', fn() => \Align\Sat\KnowBe4::run());
+        }
         if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth UNION SELECT 1 FROM client_email_domains LIMIT 1")) { // 2.7.4: or domains added by hand
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }

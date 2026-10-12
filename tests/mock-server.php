@@ -317,6 +317,107 @@ if ($path === '/dns') {
     $json(['txt' => $st['dns'][$name] ?? []]);
     return;
 }
+// 2.14.0 KnowBe4 Reporting API: GET /kb4/v1/{account,training/campaigns,training/enrollments,phishing/security_tests}
+// with "Bearer kb4-token-cedar-0123456789abcdef". Lists page at most 2 rows (whatever per_page asks) so readers page
+// on: a short page is the last (KnowBe4 has no totals). Requests are logged. /mock/kb4-set {"mode": "html"|"object"|
+// "throttle"|"down"|"running_only", "new_campaign": true} changes the answers and empties the log; /mock/kb4-log returns it.
+if ($path === '/mock/kb4-set') {
+    $st = $loadState();
+    $st['kb4'] = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st['kb4_log'] = [];
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
+if ($path === '/mock/kb4-log') {
+    $json($loadState()['kb4_log'] ?? []);
+    return;
+}
+if (str_starts_with($path, '/kb4/')) {
+    $st = $loadState();
+    $k = $st['kb4'] ?? [];
+    $st['kb4_log'][] = $method . ' ' . $path . (isset($_GET['page']) ? '?page=' . $_GET['page'] : '');
+    $saveState($st);
+    if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer kb4-token-cedar-0123456789abcdef') {
+        http_response_code(401);
+        $json(['message' => 'Unauthorized']);
+        return;
+    }
+    $mode = $k['mode'] ?? '';
+    if ($mode === 'html') {
+        header('Content-Type: text/html');
+        echo '<!doctype html><html><body>KnowBe4 sign in</body></html>';
+        return;
+    }
+    if ($mode === 'down') {
+        http_response_code(503);
+        $json(['message' => 'Unavailable']);
+        return;
+    }
+    if ($mode === 'throttle' && $path !== '/kb4/v1/account') {
+        http_response_code(429);
+        $json(['message' => 'Too Many Requests']);
+        return;
+    }
+    $iso = fn(string $rel) => (new DateTime($rel, new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.000\Z');
+    if ($path === '/kb4/v1/account') {
+        $json(['name' => "Cedar Ridge\x07 Dental", 'type' => 'paid', 'domains' => ['cedarridgedental.example'], 'admins' => [['id' => 1, 'email' => 'admin@cedarridgedental.example']],
+            'subscription_level' => 'Platinum', 'subscription_end_date' => '2027-06-30', 'number_of_seats' => 25, 'current_risk_score' => 31.456]);
+        return;
+    }
+    $u = fn(int $id) => ['id' => $id, 'first_name' => "User$id", 'last_name' => 'Example', 'email' => "user$id@cedarridgedental.example"];
+    $lists = [
+        '/kb4/v1/training/campaigns' => array_merge([
+            ['campaign_id' => 11, 'name' => 'Annual training', 'status' => 'Completed', 'start_date' => $iso('-3 months'), 'end_date' => $iso('-1 month'), 'completion_percentage' => 75],
+            ['campaign_id' => 12, 'name' => 'New hire', 'status' => 'In Progress', 'start_date' => $iso('-20 months'), 'end_date' => null],
+        ], !empty($k['new_campaign']) ? [['campaign_id' => 13, 'name' => 'Just launched', 'status' => 'In Progress', 'start_date' => $iso('-1 day'), 'end_date' => $iso('+30 days')]] : []),
+        '/kb4/v1/training/enrollments' => array_merge([
+            // Annual training (ended): users 1-3 passed, user 4 didn't finish
+            ['enrollment_id' => 101, 'content_type' => 'Store Purchase', 'module_name' => 'Security Awareness 2026', 'user' => $u(1), 'campaign_id' => 11, 'campaign_name' => 'Annual training',
+                'enrollment_date' => $iso('-3 months'), 'start_date' => $iso('-3 months'), 'completion_date' => $iso('-2 months'), 'status' => 'Passed', 'time_spent' => 1800, 'policy_acknowledged' => false],
+            ['enrollment_id' => 102, 'content_type' => 'Store Purchase', 'module_name' => 'Security Awareness 2026', 'user' => $u(2), 'campaign_id' => 11, 'campaign_name' => 'Annual training',
+                'enrollment_date' => $iso('-3 months'), 'completion_date' => $iso('-40 days'), 'status' => 'Passed'],
+            ['enrollment_id' => 103, 'content_type' => 'Store Purchase', 'module_name' => 'Security Awareness 2026', 'user' => $u(3), 'campaign_id' => 11, 'campaign_name' => 'Annual training',
+                'enrollment_date' => $iso('-3 months'), 'completion_date' => $iso('-50 days'), 'status' => 'Passed'],
+            ['enrollment_id' => 104, 'content_type' => 'Store Purchase', 'module_name' => 'Security Awareness 2026', 'user' => $u(4), 'campaign_id' => 11, 'campaign_name' => 'Annual training',
+                'enrollment_date' => $iso('-3 months'), 'completion_date' => null, 'status' => 'In Progress'],
+            // a policy acknowledgement isn't training
+            ['enrollment_id' => 105, 'content_type' => 'Uploaded Policy', 'module_name' => 'Acceptable use', 'user' => $u(4), 'campaign_id' => 11, 'enrollment_date' => $iso('-3 months'), 'completion_date' => null, 'status' => 'Not Started'],
+            // older than 13 months: not counted
+            ['enrollment_id' => 106, 'content_type' => 'Store Purchase', 'module_name' => 'Old module', 'user' => $u(5), 'campaign_id' => 12, 'enrollment_date' => $iso('-20 months'), 'completion_date' => null, 'status' => 'Past Due'],
+            ['enrollment_id' => 'bad', 'user' => ['id' => [1]], 'enrollment_date' => $iso('-1 month')],
+        ], !empty($k['new_campaign']) ? [['enrollment_id' => 107, 'content_type' => 'Store Purchase', 'module_name' => 'Phishing basics', 'user' => $u(1), 'campaign_id' => 13,
+            'enrollment_date' => $iso('-1 day'), 'completion_date' => null, 'status' => 'Not Started']] : []),
+        '/kb4/v1/phishing/security_tests' => [
+            ['campaign_id' => 21, 'pst_id' => 201, 'status' => 'Closed', 'name' => "Q3 phishing test\x07", 'started_at' => $iso('-2 months'), 'duration' => 3, 'phish_prone_percentage' => 0.1,
+                'delivered_count' => 20, 'opened_count' => 12, 'clicked_count' => 2, 'replied_count' => 0, 'attachment_open_count' => 0, 'macro_enabled_count' => 0, 'data_entered_count' => 1, 'reported_count' => 6, 'bounced_count' => 1],
+            ['campaign_id' => 21, 'pst_id' => 202, 'status' => 'Scheduled', 'name' => 'Not sent yet', 'started_at' => $iso('+5 days'), 'delivered_count' => 0],
+            ['campaign_id' => 22, 'pst_id' => 203, 'status' => 'Closed', 'name' => 'Ancient test', 'started_at' => $iso('-20 months'), 'delivered_count' => 30, 'clicked_count' => 9],
+            ['campaign_id' => 23, 'pst_id' => 204, 'status' => 'Closed', 'name' => 'Q2 phishing test', 'started_at' => $iso('-5 months'), 'delivered_count' => 20, 'clicked_count' => 999, 'reported_count' => 4, 'data_entered_count' => 0],
+        ],
+    ];
+    if ($mode === 'running_only') { // one campaign still running (no end date): one person finished, one not
+        $lists['/kb4/v1/training/campaigns'] = [['campaign_id' => 31, 'name' => 'Ongoing', 'status' => 'In Progress', 'start_date' => $iso('-2 months'), 'end_date' => null]];
+        $lists['/kb4/v1/training/enrollments'] = [
+            ['enrollment_id' => 301, 'content_type' => 'Store Purchase', 'user' => $u(1), 'campaign_id' => 31, 'enrollment_date' => $iso('-2 months'), 'completion_date' => $iso('-1 month'), 'status' => 'Passed'],
+            ['enrollment_id' => 302, 'content_type' => 'Store Purchase', 'user' => $u(2), 'campaign_name' => 'Ongoing', 'enrollment_date' => $iso('-2 months'), 'completion_date' => null, 'status' => 'Not Started']];
+    }
+    if (!isset($lists[$path])) {
+        http_response_code(404);
+        $json(['message' => 'Not Found']);
+        return;
+    }
+    if ($mode === 'object') {
+        $json(['data' => $lists[$path]]);
+        return;
+    }
+    $page = max(1, (int) ($_GET['page'] ?? 1));
+    $size = min(2, max(1, (int) ($_GET['per_page'] ?? 100)));
+    // KnowBe4 pages: a page as long as per_page means there may be more. The mock's cap of 2 stands in for that
+    $slice = array_slice($lists[$path], ($page - 1) * $size, $size);
+    $json(count($slice) === $size && (int) ($_GET['per_page'] ?? 100) > $size ? array_pad($slice, (int) $_GET['per_page'], null) : $slice);
+    return;
+}
 // 2.13.0 Datto RMM: POST /drmm/auth/oauth/token (password grant: "drmm-key" / "drmm-secret", Basic public-client:public)
 // gives a bearer token for GET /drmm/api/v2/account/sites, /account/devices (pages of at most 2, numbered from 0, with
 // pageDetails) and /audit/device/{uid}. Requests are logged. /mock/drmm-set {"mode": "html"|"object"|"down"|"short"|

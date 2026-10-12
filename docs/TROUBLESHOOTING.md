@@ -50,6 +50,10 @@ system answered.
 | *(no clients returned - check the key user's client access)* | The ITFlow API key works but its user can't see any clients. |
 | *NinjaOne did not return an access token.* | Check the client ID and secret, the grant type (*Client credentials*), the *Monitoring* scope and the **Instance** (US, US2, CA, EU or OC). |
 | *Tactical RMM sent something other than a list…* or *has no /clients/ at that address* | Enter Tactical's **API** address, the one its agents report to (often `https://api.your-domain`), not the dashboard's (`https://rmm.your-domain`). |
+| *KnowBe4 refused the token* | Make a new Reporting API token in that client's KnowBe4 console (Account Settings → Account Integrations → API, with **Enable Reporting API Access** on) and check the region: the start of the console's address (training.knowbe4.com is US, eu.knowbe4.com is EU…). |
+| *KnowBe4 refused … (HTTP 403)* | The Reporting API needs a Platinum, Diamond or SAT Foundations/Advanced subscription. |
+| *KnowBe4's request limit for this account was reached* | KnowBe4 limits requests per console (and locks a token out for 5 minutes after a burst). The last results stay; the next sync reads again. |
+| No KnowBe4 form on a client's training card | Switch KnowBe4 on under Integrations → KnowBe4. The form is for admins only. |
 | *Datto RMM refused the API key or secret key* | Check both keys (Setup → Users → the API user; generating new keys replaces the old ones), that **Enable API Access** is on under Setup → Global Settings → Access Control, and that the user isn't disabled. |
 | *Datto RMM has no sign-in at…* or *sent something other than a list* | Pick the platform named in the user's API URL (for example `merlot` in https://merlot-api.centrastage.net). |
 | *Datto RMM refused … (HTTP 403)* or *asked Align to slow down* | The API user's security level must allow viewing sites and devices. Datto also limits requests for the whole account (shared with your other tools) and pauses a caller that keeps going: Align stops for the run and carries on at the next sync. |

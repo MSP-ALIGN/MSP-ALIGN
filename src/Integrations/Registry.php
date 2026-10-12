@@ -22,6 +22,7 @@ final class Registry
         Connectors\GoogleWorkspace::class, // 2.6.3
         Connectors\Huntress::class, // 2.7.0
         Connectors\Curricula::class, // 2.7.2
+        Connectors\KnowBe4::class, // 2.14.0 (beta)
         Connectors\Dell::class,
         Connectors\Lenovo::class,
     ];
