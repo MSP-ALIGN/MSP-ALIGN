@@ -109,14 +109,17 @@ final class SettingsController
             flash('error', 'The company email must be an email address.');
             redirect(setup_return($back));
         }
+        // 2.15.2: a value the form didn't post (or posted as text) counts as the one saved now, so a partial post can't
+        // leave the bands or weights contradicting each other
+        $eff = fn(string $k) => is_numeric(post($k)) ? (int) post($k) : (int) Settings::get($k, (string) self::NUMBER_DEFAULTS[$k]);
         // 2.5.0: the health bands must stay in order (Needs attention starts below Healthy)
-        if (is_numeric(post('health_good')) && is_numeric(post('health_warn')) && (int) post('health_warn') >= (int) post('health_good')) {
+        if ((isset($_POST['health_good']) || isset($_POST['health_warn'])) && $eff('health_warn') >= $eff('health_good')) {
             flash('error', 'The health score\'s "Needs attention from" must be lower than "Healthy from".');
             redirect(setup_return($back));
         }
         // ...and at least one area must count, or no client would have a score
-        $weights = array_map(fn($k) => post("health_weight_$k"), array_keys(\Align\Health\Health::PILLARS));
-        if (count(array_filter($weights, 'is_numeric')) === count($weights) && !array_filter($weights, fn($w) => (int) $w > 0)) {
+        $wkeys = array_map(fn($k) => "health_weight_$k", array_keys(\Align\Health\Health::PILLARS));
+        if (array_filter($wkeys, fn($k) => isset($_POST[$k])) && !array_filter($wkeys, fn($k) => $eff($k) > 0)) {
             flash('error', 'At least one area of the health score needs a weight above 0.');
             redirect(setup_return($back));
         }

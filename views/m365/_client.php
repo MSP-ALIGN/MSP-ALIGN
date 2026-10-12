@@ -29,7 +29,9 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
     <div class="card-tools">
       <?php if ($connected && $tech): ?>
         <?= $form('sync', '<i class="fas fa-rotate me-1"></i>Sync now', 'btn-default') ?>
-        <?= $form('disconnect', 'Disconnect', 'btn-link text-danger', ' data-confirm="Disconnect ' . e($client['name']) . '\'s Microsoft 365? Its Microsoft 365 licenses are retired (restored if you connect again)."') ?>
+        <?php if ($m365['mode'] !== 'own' || Auth::can('admin')): // 2.15.2: a client's own credential is removed by admins only ?>
+          <?= $form('disconnect', 'Disconnect', 'btn-link text-danger', ' data-confirm="Disconnect ' . e($client['name']) . '\'s Microsoft 365? Its Microsoft 365 licenses are retired (restored if you connect again)."') ?>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
   </div>
@@ -38,7 +40,7 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
       <div class="alert alert-warning py-2 mb-2"><b><?= e($m365['pending_tenant_name']) ?></b><?= $m365['pending_tenant_domain'] ? ' · ' . e($m365['pending_tenant_domain']) : '' ?>
         <div class="font-monospace small">Tenant ID <?= e($m365['pending_tenant_id']) ?></div>
         <div><?= e((string) $m365['pending_note']) ?> Is that <?= e($client['name']) ?>'s tenant?<?= $connected ? ' Confirming replaces the connection below.' : '' ?></div></div>
-      <?php if ($tech): ?><div class="mb-2"><?= $form('confirm', '<i class="fas fa-check me-1"></i>Yes, connect it', 'btn-primary') ?> <?= $form('reject', 'No, forget it', 'btn-default') ?></div><?php endif; ?>
+      <?php if ($tech): ?><div class="mb-2"><?php if (!$m365 || $m365['mode'] !== 'own' || Auth::can('admin')): // 2.15.2: replacing an own app is for admins ?><?= $form('confirm', '<i class="fas fa-check me-1"></i>Yes, connect it', 'btn-primary') ?> <?php endif; ?><?= $form('reject', 'No, forget it', 'btn-default') ?></div><?php endif; ?>
     <?php endif; ?>
     <?php if ($connected): ?>
       <?php // Connected: the tenant and the last sync ?>

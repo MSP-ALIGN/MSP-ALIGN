@@ -97,7 +97,8 @@ if ($path === '/mock/itflow-edit' || $path === '/mock/itflow-delete') {
 // ---- 2.7.0 Huntress REST API (/huntress-api/v1/...) -------------------------------------------------------------
 // Settings for the tests: huntress_api_base = <mock>/huntress-api, key "hk", secret "hs". State (/mock/huntress-set,
 // top-level keys replace): organizations, agents, incident_reports, escalations, reports, identities, external_ports
-// (lists as Huntress returns them), 'fail' (list name => HTTP status), 'page' (items per page, default 3, to test
+// (lists as Huntress returns them), 'fail' (list name => HTTP status), 'malformed' (list name => true: a 200 with no
+// list), 'page' (items per page, default 3, to test
 // next_page_token). Every call is recorded with its method and query (/mock/huntress). Reset: /mock/huntress-reset.
 $hnFile = sys_get_temp_dir() . '/huntress-mock.json';
 $hnState = fn() => json_decode((string) @file_get_contents($hnFile), true) ?: ['calls' => []];
@@ -142,6 +143,10 @@ if (preg_match('#^/huntress-api/v1/([a-z_]+)$#', $path, $hm)) {
         $json(['account' => ['id' => 1, 'name' => 'Example MSP']]);
         return;
     }
+    if (!empty($st['malformed'][$name])) { // 2.15.2: a 200 without the list (an error object)
+        $json(['error' => 'something else']);
+        return;
+    }
     $items = (array) ($st[$name] ?? []);
     // the filters Align uses
     foreach (['status', 'organization_id', 'severity'] as $f) {
@@ -165,7 +170,7 @@ if (preg_match('#^/huntress-api/v1/([a-z_]+)$#', $path, $hm)) {
 // ---- 2.7.2 Curricula API (/curricula/oauth/token, /curricula/api/v1/...) ---------------------------------------------
 // Settings for the tests: curricula_base = <mock>/curricula, client ID "cid", secret "csec". State (/mock/curricula-set,
 // top-level keys replace): accounts (JSON:API resources), assignments and campaigns and reports ({accountId: [...]}),
-// activity and learners ({assignmentId: [...]}; GET /account-summary-reports/{id} finds a report in any account), 'fail' (path => HTTP status, e.g. "accounts/acc1/assignments"), 'page' (items per
+// activity and learners ({assignmentId: [...]}; GET /account-summary-reports/{id} finds a report in any account), 'fail' (path => HTTP status, e.g. "accounts/acc1/assignments"), 'malformed' (path => true: data that isn't a list), 'page' (items per
 // page, default 2, to test meta.page.lastPage). Calls are recorded with method, path, query and whether a valid token
 // came (/mock/curricula); learner activity, campaigns and reports are filtered by startsAfter as Align asks.
 // Reset: /mock/curricula-reset.
@@ -219,6 +224,10 @@ if (preg_match('#^/curricula/api/v1/([A-Za-z0-9/_-]+)$#', $path, $cm)) {
     if (isset($st['fail'][$cm[1]])) {
         http_response_code((int) $st['fail'][$cm[1]]);
         $json(['errors' => [['title' => 'Forbidden']]]);
+        return;
+    }
+    if (!empty($st['malformed'][$cm[1]])) { // 2.15.2: a 200 whose data isn't a list
+        $json(['data' => ['error' => 'something else'], 'meta' => []]);
         return;
     }
     $p = explode('/', $cm[1]);
@@ -551,6 +560,7 @@ if (str_starts_with($path, '/drmm/')) {
 // (Halo caps pages silently), so readers must follow record_count. Every request is logged (method and path) so tests
 // can check nothing but reads was sent. A tenant, when sent, must be "acme". /mock/halo-set {"mode": "html"|"object"|
 // "down"|"repeat"|"forbid-assets"|"short" (record_count 5 too high)|"strcount"|"nocount"|"nototal" (invoices without totals),
+// "grow" (three assets appear from page 2 on, 2.15.2),
 // "drop": ["Client" id, ...]} changes the answers between syncs and empties the log; /mock/halo-log returns it.
 if ($path === '/mock/halo-set') {
     $st = $loadState();
@@ -662,6 +672,13 @@ if (str_starts_with($path, '/halo/')) {
         return;
     }
     [$key, $rows] = $lists[$path];
+    if ($mode === 'grow' && $path === '/halo/api/Asset' && (int) ($_GET['page_no'] ?? 1) >= 2) {
+        // 2.15.2: three assets added during the read, sorting after the first page: the pages shift and the count is
+        // reached before the last original assets are read
+        array_splice($rows, 2, 0, [['id' => 9901, 'site_id' => 11, 'inventory_number' => 'CR-NEW-1', 'assettype_name' => 'Workstation', 'inactive' => false],
+            ['id' => 9902, 'site_id' => 11, 'inventory_number' => 'CR-NEW-2', 'assettype_name' => 'Workstation', 'inactive' => false],
+            ['id' => 9903, 'site_id' => 11, 'inventory_number' => 'CR-NEW-3', 'assettype_name' => 'Workstation', 'inactive' => false]]);
+    }
     if ($path === '/halo/api/Client' && !empty($h['drop'])) {
         $rows = array_values(array_filter($rows, fn($r) => !in_array($r['id'], $h['drop'], true)));
     }

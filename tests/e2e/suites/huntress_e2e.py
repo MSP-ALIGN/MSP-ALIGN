@@ -225,6 +225,13 @@ ok("Security" in t and "Devices protected by Huntress" in t and "Training comple
 ok("Devices protected by Huntress" not in text(st.get(B + f"/clients/{C1}/report/qbr?s_security=0&s_health=1&s_changes=1&s_sla=1&s_assets=1&s_licensing=1&s_backup=1&s_compliance=1&s_alignment=1&s_roadmap=1&s_budget=1").text),
    "...which can be switched off")
 ok("Devices protected by Huntress" not in text(st.get(B + f"/clients/{C2}/report/qbr").text), "a client without any security data has no Security section")
+# 2.15.2: a reply without the list isn't read as "none": the incidents stay
+n_inc = q("select count(*) n from huntress_incidents")[0]["n"]
+hset(malformed={"incident_reports": True})
+out = sync()
+ok(q("select count(*) n from huntress_incidents")[0]["n"] == n_inc and n_inc > 0 and "not read" in out, "a reply without the incident list keeps the stored incidents: " + out[:160])
+hset(malformed={})
+sync()
 # roles
 r = up(viewer, "x.csv", LP)
 ok(q("select count(*) n from sat_results where client_id=%s", C1)[0]["n"] == 3, "viewers can't upload")

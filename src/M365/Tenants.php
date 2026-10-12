@@ -122,6 +122,10 @@ final class Tenants
         if (!is_string($sessionNonce) || !hash_equals($sessionNonce, $nonce)) {
             $note = 'Approved through a link.';
         }
+        if (DB::value("SELECT 1 FROM client_m365 WHERE client_id = ? AND mode = 'own' AND status = 'connected'", [$cid])) {
+            // 2.15.2: replacing a client's own app (an admin-only credential) always waits for staff; Confirm is admin-only then
+            $note = 'This client uses its own app: an admin confirms switching it to yours.';
+        }
         if (DB::value('SELECT 1 FROM client_m365 WHERE client_id <> ? AND (tenant_id = ? OR pending_tenant_id = ?)', [$cid, $tenant, $tenant])) {
             $note = 'This tenant is already connected to another client in Align.';
         }
@@ -129,7 +133,7 @@ final class Tenants
             $org = self::organization($tenant, null, true);
         } catch (\Throwable $e) {
             $org = ['name' => $tenant, 'domain' => ''];
-            $note = 'Approved, but Align couldn\'t read the tenant yet (' . $e->getMessage() . '). Confirm to try again.';
+            $note = 'Approved, but Align couldn\'t read the tenant yet (' . safe_error($e) . '). Confirm to try again.';
         }
         if ($note !== null) {
             DB::run('UPDATE client_m365 SET pending_tenant_id = ?, pending_tenant_name = ?, pending_tenant_domain = ?, pending_at = NOW(), pending_note = ? WHERE client_id = ?',
@@ -312,7 +316,7 @@ final class Tenants
             $out = self::apply($clientId, $skus) + $out;
             DB::run('UPDATE client_m365 SET last_sync_at = NOW(), last_error = NULL WHERE client_id = ?', [$clientId]);
         } catch (\Throwable $e) {
-            $out['error'] = mb_substr($e->getMessage(), 0, 1000);
+            $out['error'] = mb_substr(safe_error($e), 0, 1000);
             DB::run('UPDATE client_m365 SET last_error = ? WHERE client_id = ?', [$out['error'], $clientId]);
         }
         // 2.6.1: the security checks, apart from the licenses (whether or not they synced), once a day or when asked

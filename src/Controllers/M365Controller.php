@@ -72,7 +72,7 @@ final class M365Controller
             $s = App::startSetup();
             $_SESSION['m365c_setup'] = $s + ['expires' => time() + $s['expires_in']];
         } catch (\Throwable $e) {
-            flash('error', 'Couldn\'t start the sign-in: ' . $e->getMessage());
+            flash('error', 'Couldn\'t start the sign-in: ' . safe_error($e));
         }
         redirect('/integrations/microsoft-365');
     }
@@ -100,7 +100,7 @@ final class M365Controller
         try {
             $r = App::pollSetup((string) $s['device_code']);
         } catch (\Throwable $e) {
-            $r = ['status' => 'error', 'message' => $e->getMessage()];
+            $r = ['status' => 'error', 'message' => safe_error($e)];
         }
         if ($r['status'] === 'pending') {
             flash('warning', 'Microsoft says the sign-in isn\'t finished yet. Enter the code, sign in and accept, then press Continue again.');
@@ -206,11 +206,12 @@ final class M365Controller
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        self::ownNeedsAdmin($id);
         try {
             [$url, $nonce] = Tenants::consentUrl($id);
             $_SESSION['m365c_nonce'][$id] = $nonce;
         } catch (\Throwable $e) {
-            flash('error', $e->getMessage());
+            flash('error', safe_error($e));
             redirect("/clients/$id/connectors#m365");
         }
         if (!App::permissionsCurrent()) {
@@ -232,6 +233,7 @@ final class M365Controller
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        self::ownNeedsAdmin($id);
         try {
             $_SESSION['m365c_link'] = ['client_id' => $id, 'url' => Tenants::consentUrl($id)[0]];
             if (!App::permissionsCurrent()) { // 2.6.2, as in connect()
@@ -240,7 +242,7 @@ final class M365Controller
             unset($_SESSION['m365c_nonce'][$id]); // a link never connects without staff confirming
             Audit::log('m365.link', $client['name']);
         } catch (\Throwable $e) {
-            flash('error', $e->getMessage());
+            flash('error', safe_error($e));
         }
         redirect("/clients/$id/connectors#m365");
     }
@@ -278,12 +280,13 @@ final class M365Controller
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        self::ownNeedsAdmin($id);
         try {
             $name = Tenants::confirm($id);
             Audit::log('m365.connected', "{$client['name']}: $name (confirmed)");
             flash('success', "Connected to $name.");
         } catch (\Throwable $e) {
-            flash('error', 'Not connected: ' . $e->getMessage());
+            flash('error', 'Not connected: ' . safe_error($e));
         }
         redirect("/clients/$id/connectors#m365");
     }
@@ -316,12 +319,26 @@ final class M365Controller
     {
         Auth::requireRole('tech');
         $client = ClientController::load($id);
+        self::ownNeedsAdmin($id);
         $row = Tenants::row($id);
         $n = Tenants::disconnect($id);
         Audit::log('m365.disconnected', $client['name'] . ($row ? ": {$row['tenant_name']}" : '') . ($n ? ", $n licenses retired" : ''));
         flash('success', 'Disconnected.' . ($n ? " $n Microsoft 365 license" . ($n === 1 ? ' was' : 's were') . ' retired (restored if you connect again).' : '')
             . ' To remove Align\'s access completely, the client\'s admin deletes the app under Enterprise applications in their tenant.');
         redirect("/clients/$id/connectors");
+    }
+
+    /**
+     * 2.15.2: a client connected with its own app (an admin-only credential) is changed only by admins: Connect, a link
+     * and Confirm would replace that app with the MSP's, and Disconnect deletes it. Techs get a message instead.
+     */
+    private static function ownNeedsAdmin(int $id): void
+    {
+        $row = Tenants::row($id);
+        if ($row && ($row['mode'] ?? '') === 'own' && !Auth::can('admin')) {
+            flash('error', 'This client uses its own Microsoft 365 app, so only an admin can connect, confirm or disconnect it.');
+            redirect("/clients/$id/connectors#m365");
+        }
     }
 
     /** Connects the client with an app in its own tenant (tenant, app id, secret, expiry). Admins; audited with a security alert. */
@@ -332,7 +349,7 @@ final class M365Controller
         try {
             $name = Tenants::saveOwn($id, post('tenant_id'), post('app_id'), post('secret'), post('secret_expires'));
         } catch (\Throwable $e) {
-            flash('error', $e->getMessage());
+            flash('error', safe_error($e));
             redirect("/clients/$id/connectors#m365");
         }
         Audit::log('m365.connected', "{$client['name']}: $name (own app)");

@@ -199,7 +199,7 @@ final class Clients
             $out = self::apply($clientId, $editions) + $out;
             DB::run('UPDATE client_gws SET last_sync_at = NOW(), last_error = NULL WHERE client_id = ?', [$clientId]);
         } catch (\Throwable $e) {
-            $out['error'] = mb_substr($e->getMessage(), 0, 1000);
+            $out['error'] = mb_substr(safe_error($e), 0, 1000);
             DB::run('UPDATE client_gws SET last_error = ? WHERE client_id = ?', [$out['error'], $clientId]);
         }
         // The security checks, apart from the licenses (whether or not they synced), once a day or when asked. A check

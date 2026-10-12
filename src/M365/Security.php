@@ -139,7 +139,7 @@ final class Security
             if ($s === 401) {
                 return 'Couldn\'t be read: Microsoft refused the app\'s sign-in to this tenant (tried again on the next sync).';
             }
-            return 'Couldn\'t be read: ' . mb_strimwidth($e->getMessage(), 0, 200, '…');
+            return 'Couldn\'t be read: ' . mb_strimwidth(safe_error($e), 0, 200, '…');
         };
         // 2.6.3: a call refused because the tenant has no Entra ID P1 (those checks then use the ways that don't need it)
         $premium = fn(\Throwable $e) => self::premiumError($e);

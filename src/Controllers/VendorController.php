@@ -143,8 +143,7 @@ final class VendorController
         if (!$tpl && $f['category'] === null) {
             $f['category'] = Vendors::guessCategory($name);
         }
-        $dupe = array_filter(Vendors::forClient($id), fn($v) => Vendors::key($v['name']) === Vendors::key($name));
-        if ($dupe) {
+        if (Vendors::activeNamed($id, $name) !== null) {
             flash('error', "{$client['name']} already has {$name} as a vendor.");
             redirect($back);
         }
@@ -177,6 +176,10 @@ final class VendorController
                 flash('success', "Retired {$v['name']}. Licenses and budget lines stay linked to it." . ($fromPsa ? ' Archive it in ' . psa_name() . ' too.' : ''));
                 redirect($back);
             case 'restore':
+                if (Vendors::activeNamed($cid, $v['name'], $id) !== null) { // 2.15.2: the same rule as adding one
+                    flash('error', "{$v['client_name']} already has an active vendor named {$v['name']}. Rename or retire that one first.");
+                    redirect($back);
+                }
                 DB::run('UPDATE client_vendors SET retired_at = NULL, retired_reason = NULL WHERE id = ?', [$id]);
                 Audit::log('vendor.restore', $label);
                 flash('success', "Restored {$v['name']}.");
@@ -203,7 +206,8 @@ final class VendorController
         }
         // The shown name after this save (its own, else the new template's) mustn't be another of the client's vendors
         $newName = $f['name'] ?? ($fromPsa ? $v['name'] : null) ?? ($f['template_id'] ? DB::value('SELECT name FROM vendor_templates WHERE id = ?', [$f['template_id']]) : $v['name']);
-        if (!$fromPsa && array_filter(Vendors::forClient($cid, true), fn($o) => (int) $o['id'] !== $id && Vendors::key($o['name']) === Vendors::key((string) $newName))) {
+        // 2.15.2: only an active vendor's name must be free among the active ones (restoring a retired one checks then)
+        if (!$fromPsa && $v['retired_at'] === null && Vendors::activeNamed($cid, (string) $newName, $id) !== null) {
             flash('error', "{$v['client_name']} already has a vendor named $newName.");
             redirect($back);
         }

@@ -398,7 +398,7 @@ final class DattoRmm implements RmmProvider
     private function audits(array $rows): array
     {
         $cache = [];
-        foreach (DB::all("SELECT device_id, audit_at, manufacturer, model, serial FROM rmm_hardware WHERE provider = 'dattormm'") as $c) {
+        foreach (DB::all("SELECT device_id, audit_at, manufacturer, model, serial, checked_at FROM rmm_hardware WHERE provider = 'dattormm'") as $c) {
             $cache[(string) $c['device_id']] = $c;
         }
         $due = [];
@@ -412,6 +412,8 @@ final class DattoRmm implements RmmProvider
                 $due[$uid] = 0; // never read: first
             } elseif ($audited !== null && ($c['audit_at'] === null || $audited > $c['audit_at'])) {
                 $due[$uid] = 1;
+            } elseif ($c['manufacturer'] === null && $c['model'] === null && $c['serial'] === null && strtotime((string) $c['checked_at']) < time() - 7 * 86400) {
+                $due[$uid] = 2; // 2.15.2: no hardware known yet (no audit, or it couldn't be read): tried again weekly, after the others
             }
         }
         asort($due);
@@ -441,6 +443,7 @@ final class DattoRmm implements RmmProvider
                 continue; // one device's audit failing doesn't stop the others
             }
             if (!is_array($a)) { // a 200 that isn't Datto's JSON: not "no hardware"
+                $this->noted($uid, $rows[$uid], $cache, $now); // 2.15.2: recorded, so it isn't first in the queue every run
                 if (++$fails >= self::MAX_FAILS) {
                     $stopped = ' (Datto\'s hardware audits keep coming back unreadable)';
                     break;
@@ -478,12 +481,15 @@ final class DattoRmm implements RmmProvider
 
     /**
      * Records a device whose audit failed, when Align knows nothing about its hardware yet, as audited at Datto's current
-     * audit time, so it is tried again after Datto audits it again rather than first in every run. Known hardware is
-     * left as it is (and tried again next run).
+     * audit time, so it is tried again after Datto audits it again (or weekly) rather than first in every run. Known
+     * hardware is left as it is; only the time of the try is updated.
      */
     private function noted(int|string $uid, array $device, array &$cache, string $now): void
     {
         if (isset($cache[$uid])) {
+            // 2.15.2: the try is recorded, so a device without hardware is tried weekly rather than every run
+            DB::run("UPDATE rmm_hardware SET checked_at = ? WHERE provider = 'dattormm' AND device_id = ?", [$now, (string) $uid]);
+            $cache[$uid]['checked_at'] = $now;
             return;
         }
         $row = ['provider' => 'dattormm', 'device_id' => (string) $uid, 'audit_at' => self::utc($device['lastAuditDate'] ?? null),

@@ -30,7 +30,9 @@ $delegation = function (?string $clientId) use ($scopes, $cid): string {
     <div class="card-tools">
       <?php if ($connected && $tech): ?>
         <?= $form('sync', '<i class="fas fa-rotate me-1"></i>Sync now', 'btn-default') ?>
-        <?= $form('disconnect', 'Disconnect', 'btn-link text-danger', ' data-confirm="Disconnect ' . e($client['name']) . '\'s Google Workspace? Its Google Workspace licenses are retired (restored if you connect again)."') ?>
+        <?php if (!$own || Auth::can('admin')): // 2.15.2: a client's own credential is removed by admins only ?>
+          <?= $form('disconnect', 'Disconnect', 'btn-link text-danger', ' data-confirm="Disconnect ' . e($client['name']) . '\'s Google Workspace? Its Google Workspace licenses are retired (restored if you connect again)."') ?>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
   </div>

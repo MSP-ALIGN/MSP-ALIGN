@@ -77,7 +77,7 @@ final class Curricula
         } catch (HttpException $e) {
             throw new \RuntimeException(in_array($e->status, [400, 401], true)
                 ? 'Curricula refused the client ID and secret (' . $e->status . '). Check them, and that the application may use the read scopes.'
-                : $e->getMessage());
+                : safe_error($e));
         }
         $t = $r['json']['access_token'] ?? null;
         if (!is_string($t) || $t === '') {
@@ -97,21 +97,30 @@ final class Curricula
             throw new \RuntimeException(match (true) {
                 $e->status === 401 => 'Curricula refused the token (401).',
                 $e->status === 403 => 'Curricula says the application isn\'t allowed to read that (403): it needs the scopes ' . self::SCOPES . '.',
-                default => $e->getMessage(),
+                default => safe_error($e),
             }, (int) $e->status, $e); // the HTTP status as the code (readAccount() tolerates a 403 on the learner list)
         }
         return is_array($r['json'] ?? null) ? $r['json'] : throw new \RuntimeException('Curricula didn\'t answer with JSON.');
     }
 
-    /** Every item of a list, page by page (meta.page.lastPage), up to $max pages. */
-    private static function all(string $path, array $query = [], int $max = 50): array
+    /**
+     * Every item of a list, page by page (meta.page.lastPage), up to $max pages. $first (2.15.2): only the first page,
+     * of $first items (for lists only the newest few are kept from), so a long history isn't an error.
+     */
+    private static function all(string $path, array $query = [], int $max = 50, ?int $first = null): array
     {
+        $size = $first ?? self::PAGE;
         $out = [];
         for ($p = 1; $p <= $max; $p++) {
-            $r = self::get($path, $query + ['page' => ['number' => $p, 'size' => self::PAGE]]);
-            array_push($out, ...array_values(array_filter((array) ($r['data'] ?? []), 'is_array')));
-            $last = (int) ($r['meta']['page']['lastPage'] ?? 1);
-            if ($p >= $last || !($r['data'] ?? [])) {
+            $r = self::get($path, $query + ['page' => ['number' => $p, 'size' => $size]]);
+            // 2.15.2: anything but a list is refused (an error object must not read as "no records" and clear results)
+            if (!is_array($r['data'] ?? null) || !array_is_list($r['data'])) {
+                throw new \RuntimeException("Curricula didn't answer with a list for $path.");
+            }
+            array_push($out, ...array_values(array_filter($r['data'], 'is_array')));
+            // Without meta.page.lastPage, a full page means there may be more
+            $last = isset($r['meta']['page']['lastPage']) ? (int) $r['meta']['page']['lastPage'] : (count($r['data']) >= $size ? $p + 1 : $p);
+            if ($p >= $last || !$r['data'] || $first !== null) {
                 return $out;
             }
         }
@@ -205,7 +214,7 @@ final class Curricula
                 DB::run('UPDATE sat_accounts SET synced_at = ?, error = NULL WHERE provider = ? AND account_id = ?', [$now, self::PROVIDER, $d['account_id']]);
                 $read++;
             } catch (\Throwable $e) {
-                DB::run('UPDATE sat_accounts SET error = ? WHERE provider = ? AND account_id = ?', [mb_substr($e->getMessage(), 0, 500), self::PROVIDER, $d['account_id']]);
+                DB::run('UPDATE sat_accounts SET error = ? WHERE provider = ? AND account_id = ?', [mb_substr(safe_error($e), 0, 500), self::PROVIDER, $d['account_id']]);
                 $failed++;
             }
         }
@@ -321,7 +330,7 @@ final class Curricula
                 'title' => self::text($at['title'] ?? null, 200)];
         }
         // Summary reports: dates only (their PDF links are temporary; see reportUrl())
-        $reports = self::all('/accounts/' . rawurlencode($account) . '/account-summary-reports', ['sort' => '-endDate'], 2);
+        $reports = self::all('/accounts/' . rawurlencode($account) . '/account-summary-reports', ['sort' => '-endDate'], 1, 12); // the newest 12 are kept
 
         DB::transaction(function () use ($clientId, $account, $learners, $assignments, $first, $last, $campaigns, $reports, $now) {
             DB::run("DELETE FROM sat_results WHERE client_id = ? AND source = 'api' AND (provider = 'curricula' OR provider IS NULL)", [$clientId]);
@@ -331,7 +340,7 @@ final class Curricula
                     'covers_from' => $first, 'covers_to' => $last ?? $first ?? date('Y-m-d'), 'uploaded_at' => $now]);
             }
             foreach ($campaigns as $c) {
-                DB::insert('sat_results', ['client_id' => $clientId, 'kind' => 'phishing', 'source' => 'api', 'provider' => self::PROVIDER, 'report' => 'Curricula: ' . ($c['title'] ?? 'phishing campaign'),
+                DB::insert('sat_results', ['client_id' => $clientId, 'kind' => 'phishing', 'source' => 'api', 'provider' => self::PROVIDER, 'report' => mb_substr('Curricula: ' . ($c['title'] ?? 'phishing campaign'), 0, 60), // the column holds 60 (2.15.2)
                     'sent' => $c['sent'], 'clicked' => $c['clicked'], 'reported' => $c['reported'], 'compromised' => $c['compromised'], 'campaigns' => 1,
                     'covers_from' => $c['from'], 'covers_to' => $c['from'] ?? $c['to'], 'uploaded_at' => $now]);
             }
@@ -361,7 +370,7 @@ final class Curricula
         try {
             self::readAccount((string) $a['account_id'], $clientId, $now);
         } catch (\Throwable $e) {
-            DB::run('UPDATE sat_accounts SET error = ? WHERE provider = ? AND account_id = ?', [mb_substr($e->getMessage(), 0, 500), self::PROVIDER, $a['account_id']]);
+            DB::run('UPDATE sat_accounts SET error = ? WHERE provider = ? AND account_id = ?', [mb_substr(safe_error($e), 0, 500), self::PROVIDER, $a['account_id']]);
             throw $e;
         }
         DB::run('UPDATE sat_accounts SET synced_at = ?, error = NULL WHERE provider = ? AND account_id = ?', [$now, self::PROVIDER, $a['account_id']]);

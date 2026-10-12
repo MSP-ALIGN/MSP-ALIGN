@@ -76,7 +76,14 @@ final class Api
         $token = null;
         for ($i = 0; $i < $maxPages; $i++) {
             $r = self::get($path, $query + ['limit' => self::PAGE] + ($token !== null ? ['page_token' => $token] : []));
-            $items = array_values(array_filter((array) ($r[$key] ?? []), 'is_array'));
+            // 2.15.2: anything but a list is refused, so an error object or a renamed key never reads as "no records"
+            // (the sync would then clear stored data). A list reply without the key at all is only taken as empty when
+            // it is still shaped like a list reply (it has pagination).
+            $list = $r[$key] ?? (array_key_exists('pagination', $r) ? [] : null);
+            if (!is_array($list) || !array_is_list($list)) {
+                throw new \RuntimeException("Huntress didn't answer with a list of $key.");
+            }
+            $items = array_values(array_filter($list, 'is_array'));
             array_push($out, ...$items);
             $next = $r['pagination']['next_page_token'] ?? null;
             if (!is_string($next) || $next === '' || ($stop && $stop($items))) {

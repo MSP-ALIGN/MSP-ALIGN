@@ -23,8 +23,8 @@ use Align\Settings;
  *
  * Security assumptions: callers check the role (viewers read; techs and admins change; admins manage offices) or the
  * portal permission (can_closet to see, can_checkout to check out, in and request, can_closet_edit to add and update), and that the client is the
- * portal user's own; methods here re-check that an item, device, contact or checkout belongs to the client named
- * (ownsItem etc.), so ids from a form can't reach another client's closet. Every text value is cleaned (control
+ * portal user's own, and that an item, device or checkout belongs to the closet the caller works on (the controllers
+ * do; checkout() itself checks a contact belongs to the borrowing client). Every text value is cleaned (control
  * characters removed) and cut to its column; quantities are whole numbers within limits. A checkout locks the item
  * row (SELECT … FOR UPDATE) so two people can't take the last one.
  */
@@ -181,6 +181,7 @@ final class Closet
      */
     public static function clean(array $p, ?int $clientId, bool $new, ?int $currentOffice = null): array
     {
+        $p = array_map(fn($v) => is_scalar($v) || $v === null ? $v : '', $p); // 2.15.2: a field posted as an array is empty, not an error
         $f = [
             'name' => self::text($p['name'] ?? ''),
             'kind' => ($p['kind'] ?? 'stock') === 'tracked' ? 'tracked' : 'stock',
@@ -472,6 +473,10 @@ final class Closet
         if ($what === '') {
             throw new \InvalidArgumentException('Say what you need.');
         }
+        // 2.15.2: counted under the user's lock (held to the end of the request), so parallel posts can't all pass the limit
+        if (!self::lockPortalUser((int) $portalUser['id'])) {
+            throw new \InvalidArgumentException('Another of your requests is still being sent. Please try again in a moment.');
+        }
         if ((int) DB::value("SELECT COUNT(*) FROM closet_events WHERE action = 'requested' AND portal_user_id = ? AND at > NOW() - INTERVAL 1 HOUR", [$portalUser['id']]) >= self::REQUESTS_PER_HOUR) {
             throw new \InvalidArgumentException('You\'ve sent a lot of requests this hour. Please try again later, or contact us.');
         }
@@ -499,6 +504,17 @@ final class Closet
         \Align\Audit::log('closet.request', "{$client['name']}: $what ($delivery)");
         \Align\Mail\Notify::portalActivity((int) $client['id'], $client['name'], $portalUser['name'], 'asked for ' . $what . ' from the tech closet', '/clients/' . (int) $client['id'] . '/closet');
         return $delivery;
+    }
+
+    /**
+     * 2.15.2 Takes a portal user's closet lock (GET_LOCK, waiting up to 10 seconds), held until this request's database
+     * connection closes, so one user's closet changes and requests run one at a time and an hourly limit counted under
+     * it can't be passed by parallel posts. False when it couldn't be had (the caller refuses the action).
+     */
+    public static function lockPortalUser(int $portalUserId): bool
+    {
+        static $held = [];
+        return $held[$portalUserId] ??= (int) DB::value('SELECT GET_LOCK(?, 10)', ['msp_align_closet:' . $portalUserId]) === 1;
     }
 
     // ---- To do ----

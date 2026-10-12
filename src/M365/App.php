@@ -352,7 +352,7 @@ final class App
             return 'app permissions updated: clients need to approve again';
         } catch (\Throwable $e) {
             // Kept for the integration page and the Connectors page to show, and logged once per failure
-            $msg = mb_substr($e->getMessage(), 0, 300);
+            $msg = mb_substr(safe_error($e), 0, 300);
             Settings::set('m365c_permissions_error', $msg);
             Settings::set('m365c_permissions_failed_at', (string) time());
             \Align\Audit::log('m365.permissions_failed', 'Couldn\'t add the new permissions to the Microsoft 365 (clients) app: ' . $msg);
@@ -455,7 +455,7 @@ final class App
             \Align\Audit::log('m365.rotated', "Microsoft 365 (clients): new certificate added (expires $expires); Align switches to it on the next daily run");
             return "new certificate added, switching to it on the next daily run";
         } catch (\Throwable $e) {
-            $msg = mb_substr($e->getMessage(), 0, 500);
+            $msg = mb_substr(safe_error($e), 0, 500);
             if (Settings::get('m365c_rotate_error') !== $msg) {
                 \Align\Audit::log('m365.rotate_failed', $msg);
             }
