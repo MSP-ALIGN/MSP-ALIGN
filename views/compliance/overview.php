@@ -10,7 +10,7 @@ $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
     'desc' => 'How each client stands against the frameworks it must meet (HIPAA, CIS, NIST and others), from the checklists on each client\'s Compliance page.',
     'help' => 'guide-compliance',
 ]) ?>
-<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', true], ['/frameworks', 'Frameworks', 'fa-list-check', false, \Align\Auth::can('admin')]]]) ?>
+<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', true], ['/frameworks', 'Frameworks', 'fa-list-check', false, \Align\Auth::can('admin')], ['/compliance/evidence', 'Evidence check', 'fa-scale-balanced', false, \Align\Auth::can('tech')]]]) ?>
 <div class="row">
   <?php foreach ($frameworks as $fw):
       $vals = [];

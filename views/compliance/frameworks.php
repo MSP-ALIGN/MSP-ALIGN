@@ -3,7 +3,7 @@
  * Framework list and the new-framework form (admin). @var array $frameworks.
  */
 ?>
-<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', false], ['/frameworks', 'Frameworks', 'fa-list-check', true, \Align\Auth::can('admin')]]]) ?>
+<?= \Align\View::fetch('partials/section_tabs', ['tabs' => [['/compliance', 'Overview', 'fa-clipboard-check', false], ['/frameworks', 'Frameworks', 'fa-list-check', true, \Align\Auth::can('admin')], ['/compliance/evidence', 'Evidence check', 'fa-scale-balanced', false, \Align\Auth::can('tech')]]]) ?>
 <div class="card card-dark">
   <div class="card-header py-2">
     <h1 class="card-title mt-2"><i class="fas fa-fw fa-list-check me-2"></i>Compliance frameworks</h1>

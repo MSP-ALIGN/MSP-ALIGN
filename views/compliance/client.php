@@ -84,5 +84,15 @@ $cid = (int) $client['id'];
       </ul>
       <div class="card-footer small text-muted">Shown next to matching controls in each checklist as a suggestion. You still set the answer.</div>
     </div>
+    <?php if (Auth::can('tech')): // 2.18.0 ?>
+      <div class="card card-dark" id="evidence-check">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-scale-balanced me-2"></i>Evidence check</h3></div>
+        <div class="card-body small">
+          <p class="mb-2">Check Align's automatic security results (Huntress, Microsoft 365, Google Workspace, email, training) against this client's own systems: you answer each one without seeing Align's result, then see where you agree.</p>
+          <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/evidence"><i class="fas fa-pen me-1"></i>Answer the checks</a>
+          <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/evidence?results=1">Results</a>
+        </div>
+      </div>
+    <?php endif; ?>
   </div>
 </div>

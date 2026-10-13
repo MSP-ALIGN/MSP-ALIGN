@@ -140,6 +140,8 @@ $r->get('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'checklis
 $r->post('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'save']);
 $r->post('/clients/{id}/compliance/{fw}/remove', [ComplianceController::class, 'unassign']);
 $r->get('/clients/{id}/compliance/{fw}/export', [ComplianceController::class, 'export']);
+$r->get('/clients/{id}/evidence', [\Align\Controllers\EvidenceController::class, 'client']); // 2.18.0 evidence check (Phase 4 gate)
+$r->post('/clients/{id}/evidence', [\Align\Controllers\EvidenceController::class, 'save']);
 
 // Devices
 $r->get('/devices/unassigned', [DeviceController::class, 'unassigned']);
@@ -313,6 +315,8 @@ $r->get('/reports/sla', [\Align\Controllers\ServiceController::class, 'portfolio
 
 // Compliance
 $r->get('/compliance', [ComplianceController::class, 'overview']);
+$r->get('/compliance/evidence', [\Align\Controllers\EvidenceController::class, 'report']); // 2.18.0
+$r->get('/compliance/evidence/export', [\Align\Controllers\EvidenceController::class, 'export']);
 $r->get('/frameworks', [ComplianceController::class, 'frameworks']);
 $r->post('/frameworks', [ComplianceController::class, 'frameworkCreate']);
 $r->get('/frameworks/{id}', [ComplianceController::class, 'frameworkShow']);
