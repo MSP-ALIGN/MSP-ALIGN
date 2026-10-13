@@ -25,7 +25,7 @@ $ticketLink = function (array $t): string {
 $stateBadge = ['breached' => '<span class="badge text-bg-danger">Past target</span>', 'warning' => '<span class="badge text-bg-warning">Close to target</span>', 'ok' => '<span class="badge text-bg-success">On track</span>'];
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h1 class="h4 mb-0 me-auto"><i class="fas fa-stopwatch text-secondary me-2"></i>Service levels <a href="/help#guide-service-levels" class="text-muted small" title="How service levels work"><i class="fas fa-circle-question fa-sm"></i></a></h1>
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-stopwatch text-secondary me-2"></i>Service levels <a href="/help#guide-service-levels" class="text-muted small" title="How service levels work" aria-label="How service levels work"><i class="fas fa-circle-question fa-sm"></i></a></h1>
   <?php if ($s): ?>
     <span class="small text-muted me-2">From <?= e(psa_name()) ?> ticket SLAs<?= $s['synced'] ? ' · updated ' . e(rel_time($s['synced'])) : '' ?></span>
     <div class="btn-group btn-group-sm me-2 mt-1 mt-md-0">
@@ -91,7 +91,7 @@ $stateBadge = ['breached' => '<span class="badge text-bg-danger">Past target</sp
             <tr><td><?= e($p['priority']) ?></td><td class="text-end"><?= $p['tickets'] ?></td><td class="text-end"><?= $badge($p['resp_pct']) ?></td><td class="text-end"><?= $badge($p['res_pct']) ?></td>
               <td class="text-end d-none d-sm-table-cell"><?= e(Sla::duration($p['avg_response_min'])) ?></td><td class="text-end d-none d-sm-table-cell"><?= e(Sla::duration($p['avg_resolution_min'])) ?></td></tr>
           <?php endforeach; ?>
-          <?php if (!$s['priority']): ?><tr><td colspan="6" class="text-muted">No tickets in this period.</td></tr><?php endif; ?>
+          <?php if (!$s['priority']): ?><tr><td colspan="6" class="empty-state">No tickets in this period.</td></tr><?php endif; ?>
           </tbody>
         </table>
       </div>
@@ -124,7 +124,7 @@ $stateBadge = ['breached' => '<span class="badge text-bg-danger">Past target</sp
         <tr><td class="text-nowrap"><?= $ticketLink($t) ?></td><td class="text-nowrap"><?= e(fmt_date($t['created_at'])) ?></td><td><?= e($t['priority'] ?? '') ?></td><td class="text-break"><?= e((string) $t['subject']) ?></td>
           <td class="text-nowrap"><?= (string) $t['response_met'] === '0' ? '<span class="badge text-bg-danger">Response</span> ' : '' ?><?= (string) $t['resolution_met'] === '0' ? '<span class="badge text-bg-danger">Resolution</span>' : '' ?></td></tr>
       <?php endforeach; ?>
-      <?php if (!$s['missed']): ?><tr><td colspan="5" class="text-muted">None — every target was met.</td></tr><?php endif; ?>
+      <?php if (!$s['missed']): ?><tr><td colspan="5" class="empty-state">None — every target was met.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

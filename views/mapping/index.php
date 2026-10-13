@@ -29,7 +29,7 @@ $cols = 1 + 3 * count($providers);
 <p class="text-muted small mb-3" style="max-width:900px">Link each client to its record in every connected tool<?= $providers ? ' (' . e(implode(', ', array_map(fn($p) => $p['name'] . ' ' . $p['noun'], $providers))) . ')' : '' ?>. Matching names link automatically on sync; anything you set here is kept, including <b>Not linked</b>. Clients added by hand can be linked too.</p>
 
 <?php if (!$providers): ?>
-  <div class="card card-body text-muted">No connected tool links clients yet. Connect an RMM or a backup product under Integrations.</div>
+  <div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-link', 'text' => 'No connected tool links clients yet.', 'more' => 'Connect an RMM or a backup product under Integrations.', 'action' => \Align\Auth::can('admin') ? '<a class="btn btn-sm btn-primary" href="/integrations">Integrations</a>' : '']) ?></div>
 <?php else: ?>
 <div class="row">
   <?php foreach ($providers as $key => $p): $nUn = count($p['unlinked']); ?>

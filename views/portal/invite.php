@@ -13,11 +13,11 @@
   <p class="login-box-msg">Welcome, <b><?= e($invitee['name']) ?></b><br><span class="small text-muted">Set a password for the <?= e($invitee['client_name']) ?> client portal.</span></p>
   <form method="post" action="/portal/invite/<?= e($token) ?>">
     <?= csrf_field() ?>
-    <div class="mb-3"><label class="small mb-1">Email</label><input class="form-control" value="<?= e($invitee['email']) ?>" readonly autocomplete="username"></div>
-    <div class="mb-3"><label class="small mb-1">New password <span class="text-muted">(at least 12 characters)</span></label><input type="password" name="password" class="form-control" minlength="12" autocomplete="new-password" required autofocus></div>
-    <div class="mb-3"><label class="small mb-1">Confirm password</label><input type="password" name="confirm" class="form-control" minlength="12" autocomplete="new-password" required></div>
+    <div class="mb-3"><label class="small mb-1" for="inv-email">Email</label><input id="inv-email" class="form-control" value="<?= e($invitee['email']) ?>" readonly autocomplete="username"></div>
+    <div class="mb-3"><label class="small mb-1" for="inv-password">New password <span class="text-muted">(at least 12 characters)</span></label><input type="password" id="inv-password" name="password" class="form-control" minlength="12" autocomplete="new-password" required autofocus></div>
+    <div class="mb-3"><label class="small mb-1" for="inv-confirm">Confirm password</label><input type="password" id="inv-confirm" name="confirm" class="form-control" minlength="12" autocomplete="new-password" required></div>
     <?php if (!empty($invitee['totp_enabled'])): ?>
-      <div class="mb-3"><label class="small mb-1">Code from your authenticator app</label><input name="code" class="form-control" inputmode="numeric" autocomplete="one-time-code" required></div>
+      <div class="mb-3"><label class="small mb-1" for="inv-code">Code from your authenticator app</label><input id="inv-code" name="code" class="form-control" inputmode="numeric" autocomplete="one-time-code" required></div>
     <?php endif; ?>
     <button class="btn btn-primary w-100">Set password and sign in</button>
   </form>

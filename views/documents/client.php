@@ -5,7 +5,7 @@ require __DIR__ . '/../partials/client_header.php';
 ?>
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-file-lines me-2"></i>Documents <span class="badge text-bg-light ms-1"><?= count($docs) ?></span></h3>
+    <h1 class="card-title mt-2"><i class="fas fa-fw fa-file-lines me-2"></i>Documents <span class="badge text-bg-light ms-1"><?= count($docs) ?></span></h1>
     <div class="card-tools d-flex">
       <input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="doc-table" placeholder="Filter…">
       <a class="btn btn-sm btn-default me-2" href="?status=<?= $status === 'all' ? '' : 'all' ?>"><?= $status === 'all' ? 'Hide archived' : 'Show archived' ?></a>
@@ -37,7 +37,7 @@ require __DIR__ . '/../partials/client_header.php';
           <td class="small"><?= $k['ends_on'] ? e(fmt_date($k['ends_on'])) : '—' ?></td>
           <td class="text-end"><?php if (str_starts_with((string) $k['pdf_file'], 'contract-')): ?><a class="btn btn-xs btn-default" href="/contracts/<?= (int) $k['id'] ?>/pdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf me-1"></i>PDF</a><?php endif; ?></td></tr>
       <?php endforeach; ?>
-      <?php if (!$contracts): ?><tr><td colspan="5" class="text-muted p-3">No contracts yet. Make one from a template, or upload one signed elsewhere.</td></tr><?php endif; ?>
+      <?php if (!$contracts): ?><tr><td colspan="5" class="empty-state">No contracts yet. Make one from a template, or upload one signed elsewhere.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

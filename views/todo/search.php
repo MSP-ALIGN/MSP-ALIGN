@@ -12,15 +12,15 @@ $section = function (string $icon, string $title, int $count, string $body, ?str
 ?>
 <form method="get" action="/search" class="mb-3" role="search"><div class="input-group" style="max-width:560px">
   <input type="search" name="q" value="<?= e($q) ?>" class="form-control" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" autofocus>
-  <button class="btn btn-primary"><i class="fas fa-search"></i></button></div></form>
-<?php if ($q !== '' && !$n): ?><div class="card card-body text-muted">Nothing matches. Try part of a name, a serial number or an email address.</div><?php endif; ?>
+  <button class="btn btn-primary" aria-label="Search"><i class="fas fa-search"></i></button></div></form>
+<?php if ($q !== '' && !$n): ?><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-magnifying-glass', 'text' => 'Nothing matches.', 'more' => 'Try part of a name, a serial number or an email address.']) ?></div><?php endif; ?>
 <?php
 if ($res['clients']) {
     $b = '<ul class="list-group list-group-flush">';
     foreach ($res['clients'] as $c) {
         $b .= '<li class="list-group-item py-2"><a class="fw-bold" href="/clients/' . (int) $c['id'] . '">' . e($c['name']) . '</a>'
             . ($c['industry'] ? ' <span class="small text-muted">· ' . e($c['industry']) . '</span>' : '')
-            . ($c['is_archived'] ? ' <span class="badge text-bg-dark">archived</span>' : ($c['planning_excluded'] ? ' <span class="badge text-bg-secondary">removed from planning</span>' : '')) . '</li>';
+            . ($c['is_archived'] ? ' <span class="badge text-bg-' . status_tone('ended') . '">archived</span>' : ($c['planning_excluded'] ? ' <span class="badge text-bg-secondary">removed from planning</span>' : '')) . '</li>';
     }
     echo $section('fa-users', 'Clients', count($res['clients']), $b . '</ul>');
 }

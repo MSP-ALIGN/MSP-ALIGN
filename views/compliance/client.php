@@ -9,6 +9,7 @@ use Align\Compliance\Compliance;
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 ?>
+<h1 class="visually-hidden">Compliance</h1>
 <div class="row">
   <div class="col-lg-8">
     <?php foreach ($assigned as $fw): $s = $fw['score']; ?>

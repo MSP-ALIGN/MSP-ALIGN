@@ -20,6 +20,6 @@ $badge = ['scheduled' => 'primary', 'completed' => 'success', 'cancelled' => 'se
         <?php if ($m['status'] === 'scheduled' && strtotime($m['ends_at']) < time()): ?><span class="badge badge-outline-warning">needs wrap-up</span><?php endif; ?></td>
     </tr>
   <?php endforeach; ?>
-  <?php if (!$meetings): ?><tr><td colspan="6" class="text-muted p-3">No meetings.</td></tr><?php endif; ?>
+  <?php if (!$meetings): ?><tr><td colspan="6" class="empty-state">No meetings.</td></tr><?php endif; ?>
   </tbody>
 </table>

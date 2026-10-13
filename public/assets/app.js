@@ -1836,3 +1836,44 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sent && document.visibilityState === 'visible') { sent = false; location.reload(); }
   });
 })();
+
+// 2.17.0 Field labels: a <label> written next to its field (not around it, with no for=) is tied to that field, so
+// clicking the label focuses the field and screen readers read the label with it. The field is the first input,
+// select or textarea after the label inside the same parent (directly, or inside the next element, such as an input
+// group); a field that already has a label or its own aria-label, or none found, is left alone. Ids are only added,
+// never changed.
+(() => {
+  let n = 0;
+  const FIELD = 'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]), select, textarea';
+  /** The field a label was written for: the first field after it in the same parent, or null (another label first). */
+  const fieldAfter = (label) => {
+    for (let el = label.nextElementSibling; el; el = el.nextElementSibling) {
+      if (el.tagName === 'LABEL' || el.querySelector('label')) return null; // the next label starts another field
+      if (el.matches(FIELD)) return el;
+      const inner = el.querySelector(FIELD);
+      if (inner) return inner;
+    }
+    return null;
+  };
+  alignInit.add((root) => {
+    root.querySelectorAll('label:not([for])').forEach((label) => {
+      if (label.querySelector(FIELD) || label.classList.contains('btn')) return;
+      const f = fieldAfter(label);
+      if (!f || (f.labels && f.labels.length) || f.hasAttribute('aria-labelledby')) return;
+      // AdminLTE names a field with no label after its placeholder; the real label is better, so that name goes
+      if (f.hasAttribute('aria-label')) {
+        if (f.getAttribute('aria-label') !== f.getAttribute('placeholder')) return;
+        f.removeAttribute('aria-label');
+      }
+      if (!f.id) {
+        do { n += 1; f.id = 'fld-' + n; } while (document.querySelectorAll('#' + f.id).length > 1);
+      }
+      if (document.getElementById(f.id) !== f) { // its id is used twice on the page: name it through the label instead
+        if (!label.id) { do { n += 1; label.id = 'lbl-' + n; } while (document.querySelectorAll('#' + label.id).length > 1); }
+        f.setAttribute('aria-labelledby', label.id);
+        return;
+      }
+      label.htmlFor = f.id;
+    });
+  });
+})();

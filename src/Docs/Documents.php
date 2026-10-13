@@ -31,7 +31,7 @@ final class Documents
     public const STATUSES = [
         'draft' => ['Draft', 'secondary'],
         'active' => ['Active', 'success'],
-        'archived' => ['Archived', 'dark'],
+        'archived' => ['Archived', 'secondary'], // 2.17.0: ended states are grey (status_tone())
     ];
 
     /** Autosaves create a history entry at most this often (per editor). */

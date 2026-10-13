@@ -26,6 +26,7 @@ final class LegalController
         ['AdminLTE', '4.9.1', 'MIT', 'https://adminlte.io', 'public/vendor/adminlte/LICENSE'],
         ['Bootstrap', '5.3.8', 'MIT; includes Popper 2 (MIT)', 'https://getbootstrap.com', 'public/vendor/bootstrap/LICENSE'],
         ['Font Awesome Free', '6.7.2', 'Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT', 'https://fontawesome.com', 'public/vendor/fontawesome/LICENSE.txt'],
+        ['Inter', 'Fontsource 5.1.1 (variable; Latin and Latin Extended)', 'SIL OFL 1.1', 'https://rsms.me/inter/', 'public/vendor/inter/LICENSE'],
         ['FullCalendar', '6.1.19', 'MIT; includes Preact (MIT)', 'https://fullcalendar.io', 'public/vendor/fullcalendar/LICENSE.md'],
         ['PDF.js', '4.10.38', 'Apache-2.0; its fonts SIL OFL 1.1 (Liberation) and BSD (Foxit)', 'https://mozilla.github.io/pdf.js/', ['public/vendor/pdfjs/LICENSE', 'public/vendor/pdfjs/standard_fonts/LICENSE_LIBERATION', 'public/vendor/pdfjs/standard_fonts/LICENSE_FOXIT']],
         ['Quill', '2.0.3', 'BSD-3-Clause; includes Parchment (BSD-3-Clause), quill-delta, lodash-es and eventemitter3 (MIT) and fast-diff (Apache-2.0)', 'https://quilljs.com', ['public/vendor/quill/LICENSE', 'public/vendor/quill/quill.js.LICENSE.txt']],

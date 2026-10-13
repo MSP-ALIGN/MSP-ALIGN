@@ -1,4 +1,5 @@
 <?php use Align\Docs\Documents; ?>
+<h1 class="visually-hidden">Document template: <?= e($t['name']) ?></h1>
 <div class="small"><a href="/documents/templates">Templates</a> /</div>
 <form method="post" action="/documents/templates/<?= (int) $t['id'] ?>" id="template-form">
   <?= csrf_field() ?>

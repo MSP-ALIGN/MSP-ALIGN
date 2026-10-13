@@ -2,7 +2,7 @@
 use Align\Auth;
 use Align\Meetings\Meetings;
 
-/** @var array $client */
+/** @var array $client; ?bool $clientIsTitle (2.17.0: the client's name is the page's main heading, on the overview) */
 $psaClientUrl = !empty($client['psa_id']) ? \Align\Providers\Providers::psaLink('client', $client['psa_id']) : null;
 $cid = (int) $client['id'];
 ?>
@@ -23,10 +23,10 @@ $cid = (int) $client['id'];
       <div class="client-avatar me-3"><?= e(initials($client['name'])) ?></div>
     <?php endif; ?>
     <div class="me-auto client-header-info">
-      <h4 class="mb-0"><?= e($client['name']) ?>
+      <<?= $hTag = empty($clientIsTitle) ? 'h4' : 'h1' ?> class="h4 mb-0 client-name"><?= e($client['name']) ?>
         <?php if ($client['source'] === 'manual'): ?><span class="badge text-bg-secondary align-middle ms-1">Added in Align</span><?php endif; ?>
-        <?php if ($client['is_archived']): ?><span class="badge text-bg-dark align-middle ms-1">Archived<?= psa_on() || $client['source'] === 'psa' ? ' in ' . e(psa_name()) : '' ?></span><?php endif; ?>
-      </h4>
+        <?php if ($client['is_archived']): ?><span class="badge text-bg-<?= status_tone('ended') ?> align-middle ms-1">Archived<?= psa_on() || $client['source'] === 'psa' ? ' in ' . e(psa_name()) : '' ?></span><?php endif; ?>
+      </<?= $hTag ?>>
       <div class="text-muted small">
         <?php if ($client['industry']): ?><span class="text-nowrap"><i class="fas fa-industry me-1"></i><?= e($client['industry']) ?></span><span class="mx-2">·</span><?php endif; ?>
         <?php if ($client['contact_name']): ?><span class="text-nowrap"><i class="fas fa-user me-1"></i><?= e($client['contact_name']) ?><?= $client['contact_title'] ? ' <span class="text-muted">(' . e($client['contact_title']) . ')</span>' : '' ?></span><span class="mx-2">·</span><?php endif; ?>

@@ -29,7 +29,7 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
           <td><?php foreach (Contacts::ROLES as $col => [$label, $tone]): if (!empty($k[$col])): ?><span class="badge text-bg-<?= $tone ?> me-1"><?= e($label) ?></span><?php endif; endforeach; ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$contacts): ?><tr><td colspan="5" class="text-center text-muted py-4">No contacts yet.</td></tr><?php endif; ?>
+      <?php if (!$contacts): ?><tr><td colspan="5" class="empty-state">No contacts yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

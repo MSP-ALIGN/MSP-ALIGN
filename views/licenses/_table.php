@@ -21,7 +21,7 @@ $cols = $showClient ? 9 : 8;
     <th class="text-end">Monthly</th><th class="text-end">Annual</th><th>Renews</th>
   </tr></thead>
   <tbody>
-  <?php if (!$licenses): ?><tr><td colspan="<?= $cols ?>" class="text-center text-muted py-4">No licenses yet.</td></tr><?php endif; ?>
+  <?php if (!$licenses): ?><tr><td colspan="<?= $cols ?>" class="empty-state">No licenses yet.</td></tr><?php endif; ?>
   <?php foreach ($groups as $cat => $rows):
       if (!$showClient): [$label, $icon, $tone] = Licenses::CATEGORIES[$cat] ?? Licenses::CATEGORIES['other']; ?>
     <tr class="proj-quarter"><th colspan="<?= $cols - 3 ?>"><i class="fas <?= e($icon) ?> text-<?= e($tone) ?> me-1"></i><?= e($label) ?></th>

@@ -24,7 +24,7 @@ use Align\Mail\Template as T;
 final class Submissions
 {
     public const KINDS = ['license' => 'License', 'budget' => 'Budget item'];
-    public const STATUS = ['pending' => ['Waiting for review', 'warning'], 'accepted' => ['Added', 'success'], 'declined' => ['Declined', 'secondary'], 'withdrawn' => ['Withdrawn', 'light border']];
+    public const STATUS = ['pending' => ['Waiting for review', 'warning'], 'accepted' => ['Added', 'success'], 'declined' => ['Declined', 'secondary'], 'withdrawn' => ['Withdrawn', 'secondary']]; // 2.17.0: one colour per meaning (status_tone())
     /** Budget categories a client can pick (managed services are the IT provider's own line). */
     public const CLIENT_BUDGET_CATEGORIES = ['connectivity', 'telecom', 'cloud', 'other'];
 

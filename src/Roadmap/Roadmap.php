@@ -32,7 +32,7 @@ final class Roadmap
 
     /** Project statuses: key => [label, Bootstrap tone]. */
     public const STATUSES = [
-        'proposed' => ['Proposed', 'light'],
+        'proposed' => ['Proposed', 'secondary'], // 2.17.0: not agreed yet is grey (status_tone())
         'approved' => ['Approved', 'primary'],
         'scheduled' => ['Scheduled', 'info'],
         'done' => ['Done', 'success'],

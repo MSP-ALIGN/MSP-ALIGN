@@ -8,8 +8,8 @@ $st = Keys::state($apiKey);
 $revoked = $st === 'revoked';
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
-  <h2 class="h5 mb-0 me-auto"><a href="/settings/api" class="text-muted me-2"><i class="fas fa-arrow-left"></i></a><i class="fas fa-key text-secondary me-2"></i><?= e($apiKey['name']) ?>
-    <span class="badge text-bg-<?= ['active' => 'success', 'expiring' => 'warning', 'expired' => 'secondary', 'revoked' => 'dark', 'owner_inactive' => 'danger'][$st] ?> ms-1"><?= ['active' => 'Active', 'expiring' => 'Expires soon', 'expired' => 'Expired', 'revoked' => 'Revoked', 'owner_inactive' => 'Stopped: creator disabled'][$st] ?></span></h2>
+  <h2 class="h5 mb-0 me-auto"><a href="/settings/api" class="text-muted me-2" aria-label="Back to API keys" title="Back to API keys"><i class="fas fa-arrow-left"></i></a><i class="fas fa-key text-secondary me-2"></i><?= e($apiKey['name']) ?>
+    <span class="badge text-bg-<?= ['active' => 'success', 'expiring' => 'warning', 'expired' => 'secondary', 'revoked' => 'secondary', 'owner_inactive' => 'danger'][$st] ?> ms-1"><?= ['active' => 'Active', 'expiring' => 'Expires soon', 'expired' => 'Expired', 'revoked' => 'Revoked', 'owner_inactive' => 'Stopped: creator disabled'][$st] ?></span></h2>
   <span class="small text-muted"><code>msa_<?= e($apiKey['prefix']) ?>_…</code> · created <?= e(fmt_date($apiKey['created_at'])) ?><?= $apiKey['created_by_name'] ? ' by ' . e($apiKey['created_by_name']) : '' ?>
     · last used <?= $apiKey['last_used_at'] ? e(rel_time($apiKey['last_used_at'])) . ' from ' . e($apiKey['last_ip']) : 'never' ?></span>
 </div>
@@ -54,7 +54,7 @@ $revoked = $st === 'revoked';
           <td><span class="badge text-bg-<?= $r['status'] >= 500 ? 'danger' : ($r['status'] >= 400 ? 'warning' : 'success') ?>"><?= (int) $r['status'] ?></span><?= $r['error_code'] ? ' <span class="text-muted">' . e($r['error_code']) . '</span>' : '' ?></td>
           <td class="text-end"><?= (int) $r['ms'] ?></td><td><?= e($r['ip']) ?></td><td class="font-monospace text-muted"><?= e($r['request_id']) ?></td></tr>
       <?php endforeach; ?>
-      <?php if (!$requests): ?><tr><td colspan="6" class="text-muted p-3">No requests yet.</td></tr><?php endif; ?>
+      <?php if (!$requests): ?><tr><td colspan="6" class="empty-state">No requests yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

@@ -14,7 +14,7 @@
 
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-shield me-2"></i>Users</h3>
+    <h1 class="card-title mt-2"><i class="fas fa-fw fa-user-shield me-2"></i>Users</h1>
     <div class="card-tools"><button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-user"><i class="fas fa-plus me-1"></i>New user</button></div>
   </div>
   <div class="card-body p-0 table-responsive">

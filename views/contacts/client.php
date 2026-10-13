@@ -7,7 +7,7 @@ $cid = (int) $client['id'];
 ?>
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-address-book me-2"></i>Contacts <span class="badge text-bg-light ms-1"><?= count($contacts) ?></span></h3>
+    <h1 class="card-title mt-2"><i class="fas fa-fw fa-address-book me-2"></i>Contacts <span class="badge text-bg-light ms-1"><?= count($contacts) ?></span></h1>
     <div class="card-tools d-flex">
       <input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="contacts-table" placeholder="Filter…">
       <?php if ($archivedCount): ?><a class="btn btn-sm btn-default me-2" href="?archived=<?= $showArchived ? '0' : '1' ?>"><?= $showArchived ? 'Hide' : 'Show' ?> archived (<?= (int) $archivedCount ?>)</a><?php endif; ?>

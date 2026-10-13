@@ -7,6 +7,7 @@
  */
 $isEmail = $t['kind'] === 'email';
 ?>
+<h1 class="visually-hidden"><?= e($t['title']) ?></h1>
 <div class="small"><a href="/settings/onboarding">Onboarding → Welcome email &amp; guide</a> /</div>
 <form method="post" action="/settings/onboarding/templates/<?= (int) $t['id'] ?>" id="template-form" enctype="multipart/form-data">
   <?= csrf_field() ?>

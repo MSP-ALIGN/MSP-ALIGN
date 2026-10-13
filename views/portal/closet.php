@@ -32,7 +32,7 @@ $who = function (string $pid) use ($contacts): string {
     <table class="table table-sm mb-0 align-middle" id="portal-closet">
       <thead><tr><th>Item</th><th>Where</th><th class="text-end">Available</th><?php if ($canCheckout): ?><th>Check out</th><?php endif; ?></tr></thead>
       <tbody>
-      <?php if (!$items): ?><tr><td colspan="<?= $canCheckout ? 4 : 3 ?>" class="text-center text-muted py-4">Nothing in your closet yet.</td></tr><?php endif; ?>
+      <?php if (!$items): ?><tr><td colspan="<?= $canCheckout ? 4 : 3 ?>" class="empty-state">Nothing in your closet yet.</td></tr><?php endif; ?>
       <?php foreach ($groups as $cat => $rows): [$label, $icon] = Closet::CATEGORIES[$cat] ?? Closet::CATEGORIES['other']; ?>
         <tr class="proj-quarter"><th colspan="4"><i class="fas fa-fw <?= e($icon) ?> text-secondary me-1"></i><?= e($label) ?></th></tr>
         <?php foreach ($rows as $it): $id = (int) $it['id']; ?>
@@ -87,7 +87,7 @@ $who = function (string $pid) use ($contacts): string {
     <table class="table table-sm mb-0 align-middle" id="portal-closet-out">
       <thead><tr><th>What</th><th>Who has it</th><th>Due back</th><?php if ($canCheckout): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
-      <?php if (!$out): ?><tr><td colspan="4" class="text-center text-muted py-3">Nothing is checked out.</td></tr><?php endif; ?>
+      <?php if (!$out): ?><tr><td colspan="4" class="empty-state">Nothing is checked out.</td></tr><?php endif; ?>
       <?php foreach ($out as $c): ?>
         <tr><td><?= e((string) $c['what']) ?><?= (int) $c['quantity'] > 1 ? ' <span class="text-muted">× ' . (int) $c['quantity'] . '</span>' : '' ?><?= $c['msp'] ? ' <span class="badge text-bg-light border">loaner from us</span>' : '' ?></td>
           <td class="small"><?= e($c['person']) ?><div class="text-muted">since <?= e(fmt_date($c['out_at'])) ?></div></td>

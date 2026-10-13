@@ -56,7 +56,7 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
           <td class="text-end text-nowrap"><button class="btn btn-xs btn-default" data-bs-toggle="modal" data-bs-target="#modal-portal-<?= (int) $u['id'] ?>">Manage</button></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$users): ?><tr><td colspan="6" class="text-center text-muted py-4">No portal users yet. Invite the owner or office manager to start.</td></tr><?php endif; ?>
+      <?php if (!$users): ?><tr><td colspan="6" class="empty-state">No portal users yet. Invite the owner or office manager to start.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

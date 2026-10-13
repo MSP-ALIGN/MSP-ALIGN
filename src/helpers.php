@@ -348,6 +348,18 @@ function normalize_serial(?string $s): ?string
     return $s;
 }
 
+/**
+ * 2.17.0 The one status-colour map: what a status means decides its colour, on every page. 'done' (finished well,
+ * working) is green; 'planned' (agreed, booked) blue; 'them' (waiting on the client or another system) light blue;
+ * 'you' (waiting on you, due soon) yellow; 'problem' (failed, overdue, broken) red; 'ended' (archived, retired,
+ * cancelled, declined, expired, revoked, withdrawn) and 'idle' (not started, draft) grey. The STATUS constants of
+ * each part (Documents, Contracts, Onboarding, Roadmap, portal submissions, API keys) use the same colours.
+ */
+function status_tone(string $meaning): string
+{
+    return ['done' => 'success', 'planned' => 'primary', 'them' => 'info', 'you' => 'warning', 'problem' => 'danger', 'ended' => 'secondary', 'idle' => 'secondary'][$meaning] ?? 'secondary';
+}
+
 /** Maps lifecycle tones to Bootstrap contextual classes. An unknown tone is returned as is: escape it in HTML. */
 function tone_class(string $tone): string
 {

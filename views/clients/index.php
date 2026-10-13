@@ -68,7 +68,7 @@ $tabs = ['active' => 'In planning', 'removed' => 'Removed from planning', 'archi
           <td>
             <?php if ($lg = client_logo_url($c)): ?><img src="<?= e($lg) ?>" alt="" class="client-logo-sm me-1"><?php endif; ?><a href="/clients/<?= (int) $c['id'] ?>" class="fw-bold"><?= e($c['name']) ?></a>
             <?php if ($c['source'] === 'manual'): ?><span class="badge text-bg-light border" title="Added in Align">manual</span><?php endif; ?>
-            <?php if ($c['is_archived']): ?><span class="badge text-bg-dark">archived</span><?php endif; ?>
+            <?php if ($c['is_archived']): ?><span class="badge text-bg-<?= status_tone('ended') ?>">archived</span><?php endif; ?>
             <?php if ($c['planning_excluded']): ?><span class="badge text-bg-secondary" title="<?= e($c['excluded_reason'] ?? '') ?>">removed<?= $c['excluded_reason'] ? ': ' . e($c['excluded_reason']) : '' ?></span><?php endif; ?>
             <div class="small text-muted"><?= $c['org_name'] ? '<i class="fas fa-link me-1"></i>' . e($c['org_name']) : (!$c['planning_excluded'] && \Align\Providers\Providers::anyRmm() ? '<span class="text-warning">Not linked to ' . e(\Align\Providers\Providers::rmmNames()) . '</span>' : '') ?></div>
           </td>

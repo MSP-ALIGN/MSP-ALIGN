@@ -270,7 +270,7 @@ HTML],
 
     public const STATUS_LABELS = [
         'not_started' => ['Not started', 'secondary'], 'draft' => ['Not sent yet', 'secondary'], 'sent' => ['Sent, not opened', 'info'],
-        'opened' => ['Opened', 'info'], 'in_progress' => ['In progress', 'warning'], 'completed' => ['Completed', 'success'], 'expired' => ['Link expired', 'danger'],
+        'opened' => ['Opened', 'info'], 'in_progress' => ['In progress', 'warning'], 'completed' => ['Completed', 'success'], 'expired' => ['Link expired', 'secondary'], // 2.17.0: grey like every ended state (status_tone())
     ];
 
     // ---- Welcome email ------------------------------------------------------------------------------

@@ -61,7 +61,7 @@ $unassigned = array_filter($clients, fn($c) => empty($assigned[$c['id']]));
           <?php endforeach; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="<?= 2 + count($frameworks) ?>" class="text-muted p-3">No frameworks assigned yet. Open a client → Compliance to add one.</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="<?= 2 + count($frameworks) ?>" class="empty-state">No frameworks assigned yet. Open a client → Compliance to add one.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

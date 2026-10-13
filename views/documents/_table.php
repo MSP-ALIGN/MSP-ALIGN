@@ -21,6 +21,6 @@ use Align\Docs\Html;
       <td class="small text-nowrap"><?= e(rel_time($d['updated_at'])) ?><?= $d['updated_by_name'] ? '<div class="text-muted">' . e($d['updated_by_name']) . ' · v' . (int) $d['version'] . '</div>' : '' ?></td>
     </tr>
   <?php endforeach; ?>
-  <?php if (!$docs): ?><tr><td colspan="<?= $showClient ? 6 : 5 ?>" class="text-muted p-3">No documents yet.</td></tr><?php endif; ?>
+  <?php if (!$docs): ?><tr><td colspan="<?= $showClient ? 6 : 5 ?>" class="empty-state">No documents yet.</td></tr><?php endif; ?>
   </tbody>
 </table>

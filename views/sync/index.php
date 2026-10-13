@@ -6,7 +6,7 @@
 use Align\Auth; ?>
 <div class="card card-dark">
   <div class="card-header py-2">
-    <h3 class="card-title mt-2"><i class="fas fa-fw fa-rotate me-2"></i>Sync history</h3>
+    <h1 class="card-title mt-2"><i class="fas fa-fw fa-rotate me-2"></i>Sync history</h1>
     <div class="card-tools">
       <?php if (Auth::can('tech')): ?>
         <form method="post" action="/sync" class="d-inline"><?= csrf_field() ?>
@@ -35,7 +35,7 @@ use Align\Auth; ?>
           <td class="small"><?= e(implode(' · ', array_filter([...array_map(fn($c) => $sum[$c->name() . ' devices'] ?? null, array_values(\Align\Providers\Providers::rmmConnectors())), $sum[psa_name() . ' clients'] ?? null, $sum['Warranty lookups'] ?? null]))) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$runs): ?><tr><td colspan="6" class="text-muted p-3">No syncs yet.</td></tr><?php endif; ?>
+      <?php if (!$runs): ?><tr><td colspan="6" class="empty-state">No syncs yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

@@ -42,7 +42,7 @@ foreach ($out as $c) {
     <div class="table-responsive"><table class="table table-sm mb-0" id="closet-spares">
       <thead><tr><th>Device</th><th>Model</th><th>Spare since</th><th>Checked out to</th></tr></thead>
       <tbody>
-      <?php if (!$spares): ?><tr><td colspan="4" class="text-center text-muted py-3">No spare devices. Mark a computer spare when it goes on the shelf: it stays in replacement plans, but isn't flagged stale or counted in health or coverage checks.</td></tr><?php endif; ?>
+      <?php if (!$spares): ?><tr><td colspan="4" class="empty-state">No spare devices. Mark a computer spare when it goes on the shelf: it stays in replacement plans, but isn't flagged stale or counted in health or coverage checks.</td></tr><?php endif; ?>
       <?php foreach ($spares as $s): ?>
         <tr><td><a href="/devices/<?= (int) $s['id'] ?>"><?= e($s['display_name'] ?: (string) $s['system_name']) ?></a> <span class="text-muted small"><?= e((string) $s['device_type']) ?></span></td>
           <td class="small"><?= e(trim(($s['manufacturer'] ?? '') . ' ' . ($s['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?><?= $s['serial'] ? '<div class="text-muted">S/N ' . e($s['serial']) . '</div>' : '' ?></td>

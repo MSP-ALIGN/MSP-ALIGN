@@ -10,7 +10,7 @@ $runTone = ['success' => 'success', 'partial' => 'warning', 'failed' => 'danger'
 <div class="d-flex flex-wrap align-items-center mb-3">
   <h1 class="h3 mb-0 me-auto"><i class="fas fa-plug text-secondary me-2"></i>Integrations</h1>
   <a class="btn btn-sm btn-default me-2" href="/mapping"><i class="fas fa-link me-1"></i>Client mapping<?= $unmapped ? ' <span class="badge text-bg-warning">' . $unmapped . '</span>' : '' ?></a>
-  <a class="btn btn-sm btn-default me-2" href="/help#guide-integration" title="How to connect an integration"><i class="fas fa-circle-question"></i></a>
+  <a class="btn btn-sm btn-default me-2" href="/help#guide-integration" title="How to connect an integration" aria-label="How to connect an integration"><i class="fas fa-circle-question"></i></a>
   <a class="btn btn-sm btn-default" href="/sync"><i class="fas fa-rotate me-1"></i>Sync<?= $lastRun ? ' <span class="badge text-bg-' . ($runTone[$lastRun['status']] ?? 'secondary') . '">' . e(rel_time($lastRun['finished_at'] ?? $lastRun['started_at'])) . '</span>' : '' ?></a>
 </div>
 <p class="text-muted small">Everything Align connects to. API keys are encrypted on this server and never shown again after saving. The sync runs every hour<?= psa_on() ? ' (' . e(psa_name()) . ' asset changes every 2 minutes)' : '' ?>; results show on each card.</p>

@@ -32,7 +32,7 @@ $tone = ['sent' => 'success', 'queued' => 'warning', 'sending' => 'info', 'faile
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="7" class="text-muted p-3">No email yet.</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="7" class="empty-state">No email yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>

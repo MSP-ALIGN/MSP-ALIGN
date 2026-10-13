@@ -12,7 +12,7 @@
   <div class="alert alert-danger"><i class="fas fa-triangle-exclamation me-1"></i><b>The audit log has been altered.</b> The check failed at entry #<?= (int) $chain['broken_at'] ?>: <?= e($chain['reason']) ?>. Treat this as a security incident: preserve the server and backups, and review who has database access.</div>
 <?php endif; ?>
 <div class="card card-dark">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clock-rotate-left me-2"></i>Audit log</h3></div>
+  <div class="card-header py-2"><h1 class="card-title mt-1"><i class="fas fa-fw fa-clock-rotate-left me-2"></i>Audit log</h1></div>
   <form method="get" action="/audit" class="card-body py-2 border-bottom d-flex flex-wrap align-items-center">
     <input type="search" name="q" class="form-control form-control-sm me-2 mb-1" placeholder="Search details…" value="<?= e($filters['q']) ?>" aria-label="Search">
     <select name="user" class="form-select form-select-sm me-2 mb-1 w-auto" aria-label="Staff member"><option value="0">Everyone</option><?php foreach ($users as $us): ?><option value="<?= (int) $us['id'] ?>" <?= $filters['user'] === (int) $us['id'] ? 'selected' : '' ?>><?= e($us['name']) ?></option><?php endforeach; ?></select>
@@ -33,7 +33,7 @@
           <td class="small text-muted"><?= e($r['ip']) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="5" class="text-muted p-3">Nothing matches.</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="5" class="empty-state">Nothing matches.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

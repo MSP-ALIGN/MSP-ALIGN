@@ -29,8 +29,8 @@ $ready = $info !== null;
         <?php if ($ready): ?>
           <dl class="row mb-2">
             <dt class="col-sm-4">Service account</dt><dd class="col-sm-8"><?= e($info['client_email']) ?></dd>
-            <dt class="col-sm-4">Client ID</dt><dd class="col-sm-8"><div class="input-group input-group-sm"><input class="form-control font-monospace" id="gws-client-id" value="<?= e($info['client_id']) ?>" readonly><button class="btn btn-default" type="button" data-copy="#gws-client-id"><i class="fas fa-copy"></i></button></div></dd>
-            <dt class="col-sm-4">OAuth scopes</dt><dd class="col-sm-8"><div class="input-group input-group-sm"><input class="form-control font-monospace" id="gws-scopes" value="<?= e(implode(',', $scopes)) ?>" readonly><button class="btn btn-default" type="button" data-copy="#gws-scopes"><i class="fas fa-copy"></i></button></div></dd>
+            <dt class="col-sm-4">Client ID</dt><dd class="col-sm-8"><div class="input-group input-group-sm"><input class="form-control font-monospace" id="gws-client-id" value="<?= e($info['client_id']) ?>" readonly><button class="btn btn-default" type="button" data-copy="#gws-client-id" aria-label="Copy the client ID" title="Copy"><i class="fas fa-copy"></i></button></div></dd>
+            <dt class="col-sm-4">OAuth scopes</dt><dd class="col-sm-8"><div class="input-group input-group-sm"><input class="form-control font-monospace" id="gws-scopes" value="<?= e(implode(',', $scopes)) ?>" readonly><button class="btn btn-default" type="button" data-copy="#gws-scopes" aria-label="Copy the scopes" title="Copy"><i class="fas fa-copy"></i></button></div></dd>
             <?php if ($info['saved_at']): ?><dt class="col-sm-4">Saved</dt><dd class="col-sm-8"><?= e(fmt_date($info['saved_at'])) ?></dd><?php endif; ?>
           </dl>
           <p class="text-muted">Each client's super admin adds this client ID with these scopes in their Google Admin console → Security → Access and data control → API controls → Manage Domain-wide delegation. Then connect the client from its Connectors page.</p>

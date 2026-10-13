@@ -22,7 +22,7 @@ $sentBy = $o && $o['sent_by'] ? \Align\DB::value('SELECT name FROM users WHERE i
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 me-auto"><i class="fas fa-mountain-sun text-secondary me-2"></i>Onboarding <span class="badge text-bg-<?= $tone ?> align-middle ms-1"><?= e($label) ?></span>
-    <a href="/help#guide-onboarding" class="text-muted small" title="How onboarding works"><i class="fas fa-circle-question fa-sm"></i></a></h1>
+    <a href="/help#guide-onboarding" class="text-muted small" title="How onboarding works" aria-label="How onboarding works"><i class="fas fa-circle-question fa-sm"></i></a></h1>
   <?php if (Auth::can('admin')): ?><a class="btn btn-sm btn-default" href="/settings/onboarding"><i class="fas fa-pen me-1"></i>Edit templates</a><?php endif; ?>
 </div>
 

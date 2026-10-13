@@ -15,7 +15,7 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
 <table class="table table-sm table-hover mb-0" id="contacts-table">
   <thead><tr><th>Name</th><?php if ($showClient): ?><th>Client</th><?php endif; ?><th>Email</th><th>Phone</th><th>Mobile</th><th>Roles</th></tr></thead>
   <tbody>
-  <?php if (!$contacts): ?><tr><td colspan="<?= $showClient ? 6 : 5 ?>" class="text-center text-muted py-4">No contacts yet.</td></tr><?php endif; ?>
+  <?php if (!$contacts): ?><tr><td colspan="<?= $showClient ? 6 : 5 ?>" class="empty-state">No contacts yet.</td></tr><?php endif; ?>
   <?php foreach ($contacts as $k): ?>
     <tr class="<?= $k['archived_at'] ? 'text-muted' : '' ?>">
       <td>
