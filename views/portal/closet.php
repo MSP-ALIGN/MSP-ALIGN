@@ -3,10 +3,10 @@ use Align\Closet\Closet;
 
 /**
  * 2.15.0 Client portal: the tech closet. @var array $items (only id, kind, category, name, manufacturer, model,
- * location, quantity, out, low, min_quantity: PortalController::closet leaves out serials, notes and staff fields);
+ * location, quantity, out, low, min_quantity: PortalClosetController::closet leaves out serials, notes and staff fields);
  * array $spares; array $out (what the client's people have: from its closet, and the MSP's loaners); bool $canCheckout;
  * bool $canEdit (can_closet_edit: the Add item form, and each item links to its page to update it);
- * array $contacts (id, name) of this client, empty for users without can_documents (they choose only Me). Every value is escaped; forms post with CSRF and PortalController
+ * array $contacts (id, name) of this client, empty for users without can_documents (they choose only Me). Every value is escaped; forms post with CSRF and PortalClosetController
  * checks every id belongs to this client.
  */
 $groups = [];

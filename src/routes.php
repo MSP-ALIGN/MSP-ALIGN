@@ -13,6 +13,7 @@ use Align\Controllers\DocumentController;
 use Align\Controllers\MappingController;
 use Align\Controllers\MeetingController;
 use Align\Controllers\PortalAdminController;
+use Align\Controllers\PortalClosetController;
 use Align\Controllers\PortalController;
 use Align\Controllers\ReportController;
 use Align\Controllers\RoadmapController;
@@ -458,14 +459,14 @@ $r->post('/portal/projects/{id}/decide', [PortalController::class, 'decide']);
 $r->get('/portal/budget', [PortalController::class, 'budget']);
 $r->get('/portal/licensing', [PortalController::class, 'licensing']);
 $r->get('/portal/vendors', [PortalController::class, 'vendors']); // 2.10.0
-$r->get('/portal/closet', [PortalController::class, 'closet']); // 2.15.0
-$r->post('/portal/closet/items/{id}/checkout', [PortalController::class, 'closetCheckout']);
-$r->post('/portal/closet/devices/{id}/checkout', [PortalController::class, 'closetCheckoutDevice']);
-$r->post('/portal/closet/checkouts/{id}/checkin', [PortalController::class, 'closetCheckin']);
-$r->post('/portal/closet/request', [PortalController::class, 'closetRequest']);
-$r->post('/portal/closet/items', [PortalController::class, 'closetAdd']); // 2.15.1: clients keep their closet up to date too
-$r->get('/portal/closet/items/{id}', [PortalController::class, 'closetItem']);
-$r->post('/portal/closet/items/{id}', [PortalController::class, 'closetUpdate']);
+$r->get('/portal/closet', [PortalClosetController::class, 'closet']); // 2.15.0
+$r->post('/portal/closet/items/{id}/checkout', [PortalClosetController::class, 'closetCheckout']);
+$r->post('/portal/closet/devices/{id}/checkout', [PortalClosetController::class, 'closetCheckoutDevice']);
+$r->post('/portal/closet/checkouts/{id}/checkin', [PortalClosetController::class, 'closetCheckin']);
+$r->post('/portal/closet/request', [PortalClosetController::class, 'closetRequest']);
+$r->post('/portal/closet/items', [PortalClosetController::class, 'closetAdd']); // 2.15.1: clients keep their closet up to date too
+$r->get('/portal/closet/items/{id}', [PortalClosetController::class, 'closetItem']);
+$r->post('/portal/closet/items/{id}', [PortalClosetController::class, 'closetUpdate']);
 $r->get('/portal/devices', [PortalController::class, 'devices']);
 $r->get('/portal/compliance', [PortalController::class, 'compliance']);
 $r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);
