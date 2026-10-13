@@ -13,7 +13,7 @@ $cid = (int) $client['id'];
 $isDate = $base && !$base['meeting_id']; // compared with a date rather than a review: the date box shows
 ?>
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-  <h2 class="h4 mb-0 me-auto"><i class="fas fa-clock-rotate-left text-secondary me-2"></i>Since last QBR</h2>
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-clock-rotate-left text-secondary me-2"></i>Since last QBR</h1>
   <?php // The picker: completed reviews ("from dates" when no figures were saved) or A date…; app.js shows the date box and submits on change ?>
   <form method="get" action="/clients/<?= $cid ?>/changes" class="d-flex flex-wrap align-items-center gap-2" id="ch-pick">
     <label class="small text-muted" for="ch-since">Compare with</label>

@@ -59,14 +59,10 @@ final class Sync
         return implode(', ', $parts);
     }
 
-    /** Remote text on one line, without control characters, cut to $n. */
+    /** Remote text on one line, cut to $n (2.17.1: the shared Clean::text()). */
     private static function text(mixed $v, int $n): ?string
     {
-        if (!is_string($v)) {
-            return null;
-        }
-        $t = mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', $v) ?? ''), 0, $n);
-        return $t === '' ? null : $t;
+        return \Align\Providers\Clean::text($v, $n);
     }
 
     /** An ISO-8601 time from Huntress as Y-m-d H:i:s in the server's zone, or null. */
@@ -115,6 +111,19 @@ final class Sync
         return $ids;
     }
 
+    /**
+     * 2.17.1 Stores a whole list in place of what was there: $rows written a few hundred per statement, then the rows
+     * this run didn't see removed, all in one transaction (one commit instead of one per row: 10,000 agents took
+     * seconds; a failure part way leaves the old list as it was). A row repeated in $rows keeps its last copy.
+     */
+    private static function replaceAll(string $table, array $rows, array $keys, string $now): void
+    {
+        DB::transaction(function () use ($table, $rows, $keys, $now) {
+            DB::upsertMany($table, $rows, $keys);
+            DB::run("DELETE FROM `$table` WHERE synced_at < ?", [$now]);
+        });
+    }
+
     /** Agents: the whole list replaces what's stored. Returns how many. */
     private static function agents(string $now): int
     {
@@ -122,7 +131,7 @@ final class Sync
         if (!$list && DB::value('SELECT 1 FROM huntress_agents LIMIT 1')) {
             throw new \RuntimeException('Huntress returned no agents (Align has some). Nothing was changed.');
         }
-        $n = 0;
+        $rows = [];
         foreach ($list as $a) {
             $id = self::id($a['id'] ?? null);
             $org = self::id($a['organization_id'] ?? null);
@@ -130,16 +139,14 @@ final class Sync
                 continue;
             }
             $tamper = $a['tamper_protection_actual'] ?? null;
-            DB::run('REPLACE INTO huntress_agents (agent_id, org_id, hostname, serial, platform, os, last_callback_at, edr_version, defender_status, defender_substatus,
-                defender_policy_status, firewall_status, tamper_protection, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$id, $org, self::text($a['hostname'] ?? null, 255), self::text($a['serial_number'] ?? null, 190), self::text($a['platform'] ?? null, 20),
-                    self::text($a['os'] ?? null, 255), self::time($a['last_callback_at'] ?? null), self::text($a['edr_version'] ?? null, 60),
-                    self::text($a['defender_status'] ?? null, 60), self::text($a['defender_substatus'] ?? null, 120), self::text($a['defender_policy_status'] ?? null, 60),
-                    self::text($a['firewall_status'] ?? null, 40), is_bool($tamper) ? (int) $tamper : null, $now]);
-            $n++;
+            $rows[] = ['agent_id' => $id, 'org_id' => $org, 'hostname' => self::text($a['hostname'] ?? null, 255), 'serial' => self::text($a['serial_number'] ?? null, 190),
+                'platform' => self::text($a['platform'] ?? null, 20), 'os' => self::text($a['os'] ?? null, 255), 'last_callback_at' => self::time($a['last_callback_at'] ?? null),
+                'edr_version' => self::text($a['edr_version'] ?? null, 60), 'defender_status' => self::text($a['defender_status'] ?? null, 60),
+                'defender_substatus' => self::text($a['defender_substatus'] ?? null, 120), 'defender_policy_status' => self::text($a['defender_policy_status'] ?? null, 60),
+                'firewall_status' => self::text($a['firewall_status'] ?? null, 40), 'tamper_protection' => is_bool($tamper) ? (int) $tamper : null, 'synced_at' => $now];
         }
-        DB::run('DELETE FROM huntress_agents WHERE synced_at < ?', [$now]);
-        return $n;
+        self::replaceAll('huntress_agents', $rows, ['agent_id'], $now);
+        return count($rows);
     }
 
     /** Incident reports: every open one, plus the rest updated within KEEP_DAYS (newest first). Drafts aren't kept. */
@@ -162,13 +169,13 @@ final class Sync
                 continue;
             }
             $types = array_slice(array_values(array_filter((array) ($i['indicator_types'] ?? []), fn($t) => is_string($t) && preg_match('/^[a-z_]{1,40}$/', $t))), 0, 12);
-            DB::run('REPLACE INTO huntress_incidents (incident_id, org_id, agent_id, severity, status, platform, subject, indicator_types, sent_at, closed_at, status_updated_at, synced_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$id, $org, self::id($i['agent_id'] ?? null), $sev, $status, self::text($i['platform'] ?? null, 30), self::text($i['subject'] ?? null, 500),
-                    implode(',', $types) ?: null, self::time($i['sent_at'] ?? null), self::time($i['closed_at'] ?? null), self::time($i['status_updated_at'] ?? null), $now]);
-            $seen[$id] = true; // an open one is in two of the lists: counted once
+            // an open one is in two of the lists: kept and counted once (the later list's copy, as before)
+            $seen[$id] = ['incident_id' => $id, 'org_id' => $org, 'agent_id' => self::id($i['agent_id'] ?? null), 'severity' => $sev, 'status' => $status,
+                'platform' => self::text($i['platform'] ?? null, 30), 'subject' => self::text($i['subject'] ?? null, 500), 'indicator_types' => implode(',', $types) ?: null,
+                'sent_at' => self::time($i['sent_at'] ?? null), 'closed_at' => self::time($i['closed_at'] ?? null), 'status_updated_at' => self::time($i['status_updated_at'] ?? null),
+                'synced_at' => $now];
         }
-        DB::run('DELETE FROM huntress_incidents WHERE synced_at < ?', [$now]);
+        self::replaceAll('huntress_incidents', array_values($seen), ['incident_id'], $now);
         return count($seen);
     }
 
@@ -179,7 +186,7 @@ final class Sync
         $list = [...Api::all('/escalations', 'escalations', ['status' => 'open'], 20), ...Api::all('/escalations', 'escalations', ['status' => 'overdue'], 20),
             ...Api::all('/escalations', 'escalations', ['status' => 'resolved', 'sort_field' => 'updated_at', 'sort_direction' => 'desc'], 20,
                 fn(array $items) => $items && min(array_map(fn($i) => is_string($i['updated_at'] ?? null) ? (int) strtotime($i['updated_at']) : PHP_INT_MAX, $items)) < $cut)];
-        $n = 0;
+        $rows = [];
         foreach ($list as $e) {
             $id = self::id($e['id'] ?? null);
             $status = in_array($e['status'] ?? '', ['open', 'overdue', 'resolved'], true) ? $e['status'] : null;
@@ -191,20 +198,19 @@ final class Sync
                 if ($org === null) {
                     continue;
                 }
-                DB::run('REPLACE INTO huntress_escalations (escalation_id, org_id, severity, status, type, subject, created_at, resolved_at, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$id, $org, in_array($e['severity'] ?? '', ['low', 'high', 'critical'], true) ? $e['severity'] : null, $status, self::text($e['type'] ?? null, 120),
-                        self::text($e['subject'] ?? null, 500), self::time($e['created_at'] ?? null), self::time($e['resolved_at'] ?? null), $now]);
-                $n++;
+                $rows[] = ['escalation_id' => $id, 'org_id' => $org, 'severity' => in_array($e['severity'] ?? '', ['low', 'high', 'critical'], true) ? $e['severity'] : null,
+                    'status' => $status, 'type' => self::text($e['type'] ?? null, 120), 'subject' => self::text($e['subject'] ?? null, 500),
+                    'created_at' => self::time($e['created_at'] ?? null), 'resolved_at' => self::time($e['resolved_at'] ?? null), 'synced_at' => $now];
             }
         }
-        DB::run('DELETE FROM huntress_escalations WHERE synced_at < ?', [$now]);
-        return $n;
+        self::replaceAll('huntress_escalations', $rows, ['escalation_id', 'org_id'], $now);
+        return count($rows);
     }
 
     /** Summary reports for periods ending within REPORT_MONTHS, with their PDF link (https only) and headline counts. */
     private static function reports(string $now): int
     {
-        $n = 0;
+        $rows = [];
         foreach (Api::all('/reports', 'reports', ['period_min' => date('Y-m-d', strtotime('-' . self::REPORT_MONTHS . ' months'))], 20) as $r) {
             $id = self::id($r['id'] ?? null);
             $org = self::id($r['organization_id'] ?? null);
@@ -216,14 +222,13 @@ final class Sync
             $period = is_string($r['period'] ?? null) ? explode('...', $r['period']) : [];
             $day = fn($v) => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}/', $v) ? substr($v, 0, 10) : null;
             $url = is_string($r['url'] ?? null) && preg_match('#^https://[^\s"<>]+$#', $r['url']) && strlen($r['url']) <= 1000 ? $r['url'] : null;
-            DB::run('REPLACE INTO huntress_reports (report_id, org_id, type, period_start, period_end, url, agents_count, incidents_reported, incidents_resolved, signals_investigated, created_at, synced_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$id, $org, $type, $day($period[0] ?? null), $day($period[1] ?? null), $url, self::count($r['agents_count'] ?? null), self::count($r['incidents_reported'] ?? null),
-                    self::count($r['incidents_resolved'] ?? null), self::count($r['signals_investigated'] ?? null), self::time($r['created_at'] ?? null), $now]);
-            $n++;
+            $rows[] = ['report_id' => $id, 'org_id' => $org, 'type' => $type, 'period_start' => $day($period[0] ?? null), 'period_end' => $day($period[1] ?? null), 'url' => $url,
+                'agents_count' => self::count($r['agents_count'] ?? null), 'incidents_reported' => self::count($r['incidents_reported'] ?? null),
+                'incidents_resolved' => self::count($r['incidents_resolved'] ?? null), 'signals_investigated' => self::count($r['signals_investigated'] ?? null),
+                'created_at' => self::time($r['created_at'] ?? null), 'synced_at' => $now];
         }
-        DB::run('DELETE FROM huntress_reports WHERE synced_at < ?', [$now]);
-        return $n;
+        self::replaceAll('huntress_reports', $rows, ['report_id'], $now);
+        return count($rows);
     }
 
     /**
@@ -253,7 +258,7 @@ final class Sync
     /** External ports (recon), one row per organization they belong to; risky services flagged. */
     private static function ports(string $now): int
     {
-        $n = 0;
+        $rows = [];
         foreach (Api::all('/external_ports', 'external_ports', [], 40) as $p) {
             $id = self::id($p['id'] ?? null);
             if ($id === null) {
@@ -266,14 +271,13 @@ final class Sync
                 if ($org === null) {
                     continue;
                 }
-                DB::run('REPLACE INTO huntress_ports (port_id, org_id, ip_address, port, protocol, service, risky, last_scan_at, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$id, $org, $ip, $port, self::text($p['protocol'] ?? null, 10), self::text($p['service'] ?? null, 190), !empty($p['risky_service']) ? 1 : 0,
-                        self::time($p['last_external_scan_at'] ?? ($p['last_scan_at'] ?? null)), $now]);
-                $n++;
+                $rows[] = ['port_id' => $id, 'org_id' => $org, 'ip_address' => $ip, 'port' => $port, 'protocol' => self::text($p['protocol'] ?? null, 10),
+                    'service' => self::text($p['service'] ?? null, 190), 'risky' => !empty($p['risky_service']) ? 1 : 0,
+                    'last_scan_at' => self::time($p['last_external_scan_at'] ?? ($p['last_scan_at'] ?? null)), 'synced_at' => $now];
             }
         }
-        DB::run('DELETE FROM huntress_ports WHERE synced_at < ?', [$now]);
+        self::replaceAll('huntress_ports', $rows, ['port_id', 'org_id'], $now);
         DB::run('UPDATE huntress_orgs SET ports_at = ? WHERE provider = ?', [$now, self::PROVIDER]);
-        return $n;
+        return count($rows);
     }
 }

@@ -103,7 +103,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
           <td class="small text-end text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$b['jobs']): ?><tr><td colspan="7" class="text-muted p-3">No backup jobs for this client in <?= e($b['source']) ?>.</td></tr><?php endif; ?>
+      <?php if (!$b['jobs']): ?><tr><td colspan="7" class="empty-state">No backup jobs for this client in <?= e($b['source']) ?>.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>
@@ -129,7 +129,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
           <?php if ($canEx): ?><td class="text-end"><?= $w['tone'] !== 'ok' ? $exBtn('workload', $w['uid'], $w['name']) : '' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$b['workloads']): ?><tr><td colspan="8" class="text-muted p-3">No protected machines reported for this client.</td></tr><?php endif; ?>
+      <?php if (!$b['workloads']): ?><tr><td colspan="8" class="empty-state">No protected machines reported for this client.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div></div>

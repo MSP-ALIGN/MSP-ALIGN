@@ -113,14 +113,10 @@ final class TacticalRmm implements RmmProvider
         return is_string($v) && preg_match('/^[A-Za-z0-9._-]{1,64}$/', $v) ? $v : null;
     }
 
-    /** Text on one line without control characters, cut to $max; null when empty or not text. */
+    /** Remote text on one line, cut to $max (2.17.1: the shared Clean::text()). */
     private static function text(mixed $v, int $max): ?string
     {
-        if (!is_scalar($v) || is_bool($v)) {
-            return null;
-        }
-        $s = trim(mb_substr(preg_replace(['/[\t\r\n]/', '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/'], [' ', ''], (string) $v) ?? '', 0, $max));
-        return $s !== '' ? $s : null;
+        return \Align\Providers\Clean::text($v, $max);
     }
 
     /** A client name compared as Tactical stores it (exact, but surrounding spaces and case aside). */

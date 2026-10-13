@@ -20,7 +20,7 @@ $pill = fn(string $p) => '<span class="badge rounded-pill text-bg-' . (Alignment
 $helps = fn(int $sid) => Alignment::helpsText($matches[$sid]['matches'] ?? [], 3);
 ?>
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-  <h2 class="h4 mb-0 me-auto"><i class="fas fa-bullseye text-secondary me-2"></i>Alignment</h2>
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-bullseye text-secondary me-2"></i>Alignment</h1>
   <?php if ($canEdit && $standards): ?>
     <?php if ($s['draft']): ?>
       <a class="btn btn-sm btn-primary" href="/clients/<?= $cid ?>/alignment/review"><i class="fas fa-pen me-1"></i>Continue the review</a>

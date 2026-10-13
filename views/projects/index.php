@@ -38,7 +38,7 @@ $renderRows = function (array $items) use ($canEdit, $back, $limit, &$shown) {
           </td>
           <td class="small"><a href="/clients/<?= (int) $it['client_id'] ?>/roadmap"><?= e($it['client_name']) ?></a></td>
           <td><span class="badge text-bg-<?= e($catTone) ?>"><i class="fas <?= e($catIcon) ?> me-1"></i><?= e($catLabel) ?></span></td>
-          <td><span class="badge text-bg-<?= e($stTone) ?> <?= $stTone === 'light' ? 'border' : '' ?>"><?= e($stLabel) ?></span></td>
+          <td><span class="badge text-bg-<?= e($stTone) ?>"><?= e($stLabel) ?></span></td>
           <td><span class="badge text-bg-<?= e($prTone) ?>"><?= e($prLabel) ?></span></td>
           <td class="text-end text-nowrap"><?= $it['cost'] !== null ? money((float) $it['cost']) : '<span class="text-muted">—</span>' ?></td>
           <td class="text-end text-nowrap small"><?= $it['recurring_monthly'] ? money((float) $it['recurring_monthly']) . '/mo' : '' ?></td>
@@ -102,7 +102,7 @@ $cats = array_map(fn($c) => $c[0], Roadmap::CATEGORIES);
         <?php $renderRows($unscheduled); ?>
       <?php endif; endif; ?>
       <?php if (!$any): ?>
-        <tr><td colspan="<?= $cols ?>" class="text-center text-muted py-4">No projects match.<?= $canEdit ? ' Use <b>Add project</b> to plan one.' : '' ?></td></tr>
+        <tr><td colspan="<?= $cols ?>" class="empty-state">No projects match.<?= $canEdit ? ' Use <b>Add project</b> to plan one.' : '' ?></td></tr>
       <?php endif; ?>
       </tbody>
     </table>

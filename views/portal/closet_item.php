@@ -3,9 +3,9 @@ use Align\Closet\Closet;
 
 /**
  * 2.15.1 Client portal: one item of the client's own closet, to keep up to date (can_closet_edit). @var array $i
- * (id, kind, category, name, manufacturer, model, location, quantity, min_quantity, out, low: PortalController leaves
+ * (id, kind, category, name, manufacturer, model, location, quantity, min_quantity, out, low: PortalClosetController leaves
  * out the serial, the notes and who created it); array $history (at, action, detail, who: a portal user's name, or
- * null for the IT provider's team). Every value is escaped; forms post with CSRF and PortalController checks the item
+ * null for the IT provider's team). Every value is escaped; forms post with CSRF and PortalClosetController checks the item
  * is this client's.
  */
 $id = (int) $i['id'];

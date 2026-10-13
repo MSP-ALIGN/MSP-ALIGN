@@ -50,7 +50,7 @@ use Align\Onboarding\Onboarding;
           <td class="small"><?= $o['sent_at'] ? e(fmt_date($o['sent_at'])) . ($o['sent_by_name'] ? '<div class="text-muted">' . e($o['sent_by_name']) . '</div>' : '') : '—' ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$rows): ?><tr><td colspan="4" class="text-muted p-3">No onboardings <?= $show === 'open' ? 'in progress' : 'yet' ?>.</td></tr><?php endif; ?>
+      <?php if (!$rows): ?><tr><td colspan="4" class="empty-state">No onboardings <?= $show === 'open' ? 'in progress' : 'yet' ?>.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

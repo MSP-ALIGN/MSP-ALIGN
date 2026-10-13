@@ -38,7 +38,7 @@
           <?php if ($showCosts): ?><td class="text-end"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$devices): ?><tr><td colspan="10" class="text-muted text-center p-3">No devices match.</td></tr><?php endif; ?>
+      <?php if (!$devices): ?><tr><td colspan="10" class="empty-state">No devices match.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

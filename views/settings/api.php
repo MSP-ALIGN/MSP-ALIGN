@@ -9,7 +9,7 @@ use Align\Api\Keys;
  */
 $tab = 'api';
 require __DIR__ . '/_tabs.php';
-$stateBadge = ['active' => ['Active', 'success'], 'expiring' => ['Expires soon', 'warning'], 'expired' => ['Expired', 'secondary'], 'revoked' => ['Revoked', 'dark'], 'owner_inactive' => ['Stopped: creator disabled', 'danger']];
+$stateBadge = ['active' => ['Active', 'success'], 'expiring' => ['Expires soon', 'warning'], 'expired' => ['Expired', 'secondary'], 'revoked' => ['Revoked', 'secondary'], 'owner_inactive' => ['Stopped: creator disabled', 'danger']];
 $scopeSummary = function (array $k): string {
     $s = $k['scope_list'];
     $all = Keys::allScopes();
@@ -98,7 +98,7 @@ $scopeSummary = function (array $k): string {
           <td class="align-middle text-end text-nowrap"><a class="btn btn-xs btn-default" href="/settings/api/keys/<?= (int) $k['id'] ?>">Manage</a></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$keys): ?><tr><td colspan="8" class="text-muted p-3">No keys yet.<?= $enabled ? ' Press New API key.' : ' Turn the API on, then create a key.' ?></td></tr><?php endif; ?>
+      <?php if (!$keys): ?><tr><td colspan="8" class="empty-state">No keys yet.<?= $enabled ? ' Press New API key.' : ' Turn the API on, then create a key.' ?></td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>
@@ -122,7 +122,7 @@ $scopeSummary = function (array $k): string {
           <td class="font-monospace text-muted"><?= e($r['request_id']) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$requests): ?><tr><td colspan="7" class="text-muted p-3">No requests yet.</td></tr><?php endif; ?>
+      <?php if (!$requests): ?><tr><td colspan="7" class="empty-state">No requests yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

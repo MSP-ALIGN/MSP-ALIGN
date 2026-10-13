@@ -22,7 +22,7 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
     <table class="table table-sm mb-0 license-table">
       <thead><tr><th>Product</th><th>Type</th><th class="text-end">Licenses</th><th>Billed</th><th class="text-end">Monthly</th><th class="text-end">Annual</th><th>Renews</th></tr></thead>
       <tbody>
-      <?php if (!$licenses): ?><tr><td colspan="7" class="text-center text-muted py-4">No licenses have been added yet.</td></tr><?php endif; ?>
+      <?php if (!$licenses): ?><tr><td colspan="7" class="empty-state">No licenses have been added yet.</td></tr><?php endif; ?>
       <?php foreach ($groups as $cat => $rows): [$label, $icon, $tone] = Licenses::CATEGORIES[$cat] ?? Licenses::CATEGORIES['other']; ?>
         <tr class="proj-quarter"><th colspan="4"><i class="fas <?= e($icon) ?> text-<?= e($tone) ?> me-1"></i><?= e($label) ?></th>
           <th class="text-end"><?= money(array_sum(array_column($rows, 'monthly'))) ?></th><th class="text-end"><?= money(array_sum(array_column($rows, 'annual'))) ?></th><th></th></tr>

@@ -45,7 +45,7 @@ $soon = date('Y-m-d', strtotime('+90 days'));
       <table class="table table-sm table-hover mb-0" id="vendors-table">
         <thead><tr><th>Vendor</th><th>Account</th><th>Support</th><th class="text-end">Costs</th><th>Next renewal</th></tr></thead>
         <tbody>
-        <?php if (!$vendors): ?><tr><td colspan="5" class="text-center text-muted py-4">No vendors yet.<?= $canEdit ? ' Add the client\'s internet provider, registrar and software vendors, from a template or by name.' : '' ?></td></tr><?php endif; ?>
+        <?php if (!$vendors): ?><tr><td colspan="5" class="empty-state">No vendors yet.<?= $canEdit ? ' Add the client\'s internet provider, registrar and software vendors, from a template or by name.' : '' ?></td></tr><?php endif; ?>
         <?php foreach ($groups as $cat => $rows): [$label, $icon] = Vendors::CATEGORIES[$cat]; ?>
           <tr class="proj-quarter"><th colspan="5"><i class="fas fa-fw <?= e($icon) ?> text-secondary me-1"></i><?= e($label) ?></th></tr>
           <?php foreach ($rows as $v): ?>

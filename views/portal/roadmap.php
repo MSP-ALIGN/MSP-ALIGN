@@ -106,7 +106,7 @@ $qLabel = fn($it) => $it['target_quarter'] ? quarter_label($it['target_quarter']
           <?php if ($showCosts): ?><td class="text-end text-nowrap"><?= (float) $it['cost'] ? money($it['cost']) : '' ?><?= (float) $it['recurring_monthly'] ? '<div class="small text-muted">+' . money($it['recurring_monthly']) . '/mo</div>' : '' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$others): ?><tr><td colspan="4" class="text-center text-muted py-3">No other projects yet.</td></tr><?php endif; ?>
+      <?php if (!$others): ?><tr><td colspan="4" class="empty-state">No other projects yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

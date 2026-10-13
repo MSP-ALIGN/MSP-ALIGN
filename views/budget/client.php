@@ -83,7 +83,7 @@ foreach ($b['lines'] as $l) {
           </tr>
         <?php endforeach; ?>
       <?php endforeach; ?>
-      <?php if (!$byCat): ?><tr><td colspan="7" class="text-center text-muted py-4">Nothing budgeted for <?= e($yr['label']) ?> yet.</td></tr><?php endif; ?>
+      <?php if (!$byCat): ?><tr><td colspan="7" class="empty-state">Nothing budgeted for <?= e($yr['label']) ?> yet.</td></tr><?php endif; ?>
       </tbody>
       <tfoot><tr class="total-row"><th>Total</th><?php foreach ($qIdx as $i): ?><th class="num"><?= money($b['quarterTotals'][$i]) ?></th><?php endforeach; ?><th class="num"><?= money($yr['total']) ?></th><th class="num"><?= money($yr['total'] / 12) ?></th></tr></tfoot>
     </table>

@@ -3,10 +3,10 @@ use Align\Closet\Closet;
 
 /**
  * 2.15.0 Client portal: the tech closet. @var array $items (only id, kind, category, name, manufacturer, model,
- * location, quantity, out, low, min_quantity: PortalController::closet leaves out serials, notes and staff fields);
+ * location, quantity, out, low, min_quantity: PortalClosetController::closet leaves out serials, notes and staff fields);
  * array $spares; array $out (what the client's people have: from its closet, and the MSP's loaners); bool $canCheckout;
  * bool $canEdit (can_closet_edit: the Add item form, and each item links to its page to update it);
- * array $contacts (id, name) of this client, empty for users without can_documents (they choose only Me). Every value is escaped; forms post with CSRF and PortalController
+ * array $contacts (id, name) of this client, empty for users without can_documents (they choose only Me). Every value is escaped; forms post with CSRF and PortalClosetController
  * checks every id belongs to this client.
  */
 $groups = [];
@@ -32,7 +32,7 @@ $who = function (string $pid) use ($contacts): string {
     <table class="table table-sm mb-0 align-middle" id="portal-closet">
       <thead><tr><th>Item</th><th>Where</th><th class="text-end">Available</th><?php if ($canCheckout): ?><th>Check out</th><?php endif; ?></tr></thead>
       <tbody>
-      <?php if (!$items): ?><tr><td colspan="<?= $canCheckout ? 4 : 3 ?>" class="text-center text-muted py-4">Nothing in your closet yet.</td></tr><?php endif; ?>
+      <?php if (!$items): ?><tr><td colspan="<?= $canCheckout ? 4 : 3 ?>" class="empty-state">Nothing in your closet yet.</td></tr><?php endif; ?>
       <?php foreach ($groups as $cat => $rows): [$label, $icon] = Closet::CATEGORIES[$cat] ?? Closet::CATEGORIES['other']; ?>
         <tr class="proj-quarter"><th colspan="4"><i class="fas fa-fw <?= e($icon) ?> text-secondary me-1"></i><?= e($label) ?></th></tr>
         <?php foreach ($rows as $it): $id = (int) $it['id']; ?>
@@ -87,7 +87,7 @@ $who = function (string $pid) use ($contacts): string {
     <table class="table table-sm mb-0 align-middle" id="portal-closet-out">
       <thead><tr><th>What</th><th>Who has it</th><th>Due back</th><?php if ($canCheckout): ?><th></th><?php endif; ?></tr></thead>
       <tbody>
-      <?php if (!$out): ?><tr><td colspan="4" class="text-center text-muted py-3">Nothing is checked out.</td></tr><?php endif; ?>
+      <?php if (!$out): ?><tr><td colspan="4" class="empty-state">Nothing is checked out.</td></tr><?php endif; ?>
       <?php foreach ($out as $c): ?>
         <tr><td><?= e((string) $c['what']) ?><?= (int) $c['quantity'] > 1 ? ' <span class="text-muted">× ' . (int) $c['quantity'] . '</span>' : '' ?><?= $c['msp'] ? ' <span class="badge text-bg-light border">loaner from us</span>' : '' ?></td>
           <td class="small"><?= e($c['person']) ?><div class="text-muted">since <?= e(fmt_date($c['out_at'])) ?></div></td>

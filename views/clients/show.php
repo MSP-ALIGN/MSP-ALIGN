@@ -17,6 +17,7 @@ use Align\Compliance\Compliance;
 use Align\Lifecycle\Lifecycle;
 use Align\Meetings\Meetings;
 
+$clientIsTitle = true; // 2.17.0: the client's name is this page's heading
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 ?>

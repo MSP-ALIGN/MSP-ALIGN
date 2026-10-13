@@ -4,7 +4,7 @@
   <div class="col-lg-8">
     <div class="card card-dark">
       <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-shapes me-2"></i>Document templates</h3>
+        <h1 class="card-title mt-2"><i class="fas fa-fw fa-shapes me-2"></i>Document templates</h1>
         <div class="card-tools"><button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-new-tpl"><i class="fas fa-plus me-1"></i>New template</button></div>
       </div>
       <div class="card-body p-0">

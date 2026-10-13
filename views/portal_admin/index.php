@@ -18,7 +18,7 @@
           <td class="small"><?= $u['last_login_at'] ? e(rel_time($u['last_login_at'])) : '<span class="text-muted">never</span>' ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$users): ?><tr><td colspan="5" class="text-center text-muted py-4">No client portal users yet. Open a client and choose <b>Client portal</b> to invite someone.</td></tr><?php endif; ?>
+      <?php if (!$users): ?><tr><td colspan="5" class="empty-state">No client portal users yet. Open a client and choose <b>Client portal</b> to invite someone.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

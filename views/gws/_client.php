@@ -20,9 +20,9 @@ $form = fn(string $action, string $label, string $cls, string $extra = '') => '<
 // What the client's super admin pastes under Domain-wide delegation: the client id and the scopes, comma separated
 $delegation = function (?string $clientId) use ($scopes, $cid): string {
     return '<div class="row g-2 mt-1"><div class="col-md-4"><label class="small">Client ID</label><div class="input-group input-group-sm"><input class="form-control font-monospace" id="gws-cid-' . $cid . '" value="' . e((string) $clientId) . '" readonly>'
-        . '<button class="btn btn-default" type="button" data-copy="#gws-cid-' . $cid . '"><i class="fas fa-copy"></i></button></div></div>'
+        . '<button class="btn btn-default" type="button" data-copy="#gws-cid-' . $cid . '" aria-label="Copy the client ID" title="Copy"><i class="fas fa-copy"></i></button></div></div>'
         . '<div class="col-md-8"><label class="small">OAuth scopes</label><div class="input-group input-group-sm"><input class="form-control font-monospace" id="gws-scopes-' . $cid . '" value="' . e(implode(',', $scopes)) . '" readonly>'
-        . '<button class="btn btn-default" type="button" data-copy="#gws-scopes-' . $cid . '"><i class="fas fa-copy"></i></button></div></div></div>';
+        . '<button class="btn btn-default" type="button" data-copy="#gws-scopes-' . $cid . '" aria-label="Copy the scopes" title="Copy"><i class="fas fa-copy"></i></button></div></div></div>';
 };
 ?>
 <div class="card card-outline card-<?= $connected ? ($gws['last_error'] ? 'danger' : 'success') : 'secondary' ?>" id="gws">

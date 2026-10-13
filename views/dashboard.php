@@ -103,7 +103,7 @@ $cards['health'] = function () use ($health, $cardHead) {
               <td class="small text-muted"><?php if ($h['weakest']): [$wk, $ws] = $h['weakest']; ?><?= e(\Align\Health\Health::PILLARS[$wk][0]) ?> <?= (int) $ws ?><?php else: ?>–<?php endif; ?></td>
             </tr>
           <?php endforeach; ?>
-          <?php if (!$health): ?><tr><td colspan="5" class="text-muted p-3">No clients in planning yet.</td></tr><?php endif; ?>
+          <?php if (!$health): ?><tr><td colspan="5" class="empty-state">No clients in planning yet.</td></tr><?php endif; ?>
           </tbody>
         </table></div>
       </div>
@@ -134,7 +134,7 @@ $cards['clients'] = function () use ($topClients, $cardHead) {
               <td class="text-end"><?= (int) $c['attention'] ?></td>
             </tr>
           <?php endforeach; ?>
-          <?php if (!$topClients): ?><tr><td colspan="4" class="text-muted p-3">Nothing flagged.</td></tr><?php endif; ?>
+          <?php if (!$topClients): ?><tr><td colspan="4" class="empty-state">Nothing flagged.</td></tr><?php endif; ?>
           </tbody>
         </table></div>
       </div>

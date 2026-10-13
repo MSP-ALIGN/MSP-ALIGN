@@ -37,6 +37,10 @@ final class PsaAssetSync
 {
     public const LOCK = 'mountaineer_align_itflow'; // name kept from before 1.34, so a poll still running during an update can't overlap the new one
 
+    /** 2.17.1 Linked devices read per query in reconcileAll(), and how long such a batch is used before it's read again. */
+    private const RECONCILE_BATCH = 100;
+    private const BATCH_SECONDS = 0.5;
+
     /** Changes a run made that device_changes doesn't record (imports, moves, links): they get the run audited too. */
     private static int $changed = 0;
 
@@ -408,10 +412,24 @@ final class PsaAssetSync
     /** A device with its overrides (o_*) and its client's PSA id (client_psa_id), or null. */
     public static function loadDevice(int $id): ?array
     {
-        return DB::one('SELECT d.*, o.device_type AS o_type, o.purchase_date AS o_purchase, o.warranty_end AS o_warranty, o.updated_at AS o_updated,
+        return self::loadDevices([$id])[$id] ?? null;
+    }
+
+    /** 2.17.1 loadDevice() for several devices in one query: [device id => row]; ids not found are left out. */
+    private static function loadDevices(array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (!$ids) {
+            return [];
+        }
+        $out = [];
+        foreach (DB::all('SELECT d.*, o.device_type AS o_type, o.purchase_date AS o_purchase, o.warranty_end AS o_warranty, o.updated_at AS o_updated,
                 c.psa_id AS client_psa_id
             FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id
-            LEFT JOIN clients c ON c.id = d.client_id WHERE d.id = ?', [$id]);
+            LEFT JOIN clients c ON c.id = d.client_id WHERE d.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids) as $d) {
+            $out[(int) $d['id']] = $d;
+        }
+        return $out;
     }
 
     // ---- Reconciling one device --------------------------------------------------------------
@@ -977,6 +995,14 @@ final class PsaAssetSync
         foreach (DB::all('SELECT s.* FROM psa_sync_state s JOIN devices d ON d.id = s.device_id WHERE d.psa_sync = 1') as $st) {
             $states[(int) $st['device_id']][$st['field']] = $st;
         }
+        // 2.17.1 The devices to compare are read RECONCILE_BATCH at a time, just before they're compared (one query each
+        // was most of a run's queries at thousands of devices). A batch is used for at most BATCH_SECONDS, and is read
+        // again after any change or request (a pull, a push, a failed push), so a device someone edits in Align while
+        // the run goes on is compared as it is now, as when each device was read on its own.
+        $present = array_values(array_map(fn($r) => (int) $r['id'], array_filter($rows, fn($r) => $r['present'])));
+        $at = array_flip($present);
+        $batch = [];
+        $batchAt = 0.0;
         foreach ($rows as $r) {
             $id = (int) $r['id'];
             if (!$r['present']) {
@@ -1005,7 +1031,12 @@ final class PsaAssetSync
                 self::$changed++;
                 continue;
             }
-            $d = self::loadDevice($id);
+            if (!array_key_exists($id, $batch) || microtime(true) - $batchAt > self::BATCH_SECONDS) {
+                $next = array_slice($present, $at[$id], self::RECONCILE_BATCH);
+                $batch = array_replace(array_fill_keys($next, null), self::loadDevices($next)); // a device deleted meanwhile: null
+                $batchAt = microtime(true);
+            }
+            $d = $batch[$id];
             $a = $assets[(string) $r['psa_asset_id']] ?? DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [$r['psa_asset_id']]);
             if (!$d || !$a) {
                 continue;
@@ -1015,6 +1046,9 @@ final class PsaAssetSync
             $res = self::reconcileDevice($d, $a, $p, true, null, $fresh ? null : ($states[$id] ?? []));
             if ($res['pushed']) { // another device linked to the same asset must see what was just sent
                 $assets[(string) $r['psa_asset_id']] = DB::one('SELECT * FROM psa_assets WHERE psa_asset_id = ?', [$r['psa_asset_id']]) ?? $a;
+            }
+            if ($res['pulled'] || $res['pushed'] || $res['conflicts'] || $res['error']) {
+                $batch = []; // something changed or a request was made: the devices after this one are read again
             }
             foreach (['pulled', 'pushed', 'conflicts'] as $k) {
                 $tot[$k] += $res[$k];

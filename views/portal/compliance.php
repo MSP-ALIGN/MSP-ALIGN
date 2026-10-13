@@ -11,5 +11,5 @@
       </a>
     </div>
   <?php endforeach; ?>
-  <?php if (!$frameworks): ?><div class="col"><div class="card card-body text-muted">No compliance frameworks have been set up for your organization yet.</div></div><?php endif; ?>
+  <?php if (!$frameworks): ?><div class="col"><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-clipboard-check', 'text' => 'No compliance frameworks have been set up for your organization yet.']) ?></div></div><?php endif; ?>
 </div>

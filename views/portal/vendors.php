@@ -20,7 +20,7 @@ foreach ($vendors as $v) {
     <table class="table table-sm mb-0" id="portal-vendors">
       <thead><tr><th>Vendor</th><th>Support</th><th>Hours</th></tr></thead>
       <tbody>
-      <?php if (!$vendors): ?><tr><td colspan="3" class="text-center text-muted py-4">No vendors have been added yet.</td></tr><?php endif; ?>
+      <?php if (!$vendors): ?><tr><td colspan="3" class="empty-state">No vendors have been added yet.</td></tr><?php endif; ?>
       <?php foreach ($groups as $cat => $rows): [$label, $icon] = Vendors::CATEGORIES[$cat] ?? Vendors::CATEGORIES['other']; ?>
         <tr class="proj-quarter"><th colspan="3"><i class="fas fa-fw <?= e($icon) ?> text-secondary me-1"></i><?= e($label) ?></th></tr>
         <?php foreach ($rows as $v): ?>

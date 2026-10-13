@@ -8,6 +8,7 @@ if ($client) {
 $id = (int) $doc['id'];
 $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'Restored', 'created' => 'Created'];
 ?>
+<h1 class="visually-hidden"><?= e($doc['title']) ?></h1>
 <div id="doc-app" data-id="<?= $id ?>" data-version="<?= (int) $doc['version'] ?>" data-can-edit="<?= $canEdit ? '1' : '0' ?>" data-csrf="<?= e(csrf_token()) ?>">
   <div class="d-flex flex-wrap align-items-center mb-2">
     <div class="small me-auto">

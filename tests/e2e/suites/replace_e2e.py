@@ -4,7 +4,9 @@ q("update device_overrides set replace_on=NULL, replace_note=NULL")
 st=login("admin@example.com","LongPassword123!")
 # a device past end of life for client 1
 cands=[r["id"] for r in q("select d.id from devices d left join client_links l on l.client_id=1 and l.provider=d.rmm_provider where (d.client_id=1 or (d.client_id is null and d.rmm_org_id=l.external_id)) and d.removed_at is null order by d.id limit 400")]
-old=[i for i in cands if dev(i)["status"]=="replace"][:3]
+# 2.17.1: devices whose OS is still supported, so their status after planning is the plan, not the OS (Windows 11
+# 24H2 Home and Pro reached end of support on Oct 13, 2026, which made some of the seeded devices "OS unsupported")
+old=[i for i in cands if (lambda x: x["status"]=="replace" and not set(x["flags"]) & {"os_eos","os_soon"})(dev(i))][:3]
 ok(len(old)>=3,"found devices past end of life: %s"%old)
 d0=old[0]; before=dev(d0)
 t=st.get(B+f"/devices/{d0}").text; ok("Replace in" in t and 'id="replace-form"' in t and 'name="replace_on"' in t,"device page offers a replacement quarter")

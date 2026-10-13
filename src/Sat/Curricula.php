@@ -133,11 +133,10 @@ final class Curricula
         return is_scalar($v) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', (string) $v) ? (string) $v : null;
     }
 
-    /** Remote text on one line, cut to $n, or null. */
+    /** Remote text on one line, cut to $n (2.17.1: the shared Clean::text()). */
     private static function text(mixed $v, int $n): ?string
     {
-        $t = is_string($v) ? mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', $v) ?? ''), 0, $n) : '';
-        return $t === '' ? null : $t;
+        return \Align\Providers\Clean::text($v, $n);
     }
 
     /** An RFC 3339 time as Y-m-d (local), or null. */

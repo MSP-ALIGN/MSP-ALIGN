@@ -54,7 +54,7 @@ $cols = 7 + ($showClient ? 1 : 0) + ($canBulk ? 1 : 0) + 4 + ($bkOn ? 1 : 0);
       <td class="col-opt col-cost text-end"><?= $d['is_hardware'] && !\Align\Lifecycle\Lifecycle::inactive($d) ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td>
     </tr>
   <?php endforeach; ?>
-  <?php if (!$devices): ?><tr><td colspan="<?= $cols ?>" class="text-muted p-3">No devices match.</td></tr><?php endif; ?>
+  <?php if (!$devices): ?><tr><td colspan="<?= $cols ?>" class="empty-state">No devices match.</td></tr><?php endif; ?>
   </tbody>
 </table>
 </div>

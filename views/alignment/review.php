@@ -27,6 +27,7 @@ foreach ($groups as $rows) {
     }
 }
 ?>
+<h1 class="visually-hidden">Alignment review</h1>
 <div class="small mb-1"><a href="/clients/<?= $cid ?>/alignment">Alignment</a> /</div>
 <div class="card card-body mb-3 al-revbar" id="al-revbar">
   <div class="d-flex flex-wrap align-items-center gap-3">

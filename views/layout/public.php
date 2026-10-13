@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(APP_VERSION) ?>">
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
-<body class="bg-light small">
+<body class="small">
 <div class="container py-4" style="max-width:920px">
   <a href="<?= defined('IS_PORTAL') && IS_PORTAL ? '/portal/login' : '/login' ?>" class="d-inline-flex align-items-center mb-3 text-reset text-decoration-none">
     <img src="<?= e(\Align\Branding::lightLogoUrl()) ?>" alt="" style="height:32px" class="me-2"><b><?= e(\Align\Branding::name()) ?></b>

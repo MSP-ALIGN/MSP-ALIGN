@@ -24,7 +24,7 @@ echo \Align\View::fetch('partials/page_header', [
       <table class="table table-sm table-hover mb-0" id="vendor-templates">
         <thead><tr><th>Template</th><th>Category</th><th>Support</th><th>Clients</th></tr></thead>
         <tbody>
-        <?php if (!$templates): ?><tr><td colspan="4" class="text-center text-muted py-4">No templates yet.<?= $canEdit ? ' Add one here, or use <b>Save as template</b> on a client\'s vendor.' : '' ?></td></tr><?php endif; ?>
+        <?php if (!$templates): ?><tr><td colspan="4" class="empty-state">No templates yet.<?= $canEdit ? ' Add one here, or use <b>Save as template</b> on a client\'s vendor.' : '' ?></td></tr><?php endif; ?>
         <?php foreach ($templates as $t): $cl = $users[(int) $t['id']] ?? []; $link = Vendors::url($t['website']); [$cat, $icon] = Vendors::CATEGORIES[$t['category']] ?? Vendors::CATEGORIES['other']; ?>
           <tr>
             <td><?php if ($canEdit): ?><a href="#" class="fw-bold" data-lazy-modal="/vendors/templates/<?= (int) $t['id'] ?>/form?back=<?= e(rawurlencode($back)) ?>" data-bs-target="#modal-vtemplate-<?= (int) $t['id'] ?>"><?= e($t['name']) ?></a><?php else: ?><b><?= e($t['name']) ?></b><?php endif; ?>

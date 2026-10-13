@@ -9,7 +9,7 @@ foreach ($docs as $d) {
 ?>
 <div class="mb-3"><h1 class="h4 mb-0"><i class="fas fa-file-lines me-2 text-secondary"></i>Documents</h1>
   <div class="small text-muted">Policies, plans and procedures your IT provider maintains for your organization.</div></div>
-<?php if (!$docs): ?><div class="card card-body text-muted">No documents have been shared with you yet.</div><?php endif; ?>
+<?php if (!$docs): ?><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-file-lines', 'text' => 'No documents have been shared with you yet.']) ?></div><?php endif; ?>
 <?php foreach (Documents::CATEGORIES as $cat => [$label, $icon, $tone]): if (empty($groups[$cat])) continue; ?>
   <div class="card">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw <?= $icon ?> text-<?= $tone ?> me-2"></i><?= e($label) ?></h3></div>

@@ -14,6 +14,7 @@ $json = fn($v) => json_encode($v, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | 
 $meta = ['builtIn' => array_map(fn($b) => ['label' => $b[0], 'help' => $b[1]], Template::BUILT_IN), 'types' => Template::FIELD_TYPES, 'auto' => Template::AUTO,
     'periods' => Template::PERIODS, 'currency' => \Align\Fmt::symbol()];
 ?>
+<h1 class="visually-hidden">Contract template: <?= e($t['name']) ?></h1>
 <div class="small"><a href="/contracts/templates">Contract templates</a> /</div>
 <form method="post" action="/contracts/templates/<?= $id ?>" id="tpl-form" data-unsaved data-ct-builder data-preview="/contracts/templates/<?= $id ?>/preview">
   <?= csrf_field() ?>

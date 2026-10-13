@@ -58,6 +58,9 @@ final class Health
     public const DEFAULT_GOOD = 80;
     public const DEFAULT_WARN = 60;
 
+    /** 2.17.1 Up to this many clients, refreshAll() reads each one's devices on its own instead of every device. */
+    private const FEW = 10;
+
     /** History kept, in days (older rows are removed by refreshAll()). */
     public const KEEP_DAYS = 1100;
 
@@ -205,10 +208,18 @@ final class Health
             return [];
         }
         $byClient = [];
-        // Every device once, grouped (the client page and digests do the same)
-        foreach ((new Lifecycle())->devices() as $d) {
-            if ($d['client_id'] !== null) {
-                $byClient[(int) $d['client_id']][] = $d;
+        $life = new Lifecycle();
+        if ($ids !== null && count($clients) <= self::FEW) {
+            // 2.17.1 A few clients (new since the last refresh, from latest()): only their own devices, not every device
+            foreach ($clients as $c) {
+                $byClient[(int) $c['id']] = $life->devices((int) $c['id']);
+            }
+        } else {
+            // Every device once, grouped (the client page and digests do the same)
+            foreach ($life->devices() as $d) {
+                if ($d['client_id'] !== null) {
+                    $byClient[(int) $d['client_id']][] = $d;
+                }
             }
         }
         $ctx = self::context(array_map(fn($c) => (int) $c['id'], $clients), $byClient);

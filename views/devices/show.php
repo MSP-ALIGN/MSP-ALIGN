@@ -32,8 +32,8 @@ if ($client) {
     <span class="badge text-bg-<?= tone_class($d['status_tone']) ?>"><?= e($d['status_label']) ?></span>
     <?php if (!empty($d['is_spare'])): // 2.15.0 ?><span class="badge text-bg-secondary"><i class="fas fa-box-archive me-1"></i>Spare</span><?php endif; ?>
     <span class="badge text-bg-light border"><?= $d['source'] === 'rmm' ? '<i class="' . e(\Align\Providers\Providers::rmmIcon($d['rmm_provider'])) . ' me-1"></i>' : ($d['source'] === 'psa' ? '<i class="fas fa-screwdriver-wrench me-1"></i>' : '') ?><?= e($srcLabel) ?></span>
-    <?php if ($retired): ?><span class="badge text-bg-dark"><i class="fas fa-box-archive me-1"></i>Retired <?= e(fmt_date($syncRow['retired_at'])) ?></span>
-    <?php elseif ($d['removed_at']): ?><span class="badge text-bg-dark">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
+    <?php if ($retired): ?><span class="badge text-bg-<?= status_tone('ended') ?>"><i class="fas fa-box-archive me-1"></i>Retired <?= e(fmt_date($syncRow['retired_at'])) ?></span>
+    <?php elseif ($d['removed_at']): ?><span class="badge text-bg-<?= status_tone('ended') ?>">No longer in <?= e($srcLabel) ?> since <?= e(fmt_date($d['removed_at'])) ?></span><?php endif; ?>
     <?php if ($linked && !$alignOnly && $twoWay): ?><span class="badge text-bg-success"><i class="fas fa-arrows-rotate me-1"></i>Synced with <?= e(psa_name()) ?></span>
     <?php elseif ($alignOnly): ?><span class="badge text-bg-secondary">Align only</span><?php endif; ?>
   </div>

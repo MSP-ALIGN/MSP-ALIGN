@@ -109,7 +109,7 @@ $tabs = ['unmatched' => ['Not matched', 'fa-circle-question', 'warning'], 'sorte
             <td class="align-middle"><?= $select('job[' . $j['uid'] . ']', $manual['job'][$j['uid']] ?? 'auto', 'Assign ' . $j['name']) ?></td>
           </tr>
         <?php endforeach; ?>
-        <?php if (!$jobs): ?><tr><td colspan="4" class="text-muted p-3">No jobs on your own backup servers.</td></tr><?php endif; ?>
+        <?php if (!$jobs): ?><tr><td colspan="4" class="empty-state">No jobs on your own backup servers.</td></tr><?php endif; ?>
         </tbody>
       </table>
     </div>

@@ -131,7 +131,7 @@ $ready = $app['ready'];
           <td class="text-center"><input type="checkbox" class="form-check-input" name="prices[<?= $k ?>][skip]" value="1" <?= $p['skip'] ? 'checked' : '' ?> aria-label="Leave out <?= e($p['name']) ?>"></td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$prices): ?><tr><td colspan="6" class="text-muted text-center py-3">Nothing yet: subscriptions are added as clients are connected and synced.</td></tr><?php endif; ?>
+      <?php if (!$prices): ?><tr><td colspan="6" class="empty-state">Nothing yet: subscriptions are added as clients are connected and synced.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

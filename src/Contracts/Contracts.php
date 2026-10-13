@@ -37,9 +37,9 @@ final class Contracts
         'sent' => ['Waiting for the client', 'info'],
         'client_signed' => ['Waiting for your signature', 'warning'],
         'completed' => ['Signed', 'success'],
-        'declined' => ['Declined', 'danger'],
-        'expired' => ['Link expired', 'dark'],
-        'void' => ['Cancelled', 'dark'],
+        'declined' => ['Declined', 'secondary'], // 2.17.0: ended states are grey (status_tone())
+        'expired' => ['Link expired', 'secondary'],
+        'void' => ['Cancelled', 'secondary'],
     ];
     public const MAX_UPLOAD = 25 * 1024 * 1024;
     public const CODE_MINUTES = 15;
