@@ -1,6 +1,6 @@
 # Screenshots
 
-A tour of MSP Align with its made-up demo clients (**Settings → General → Demo data** loads the same ones, so you
+A tour of MSP Align with its made-up demo clients (**Settings → Diagnostics → Demo data** loads the same ones, so you
 can try all of this before connecting anything). The [home page](https://mspalign.org) has a one-minute video tour.
 
 ## Dashboard
@@ -29,7 +29,7 @@ warranties, meetings and compliance due dates. Drag projects and devices to anot
 
 ### Alignment
 
-How the client measures against your own standards (Settings → Standards): the score and its trend, each category,
+How the client measures against your own standards (Libraries → Alignment standards): the score and its trend, each category,
 and the gaps in order of importance, each one a roadmap project in one click.
 
 ![The client's alignment review](screenshots/alignment.png)

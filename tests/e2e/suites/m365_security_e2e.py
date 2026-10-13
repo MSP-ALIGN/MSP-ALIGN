@@ -88,7 +88,7 @@ ok("Two to four Global Administrators: 1 Global Administrator" in t, "what pulls
 q("insert into settings (name,value,is_secret) values ('health_weight_security','0',0) on duplicate key update value='0'")
 ok(phpo(f'echo json_encode(Align\\Health\\Health::combine(["security" => 20]));') == "null", "a weight of 0 leaves Security out")
 q("delete from settings where name='health_weight_security'")
-ok('name="health_weight_security"' in st.get(B + "/settings/planning").text, "the weight is on the settings page")
+ok('name="health_weight_security"' in st.get(B + "/settings/checks").text, "the weight is on the settings page")
 
 # ---- compliance: suggested answers for linked controls
 fw = q("select id from compliance_frameworks where slug='m365-baseline'")[0]["id"]

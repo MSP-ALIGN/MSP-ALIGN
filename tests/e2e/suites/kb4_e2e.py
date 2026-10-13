@@ -12,7 +12,7 @@ from lib import *
 def mock(path, body=None): return requests.post(M + path, json=body or {}).json()
 def text(t): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", t)))
 def align(*a): return subprocess.run(["php", ALIGN, *a], env=ENV, capture_output=True, text=True)
-def card(s): return text(s.get(B + f"/clients/{C1}").text)
+def card(s): return text(s.get(B + f"/clients/{C1}/connectors").text)  # 2.16.0: the training setup is on Connectors
 
 
 TOKEN = "kb4-token-cedar-0123456789abcdef"
@@ -74,7 +74,7 @@ ok(q3 and q3["sent"] == 20 and q3["clicked"] == 2 and q3["reported"] == 6 and q3
 ok(ph.get("KnowBe4: Q2 phishing test") and ph["KnowBe4: Q2 phishing test"]["clicked"] == 20, "a click count above the emails sent is clamped")
 log = requests.get(M + "/mock/kb4-log").json()
 ok(any("enrollments?page=3" in l for l in log) and all(l.startswith("GET ") for l in log), "lists are paged; only reads are sent")
-c = card(st)
+c = text(st.get(B + f"/clients/{C1}").text)  # the results stay on the overview's card
 ok("From KnowBe4 account Cedar Ridge Dental" in c and "25 seats" in c and "risk score 31.5" in c and "3/4 done (75%)" in c, "the card shows the account and the results")
 checks = json.loads(php(f'echo json_encode([Align\\Sat\\Sat::source({C1}), Align\\Sat\\Sat::checks({C1})["sat_training"]["status"]]);').stdout)
 ok(checks[0] == "api", "the checks use KnowBe4's results instead of uploads: %s" % checks)

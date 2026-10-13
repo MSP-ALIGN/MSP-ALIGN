@@ -52,7 +52,7 @@ final class VendorController
         $n = \Align\Domains\Rdap::refreshClient($id);
         Audit::log('vendor.domains_check', "{$client['name']}: $n domain" . ($n === 1 ? '' : 's'));
         flash($n ? 'success' : 'error', $n ? "Read $n domain" . ($n === 1 ? '' : 's') . ' from public registration records.' : 'This client has no domains yet: add its email domains on its Connectors page, or its website on its details.');
-        redirect(self::back("/clients/$id/vendors") . '#domains');
+        redirect(self::back("/clients/$id/connectors") . '#domains'); // 2.16.0: the domains are on Connectors
     }
 
     /** Every vendor template with the clients using it. Any staff role. */

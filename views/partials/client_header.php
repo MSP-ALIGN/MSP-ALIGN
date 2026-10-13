@@ -66,7 +66,6 @@ $cid = (int) $client['id'];
             <?php if ($psaClientUrl): ?><a class="dropdown-item" href="<?= e($psaClientUrl) ?>" target="_blank" rel="noopener"><i class="fas fa-fw fa-up-right-from-square me-2"></i>Open in <?= e(psa_name()) ?></a><?php endif; ?>
             <?php if (Auth::can('tech')): ?>
               <?php if ($psaClientUrl): ?><div class="dropdown-divider"></div><?php endif; ?>
-              <a class="dropdown-item" href="/clients/<?= $cid ?>/onboarding"><i class="fas fa-fw fa-mountain-sun me-2"></i>Welcome &amp; onboarding…</a>
               <?php if (!$client['planning_excluded']): ?>
                 <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modal-exclude"><i class="fas fa-fw fa-eye-slash me-2"></i>Remove from planning…</a>
               <?php endif; ?>

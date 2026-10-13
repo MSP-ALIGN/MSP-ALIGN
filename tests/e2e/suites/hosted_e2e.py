@@ -33,8 +33,9 @@ mp=st.get(B+"/mapping").text; td=H.unescape(st.get(B+"/todo").text)
 ok('href="/mapping/backups"' in mp and re.search(r'Hosted backups <span class="badge text-bg-warning">622</span>',mp) and "622 hosted backup machines to match" in td,"Integrations tabs: Hosted backups with the unmatched count; To do lists them")
 ok("622 machines on your backup server not matched to a client" in H.unescape(side),"dashboard Needs attention flags unmatched hosted machines")
 # client page claim card: law firm (client 3) gets HPLG suggested first
-law0=st.get(B+"/clients/3/backups").text
-ok("Backed up on your own server?" in law0 and law0.find("Law firm hosted") < law0.find("INT-VM-001") and "Looks like a match" in law0,"client Backups page offers unmatched items, the law firm's (HPLG) first")
+ok("claim them on" in st.get(B+"/clients/3/backups").text,"the client Backups page points to Connectors for unmatched machines (2.16.0)")
+law0=st.get(B+"/clients/3/connectors").text
+ok("Backed up on your own server?" in law0 and law0.find("Law firm hosted") < law0.find("INT-VM-001") and "Looks like a match" in law0,"the client's Connectors page offers unmatched items, the law firm's (HPLG) first")
 ok(law0.split("Show the other")[0].count("Looks like a match")>=3,"job and both HPLG machines suggested")
 ok("mapping/backups" in st.get(B+"/mapping").text,"linked from client mapping")
 # Vet client: backups page, report, dashboard summary
@@ -47,7 +48,7 @@ ok("/clients/4/backups" in st.get(B+"/clients/4").text,"Backups in Vet's client 
 ok(not q("select 1 from client_links where client_id=4 and provider='veeam' and external_id is not null"),"Vet still has no Veeam company link")
 # Manual: law firm job -> client 3, internal job -> ours, one INT VM -> client 1, hosting flag on c1? (c1 not ours)
 r=st.post(B+"/clients/3/backups/claim",data={"_csrf":csrf(st,"/clients/3/backups"),"kind":"job","uid":"j-0102"})
-ok("Law firm hosted (2 machines) now counts for Harbor Point Law Group LLP" in H.unescape(r.text) and "HPLG-FS01" in r.text,"This client's (whole job) from the client page")
+ok("Law firm hosted (2 machines) now counts for Harbor Point Law Group LLP" in H.unescape(r.text) and "HPLG-FS01" in st.get(B+"/clients/3/backups").text,"This client's (whole job) from the client's Connectors page")
 ok(q("select 1 from backup_assignments where item_type='job' and item_uid='j-0102' and client_id=3"),"claim saved as a job assignment")
 r=st.post(B+"/clients/3/backups/claim",data={"_csrf":csrf(st,"/clients/3/backups"),"kind":"workload","uid":"vm:vm-h40"})
 ok(r.status_code==404,"can't claim a machine already matched to another client")

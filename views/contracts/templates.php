@@ -1,5 +1,5 @@
 <?php
-/** Onboarding → Contract templates. @var array $templates; string $companyAddress; int $remindDays, $maxReminders */
+/** Onboarding → Contract templates. @var array $templates; int $remindDays, $maxReminders */
 ?>
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-shapes', 'title' => 'Contract templates',
@@ -36,9 +36,7 @@
       <?= csrf_field() ?>
       <div class="card-header py-2"><h3 class="card-title mt-1">Settings</h3></div>
       <div class="card-body">
-        <div class="mb-3"><label for="cs-addr">Your company address</label>
-          <textarea id="cs-addr" name="company_address" class="form-control" rows="2" maxlength="500"><?= e($companyAddress) ?></textarea>
-          <div class="form-text">For the <code>{{company_address}}</code> field. Your name, phone and email come from Settings.</div></div>
+        <p class="small text-muted">Your company name, address, phone and email for the <code>{{company_…}}</code> fields come from <a href="/settings">Settings → General</a>.</p>
         <div class="row g-2">
           <div class="col-6"><label for="cs-rem">Remind every</label><div class="input-group input-group-sm"><input type="number" min="0" max="30" id="cs-rem" name="contract_remind_days" class="form-control" value="<?= (int) $remindDays ?>"><span class="input-group-text">days</span></div></div>
           <div class="col-6"><label for="cs-max">Up to</label><div class="input-group input-group-sm"><input type="number" min="0" max="10" id="cs-max" name="contract_max_reminders" class="form-control" value="<?= (int) $maxReminders ?>"><span class="input-group-text">reminders</span></div></div>

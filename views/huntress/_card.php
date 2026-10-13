@@ -18,7 +18,7 @@ $type = ['monthly_summary' => 'Monthly', 'quarterly_summary' => 'Quarterly', 'ye
 <div class="card card-dark" id="huntress">
   <div class="card-header py-2">
     <h3 class="card-title mt-1"><i class="fas fa-fw fa-shield-virus me-2"></i>Huntress <span class="text-muted small fw-normal">· <?= e($h['org']['name']) ?></span></h3>
-    <div class="card-tools small text-muted mt-1"><?= count($cov['agents']) ?> agents<?= $h['org']['synced_at'] ? ' · synced ' . e(rel_time($h['org']['synced_at'])) : '' ?></div>
+    <div class="card-tools small text-muted mt-1"><?= count($cov['agents']) ?> agents<?= $h['org']['synced_at'] ? ' · synced ' . e(rel_time($h['org']['synced_at'])) : '' ?><?php if (\Align\Auth::can('tech')): // 2.16.0: the link is set on Connectors ?> · <a href="/clients/<?= (int) $client['id'] ?>/connectors#security">Manage</a><?php endif; ?></div>
   </div>
   <div class="card-body">
     <?php // The checks (they count in the health score's Security area) ?>

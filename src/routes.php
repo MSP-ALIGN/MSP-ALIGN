@@ -146,6 +146,7 @@ $r->get('/devices', [DeviceController::class, 'index']);
 $r->get('/devices/export', [DeviceController::class, 'export']);
 $r->get('/todo', [\Align\Controllers\TodoController::class, 'index']);
 $r->get('/search', [\Align\Controllers\TodoController::class, 'search']);
+$r->get('/libraries', [\Align\Controllers\LibraryController::class, 'index']); // 2.16.0
 $r->get('/clients/{id}/reports', [\Align\Controllers\TodoController::class, 'clientReports']);
 $r->post('/devices/bulk-type', [DeviceController::class, 'bulkType']);
 $r->get('/devices/{id}', [DeviceController::class, 'show']);
@@ -375,6 +376,7 @@ $r->post('/clients/{id}/onboarding/revoke', [$O, 'revoke']);
 $r->post('/clients/{id}/onboarding/status', [$O, 'status']);
 $r->get('/settings', [SettingsController::class, 'index']);
 $r->get('/settings/planning', [SettingsController::class, 'planning']);
+$r->get('/settings/checks', [SettingsController::class, 'checks']); // 2.16.0
 $r->post('/settings', [SettingsController::class, 'save']);
 $r->post('/settings/test', [SettingsController::class, 'test']);
 $r->get('/settings/os', [SettingsController::class, 'os']);

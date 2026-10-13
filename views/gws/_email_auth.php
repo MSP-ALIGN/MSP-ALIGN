@@ -44,7 +44,7 @@ $source = ['m365' => 'Microsoft 365', 'google' => 'Google Workspace', 'manual' =
 
     <?php // Overview: a link to manage the domains on the Connectors page ?>
     <?php if ($list === null && $tech): ?>
-      <a class="small" href="/clients/<?= $cid ?>/connectors#email-auth"><i class="fas fa-gear me-1"></i>Email domains and DKIM selectors</a>
+      <a class="small" href="/clients/<?= $cid ?>/connectors#email-auth"><i class="fas fa-sliders me-1"></i>Manage domains and DKIM selectors</a>
     <?php endif; ?>
 
     <?php // Connectors page: each domain, where it comes from, its own result and DKIM selectors (techs change them) ?>

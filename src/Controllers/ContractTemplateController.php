@@ -47,7 +47,6 @@ final class ContractTemplateController
             'title' => 'Contract templates',
             'nav' => 'contract-templates',
             'templates' => Template::all(),
-            'companyAddress' => (string) Settings::get('company_address', ''),
             'remindDays' => Settings::int('contract_remind_days', 3),
             'maxReminders' => Settings::int('contract_max_reminders', 2),
         ]);
@@ -290,11 +289,13 @@ final class ContractTemplateController
         redirect('/contracts/templates/' . $id);
     }
 
-    /** Saves the company address (for {{company_address}}) and the reminder options, clamped to their ranges. */
+    /** Saves the reminder options, clamped to their ranges (and the company address when an older form posts it). */
     public static function settings(): void
     {
         Auth::requireRole('admin');
-        Settings::set('company_address', mb_substr(trim(str_replace("\r", '', post('company_address'))), 0, 500));
+        if (isset($_POST['company_address'])) { // 2.16.0: the address is edited on Settings → General now (kept for older forms)
+            Settings::set('company_address', mb_substr(trim(str_replace("\r", '', post('company_address'))), 0, 500));
+        }
         Settings::set('contract_remind_days', (string) max(0, min(30, (int) post('contract_remind_days'))));
         Settings::set('contract_max_reminders', (string) max(0, min(10, (int) post('contract_max_reminders'))));
         Audit::log('settings.contracts', 'options');

@@ -10,13 +10,16 @@ use Align\Providers\Providers;
 use Align\View;
 
 /**
- * 2.6.1 A client's Connectors page: its own connections (Microsoft 365: connect, approve, sync, disconnect; see
- * M365Controller; 2.6.3 Google Workspace, GoogleController, and the email domain's SPF, DKIM and DMARC) and a read-only summary of how it is linked to the PSA, each RMM and each backup product, with the
- * last sync. Staff only: techs and admins (it isn't part of the client portal).
+ * 2.6.1 A client's Connectors page; 2.16.0 the one place to set up and check everything specific to one client:
+ * a status line, then PSA and RMM links, security (Huntress and security awareness training: KnowBe4, Curricula,
+ * Huntress SAT uploads), email and domains (Microsoft 365, Google Workspace, email authentication, domain expiry) and
+ * backups (backup company links, hosted machines to claim). Each link to an RMM, backup product or security tool can
+ * be changed here for this client (saved by MappingController like Client mapping). Staff only: techs and admins.
  *
  * Security assumptions: Auth::requireRole('tech') and ClientController::load() (which refuses unknown clients) before
- * anything is read. Record names come from the PSA, RMM or backup product (remote text) and are escaped in the view.
- * Nothing changes here: changes go through M365Controller, GoogleController (2.6.3) and MappingController, which check roles and CSRF again.
+ * anything is read. Record names come from the PSA, RMM, backup product or security tool (remote text) and are escaped
+ * in the view. Nothing changes here: changes go through MappingController, M365Controller, GoogleController,
+ * EmailAuthController, SatController, VendorController and BackupController, which check roles and CSRF again.
  */
 final class ConnectorsController
 {
@@ -28,18 +31,28 @@ final class ConnectorsController
         // 2.6.2: Connect and Approve post here and are answered with a redirect to Microsoft's sign-in, which the
         // page's form-action has to allow (the button only reloaded the page; Ctrl+click worked)
         csp_allow_form_target(\Align\M365\App::loginBase());
+        $m365 = M365Controller::card($id);
+        $gws = GoogleController::card($id);
+        $emailAuth = \Align\Domains\EmailAuth::stored($id);
+        $linked = self::linked($client, true);
+        $sat = SatController::data($id);
         View::render('clients/connectors', [
             'title' => $client['name'] . ' · Connectors',
             'nav' => 'clients',
             'client' => $client,
             'clientNav' => 'connectors',
-            'm365' => M365Controller::card($id),
-            'gws' => GoogleController::card($id), // 2.6.3
-            'emailAuth' => \Align\Domains\EmailAuth::stored($id), // 2.6.3
+            'm365' => $m365,
+            'gws' => $gws, // 2.6.3
+            'emailAuth' => $emailAuth, // 2.6.3
             // 2.7.4: every domain checked, the ones added by hand or left out, and a domain to suggest
             'emailDomains' => self::emailDomains($client),
-            'linked' => self::linked($client),
+            'linked' => $linked,
             'lastSync' => DB::one('SELECT status, started_at, finished_at FROM sync_runs ORDER BY id DESC LIMIT 1'),
+            // 2.16.0: moved here from the overview (training setup), Vendors (domains) and Backups (hosted machines)
+            'sat' => $sat,
+            'domains' => \Align\Domains\Rdap::forClient($id),
+            'claim' => BackupController::claimFor($client),
+            'status' => self::status($linked, $m365, $gws, $emailAuth, $sat),
         ]);
     }
 
@@ -50,8 +63,10 @@ final class ConnectorsController
      * not linked; none), 'record' (the linked record's name), 'detail' (plain text), 'url' (open in the PSA, or null)].
      * Untrusted: 'record' and the counts come from the PSA, RMM or backup product (escape them); 'url' is built by
      * Providers::psaLink() from the configured PSA's address. One query per connector (LinksClients::linkRecord).
+     * 2.16.0 With $choices, each link connector's row also has 'external_id' and 'choices' (its records to pick from,
+     * LinksClients::linkRecords(): id, name, count, client_id = the client it's linked to now) for changing the link.
      */
-    private static function linked(array $client): array
+    private static function linked(array $client, bool $choices = false): array
     {
         $out = [];
         $cid = (int) $client['id'];
@@ -80,9 +95,44 @@ final class ConnectorsController
                 'detail' => $ext !== null ? ($rec ? $rec['count'] . ' ' . $c->linkCountLabel()
                         : 'Its ' . $c->linkNoun() . ' wasn\'t in the last read from ' . $c->linkName() . ': removed there, or not synced yet. Check Client mapping.')
                     : ($l ? 'Kept unlinked on Client mapping.' : 'Not linked to a ' . $c->linkNoun() . ' yet.'),
-                'url' => null];
+                'url' => null]
+                + ($choices ? ['external_id' => $ext !== null ? (string) $ext : null, 'choices' => $c->linkRecords()] : []);
         }
         return $out;
+    }
+
+    /**
+     * 2.16.0 The status line at the top of the page: one chip per connection, ['label', 'tone' (ok|warn|off), 'href'
+     * (an anchor on the page)]. From what the page already read; nothing more is queried.
+     */
+    private static function status(array $linked, array $m365, array $gws, ?array $emailAuth, ?array $sat): array
+    {
+        $chips = [];
+        $anchor = ['PSA' => '#links', 'RMM' => '#links', 'Backups' => '#backups', 'Security' => '#security', 'Other' => '#links'];
+        foreach ($linked as $l) {
+            $chips[] = ['label' => $l['name'] . match ($l['status']) { 'linked' => '', 'missing' => ': link broken', 'kept' => ': kept unlinked', default => ': not linked' },
+                'tone' => match ($l['status']) { 'linked' => 'ok', 'missing' => 'warn', default => 'off' }, 'href' => $anchor[$l['kind']] ?? '#links'];
+        }
+        if ($sat !== null) {
+            $from = $sat['knowbe4'] ? 'KnowBe4' : ($sat['curricula'] ? 'Curricula' : null);
+            $err = ($sat['knowbe4']['error'] ?? null) ?: ($sat['curricula']['error'] ?? null);
+            $chips[] = ['label' => 'Training: ' . ($from ?? ($sat['history'] ? 'uploads' : 'no results')), 'tone' => $err ? 'warn' : ($from || $sat['history'] ? 'ok' : 'off'), 'href' => '#sat'];
+        }
+        // Microsoft 365 and Google Workspace only when the MSP uses them (set up, or this client is connected anyway)
+        $m = $m365['m365'] ?? null;
+        if (\Align\M365\Tenants::connected($m) || !empty($m365['appReady'])) {
+            $chips[] = ['label' => 'Microsoft 365' . (\Align\M365\Tenants::connected($m) ? '' : ': not connected'),
+                'tone' => \Align\M365\Tenants::connected($m) ? (!empty($m['last_error']) ? 'warn' : 'ok') : 'off', 'href' => '#m365'];
+        }
+        $g = $gws['gws'] ?? null;
+        if (\Align\Google\Clients::connected($g) || !empty($gws['info'])) {
+            $chips[] = ['label' => 'Google Workspace' . (\Align\Google\Clients::connected($g) ? '' : ': not connected'),
+                'tone' => \Align\Google\Clients::connected($g) ? (!empty($g['last_error']) ? 'warn' : 'ok') : 'off', 'href' => '#gws'];
+        }
+        $failing = $emailAuth !== null && str_contains(json_encode($emailAuth) ?: '', '"fail"');
+        $chips[] = ['label' => 'Email authentication' . ($emailAuth === null ? ': no domains' : ($failing ? ': needs attention' : '')),
+            'tone' => $emailAuth === null ? 'off' : ($failing ? 'warn' : 'ok'), 'href' => '#email-auth'];
+        return $chips;
     }
 
     /**

@@ -29,13 +29,8 @@ final class BackupController
         Audit::access('backups', "#$id {$client['name']}");
         $devices = (new Lifecycle())->devices($id);
         $b = Backup::forClient($client, $devices);
-        // Machines on your own backup server that aren't matched to anyone: offer them here, likeliest first
-        $claim = null;
-        if (Auth::can('tech') && Backup::hostedUnmatched() > 0) {
-            $servers = $b ? array_column($b['unprotected'], 'name')
-                : array_column(array_filter($devices, fn($d) => $d['device_class'] === 'server' && !\Align\Lifecycle\Lifecycle::notInUse($d)), 'name');
-            $claim = Backup::claimable($client, $servers);
-        }
+        // Machines on your own backup server that aren't matched to anyone (claimed on the Connectors page, 2.16.0)
+        $claim = self::claimFor($client, $b, $devices);
         View::render('backups/client', [
             'title' => $client['name'] . ' · Backups',
             'nav' => 'clients',
@@ -48,7 +43,24 @@ final class BackupController
     }
 
     /**
-     * "This client's": assigns an unmatched hosted job or machine to this client from its Backups page. Techs and
+     * Hosted machines and jobs that aren't matched to any client, likeliest first for this client (Backup::claimable),
+     * or null when there are none or the user isn't a tech. $b and $devices: Backup::forClient() and the client's
+     * devices when the caller has them (read here otherwise). Also used by the Connectors page (2.16.0).
+     */
+    public static function claimFor(array $client, ?array $b = null, ?array $devices = null): ?array
+    {
+        if (!Auth::can('tech') || Backup::hostedUnmatched() === 0) {
+            return null;
+        }
+        $devices ??= (new Lifecycle())->devices((int) $client['id']);
+        $b ??= Backup::forClient($client, $devices);
+        $servers = $b ? array_column($b['unprotected'], 'name')
+            : array_column(array_filter($devices, fn($d) => $d['device_class'] === 'server' && !\Align\Lifecycle\Lifecycle::notInUse($d)), 'name');
+        return Backup::claimable($client, $servers);
+    }
+
+    /**
+     * "This client's": assigns an unmatched hosted job or machine to this client from its Connectors page. Techs and
      * admins, who can assign any hosted job or machine on the Hosted backups page anyway; a machine must not already
      * count for a client, and Microsoft 365 jobs (which follow their company) can't be assigned. Audited.
      */
@@ -69,10 +81,10 @@ final class BackupController
         \Align\DB::insert('backup_assignments', ['item_type' => $kind, 'item_uid' => $row['uid'], 'client_id' => $id,
             'item_name' => mb_substr($row['name'], 0, 255), 'created_by' => Auth::user()['id'] ?? null]);
         \Align\Sync\BackupSync::assign();
-        Audit::log('backup.assign', "{$row['name']} → {$client['name']} (from the client's Backups page)");
+        Audit::log('backup.assign', "{$row['name']} → {$client['name']} (from the client's Connectors page)");
         $n = $kind === 'job' ? (int) \Align\DB::value('SELECT COUNT(*) FROM backup_workloads WHERE client_id = ? AND uid IN (SELECT workload_uid FROM backup_workload_jobs WHERE job_uid = ?)', [$id, $row['uid']]) : 1;
         flash('success', ($kind === 'job' ? "Job {$row['name']} ($n machine" . ($n === 1 ? '' : 's') . ')' : $row['name']) . " now counts for {$client['name']}. Change it any time under Hosted backups.");
-        redirect("/clients/$id/backups");
+        redirect("/clients/$id/connectors#hosted-claim"); // 2.16.0: claimed from the Connectors page
     }
 
     /** The printable backup report for one client (any staff role); details and machines can be left out. */

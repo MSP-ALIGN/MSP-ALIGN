@@ -37,7 +37,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
       <p class="text-muted mb-0">It isn't linked to a<?= preg_match('/^[AEIOU]/i', $bn = \Align\Providers\Providers::backupNames()) ? 'n' : '' ?> <?= e($bn) ?> company, and nothing on your own backup server is matched to it. Companies with the same name link automatically on sync; otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>. If you back up this client's servers on your own <?= e($bn) ?> server, match them under <?= Auth::can('tech') ? '<a href="/mapping/backups">Hosted backups</a>' : 'Hosted backups' ?>.</p>
     <?php endif; ?>
   </div>
-  <?php if (!empty($claim)) echo \Align\View::fetch('backups/_claim', ['client' => $client, 'claim' => $claim]); ?>
+  <?php if (!empty($claim)): // 2.16.0: claimed on the Connectors page ?><div class="alert alert-light border small py-2" id="hosted-claim-hint"><i class="fas fa-server me-1"></i><?= count($claim['machines']) ?> machine<?= count($claim['machines']) === 1 ? '' : 's' ?> on your own backup server <?= count($claim['machines']) === 1 ? 'isn\'t' : 'aren\'t' ?> matched to a client yet. If some are this client's, claim them on <a href="/clients/<?= (int) $client['id'] ?>/connectors#hosted-claim">Connectors</a>.</div><?php endif; ?>
 <?php else: $s = $b['stats']; ?>
 <div class="row">
   <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= tone_class($s['tone']) ?>"><i class="fas fa-<?= $s['tone'] === 'ok' ? 'circle-check' : 'triangle-exclamation' ?>"></i></span><div class="info-box-content"><span class="info-box-text">Backup health</span><span class="info-box-number"><?= ['ok' => 'Healthy', 'warn' => 'Needs attention', 'bad' => 'Action needed'][$s['tone']] ?></span></div></div></div>
@@ -81,7 +81,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
   <?php endif; ?>
 </div>
 <?php endif; ?>
-<?php if (!empty($claim)) echo \Align\View::fetch('backups/_claim', ['client' => $client, 'claim' => $claim]); ?>
+<?php if (!empty($claim)): // 2.16.0: claimed on the Connectors page ?><div class="alert alert-light border small py-2" id="hosted-claim-hint"><i class="fas fa-server me-1"></i><?= count($claim['machines']) ?> machine<?= count($claim['machines']) === 1 ? '' : 's' ?> on your own backup server <?= count($claim['machines']) === 1 ? 'isn\'t' : 'aren\'t' ?> matched to a client yet. If some are this client's, claim them on <a href="/clients/<?= (int) $client['id'] ?>/connectors#hosted-claim">Connectors</a>.</div><?php endif; ?>
 
 <div class="card card-dark">
   <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-check me-2"></i>Backup jobs</h3>

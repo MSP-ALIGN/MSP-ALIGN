@@ -48,7 +48,7 @@ final class Template
         'signer_title' => ['Signer title', 'Their job title (they can fill it in when signing)'],
         'signer_email' => ['Signer email', 'Where the signing link goes'],
         'company_name' => ['Your company name', 'Settings → Company'],
-        'company_address' => ['Your company address', 'Onboarding → Contract templates → Settings'],
+        'company_address' => ['Your company address', 'Settings → General'],
         'company_phone' => ['Your phone', 'Settings → Company'],
         'company_email' => ['Your email', 'Settings → Company'],
         'company_website' => ['Your website', 'Settings → Company'],

@@ -83,8 +83,8 @@ if mid:
     t=st.get(B+f"/meetings/{mid[0]['id']}").text; ok("responded and" in t and "/report/sla" in t,"meeting talking points include service levels")
 
 # ---- integration settings
-t=st.get(B+"/integrations/itflow").text; ok('name="psa_sla_sync_present"' in t and 'name="sla_target"' in t and "Tickets for SLA reporting" in t,"ITFlow page has the SLA switch, goal and status")
-st.post(B+"/integrations/itflow",data={"_csrf":csrf(st,"/integrations/itflow"),"sla_target":"95","psa_sla_sync_present":"1","psa_sla_sync":"1"})
+t=st.get(B+"/integrations/itflow").text; ok('name="psa_sla_sync_present"' in t and 'name="sla_target"' not in t and "Tickets for SLA reporting" in t,"ITFlow page has the SLA switch and status (the goal is under Health & checks, 2.16.0)")
+st.post(B+"/settings",data={"_csrf":csrf(st,"/settings/checks"),"_tab":"checks","sla_target":"95"})
 ok(q("select value from settings where name='sla_target'")[0]["value"]=="95","goal saved")
 # viewer
 v=login("viewer@example.com","ViewerPassword123!"); ok(v.get(B+"/clients/1/service-levels").status_code==200 and v.get(B+"/reports/sla").status_code==200,"viewers can see service levels")

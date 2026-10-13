@@ -8,8 +8,9 @@ use Align\Auth;
 use Align\Vendors\Vendors;
 
 $canEdit = Auth::can('tech');
+echo '<nav class="small mb-1"><a href="/libraries"><i class="fas fa-arrow-left me-1"></i>Libraries</a></nav>'; // 2.16.0
 echo \Align\View::fetch('partials/page_header', [
-    'icon' => 'fa-store', 'title' => 'Vendors', 'count' => count($templates),
+    'icon' => 'fa-store', 'title' => 'Vendor templates', 'count' => count($templates),
     'desc' => 'Vendor templates hold what\'s the same for every client: name, category, support line, website and hours. Add a template to a client from its <b>Vendors</b> page; each client keeps its own account number, contact and services, and can override any shared field. '
         . num($clientVendors) . ' client vendor' . ($clientVendors === 1 ? '' : 's') . ' in all.',
     'help' => $canEdit ? 'guide-vendors' : null,

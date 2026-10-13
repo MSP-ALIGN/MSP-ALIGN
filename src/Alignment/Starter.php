@@ -6,7 +6,7 @@ namespace Align\Alignment;
 /**
  * 2.3.0: the starter standards a new install gets (migration 056), built from the MSP Security Baseline compliance
  * framework plus continuity, documentation and Microsoft 365 standards. They're only a starting point: admins edit,
- * remove and add their own under Settings → Standards. The tags are the compliance tags (Compliance::cleanTags
+ * remove and add their own under Libraries → Alignment standards. The tags are the compliance tags (Compliance::cleanTags
  * format), so answers can be shared with the compliance checklists; the automatic checks are Alignment::CHECKS keys.
  *
  * Plain data, no input: nothing here is untrusted.

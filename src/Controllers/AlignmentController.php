@@ -49,7 +49,7 @@ final class AlignmentController
         Auth::requireRole('tech');
         $client = ClientController::load($id);
         if (!DB::value('SELECT 1 FROM alignment_standards WHERE is_active = 1 LIMIT 1')) {
-            flash('error', 'There are no standards to review against yet. An admin adds them under Settings → Standards.');
+            flash('error', 'There are no standards to review against yet. An admin adds them under Libraries → Alignment standards.');
             redirect("/clients/$id/alignment");
         }
         $had = Alignment::draft($id);

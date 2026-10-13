@@ -20,7 +20,7 @@ n = q("select count(*) n from alignment_standards where is_active = 1")[0]["n"]
 ok(n >= 30 and q("select count(*) n from alignment_categories")[0]["n"] >= 7, "the starter standards are there (%d)" % n)
 ok(q("select 1 from alignment_standards where title like 'MFA on Microsoft 365%%' and priority = 'critical' and tags like 'iam_mfa%%'"), "built from the MSP Security Baseline, with its compliance tags")
 r = adm.get(B + "/settings/standards"); t = r.text
-ok(r.status_code == 200 and not errs(t) and 'href="/settings/standards"' in t and "MFA on Microsoft 365 for every user" in t and "Helps with" in t, "Settings → Standards lists them")
+ok(r.status_code == 200 and not errs(t) and 'href="/libraries"' in t and "MFA on Microsoft 365 for every user" in t and "Helps with" in t, "Libraries → Alignment standards lists them")
 ok(re.search(r"HIPAA[^<]*164\.312", t) is not None or "CIS" in t, "with the compliance controls each one helps with")
 for who, s in [("tech", tech), ("viewer", view)]:
     ok(s.get(B + "/settings/standards").status_code == 403 and s.post(B + "/settings/standards", data={"_csrf": csrf(s, "/clients"), "title": "x"}).status_code == 403, f"{who}s can't open or change the library")

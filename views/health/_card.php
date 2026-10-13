@@ -16,7 +16,7 @@ $points = array_values(array_filter($trend, fn($t) => $t['score'] !== null));
 <div class="card <?= $cardClass ?> health-card" id="overview-health">
   <div class="card-header py-2">
     <h3 class="card-title mt-1"><i class="fas fa-fw fa-heart-pulse me-2<?= $staff ? '' : ' text-secondary' ?>"></i><?= $staff ? 'Health' : 'Technology health score' ?></h3>
-    <?php if ($staff && \Align\Auth::can('admin')): ?><div class="card-tools"><a href="/settings/planning#settings-health" class="btn btn-tool" title="Weights and bands"><i class="fas fa-sliders"></i><span class="visually-hidden">Weights and bands</span></a></div><?php endif; ?>
+    <?php if ($staff && \Align\Auth::can('admin')): ?><div class="card-tools"><a href="/settings/checks" class="btn btn-tool" title="Weights and bands"><i class="fas fa-sliders"></i><span class="visually-hidden">Weights and bands</span></a></div><?php endif; ?>
   </div>
   <div class="card-body">
     <?php // The score, its band, and where it has been ?>

@@ -110,7 +110,7 @@ final class MappingController
         $connectors = Providers::linkConnectors();
         foreach (['link', 'rmm', 'backup', 'org', 'veeam'] as $field) {
             if (isset($_POST[$field]) && !is_array($_POST[$field])) {
-                redirect('/mapping');
+                redirect(self::backTo());
             }
         }
         // Older field names map onto the same providers, with the precedence they had before:
@@ -150,7 +150,7 @@ final class MappingController
             $picked = array_filter($wanted[$key], fn($o) => $o !== '');
             if (count($picked) !== count(array_unique($picked))) {
                 flash('error', 'Each ' . $c->linkName() . ' ' . $c->linkNoun() . ' can only be linked to one client. Nothing was saved.');
-                redirect('/mapping' . self::showQuery());
+                redirect(self::backTo());
             }
             // A record already linked to a client that isn't on this form (Missing a link hides it): say where,
             // instead of quietly taking it away. Clients not on the screen at all (archived, not planned) lose it as before.
@@ -164,7 +164,7 @@ final class MappingController
                 $h = $holders[$id] ?? null;
                 if ($h && (int) $h['client_id'] !== $cid && !array_key_exists((int) $h['client_id'], $wanted[$key])) {
                     flash('error', ($names[$id] ?? 'That ' . $c->linkNoun()) . ' is already linked to ' . $h['name'] . '. Set ' . $h['name'] . ' to Not linked first (under All clients). Nothing was saved.');
-                    redirect('/mapping' . self::showQuery());
+                    redirect(self::backTo());
                 }
             }
         }
@@ -181,7 +181,7 @@ final class MappingController
         }
         if (!$changed) {
             flash('success', 'No changes.');
-            redirect('/mapping' . self::showQuery());
+            redirect(self::backTo());
         }
 
         DB::transaction(function () use ($changed) {
@@ -200,7 +200,16 @@ final class MappingController
         $n = array_sum(array_map('count', $changed));
         Audit::log('mapping.save', "$n change(s): " . json_encode($changed));
         flash('success', "Saved $n change(s).");
-        redirect('/mapping' . self::showQuery());
+        redirect(self::backTo());
+    }
+
+    /**
+     * 2.16.0 Where Save goes back to: a client's Connectors page when the form came from there (one client's links,
+     * matched against a fixed pattern, never followed as posted), else Client mapping (with its tab).
+     */
+    private static function backTo(): string
+    {
+        return preg_match('#^/clients/\d+/connectors\z#', post('back')) ? post('back') . '#links' : '/mapping' . self::showQuery();
     }
 
     /** "?show=missing" when the form was posted from the Missing a link tab (a fixed value, never the posted text). */

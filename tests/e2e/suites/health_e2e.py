@@ -105,10 +105,10 @@ ok('class="health-spark' in r.text and "from 30 to " + str(want) in r.text, "the
 h = json.loads(phpo(f'echo json_encode(Align\\Health\\Health::history({CID}, 30));'))
 ok([x["score"] for x in h][:2] == [35, 45] and h[-1]["day"] == date.today().isoformat(), "history() is oldest first, within the days asked for")
 
-# ---- settings: weights and bands on Settings → Planning & lifecycle
-r = st.get(B + "/settings/planning")
-ok(r.status_code == 200 and 'name="health_weight_alignment"' in r.text and 'value="20"' in r.text and 'name="health_good"' in r.text, "the planning settings have the health weights (20 each by default) and bands")
-F = {"_csrf": csrf(st, "/settings/planning"), "_tab": "planning", "health_good": "90", "health_warn": "95"}
+# ---- settings: weights and bands on Settings → Health & checks (2.16.0; Planning & lifecycle before)
+r = st.get(B + "/settings/checks")
+ok(r.status_code == 200 and 'name="health_weight_alignment"' in r.text and 'value="20"' in r.text and 'name="health_good"' in r.text, "Health & checks has the health weights (20 each by default) and bands")
+F = {"_csrf": csrf(st, "/settings/checks"), "_tab": "checks", "health_good": "90", "health_warn": "95"}
 r = st.post(B + "/settings", data=F)
 ok("must be lower" in flash(r.text) and not q("select 1 from settings where name='health_good'"), "bands out of order are refused, nothing saved")
 before = q("select count(*) n from audit_log where action='settings.save'")[0]["n"]

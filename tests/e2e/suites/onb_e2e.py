@@ -32,7 +32,7 @@ nid=int(r.url.rsplit("/",1)[1]); st.post(B+f"/settings/onboarding/templates/{nid
 # ---- staff: send the welcome email
 t=st.get(B+"/clients/1/onboarding").text
 ok(not errs(t) and "Welcome to Example MSP, Cedar Ridge Family Dental, Inc.!" in H.unescape(t) and "{{onsite_week}}" in t and 'id="doc-editor"' in t,"send form prefilled from the template")
-ok("Welcome &amp; onboarding" in st.get(B+"/clients/1").text,"client menu offers onboarding")
+ok('href="/clients/1/onboarding"' in st.get(B+"/clients/1").text,"client menu offers onboarding")
 body=re.search(r'<template id="doc-initial">(.*?)</template>',t,re.S).group(1)
 jordan=q("select id from contacts where client_id=1 and email='jordan@cedarridgedental.example'")[0]["id"]
 r=st.post(B+"/clients/1/onboarding/send",data={"_csrf":csrf(st,"/clients/1/onboarding"),"action":"send","to[]":[str(jordan)],"to_other":"office@cedarridgedental.example","subject":"Welcome to Example MSP, Cedar Ridge Family Dental, Inc.!","onsite_week":"October 12","body":body,"cc_me":"1"})

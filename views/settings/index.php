@@ -29,6 +29,8 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
               <small class="text-muted">Used in incident response documents (<code>{{company_emergency_phone}}</code>). Leave blank to use the phone above.</small></div>
             <div class="mb-3 col-md-6"><label>Email</label><input name="company_email" class="form-control" value="<?= e($v['company_email']) ?>"></div>
             <div class="mb-3 col-md-6"><label>Website</label><input name="company_website" class="form-control" value="<?= e($v['company_website']) ?>"></div>
+            <div class="mb-3 col-12"><label for="company_address">Address</label><textarea id="company_address" name="company_address" class="form-control" rows="2" maxlength="500"><?= e((string) \Align\Settings::get('company_address', '')) ?></textarea>
+              <small class="text-muted">For contracts (<code>{{company_address}}</code>). Moved here from Contract templates in 2.16.0.</small></div>
           </div>
           <div class="mb-3 mb-0"><label>Report footer</label><textarea name="report_footer" class="form-control" rows="2" placeholder="Shown at the bottom of printed reports"><?= e($v['report_footer']) ?></textarea></div>
         </div>
@@ -62,23 +64,3 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
   <button class="btn btn-primary"><i class="fas fa-check me-1"></i>Save</button>
 </form>
 
-<?php $demo = \Align\Demo\Demo::loaded(); $demoBlocked = \Align\Demo\Demo::blocked(); ?>
-<div class="card card-outline card-<?= $demo ? 'warning' : 'secondary' ?> mt-3" id="demo-data">
-  <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-flask me-2"></i>Demo data</h3></div>
-  <div class="card-body d-flex flex-wrap align-items-center">
-    <div class="me-auto small pe-3">
-      <?php if ($demo): ?>
-        <b>Demo data is loaded</b>: <?= count(\Align\Demo\Demo::clientIds()) ?> made-up clients. Remove it before you add real clients or connect your PSA or RMM; everything attached to the demo clients goes with them.
-      <?php elseif ($demoBlocked): ?>
-        <span class="text-muted">Four made-up clients to try every page with. It can only be added while there are no clients, so it never mixes with real data.</span>
-      <?php else: ?>
-        Try MSP Align with four made-up clients: devices of every age, licenses, budgets, projects, meetings, compliance, documents, backups and a client portal user. Remove it with one click when you're ready to start for real.
-      <?php endif; ?>
-    </div>
-    <?php if ($demo): ?>
-      <form method="post" action="/demo/remove" class="mt-2 mt-md-0"><?= csrf_field() ?><button class="btn btn-sm btn-outline-danger" data-confirm="Remove the demo clients and everything attached to them? This can't be undone."><i class="fas fa-trash me-1"></i>Remove demo data</button></form>
-    <?php elseif (!$demoBlocked): ?>
-      <form method="post" action="/demo/load" class="mt-2 mt-md-0"><?= csrf_field() ?><button class="btn btn-sm btn-default"><i class="fas fa-flask me-1"></i>Load demo data</button></form>
-    <?php endif; ?>
-  </div>
-</div>

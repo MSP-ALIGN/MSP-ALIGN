@@ -8,7 +8,7 @@ use Align\DB;
 use Align\Roadmap\Roadmap;
 
 /**
- * 2.3.0: the standards library (Settings → Standards): categories, standards, the starter set, and export / import
+ * 2.3.0: the standards library (Libraries → Alignment standards): categories, standards, the starter set, and export / import
  * as a JSON file so an MSP can move its standards between installs or share them.
  *
  * A standard that a finished review used is never deleted, only switched off (is_active = 0): old reviews keep their

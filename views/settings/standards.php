@@ -1,6 +1,6 @@
 <?php
 /**
- * 2.3.0 Settings → Standards: the library alignment reviews measure clients against (admins).
+ * 2.3.0 Standards (2.16.0: under Libraries): the library alignment reviews measure clients against (admins).
  * @var array $categories, $standards (Standards::all, active first), $helps (Standards::helpsAll); int $reviews
  * Every title and text is escaped (data-* values too); classes come from fixed lists. The edit and category windows
  * are filled from the button's data-f-* values by app.js (values only, never markup).
@@ -8,8 +8,9 @@
 use Align\Alignment\Alignment;
 use Align\Roadmap\Roadmap;
 
-$tab = 'standards';
-require __DIR__ . '/_tabs.php';
+// 2.16.0: a library (under Libraries), no longer a Settings tab
+echo '<nav class="small mb-1"><a href="/libraries"><i class="fas fa-arrow-left me-1"></i>Libraries</a></nav>';
+echo \Align\View::fetch('partials/page_header', ['icon' => 'fa-bullseye', 'title' => 'Alignment standards', 'help' => 'guide-alignment']);
 $active = array_values(array_filter($standards, fn($s) => $s['is_active']));
 $off = array_values(array_filter($standards, fn($s) => !$s['is_active']));
 $byCat = [];

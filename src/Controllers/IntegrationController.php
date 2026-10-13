@@ -86,7 +86,7 @@ final class IntegrationController
         $c = self::connector($key);
         // A PSA, RMM or backup service would sync real clients in next to the made-up ones
         if (\Align\Demo\Demo::loaded() && ($c instanceof \Align\Integrations\PsaConnector || $c instanceof \Align\Integrations\RmmConnector || $c instanceof \Align\Integrations\BackupConnector)) {
-            flash('error', 'Remove the demo data first (Settings → General → Demo data): ' . $c->name() . ' would bring your real clients in next to the made-up ones.');
+            flash('error', 'Remove the demo data first (Settings → Diagnostics → Demo data): ' . $c->name() . ' would bring your real clients in next to the made-up ones.');
             redirect(setup_return('/integrations/' . $key));
         }
         // 2.12.0 The PSA in use before this save (on an install from before psa_provider was always set, the first one set up)

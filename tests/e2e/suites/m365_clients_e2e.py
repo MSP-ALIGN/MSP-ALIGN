@@ -84,7 +84,7 @@ ok("Ready" in r.text and "bbbbbbbb-0000-4000-8000-00000000000b" in r.text and "R
 q("insert into licenses (client_id, source, name, category, pricing, seats, unit_price) values (%s, 'manual', 'ZzM365 Microsoft 365 Business Premium', 'productivity', 'per_seat', 9, 20)", C1)
 mset(skus={"tenant": T1, "list": [sku(SPB, "SPB", 10, 8), sku(EXO, "EXCHANGESTANDARD", 5, 5), sku(FLOW, "FLOW_FREE", 10000, 3)]})
 t = st.get(B + f"/clients/{C1}/connectors").text
-ok('id="m365"' in t and "Connect Microsoft 365" in t and "Link for the client" in t and "Linked systems" in t, "the client's Connectors page offers to connect and lists its linked systems")
+ok('id="m365"' in t and "Connect Microsoft 365" in t and "Link for the client" in t and "connectors-links" in t, "the client's Connectors page offers to connect and lists its links")
 ok(f'href="/clients/{C1}/connectors"' in t and f'href="/clients/{C1}/connectors"' in tech.get(B + f"/clients/{C1}").text, "Connectors is in the client menu for admins and techs")
 ok("Connect it on Connectors" in st.get(B + f"/clients/{C1}/licenses").text, "Licensing points to Connectors")
 vt = viewer.get(B + f"/clients/{C1}/licenses").text
@@ -110,7 +110,7 @@ ok("Counted twice?" in t and "ZzM365 Microsoft 365 Business Premium" in t, "a li
 tc = st.get(B + f"/clients/{C1}/connectors").text
 ok("Northwind Dental" in tc and "Sync now" in tc and "may now be counted twice" in tc, "Connectors shows the tenant and Sync now, and points to the duplicates on Licensing")
 tt = text(tc)
-ok("Linked systems" in tt and "· PSA" in tt and "· RMM" in tt and "· Backups" in tt and "Last hourly sync (all clients)" in tt, "Linked systems lists the PSA, the RMM and the backup product, with the last sync")
+ok("connectors-links" in tc and "· PSA" in tt and "· RMM" in tt and "· Backups" in tt and "Last hourly sync (all clients)" in tt, "the links list the PSA, the RMM and the backup product, with the last sync")
 orig = q("select external_id, match_method from client_links where client_id=%s and provider='ninjaone'", C1)
 q("insert into client_links (client_id, provider, external_id, match_method) values (%s, 'ninjaone', 'zz-gone', 'manual') on duplicate key update external_id='zz-gone'", C1)
 tt = text(st.get(B + f"/clients/{C1}/connectors").text)

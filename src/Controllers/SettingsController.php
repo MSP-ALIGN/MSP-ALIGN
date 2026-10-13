@@ -34,6 +34,8 @@ final class SettingsController
         // 2.5.0 client health score: each area's weight (0 = left out) and where the bands start
         'health_weight_lifecycle' => [0, 100], 'health_weight_backups' => [0, 100], 'health_weight_compliance' => [0, 100],
         'health_weight_service' => [0, 100], 'health_weight_alignment' => [0, 100], 'health_weight_security' => [0, 100], 'health_good' => [2, 100], 'health_warn' => [1, 99],
+        // 2.16.0 Health & checks: the pass marks that were on the Huntress, Veeam and PSA integration pages (same settings)
+        'sat_training_pass' => [1, 100], 'sat_click_max' => [1, 100], 'sat_campaign_months' => [1, 24], 'backup_stale_hours' => [1, 720], 'sla_target' => [50, 100],
     ];
 
     /** Numbers with no stored value until someone saves one: the value in use meanwhile (so saving it unchanged isn't a change). */
@@ -41,6 +43,7 @@ final class SettingsController
         'health_weight_lifecycle' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_backups' => \Align\Health\Health::DEFAULT_WEIGHT,
         'health_weight_compliance' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_service' => \Align\Health\Health::DEFAULT_WEIGHT,
         'health_weight_alignment' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_weight_security' => \Align\Health\Health::DEFAULT_WEIGHT, 'health_good' => \Align\Health\Health::DEFAULT_GOOD, 'health_warn' => \Align\Health\Health::DEFAULT_WARN,
+        'sat_training_pass' => 90, 'sat_click_max' => 10, 'sat_campaign_months' => 6, 'backup_stale_hours' => 48, 'sla_target' => 90,
     ];
     private const LOCALE_DEFAULTS = ['locale_currency' => 'USD', 'locale_currency_position' => '', 'locale_number' => 'comma', 'locale_date' => 'mdy', 'locale_time' => '12', 'locale_week_start' => '0'];
 
@@ -81,6 +84,13 @@ final class SettingsController
         View::render('settings/planning', ['title' => 'Planning & lifecycle', 'nav' => 'settings', 'v' => self::values()]);
     }
 
+    /** 2.16.0 Settings → Health & checks: the health score, and the pass marks of the training, backup and SLA checks. */
+    public static function checks(): void
+    {
+        Auth::requireRole('admin');
+        View::render('settings/checks', ['title' => 'Health & checks', 'nav' => 'settings', 'v' => self::values()]);
+    }
+
     /**
      * Saves whichever settings the posted tab contains (fields not on the form are left alone). Also posted to by
      * the setup wizard's Currency & dates step, which it then goes back to (setup_return: /setup paths only).
@@ -90,7 +100,7 @@ final class SettingsController
     public static function save(): void
     {
         Auth::requireRole('admin');
-        $back = post('_tab') === 'planning' ? '/settings/planning' : '/settings';
+        $back = ['planning' => '/settings/planning', 'checks' => '/settings/checks'][post('_tab')] ?? '/settings';
         $changed = [];
         // Checked before anything is saved, so a refused form changes nothing
         if (isset($_POST['timezone']) && post('timezone') !== '' && !\Align\Fmt::validZone(post('timezone'))) {
@@ -122,6 +132,14 @@ final class SettingsController
         if (array_filter($wkeys, fn($k) => isset($_POST[$k])) && !array_filter($wkeys, fn($k) => $eff($k) > 0)) {
             flash('error', 'At least one area of the health score needs a weight above 0.');
             redirect(setup_return($back));
+        }
+        // 2.16.0 the company address (several lines; for contracts), moved here from Contract templates
+        if (isset($_POST['company_address'])) {
+            $addr = mb_substr(trim(str_replace("\r", '', post('company_address'))), 0, 500);
+            if ($addr !== (string) Settings::get('company_address', '')) {
+                Settings::set('company_address', $addr);
+                $changed[] = 'company_address';
+            }
         }
         foreach (self::TEXT as $k) {
             // Cut to the column's purpose (2.2.1: any length was kept, up to the 64 KB the database refuses). A value

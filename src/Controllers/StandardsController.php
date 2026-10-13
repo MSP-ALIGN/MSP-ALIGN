@@ -10,7 +10,7 @@ use Align\DB;
 use Align\View;
 
 /**
- * 2.3.0 Settings → Standards: the library that alignment reviews measure clients against. Admins add, edit, move and
+ * 2.3.0 Libraries → Alignment standards: the library that alignment reviews measure clients against. Admins add, edit, move and
  * remove standards and categories, export the library as a JSON file and import one (adding only standards that
  * aren't there yet), and can add back the starter set.
  *
@@ -27,8 +27,8 @@ final class StandardsController
         Auth::requireRole('admin');
         $all = Standards::all();
         View::render('settings/standards', [
-            'title' => 'Standards',
-            'nav' => 'settings',
+            'title' => 'Alignment standards',
+            'nav' => 'standards', // 2.16.0: under Libraries
             'categories' => Standards::categories(),
             'standards' => $all,
             'helps' => Standards::helpsAll(array_filter($all, fn($s) => $s['is_active'])),
