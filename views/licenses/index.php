@@ -10,10 +10,11 @@ $qs = fn(array $over) => '/licenses?' . http_build_query(array_filter(array_merg
 $filters = ['' => 'All', 'unpriced' => 'Needs a price', 'renewals' => 'Renewing ≤ 90 days', 'over' => 'Over-assigned'];
 ?>
 <?php
+// 2.16.0: Licensing and Renewals are one menu item with two tabs
+echo \Align\View::fetch('partials/section_tabs', ['tabs' => [['/licenses', 'Licensing', 'fa-key', true], ['/renewals', 'Renewals', 'fa-calendar-check', false]]]);
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-key', 'title' => 'Licensing', 'count' => $matched !== $t['count'] ? num($matched) . ' of ' . num($t['count']) : $t['count'],
     'desc' => 'Software and subscriptions across every client in planning, with what each costs a month and a year. Open a license to set its price, billing and contract.',
-    'secondary' => ['<a class="btn btn-sm btn-default" href="/renewals"><i class="fas fa-calendar-check me-1"></i>Renewals</a>'],
 ]);
 echo \Align\View::fetch('partials/tiles', ['tiles' => [
     ['label' => 'Monthly, all clients', 'value' => money_exact($t['monthly']), 'tone' => 'dark'],

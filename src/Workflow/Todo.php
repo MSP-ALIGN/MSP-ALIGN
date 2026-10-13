@@ -141,11 +141,11 @@ final class Todo
         $backup = \Align\Backup\Backup::enabled();
         return [
             'integrations' => [
-                'integrations' => ['label' => 'Connections', 'href' => '/integrations', 'icon' => 'fa-plug', 'role' => 'admin'],
+                'integrations' => ['label' => 'Integrations', 'href' => '/integrations', 'icon' => 'fa-plug', 'role' => 'admin'], // 2.16.0: one name
                 'mapping' => ['label' => 'Client mapping', 'href' => '/mapping', 'icon' => 'fa-link', 'role' => 'tech'],
                 ...($backup ? ['hosted-backups' => ['label' => 'Hosted backups', 'href' => '/mapping/backups', 'icon' => 'fa-building', 'role' => 'tech',
                     'badge' => Auth::can('tech') ? \Align\Backup\Backup::hostedUnmatched() : 0]] : []),
-                'sync' => ['label' => 'Sync history', 'href' => '/sync', 'icon' => 'fa-rotate', 'role' => 'viewer'],
+                'sync' => ['label' => 'Sync history', 'href' => '/sync', 'icon' => 'fa-clock', 'role' => 'viewer'],
             ],
             'people' => [
                 'users' => ['label' => 'Staff', 'href' => '/users', 'icon' => 'fa-user-shield', 'role' => 'admin'],

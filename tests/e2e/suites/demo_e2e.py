@@ -29,8 +29,8 @@ fq("delete from meetings where client_id is not null"); fq("delete from devices 
 fq("insert into settings (name,value,is_secret) values ('setup_state','done',0) on duplicate key update value='done'")
 
 st = login("new@example.com", "FreshAdminPass123!", FB)
-t = st.get(FB + "/settings").text
-ok('id="demo-data"' in t and 'action="/demo/load"' in t and not errs(t), "Settings → General offers demo data on an empty install")
+t = st.get(FB + "/settings/diagnostics").text  # 2.16.0: moved from General
+ok('id="demo-data"' in t and 'action="/demo/load"' in t and not errs(t), "Settings → Diagnostics offers demo data on an empty install")
 t = st.get(FB + "/setup/clients").text; ok("Try it with demo data" in t, "and so does the wizard's Clients step")
 
 # ---- only admins

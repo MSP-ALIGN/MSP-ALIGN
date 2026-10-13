@@ -28,7 +28,7 @@ final class DemoController
             error_log('[msp-align] demo load: ' . $e->getMessage());
             flash('error', 'The demo data couldn\'t be added; nothing was saved. The server log has the details.');
         }
-        redirect(setup_return('/settings#demo-data'));
+        redirect(setup_return('/settings/diagnostics#demo-data'));
     }
 
     /** Removes the demo clients and everything attached to them (nothing else). */
@@ -37,6 +37,6 @@ final class DemoController
         Auth::requireRole('admin');
         $n = Demo::remove();
         flash('success', $n ? "Removed the $n demo clients and everything attached to them." : 'There was no demo data to remove.');
-        redirect(setup_return('/settings#demo-data'));
+        redirect(setup_return('/settings/diagnostics#demo-data'));
     }
 }

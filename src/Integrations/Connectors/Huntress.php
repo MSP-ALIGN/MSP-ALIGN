@@ -31,7 +31,7 @@ final class Huntress extends Connector implements LinksClients
     /** Group on the Integrations page. */
     public function category(): string { return 'Security'; }
     /** One line: what it brings into Align. */
-    public function summary(): string { return 'Huntress agents against each client\'s RMM devices, Managed Antivirus, incidents and escalations, ITDR identities, external ports and summary reports, plus the thresholds for security awareness training results.'; }
+    public function summary(): string { return 'Huntress agents against each client\'s RMM devices, Managed Antivirus, incidents and escalations, ITDR identities, external ports and summary reports. The pass marks for security awareness training are under Settings → Health & checks.'; }
     /** Sync steps whose results show as this integration's status. */
     public function syncSteps(): array { return ['Huntress']; }
     /** Has a Test button. */
@@ -59,9 +59,6 @@ final class Huntress extends Connector implements LinksClients
             ['name' => 'huntress_api_key', 'label' => 'API key', 'type' => 'secret'],
             ['name' => 'huntress_api_secret', 'label' => 'API secret', 'type' => 'secret'],
             ['name' => 'huntress_offline_days', 'label' => 'Count an agent as not checking in after', 'type' => 'number', 'min' => 1, 'max' => 90, 'suffix' => 'days', 'default' => '7'],
-            ['name' => 'sat_training_pass', 'label' => 'Security awareness training passes when at least this share of learners completed it', 'type' => 'number', 'min' => 1, 'max' => 100, 'suffix' => '%', 'default' => '90'],
-            ['name' => 'sat_click_max', 'label' => 'Phishing passes when the click rate over the last 12 months is under', 'type' => 'number', 'min' => 1, 'max' => 100, 'suffix' => '%', 'default' => '10'],
-            ['name' => 'sat_campaign_months', 'label' => '…and the last phishing campaign is within', 'type' => 'number', 'min' => 1, 'max' => 24, 'suffix' => 'months', 'default' => '6'],
         ];
     }
 

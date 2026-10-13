@@ -93,10 +93,10 @@ ok(st["queued"] == int(ref["qd"] or 0) and st["sent24"] == int(ref["s24"] or 0),
 # ---- 1.42 layout: the menu for each role
 side = lambda t: t.split('app-sidebar')[1].split('</aside>')[0]
 a = side(admin.get(B + "/").text); tt = side(tech.get(B + "/").text); v = side(viewer.get(B + "/").text)
-for label, href in [("To do", "/todo"), ("Devices &amp; assets", "/devices"), ("Integrations", "/integrations"), ("People", "/users"), ("Settings", "/settings"), ("Audit log", "/audit")]:
+for label, href in [("To do", "/todo"), ("Devices &amp; assets", "/devices"), ("Integrations", "/integrations"), ("Staff &amp; portal users", "/users"), ("Libraries", "/libraries"), ("Settings", "/settings"), ("Audit log", "/audit")]:
     ok(f'href="{href}"' in a and label in a, f"admin menu: {H.unescape(label)}")
 ok("Unassigned hardware" not in a and 'href="/help"' not in a and 'href="/mapping"' not in a and 'href="/sync"' not in a, "admin menu: queues and tools moved into To do and tabs")
-ok('href="/mapping"' in tt and "Integrations" in tt and 'href="/portal-users"' in tt and "People" in tt and 'href="/settings"' not in tt, "tech menu: Integrations opens Client mapping, People opens portal users")
+ok('href="/mapping"' in tt and "Integrations" in tt and 'href="/portal-users"' in tt and "Staff &amp; portal users" in tt and 'href="/settings"' not in tt, "tech menu: Integrations opens Client mapping, Staff & portal users opens portal users")
 ok('href="/sync"' in v and "People" not in v and 'href="/todo"' not in v, "viewer menu: Integrations opens Sync history, no People or To do")
 ok(viewer.get(B + "/todo", allow_redirects=False).status_code == 403, "viewers can't open To do")
 top = admin.get(B + "/").text
@@ -106,7 +106,7 @@ ok('group-tabs' in t and all(h in t for h in ['href="/integrations"', 'href="/ma
 t = admin.get(B + "/portal-users").text
 ok('group-tabs' in t and 'href="/users"' in t and not errs(t), "People: Staff and Client portal users tabs")
 cm = side(admin.get(B + "/clients/1").text)
-ok([x for x in re.findall(r'<li class="nav-header">([^<]+)</li>', cm)] == ["THEIR IT", "THE PLAN", "MEETINGS"] and 'href="/clients/1/reports"' in cm, "client menu grouped, with Reports")
+ok([x for x in re.findall(r'<li class="nav-header">([^<]+)</li>', cm)] == ["THEIR IT", "THE PLAN", "MEETINGS &amp; REPORTS", "SETUP"] and 'href="/clients/1/reports"' in cm, "client menu grouped, with Reports and (2.16.0) Setup")
 
 # ---- To do
 t = H.unescape(admin.get(B + "/todo").text)

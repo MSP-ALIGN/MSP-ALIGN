@@ -59,7 +59,7 @@ if not fq("select id from clients where name=%s", CLIENT):
     tok = re.search(r'name="_csrf" value="([^"]+)"', staff.get(B_FRESH + "/settings").text).group(1)
     staff.post(B_FRESH + "/demo/load", data={"_csrf": tok})
     if not fq("select id from clients where name=%s", CLIENT):
-        sys.exit("screenshots: the demo data didn't load (Settings → General → Demo data on the fresh install)")
+        sys.exit("screenshots: the demo data didn't load (Settings → Diagnostics → Demo data on the fresh install)")
 C = fq("select id from clients where name=%s", CLIENT)[0]["id"]
 dev = fq("select id from devices where client_id=%s and removed_at is null order by id limit 1", C)
 fw = fq("select framework_id from client_frameworks where client_id=%s limit 1", C)

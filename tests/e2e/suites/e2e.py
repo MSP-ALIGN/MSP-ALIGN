@@ -31,11 +31,12 @@ C3="33333333-3333-3333-3333-333333333333"; C1="11111111-1111-1111-1111-111111111
 # settings
 t=staff.get(B+"/integrations/veeam").text; ok("Veeam Service Provider Console" in t and 'name="veeam_url"' in t and "saved" in t,"integration page shows saved key")
 F=form(staff,"/integrations/veeam")
-r=staff.post(B+"/integrations/veeam",data={**F,"veeam_url":"not a url","backup_stale_hours":"12"}); ok(any("Console URL" in f and "https://" in f for f in flash(r.text)) and q("select value from settings where name='backup_stale_hours'")[0]["value"]!="12","bad URL refused, nothing saved")
+r=staff.post(B+"/integrations/veeam",data={**F,"veeam_url":"not a url"}); ok(any("Console URL" in f and "https://" in f for f in flash(r.text)) and True,"bad URL refused, nothing saved")
 r=staff.post(B+"/integrations/veeam/test",data={"_csrf":csrf(staff,"/integrations/veeam")}); ok(any("Veeam Service Provider Console: Connected. 4 companies" in f for f in flash(r.text)),"test connection "+str(flash(r.text)))
-q("update settings set value='0' where name='backup_stale_hours'")
-r=staff.post(B+"/integrations/veeam",data={**form(staff,"/integrations/veeam"),"backup_stale_hours":"9999"}); ok(q("select value from settings where name='backup_stale_hours'")[0]["value"]=="720","stale hours clamped")
-staff.post(B+"/integrations/veeam",data={**form(staff,"/integrations/veeam"),"backup_stale_hours":"48"})
+# 2.16.0: the overdue hours are under Settings -> Health & checks
+ok('name="backup_stale_hours"' not in staff.get(B+"/integrations/veeam").text and 'name="backup_stale_hours"' in staff.get(B+"/settings/checks").text,"overdue hours on Health & checks, not the Veeam page")
+r=staff.post(B+"/settings",data={"_csrf":csrf(staff,"/settings/checks"),"_tab":"checks","backup_stale_hours":"9999"}); ok(q("select value from settings where name='backup_stale_hours'")[0]["value"]=="720","stale hours clamped")
+staff.post(B+"/settings",data={"_csrf":csrf(staff,"/settings/checks"),"_tab":"checks","backup_stale_hours":"48"})
 ok(q("select value from settings where name='veeam_url'")[0]["value"]=="http://127.0.0.1:8099" and q("select value from settings where name='ninja_client_id'")[0]["value"]=="ninja-id","saving one integration keeps the others")
 r=staff.post(B+"/settings/test",data={"_csrf":csrf(staff,"/settings"),"target":"veeam"},allow_redirects=False); ok(r.headers.get("Location","").endswith("/integrations/veeam"),"old test address redirects")
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * On the client's Backups page (techs): machines and jobs on your own backup server that aren't matched to
+ * On the client's Connectors page (techs; 2.16.0, before on its Backups page): machines and jobs on your own backup server that aren't matched to
  * any client, likeliest first, each with a one-click "This client's".
  * Shown to techs and admins only (the controller decides). Machine and job names come from the backup product and
  * are escaped; each button is a CSRF-protected POST that BackupController::claim() checks again.

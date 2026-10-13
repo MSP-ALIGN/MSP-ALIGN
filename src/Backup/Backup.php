@@ -74,7 +74,7 @@ final class Backup
     }
 
     /**
-     * Unmatched hosted jobs and machines for one client's Backups page, likeliest first.
+     * Unmatched hosted jobs and machines for one client's Connectors page (2.16.0; its Backups page before), likeliest first.
      * A name "looks like" the client when it contains the client's initials (Harbor Point Law Group -> HPLG),
      * a distinctive word from its name (Veterinary -> VET…), or the name of one of its servers with no backup.
      * Lists the unmatched pool from every hosting server, not one client's data: for techs only (the caller checks).

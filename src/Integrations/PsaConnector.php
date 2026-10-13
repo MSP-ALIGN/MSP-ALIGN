@@ -78,8 +78,6 @@ abstract class PsaConnector extends Connector
         if ($this->can('sla')) {
             $f[] = ['name' => 'psa_sla_sync', 'label' => 'Service levels: bring in ticket SLA results', 'type' => 'switch', 'default' => '1',
                 'help' => $this->slaHelp()];
-            $f[] = ['name' => 'sla_target', 'label' => 'SLA goal (share of targets met)', 'type' => 'number', 'min' => 50, 'max' => 100, 'default' => '90', 'suffix' => '%',
-                'help' => 'At or above the goal shows green, up to 10 points below shows amber, lower shows red.'];
         }
         if ($this->can('assets.write')) {
             $f[] = ['name' => 'psa_writeback', 'label' => "Write warranty dates back to $n assets", 'type' => 'select', 'default' => 'off',

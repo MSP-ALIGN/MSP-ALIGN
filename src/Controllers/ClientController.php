@@ -395,9 +395,7 @@ final class ClientController
             'huntress' => \Align\Huntress\Clients::forClient($id, $devices),
             // (2.7.2: and the client's Curricula account, when linked, with its summary reports)
             // (2.14.0: and KnowBe4 when it's switched on or the client has a token)
-            'sat' => \Align\Huntress\Api::configured() || \Align\Sat\Curricula::configured() || \Align\Sat\KnowBe4::enabled() || \Align\Sat\KnowBe4::connected($id) || \Align\Sat\Sat::any($id) ? ['history' => \Align\Sat\Sat::history($id), 'checks' => \Align\Sat\Sat::checks($id),
-                'source' => \Align\Sat\Sat::source($id), 'knowbe4' => $kb4 = \Align\Sat\KnowBe4::forClient($id), 'curricula' => $cur = $kb4 ? null : \Align\Sat\Curricula::account($id),
-                'reports' => $cur ? \Align\Sat\Curricula::reports((string) $cur['account_id']) : []] : null,
+            'sat' => SatController::data($id),
         ]);
     }
 

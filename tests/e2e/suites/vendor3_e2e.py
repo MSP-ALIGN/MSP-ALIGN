@@ -49,10 +49,10 @@ r1 = rd("cedarridgedental.example")
 ok(r1 and r1["status"] == "ok" and r1["registrar"] == "GoDaddy.com, LLC" and str(r1["expires_on"]) in [(date.today() + timedelta(days=d)).isoformat() for d in (39, 40, 41)],  # a day either way near midnight
    "the sync reads a domain's registrar (cleaned) and expiry date: %s" % (r1,))
 ok(not q("select 1 from domain_rdap where registrar like 'Should Not%%'"), "only the registrar's name is read (not the registrant's)")
-vp = tech.get(B + f"/clients/{C1}/vendors").text
+vp = tech.get(B + f"/clients/{C1}/connectors").text  # 2.16.0: the domains are on Connectors
 dom = vp[vp.find('id="domains"'):]
 ok('id="domains-table"' in vp and "cedarridgedental.example" in dom and re.search(r'fa-store[^>]*></i>GoDaddy', dom) and "GoDaddy.com, LLC" in dom and re.search(r"in (39|40|41) days", text(dom)),
-   "the Vendors page shows the domain, matched to the client's vendor GoDaddy, and its expiry")
+   "the Connectors page shows the domain, matched to the client's vendor GoDaddy, and its expiry")
 rp = tech.get(B + "/renewals?days=90").text
 ok(re.search(r"Domain expires:.{0,40}cedarridgedental\.example", text(rp)) and re.search(r'vendor=godaddy">GoDaddy</a>', rp), "Renewals shows the domain's expiry, by vendor too")
 ok(re.search(r'fa-globe[^"]*"></i><b>Domain expires', rp) and "not renewing" not in text(rp[rp.find("cedarridgedental"):][:400]), "...as a domain (whether it renews by itself isn't claimed)")
@@ -68,11 +68,11 @@ f = rd("failing.test")
 ok(f["status"] == "unknown" and f["registrar"] == "Old Registrar" and str(f["expires_on"]) == "2030-01-01" and "couldn't be reached" in f["detail"], "a failing registry keeps the last good answer")
 ok(rd("unregistered.test")["status"] == "missing" and rd("example.org")["status"] == "unknown" and "No public registration service for .org" in rd("example.org")["detail"],
    "an unregistered domain and an ending without RDAP are said so")
-p2 = tech.get(B + f"/clients/{C2}/vendors").text
+p2 = tech.get(B + f"/clients/{C2}/connectors").text
 d2 = text(p2[p2.find('id="domains"'):])
 ok("Not registered" in d2 and "Unknown" in d2 and "Add as vendor" in d2, "the card says which aren't registered or known, and offers registrars as vendors")
 tech.post(B + f"/clients/{C2}/vendors", data={"_csrf": tok(tech, f"/clients/{C2}/vendors"), "name": "Example Registrar", "category": "registrar", "back": f"/clients/{C2}/vendors"})
-p2 = tech.get(B + f"/clients/{C2}/vendors").text
+p2 = tech.get(B + f"/clients/{C2}/connectors").text
 ok(re.search(r'fa-store[^>]*></i>Example Registrar', p2[p2.find('id="domains"'):]), "once added, the registrar is matched to the client's vendor")
 ok(phpv("echo Align\\Domains\\Rdap::shortName('GoDaddy.com, LLC'), '|', Align\\Domains\\Rdap::shortName('Tucows Domains Inc.'), '|', Align\\Domains\\Rdap::shortName('Gandi SAS');") == "GoDaddy.com|Tucows Domains|Gandi SAS",
    "a registrar's company suffix is left off its vendor name")

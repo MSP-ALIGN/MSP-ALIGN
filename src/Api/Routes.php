@@ -153,7 +153,7 @@ final class Routes
 
             // 2.3.0 Alignment reviews
             $r('GET', '/alignment/standards', 'alignment:read', [Alignment::class, 'standards'], 'Alignment', 'List the standards', ['list' => true, 'returns' => 'Standard',
-                'query' => ['include_inactive' => ['bool', 'Also standards switched off (kept for old reviews).']] + $page, 'description' => 'The library alignment reviews measure clients against. Admins edit it in the web app (Settings → Standards).']),
+                'query' => ['include_inactive' => ['bool', 'Also standards switched off (kept for old reviews).']] + $page, 'description' => 'The library alignment reviews measure clients against. Admins edit it in the web app (Libraries → Alignment standards).']),
             $r('GET', '/clients/{id}/alignment', 'alignment:read', [Alignment::class, 'client'], 'Alignment', 'Get a client\'s alignment', ['returns' => 'Alignment',
                 'description' => 'The latest finished review\'s score and band, the change since the review before, the gaps (most important first, each with its roadmap project if one was made and the compliance controls it helps with) and the open draft.']),
             $r('GET', '/clients/{id}/alignment/reviews', 'alignment:read', [Alignment::class, 'reviews'], 'Alignment', 'List a client\'s reviews', ['list' => true, 'returns' => 'AlignmentReview', 'query' => $page]),

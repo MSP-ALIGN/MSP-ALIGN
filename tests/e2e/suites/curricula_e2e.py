@@ -150,8 +150,10 @@ r = tech.get(B + f"/clients/{C2}/sat/report/r1")
 ok("isn't available" in flash(r.text), "another client's report can't be opened through this client's address")
 r = viewer.get(B + f"/clients/{C1}/sat/report/r1", allow_redirects=False)
 ok(r.headers.get("Location") != "https://reports.example/r1.pdf" and f'/sat/report/r1"' not in viewer.get(B + f"/clients/{C1}").text, "viewers can't open reports")
-sat_html = t.split('id="sat"')[1]
+sat_html = st.get(B + f"/clients/{C1}/connectors").text.split('id="sat"')[1]  # 2.16.0: the setup is on Connectors
 ok("/sat/" + str(tr["id"]) + "/delete" not in sat_html and "<details" in sat_html and "/sat/refresh" in sat_html, "no delete for API results, the upload form folded away, a Refresh button")
+ov = t.split('id="sat"')[1].split('id="')[0] if 'id="sat"' in t else ""
+ok("/sat/refresh" not in ov and "/delete" not in ov and f'/clients/{C1}/connectors#sat' in t, "the overview card has the results and a Manage link, no forms")
 r = tech.post(B + f"/clients/{C1}/sat/{tr['id']}/delete", data={"_csrf": tok(tech, f"/clients/{C1}")})
 ok(q("select 1 from sat_results where id=%s", tr["id"]), "API results can't be deleted through the upload's delete")
 t = text(st.get(B + f"/clients/{C1}/report/qbr").text)

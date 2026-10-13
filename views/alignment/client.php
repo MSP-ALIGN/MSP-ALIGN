@@ -34,7 +34,7 @@ $helps = fn(int $sid) => Alignment::helpsText($matches[$sid]['matches'] ?? [], 3
 
 <?php if (!$standards): ?>
   <div class="callout callout-info">There are no standards to review against yet.
-    <?= Auth::can('admin') ? '<a href="/settings/standards">Add them under Settings → Standards</a>' : 'An admin adds them under Settings → Standards' ?>.</div>
+    <?= Auth::can('admin') ? '<a href="/settings/standards">Add them under Libraries → Alignment standards</a>' : 'An admin adds them under Libraries → Alignment standards' ?>.</div>
 <?php elseif (!$rev): ?>
   <div class="card card-body text-center py-5 mb-3">
     <i class="fas fa-bullseye fa-2x text-secondary mb-2"></i>

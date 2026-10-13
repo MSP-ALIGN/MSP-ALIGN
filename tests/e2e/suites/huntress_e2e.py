@@ -56,7 +56,8 @@ ok(r.returncode == 0 and not (r.stdout + r.stderr).strip(), "the migration can r
 # ---- the integration page
 ok(st.get(B + "/integrations").text.count("Huntress") >= 1, "the Integrations page has the Huntress card")
 t = st.get(B + "/integrations/huntress").text
-ok('name="huntress_api_key"' in t and 'name="sat_training_pass"' in t, "the page has the key, secret and SAT thresholds")
+ok('name="huntress_api_key"' in t and 'name="sat_training_pass"' not in t and 'name="sat_training_pass"' in st.get(B + "/settings/checks").text,
+   "the page has the key and secret; the training pass marks are under Settings -> Health & checks (2.16.0)")
 setting("huntress_api_base", M + "/huntress-api")
 r = st.post(B + "/integrations/huntress", data={"_csrf": tok(st, "/integrations/huntress"), "huntress_api_key": "hk", "huntress_api_secret": "hs", "huntress_offline_days": "7",
                                                 "sat_training_pass": "90", "sat_click_max": "10", "sat_campaign_months": "6"})

@@ -36,7 +36,6 @@ $navSections = [
         ['clients', '/clients', 'Clients', 'fa-users', 'viewer'],
         ['contacts', '/contacts', 'Contacts', 'fa-address-book', 'viewer'],
         ['devices', '/devices', 'Devices & assets', 'fa-desktop', 'viewer'],
-        ['vendors', '/vendors', 'Vendors', 'fa-store', 'viewer'], // 2.8.0: the shared vendor templates
         ['closet', '/closet', 'Tech closet', 'fa-boxes-stacked', 'viewer'], // 2.15.0: spare parts and loaners
     ],
     'ONBOARDING' => [
@@ -46,8 +45,7 @@ $navSections = [
     'PLANNING' => [
         ['projects', '/projects', 'Projects', 'fa-diagram-project', 'viewer'],
         ['budget', '/budget', 'Budgets', 'fa-coins', 'viewer'],
-        ['licenses', '/licenses', 'Licensing', 'fa-key', 'viewer'],
-        ['renewals', '/renewals', 'Renewals', 'fa-calendar-check', 'viewer'],
+        ['licenses', '/licenses', 'Licensing & renewals', 'fa-key', 'viewer'], // 2.16.0: Renewals is a tab of Licensing
     ],
     'MEETINGS & REPORTS' => [
         ['meetings', '/meetings', 'Meetings', 'fa-handshake', 'viewer'],
@@ -59,22 +57,24 @@ $navSections = [
     ],
     'ADMIN' => [
         ...(($h = $firstTab('integrations')) ? [['integrations', $h, 'Integrations', 'fa-plug', 'viewer', $isAdmin ? \Align\Integrations\Registry::problems() : 0]] : []),
-        ...(($h = $firstTab('people')) ? [['people', $h, 'People', 'fa-user-shield', 'viewer']] : []),
+        ['libraries', '/libraries', 'Libraries', 'fa-book', 'viewer'], // 2.16.0: every template and library in one place
+        ...(($h = $firstTab('people')) ? [['people', $h, 'Staff & portal users', 'fa-user-shield', 'viewer']] : []),
         ['settings', '/settings', 'Settings', 'fa-gear', 'admin', $isAdmin && \Align\System\Agent::updateAvailable() ? 'new' : 0],
         ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
     ],
 ];
 // Pages that belong to a menu item with tabs (their own nav key picks the tab)
 $navGroup = ['mapping' => 'integrations', 'hosted-backups' => 'integrations', 'sync' => 'integrations', 'users' => 'people', 'portal-users' => 'people', 'unassigned' => 'devices',
-    'contract-templates' => 'contracts', 'welcome' => 'newclients'];
+    'contract-templates' => 'contracts', 'welcome' => 'newclients', 'renewals' => 'licenses', 'vendors' => 'libraries', 'standards' => 'libraries'];
 $tabKey = $nav;
 $nav = $navGroup[$nav] ?? $nav;
 // Client menu in workflow order (1.42: grouped): what they have -> the plan -> meetings.
 $cidM = $client ? (int) $client['id'] : 0;
 $clientMenu = $client ? [
     ['overview', "/clients/$cidM", 'Overview', 'fa-tachometer-alt'],
-    ...(($onb = \Align\DB::one('SELECT completed_at FROM client_onboardings WHERE client_id = ?', [$cidM])) && (!$onb['completed_at'] || strtotime($onb['completed_at']) > strtotime('-30 days')) || $clientNav === 'onboarding'
-        ? [['onboarding', "/clients/$cidM/onboarding", 'Onboarding', 'fa-mountain-sun', 'viewer', $onb && !$onb['completed_at'] ? 'open' : null]] : []),
+    // Viewers (no Setup group) still see an onboarding that's under way, as before 2.16.0
+    ...(!Auth::can('tech') && ($onbV = \Align\DB::one('SELECT completed_at FROM client_onboardings WHERE client_id = ?', [$cidM])) && !$onbV['completed_at']
+        ? [['onboarding', "/clients/$cidM/onboarding", 'Onboarding', 'fa-mountain-sun', 'viewer', 'open']] : []),
     'THEIR IT',
     ['contacts', "/clients/$cidM/contacts", 'Contacts', 'fa-address-book'],
     ['devices', "/clients/$cidM/devices", 'Devices & assets', 'fa-desktop'],
@@ -89,12 +89,16 @@ $clientMenu = $client ? [
     ['alignment', "/clients/$cidM/alignment", 'Alignment', 'fa-bullseye'], // 2.3.0: measured against the MSP's own standards
     ['compliance', "/clients/$cidM/compliance", 'Compliance', 'fa-clipboard-check'],
     ['documents', "/clients/$cidM/documents", 'Documents', 'fa-file-lines'],
-    'MEETINGS',
+    'MEETINGS & REPORTS',
     ['meetings', "/clients/$cidM/meetings", 'Meetings', 'fa-handshake'],
-    ['changes', "/clients/$cidM/changes", 'Since last QBR', 'fa-clock-rotate-left'], // 2.4.0: progress since the last review
+    ['changes', "/clients/$cidM/changes", 'Since last QBR', 'fa-timeline'], // 2.4.0: progress since the last review
     ['reports', "/clients/$cidM/reports", 'Reports', 'fa-print'],
-    ...(Auth::can('tech') ? [['portal', "/clients/$cidM/portal", 'Client portal', 'fa-door-open'],
-        ['connectors', "/clients/$cidM/connectors", 'Connectors', 'fa-plug']] : []), // 2.6.1: the client's connections (staff only)
+    // 2.16.0: setting the client up (techs and admins): its connections, its portal and its onboarding, always here
+    ...(Auth::can('tech') ? ['SETUP',
+        ['connectors', "/clients/$cidM/connectors", 'Connectors', 'fa-plug'],
+        ['portal', "/clients/$cidM/portal", 'Client portal', 'fa-door-open'],
+        ['onboarding', "/clients/$cidM/onboarding", 'Onboarding', 'fa-mountain-sun', 'viewer',
+            ($onb = \Align\DB::one('SELECT completed_at FROM client_onboardings WHERE client_id = ?', [$cidM])) && !$onb['completed_at'] ? 'open' : null]] : []),
 ] : [];
 $item = function (array $i, string $active) {
     [$key, $href, $label, $icon] = $i;
@@ -136,6 +140,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
           <li class="nav-item d-none d-sm-inline-block"><a href="/clients/<?= (int) $client['id'] ?>" class="nav-link fw-semibold"><?= e($client['name']) ?></a></li>
         <?php endif; ?>
       </ul>
+      <a class="nav-link d-md-none px-2" href="/search" aria-label="Search" title="Search"><i class="fas fa-search"></i></a><?php // 2.16.0: search on phones too ?>
       <form class="d-none d-md-flex ms-2 app-search" action="/search" method="get" role="search">
         <div class="input-group input-group-sm navbar-search-wide">
           <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -220,7 +225,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
         <?php if ($u && \Align\Demo\Demo::loaded()): ?>
           <div class="alert alert-light border py-2 mb-3 d-flex flex-wrap align-items-center" role="status"><i class="fas fa-flask text-warning me-2"></i>
             <span class="me-auto"><b>Demo data.</b> The demo clients are made up. Remove them before adding real clients or connecting your PSA, RMM or backups.</span>
-            <?php if (\Align\Auth::can('admin')): ?><a class="btn btn-xs btn-default" href="/settings#demo-data">Demo data settings</a><?php endif; ?></div>
+            <?php if (\Align\Auth::can('admin')): ?><a class="btn btn-xs btn-default" href="/settings/diagnostics#demo-data">Demo data settings</a><?php endif; ?></div>
         <?php endif; ?>
         <?php foreach (take_flashes() as $f): $t = ['success' => 'success', 'error' => 'danger', 'info' => 'info', 'warning' => 'warning'][$f['type']] ?? 'info'; ?>
           <div class="alert alert-<?= $t ?> alert-dismissible fade show">

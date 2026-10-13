@@ -7,7 +7,7 @@ use Align\Compliance\Compliance;
 use Align\DB;
 
 /**
- * 2.3.0 Alignment reviews: a client measured against the MSP's own standards (Settings → Standards). A review is
+ * 2.3.0 Alignment reviews: a client measured against the MSP's own standards (Libraries → Alignment standards). A review is
  * a dated pass over every active standard, each answered Aligned, Misaligned or N/A with a note. A new review starts
  * from the last finished one's answers, so an N/A (no on-site server, say) stays until someone changes it.
  *

@@ -36,8 +36,8 @@ $menuUrl = $v['brand_sidebar'] === 'light' ? $lightUrl : $darkUrl;
             </div>
             <div class="col-md-6">
               <label for="company_name">Company name</label>
-              <input name="company_name" id="company_name" class="form-control" maxlength="190" value="<?= e($v['company_name']) ?>" data-preview="company">
-              <div class="form-text">On reports and in the client portal. Phone, email and the report footer are on <a href="/settings">General</a>.</div>
+              <input id="company_name" class="form-control" value="<?= e($v['company_name']) ?>" data-preview="company" readonly aria-describedby="company_name_help">
+              <div class="form-text" id="company_name_help">On reports and in the client portal. Change it, with the phone, email and address, on <a href="/settings">General</a>.</div>
             </div>
           </div>
           <hr class="my-3">
