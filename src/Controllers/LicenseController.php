@@ -96,10 +96,12 @@ final class LicenseController
         $q = \Align\Paging::q();
         $rows = \Align\Paging::search($rows, $q, ['name', 'vendor', 'version', 'client_name', 'software_type', 'notes', 'align_notes']);
         $limit = \Align\Paging::limit();
+        $shown = array_slice($rows, 0, $limit);
         View::render('licenses/index', [
             'title' => 'Licensing',
             'nav' => 'licenses',
-            'licenses' => array_slice($rows, 0, $limit),
+            'licenses' => $shown,
+            'people' => Assignments::byLicenseIds(array_column($shown, 'id')), // 2.19.1
             'matched' => count($rows),
             'limit' => $limit,
             'q' => $q,

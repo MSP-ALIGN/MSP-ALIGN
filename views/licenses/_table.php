@@ -4,7 +4,7 @@ use Align\Licensing\Licenses;
 
 /**
  * The licenses table. @var array $licenses enriched; $showClient bool; $back string. Names, vendors and notes are escaped.
- * 2.19.0 ?array $people (Assignments::byLicense, one client): who has each license, linking to its People page.
+ * 2.19.0 ?array $people (Assignments::byLicense or byLicenseIds): who has each license, linking to its People page.
  */
 $showClient = $showClient ?? false;
 $people = $people ?? null;
@@ -42,8 +42,8 @@ $cols = $showClient ? 9 : 8;
           <?php if ($l['retired_at']): ?><span class="badge text-bg-secondary">retired<?= $l['retired_reason'] === 'psa' ? ' in ' . psa_name() : ($l['retired_reason'] === 'm365' ? ' in Microsoft 365' : ($l['retired_reason'] === 'gws' ? ' in Google Workspace' : '')) ?></span><?php endif; ?>
           <?php $vn = Licenses::vendorName($l); // 2.8.0: the linked vendor's name, linking to the client's vendors
           if ($vn || $l['version']): ?><div class="small text-muted"><?php if (!empty($l['vendor_link'])): ?><a class="text-muted" href="/clients/<?= (int) $l['client_id'] ?>/vendors" title="Linked vendor"><i class="fas fa-store me-1"></i><?= e($vn) ?></a><?= $l['version'] ? ' · ' . e($l['version']) : '' ?><?php else: ?><?= e(implode(' · ', array_filter([$vn, $l['version']]))) ?><?php endif; ?></div><?php endif; ?>
-          <?php if ($people !== null && !$l['retired_at']): $ps = $people[(int) $l['id']] ?? []; $np = count($ps); // 2.19.0 ?>
-            <div class="small license-people"><a href="/licenses/<?= (int) $l['id'] ?>/people" class="<?= $np ? '' : 'text-muted' ?>"><i class="fas fa-users me-1"></i><?php if ($np): ?><?= e(implode(', ', array_map(fn($p) => $p['person'], array_slice($ps, 0, 3)))) ?><?= $np > 3 ? ' +' . ($np - 3) . ' more' : '' ?><?php else: ?><?= $l['source'] === 'm365' ? 'Nobody holds it in the tenant' : ($canEdit ? 'Assign people' : 'Nobody assigned') ?><?php endif; ?></a>
+          <?php if ($people !== null && !$l['retired_at']): $ps = $people[(int) $l['id']] ?? []; $np = count($ps); // 2.19.0; 2.19.1 a clearer link, on every Licensing page ?>
+            <div class="small license-people mt-1"><a href="/licenses/<?= (int) $l['id'] ?>/people" class="btn btn-sm btn-outline-secondary py-0 px-2 me-1"><i class="fas fa-users me-1"></i><?= $np ? $np . ' ' . ($np === 1 ? 'person' : 'people') : ($l['source'] === 'm365' ? 'People' : ($canEdit ? 'Assign people' : 'People')) ?></a><?php if ($np): ?><span class="text-muted"><?= e(implode(', ', array_map(fn($p) => $p['person'], array_slice($ps, 0, 3)))) ?><?= $np > 3 ? ' +' . ($np - 3) . ' more' : '' ?></span><?php endif; ?>
               <?php if ($np && $l['seats'] !== null && $np > (int) $l['seats'] && $l['source'] !== 'm365'): ?><span class="text-danger fw-semibold">· <?= $np ?> assigned, <?= (int) $l['seats'] ?> bought</span><?php endif; ?></div>
           <?php endif; ?>
           <?php if ($cs = \Align\Budget\Contracts::summary($l)): $u = \Align\Budget\Contracts::urgency($l['renegotiate_date'] ?: $l['contract_end']); ?>

@@ -56,6 +56,12 @@ tech.post(B + f"/licenses/{L}/people", data={"_csrf": tok(tech, f"/licenses/{L}/
 t = st.get(B + f"/clients/{C}/licenses").text
 row = t.split("Zz219 AutoCAD LT")[1][:1500]
 ok("Avery Zed, Blake Zed, Casey Zed" in row and "3 assigned, 2 bought" in row and f'href="/licenses/{L}/people"' in t and not errs(t), "Licensing lists the people and flags more assigned than bought")
+t = st.get(B + "/licenses?q=Zz219").text
+ok("3 people" in t and "Avery Zed, Blake Zed, Casey Zed" in t and f'href="/licenses/{L}/people"' in t and not errs(t), "the all-clients Licensing page shows them too (2.19.1)")
+m = tech.get(B + f"/licenses/{L}/form").text
+ok(f'href="/licenses/{L}/people"' in m and "People (3)" in m, "a license's edit window links to its people")
+t = st.get(B + "/contacts?q=Zed").text
+ok("Zz219 AutoCAD LT" in t.split("Avery Zed")[1][:2500], "the all-clients Contacts page shows each person's licenses")
 
 # ---- removing
 other = q("insert into licenses (client_id, source, name, license_type, category) values (%s, 'manual', 'Zz219 Other', 'user', 'lob')", C)

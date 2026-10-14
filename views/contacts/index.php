@@ -1,7 +1,7 @@
 <?php
 use Align\Contacts\Contacts;
 
-/** @var array $contacts (this page); int $matched; int $total; array $counts; int $limit; string $q; string $role; string $back */
+/** @var array $contacts (this page), $licensesBy (2.19.1); int $matched; int $total; array $counts; int $limit; string $q; string $role; string $back */
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-address-book', 'title' => 'Contacts', 'count' => $matched !== $total ? num($matched) . ' of ' . num($total) : $total,
     'desc' => 'Everyone at every client in planning. Open a contact to change their roles or notes' . (psa_on() ? '; details from ' . e(psa_name()) . ' update with each sync.' : '.'),
@@ -15,6 +15,6 @@ foreach (Contacts::ROLES as $col => [$label]) {
 ?>
 <div class="card">
   <?= \Align\View::fetch('partials/toolbar', ['tabs' => $tabs, 'search' => ['action' => '/contacts', 'value' => $q, 'hidden' => ['role' => $role], 'table' => 'contacts-table', 'placeholder' => 'Search name, email, phone, client']]) ?>
-  <div class="card-body p-0"><?= \Align\View::fetch('contacts/_table', ['contacts' => $contacts, 'showClient' => true, 'back' => $back]) ?></div>
+  <div class="card-body p-0"><?= \Align\View::fetch('contacts/_table', ['contacts' => $contacts, 'showClient' => true, 'back' => $back, 'licensesBy' => $licensesBy ?? []]) ?></div>
   <?= \Align\View::fetch('partials/list_footer', ['shown' => count($contacts), 'total' => $matched, 'moreUrl' => \Align\Paging::moreUrl($limit)]) ?>
 </div>
