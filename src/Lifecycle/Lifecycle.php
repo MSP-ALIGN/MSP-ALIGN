@@ -197,6 +197,23 @@ final class Lifecycle
     }
 
     /**
+     * 2.19.0 A client's current devices with only their name and last user ([['id', 'name', 'last_user']]), picked
+     * the same way as devices() but without evaluating them: for matching people to the devices they sign in to.
+     */
+    public static function lastUsers(int $clientId): array
+    {
+        $or = ['d.client_id = ?'];
+        $params = [$clientId];
+        foreach (array_keys(\Align\Providers\Providers::rmmConnectors()) as $key) {
+            $k = preg_replace('/[^a-z0-9_-]/', '', $key);
+            $or[] = "(d.client_id IS NULL AND d.rmm_provider = '$k' AND d.rmm_org_id = (SELECT external_id FROM client_links WHERE client_id = ? AND provider = '$k'))";
+            $params[] = $clientId;
+        }
+        return DB::all("SELECT d.id, COALESCE(NULLIF(d.display_name, ''), d.system_name) AS name, d.last_user FROM devices d
+            WHERE d.removed_at IS NULL AND d.last_user IS NOT NULL AND d.last_user <> '' AND (" . implode(' OR ', $or) . ') ORDER BY name', $params);
+    }
+
+    /**
      * Loads devices joined with everything lifecycle needs, evaluated (see evaluate()). $clientId null = all
      * clients (and devices of no client); $deviceId one device; removed devices only with $includeRemoved;
      * $unassignedOnly the Unassigned hardware list. Ordered by client and device name.

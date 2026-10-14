@@ -395,7 +395,12 @@ final class PortalController
     {
         $pu = PortalAuth::require('can_budget');
         $ls = Licenses::load((int) $pu['client_id']);
-        self::render('licensing', ['title' => 'Licensing', 'nav' => 'licensing', 'licenses' => $ls, 'totals' => Licenses::totals($ls),
+        // 2.19.0 Who has each license: names only (and whether the account can sign in), never emails or ids
+        $people = [];
+        foreach (\Align\Licensing\Assignments::forClient((int) $pu['client_id']) as $a) {
+            $people[(int) $a['license_id']][] = ['name' => $a['display'], 'blocked' => $a['source'] === 'm365' && $a['account_enabled'] !== null && !(int) $a['account_enabled']];
+        }
+        self::render('licensing', ['title' => 'Licensing', 'nav' => 'licensing', 'licenses' => $ls, 'totals' => Licenses::totals($ls), 'people' => $people,
             'subs' => Submissions::forClient((int) $pu['client_id'], 'license'), 'canSubmit' => Submissions::allowed($pu)], $pu);
     }
 
@@ -549,7 +554,10 @@ final class PortalController
     public static function contacts(): void
     {
         $pu = PortalAuth::require('can_documents');
-        self::render('contacts', ['title' => 'Contacts', 'nav' => 'contacts', 'contacts' => Contacts::load((int) $pu['client_id']),
+        // 2.19.0 Each person's licenses (names only)
+        // (only for people who may see Licensing, can_budget)
+        $lic = $pu['can_budget'] ? array_map(fn($rows) => array_values(array_unique(array_map(fn($a) => (string) $a['license_name'], $rows))), \Align\Licensing\Assignments::byContact((int) $pu['client_id'])) : null;
+        self::render('contacts', ['title' => 'Contacts', 'nav' => 'contacts', 'contacts' => Contacts::load((int) $pu['client_id']), 'licensesBy' => $lic,
             'canRequest' => $pu['can_contacts'] && \Align\Onboarding\Requests::enabled()], $pu);
     }
 

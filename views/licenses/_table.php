@@ -2,8 +2,12 @@
 use Align\Auth;
 use Align\Licensing\Licenses;
 
-/** The licenses table. @var array $licenses enriched; $showClient bool; $back string. Names, vendors and notes are escaped. */
+/**
+ * The licenses table. @var array $licenses enriched; $showClient bool; $back string. Names, vendors and notes are escaped.
+ * 2.19.0 ?array $people (Assignments::byLicense, one client): who has each license, linking to its People page.
+ */
 $showClient = $showClient ?? false;
+$people = $people ?? null;
 $canEdit = Auth::can('tech');
 $groups = [];
 foreach ($licenses as $l) {
@@ -38,13 +42,17 @@ $cols = $showClient ? 9 : 8;
           <?php if ($l['retired_at']): ?><span class="badge text-bg-secondary">retired<?= $l['retired_reason'] === 'psa' ? ' in ' . psa_name() : ($l['retired_reason'] === 'm365' ? ' in Microsoft 365' : ($l['retired_reason'] === 'gws' ? ' in Google Workspace' : '')) ?></span><?php endif; ?>
           <?php $vn = Licenses::vendorName($l); // 2.8.0: the linked vendor's name, linking to the client's vendors
           if ($vn || $l['version']): ?><div class="small text-muted"><?php if (!empty($l['vendor_link'])): ?><a class="text-muted" href="/clients/<?= (int) $l['client_id'] ?>/vendors" title="Linked vendor"><i class="fas fa-store me-1"></i><?= e($vn) ?></a><?= $l['version'] ? ' · ' . e($l['version']) : '' ?><?php else: ?><?= e(implode(' · ', array_filter([$vn, $l['version']]))) ?><?php endif; ?></div><?php endif; ?>
+          <?php if ($people !== null && !$l['retired_at']): $ps = $people[(int) $l['id']] ?? []; $np = count($ps); // 2.19.0 ?>
+            <div class="small license-people"><a href="/licenses/<?= (int) $l['id'] ?>/people" class="<?= $np ? '' : 'text-muted' ?>"><i class="fas fa-users me-1"></i><?php if ($np): ?><?= e(implode(', ', array_map(fn($p) => $p['person'], array_slice($ps, 0, 3)))) ?><?= $np > 3 ? ' +' . ($np - 3) . ' more' : '' ?><?php else: ?><?= $l['source'] === 'm365' ? 'Nobody holds it in the tenant' : ($canEdit ? 'Assign people' : 'Nobody assigned') ?><?php endif; ?></a>
+              <?php if ($np && $l['seats'] !== null && $np > (int) $l['seats'] && $l['source'] !== 'm365'): ?><span class="text-danger fw-semibold">· <?= $np ?> assigned, <?= (int) $l['seats'] ?> bought</span><?php endif; ?></div>
+          <?php endif; ?>
           <?php if ($cs = \Align\Budget\Contracts::summary($l)): $u = \Align\Budget\Contracts::urgency($l['renegotiate_date'] ?: $l['contract_end']); ?>
             <div class="small <?= $u === 'past' ? 'text-danger' : ($u === 'soon' ? 'text-warning fw-bold' : 'text-muted') ?>"><i class="fas fa-file-signature me-1"></i><?= e($cs) ?></div>
           <?php endif; ?>
         </td>
         <?php if ($showClient): ?><td class="small"><a href="/clients/<?= (int) $l['client_id'] ?>/licenses"><?= e($l['client_name']) ?></a></td><?php endif; ?>
         <td class="small"><?= e(Licenses::TYPES[$l['license_type']]) ?></td>
-        <td class="text-end text-nowrap"><?= $l['seats'] !== null ? (int) $l['seats'] : '—' ?><?php if ($l['seats_used'] !== null): ?><div class="small <?= $l['over'] ? 'text-danger fw-bold' : 'text-muted' ?>" title="In use"><?= (int) $l['seats_used'] ?> in use</div><?php endif; ?></td>
+        <td class="text-end text-nowrap"><?= $l['seats'] !== null ? (int) $l['seats'] : '—' ?><?php if ($l['seats_used'] !== null): ?><div class="small <?= $l['over'] ? 'text-danger fw-bold' : 'text-muted' ?>" title="In use"><?= (int) $l['seats_used'] ?> in use</div><?php elseif ($people !== null && !empty($people[(int) $l['id']])): ?><div class="small text-muted" title="People assigned"><?= count($people[(int) $l['id']]) ?> assigned</div><?php endif; ?></td>
         <td class="text-end text-nowrap"><?php if ($l['priced']): ?><?= money_exact((float) $l['unit_price']) ?><div class="small text-muted"><?= $l['pricing'] === 'per_seat' ? 'per seat' : 'flat' ?></div><?php else: ?><span class="badge text-bg-warning">needs price</span><?php endif; ?></td>
         <td class="small"><?= e(Licenses::CYCLES[$l['billing_cycle']][0]) ?></td>
         <td class="text-end text-nowrap"><?= $l['billing_cycle'] === 'one_time' ? '<span class="small text-muted">' . money($l['cycle_cost']) . ' once</span>' : ($l['priced'] ? money_exact($l['monthly']) : '—') ?></td>

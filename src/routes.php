@@ -100,6 +100,8 @@ $r->post('/budget-lines/{id}', [\Align\Controllers\BudgetController::class, 'upd
 $r->get('/clients/{id}/report/budget', [\Align\Controllers\BudgetController::class, 'report']);
 $r->post('/licenses/{id}', [\Align\Controllers\LicenseController::class, 'update']);
 $r->get('/licenses/{id}/form', [\Align\Controllers\FormController::class, 'license']);
+$r->get('/licenses/{id}/people', [\Align\Controllers\LicenseController::class, 'people']); // 2.19.0
+$r->post('/licenses/{id}/people', [\Align\Controllers\LicenseController::class, 'assign']);
 $r->get('/contacts/{id}/form', [\Align\Controllers\FormController::class, 'contact']);
 $r->get('/projects/{id}/form', [\Align\Controllers\FormController::class, 'project']);
 // 2.2.2 Ready to start: a project's QUOTE- ticket, made only when asked for

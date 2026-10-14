@@ -183,6 +183,8 @@ t = ps.get(B + "/portal/devices").text
 bar = t.split('portal-sections')[1].split('</nav>')[0]
 ok(len(re.findall(r'class="nav-link', bar)) <= 6 and "Your technology" in bar and "portal-subtabs" in t and 'href="/portal/licensing"' in t.split("portal-subtabs")[1][:600], "portal: six tabs, Devices and Licensing as sub-tabs")
 ok('data-bs-theme="light"' in t and "/vendor/jquery" not in t, "portal: always light, no jQuery")
+head = t.split('class="table table-sm table-hover mb-0 portal-devices"')[1].split("</thead>")[0] if "portal-devices" in t else ""
+ok(head and len(re.findall(r"<th[ >]", head)) <= 6 and "Last user" not in head, "portal devices: at most six columns (2.18.1), labelled for the phone layout")
 ok(not errs(ps.get(B + "/portal/budget").text) and "stat-tiles" in ps.get(B + "/portal/budget").text, "portal budget: tiles on the shared component")
 q("delete from portal_users where email='tabs@lists.example'")
 done()

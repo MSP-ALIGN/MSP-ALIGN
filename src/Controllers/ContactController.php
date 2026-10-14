@@ -37,6 +37,9 @@ final class ContactController
             'archivedCount' => count(array_filter($all, fn($k) => $k['archived_at'])),
             'showArchived' => $showArchived,
             'back' => "/clients/$id/contacts" . ($showArchived ? '?archived=1' : ''),
+            // 2.19.0: each contact's licenses, and the devices they last signed in to
+            'licensesBy' => \Align\Licensing\Assignments::byContact($id),
+            'devicesBy' => \Align\Licensing\Assignments::devicesByContact($all, \Align\Lifecycle\Lifecycle::lastUsers($id)),
         ]);
     }
 
@@ -144,6 +147,7 @@ final class ContactController
             $note = $itId ? ' Created in ' . psa_name() . ' too.' : " Saved in Align only; " . psa_name() . " refused it ($err).";
         }
         DB::insert('contacts', $row);
+        \Align\Licensing\Assignments::relink($id); // 2.19.0: Microsoft 365 accounts with this email now show as this contact
         Audit::log('contact.create', "{$client['name']}: {$f['name']}" . (isset($row['psa_id']) ? ' (also in ' . psa_name() . ')' : ''));
         flash($note && !str_contains($note, 'refused') || !$note ? 'success' : 'warning', "Added {$f['name']}.$note");
         redirect(self::back($id));
@@ -217,6 +221,7 @@ final class ContactController
         }
         $sets = implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($f)));
         DB::run("UPDATE contacts SET $sets WHERE id = ?", [...array_values($f), $id]);
+        \Align\Licensing\Assignments::relink((int) $k['client_id']); // 2.19.0: a new email may match a Microsoft 365 account
         Audit::log('contact.update', "{$k['client_name']}: {$k['name']}" . ($push ? ' (also in ' . psa_name() . ')' : ''));
         flash('success', 'Contact saved.');
         redirect($back);

@@ -347,9 +347,10 @@ final class Security
     /**
      * Every item of a paged Graph list, up to MAX_PAGES pages; throws beyond that. Security: @odata.nextLink is remote
      * data, so only a link on Graph itself (App::graphBase()) is followed, and the request is rebuilt from graphBase()
-     * plus its path: Microsoft's answer can't send the app's token to another host.
+     * plus its path: Microsoft's answer can't send the app's token to another host. (2.19.0: also used by
+     * Tenants::syncClient for who has which license.)
      */
-    private static function pages(callable $g, string $path): array
+    public static function pages(callable $g, string $path): array
     {
         $out = [];
         for ($i = 0; $i < self::MAX_PAGES; $i++) {

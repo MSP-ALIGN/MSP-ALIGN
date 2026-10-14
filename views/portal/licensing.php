@@ -1,7 +1,7 @@
 <?php
 use Align\Licensing\Licenses;
 
-/** @var array $licenses, $totals, $subs; bool $canSubmit */
+/** @var array $licenses, $totals, $subs; bool $canSubmit; array $people (2.19.0: license id => [['name', 'blocked']]) */
 $groups = [];
 foreach ($licenses as $l) {
     $groups[$l['category']][] = $l;
@@ -29,7 +29,11 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
         <?php foreach ($rows as $l): ?>
           <tr>
             <td><b><?= e($l['name']) ?></b><?php if ($l['vendor']): ?><div class="small text-muted"><?= e($l['vendor']) ?></div><?php endif; ?>
-              <?php if ($cs = \Align\Budget\Contracts::summary($l)): ?><div class="small text-muted"><i class="fas fa-file-signature me-1"></i><?= e($cs) ?></div><?php endif; ?></td>
+              <?php if ($cs = \Align\Budget\Contracts::summary($l)): ?><div class="small text-muted"><i class="fas fa-file-signature me-1"></i><?= e($cs) ?></div><?php endif; ?>
+              <?php if ($ps = $people[(int) $l['id']] ?? []): // 2.19.0 ?>
+                <?php if (count($ps) <= 6): ?><div class="small text-muted"><i class="fas fa-users me-1"></i><?= implode(', ', array_map(fn($p) => e($p['name']) . ($p['blocked'] ? ' (sign-in blocked)' : ''), $ps)) ?></div>
+                <?php else: ?><details class="small text-muted"><summary><i class="fas fa-users me-1"></i><?= count($ps) ?> people</summary><?= implode(', ', array_map(fn($p) => e($p['name']) . ($p['blocked'] ? ' (sign-in blocked)' : ''), $ps)) ?></details><?php endif; ?>
+              <?php endif; ?></td>
             <td class="small"><?= e(Licenses::TYPES[$l['license_type']]) ?></td>
             <td class="text-end text-nowrap"><?= $l['seats'] !== null ? (int) $l['seats'] : '—' ?><?php if ($l['seats_used'] !== null): ?><div class="small text-muted"><?= (int) $l['seats_used'] ?> in use</div><?php endif; ?></td>
             <td class="small"><?= e(Licenses::CYCLES[$l['billing_cycle']][0]) ?></td>

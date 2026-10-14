@@ -5,7 +5,7 @@ use Align\Contacts\Contacts;
  * The client's contacts, view-only (1.39). Changes go through a new user / termination request, or to the IT
  * team directly, so the contact list the IT provider works from stays theirs to keep.
  * Contact details come from the PSA sync: they are escaped, and phone links keep digits and + only.
- * @var array $pu, $contacts, $provider; bool $canRequest
+ * @var array $pu, $contacts, $provider; bool $canRequest; ?array $licensesBy (2.19.0: contact id => license names; null without Licensing access)
  */
 $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
 ?>
@@ -17,7 +17,7 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
 <div class="card">
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-hover mb-0">
-      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Mobile</th><th>Roles</th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Mobile</th><th>Roles</th><?php if ($licensesBy !== null): ?><th>Licenses</th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($contacts as $k): ?>
         <tr>
@@ -27,9 +27,10 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
           <td class="small text-nowrap"><?= $k['phone'] ? '<a href="' . e($tel($k['phone'])) . '">' . e(Contacts::phone($k)) . '</a>' : '' ?></td>
           <td class="small text-nowrap"><?= $k['mobile'] ? '<a href="' . e($tel($k['mobile'])) . '">' . e($k['mobile']) . '</a>' : '' ?></td>
           <td><?php foreach (Contacts::ROLES as $col => [$label, $tone]): if (!empty($k[$col])): ?><span class="badge text-bg-<?= $tone ?> me-1"><?= e($label) ?></span><?php endif; endforeach; ?></td>
+          <?php if ($licensesBy !== null): ?><td class="small"><?= e(implode(', ', $licensesBy[(int) $k['id']] ?? [])) ?: '<span class="text-muted">—</span>' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$contacts): ?><tr><td colspan="5" class="empty-state">No contacts yet.</td></tr><?php endif; ?>
+      <?php if (!$contacts): ?><tr><td colspan="<?= $licensesBy !== null ? 6 : 5 ?>" class="empty-state">No contacts yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

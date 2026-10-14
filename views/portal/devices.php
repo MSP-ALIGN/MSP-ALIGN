@@ -20,25 +20,25 @@
       <a href="?filter=virtual" class="btn <?= $filter === 'virtual' ? 'btn-primary' : 'btn-default' ?>">Virtual</a>
     </div>
   </div>
-  <div class="card-body p-0 table-responsive">
-    <table class="table table-sm table-hover mb-0">
-      <thead><tr><th>Name</th><th>Type</th><th>Last user</th><th>Make / model</th><th>Serial</th><th>Operating system</th><th>Warranty</th><th>Replace by</th><th>Status</th><?php if ($showCosts): ?><th class="text-end">Est. cost</th><?php endif; ?></tr></thead>
+  <div class="card-body p-0">
+    <?php /* 2.18.1: fewer, stacked columns so the whole row fits without scrolling sideways; on phones each device is a card */ ?>
+    <table class="table table-sm table-hover mb-0 portal-devices">
+      <thead><tr><th>Device</th><th>Make / model</th><th>Operating system</th><th>Warranty and replacement</th><th>Status</th><?php if ($showCosts): ?><th class="text-end">Est. cost</th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($devices as $d): ?>
         <tr>
-          <td class="text-nowrap"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary me-1"></i><b><?= e($d['name']) ?></b><?= $d['is_virtual'] ? ' <span class="badge text-bg-light border">virtual</span>' : '' ?></td>
-          <td class="small"><?= e($d['type']) ?></td>
-          <td class="small text-nowrap"><?= $d['last_user'] ? '<span title="' . e($d['last_user']) . '">' . e(short_user($d['last_user'])) . '</span>' : '<span class="text-muted">—</span>' ?></td>
-          <td class="small"><?= e(trim(short_make($d['manufacturer']) . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?></td>
-          <td class="small"><?= e($d['serial'] ?? '') ?></td>
-          <td class="small" title="<?= e((string) ($d['os_name'] ?: $d['firmware'])) ?>"><?= e($d['os_name'] ? os_label($d['os_name'], $d['os_build'], $d['os_rule']) : (string) $d['firmware']) ?><?php if ($d['os_rule']): ?><div class="text-muted">support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
-          <td class="small text-nowrap"><?= e(fmt_date($d['warranty_end'])) ?: '<span class="text-muted">—</span>' ?></td>
-          <td class="small text-nowrap"><?= $d['is_hardware'] ? e(fmt_date($d['eol_date'])) : '<span class="text-muted">—</span>' ?><?= !empty($d['replace_planned']) ? '<div class="text-muted">Replace ' . e($d['replace_label']) . '</div>' : '' ?></td>
-          <td><?php require __DIR__ . '/../partials/status.php'; ?></td>
-          <?php if ($showCosts): ?><td class="text-end"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td><?php endif; ?>
+          <td data-label="Device"><div class="fw-semibold text-break"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary me-1"></i><?= e($d['name']) ?><?= $d['is_virtual'] ? ' <span class="badge text-bg-light border">virtual</span>' : '' ?></div>
+            <div class="small text-muted"><?= e($d['type']) ?><?php if ($d['last_user']): ?> · <span title="<?= e($d['last_user']) ?>"><?= e(short_user($d['last_user'])) ?></span><?php endif; ?></div></td>
+          <td class="small" data-label="Make / model"><?= e(trim(short_make($d['manufacturer']) . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?>
+            <?php if (!empty($d['serial'])): ?><div class="text-muted text-break">Serial <?= e($d['serial']) ?></div><?php endif; ?></td>
+          <td class="small" data-label="Operating system" title="<?= e((string) ($d['os_name'] ?: $d['firmware'])) ?>"><?= e($d['os_name'] ? os_label($d['os_name'], $d['os_build'], $d['os_rule']) : (string) $d['firmware']) ?: '<span class="text-muted">—</span>' ?><?php if ($d['os_rule']): ?><div class="text-muted">Support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>
+          <td class="small" data-label="Warranty and replacement"><div>Warranty <?= e(fmt_date($d['warranty_end'])) ?: '<span class="text-muted">unknown</span>' ?></div>
+            <?php if ($d['is_hardware']): ?><div class="text-muted">Replace by <?= e(fmt_date($d['eol_date'])) ?></div><?php endif; ?><?= !empty($d['replace_planned']) ? '<div class="text-muted">Replace ' . e($d['replace_label']) . '</div>' : '' ?></td>
+          <td data-label="Status"><?php require __DIR__ . '/../partials/status.php'; ?></td>
+          <?php if ($showCosts): ?><td class="text-end" data-label="Est. cost"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$devices): ?><tr><td colspan="10" class="empty-state">No devices match.</td></tr><?php endif; ?>
+      <?php if (!$devices): ?><tr><td colspan="6" class="empty-state">No devices match.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>
