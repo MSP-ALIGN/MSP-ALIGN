@@ -1,6 +1,6 @@
 <?php
 /**
- * Licensing across clients. @var array $licenses, $totals, $byClient, $clients; int $matched, $limit, $clientId; string $q, $filter, $category, $back
+ * Licensing across clients. @var array $licenses, $totals, $byClient, $clients, $people (2.19.1: Assignments::byLicenseIds); int $matched, $limit, $clientId; string $q, $filter, $category, $back
  * Query values only go into escaped, URL-encoded links; names are escaped.
  */
 use Align\Licensing\Licenses;
@@ -35,7 +35,7 @@ $cats = array_map(fn($c) => $c[0], Licenses::CATEGORIES);
           'search' => ['action' => '/licenses', 'value' => $q, 'hidden' => ['filter' => $filter, 'client' => $clientId ?: '', 'category' => $category], 'table' => 'licenses-table', 'placeholder' => 'Search product, vendor, client'],
           'menus' => [toolbar_menu('Client', $clients, $clientId ?: '', fn($v) => $qs(['client' => $v]), 'All clients'), toolbar_menu('Category', $cats, $category, fn($v) => $qs(['category' => $v]), 'All categories')]]) ?>
       <div class="card-body p-0">
-        <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'showClient' => true, 'back' => $back]) ?>
+        <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'showClient' => true, 'back' => $back, 'people' => $people ?? []]) ?>
       </div>
       <?= \Align\View::fetch('partials/list_footer', ['shown' => count($licenses), 'total' => $matched, 'moreUrl' => \Align\Paging::moreUrl($limit)]) ?>
     </div>

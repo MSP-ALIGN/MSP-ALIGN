@@ -58,10 +58,12 @@ final class ContactController
         \Align\Audit::access('contacts', 'all clients' . ($q !== '' ? ' (search "' . mb_substr($q, 0, 60) . '")' : ''));
         $rows = \Align\Paging::search($rows, $q, ['name', 'title', 'department', 'email', 'phone', 'mobile', 'client_name', 'location']);
         $limit = \Align\Paging::limit();
+        $shown = array_slice($rows, 0, $limit);
         View::render('contacts/index', [
             'title' => 'Contacts',
             'nav' => 'contacts',
-            'contacts' => array_slice($rows, 0, $limit),
+            'contacts' => $shown,
+            'licensesBy' => \Align\Licensing\Assignments::byContactIds(array_column($shown, 'id')), // 2.19.1 (devices only on a client's page)
             'matched' => count($rows),
             'total' => count($all),
             'counts' => $counts,

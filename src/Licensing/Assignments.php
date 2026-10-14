@@ -40,6 +40,43 @@ final class Assignments
         return $rows;
     }
 
+    /**
+     * 2.19.1 The assignments of the given licenses across clients (the all-clients Licensing page): [license_id =>
+     * rows with 'person'], by person.
+     */
+    public static function byLicenseIds(array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (!$ids) {
+            return [];
+        }
+        $out = [];
+        foreach (DB::all('SELECT a.license_id, a.source, a.account_enabled, a.name, a.email, k.name AS contact_name FROM license_assignments a LEFT JOIN contacts k ON k.id = a.contact_id
+                WHERE a.license_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY COALESCE(k.name, a.name, a.email)', $ids) as $r) {
+            $r['person'] = (string) ($r['contact_name'] ?? ($r['name'] ?: $r['email']) ?? '');
+            $out[(int) $r['license_id']][] = $r;
+        }
+        return $out;
+    }
+
+    /**
+     * 2.19.1 The active licenses of the given contacts across clients (the all-clients Contacts page): [contact_id =>
+     * rows with license_id, license_name, source].
+     */
+    public static function byContactIds(array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (!$ids) {
+            return [];
+        }
+        $out = [];
+        foreach (DB::all('SELECT a.contact_id, a.license_id, a.source, l.name AS license_name FROM license_assignments a JOIN licenses l ON l.id = a.license_id
+                WHERE l.retired_at IS NULL AND a.contact_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY l.name', $ids) as $r) {
+            $out[(int) $r['contact_id']][] = $r;
+        }
+        return $out;
+    }
+
     /** forClient() grouped: [license_id => rows]. */
     public static function byLicense(int $clientId): array
     {

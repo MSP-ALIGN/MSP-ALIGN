@@ -8,6 +8,7 @@ use Align\Licensing\Licenses;
  * client's tenant); price, billing, dates and notes stay editable, and "use the price list's price again" appears
  * once it has its own price. It can be retired but not deleted (it would come back on the next sync).
  * 2.6.3: a Google Workspace license (source gws) is handled the same way (seats are the users assigned the edition).
+ * 2.19.1: an edited license links to its People page (who has it).
  * Every value is escaped (a suggestion's text comes from a portal user); $back is checked again by the controller.
  */
 $l = $l ?? null;
@@ -37,6 +38,10 @@ $mtag = $fromM365 ? ' <span class="badge text-bg-light border fw-normal" title="
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
+          <?php if ($edit && !$l['retired_at']): // 2.19.1: who has it is on its own page ?>
+            <div class="d-flex align-items-center border rounded p-2 mb-3 small"><i class="fas fa-users text-secondary me-2"></i><span class="me-auto"><?= $l['source'] === 'm365' ? 'Who has this license comes from Microsoft 365.' : 'Assign this license to the client\'s contacts.' ?></span>
+              <a class="btn btn-sm btn-outline-primary" href="/licenses/<?= (int) $l['id'] ?>/people">People<?php $np = (int) \Align\DB::value('SELECT COUNT(*) FROM license_assignments WHERE license_id = ?', [(int) $l['id']]); echo $np ? " ($np)" : ''; ?></a></div>
+          <?php endif; ?>
           <?php if ($fromPsa): ?>
             <div class="alert alert-light border small py-2"><i class="fas fa-circle-info me-1"></i>This license comes from <?= e(psa_name()) ?>. Its name, type, seats, vendor and dates are updated from <?= e(psa_name()) ?> every few minutes, so change those in <?= e(psa_name()) ?>. Price, billing, category and seats in use are kept in Align.</div>
           <?php endif; ?>
