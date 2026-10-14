@@ -180,6 +180,7 @@ $r->get('/ics/{token:str}', [MeetingController::class, 'feed']);
 // Documents
 $r->get('/documents', [DocumentController::class, 'index']);
 $r->post('/documents', [DocumentController::class, 'create']);
+$r->post('/documents/upload', [DocumentController::class, 'upload']); // 2.20.0 uploaded files
 $r->get('/documents/templates', [DocumentController::class, 'templates']);
 $r->post('/documents/templates', [DocumentController::class, 'templateCreate']);
 $r->get('/documents/templates/{id}', [DocumentController::class, 'templateShow']);
@@ -189,6 +190,10 @@ $r->post('/documents/{id}/save', [DocumentController::class, 'save']);
 $r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
 $r->get('/documents/{id}/content', [DocumentController::class, 'content']);
 $r->get('/documents/{id}/print', [DocumentController::class, 'print']);
+$r->get('/documents/{id}/file', [DocumentController::class, 'file']); // 2.20.0
+$r->post('/documents/{id}/file', [DocumentController::class, 'replace']);
+$r->post('/documents/{id}/details', [DocumentController::class, 'details']);
+$r->post('/documents/{id}/import', [DocumentController::class, 'import']);
 $r->post('/documents/{id}/portal', [DocumentController::class, 'portalShare']);
 $r->post('/documents/{id}/delete', [DocumentController::class, 'delete']);
 $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
@@ -478,6 +483,7 @@ $r->get('/portal/compliance', [PortalController::class, 'compliance']);
 $r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);
 $r->get('/portal/documents', [PortalController::class, 'documents']);
 $r->get('/portal/documents/{id}', [PortalController::class, 'document']);
+$r->get('/portal/documents/{id}/file', [PortalController::class, 'documentFile']); // 2.20.0
 $r->get('/portal/contacts', [PortalController::class, 'contacts']);
 $r->get('/portal/requests', [PortalController::class, 'requests']);
 $r->post('/portal/requests/{kind:str}', [PortalController::class, 'requestSubmit']);

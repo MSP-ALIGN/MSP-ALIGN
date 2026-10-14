@@ -74,6 +74,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.20.0', 'fa-upload', 'Upload files to Documents', 'Documents can now be uploaded files as well as written pages: PDF, Word, Excel, CSV and pictures, up to 25 MB. PDFs and pictures show in the page, the rest download, and they share the same status, review dates, portal sharing, compliance evidence and history. A Word file can be imported into an editable document.', 'document-upload', 'tech'],
         ['2.19.1', 'fa-users', 'Easier to find who has a license', 'Each license now has a People button (with how many people have it) on the client\'s Licensing page and on Licensing & renewals for all clients, and its edit window links to it. The all-clients Contacts page lists each person\'s licenses too.', 'license-people', 'tech'],
         ['2.19.0', 'fa-users', 'Who has which license', 'Microsoft 365 licenses now show which people hold them (read hourly from the client\'s tenant and matched to contacts by email, with sign-in-blocked accounts flagged), and any other license (Adobe, AutoCAD…) can be assigned to contacts by hand. Contacts show their licenses and the devices they last signed in to, and the client portal shows who has each license.', 'license-people', 'tech'],
         ['2.18.1', 'fa-desktop', 'Portal devices fit the page', 'In the client portal, Your technology → Devices shows every device without scrolling sideways: type and last user sit under the name, the serial under the make and model, and warranty and replacement dates share a column. On a phone each device is a small card.', 'portal', 'tech'],
@@ -395,6 +396,12 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Templates are starting points, not legal advice: fill in the [bracketed] items and have policies that carry legal obligations (privacy notices, breach procedures, BAAs) reviewed by the client\'s counsel.',
       'Edit in place; it saves as you type. Set it to <b>Active</b> when it\'s final and set a review date.',
       'Active policies are shared to the client portal by default. Print → Save as PDF for a signed copy.',
+  ], ['Documents' => '/documents']) ?>
+  <?= $guide('document-upload', 'fa-upload', 'Upload a PDF, Word, Excel or picture file', 'tech', [ // 2.20.0
+      'On the client\'s <b>Documents</b> page (or <b>Documents</b> in the main menu for internal ones) press <b>Upload a file</b>: a PDF, Word (.docx, .doc), Excel (.xlsx, .xls), CSV, PNG or JPEG file up to 25 MB. Give it a title and category, and tick <b>Show it in the client\'s portal</b> if the client should see it.',
+      'PDFs and pictures show in the page; Word, Excel and CSV files download. Uploaded files have the same status, review date and portal sharing as written documents, and can be linked as compliance evidence.',
+      '<b>Replace file</b> uploads a new copy (say, the signed one); every earlier file stays in the history, where it can be downloaded or restored.',
+      'For a Word (.docx) file, <b>Import into an editable document</b> makes a new written document from its text: headings, bold and italic, lists and links come across; tables become one line per row, and pictures, headers and footers are left out. The Word file stays as it was. Save an older .doc file as .docx in Word first.',
   ], ['Documents' => '/documents']) ?>
 
   <h6 class="text-uppercase text-muted small fw-bold mt-4">Meetings &amp; reports</h6>

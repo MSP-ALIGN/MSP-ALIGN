@@ -188,6 +188,7 @@ final class Demo
         $cIn = implode(',', array_fill(0, count($companies), '?'));
         $jIn = implode(',', array_fill(0, count($jobs), '?'));
         $logos = DB::all("SELECT logo_file FROM clients WHERE id IN ($in) AND logo_file IS NOT NULL");
+        $files = \Align\Docs\Files::ofClients(array_column(DB::all("SELECT id FROM clients WHERE id IN ($in) AND is_demo = 1"), 'id')); // 2.20.0
         $removed = DB::transaction(function () use ($in, $companies, $jobs, $cIn, $jIn) {
             DB::run("UPDATE mail_queue SET status = 'cancelled', last_error = 'Demo data removed' WHERE client_id IN ($in) AND status = 'queued'");
             DB::run("DELETE w FROM warranty_lookups w JOIN devices d ON d.serial = w.serial WHERE d.client_id IN ($in) AND d.serial LIKE 'DEMO%'");
@@ -219,6 +220,7 @@ final class Demo
         foreach ($logos as $l) {
             \Align\Images::delete('clients', $l['logo_file']);
         }
+        \Align\Docs\Files::forget($files);
         Audit::log('demo.remove', "$removed demo clients");
         return $removed;
     }

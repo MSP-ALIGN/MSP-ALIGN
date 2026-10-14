@@ -597,6 +597,15 @@ Header always unset X-Powered-By
     </IfModule>
 </LocationMatch>
 
+# Documents: an uploaded file (PDF, Word, Excel, CSV, picture) can be up to 25 MB (2.20.0)
+<LocationMatch "^/documents/(upload|[0-9]+/file)$">
+    LimitRequestBody 31457280
+    <IfModule php_module>
+        php_value upload_max_filesize 26M
+        php_value post_max_size 28M
+    </IfModule>
+</LocationMatch>
+
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
 <Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"

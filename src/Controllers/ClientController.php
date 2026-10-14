@@ -288,6 +288,7 @@ final class ClientController
             flash('error', 'Type the client name exactly to confirm deletion.');
             redirect("/clients/$id");
         }
+        $files = \Align\Docs\Files::ofClients([$id]); // 2.20.0: its uploaded documents' files, removed after the rows
         DB::transaction(function () use ($id, $client) {
             DB::run('DELETE FROM meetings WHERE client_id = ?', [$id]);
             DB::run('DELETE FROM devices WHERE client_id = ?', [$id]);
@@ -306,6 +307,7 @@ final class ClientController
         });
         // The logo goes once the client is gone (2.2.1: before, a failed delete left the client without its logo file)
         \Align\Images::delete('clients', $client['logo_file'] ?? null);
+        \Align\Docs\Files::forget($files);
         Audit::log('client.delete', $client['name']);
         flash('success', "Deleted {$client['name']}.");
         redirect('/clients');

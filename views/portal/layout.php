@@ -58,6 +58,7 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
 <link rel="stylesheet" href="/assets/app.css?v=<?= $v ?>">
 <script src="/vendor/bootstrap/bootstrap.bundle.min.js?v=<?= $v ?>" defer></script>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
+<?php if (!empty($pdfJs)): // 2.20.0 a shared PDF document, painted by PDF.js ?><script src="/assets/pdfview.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
 <body class="portal" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
