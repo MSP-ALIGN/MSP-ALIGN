@@ -83,10 +83,18 @@ final class CsvImport
         'notes' => ['Notes', ['notes', 'note', 'comments', 'description']],
     ];
 
+    /** 2.21.0 Asset tags: each row gives a device (by serial number or name) its client's own asset tag. */
+    public const TAG_COLUMNS = [
+        'client' => ['Client', ['client', 'client name', 'company', 'company name', 'organization', 'organisation', 'customer']],
+        'serial' => ['Serial', ['serial', 'serial number', 'serial no', 's n', 'sn', 'service tag', 'serialnumber']],
+        'device' => ['Device', ['device', 'device name', 'name', 'computer', 'computer name', 'hostname', 'host name', 'asset name']],
+        'tag' => ['Asset tag', ['asset tag', 'tag', 'asset', 'asset number', 'asset no', 'asset #', 'asset id', 'inventory number', 'inventory tag', 'property tag', 'tag number']],
+    ];
+
     /** The columns a kind of file understands. */
     public static function columns(string $kind): array
     {
-        return match ($kind) { 'contacts' => self::CONTACT_COLUMNS, 'vendors' => self::VENDOR_COLUMNS, default => self::CLIENT_COLUMNS };
+        return match ($kind) { 'contacts' => self::CONTACT_COLUMNS, 'vendors' => self::VENDOR_COLUMNS, 'asset_tags' => self::TAG_COLUMNS, default => self::CLIENT_COLUMNS };
     }
 
     /** Fields a client from the PSA still takes from a file (the PSA owns the rest). */
@@ -101,6 +109,11 @@ final class CsvImport
         'contacts' => [
             ['Client', 'Name', 'Title', 'Email', 'Phone', 'Mobile', 'Primary', 'Billing', 'Technical', 'Decision maker', 'Notes'],
             ['Example Dental Group', 'Pat Lee', 'Office Manager', 'pat@dental.example', '555-0100', '555-0101', 'yes', 'yes', '', 'yes', ''],
+        ],
+        'asset_tags' => [
+            ['Client', 'Serial', 'Device', 'Asset tag'],
+            ['Example Dental Group', 'SN-EXAMPLE-01', 'FRONT-DESK-1', 'EDG-0001'],
+            ['Example Dental Group', '', 'EXAM-ROOM-2', 'EDG-0002'],
         ],
         'vendors' => [
             ['Client', 'Vendor', 'Template', 'Category', 'Account number', 'Contact', 'Support phone', 'Support email', 'Website', 'Services', 'Notes'],
@@ -361,6 +374,120 @@ final class CsvImport
     }
 
     /**
+     * 2.21.0 The plan for an asset tags file: each row finds one of a client's devices by serial number (first,
+     * compared as stored serials are: no spaces, upper case) or by name (not case-sensitive), and sets its asset
+     * tag; a serial shared by several devices is narrowed by the row's name. The client is $clientId (chosen on the form) or, without
+     * one, the row's Client column. A row whose device can't be found, or matches more than one device, can't be
+     * imported, nor can one giving a device a second, different tag, or (with a client picked) naming another
+     * client; one that already has that tag is skipped; a tag already on another of the client's devices (or earlier
+     * in the file) is imported with a note, since tags aren't unique. Nothing is written.
+     */
+    public static function planAssetTags(array $rows, array $map, ?int $clientId): array
+    {
+        if (!isset($map['tag'])) {
+            throw new \RuntimeException('No column for the asset tag. Name one column "Asset tag" (or Tag).');
+        }
+        if (!isset($map['serial']) && !isset($map['device'])) {
+            throw new \RuntimeException('No column to find the device by. Name one column "Serial" or "Device".');
+        }
+        if (!$clientId && !isset($map['client'])) {
+            throw new \RuntimeException('Pick the client on the form, or add a "Client" column.');
+        }
+        $clients = [];
+        foreach (DB::all('SELECT id, name FROM clients WHERE is_archived = 0') as $c) {
+            $clients[mb_strtolower(trim($c['name']))] = $c;
+        }
+        $fixed = $clientId ? DB::one('SELECT id, name FROM clients WHERE id = ? AND is_archived = 0', [$clientId]) : null;
+        if ($clientId && !$fixed) {
+            throw new \RuntimeException('That client is archived or gone.');
+        }
+        $index = []; // client id => ['serial' => [key => devices], 'name' => [key => devices], 'tag' => [key => names]]
+        $lc = new \Align\Lifecycle\Lifecycle();
+        $load = function (int $cid) use (&$index, $lc) {
+            if (isset($index[$cid])) {
+                return $index[$cid];
+            }
+            $ix = ['serial' => [], 'name' => [], 'tag' => []];
+            foreach ($lc->devices($cid) as $d) {
+                $row = ['id' => (int) $d['id'], 'name' => (string) $d['name'], 'tag' => $d['asset_tag'] ?? null];
+                if (($s = (string) normalize_serial((string) $d['serial'])) !== '') { // the same rule as stored serials
+                    $ix['serial'][$s][] = $row;
+                }
+                foreach (array_unique(array_filter([mb_strtolower(trim((string) $d['display_name'])), mb_strtolower(trim((string) $d['system_name']))])) as $n) {
+                    $ix['name'][$n][] = $row;
+                }
+                if (!empty($d['asset_tag'])) {
+                    $ix['tag'][mb_strtolower($d['asset_tag'])][(int) $d['id']] = (string) $d['name'];
+                }
+            }
+            return $index[$cid] = $ix;
+        };
+        $plan = [];
+        $inFile = []; // client|tag => row
+        $seenDevice = [];
+        foreach ($rows as $i => $r) {
+            $tag = \Align\Controllers\DeviceController::tag(self::cell($r, $map, 'tag', 64));
+            $serial = self::cell($r, $map, 'serial');
+            $device = self::cell($r, $map, 'device', 255);
+            $c = $fixed ?: ($clients[mb_strtolower(self::cell($r, $map, 'client', 255) ?? '')] ?? null);
+            $e = ['row' => $i + 2, 'name' => $device ?? $serial ?? '', 'client' => $c['name'] ?? (self::cell($r, $map, 'client', 255) ?? ''), 'action' => 'error', 'values' => [], 'note' => ''];
+            if (!$c) {
+                $plan[] = ['note' => $e['client'] === '' ? 'No client' : 'No client named "' . $e['client'] . '"'] + $e;
+                continue;
+            }
+            if ($tag === null) {
+                $plan[] = ['action' => 'skip', 'note' => 'No asset tag'] + $e;
+                continue;
+            }
+            $named = $fixed ? self::cell($r, $map, 'client', 255) : null;
+            if ($named !== null && mb_strtolower($named) !== mb_strtolower((string) $fixed['name'])) {
+                $plan[] = ['note' => "The row names another client ($named) than the one picked"] + $e;
+                continue;
+            }
+            $ix = $load((int) $c['id']);
+            $bySerial = $serial !== null ? array_values(array_column($ix['serial'][(string) normalize_serial($serial)] ?? [], null, 'id')) : [];
+            $byName = $device !== null ? array_values(array_column($ix['name'][mb_strtolower($device)] ?? [], null, 'id')) : [];
+            if (count($bySerial) > 1 && $byName) { // a shared serial (a copy of one machine, cloned VMs): the name decides
+                $bySerial = array_values(array_filter($bySerial, fn($x) => in_array($x['id'], array_column($byName, 'id'), true)));
+            }
+            [$found, $by] = $bySerial ? [$bySerial, 'serial ' . $serial] : [$byName, 'name ' . $device];
+            if (!$found) {
+                $plan[] = ['note' => 'No device of ' . $c['name'] . ' with ' . ($serial !== null ? 'serial ' . $serial . ($device !== null ? ' or name ' . $device : '') : 'name ' . $device)] + $e;
+                continue;
+            }
+            if (count($found) > 1) {
+                $plan[] = ['note' => count($found) . ' devices have the ' . $by . ($by[0] === 's' ? ': add their names in a Device column to tell them apart' : ': add a Serial column to tell them apart')] + $e;
+                continue;
+            }
+            $d = $found[0];
+            $e = ['name' => $d['name'], 'id' => $d['id'], 'client_id' => (int) $c['id'], 'values' => ['asset_tag' => $tag]] + $e;
+            if (isset($seenDevice[$d['id']])) {
+                [$was, $wasTag] = $seenDevice[$d['id']];
+                $plan[] = mb_strtolower($wasTag) === mb_strtolower($tag) ? ['action' => 'skip', 'note' => 'Same device as row ' . $was] + $e
+                    : ['action' => 'error', 'note' => "Row $was gives this device another tag ($wasTag)"] + $e;
+                continue;
+            }
+            $seenDevice[$d['id']] = [$i + 2, $tag];
+            if ($d['tag'] !== null && mb_strtolower($d['tag']) === mb_strtolower($tag)) {
+                $plan[] = ['action' => 'skip', 'note' => 'Already has this tag'] + $e;
+                continue;
+            }
+            $notes = $d['tag'] !== null ? ['replaces ' . $d['tag']] : [];
+            $others = array_diff_key($ix['tag'][mb_strtolower($tag)] ?? [], [$d['id'] => 1]);
+            if ($others) {
+                $notes[] = 'also on ' . implode(', ', $others);
+            }
+            $k = $c['id'] . '|' . mb_strtolower($tag);
+            if (isset($inFile[$k])) {
+                $notes[] = 'same tag as row ' . $inFile[$k];
+            }
+            $inFile[$k] ??= $i + 2;
+            $plan[] = ['action' => 'update', 'note' => implode('; ', $notes)] + $e;
+        }
+        return $plan;
+    }
+
+    /**
      * 2.9.0 The plan for a vendors file (see planClients): each row adds a vendor to its client, or updates the one
      * the client already has by that name (not case-sensitive). A Template column naming a template uses it (an
      * unknown one is noted and left out); a vendor named like a template is made from it, as on the Vendors page.
@@ -497,7 +624,8 @@ final class CsvImport
      * go into the audit entry, so a changed contact can be found and put back; 2.2.1). Rows are checked again, in case things
      * changed since the file was checked: a client added meanwhile isn't added twice, a client linked to the PSA
      * meanwhile only takes industry and notes, and (2.2.1) a contact whose client was deleted meanwhile is skipped
-     * instead of failing the whole import. $plan comes from planClients/planContacts via the server-side stash.
+     * instead of failing the whole import; (2.21.0) an asset tag is set only on a device that still exists. $plan
+     * comes from the plan* functions via the server-side stash.
      */
     public static function apply(string $kind, array $plan, ?int $userId): array
     {
@@ -510,6 +638,19 @@ final class CsvImport
             $vendorNames = []; // client id => Vendors::nameIndex()
             foreach ($plan as $p) {
                 $v = $p['values'];
+                if ($kind === 'asset_tags') { // 2.21.0: the device must still exist and be the client's
+                    $J = \Align\Closet\Closet::DEVICE_JOIN;
+                    $ok = $p['action'] === 'update' && isset($clientIds[(int) ($p['client_id'] ?? 0)])
+                        && (int) DB::value('SELECT ' . \Align\Closet\Closet::DEVICE_OWNER . " FROM devices d $J WHERE d.id = ? AND d.removed_at IS NULL", [(int) $p['id']]) === (int) $p['client_id'];
+                    if ($ok) {
+                        DB::run('INSERT INTO device_overrides (device_id, asset_tag, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE asset_tag = VALUES(asset_tag), updated_by = VALUES(updated_by)',
+                            [(int) $p['id'], \Align\Controllers\DeviceController::tag((string) $v['asset_tag']), $userId]);
+                        DB::run('UPDATE devices SET updated_at = NOW() WHERE id = ?', [(int) $p['id']]); // the API's ?since sees it
+                        $updated++;
+                        $names[] = $label($p) . ' → ' . $v['asset_tag'];
+                    }
+                    continue;
+                }
                 if ($kind === 'vendors') { // 2.9.0
                     if (!in_array($p['action'], ['add', 'update'], true) || !isset($clientIds[(int) ($p['client_id'] ?? 0)])) {
                         continue; // nothing to do, or the client was deleted since the file was checked

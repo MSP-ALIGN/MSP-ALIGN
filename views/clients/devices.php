@@ -14,7 +14,8 @@ echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-desktop', 'title' => 'Devices & assets', 'count' => $matched !== $total ? num($matched) . ' of ' . num($total) : $total,
     'desc' => 'Computers, servers and network gear, with when each was put in service, its end of life and what needs attention.',
     'primary' => Auth::can('tech') ? '<button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-device" data-autoopen="add"><i class="fas fa-plus me-1"></i>Add device</button>' : '',
-    'secondary' => ['<a class="btn btn-sm btn-default" href="/clients/' . $cid . '/report/assets" target="_blank"><i class="fas fa-print me-1"></i>Asset report</a>'],
+    'secondary' => ['<a class="btn btn-sm btn-default" href="/clients/' . $cid . '/report/assets" target="_blank"><i class="fas fa-print me-1"></i>Asset report</a>',
+        ...(Auth::can('tech') ? ['<a class="btn btn-sm btn-default" href="/clients/import?kind=asset_tags&amp;client=' . $cid . '"><i class="fas fa-tags me-1"></i>Import asset tags</a>'] : [])], // 2.21.0
     'help' => Auth::can('tech') ? 'guide-lifecycle' : null,
 ]);
 ?>

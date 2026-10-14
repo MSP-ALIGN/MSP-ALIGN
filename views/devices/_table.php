@@ -5,6 +5,7 @@
  * @var array $devices  the rows to draw (already filtered and cut to the page)
  * @var bool $showClient; bool $canBulk (select for bulk replacement); bool $bkOn (backup column); array $backupMap
  * Names, serials, users, models and OS names come from the RMM or PSA and are escaped; classes come from fixed lists.
+ * 2.21.0: the asset tag shows under the name, with "duplicate" when another of the client's devices on the page has it.
  */
 use Align\Lifecycle\Lifecycle;
 
@@ -14,6 +15,13 @@ $bkOn = $bkOn ?? false;
 $backupMap = $backupMap ?? [];
 $tableId = $tableId ?? 'device-table';
 $cols = 7 + ($showClient ? 1 : 0) + ($canBulk ? 1 : 0) + 4 + ($bkOn ? 1 : 0);
+$tagCount = []; // 2.21.0 asset tags per client (the page's devices), to flag duplicates
+foreach ($devices as $td) {
+    if (!empty($td['asset_tag']) && !empty($td['client_id'])) { // devices without a client aren't compared
+        $k = $td['client_id'] . '|' . mb_strtolower($td['asset_tag']);
+        $tagCount[$k] = ($tagCount[$k] ?? 0) + 1;
+    }
+}
 ?>
 <div class="table-responsive">
 <table class="table table-sm table-striped table-borderless table-hover mb-0 device-table" id="<?= e($tableId) ?>">
@@ -34,7 +42,7 @@ $cols = 7 + ($showClient ? 1 : 0) + ($canBulk ? 1 : 0) + 4 + ($bkOn ? 1 : 0);
         <?php if ($d['source'] === 'manual'): ?><span class="badge text-bg-light border" title="Added in Align">manual</span><?php elseif ($d['source'] === 'psa'): ?><span class="badge text-bg-light border" title="Imported from <?= e(psa_name()) ?> assets"><?= e(psa_name()) ?></span><?php endif; ?>
         <?php if ($d['type'] === Lifecycle::UNASSIGNED): ?><span class="badge text-bg-warning" title="Pick a type on the device or under Unassigned hardware">unassigned</span><?php endif; ?>
         <?php if ($d['is_virtual']): ?><span class="badge text-bg-light border" title="Virtual: OS support only">virtual</span><?php endif; ?>
-        <?php if ($d['ip_address']): ?><div class="small text-muted ms-4"><?= e($d['ip_address']) ?></div><?php endif; ?>
+        <?php if ($d['ip_address'] || !empty($d['asset_tag'])): // 2.21.0 the asset tag, flagged when another of the client's devices has it ?><div class="small text-muted ms-4"><?= e((string) $d['ip_address']) ?><?php if (!empty($d['asset_tag'])): $tk = $d['client_id'] . '|' . mb_strtolower($d['asset_tag']); ?><?= $d['ip_address'] ? ' · ' : '' ?><span class="asset-tag" title="Asset tag"><i class="fas fa-tag fa-xs me-1"></i><?= e($d['asset_tag']) ?></span><?= ($tagCount[$tk] ?? 0) > 1 ? ' <span class="badge text-bg-warning" title="Another device of this client has the same asset tag">duplicate</span>' : '' ?><?php endif; ?></div><?php endif; ?>
       </td>
       <?php if ($showClient): ?><td class="small"><?= $d['client_id'] ? '<a href="/clients/' . (int) $d['client_id'] . '/devices">' . e($d['client_name']) . '</a>' : '<span class="text-muted" title="Its RMM organization isn\'t linked to a client (Client mapping)">no client</span>' ?></td><?php endif; ?>
       <td class="col-opt col-type small"><?= e($d['type']) ?></td>

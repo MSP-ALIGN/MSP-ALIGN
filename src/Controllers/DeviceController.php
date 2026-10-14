@@ -237,7 +237,7 @@ final class DeviceController
 
     /**
      * The device form's Align values (device_overrides row): dates, cost, lifespan, planned quarter, exclusion,
-     * notes and type, each checked. The keys are fixed column names.
+     * notes, asset tag (2.21.0) and type, each checked. The keys are fixed column names.
      */
     private static function overrideRow(int $id): array
     {
@@ -253,9 +253,38 @@ final class DeviceController
             'replace_note' => self::quarter(post('replace_on')) ? (mb_substr(post('replace_note'), 0, 255) ?: null) : null,
             'excluded' => isset($_POST['excluded']) ? 1 : 0,
             'notes' => mb_substr(post('notes'), 0, 5000) ?: null,
+            'asset_tag' => self::tag(post('asset_tag')), // 2.21.0
             'device_type' => isset(Lifecycle::TYPES[$type]) ? $type : null,
             'updated_by' => Auth::id(),
         ];
+    }
+
+    /** 2.21.0 An asset tag as typed: control characters removed, spaces tidied, at most 64 characters; null when empty. */
+    public static function tag(?string $v): ?string
+    {
+        $v = mb_scrub((string) $v, 'UTF-8'); // text that isn't UTF-8 is cleaned, not lost
+        $v = trim((string) preg_replace('/[\x00-\x1F\x7F]/', '', (string) preg_replace('/\s+/u', ' ', $v)));
+        return $v === '' ? null : mb_substr($v, 0, 64);
+    }
+
+    /**
+     * 2.21.0 The client's other current devices with the same asset tag (the column compares without case):
+     * [['id', 'name']]. Tags aren't unique, so a duplicate is flagged, never refused. One query on the tag index.
+     */
+    public static function sameTag(int $deviceId, ?string $tag): array
+    {
+        if ($tag === null || $tag === '') {
+            return [];
+        }
+        $J = \Align\Closet\Closet::DEVICE_JOIN;
+        $O = \Align\Closet\Closet::DEVICE_OWNER;
+        $owner = DB::value("SELECT $O FROM devices d $J WHERE d.id = ?", [$deviceId]);
+        if (!$owner) {
+            return [];
+        }
+        return array_map(fn($r) => ['id' => (int) $r['id'], 'name' => (string) ($r['display_name'] ?: ($r['system_name'] ?: 'Device ' . $r['id']))],
+            DB::all("SELECT d.id, d.display_name, d.system_name FROM device_overrides o JOIN devices d ON d.id = o.device_id $J
+                WHERE o.asset_tag = ? AND d.id <> ? AND d.removed_at IS NULL AND $O = ? ORDER BY d.display_name", [$tag, $deviceId, (int) $owner]));
     }
 
     /** Hardware fields that only manual devices can edit (the RMM owns them otherwise), cut to their column sizes. */
@@ -312,6 +341,9 @@ final class DeviceController
         });
         Audit::log('device.create', "{$f['display_name']} ({$f['device_type']}) for {$client['name']}");
         self::flashPush(PsaAssetSync::pushDevice($deviceId, Auth::id()), "Added {$f['display_name']}.");
+        if ($dupes = self::sameTag($deviceId, self::tag(post('asset_tag')))) { // 2.21.0
+            flash('warning', 'Asset tag ' . self::tag(post('asset_tag')) . ' is also on ' . implode(', ', array_column($dupes, 'name')) . '.');
+        }
         redirect(post('again') === '1' ? "/clients/$id/devices?add=1" : "/devices/$deviceId");
     }
 
@@ -343,6 +375,9 @@ final class DeviceController
         PsaAssetSync::recordAlignEdit($id, $before);
         Audit::log('device.update', $d['name']);
         self::flashPush(PsaAssetSync::pushDevice($id, Auth::id()), 'Saved. ' . self::planNote($id));
+        if ($dupes = self::sameTag($id, self::tag(post('asset_tag')))) { // 2.21.0: flagged, not refused
+            flash('warning', 'Asset tag ' . self::tag(post('asset_tag')) . ' is also on ' . implode(', ', array_column($dupes, 'name')) . '.');
+        }
         redirect("/devices/$id");
     }
 

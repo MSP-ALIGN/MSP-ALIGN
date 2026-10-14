@@ -28,7 +28,7 @@
       <?php foreach ($devices as $d): ?>
         <tr>
           <td data-label="Device"><div class="fw-semibold text-break"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary me-1"></i><?= e($d['name']) ?><?= $d['is_virtual'] ? ' <span class="badge text-bg-light border">virtual</span>' : '' ?></div>
-            <div class="small text-muted"><?= e($d['type']) ?><?php if ($d['last_user']): ?> · <span title="<?= e($d['last_user']) ?>"><?= e(short_user($d['last_user'])) ?></span><?php endif; ?></div></td>
+            <div class="small text-muted"><?= e($d['type']) ?><?php if ($d['last_user']): ?> · <span title="<?= e($d['last_user']) ?>"><?= e(short_user($d['last_user'])) ?></span><?php endif; ?><?php if (!empty($d['asset_tag'])): // 2.21.0 ?> · <span title="Asset tag"><i class="fas fa-tag fa-xs me-1"></i><?= e($d['asset_tag']) ?></span><?php endif; ?></div></td>
           <td class="small" data-label="Make / model"><?= e(trim(short_make($d['manufacturer']) . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?>
             <?php if (!empty($d['serial'])): ?><div class="text-muted text-break">Serial <?= e($d['serial']) ?></div><?php endif; ?></td>
           <td class="small" data-label="Operating system" title="<?= e((string) ($d['os_name'] ?: $d['firmware'])) ?>"><?= e($d['os_name'] ? os_label($d['os_name'], $d['os_build'], $d['os_rule']) : (string) $d['firmware']) ?: '<span class="text-muted">—</span>' ?><?php if ($d['os_rule']): ?><div class="text-muted">Support ends <?= e(fmt_date($d['os_rule']['eos_date'])) ?></div><?php endif; ?></td>

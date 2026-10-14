@@ -38,7 +38,7 @@ final class TodoController
     }
 
     /**
-     * One search box for clients, devices, contacts and licenses (name, serial, last user, email, vendor). Any staff
+     * One search box for clients, devices, contacts and licenses (name, serial, asset tag, last user, email, vendor). Any staff
      * role. Clients include archived and removed ones (marked); devices (also those with no client yet), contacts
      * and licenses only those of clients in planning, as on their own pages.
      */
@@ -51,9 +51,9 @@ final class TodoController
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
             $res['clients'] = DB::all('SELECT id, name, industry, is_archived, planning_excluded FROM clients WHERE name LIKE ? ORDER BY is_archived, planning_excluded, name LIMIT 25', [$like]);
             // Devices: indexed-free LIKE over the columns people search by; the rest of the row comes from Lifecycle for the table
-            $ids = array_map('intval', array_column(DB::all("SELECT d.id FROM devices d WHERE d.removed_at IS NULL
-                AND (d.display_name LIKE ? OR d.system_name LIKE ? OR d.serial LIKE ? OR d.last_user LIKE ? OR d.model LIKE ? OR d.ip_address LIKE ?)
-                ORDER BY d.display_name LIMIT 26", array_fill(0, 6, $like)), 'id'));
+            $ids = array_map('intval', array_column(DB::all("SELECT d.id FROM devices d LEFT JOIN device_overrides o ON o.device_id = d.id WHERE d.removed_at IS NULL
+                AND (d.display_name LIKE ? OR d.system_name LIKE ? OR d.serial LIKE ? OR d.last_user LIKE ? OR d.model LIKE ? OR d.ip_address LIKE ? OR o.asset_tag LIKE ?)
+                ORDER BY d.display_name LIMIT 26", array_fill(0, 7, $like)), 'id')); // 2.21.0: and the asset tag
             $lc = new \Align\Lifecycle\Lifecycle();
             foreach ($ids as $id) {
                 $d = $lc->devices(null, false, $id)[0] ?? null;

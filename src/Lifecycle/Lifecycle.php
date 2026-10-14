@@ -251,7 +251,7 @@ final class Lifecycle
                 w.ship_date AS w_ship, w.warranty_start AS w_start, w.warranty_end AS w_end, w.status AS w_status,
                 w.description AS w_desc, w.looked_up_at AS w_checked,
                 o.purchase_date AS o_purchase, o.warranty_end AS o_warranty, o.replacement_cost AS o_cost,
-                o.lifespan_years AS o_lifespan, o.excluded AS o_excluded, o.notes AS o_notes, o.device_type AS o_type,
+                o.lifespan_years AS o_lifespan, o.excluded AS o_excluded, o.notes AS o_notes, o.device_type AS o_type, o.asset_tag AS asset_tag,
                 o.replace_on AS o_replace, o.replace_note AS o_replace_note
             FROM devices d
             ' . self::CLIENT_JOIN . '

@@ -1,21 +1,22 @@
 <?php
 /**
  * CSV import of clients or contacts: the upload form, then the check of what would change.
- * @var string $kind; ?array $plan; string $token, $fileName; array $used, $unused
+ * @var string $kind; ?array $plan; string $token, $fileName; array $used, $unused; ?int $clientId, array $clients (2.21.0 asset tags)
  * Techs and admins (ImportController). Everything from the file (its name, headers and cells) is escaped; at most
- * 500 rows are drawn. $kind is 'clients', 'contacts' or 'vendors' (checked by the controller).
+ * 500 rows are drawn. $kind is 'clients', 'contacts', 'vendors' or 'asset_tags' (checked by the controller).
  */
 use Align\Import\CsvImport;
 
-$labels = ['clients' => 'Clients', 'contacts' => 'Contacts', 'vendors' => 'Vendors']; // 2.9.0: vendors
-$home = ['clients' => '/clients', 'contacts' => '/contacts', 'vendors' => '/vendors'][$kind];
-$noun = ['clients' => 'client', 'contacts' => 'contact', 'vendors' => 'vendor'][$kind];
+$labels = ['clients' => 'Clients', 'contacts' => 'Contacts', 'vendors' => 'Vendors', 'asset_tags' => 'Asset tags']; // 2.9.0: vendors; 2.21.0: asset tags
+$clientId = $clientId ?? null;
+$home = ['clients' => '/clients', 'contacts' => '/contacts', 'vendors' => '/vendors', 'asset_tags' => $clientId ? '/clients/' . (int) $clientId . '/devices' : '/devices'][$kind];
+$noun = ['clients' => 'client', 'contacts' => 'contact', 'vendors' => 'vendor', 'asset_tags' => 'asset tag'][$kind];
 $badge = ['add' => ['success', 'Add'], 'update' => ['info', 'Update'], 'skip' => ['light border', 'Skip'], 'error' => ['danger', 'Can\'t import']];
 $cols = CsvImport::columns($kind);
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 me-auto"><i class="fas fa-file-import text-secondary me-2"></i>Import <?= e(strtolower($labels[$kind])) ?></h1>
-  <a class="btn btn-sm btn-default" href="<?= e($home) ?>"><i class="fas fa-arrow-left me-1"></i>Back to <?= e(strtolower($labels[$kind])) ?></a>
+  <a class="btn btn-sm btn-default" href="<?= e($home) ?>"><i class="fas fa-arrow-left me-1"></i>Back to <?= $kind === 'asset_tags' ? 'devices' : e(strtolower($labels[$kind])) ?></a>
 </div>
 
 <?php if ($plan === null): ?>
@@ -28,6 +29,13 @@ $cols = CsvImport::columns($kind);
       <div class="card-body">
         <form method="post" action="/clients/import" enctype="multipart/form-data">
           <?= csrf_field() ?><input type="hidden" name="kind" value="<?= e($kind) ?>">
+          <?php if ($kind === 'asset_tags'): // 2.21.0 ?>
+            <div class="mb-3"><label for="import-client">Client</label>
+              <select id="import-client" name="client_id" class="form-select">
+                <option value="">Use the file's Client column</option>
+                <?php foreach ($clients ?? [] as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) $c['id'] === (int) $clientId ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
+              </select></div>
+          <?php endif; ?>
           <div class="mb-3">
             <label for="import-file">CSV file</label>
             <input type="file" class="form-control" id="import-file" name="file" accept=".csv,text/csv" required>
@@ -43,6 +51,8 @@ $cols = CsvImport::columns($kind);
     <div class="card"><div class="card-body small">
       <?php if ($kind === 'clients'): ?>
         <p class="mb-2">Each row is a client. A client with the same name that's already here gets only the columns your file fills in; nothing is cleared.<?= \Align\Providers\Providers::psaConfigured() ? ' Clients from ' . e(psa_name()) . ' keep their details from there (only industry and notes change).' : '' ?></p>
+      <?php elseif ($kind === 'asset_tags'): // 2.21.0 ?>
+        <p class="mb-2">Each row gives one of the client's devices its asset tag: an <b>Asset tag</b> column, and a <b>Serial</b> or <b>Device</b> (name) column to find the device by. Serial numbers are tried first, then names; neither is case-sensitive. Pick the client above, or add a <b>Client</b> column for several clients. A tag replaces the one the device had. A tag that's already on another device is imported but noted, since a client's list can have mistakes; fix them on the device later.</p>
       <?php elseif ($kind === 'vendors'): ?>
         <p class="mb-2">Each row is one client's vendor, with the client's name in a <b>Client</b> column. Import clients first. A vendor the client already has (same name) gets only the columns your file fills in; nothing is cleared. A <b>Template</b> column, or a vendor named like a template, makes it from that template, and a value the same as the template's is left to follow it. Category takes a name like <i>Internet provider</i> or <i>registrar</i>; without one it's guessed.<?= \Align\Providers\Providers::psaSupports('vendors') ? ' Vendors that come from ' . e(psa_name()) . ' only take category, services and notes.' : '' ?> Licenses and budget lines naming a new vendor link to it. Never put passwords or PINs in a file.</p>
       <?php else: ?>
@@ -61,19 +71,19 @@ $cols = CsvImport::columns($kind);
   <div class="card-body py-2 d-flex flex-wrap align-items-center">
     <div class="me-auto">
       <b><?= e($fileName) ?></b>: <?= count($plan) ?> rows.
-      <span class="badge text-bg-success"><?= (int) ($n['add'] ?? 0) ?> to add</span>
+      <?php if ($kind !== 'asset_tags'): ?><span class="badge text-bg-success"><?= (int) ($n['add'] ?? 0) ?> to add</span><?php endif; ?>
       <span class="badge text-bg-info"><?= (int) ($n['update'] ?? 0) ?> to update</span>
       <?php if ($n['skip'] ?? 0): ?><span class="badge text-bg-light border"><?= (int) $n['skip'] ?> skipped</span><?php endif; ?>
       <?php if ($n['error'] ?? 0): ?><span class="badge text-bg-danger"><?= (int) $n['error'] ?> can't be imported</span><?php endif; ?>
       <div class="small text-muted mt-1">Columns used: <?= e(implode(', ', $used)) ?><?= $unused ? '. Not used: ' . e(implode(', ', $unused)) : '' ?>.</div>
     </div>
-    <a class="btn btn-sm btn-default me-2" href="/clients/import?kind=<?= e($kind) ?>">Choose another file</a>
+    <a class="btn btn-sm btn-default me-2" href="/clients/import?kind=<?= e($kind) ?><?= $clientId ? '&amp;client=' . (int) $clientId : '' ?>">Choose another file</a>
     <form method="post" action="/clients/import/run"><?= csrf_field() ?><input type="hidden" name="token" value="<?= e($token) ?>">
-      <button class="btn btn-sm btn-primary" <?= $todo ? '' : 'disabled' ?>><i class="fas fa-file-import me-1"></i>Import <?= $todo ?> <?= $noun ?><?= $todo === 1 ? '' : 's' ?></button></form>
+      <button class="btn btn-sm btn-primary" <?= $todo ? '' : 'disabled' ?>><i class="fas fa-file-import me-1"></i><?= $kind === 'asset_tags' ? 'Set' : 'Import' ?> <?= $todo ?> <?= $noun ?><?= $todo === 1 ? '' : 's' ?></button></form>
   </div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm table-striped mb-0">
-      <thead><tr><th class="text-end">Row</th><th>Result</th><?= $kind !== 'clients' ? '<th>Client</th>' : '' ?><th>Name</th><th>Details</th><th>Note</th></tr></thead>
+      <thead><tr><th class="text-end">Row</th><th>Result</th><?= $kind !== 'clients' ? '<th>Client</th>' : '' ?><th><?= $kind === 'asset_tags' ? 'Device' : 'Name' ?></th><th>Details</th><th>Note</th></tr></thead>
       <tbody>
       <?php foreach (array_slice($plan, 0, 500) as $p): [$cls, $txt] = $badge[$p['action']]; ?>
         <tr>
@@ -85,7 +95,8 @@ $cols = CsvImport::columns($kind);
             $vals = array_diff_key($p['values'], ['name' => 1, 'template_id' => 1]);
             if (isset($vals['category'])) { $vals['category'] = \Align\Vendors\Vendors::CATEGORIES[$vals['category']][0] ?? $vals['category']; }
             if (isset($vals['align_notes']) && $kind === 'vendors') { $vals['notes'] = $vals['align_notes']; unset($vals['align_notes']); }
-            if (!empty($p['template'])) { $vals = ['template' => $p['template']] + $vals; } ?>
+            if (!empty($p['template'])) { $vals = ['template' => $p['template']] + $vals; }
+            if (isset($vals['asset_tag'])) { $vals = ['tag' => $vals['asset_tag']]; } // 2.21.0: shown as "Asset tag" ?>
           <td class="small"><?= e(implode(' · ', array_map(fn($f, $v) => ($cols[$f][0] ?? $f) . ': ' . (is_int($v) ? ($v ? 'yes' : 'no') : mb_strimwidth(str_replace("\n", ', ', (string) $v), 0, 60, '…')), array_keys($vals), $vals))) ?></td>
           <td class="small text-muted"><?= e($p['note']) ?></td>
         </tr>
