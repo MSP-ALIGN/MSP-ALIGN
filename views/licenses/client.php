@@ -2,6 +2,7 @@
 /**
  * One client's licensing. @var array $client, $licenses, $totals, $dates, $subs; int $retiredCount; bool $showRetired; string $back
  * 2.6.3: array $gws LicenseController::gws() (the Google Workspace status line and duplicate check)
+ * 2.19.0: array $people (Assignments::byLicense), $unmatched (Microsoft 365 accounts with licenses that aren't contacts)
  * 2.6.0: array $m365 (LicenseController::m365: the client_m365 row, appReady, dupes; 2.6.1: a summary line here, the card on Connectors)
  */
 use Align\Auth;
@@ -37,9 +38,17 @@ $t = $totals;
 <?php if ($t['one_time']): ?><p class="small text-muted">Plus <?= money($t['one_time']) ?> in one-time license purchases (not included in monthly/annual).</p><?php endif; ?>
 <div class="card card-dark">
   <div class="card-body p-0">
-    <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'back' => $back]) ?>
+    <?= \Align\View::fetch('licenses/_table', ['licenses' => $licenses, 'back' => $back, 'people' => $people ?? []]) ?>
   </div>
 </div>
+<?php if (!empty($unmatched)): // 2.19.0 ?>
+<details class="card card-body py-2 mb-3" id="unmatched-accounts">
+  <summary class="small"><i class="fab fa-microsoft me-1"></i><b><?= count($unmatched) ?> Microsoft 365 account<?= count($unmatched) === 1 ? '' : 's' ?> with licenses <?= count($unmatched) === 1 ? 'isn\'t a contact' : 'aren\'t contacts' ?></b> (shared mailboxes, new staff, or a contact with a different email)</summary>
+  <ul class="small mb-0 mt-2"><?php foreach ($unmatched as $u): ?><li><?= e($u['name'] ?: $u['email']) ?><?= $u['name'] && $u['email'] ? ' <span class="text-muted">' . e($u['email']) . '</span>' : '' ?>
+    <?= $u['enabled'] === false ? '<span class="badge text-bg-warning">sign-in blocked</span>' : '' ?> <span class="text-muted">· <?= e(implode(', ', $u['licenses'])) ?></span>
+    <?php if (Auth::can('tech')): ?><form method="post" action="/clients/<?= $cid ?>/contacts" class="d-inline"><?= csrf_field() ?><input type="hidden" name="name" value="<?= e($u['name'] ?: $u['email']) ?>"><input type="hidden" name="email" value="<?= e($u['email']) ?>"><input type="hidden" name="back" value="<?= e($back) ?>#unmatched-accounts"><button class="btn btn-link btn-sm p-0 align-baseline">Add as contact</button></form><?php endif; ?></li><?php endforeach; ?></ul>
+</details>
+<?php endif; ?>
 <?php if ($dates) echo \Align\View::fetch('partials/contract_dates', ['dates' => $dates, 'title' => 'Upcoming license contract dates', 'showVendor' => true]); ?>
 <p class="small text-muted"><?php if (psa_on()): ?>Licenses from <?= e(psa_name()) ?> sync every few minutes: new ones appear here, and ones archived or deleted in <?= e(psa_name()) ?> are retired. <?php endif; ?><?php if (\Align\M365\Tenants::connected($m365['m365'])): ?>Microsoft 365 subscriptions update every hour. <?php endif; ?><?php if (\Align\Google\Clients::connected($gws['gws'])): ?>Google Workspace editions update every hour. <?php endif; ?>Prices, billing cycle, category and seats in use are kept in Align.</p>
 <?php if (Auth::can('tech')) echo \Align\View::fetch('licenses/_modal', ['l' => null, 'cid' => $cid, 'back' => $back]); ?>

@@ -1297,8 +1297,11 @@ if (str_starts_with($path, '/m365c-graph/v1.0/')) {
     if ($sub === '/users') {
         if (!$signins) {
             // the account list (no P1 needed): enabled and licensed
-            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'], 'assignedLicenses' => $u['licensed'] ? [['skuId' => 'x']] : [],
-                'userType' => ucfirst($u['userType'] ?? 'member'), 'userPrincipalName' => $u['upn'] ?? $u['id'] . '@' . $t['domain']], $sec['users'])]);
+            // 2.19.0: 'skus' (skuIds) for who has which license, 'name' and 'mail' (displayName, mail)
+            $json(['value' => array_map(fn($u) => ['id' => $u['id'], 'accountEnabled' => $u['enabled'],
+                'assignedLicenses' => isset($u['skus']) ? array_map(fn($k) => ['skuId' => $k, 'disabledPlans' => []], $u['skus']) : ($u['licensed'] ? [['skuId' => 'x']] : []),
+                'userType' => ucfirst($u['userType'] ?? 'member'), 'userPrincipalName' => $u['upn'] ?? $u['id'] . '@' . $t['domain'],
+                'displayName' => $u['name'] ?? null, 'mail' => $u['mail'] ?? null], $sec['users'])]);
             return;
         }
         $sec['signins'] === 'nop1' ? $nop1() : $json(['value' => $sec['signins']]);

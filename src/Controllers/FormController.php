@@ -45,7 +45,7 @@ final class FormController
         self::send($t ? View::fetch('vendors/_template_modal', ['t' => $t, 'back' => self::back('/vendors')]) : null);
     }
 
-    /** A contact's edit form (tech); audited as a contacts view. */
+    /** A contact's edit form (tech; 2.19.0 with the contact's licenses and devices); audited as a contacts view. */
     public static function contact(int $id): void
     {
         Auth::requireRole('tech');
@@ -53,7 +53,10 @@ final class FormController
         if ($k) {
             \Align\Audit::access('contacts', "#{$k['client_id']} {$k['client_name']}");
         }
-        self::send($k ? View::fetch('contacts/_modal', ['k' => $k, 'back' => self::back("/clients/{$k['client_id']}/contacts")]) : null);
+        // 2.19.0: the contact's licenses and the devices they last signed in to (read-only in the window)
+        $extra = $k ? ['licenses' => \Align\Licensing\Assignments::forContact((int) $k['id']),
+            'devices' => \Align\Licensing\Assignments::devicesByContact([$k], \Align\Lifecycle\Lifecycle::lastUsers((int) $k['client_id']))[(int) $k['id']] ?? []] : [];
+        self::send($k ? View::fetch('contacts/_modal', ['k' => $k, 'back' => self::back("/clients/{$k['client_id']}/contacts")] + $extra) : null);
     }
 
     /** A roadmap item's edit form (tech). */

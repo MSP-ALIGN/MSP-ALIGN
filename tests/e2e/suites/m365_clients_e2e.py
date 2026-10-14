@@ -169,6 +169,52 @@ r = tech.post(B + f"/clients/{C1}/m365/sync", data={"_csrf": tok(tech, f"/client
 ok("Synced from Microsoft 365" in flash(r.text) and q("select last_error from client_m365 where client_id=%s", C1)[0]["last_error"] is None and lic(C1, "SPB")["retired_at"] is None,
    "approved again, a tech's Sync now works and clears the error")
 
+# ---- 2.19.0 who has which license: accounts matched to contacts by email; blocked accounts flagged; the rest listed
+U1, U2, U3 = "c0ffee00-0000-4000-8000-000000000001", "c0ffee00-0000-4000-8000-000000000002", "c0ffee00-0000-4000-8000-000000000003"
+q("delete from contacts where client_id=%s and email in ('lee.larkin@northwind.example','frontdesk@northwind.example')", C1)
+q("insert into contacts (client_id, source, name, email) values (%s, 'manual', 'Lee Larkin', 'lee.larkin@northwind.example')", C1)
+LEE = q("select id from contacts where client_id=%s and email='lee.larkin@northwind.example'", C1)[0]["id"]
+mset(security={"tenant": T1, "data": {"users": [
+    {"id": U1, "name": "Lee Larkin", "mail": "Lee.Larkin@Northwind.example", "upn": "lee.larkin@northwind.example", "skus": [SPB, EXO]},
+    {"id": U2, "name": "Front Desk", "mail": "frontdesk@northwind.example", "skus": [SPB], "enabled": False},
+    {"id": "p9", "name": "Not a GUID", "skus": [SPB]},
+    {"id": U3, "name": "No License", "skus": [], "mail": "nolicense@northwind.example"},
+    {"id": "c0ffee00-0000-4000-8000-000000000004", "name": "Old Plan", "skus": ["a1b2c3d4-0000-4000-8000-0000000000ff"]}]}})
+res = sync_one(C1)
+la = q("select a.*, l.software_type from license_assignments a join licenses l on l.id=a.license_id where a.client_id=%s and a.source='m365' order by a.name, l.software_type", C1)
+ok(res["error"] is None and [(r_["name"], r_["software_type"], r_["contact_id"], r_["account_enabled"]) for r_ in la]
+   == [("Front Desk", "SPB", None, 0), ("Lee Larkin", "EXCHANGESTANDARD", LEE, 1), ("Lee Larkin", "SPB", LEE, 1)],
+   "the sync records who has each license, matched to contacts by email; other ids and licenses Align doesn't have are left out " + str([(r_["name"], r_["software_type"]) for r_ in la]))
+t = st.get(B + f"/clients/{C1}/licenses").text
+ok('id="unmatched-accounts"' in t and "Front Desk" in t.split('id="unmatched-accounts"')[1][:1500] and "sign-in blocked" in t and "Lee Larkin" in t and not errs(t),
+   "Licensing shows who has each license and the accounts that aren't contacts")
+spb_id = lic(C1, "SPB")["id"]
+t = tech.get(B + f"/licenses/{spb_id}/people").text
+ok("Front Desk" in t and "sign-in blocked" in t and "Add Front Desk as a contact" in t and 'name="contact_ids[]"' not in t and not errs(t), "a Microsoft 365 license's people are read-only, with Add as contact")
+r = tech.post(B + f"/licenses/{spb_id}/people", data={"_csrf": tok(tech, f"/licenses/{spb_id}/people"), "action": "add", "contact_ids[]": str(LEE)})
+ok("comes from Microsoft 365" in flash(r.text), "people can't be assigned to it by hand")
+r = tech.post(B + f"/clients/{C1}/contacts", data={"_csrf": tok(tech, f"/licenses/{spb_id}/people"), "name": "Front Desk", "email": "frontdesk@northwind.example", "back": f"/licenses/{spb_id}/people"})
+fd = q("select id from contacts where client_id=%s and email='frontdesk@northwind.example'", C1)[0]["id"]
+ok(r.url.endswith(f"/licenses/{spb_id}/people") and q("select contact_id from license_assignments where m365_user_id=%s", U2)[0]["contact_id"] == fd, "adding the account as a contact links it at once")
+mset(security={"tenant": T1, "data": {"users": []}})
+sync_one(C1)
+ok(q("select count(*) n from license_assignments where client_id=%s and source='m365'", C1)[0]["n"] == 3, "an empty account list from Microsoft changes nothing")
+ok("may be out of date" in tech.get(B + f"/licenses/{spb_id}/people").text, "...and the people page says the last read failed")
+g = mock()["grants"]
+mset(security={"tenant": T1, "data": {"users": [{"id": U1, "name": "Lee Larkin", "mail": "lee.larkin@northwind.example", "skus": [SPB]}]}},
+     grants={**g, T1: [x for x in g.get(T1, []) if x != "df021288-bdef-4463-88db-98f22de89214"]})
+res = sync_one(C1)
+ok(res["error"] is None and q("select count(*) n from license_assignments where client_id=%s and source='m365'", C1)[0]["n"] == 3
+   and q("select assign_error from client_m365 where client_id=%s", C1)[0]["assign_error"], "without permission to read accounts the licenses still sync and the last people stay")
+mset(grants=g)
+q("update contacts set archived_at=NOW() where id=%s", LEE)
+sync_one(C1)
+r_ = q("select contact_id from license_assignments where m365_user_id=%s", U1)
+ok(r_ and r_[0]["contact_id"] == LEE and q("select assign_error from client_m365 where client_id=%s", C1)[0]["assign_error"] is None
+   and "archived contact" in tech.get(B + f"/licenses/{spb_id}/people").text, "someone archived who still holds a license stays matched and is flagged")
+mset(security={"tenant": T1, "data": {}})
+q("delete from contacts where id in (%s, %s)", LEE, fd)
+
 # ---- duplicates
 d = q("select id from licenses where client_id=%s and name='ZzM365 Microsoft 365 Business Premium'", C1)[0]["id"]
 r = tech.post(B + f"/clients/{C1}/m365/dupes", data={"_csrf": tok(tech, f"/clients/{C1}/licenses"), "retire[]": [str(d), "999999"]})
@@ -290,6 +336,7 @@ ok(requests.delete(API + f"/licenses/{spb['id']}", headers=hdr).status_code == 4
 # ---- disconnecting and reconnecting
 r = tech.post(B + f"/clients/{C1}/m365/disconnect", data={"_csrf": tok(tech, f"/clients/{C1}/licenses")})
 ok(not q("select 1 from client_m365 where client_id=%s", C1) and lic(C1, "SPB")["retired_reason"] == "m365" and "retired" in flash(r.text), "disconnecting retires its Microsoft 365 licenses")
+ok(not q("select 1 from license_assignments where client_id=%s and source='m365'", C1), "...and forgets who held them")
 mset(consent_tenant=T1)
 st.get(st.post(B + f"/clients/{C1}/m365/connect", data={"_csrf": tok(st, f"/clients/{C1}/licenses")}, allow_redirects=False).headers["Location"])
 ok(q("select status from client_m365 where client_id=%s", C1)[0]["status"] == "connected" and lic(C1, "SPB")["retired_at"] is None, "connecting again brings them back")

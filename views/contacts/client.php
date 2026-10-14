@@ -1,5 +1,5 @@
 <?php
-/** One client's contacts. @var array $client, $contacts; int $archivedCount; bool $showArchived; string $back */
+/** One client's contacts. @var array $client, $contacts; int $archivedCount; bool $showArchived; string $back; array $licensesBy, $devicesBy (2.19.0, Assignments) */
 use Align\Auth;
 
 require __DIR__ . '/../partials/client_header.php';
@@ -14,7 +14,7 @@ $cid = (int) $client['id'];
       <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-contact"><i class="fas fa-plus me-1"></i>Add contact</button><?php endif; ?>
     </div>
   </div>
-  <div class="card-body p-0"><?= \Align\View::fetch('contacts/_table', ['contacts' => $contacts, 'back' => $back]) ?></div>
+  <div class="card-body p-0"><?= \Align\View::fetch('contacts/_table', ['contacts' => $contacts, 'back' => $back, 'licensesBy' => $licensesBy ?? null, 'devicesBy' => $devicesBy ?? null]) ?></div>
 </div>
 <?php $pn = e(psa_name()); $linked = psa_on() && !empty($client['psa_id']); $mapLink = Auth::can('tech') ? '/mapping?show=missing' : null; ?>
 <p class="small text-muted contacts-sync">

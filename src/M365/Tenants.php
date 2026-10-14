@@ -220,7 +220,7 @@ final class Tenants
     }
 
     /**
-     * Disconnects the client: forgets the tenant (and an own app's secret) and retires its Microsoft 365 licenses
+     * Disconnects the client: forgets the tenant (and an own app's secret) and who held its licenses (2.19.0), and retires its Microsoft 365 licenses
      * (kept, restorable; they come back if it's connected again). The approval stays in the client's tenant until
      * their admin removes it there. Techs and admins (caller).
      */
@@ -228,6 +228,7 @@ final class Tenants
     {
         return DB::transaction(function () use ($clientId) {
             DB::run('DELETE FROM client_m365 WHERE client_id = ?', [$clientId]);
+            DB::run("DELETE FROM license_assignments WHERE client_id = ? AND source = 'm365'", [$clientId]); // 2.19.0: its accounts are forgotten
             \Align\Domains\EmailAuth::forgetUnconnected($clientId); // 2.6.3: its email domain came from this tenant (unless Google Workspace is connected too)
             return DB::run("UPDATE licenses SET retired_at = NOW(), retired_reason = 'm365' WHERE client_id = ? AND source = 'm365' AND retired_at IS NULL", [$clientId])->rowCount();
         });
@@ -293,7 +294,8 @@ final class Tenants
     }
 
     /**
-     * Reads the client's subscriptions and updates its Microsoft 365 licenses. Returns ['added', 'updated', 'retired',
+     * Reads the client's subscriptions and updates its Microsoft 365 licenses, then (2.19.0) who has each one
+     * (Licensing\Assignments::syncM365; a failure there keeps the last ones). Returns ['added', 'updated', 'retired',
      * 'error' => message or null]; the result is also kept on the client's row (last_sync_at, last_error).
      */
     public static function syncClient(int $clientId, bool $checks = false): array
@@ -315,6 +317,16 @@ final class Tenants
             }
             $out = self::apply($clientId, $skus) + $out;
             DB::run('UPDATE client_m365 SET last_sync_at = NOW(), last_error = NULL WHERE client_id = ?', [$clientId]);
+            // 2.19.0: who has which license (User.Read.All, already granted for the licenses). Apart from the
+            // subscriptions: if it fails, the assignments from the last sync stay.
+            try {
+                $g = fn(string $path) => App::graph((string) $row['tenant_id'], 'GET', $path, null, $own);
+                \Align\Licensing\Assignments::syncM365($clientId, Security::pages($g, '/users?$select=id,displayName,mail,userPrincipalName,accountEnabled,assignedLicenses&$top=999'));
+                DB::run('UPDATE client_m365 SET assign_error = NULL WHERE client_id = ?', [$clientId]);
+            } catch (\Throwable $e) {
+                // kept as they were; why is shown on the license's people page
+                DB::run('UPDATE client_m365 SET assign_error = ? WHERE client_id = ?', [mb_substr(safe_error($e), 0, 500), $clientId]);
+            }
         } catch (\Throwable $e) {
             $out['error'] = mb_substr(safe_error($e), 0, 1000);
             DB::run('UPDATE client_m365 SET last_error = ? WHERE client_id = ?', [$out['error'], $clientId]);

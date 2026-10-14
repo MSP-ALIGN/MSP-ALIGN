@@ -6,6 +6,7 @@ namespace Align\Controllers;
 use Align\Audit;
 use Align\Auth;
 use Align\DB;
+use Align\Licensing\Assignments;
 use Align\Licensing\Licenses;
 use Align\View;
 
@@ -45,6 +46,8 @@ final class LicenseController
             'subs' => \Align\Portal\Submissions::pending($id, 'license'),
             'm365' => self::m365($id),
             'gws' => self::gws($id), // 2.6.3
+            'people' => Assignments::byLicense($id), // 2.19.0
+            'unmatched' => Assignments::unmatched($id),
         ]);
     }
 
@@ -297,6 +300,79 @@ final class LicenseController
         flash('success', 'Saved. ' . ($e['priced']
             ? money_exact($e['cycle_cost']) . ' ' . strtolower(Licenses::CYCLES[$e['billing_cycle']][0]) . (match ($e['billing_cycle']) { 'one_time' => '', 'monthly' => ' (' . money_exact($e['annual']) . '/yr)', default => ' (' . money_exact($e['monthly']) . '/mo, ' . money_exact($e['annual']) . '/yr)' })
             : 'Add a price to include it in the totals.'));
+        redirect($back);
+    }
+
+    /**
+     * 2.19.0 Who has a license: its people (from Microsoft 365, or assigned by hand), the client's contacts left to
+     * assign, and the Microsoft 365 accounts that aren't contacts yet. Any staff role.
+     */
+    public static function people(int $id): void
+    {
+        Auth::require();
+        $l = DB::one('SELECT * FROM licenses WHERE id = ?', [$id]);
+        if (!$l) {
+            redirect('/licenses');
+        }
+        $client = ClientController::load((int) $l['client_id']);
+        \Align\Audit::access('contacts', "#{$client['id']} {$client['name']} (license people)"); // names and emails of the client's people
+        $rows = Assignments::byLicense((int) $l['client_id'])[$id] ?? [];
+        $have = array_flip(array_filter(array_map(fn($r) => $r['contact_id'] === null ? null : (int) $r['contact_id'], $rows)));
+        View::render('licenses/people', [
+            'title' => $l['name'] . ' · ' . $client['name'],
+            'nav' => 'clients',
+            'client' => $client,
+            'clientNav' => 'licenses',
+            'l' => Licenses::enrich($l),
+            'rows' => $rows,
+            'canAssign' => Auth::can('tech') && Assignments::manual($l),
+            'assignError' => $l['source'] === 'm365' ? DB::value('SELECT assign_error FROM client_m365 WHERE client_id = ?', [(int) $l['client_id']]) : null,
+            'choices' => array_values(array_filter(\Align\Contacts\Contacts::load((int) $l['client_id']), fn($k) => !isset($have[(int) $k['id']]))),
+        ]);
+    }
+
+    /**
+     * 2.19.0 Assigns the license to contacts (contact_ids[], in one transaction), or removes a person assigned by hand
+     * (post action add|remove; removing also works on a retired license, to tidy it). Techs and admins; each contact
+     * must be one of the license's client's current contacts, and only hand-made assignments can be removed. Audited.
+     */
+    public static function assign(int $id): void
+    {
+        $u = Auth::requireRole('tech');
+        $l = DB::one('SELECT l.*, c.name AS client_name FROM licenses l JOIN clients c ON c.id = l.client_id WHERE l.id = ?', [$id]);
+        if (!$l) {
+            redirect('/licenses');
+        }
+        $back = "/licenses/$id/people";
+        if (post('action') === 'remove') {
+            $r = Assignments::remove((int) post('assignment'), $id);
+            if ($r) {
+                Audit::log('license.unassign', "{$l['client_name']}: {$l['name']} from {$r['contact_name']}");
+                flash('success', "Removed {$l['name']} from {$r['contact_name']}.");
+            } else {
+                flash('error', 'Only people added by hand can be removed here.');
+            }
+            redirect($back);
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['contact_ids'] ?? [post('contact_id')])))));
+        $names = array_column(\Align\Contacts\Contacts::load((int) $l['client_id'], true), 'name', 'id');
+        $added = [];
+        $errors = [];
+        DB::transaction(function () use ($ids, $l, $u, $names, &$added, &$errors) {
+            foreach (array_slice($ids, 0, 500) as $cid) {
+                if ($err = Assignments::add($l, $cid, (int) $u['id'])) {
+                    $errors[] = $err;
+                } else {
+                    $added[] = (string) ($names[$cid] ?? '');
+                }
+            }
+        });
+        if ($added) {
+            Audit::log('license.assign', "{$l['client_name']}: {$l['name']} to " . implode(', ', $added));
+            flash('success', 'Assigned ' . $l['name'] . ' to ' . implode(', ', $added) . '.' . ($errors ? ' ' . $errors[0] : ''));
+        } else {
+            flash('error', $errors[0] ?? 'Pick at least one contact.');
+        }
         redirect($back);
     }
 }

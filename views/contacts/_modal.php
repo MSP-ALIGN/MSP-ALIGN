@@ -1,6 +1,7 @@
 <?php
 /**
- * The contact window (add or edit), for techs and admins. @var ?array $k contact (null = new); $cid; $back
+ * The contact window (add or edit), for techs and admins. @var ?array $k contact (null = new); $cid; $back;
+ * 2.19.0 ?array $licenses (Assignments rows), $devices (Lifecycle::lastUsers rows), shown read-only when given
  * Details the PSA owns are read-only unless two-way sync pushes them; every value is escaped (also inside the
  * data-confirm texts). $back is checked again by the controller.
  */
@@ -49,6 +50,16 @@ $box = function (string $name, string $label, bool $locked) use ($k, $id) {
             <div class="small fw-bold text-muted text-uppercase mb-2"><i class="fas fa-user-tie me-1"></i>vCIO</div>
             <div class="d-flex flex-wrap"><?= $box('decision_maker', 'Decision maker (signs off on budget and projects)', false) ?><?= $box('qbr', 'Invite to business reviews / meetings', false) ?></div>
           </div>
+          <?php if ($k && (isset($licenses) || isset($devices))): // 2.19.0 ?>
+            <div class="row g-2 mb-3">
+              <div class="col-md-6"><div class="small fw-bold text-muted text-uppercase mb-1"><i class="fas fa-key me-1"></i>Licenses</div>
+                <?php if (empty($licenses)): ?><div class="small text-muted">None assigned. Assign licenses from the client's Licensing page.</div><?php else: ?>
+                <ul class="list-unstyled small mb-0"><?php foreach ($licenses as $a): ?><li><a href="/licenses/<?= (int) $a['license_id'] ?>/people"><?= e($a['license_name']) ?></a> <span class="text-muted"><?= $a['source'] === 'm365' ? '· Microsoft 365' : '' ?></span></li><?php endforeach; ?></ul><?php endif; ?></div>
+              <div class="col-md-6"><div class="small fw-bold text-muted text-uppercase mb-1"><i class="fas fa-desktop me-1"></i>Devices last signed in to</div>
+                <?php if (empty($devices)): ?><div class="small text-muted">None found (matched on the RMM's last user).</div><?php else: ?>
+                <ul class="list-unstyled small mb-0"><?php foreach ($devices as $d): ?><li><?= e((string) $d['name']) ?></li><?php endforeach; ?></ul><?php endif; ?></div>
+            </div>
+          <?php endif; ?>
           <?php if ($fromPsa && $k['psa_notes']): ?><div class="mb-3"><label><?= e(psa_name()) ?> notes<?= $tag ?></label><textarea class="form-control" rows="2" readonly><?= e($k['psa_notes']) ?></textarea></div><?php endif; ?>
           <div class="mb-3 mb-0"><label>Notes <small class="text-muted">(Align)</small></label><textarea name="align_notes" class="form-control" rows="2" placeholder="Priorities, communication preferences, who they report to…"><?= e($k['align_notes'] ?? '') ?></textarea></div>
         </div>
