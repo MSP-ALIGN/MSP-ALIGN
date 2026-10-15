@@ -116,11 +116,16 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
       <div class="modal-header bg-dark"><h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Invite a <?= e($client['name']) ?> user</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <div class="row g-2">
-          <div class="mb-3 col-md-6"><label>Name</label><input name="name" class="form-control" required maxlength="190" id="invite-name"></div>
-          <div class="mb-3 col-md-6"><label>Email</label><input type="email" name="email" class="form-control" required id="invite-email" list="invite-contacts"></div>
-          <?php if ($contacts): ?><datalist id="invite-contacts"><?php foreach ($contacts as $k): ?><option value="<?= e($k['email']) ?>" data-name="<?= e($k['name']) ?>"><?= e($k['name']) ?></option><?php endforeach; ?></datalist><?php endif; ?>
+          <?php /* 2.23.1 Typing a name or an email lists the client's matching contacts (app.js); picking one fills both */ ?>
+          <div class="mb-3 col-md-6 position-relative"><label for="invite-name">Name</label><input name="name" class="form-control" required maxlength="190" id="invite-name" autocomplete="off"
+            <?= $contacts ? 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="invite-picks"' : '' ?>></div>
+          <div class="mb-3 col-md-6 position-relative"><label for="invite-email">Email</label><input type="email" name="email" class="form-control" required id="invite-email" autocomplete="off"></div>
+          <?php if ($contacts): ?>
+            <script type="application/json" id="invite-contacts"><?= json_encode(array_map(fn($k) => ['name' => (string) $k['name'], 'email' => (string) $k['email']], $contacts), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
+            <div class="col-12 position-relative mt-n3"><div class="list-group position-absolute w-100 shadow-sm d-none" id="invite-picks" role="listbox" style="z-index:1060;max-height:16rem;overflow:auto"></div></div>
+          <?php endif; ?>
         </div>
-        <?php if ($contacts): ?><p class="small text-muted mt-n2">Start typing to pick one of their contacts.</p><?php endif; ?>
+        <?php if ($contacts): ?><p class="small text-muted mt-n2">Start typing a name or email to pick one of their <?= count($contacts) ?> contact<?= count($contacts) === 1 ? '' : 's' ?> (those already invited aren't listed).</p><?php endif; ?>
         <?= \Align\View::fetch('portal_admin/_perms', ['u' => null, 'pid' => 'inv']) ?>
         <?php if (\Align\Mail\Notifications::enabled('client_portal_invite') && \Align\Mail\Mail::ready()): ?>
           <input type="hidden" name="send_email" value="0">
