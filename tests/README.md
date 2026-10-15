@@ -37,11 +37,17 @@ another folder).
 | `e2e/suites/*.py` | The suites; each prints `PASS` / `FAIL` lines and ends with `FAILURES: n` |
 | `e2e/fixtures/` | Planning data for the test clients and an onboarding template pack |
 | `mock-server.php` | The outside services |
+| `mock/<key>.php` | A community connector's fake API (2.22.0): included by `mock-server.php`, answers only `/<key>/...` and `/mock/<key>-set` |
 | `dev-router.php` | Router for PHP's built-in server |
 
 Suites run in a fixed order and share one database, so a suite leaves things as it found them (or as
 the next suites expect). A new suite: start with `from lib import *`, use `ok(condition, "what it
 checks")`, end with `print("FAILURES:", len(fails))`, and add it to `SUITES` in `run.sh` and to one of its `SUITE_GROUPS` (usually the last), in the same place: `tests/e2e/run.sh --check-groups` (part of the GitHub run) fails if a suite is missing from the groups or out of order.
+
+Connector suites (`fabrikam*_e2e`, and those `align make:connector` makes) set a connector up through its page and
+call `align sync`; the template suites first call `dev_connectors(...)`, which adds the template to the test config
+for that suite only (and waits for the web server to notice). `connkit_e2e` runs `make:connector` in a throwaway copy
+of the code. See [docs/CONNECTORS.md](../docs/CONNECTORS.md).
 
 Test accounts (seeded): `admin@example.com` / `LongPassword123!` (admin), `tech@example.com` / `TechPassword123!` (tech),
 `viewer@example.com` / `ViewerPassword123!` (viewer), and `new@example.com` / `FreshAdminPass123!`

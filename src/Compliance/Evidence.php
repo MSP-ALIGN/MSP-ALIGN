@@ -27,10 +27,23 @@ final class Evidence
     /** How many clients a system's checks need answers from (with a result from Align) before its gate can pass. */
     public const GATE_CLIENTS = 2;
 
+    /** 2.22.0 SYSTEMS plus the community connectors that provide checks (prefix => name). */
+    public static function systems(): array
+    {
+        static $out = null; // once per request
+        if ($out === null) {
+            $out = self::SYSTEMS;
+            foreach (SecurityChecks::connectors(false) as $c) { // only connectors with a valid prefix of their own
+                $out[$c->checkPrefix()] ??= \Align\Providers\Clean::text($c->checkSystem(), 60) ?? $c->checkPrefix();
+            }
+        }
+        return $out;
+    }
+
     /** The system a check belongs to ('Other' for a key with no known prefix). */
     public static function system(string $key): string
     {
-        foreach (self::SYSTEMS as $p => $name) {
+        foreach (self::systems() as $p => $name) {
             if (str_starts_with($key, $p)) {
                 return $name;
             }
@@ -46,7 +59,7 @@ final class Evidence
     {
         $ind = $indicators ?? SecurityChecks::indicators($clientId);
         $out = [];
-        foreach (array_keys(self::SYSTEMS) as $p) {
+        foreach (array_keys(self::systems()) as $p) {
             foreach (SecurityChecks::labels() as $k => $label) {
                 if (!str_starts_with($k, $p)) {
                     continue;
@@ -148,7 +161,7 @@ final class Evidence
     {
         $blank = ['agree' => 0, 'disagree' => 0, 'unsure' => 0, 'no_result' => 0];
         $out = [];
-        foreach (self::SYSTEMS as $name) {
+        foreach (self::systems() as $name) {
             $out[$name] = ['clients' => [], 'compared' => [], 'checks' => []] + $blank;
         }
         foreach (array_keys(SecurityChecks::labels()) as $k) {
@@ -261,6 +274,10 @@ final class Evidence
         }
         foreach (DB::all('SELECT org_name, admin_email, domain FROM client_gws WHERE client_id = ?', [$clientId]) as $g) {
             array_push($names, (string) $g['org_name'], (string) $g['admin_email'], (string) $g['domain']);
+        }
+        // 2.22.0 the client's records in community connectors (a tenant's name may appear in a check's detail)
+        foreach (DB::all('SELECT r.name FROM client_links l JOIN connector_records r ON r.provider = l.provider AND r.record_id = l.external_id WHERE l.client_id = ?', [$clientId]) as $r) {
+            $names[] = (string) $r['name'];
         }
         $names = array_values(array_unique(array_filter(array_map('trim', $names), fn($n) => mb_check_encoding($n, 'UTF-8') && mb_strlen($n) >= 3)));
         usort($names, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));

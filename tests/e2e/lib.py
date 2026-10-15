@@ -64,6 +64,30 @@ def php(code, env=None): return subprocess.run(["php", "-r", f'require "{BOOTSTR
 def graph(): return requests.get(M + "/mock/graph").json()
 
 
+def dev_connectors(*classes):
+    """2.22.0 Switches connector templates (src/Templates) on in the test config for this suite only: they're added as
+    'dev_connectors' and the config file is put back when the suite ends (so other suites never see them)."""
+    import atexit
+    orig = open(CONFIG).read()
+    body = orig.rstrip().removesuffix("];")
+
+    def write(content):
+        # The web server's opcache rechecks a file at most every 2 seconds and only when its time changed: give the
+        # file a newer time than any version before it, then wait for the server to see it
+        before = os.stat(CONFIG).st_mtime
+        open(CONFIG, "w").write(content)
+        t = max(time.time(), before + 2)
+        os.utime(CONFIG, (t, t))
+        time.sleep(2.5)
+
+    write(body + ", \"dev_connectors\" => [" + ", ".join(json.dumps(c) for c in classes) + "]];\n")
+    atexit.register(lambda: write(orig))
+    # run.sh stops a suite that runs too long with SIGTERM, which skips atexit: exit normally instead, so the config
+    # is still put back
+    import signal, sys
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+
+
 def setting(k, v, secret=False):
     if secret:
         php(f'Align\\Settings::setSecret({json.dumps(k)}, {json.dumps(v)});')

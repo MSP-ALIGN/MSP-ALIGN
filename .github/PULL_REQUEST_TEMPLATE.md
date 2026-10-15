@@ -15,3 +15,4 @@
 - [ ] Database changes are a new file in `db/migrations/`
 - [ ] Screens, Help or docs updated where people will notice the change
 - [ ] No client data, keys or passwords anywhere in the change
+- [ ] A new connector? It went through [docs/CONNECTOR_REVIEW.md](../docs/CONNECTOR_REVIEW.md), and the description says which product version it was built and tried against

@@ -13,12 +13,19 @@
  * data folder that www-data can't change later, and follow anything www-data planted there, so root is refused
  * unless ALIGN_CONFIG names another config (the test suites and development copies) (2.2.1). Each command takes
  * only its own options; anything else (a typo such as --clear-2FA) stops it before it changes anything (2.2.1).
+ * make:connector (2.22.0) is for development copies: it runs scripts/make-connector.php before any config is read.
  * Exit codes: 0 done, 1 refused or failed, 2 sync failed or audit tampering found.
  */
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
     exit(1);
+}
+// 2.22.0 make:connector writes source files in a development copy (scripts/make-connector.php): it needs no config
+// or database, so it runs before both are loaded
+if (($argv[1] ?? '') === 'make:connector') {
+    require dirname(__DIR__) . '/scripts/make-connector.php';
+    exit(Align\Scripts\make_connector(dirname(__DIR__), array_slice($argv, 2)));
 }
 if (function_exists('posix_geteuid') && posix_geteuid() === 0 && getenv('ALIGN_CONFIG') === false) {
     fwrite(STDERR, 'Error: run this as the web user: sudo align ... (or in Docker: docker compose exec app align ...)' . PHP_EOL);
@@ -274,6 +281,8 @@ try {
             $say('  mail:test --to=EMAIL            Send a test email through the email connection');
             $say('  audit:prune                     Remove audit entries past the 6-year retention period');
             $say('  check                           Verify config and database');
+            $say('  make:connector <rmm|psa|backup|saas> "Name" [--key=slug] [--dry-run]');
+            $say('                                  Start a community connector in a development copy (docs/CONNECTORS.md)');
             $say('Updates, backups and restores: Settings -> Updates & backups, or sudo msp-align-update / msp-align-restore FILE');
             $say('  version');
             exit($known ? 0 : 1);

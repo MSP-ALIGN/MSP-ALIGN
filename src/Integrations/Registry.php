@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace Align\Integrations;
 
 /**
- * Every integration on the Integrations page, in display order. Add new connectors here.
+ * Every integration on the Integrations page, in display order. Add new connectors here (`align make:connector`
+ * does it for you; see docs/CONNECTORS.md).
  *
  * Security assumptions: the list is code, so a key from the URL can only ever pick one of these classes.
  */
@@ -38,12 +39,24 @@ final class Registry
         static $all = null;
         if ($all === null) {
             $all = [];
-            foreach (self::CONNECTORS as $c) {
+            foreach ([...self::CONNECTORS, ...self::templates()] as $c) {
                 $o = new $c();
-                $all[$o->key()] = $o;
+                $all[$o->key()] ??= $o; // a key already taken keeps its first connector
             }
         }
         return $all;
+    }
+
+    /**
+     * 2.22.0 The connector templates (src/Templates, the starting point of `align make:connector`) switched on in
+     * config.php for development and the test suites ('dev_connectors' => [class, ...]). Only classes under
+     * Align\Templates\ that are connectors are taken; an install never lists them unless its config file does.
+     */
+    private static function templates(): array
+    {
+        $list = \Align\Config::get('dev_connectors', []);
+        return array_values(array_filter(is_array($list) ? $list : [], fn($c) => is_string($c) && str_starts_with($c, 'Align\\Templates\\')
+            && class_exists($c) && is_subclass_of($c, Connector::class) && (new \ReflectionClass($c))->isInstantiable()));
     }
 
     /** The connector for a key from the URL (untrusted: only an exact match is returned), or null. */
