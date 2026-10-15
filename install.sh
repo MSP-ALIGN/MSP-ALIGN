@@ -230,7 +230,7 @@ fi
 log "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd
+PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd php-zip
       mariadb-server git openssh-client ca-certificates curl openssl unattended-upgrades age fail2ban ufw)
 [[ "${ALIGN_TLS:-}" == "letsencrypt" ]] && PKGS+=(certbot python3-certbot-apache)
 apt-get install -y -qq "${PKGS[@]}" >/dev/null

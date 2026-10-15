@@ -15,7 +15,7 @@ use Align\DB;
  * the upload folder (never a name from the request) and never run or parsed here, apart from Docx when someone
  * imports it. It is sent with its fixed type, nosniff and a sandbox CSP; only PDFs and images are sent inline (PDFs
  * are painted by PDF.js without scripts, images shown in <img>); everything else is a download. Without PHP's zip
- * extension a .docx or .xlsx is checked by its ZIP header only. CSV must be UTF-8 or another 8-bit text (an
+ * extension (installed since 2.21.0) a .docx or .xlsx is checked by its ZIP header and the part names in it. CSV must be UTF-8 or another 8-bit text (an
  * Excel "Unicode text" export, UTF-16, is refused).
  */
 final class Files
@@ -100,7 +100,12 @@ final class Files
                     return false;
                 }
                 if (!class_exists(\ZipArchive::class)) {
-                    return true; // the ZIP header is all that can be checked without the zip extension
+                    // 2.21.0 Without the zip extension: the part's name is stored as plain text in the ZIP's directory,
+                    // so a Word file can't pass as Excel (or the reverse)
+                    $bytes = (string) file_get_contents($path);
+                    $mine = $ext === 'docx' ? 'word/document.xml' : 'xl/workbook.xml';
+                    $other = $ext === 'docx' ? 'xl/workbook.xml' : 'word/document.xml';
+                    return str_contains($bytes, $mine) && !str_contains($bytes, $other);
                 }
                 $z = new \ZipArchive();
                 if ($z->open($path, \ZipArchive::RDONLY) !== true) {

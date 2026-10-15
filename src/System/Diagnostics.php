@@ -187,7 +187,7 @@ final class Diagnostics
         $upd = self::try(fn() => Agent::updateAvailable());
         $rows[] = self::row('Version', APP_VERSION, $upd ? 'warn' : 'ok', $upd ? 'Version ' . ($upd['latest'] ?? '') . ' is available under Updates & backups.' : null);
         $rows[] = self::row('PHP', PHP_VERSION . ' (' . PHP_SAPI . ')', version_compare(PHP_VERSION, '8.2', '>=') ? 'ok' : 'warn');
-        $need = ['pdo_mysql', 'sodium', 'curl', 'mbstring', 'json', 'openssl', 'gd', 'zlib', 'intl', 'fileinfo', 'dom'];
+        $need = ['pdo_mysql', 'sodium', 'curl', 'mbstring', 'json', 'openssl', 'gd', 'zlib', 'intl', 'fileinfo', 'dom', 'zip']; // zip (2.21.0): Word import, Excel and Word checks
         $missing = array_values(array_filter($need, fn($e) => !extension_loaded($e)));
         $rows[] = self::row('PHP extensions', $missing ? 'Missing: ' . implode(', ', $missing) : 'All ' . count($need) . ' needed are loaded', $missing ? 'bad' : 'ok',
             $missing ? 'Run the installer again (sudo msp-align-update) to put them back.' : null);
