@@ -925,13 +925,61 @@ document.addEventListener('DOMContentLoaded', () => {
     if (navigator.clipboard) navigator.clipboard.writeText(el.value).then(done, () => { document.execCommand('copy'); done(); });
     else { document.execCommand('copy'); done(); }
   }));
+  // 2.23.1 Invite a client portal user: typing in Name or Email lists the client's matching contacts (names and
+  // addresses set as text); a click, or Enter on the highlighted one, fills both fields
   const email = document.getElementById('invite-email');
   const name = document.getElementById('invite-name');
-  if (email && name) {
-    email.addEventListener('input', () => {
-      const opt = [...document.querySelectorAll('#invite-contacts option')].find((o) => o.value === email.value);
-      if (opt && !name.value) name.value = opt.dataset.name;
+  const picks = document.getElementById('invite-picks');
+  const data = document.getElementById('invite-contacts');
+  if (email && name && picks && data) {
+    let contacts = [];
+    try { contacts = JSON.parse(data.textContent) || []; } catch (e) { contacts = []; }
+    let shown = [];
+    let active = -1;
+    const close = () => { picks.classList.add('d-none'); picks.textContent = ''; shown = []; active = -1; name.setAttribute('aria-expanded', 'false'); };
+    const choose = (c) => { name.value = c.name; email.value = c.email; close(); email.dispatchEvent(new Event('change', { bubbles: true })); };
+    const mark = () => picks.querySelectorAll('.list-group-item').forEach((el, i) => el.classList.toggle('active', i === active));
+    const open = (q) => {
+      q = q.trim().toLowerCase();
+      shown = q === '' ? [] : contacts.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)).slice(0, 8);
+      picks.textContent = '';
+      active = -1;
+      if (!shown.length) { close(); return; }
+      shown.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'list-group-item list-group-item-action py-1';
+        b.setAttribute('role', 'option');
+        const n = document.createElement('div'); n.textContent = c.name;
+        const m = document.createElement('div'); m.className = 'small text-muted'; m.textContent = c.email;
+        b.append(n, m);
+        b.addEventListener('mousedown', (ev) => { ev.preventDefault(); choose(shown[i]); });
+        picks.appendChild(b);
+      });
+      picks.classList.remove('d-none');
+      name.setAttribute('aria-expanded', 'true');
+    };
+    [name, email].forEach((inp) => {
+      inp.addEventListener('input', () => open(inp.value));
+      inp.addEventListener('keydown', (ev) => {
+        if (!shown.length) return;
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+          ev.preventDefault();
+          active = (active + (ev.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length;
+          mark();
+        } else if (ev.key === 'Enter' && active >= 0) {
+          ev.preventDefault();
+          choose(shown[active]);
+        } else if (ev.key === 'Escape') {
+          ev.stopPropagation();
+          close();
+        }
+      });
+      // Leaving both fields closes the list (moving from Name to Email keeps the one Email just opened)
+      inp.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== name && document.activeElement !== email) close(); }, 150));
     });
+    const modal = document.getElementById('modal-portal-invite');
+    if (modal) modal.addEventListener('hidden.bs.modal', close);
   }
 });
 
