@@ -10,6 +10,7 @@ use Align\Mail\Graph;
 use Align\Mail\Google;
 use Align\Mail\Mail;
 use Align\Mail\Invites;
+use Align\Mail\M365Setup;
 use Align\Mail\Mailer;
 use Align\Mail\Notifications as N;
 use Align\Mail\Notify;
@@ -58,6 +59,10 @@ final class EmailController
             'redirectUri' => Mail::redirectUri(),
             'baseUrlSet' => (string) \Align\Config::get('base_url', '') !== '',
             'certInfo' => self::certInfo(),
+            'auto' => M365Setup::info(), // 2.23.0
+            'autoSetup' => is_array($_SESSION['email_setup'] ?? null) && ($_SESSION['email_setup']['expires'] ?? 0) > time() ? $_SESSION['email_setup'] : null,
+            'calendarRedirectUri' => M365Setup::calendarRedirectUri(),
+            'calendars' => \Align\Calendar\Outlook::connections(), // 2.23.0 who connected their Outlook calendar
         ]);
     }
 
@@ -157,7 +162,19 @@ final class EmailController
         }
         $secrets = [];
         $clear = [];
+        // 2.23.0 An app Align made (M365Setup) keeps its own ids and certificate, and only signs in as a mailbox: the
+        // form can't change those (the fields aren't shown; a crafted post is ignored here)
+        $auto = M365Setup::auto();
+        if ($auto) {
+            unset($set['m365_tenant'], $set['m365_client_id'], $set['m365_auth']);
+            if (($set['mail_mode'] ?? '') === 'app') {
+                unset($set['mail_mode']);
+            }
+        }
         foreach (self::SECRETS as $k) {
+            if ($auto && in_array($k, ['m365_client_secret', 'm365_cert_pem', 'm365_key_pem'], true)) {
+                continue;
+            }
             if (isset($_POST["clear_$k"])) {
                 $clear[] = $k;
                 continue;
@@ -198,6 +215,15 @@ final class EmailController
         if ($sensitive) {
             Notify::security('Email settings changed', implode(', ', array_map(fn($c) => str_replace(' (cleared)', ' removed', $c),
                 array_filter($changed, fn($c) => in_array(str_replace(' (cleared)', '', $c), $sensitive, true)))) . ' by ' . (Auth::user()['email'] ?? ''));
+        }
+
+        // 2.23.0 Staff calendars signed in to the app (or tenant) being replaced can't sign in after this: disconnected
+        // now, while the old app's details are still saved, so Align's copies can be removed from their calendars
+        if (array_intersect(array_keys($set), ['m365_client_id', 'm365_tenant']) && \Align\DB::value("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'user_calendars'")) {
+            set_time_limit(300);
+            if ($n = \Align\Calendar\Outlook::disconnectAll()) {
+                $changed[] = "$n staff calendar" . ($n === 1 ? '' : 's') . ' disconnected';
+            }
         }
 
         // 4) Write (nothing below refuses)
@@ -369,7 +395,7 @@ final class EmailController
         $missing = $google ? (!Settings::get('g_client_id') || !Settings::hasSecret('g_client_secret'))
             : (!Settings::get('m365_tenant') || !Settings::get('m365_client_id') || !Settings::hasSecret('m365_client_secret') && !Settings::hasSecret('m365_key_pem'));
         if ($missing) {
-            flash('error', $google ? 'Save the OAuth client ID and client secret first, then connect.' : 'Save the tenant, client ID and client secret first, then connect.');
+            flash('error', $google ? 'Save the OAuth client ID and client secret first, then connect.' : 'Save the tenant, client ID and a client secret or certificate first (or use Set up with Microsoft), then connect.');
             redirect('/integrations/email');
         }
         [$url, $state, $verifier] = $google ? Google::authorizeUrl() : Graph::authorizeUrl();
@@ -414,6 +440,102 @@ final class EmailController
         } catch (\Throwable $e) {
             flash('error', 'Could not connect: ' . safe_error($e)); // Microsoft's and Google's messages are kept; internal errors aren't shown
         }
+        redirect('/integrations/email');
+    }
+
+    /**
+     * 2.23.0 "Set up with Microsoft": starts the admin's device code sign-in and keeps the code in their session; the
+     * page shows the code and where to enter it. Admins. Refused while an app Align made is set up (remove it first).
+     */
+    public static function setupStart(): void
+    {
+        Auth::requireRole('admin');
+        if (M365Setup::auto()) {
+            flash('error', 'Align\'s email app is already set up. Remove it first if you really want a new one.');
+            redirect('/integrations/email');
+        }
+        try {
+            $s = M365Setup::start();
+            $_SESSION['email_setup'] = $s + ['expires' => time() + $s['expires_in']];
+        } catch (\Throwable $e) {
+            flash('error', 'Couldn\'t start the sign-in: ' . safe_error($e));
+        }
+        redirect('/integrations/email');
+    }
+
+    /**
+     * 2.23.0 "Continue" after signing in: redeems the device code from the admin's session and creates the app. Still
+     * waiting keeps the code on the page. Admins; audited, with a security alert (an app that can send as whoever signs
+     * in to it).
+     */
+    public static function setupFinish(): void
+    {
+        $u = Auth::requireRole('admin');
+        set_time_limit(180); // several calls to Microsoft, some retried while Entra catches up
+        $s = $_SESSION['email_setup'] ?? null;
+        if (M365Setup::auto()) {
+            unset($_SESSION['email_setup']);
+            redirect('/integrations/email');
+        }
+        if (!is_array($s) || empty($s['device_code']) || ($s['expires'] ?? 0) < time()) {
+            unset($_SESSION['email_setup']);
+            flash('error', 'The sign-in code expired. Start again.');
+            redirect('/integrations/email');
+        }
+        try {
+            $r = M365Setup::poll((string) $s['device_code']);
+        } catch (\Throwable $e) {
+            $r = ['status' => 'error', 'message' => safe_error($e)];
+        }
+        if ($r['status'] === 'pending') {
+            flash('warning', 'Microsoft says the sign-in isn\'t finished yet. Enter the code, sign in and accept, then press Continue again.');
+            redirect('/integrations/email');
+        }
+        unset($_SESSION['email_setup']);
+        if ($r['status'] === 'done') {
+            Audit::log('email.app_created', $r['message']);
+            Notify::security('Email app created in Microsoft 365', $r['message'] . ' By ' . ($u['email'] ?? ''));
+            flash('success', $r['message']);
+        } else {
+            Audit::log('email.app_failed', mb_substr($r['message'], 0, 500));
+            flash('error', $r['message']);
+        }
+        redirect('/integrations/email');
+    }
+
+    /** 2.23.0 Cancels a setup sign-in in progress (this admin's session only). */
+    public static function setupCancel(): void
+    {
+        Auth::requireRole('admin');
+        unset($_SESSION['email_setup']);
+        redirect('/integrations/email');
+    }
+
+    /**
+     * 2.23.0 Removes the app Align made from Align (its ids, key, certificate and the mailbox sign-in): email stops
+     * until it's set up again. The app itself stays in Entra ID. Admins; audited, security alert.
+     */
+    public static function setupForget(): void
+    {
+        $u = Auth::requireRole('admin');
+        set_time_limit(300); // removing Align's copies from each connected staff calendar
+        if (!M365Setup::auto()) {
+            redirect('/integrations/email');
+        }
+        $name = (string) Settings::get('m365_app_name');
+        M365Setup::forget();
+        Audit::log('email.app_removed', $name);
+        Notify::security('Email app removed from Align', "$name by " . ($u['email'] ?? '') . '. Email is off until it is set up again.');
+        flash('success', "Removed \"$name\" from Align. Email isn't sent until it's set up again. Delete the app under Entra ID → App registrations if you won't use it.");
+        redirect('/integrations/email');
+    }
+
+    /** 2.23.0 Replaces the app's certificate now (normally done 30 days before it expires). Admins. */
+    public static function setupRotate(): void
+    {
+        Auth::requireRole('admin');
+        $r = M365Setup::rotateIfDue(true);
+        flash(str_starts_with((string) $r, 'rotation failed') ? 'error' : 'success', $r ? ucfirst($r) . '.' : 'Nothing to do yet.');
         redirect('/integrations/email');
     }
 

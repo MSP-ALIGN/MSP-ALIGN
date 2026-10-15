@@ -54,7 +54,9 @@ final class Graph
             return (string) Settings::get('mail_from') !== ''
                 && (Settings::get('m365_auth', 'secret') === 'certificate' ? Settings::hasSecret('m365_key_pem') && Settings::hasSecret('m365_cert_pem') : Settings::hasSecret('m365_client_secret'));
         }
-        return Settings::hasSecret('m365_refresh_token') && Settings::hasSecret('m365_client_secret');
+        // 2.23.0: or a certificate (the app Align makes itself, M365Setup, has no secret)
+        return Settings::hasSecret('m365_refresh_token') && (Settings::hasSecret('m365_client_secret')
+            || (Settings::get('m365_auth', 'secret') === 'certificate' && Settings::hasSecret('m365_key_pem') && Settings::hasSecret('m365_cert_pem')));
     }
 
     /** A client for the configured mode; throws when not ready. Doesn't apply the test-server wrapper: use Mail::client(). */
@@ -68,16 +70,21 @@ final class Graph
 
     // ---- Endpoints ----------------------------------------------------------------------------
 
-    /** The Entra sign-in endpoint (overridable only from the database, for the test suite). */
-    private static function loginBase(): string
+    /**
+     * The Entra sign-in endpoint. The m365_login_base override (the test suite's mock; no form field) is honoured only on
+     * an install that allows insecure integrations (2.23.0: staff calendar tokens go here too).
+     */
+    public static function loginBase(): string
     {
-        return rtrim((string) (Settings::get('m365_login_base') ?: 'https://login.microsoftonline.com'), '/');
+        $o = \Align\Config::get('allow_insecure_integrations', false) ? Settings::get('m365_login_base') : null;
+        return rtrim((string) ($o ?: 'https://login.microsoftonline.com'), '/');
     }
 
-    /** The Graph endpoint (overridable only from the database, for the test suite). */
-    private static function graphBase(): string
+    /** The Graph endpoint; the m365_graph_base override only on a test install, as loginBase(). */
+    public static function graphBase(): string
     {
-        return rtrim((string) (Settings::get('m365_graph_base') ?: 'https://graph.microsoft.com/v1.0'), '/');
+        $o = \Align\Config::get('allow_insecure_integrations', false) ? Settings::get('m365_graph_base') : null;
+        return rtrim((string) ($o ?: 'https://graph.microsoft.com/v1.0'), '/');
     }
 
     /** The tenant as a URL path segment (validated on save, encoded here as well). */
@@ -145,8 +152,8 @@ final class Graph
         return $this->token;
     }
 
-    /** Client secret, or a signed certificate assertion when the app uses a certificate. */
-    private static function clientAuth(): array
+    /** Client secret, or a signed certificate assertion when the app uses a certificate (2.23.0: also staff calendars, Calendar\Outlook). */
+    public static function clientAuth(): array
     {
         if (Settings::get('m365_auth', 'secret') === 'certificate' && Settings::hasSecret('m365_key_pem')) {
             return ['client_assertion_type' => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer', 'client_assertion' => self::assertion()];

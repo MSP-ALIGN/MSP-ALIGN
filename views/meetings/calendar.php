@@ -1,6 +1,7 @@
 <?php
 /**
- * The calendar page. @var array $clients, $users; ?string $feedUrl (shown once, escaped); bool $feedOn.
+ * The calendar page. @var array $clients, $users; ?string $feedUrl (shown once, escaped); bool $feedOn;
+ * 2.23.0 ?array $outlook (your connection), bool $outlookAvailable, array $outlookPeople (who is connected: id => name).
  * Events come from /calendar/events as JSON; FullCalendar shows their titles as text.
  */
 use Align\Auth;
@@ -19,6 +20,13 @@ use Align\Meetings\Meetings;
       <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-calendar-days me-2"></i>Calendar</h3>
         <div class="card-tools d-flex">
+          <?php if ($outlookPeople): ?>
+          <select class="form-select form-select-sm me-2 w-auto" id="calendar-outlook" aria-label="Outlook calendars">
+            <option value="all">Everyone's Outlook</option>
+            <?php foreach ($outlookPeople as $pid => $pname): ?><option value="<?= (int) $pid ?>"><?= e($pname) ?>'s Outlook</option><?php endforeach; ?>
+            <option value="off">No Outlook events</option>
+          </select>
+          <?php endif; ?>
           <select class="form-select form-select-sm me-2 w-auto" id="calendar-client" aria-label="Filter by client">
             <option value="">All clients</option>
             <?php foreach ($clients as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) ($_GET['client'] ?? 0) === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
@@ -44,6 +52,12 @@ use Align\Meetings\Meetings;
         <div class="mb-1"><span class="badge me-2" style="background:#6c757d">&nbsp;</span>License expires / renews</div>
       </div>
     </div>
+    <?php if ($outlook || $outlookAvailable): ?>
+    <div class="card card-dark" id="outlook">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft me-2"></i>Your Outlook</h3></div>
+      <div class="card-body small"><?= \Align\View::fetch('calendar/_outlook', ['conn' => $outlook, 'available' => $outlookAvailable, 'return' => '/calendar']) ?></div>
+    </div>
+    <?php endif; ?>
     <?php if (Auth::can('tech')): // the feed is for techs and admins only (MeetingController::feedToken), so viewers aren't offered it (2.2.1) ?>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-rss me-2"></i>Subscribe in Outlook</h3></div>
@@ -66,4 +80,19 @@ use Align\Meetings\Meetings;
     </div>
     <?php endif; ?>
   </div>
+</div>
+
+<?php /* 2.23.0 An Outlook event's details (filled as text by app.js) */ ?>
+<div class="modal fade" id="modal-outlook-event" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" data-oe="subject"></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body small">
+      <div class="mb-1"><span class="text-muted">From the Outlook calendar of</span> <b data-oe="person"></b></div>
+      <div class="mb-1"><span class="text-muted">When</span> <span data-oe="when"></span></div>
+      <div class="mb-1" data-oe-row="location"><span class="text-muted">Where</span> <span data-oe="location"></span></div>
+      <div class="mb-1" data-oe-row="organizer"><span class="text-muted">Organizer</span> <span data-oe="organizer"></span></div>
+      <div data-oe-row="attendees"><span class="text-muted">Attendees</span><ul class="mb-0 ps-3" data-oe="attendees"></ul></div>
+    </div>
+    <div class="modal-footer"><a class="btn btn-sm btn-default d-none" data-oe="link" target="_blank" rel="noopener">Open in Outlook</a><button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Close</button></div>
+  </div></div>
 </div>

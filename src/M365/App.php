@@ -188,15 +188,7 @@ final class App
      */
     public static function startSetup(): array
     {
-        $r = self::post(self::loginBase() . '/organizations/oauth2/v2.0/devicecode', ['client_id' => self::SETUP_CLIENT, 'scope' => self::SETUP_SCOPES]);
-        foreach (['device_code', 'user_code', 'verification_uri'] as $k) {
-            if (!is_string($r[$k] ?? null) || $r[$k] === '') {
-                throw new \RuntimeException('Microsoft did not start the sign-in. Try again.');
-            }
-        }
-        return ['user_code' => mb_substr($r['user_code'], 0, 20), 'verification_uri' => self::https($r['verification_uri']),
-            'expires_in' => max(60, min(1800, (int) ($r['expires_in'] ?? 900))), 'interval' => max(2, min(30, (int) ($r['interval'] ?? 5))),
-            'device_code' => $r['device_code']];
+        return Entra::deviceStart(self::loginBase(), self::SETUP_SCOPES);
     }
 
     /**
@@ -206,21 +198,8 @@ final class App
      */
     public static function pollSetup(string $deviceCode): array
     {
-        try {
-            $r = self::post(self::loginBase() . '/organizations/oauth2/v2.0/token', ['grant_type' => 'urn:ietf:params:oauth:grant-type:device_code',
-                'client_id' => self::SETUP_CLIENT, 'device_code' => $deviceCode], false);
-        } catch (M365Exception $e) {
-            return match ($e->oauthError) {
-                'authorization_pending', 'slow_down' => ['status' => 'pending', 'message' => 'Waiting for you to sign in…'],
-                'authorization_declined' => ['status' => 'error', 'message' => 'The sign-in was declined. Start again.'],
-                'expired_token', 'bad_verification_code' => ['status' => 'error', 'message' => 'The code expired. Start again.'],
-                default => ['status' => 'error', 'message' => $e->getMessage()],
-            };
-        }
-        if (!is_string($r['access_token'] ?? null) || $r['access_token'] === '') {
-            return ['status' => 'error', 'message' => 'Microsoft did not return a sign-in. Start again.'];
-        }
-        return ['status' => 'done', 'message' => self::provision($r['access_token'])];
+        $r = Entra::devicePoll(self::loginBase(), $deviceCode);
+        return $r['status'] === 'token' ? ['status' => 'done', 'message' => self::provision($r['token'])] : $r;
     }
 
     /**
@@ -366,15 +345,7 @@ final class App
      */
     private static function makeCertificate(): array
     {
-        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 2048]);
-        $csr = $key ? openssl_csr_new(['commonName' => 'MSP Align client tenants'], $key, ['digest_alg' => 'sha256']) : false;
-        $x509 = $csr ? openssl_csr_sign($csr, null, $key, self::CERT_DAYS, ['digest_alg' => 'sha256'], random_int(1, PHP_INT_MAX)) : false;
-        if (!$x509 || !openssl_x509_export($x509, $certPem) || !openssl_pkey_export($key, $keyPem)) {
-            throw new \RuntimeException('Couldn\'t make a certificate (OpenSSL). Check the server\'s PHP OpenSSL extension.');
-        }
-        $info = openssl_x509_parse($x509) ?: [];
-        $der = preg_replace('/-----[^-]+-----|\s+/', '', $certPem) ?? '';
-        return [$keyPem, $certPem, $der, date('Y-m-d', (int) ($info['validTo_time_t'] ?? strtotime('+' . self::CERT_DAYS . ' days')))];
+        return Entra::makeCertificate('MSP Align client tenants', self::CERT_DAYS);
     }
 
     // ---- Rotation -----------------------------------------------------------------------------
@@ -489,8 +460,7 @@ final class App
      */
     private static function proof(string $objectId, string $keyPem, string $certPem): string
     {
-        $now = time();
-        return self::signJwt(['aud' => '00000002-0000-0000-c000-000000000000', 'iss' => $objectId, 'nbf' => $now, 'exp' => $now + 600], $keyPem, $certPem);
+        return Entra::proof($objectId, $keyPem, $certPem);
     }
 
     // ---- Tokens and Graph calls ---------------------------------------------------------------
@@ -591,72 +561,24 @@ final class App
     /** One Graph request with a given token. Returns the JSON object (or null); throws M365Exception with friendly() text. */
     private static function graphWith(string $token, string $method, string $path, ?array $body = null): ?array
     {
-        $headers = ['Authorization' => "Bearer $token", 'Accept' => 'application/json'];
-        if ($body !== null) {
-            $headers['Content-Type'] = 'application/json';
-        }
-        try {
-            $r = (new HttpClient(30, 2))->request($method, self::graphBase() . $path, $headers,
-                $body !== null ? json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) : null, $method === 'GET');
-        } catch (HttpException $e) {
-            throw M365Exception::from($e);
-        }
-        return is_array($r['json'] ?? null) ? $r['json'] : null;
+        return Entra::graphWith(self::graphBase(), $token, $method, $path, $body);
     }
 
     /** POSTs a form to a Microsoft login endpoint; returns the JSON answer, throws M365Exception (with the OAuth error code) otherwise. */
     private static function post(string $url, array $form, bool $retry = true): array
     {
-        try {
-            $r = (new HttpClient(30, $retry ? 2 : 1))->request('POST', $url, ['Accept' => 'application/json'], $form, $retry);
-        } catch (HttpException $e) {
-            throw M365Exception::from($e);
-        }
-        return is_array($r['json'] ?? null) ? $r['json'] : [];
+        return Entra::post($url, $form, $retry);
     }
 
     /** RS256 client assertion (RFC 7523) for the token endpoint $aud, signed with the app's certificate key. */
     private static function assertion(string $aud, string $appId, string $keyPem, string $certPem): string
     {
-        $now = time();
-        return self::signJwt(['aud' => $aud, 'iss' => $appId, 'sub' => $appId, 'jti' => bin2hex(random_bytes(16)), 'nbf' => $now - 60, 'iat' => $now - 60, 'exp' => $now + 540], $keyPem, $certPem);
-    }
-
-    /** A JWT with $claims, signed RS256 with $keyPem; the header names the certificate (x5t, x5t#S256) as Entra expects. */
-    private static function signJwt(array $claims, string $keyPem, string $certPem): string
-    {
-        $key = openssl_pkey_get_private($keyPem);
-        if (!$key || !preg_match('/-----BEGIN CERTIFICATE-----(.+?)-----END CERTIFICATE-----/s', $certPem, $m)) {
-            throw new M365Exception('The stored certificate or key is not valid. Set the app up again.');
-        }
-        $der = base64_decode(preg_replace('/\s+/', '', $m[1]) ?? '');
-        $b64 = fn(string $s) => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
-        $head = $b64(json_encode(['alg' => 'RS256', 'typ' => 'JWT', 'x5t' => $b64(sha1($der, true)), 'x5t#S256' => $b64(hash('sha256', $der, true))]));
-        $body = $b64(json_encode($claims, JSON_UNESCAPED_SLASHES));
-        if (!openssl_sign("$head.$body", $sig, $key, OPENSSL_ALGO_SHA256)) {
-            throw new M365Exception('Could not sign with the certificate key.');
-        }
-        return "$head.$body." . $b64($sig);
+        return Entra::assertion($aud, $appId, $keyPem, $certPem);
     }
 
     /** Runs $fn, trying again (up to 5 times, a few seconds apart) when Entra hasn't caught up with a new object yet. */
     private static function retry(callable $fn): mixed
     {
-        for ($i = 0; ; $i++) {
-            try {
-                return $fn();
-            } catch (M365Exception $e) {
-                if ($i >= 4 || !in_array($e->status, [400, 404], true)) {
-                    throw $e;
-                }
-                sleep(2 + $i);
-            }
-        }
-    }
-
-    /** $url if it's an https:// address (shown as a link), else Microsoft's usual device login page. */
-    private static function https(string $url): string
-    {
-        return preg_match('#^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~/-]*)?\z#', $url) ? $url : 'https://microsoft.com/devicelogin';
+        return Entra::retry($fn);
     }
 }

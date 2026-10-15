@@ -38,6 +38,8 @@ final class AccountController
             'notifPrefs' => \Align\Mail\Notifications::prefsFor($u),
             'notifScope' => \Align\Mail\Notifications::scope($u),
             'mailOn' => \Align\Mail\Mail::on(),
+            'outlook' => \Align\Calendar\Outlook::connection((int) $u['id']), // 2.23.0
+            'outlookAvailable' => \Align\Calendar\Outlook::available(),
             'vcioCount' => (int) \Align\DB::value('SELECT COUNT(*) FROM clients WHERE vcio_user_id = ? AND is_archived = 0 AND planning_excluded = 0', [$u['id']]),
         ]);
     }
