@@ -88,7 +88,8 @@ final class Documents
     }
 
     /**
-     * Adds a history entry with the document's current title and body. $kind is one of the document_versions kinds.
+     * Adds a history entry with the document's current title and body (2.20.0: and, for an uploaded file, its file).
+     * $kind is one of the document_versions kinds.
      * The caller holds the row (or has just written it) so the entry matches what was saved.
      */
     public static function snapshot(array $doc, string $kind, ?string $note = null): void
@@ -101,7 +102,7 @@ final class Documents
             'note' => $note ? mb_substr($note, 0, 255) : null,
             'kind' => $kind,
             'saved_by' => Auth::id(),
-        ]);
+        ] + (($doc['kind'] ?? 'page') === 'file' ? array_intersect_key($doc, array_flip(['file_name', 'file_orig', 'file_type', 'file_size', 'file_hash'])) : []));
     }
 
     /** Autosaves snapshot when the last snapshot is old, or a different person saved it. */
@@ -111,7 +112,7 @@ final class Documents
         return !$last || (int) $last['saved_by'] !== (int) Auth::id() || strtotime($last['saved_at']) < time() - self::SNAPSHOT_EVERY;
     }
 
-    /** Documents a client has (for evidence pickers). The caller has checked access to the client. */
+    /** Documents a client has, written or uploaded (for evidence pickers). The caller has checked access to the client. */
     public static function forClient(int $clientId): array
     {
         return DB::all("SELECT id, title, category, status FROM documents WHERE client_id = ? AND status <> 'archived' ORDER BY title", [$clientId]);

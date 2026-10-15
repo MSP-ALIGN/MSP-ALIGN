@@ -54,7 +54,7 @@ $menus = [
 ];
 echo \Align\View::fetch('partials/toolbar', [
     'tabs' => $tabs,
-    'search' => ['action' => $base, 'value' => $q, 'hidden' => $keep + ['filter' => $filter, 'class' => $class] + DeviceFilters::query($df), 'table' => 'device-table', 'placeholder' => 'Search name, serial, user, model'],
+    'search' => ['action' => $base, 'value' => $q, 'hidden' => $keep + ['filter' => $filter, 'class' => $class] + DeviceFilters::query($df), 'table' => 'device-table', 'placeholder' => 'Search name, serial, tag, user, model'],
     'menus' => $menus,
 ]);
 if ($dopts || $df): ?>

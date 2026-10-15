@@ -18,7 +18,8 @@ foreach ($docs as $d) {
         <li class="list-group-item py-2 d-flex align-items-center">
           <a href="/portal/documents/<?= (int) $d['id'] ?>" class="fw-bold me-auto"><?= e($d['title']) ?></a>
           <span class="small text-muted text-nowrap ms-2">Updated <?= e(fmt_date($d['updated_at'])) ?></span>
-          <a href="/portal/documents/<?= (int) $d['id'] ?>?print=1" target="_blank" class="btn btn-xs btn-default ms-2" title="Print or save as PDF"><i class="fas fa-print"></i></a>
+          <?php if ($d['kind'] === 'file'): // 2.20.0 ?><a href="/portal/documents/<?= (int) $d['id'] ?>/file?download=1" class="btn btn-xs btn-default ms-2" title="Download (<?= e((\Align\Docs\Files::TYPES[$d['file_type']][1] ?? 'File') . ', ' . \Align\Docs\Files::size((int) $d['file_size'])) ?>)" aria-label="Download <?= e($d['title']) ?>"><i class="fas fa-download"></i></a>
+          <?php else: ?><a href="/portal/documents/<?= (int) $d['id'] ?>?print=1" target="_blank" class="btn btn-xs btn-default ms-2" title="Print or save as PDF"><i class="fas fa-print"></i></a><?php endif; ?>
         </li>
       <?php endforeach; ?>
     </ul>

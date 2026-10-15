@@ -524,7 +524,7 @@ final class PortalController
     public static function documents(): void
     {
         $pu = PortalAuth::require('can_documents');
-        $docs = DB::all("SELECT id, title, category, updated_at, review_due FROM documents WHERE client_id = ? AND status = 'active' AND portal_shared = 1 ORDER BY category, title", [$pu['client_id']]);
+        $docs = DB::all("SELECT id, title, category, kind, file_type, file_size, updated_at, review_due FROM documents WHERE client_id = ? AND status = 'active' AND portal_shared = 1 ORDER BY category, title", [$pu['client_id']]);
         self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs], $pu);
     }
 
@@ -542,12 +542,36 @@ final class PortalController
             return;
         }
         Audit::log('portal.document_view', $doc['title']);
+        if ($doc['kind'] === 'file') { // 2.20.0: an uploaded file (shown for PDFs and images, else downloaded)
+            self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc, 'pdfJs' => $doc['file_type'] === 'pdf'], $pu);
+            return;
+        }
         if (query('print') === '1') {
             View::render('documents/print', ['title' => $doc['title'], 'doc' => $doc, 'client' => self::client($pu), 'docPrint' => true,
                 'reportTitle' => $doc['title'], 'brand' => ReportController::branding()], 'layout/print');
             return;
         }
         self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc], $pu);
+    }
+
+    /**
+     * 2.20.0 An uploaded document's current file (can_documents): only the user's own client's, active and shared (else
+     * 404); ?download=1 as a download (audited; viewing in the page is logged by document()). Earlier versions are never
+     * sent here.
+     */
+    public static function documentFile(int $id): void
+    {
+        $pu = PortalAuth::require('can_documents');
+        $doc = DB::one("SELECT * FROM documents WHERE id = ? AND client_id = ? AND status = 'active' AND portal_shared = 1 AND kind = 'file'", [$id, $pu['client_id']]);
+        if (!$doc) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That document is not available.'], $pu);
+            return;
+        }
+        if (query('download') === '1') { // viewing it in the page is already logged as portal.document_view
+            Audit::log('portal.document_download', $doc['title']);
+        }
+        \Align\Docs\Files::send($doc, query('download') === '1');
     }
 
     /** View-only since 1.39: changes go through a request (new user / termination) or the IT team. */

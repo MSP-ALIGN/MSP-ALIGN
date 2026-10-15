@@ -39,6 +39,10 @@ $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
   <div class="mb-3 col-md-4"><label>OS build</label><input name="os_build" class="form-control" value="<?= e($d['os_build'] ?? '') ?>" placeholder="20348"></div>
 </div>
 <?php endif; ?>
+<div class="row g-2">
+  <div class="mb-3 col-md-4"><label for="asset-tag-<?= (int) ($d['id'] ?? 0) ?>">Asset tag <small class="text-muted">(the client's own label)</small></label>
+    <input id="asset-tag-<?= (int) ($d['id'] ?? 0) ?>" name="asset_tag" class="form-control" maxlength="64" value="<?= e($d['asset_tag'] ?? '') ?>" placeholder="e.g. ACME-0042"></div>
+</div>
 <h6 class="text-muted text-uppercase small mt-2">Lifecycle</h6>
 <div class="row g-2">
   <div class="mb-3 col-md-3"><label>Purchase / in service</label><input type="date" name="purchase_date" class="form-control" value="<?= e($d['o_purchase'] ?? '') ?>"></div>

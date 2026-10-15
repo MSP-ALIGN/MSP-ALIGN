@@ -284,12 +284,13 @@ final class Closet
 
     // ---- Spare devices ----
 
-    /** A client's devices marked spare (not removed), with who has one checked out. */
+    /** A client's devices marked spare (not removed), with who has one checked out and (2.21.0) its asset tag. */
     public static function spares(int $clientId): array
     {
         return DB::all('SELECT d.id, d.display_name, d.system_name, d.manufacturer, d.model, d.serial, d.device_type, d.location, d.spare_since,
-                c.id AS checkout_id, c.person, c.due_on, c.out_at
+                c.id AS checkout_id, c.person, c.due_on, c.out_at, ao.asset_tag
             FROM devices d ' . self::DEVICE_JOIN . ' LEFT JOIN closet_checkouts c ON c.device_id = d.id AND c.in_at IS NULL
+            LEFT JOIN device_overrides ao ON ao.device_id = d.id
             WHERE d.is_spare = 1 AND d.removed_at IS NULL AND ' . self::DEVICE_OWNER . ' = ? ORDER BY d.device_type, d.display_name', [$clientId]);
     }
 

@@ -12,7 +12,7 @@ FROM ${BASE}
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -qq \
  && apt-get install -y -qq --no-install-recommends \
-      apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd \
+      apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd php-zip \
       mariadb-client age ca-certificates curl tzdata tini util-linux gzip tar \
  && PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;') \
  && { php -r 'exit(function_exists("opcache_get_status") ? 0 : 1);' || php -m | grep -qi opcache || apt-get install -y -qq --no-install-recommends "php$PHPV-opcache"; } \

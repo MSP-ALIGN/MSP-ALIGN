@@ -18,7 +18,7 @@ $cols = 7 + ($users ? 1 : 0) + ($costs ? 1 : 0);
       <tr class="group"><td colspan="<?= $cols - ($costs ? 1 : 0) ?>"><?= e($type) ?> · <?= count($list) ?></td><?php if ($costs): ?><td class="num"><?= $sub ? money($sub) : '' ?></td><?php endif; ?></tr>
       <?php foreach ($list as $d): ?>
         <tr>
-          <td><span class="name"><?= e($d['name']) ?></span><div class="sub"><?= e(implode(' · ', array_filter([$d['serial'] ? 'SN ' . $d['serial'] : null, $d['location'], $d['ip_address']]))) ?></div></td>
+          <td><span class="name"><?= e($d['name']) ?></span><div class="sub"><?= e(implode(' · ', array_filter([!empty($d['asset_tag']) ? 'Tag ' . $d['asset_tag'] : null, $d['serial'] ? 'SN ' . $d['serial'] : null, $d['location'], $d['ip_address']]))) ?></div></td>
           <?php if ($users): ?><td><?= $d['last_user'] ? e(short_user($d['last_user'])) : '<span class="muted">—</span>' ?></td><?php endif; ?>
           <td><?= e(trim(($d['manufacturer'] ?? '') . ' ' . ($d['model'] ?? ''))) ?: '<span class="muted">—</span>' ?></td>
           <td><?= e($d['os_name'] ? short_os($d['os_name']) : (string) $d['firmware']) ?: '<span class="muted">—</span>' ?></td>

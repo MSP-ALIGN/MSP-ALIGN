@@ -4,9 +4,10 @@ use Align\Docs\Documents;
 ?>
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-file-lines', 'title' => 'Documents',
-    'desc' => 'Policies, plans and procedures for each client and for your own company, with version history. Share a document to show it in the client portal.',
+    'desc' => 'Policies, plans and procedures for each client and for your own company, written here or uploaded as files (PDF, Word, Excel, pictures), with version history. Share a document to show it in the client portal.',
     'primary' => Auth::can('tech') ? '<button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-new-doc" data-autoopen="add"><i class="fas fa-plus me-1"></i>New document</button>' : '',
-    'secondary' => Auth::can('admin') ? ['<a class="btn btn-sm btn-default" href="/documents/templates"><i class="fas fa-shapes me-1"></i>Templates</a>'] : [],
+    'secondary' => array_merge(Auth::can('tech') ? ['<button class="btn btn-sm btn-default" data-bs-toggle="modal" data-bs-target="#modal-upload-doc"><i class="fas fa-upload me-1"></i>Upload a file</button>'] : [],
+        Auth::can('admin') ? ['<a class="btn btn-sm btn-default" href="/documents/templates"><i class="fas fa-shapes me-1"></i>Templates</a>'] : []),
 ]) ?>
 <div class="card">
   <div class="card-header list-toolbar">
@@ -30,4 +31,4 @@ use Align\Docs\Documents;
     <?php $showClient = true; require __DIR__ . '/_table.php'; ?>
   </div>
 </div>
-<?php if (Auth::can('tech')) echo \Align\View::fetch('documents/_new_modal', ['templates' => $templates, 'clients' => $clients]); ?>
+<?php if (Auth::can('tech')) echo \Align\View::fetch('documents/_new_modal', ['templates' => $templates, 'clients' => $clients]) . \Align\View::fetch('documents/_upload_modal', ['clients' => $clients]); // 2.20.0 ?>

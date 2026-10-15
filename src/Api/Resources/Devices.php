@@ -32,6 +32,7 @@ final class Devices
             'replace_note' => ['string', ['max' => 255, 'desc' => 'Why the replacement was moved (kept only with replace_quarter).']],
             'excluded' => ['bool', ['desc' => 'Leave the device out of planning, budgets and reports.']],
             'notes' => ['string', ['max' => 5000, 'desc' => 'Align notes.']],
+            'asset_tag' => ['string', ['max' => 64, 'desc' => 'The client\'s own asset tag (2.21.0). null = none. Not unique: the same tag on two devices is allowed.']],
             'device_type' => ['string', ['enum' => array_keys(Lifecycle::TYPES), 'desc' => 'Device type (sets its lifecycle category). null = the type the RMM reports (not for devices added in Align or the PSA, whose type is their own).']],
         ];
     }
@@ -82,7 +83,7 @@ final class Devices
                 && ($class === null || $d['device_class'] === $class)
                 && ($virtual === null || (bool) $d['is_virtual'] === $virtual)
                 && ($attention === null || in_array($d['status_tone'], ['bad', 'warn'], true) === $attention)
-                && ($q === '' || str_contains(strtolower($d['name'] . ' ' . $d['serial'] . ' ' . $d['model'] . ' ' . $d['last_user']), $q))
+                && ($q === '' || str_contains(strtolower($d['name'] . ' ' . $d['serial'] . ' ' . ($d['asset_tag'] ?? '') . ' ' . $d['model'] . ' ' . $d['last_user']), $q))
                 && ($since === null || max((string) $d['updated_at'], (string) $d['synced_at'], (string) $d['created_at']) >= $since);
         });
         usort($rows, fn($a, $b) => [(string) $a['client_name'], strnatcasecmp($a['name'], $b['name'])] <=> [(string) $b['client_name'], 0]);
@@ -129,10 +130,10 @@ final class Devices
         DB::transaction(function () use ($d, $id, $in) {
             $o = DB::one('SELECT * FROM device_overrides WHERE device_id = ?', [$id]) ?: ['device_id' => $id];
             $map = ['purchase_date' => 'purchase_date', 'warranty_end' => 'warranty_end', 'lifespan_years' => 'lifespan_years',
-                'replacement_cost' => 'replacement_cost', 'replace_quarter' => 'replace_on', 'replace_note' => 'replace_note', 'notes' => 'notes'];
+                'replacement_cost' => 'replacement_cost', 'replace_quarter' => 'replace_on', 'replace_note' => 'replace_note', 'notes' => 'notes', 'asset_tag' => 'asset_tag'];
             foreach ($map as $k => $col) {
                 if (array_key_exists($k, $in)) {
-                    $o[$col] = $in[$k];
+                    $o[$col] = $k === 'asset_tag' ? \Align\Controllers\DeviceController::tag($in[$k]) : $in[$k]; // 2.21.0: "" clears it
                 }
             }
             if (array_key_exists('excluded', $in)) {
@@ -182,6 +183,7 @@ final class Devices
             'manufacturer' => $d['manufacturer'],
             'model' => $d['model'],
             'serial' => $d['serial'],
+            'asset_tag' => $d['asset_tag'] ?? null, // 2.21.0
             'ip_address' => $d['ip_address'],
             'location' => $d['location'],
             'last_user' => $d['last_user'],

@@ -288,6 +288,7 @@ final class ClientController
             flash('error', 'Type the client name exactly to confirm deletion.');
             redirect("/clients/$id");
         }
+        $files = \Align\Docs\Files::ofClients([$id]); // 2.20.0: its uploaded documents' files, removed after the rows
         DB::transaction(function () use ($id, $client) {
             DB::run('DELETE FROM meetings WHERE client_id = ?', [$id]);
             DB::run('DELETE FROM devices WHERE client_id = ?', [$id]);
@@ -306,6 +307,7 @@ final class ClientController
         });
         // The logo goes once the client is gone (2.2.1: before, a failed delete left the client without its logo file)
         \Align\Images::delete('clients', $client['logo_file'] ?? null);
+        \Align\Docs\Files::forget($files);
         Audit::log('client.delete', $client['name']);
         flash('success', "Deleted {$client['name']}.");
         redirect('/clients');
@@ -400,7 +402,7 @@ final class ClientController
     }
 
     /** What the device search box looks in. */
-    public const DEVICE_SEARCH = ['name', 'display_name', 'system_name', 'serial', 'last_user', 'manufacturer', 'model', 'os_name', 'ip_address', 'type', 'client_name', 'location'];
+    public const DEVICE_SEARCH = ['name', 'display_name', 'system_name', 'serial', 'asset_tag', 'last_user', 'manufacturer', 'model', 'os_name', 'ip_address', 'type', 'client_name', 'location'];
 
     /**
      * The devices one list view shows. $filter and $class come from the query string: an unknown value matches
@@ -491,13 +493,13 @@ final class ClientController
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $fname . '"');
         $out = fopen('php://output', 'w');
-        fputcsv($out, [...($withClient ? ['Client'] : []), 'Device', 'Type', 'Source', 'Manufacturer', 'Model', 'Serial', 'IP', 'Location', 'OS / firmware',
+        fputcsv($out, [...($withClient ? ['Client'] : []), 'Device', 'Type', 'Source', 'Manufacturer', 'Model', 'Serial', 'Asset tag', 'IP', 'Location', 'OS / firmware',
             'OS support ends', 'In service since', 'Start date source', 'Age (years)', 'Warranty ends', 'Warranty source',
             'End of life', 'Status', 'Est. replacement cost', 'Last check-in', 'Last logged-in user', 'Notes'], escape: '');
         foreach ($devices as $d) {
             fputcsv($out, array_map([\Align\Security::class, 'csvCell'], [...($withClient ? [$d['client_name']] : []),
                 $d['name'], $d['type'], source_label($d['source'], $d['rmm_provider'] ?? null), $d['manufacturer'], $d['model'],
-                $d['serial'], $d['ip_address'], $d['location'], $d['os_name'] ?: $d['firmware'],
+                $d['serial'], $d['asset_tag'] ?? '', $d['ip_address'], $d['location'], $d['os_name'] ?: $d['firmware'],
                 $d['os_rule']['eos_date'] ?? '', $d['start_date'], $d['start_source'], $d['age_years'],
                 $d['warranty_end'], $d['warranty_source'], $d['eol_date'], $d['status_label'],
                 $d['is_hardware'] ? $d['replacement_cost'] : '', $d['last_contact'], $d['last_user'], $d['o_notes'],

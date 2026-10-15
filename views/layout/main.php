@@ -127,6 +127,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
 <?php if (!empty($editor)): ?><link rel="stylesheet" href="/vendor/quill/quill.snow.css?v=<?= $v ?>"><script src="/vendor/quill/quill.js?v=<?= $v ?>" defer></script><script src="/assets/docs.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 <?php if (!empty($contractsJs)): ?><script src="/assets/pdfview.js?v=<?= $v ?>" defer></script><script src="/assets/contracts.js?v=<?= $v ?>" defer></script><?php endif; ?>
+<?php if (!empty($pdfJs) && empty($contractsJs)): // 2.20.0 an uploaded PDF document, painted by PDF.js ?><script src="/assets/pdfview.js?v=<?= $v ?>" defer></script><?php endif; ?>
 <?php if ($brandCss = \Align\Branding::css()): ?><style><?= $brandCss ?></style><?php endif; ?>
 </head>
 <body class="layout-fixed sidebar-expand-lg sidebar-mini app-staff<?= \Align\Staging::on() ? ' is-staging' : '' ?>" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">

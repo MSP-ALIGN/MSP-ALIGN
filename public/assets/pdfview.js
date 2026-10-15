@@ -195,6 +195,13 @@
       p.drawn = width;
       const page = p.page || (p.page = await this.doc.getPage(i + 1));
       const base = page.getViewport({ scale: 1 });
+      // 2.20.0 Without the server's page sizes (an uploaded document), each page takes its own shape once it's read
+      if (!this.sizes[i] && (Math.abs(base.width - p.W) > 0.5 || Math.abs(base.height - p.H) > 0.5)) {
+        p.W = base.width;
+        p.H = base.height;
+        p.el.style.aspectRatio = p.W + ' / ' + p.H;
+        p.el.style.setProperty('--k', width / p.W);
+      }
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       const vp = page.getViewport({ scale: width / base.width * ratio });
       p.canvas.width = Math.floor(vp.width);

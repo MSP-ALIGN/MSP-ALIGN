@@ -7,6 +7,7 @@ use Align\Audit;
 use Align\Auth;
 use Align\DB;
 use Align\Docs\Documents;
+use Align\Docs\Files;
 use Align\Docs\Html;
 use Align\Settings;
 use Align\View;
@@ -17,6 +18,9 @@ use Align\View;
  * document; techs and admins edit, share and restore; only admins delete documents (the whole history goes) and manage
  * templates. Bodies are untrusted HTML from the editor: every write goes through Docs\Html::clean, and the views
  * print the stored (cleaned) HTML as is. The client portal reads documents through PortalController, never here.
+ * 2.20.0: a document can be an uploaded file instead (kind 'file'): Docs\Files checks and stores it and sends it
+ * back with a fixed type, nosniff and a sandbox CSP; a Word file can be imported into a new editable document
+ * (Docs\Docx, then Html::clean). Uploads, replacements and imports are techs and admins, and audited.
  */
 final class DocumentController
 {
@@ -45,7 +49,7 @@ final class DocumentController
     /** Documents for a list. $where is built by the caller from fixed SQL only; values go in $params. */
     private static function list(string $where, array $params): array
     {
-        return DB::all("SELECT d.id, d.client_id, d.title, d.category, d.status, d.version, d.review_due, d.updated_at, d.body_html,
+        return DB::all("SELECT d.id, d.client_id, d.title, d.category, d.kind, d.file_type, d.file_size, d.file_orig, d.status, d.version, d.review_due, d.updated_at, d.body_html,
                 c.name AS client_name, u.name AS updated_by_name,
                 (SELECT COUNT(*) FROM client_control_status s WHERE s.document_id = d.id) AS evidence_count
             FROM documents d LEFT JOIN clients c ON c.id = d.client_id LEFT JOIN users u ON u.id = d.updated_by
@@ -145,8 +149,11 @@ final class DocumentController
         $doc = self::find($id);
         $client = $doc['client_id'] ? ClientController::load((int) $doc['client_id']) : null;
         Audit::access('document', "#$id {$doc['title']}" . ($client ? " ({$client['name']})" : ''));
-        DB::upsert('document_presence', ['document_id' => $id, 'user_id' => $u['id'], 'last_seen' => date('Y-m-d H:i:s'), 'editing' => 0], ['document_id', 'user_id']);
-        View::render('documents/show', [
+        $file = $doc['kind'] === 'file'; // 2.20.0: an uploaded file has its own page (no editor)
+        if (!$file) {
+            DB::upsert('document_presence', ['document_id' => $id, 'user_id' => $u['id'], 'last_seen' => date('Y-m-d H:i:s'), 'editing' => 0], ['document_id', 'user_id']);
+        }
+        View::render($file ? 'documents/file' : 'documents/show', [
             'title' => $doc['title'],
             'nav' => $client ? 'clients' : 'documents',
             'client' => $client,
@@ -158,7 +165,8 @@ final class DocumentController
             'evidence' => DB::all('SELECT c.ref, c.title, f.name AS framework, f.id AS framework_id, s.status FROM client_control_status s
                 JOIN compliance_controls c ON c.id = s.control_id JOIN compliance_frameworks f ON f.id = c.framework_id
                 WHERE s.document_id = ? ORDER BY f.name, c.sort', [$id]),
-            'editor' => true,
+            'editor' => !$file,
+            'pdfJs' => $file && $doc['file_type'] === 'pdf',
         ]);
     }
 
@@ -198,6 +206,9 @@ final class DocumentController
             $doc = DB::one('SELECT * FROM documents WHERE id = ? FOR UPDATE', [$id]);
             if (!$doc) {
                 return ['status' => 404, 'body' => ['error' => 'Document not found']];
+            }
+            if ($doc['kind'] === 'file') { // 2.20.0: an uploaded file's details are saved by details()
+                return ['status' => 409, 'body' => ['error' => 'This document is an uploaded file.']];
             }
             if ((int) $doc['version'] !== $base && !$force) {
                 $by = DB::value('SELECT name FROM users WHERE id = ?', [$doc['updated_by']]);
@@ -312,19 +323,22 @@ final class DocumentController
         $client = $doc['client_id'] ? ClientController::load((int) $doc['client_id']) : null;
         Audit::access('document', "#$id {$doc['title']} version {$v['version']}" . ($client ? " ({$client['name']})" : ''));
         View::render('documents/version', [
+            'pdfJs' => ($v['file_type'] ?? '') === 'pdf',
             'title' => $doc['title'] . ' · version ' . $v['version'],
             'nav' => $client ? 'clients' : 'documents',
             'client' => $client,
             'clientNav' => 'documents',
             'doc' => $doc,
             'v' => $v,
-            'editor' => true,
+            'editor' => empty($v['file_name']),
         ]);
     }
 
     /**
-     * Puts an old version back, after saving the current content in the history. Techs and admins; $vid must
-     * belong to $id. The stored version was cleaned when it was saved.
+     * Puts an old version back, after saving the current content in the history (2.20.0: for an uploaded document,
+     * that version's file, which is already in the history; nothing happens, and it says why, when the file is
+     * missing or the kinds don't match). Techs and admins; $vid must belong to $id. The stored version was cleaned
+     * when it was saved.
      */
     public static function restore(int $id, int $vid): void
     {
@@ -334,12 +348,26 @@ final class DocumentController
         if (!$v) {
             redirect("/documents/$id");
         }
-        DB::transaction(function () use ($v, $id) {
+        $restored = DB::transaction(function () use ($v, $id) {
             // The content kept is read under the lock: an autosave between loading the page and restoring would
             // otherwise be overwritten without being in the history
             $doc = DB::one('SELECT * FROM documents WHERE id = ? FOR UPDATE', [$id]);
             if (!$doc) {
-                return; // deleted meanwhile: nothing to restore into
+                return 'That document was deleted.'; // nothing to restore into
+            }
+            if ($doc['kind'] === 'file') {
+                if (!Files::path($v['file_name'])) {
+                    return 'That version has no file to put back (it may be missing from the server).';
+                }
+                // 2.20.0: an uploaded file's version puts that file back (every file stays in the history)
+                DB::run('UPDATE documents SET title = ?, file_name = ?, file_orig = ?, file_type = ?, file_size = ?, file_hash = ?, version = version + 1, updated_by = ?, updated_at = NOW() WHERE id = ?', [
+                    $v['title'], $v['file_name'], $v['file_orig'], $v['file_type'], $v['file_size'], $v['file_hash'], Auth::id(), $id,
+                ]);
+                Documents::snapshot(Documents::load($id), 'restore', 'Restored version ' . $v['version'] . ' (' . $v['file_orig'] . ')');
+                return null;
+            }
+            if (!empty($v['file_name'])) {
+                return 'A file can\'t be restored into a written document.';
             }
             Documents::snapshot($doc, 'auto', 'Before restoring version ' . $v['version']);
             // Cleaned again (2.2.1): a version saved before a sanitizer fix would otherwise come back as it was
@@ -347,13 +375,18 @@ final class DocumentController
                 $v['title'], Html::clean((string) $v['body_html']), Auth::id(), $id,
             ]);
             Documents::snapshot(Documents::load($id), 'restore', 'Restored version ' . $v['version'] . ' from ' . \Align\Fmt::dateTime($v['saved_at'], 'date', ' '));
+            return null;
         });
+        if ($restored !== null) {
+            flash('error', $restored);
+            redirect("/documents/$id");
+        }
         Audit::log('document.restore', "#$id → v{$v['version']}");
         flash('success', 'Version restored. The previous content was saved in the history first.');
         redirect("/documents/$id");
     }
 
-    /** Deletes a document and its history after typing DELETE. Admins only. Evidence links are cleared, not deleted. */
+    /** Deletes a document and its history (2.20.0: and its files) after typing DELETE. Admins only. Evidence links are cleared, not deleted. */
     public static function delete(int $id): void
     {
         // Deleting removes the whole version history (policies are often kept for years as compliance records): admins only (1.45)
@@ -363,10 +396,14 @@ final class DocumentController
             flash('error', 'Type DELETE to confirm. Or set the status to Archived to keep it but hide it.');
             redirect("/documents/$id");
         }
-        DB::transaction(function () use ($id) { // both or neither: evidence never points at a deleted document
+        $files = DB::transaction(function () use ($id) { // both or neither: evidence never points at a deleted document
+            $files = array_column(DB::all('SELECT file_name FROM documents WHERE id = ? AND file_name IS NOT NULL FOR UPDATE', [$id]), 'file_name');
+            $files = array_merge($files, array_column(DB::all('SELECT file_name FROM document_versions WHERE document_id = ? AND file_name IS NOT NULL', [$id]), 'file_name'));
             DB::run('UPDATE client_control_status SET document_id = NULL WHERE document_id = ?', [$id]);
             DB::run('DELETE FROM documents WHERE id = ?', [$id]);
+            return $files;
         });
+        Files::forget($files); // 2.20.0: an uploaded file's copies go with it (after the rows, so nothing points at a missing file)
         Audit::log('document.delete', ($doc['client_name'] ? $doc['client_name'] . ': ' : '') . $doc['title']);
         flash('success', "Deleted \"{$doc['title']}\".");
         redirect($doc['client_id'] ? "/clients/{$doc['client_id']}/documents" : '/documents');
@@ -377,6 +414,9 @@ final class DocumentController
     {
         Auth::require();
         $doc = self::find($id);
+        if ($doc['kind'] === 'file') {
+            redirect("/documents/$id/file"); // 2.20.0: an uploaded file is printed from its own program
+        }
         Audit::log('document.print', $doc['title']);
         View::render('documents/print', [
             'title' => ($doc['client_name'] ? $doc['client_name'] . ' — ' : '') . $doc['title'],
@@ -394,6 +434,165 @@ final class DocumentController
             ],
             'docPrint' => true,
         ], 'layout/print');
+    }
+
+    // ---- 2.20.0 Uploaded files ------------------------------------------------
+
+    /**
+     * A new document from an uploaded file (PDF, Word, Excel, CSV, PNG, JPEG; Docs\Files). Techs and admins. It is
+     * Active straight away (it's a finished file) and shown in the client portal only when "show in portal" is ticked.
+     */
+    public static function upload(): void
+    {
+        Auth::requireRole('tech');
+        $clientId = (int) post('client_id') ?: null;
+        $client = $clientId ? ClientController::load($clientId) : null;
+        $back = $clientId ? "/clients/$clientId/documents" : '/documents';
+        try {
+            $f = Files::store($_FILES['file'] ?? []);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect($back);
+        }
+        $category = isset(Documents::CATEGORIES[post('category')]) ? post('category') : 'other';
+        $title = mb_substr(trim(post('title')), 0, 255) ?: mb_substr(pathinfo($f['file_orig'], PATHINFO_FILENAME) ?: 'Uploaded file', 0, 255);
+        try {
+            $id = DB::transaction(function () use ($clientId, $title, $category, $f) {
+            $id = DB::insert('documents', [
+                'client_id' => $clientId, 'title' => $title, 'category' => $category, 'kind' => 'file', 'status' => 'active', 'body_html' => '',
+                'portal_shared' => $clientId && post('portal') === '1' ? 1 : 0,
+                'review_due' => date('Y-m-d', strtotime('+1 year')), 'created_by' => Auth::id(), 'updated_by' => Auth::id(),
+            ] + $f);
+            Documents::snapshot(Documents::load($id), 'upload', 'Uploaded ' . $f['file_orig']);
+            return $id;
+            });
+        } catch (\Throwable $e) {
+            Files::forget([$f['file_name']]); // nothing points at it
+            throw $e;
+        }
+        Audit::log('document.upload', ($client ? $client['name'] . ': ' : '') . "$title ({$f['file_orig']}, " . Files::size($f['file_size']) . ')');
+        flash('success', "Uploaded \"$title\".");
+        redirect("/documents/$id");
+    }
+
+    /** Replaces an uploaded document's file with a new one; the old one stays in the history. Techs and admins. */
+    public static function replace(int $id): void
+    {
+        Auth::requireRole('tech');
+        $doc = self::find($id);
+        if ($doc['kind'] !== 'file') {
+            redirect("/documents/$id");
+        }
+        try {
+            $f = Files::store($_FILES['file'] ?? []);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect("/documents/$id");
+        }
+        try {
+            $done = DB::transaction(function () use ($id, $f) {
+                if (!DB::value("SELECT 1 FROM documents WHERE id = ? AND kind = 'file' FOR UPDATE", [$id])) {
+                    return false; // deleted meanwhile
+                }
+                $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
+                DB::run("UPDATE documents SET $sets, version = version + 1, updated_by = ?, updated_at = NOW() WHERE id = ?", [...array_values($f), Auth::id(), $id]);
+                Documents::snapshot(Documents::load($id), 'upload', mb_substr(post('note'), 0, 200) ?: 'Replaced with ' . $f['file_orig']);
+                return true;
+            });
+        } catch (\Throwable $e) {
+            Files::forget([$f['file_name']]);
+            throw $e;
+        }
+        if (!$done) {
+            Files::forget([$f['file_name']]);
+            flash('error', 'That document was deleted.');
+            redirect('/documents');
+        }
+        Audit::log('document.replace', "#$id {$doc['title']}: {$f['file_orig']}");
+        flash('success', 'Replaced. The previous file is kept in the history.');
+        redirect("/documents/$id");
+    }
+
+    /**
+     * Sends an uploaded document's file (?v=<version id> an earlier one; ?download=1 as a download). Any staff role;
+     * audited as a view.
+     */
+    public static function file(int $id): void
+    {
+        Auth::require();
+        $doc = self::find($id);
+        $row = $doc;
+        if (ctype_digit(query('v'))) {
+            $row = DB::one('SELECT * FROM document_versions WHERE id = ? AND document_id = ?', [(int) query('v'), $id]) ?: [];
+        }
+        Audit::access('document', "#$id {$doc['title']} (file" . (isset($row['version']) && $row !== $doc ? ', version ' . $row['version'] : '') . ')');
+        Files::send($row, query('download') === '1');
+    }
+
+    /** Saves an uploaded document's title, category, status and review date (the editor does this for pages). Techs and admins. */
+    public static function details(int $id): void
+    {
+        Auth::requireRole('tech');
+        $doc = self::find($id);
+        if ($doc['kind'] !== 'file') {
+            redirect("/documents/$id"); // a written document's details are saved by the editor (save())
+        }
+        $review = post('review_due');
+        $f = [
+            'title' => mb_substr(trim(post('title')), 0, 255) ?: $doc['title'],
+            'category' => isset(Documents::CATEGORIES[post('category')]) ? post('category') : $doc['category'],
+            'status' => isset(Documents::STATUSES[post('status')]) ? post('status') : $doc['status'],
+            'review_due' => preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $review, $d) && checkdate((int) $d[2], (int) $d[3], (int) $d[1]) ? $review : null,
+        ];
+        $changes = [];
+        foreach ($f as $k => $v) {
+            if ((string) $doc[$k] !== (string) $v) {
+                $changes[] = "$k " . mb_substr((string) $doc[$k], 0, 80) . ' → ' . mb_substr((string) $v, 0, 80);
+            }
+        }
+        if ($changes) {
+            DB::run('UPDATE documents SET title = ?, category = ?, status = ?, review_due = ?, updated_by = ?, updated_at = NOW() WHERE id = ?',
+                [$f['title'], $f['category'], $f['status'], $f['review_due'], Auth::id(), $id]);
+            Audit::log('document.update', "#$id " . implode('; ', $changes));
+        }
+        flash('success', $changes ? 'Saved.' : 'Nothing changed.');
+        redirect("/documents/$id");
+    }
+
+    /**
+     * Imports an uploaded Word (.docx) document into a new editable document for the same client and category (a
+     * Draft, not in the portal); the uploaded file stays as it is. Techs and admins.
+     */
+    public static function import(int $id): void
+    {
+        Auth::requireRole('tech');
+        $doc = self::find($id);
+        $path = $doc['kind'] === 'file' && $doc['file_type'] === 'docx' ? Files::path($doc['file_name']) : null;
+        if (!$path) {
+            flash('error', 'Only a Word (.docx) file can be imported. Save an older .doc file as .docx in Word first.');
+            redirect("/documents/$id");
+        }
+        try {
+            $body = \Align\Docs\Docx::toHtml($path);
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect("/documents/$id");
+        }
+        if (trim(Html::excerpt($body)) === '') {
+            flash('error', 'No text was found in that Word file to import.');
+            redirect("/documents/$id");
+        }
+        $new = DB::transaction(function () use ($doc, $body) {
+            $new = DB::insert('documents', [
+                'client_id' => $doc['client_id'], 'title' => $doc['title'], 'category' => $doc['category'], 'body_html' => $body,
+                'portal_shared' => 0, 'review_due' => $doc['review_due'], 'created_by' => Auth::id(), 'updated_by' => Auth::id(),
+            ]);
+            Documents::snapshot(Documents::load($new), 'created', 'Imported from Word: ' . $doc['file_orig']);
+            return $new;
+        });
+        Audit::log('document.import', "#$id {$doc['title']} → #$new");
+        flash('success', 'Imported as a new editable document (a Draft, not shared). Check the layout, then set it Active; you can archive the Word file once you\'re happy with it.');
+        redirect("/documents/$new");
     }
 
     // ---- Templates (admin) ----------------------------------------------------

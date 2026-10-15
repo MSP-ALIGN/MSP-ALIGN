@@ -96,6 +96,9 @@ $hasSync = psa_on() || $sync['history'];
           <?= $row('Manufacturer', e($d['manufacturer'] ?? '—')) ?>
           <?= $row('Model', e($d['model'] ?? '—')) ?>
           <?= $row('Serial', e($d['serial'] ?? '—')) ?>
+          <?php if (!empty($d['asset_tag'])): $dupes = \Align\Controllers\DeviceController::sameTag((int) $d['id'], $d['asset_tag']); // 2.21.0 ?>
+            <?= $row('Asset tag', e($d['asset_tag']) . ($dupes ? ' <span class="badge text-bg-warning" title="Also on ' . e(implode(', ', array_column($dupes, 'name'))) . '">also on ' . count($dupes) . ' other device' . (count($dupes) === 1 ? '' : 's') . '</span>' : '')) ?>
+          <?php endif; ?>
           <?php if ($d['ip_address']) echo $row('IP address', e($d['ip_address'])); ?>
           <?php if ($d['location']) echo $row('Location', e($d['location'])); ?>
           <?php if ($d['firmware']) echo $row('Firmware / version', e($d['firmware'])); ?>

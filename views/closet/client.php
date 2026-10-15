@@ -45,7 +45,7 @@ foreach ($out as $c) {
       <?php if (!$spares): ?><tr><td colspan="4" class="empty-state">No spare devices. Mark a computer spare when it goes on the shelf: it stays in replacement plans, but isn't flagged stale or counted in health or coverage checks.</td></tr><?php endif; ?>
       <?php foreach ($spares as $s): ?>
         <tr><td><a href="/devices/<?= (int) $s['id'] ?>"><?= e($s['display_name'] ?: (string) $s['system_name']) ?></a> <span class="text-muted small"><?= e((string) $s['device_type']) ?></span></td>
-          <td class="small"><?= e(trim(($s['manufacturer'] ?? '') . ' ' . ($s['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?><?= $s['serial'] ? '<div class="text-muted">S/N ' . e($s['serial']) . '</div>' : '' ?></td>
+          <td class="small"><?= e(trim(($s['manufacturer'] ?? '') . ' ' . ($s['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?><?= $s['serial'] ? '<div class="text-muted">S/N ' . e($s['serial']) . '</div>' : '' ?><?= !empty($s['asset_tag']) ? '<div class="text-muted">Tag ' . e($s['asset_tag']) . '</div>' : '' ?></td>
           <td class="small"><?= $s['spare_since'] ? e(fmt_date($s['spare_since'])) : '—' ?></td>
           <td class="small"><?= $s['checkout_id'] ? e($s['person']) . ($s['due_on'] ? ' · due ' . e(fmt_date($s['due_on'])) : '') : '<span class="text-muted">on the shelf</span>' ?></td></tr>
       <?php endforeach; ?>

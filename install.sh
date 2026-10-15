@@ -230,7 +230,7 @@ fi
 log "Installing packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd
+PKGS=(apache2 libapache2-mod-php php-cli php-mysql php-curl php-mbstring php-xml php-intl php-gd php-zip
       mariadb-server git openssh-client ca-certificates curl openssl unattended-upgrades age fail2ban ufw)
 [[ "${ALIGN_TLS:-}" == "letsencrypt" ]] && PKGS+=(certbot python3-certbot-apache)
 apt-get install -y -qq "${PKGS[@]}" >/dev/null
@@ -594,6 +594,15 @@ Header always unset X-Powered-By
     <IfModule php_module>
         php_value upload_max_filesize 36M
         php_value post_max_size 38M
+    </IfModule>
+</LocationMatch>
+
+# Documents: an uploaded file (PDF, Word, Excel, CSV, picture) can be up to 25 MB (2.20.0)
+<LocationMatch "^/documents/(upload|[0-9]+/file)$">
+    LimitRequestBody 31457280
+    <IfModule php_module>
+        php_value upload_max_filesize 26M
+        php_value post_max_size 28M
     </IfModule>
 </LocationMatch>
 
