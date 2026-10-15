@@ -18,7 +18,6 @@ KEY = "fabrikam"
 NAME = "Fabrikam Cloud"
 
 
-def run_align(*a): return subprocess.run(["php", ALIGN, *a], env=ENV, capture_output=True, text=True)
 def mock(body=None): return requests.post(M + f"/mock/{KEY}-set", json=body or {}).json()
 def text(t): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", t)))
 def last_run(): return json.loads(q("select summary from sync_runs order by id desc limit 1")[0]["summary"])
@@ -71,7 +70,7 @@ ind = phpj(f"echo json_encode(Align\\Health\\SecurityChecks::indicators({C1}));"
 ok(ind.get(f"{KEY}_mfa", {}).get("unknown") is True and "Not linked" in ind[f"{KEY}_mfa"]["text"], "set up but not synced: the client's checks are unknown, saying why")
 
 # ---- the sync
-run_align("sync", "--quiet")
+sync_now()
 got = mine(last_run())
 ok(got and str(got[NAME]).startswith("3 tenants, 1 linked to clients, 9 check results"), "the sync reads it: %s" % got)
 names = {r["record_id"]: r["name"] for r in q("select record_id, name from connector_records where provider=%s", KEY)}
@@ -100,12 +99,12 @@ ok(NAME in cp and not errs(cp), "the client's connectors page shows its link")
 
 # ---- a change in the product shows on the next sync; bad answers never remove anything
 mock({"mfa": 7, "drop": ["t-5"]})
-run_align("sync", "--quiet")
+sync_now()
 ok(result("t-1", "mfa")["status"] == "fail" and "7 of 10" in result("t-1", "mfa")["detail"], "a change in the product shows on the next sync")
 ok(records() == 2 and result("t-5", "mfa") is None, "a tenant gone from the product is removed with its results")
 for mode, why in [("html", "other than a list"), ("noitems", "other than a list"), ("empty", "returned no records"), ("down", "couldn't be read"), ("loop", "doesn't move forward")]:
     mock({"mode": mode})
-    run_align("sync", "--quiet")
+    sync_now()
     err = " ".join(str(v) for v in mine(last_run()).values())
     ok("ERROR" in err and why in err and records() == 2 and result("t-1", "mfa") is not None and q("select 1 from client_links where provider=%s and external_id='t-1'", KEY),
        f"a {mode} answer is an error and removes nothing: " + err[:160])

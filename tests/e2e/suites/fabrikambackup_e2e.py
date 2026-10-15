@@ -16,7 +16,6 @@ KEY = "fabrikambackup"
 NAME = "Fabrikam Backup"
 
 
-def run_align(*a): return subprocess.run(["php", ALIGN, *a], env=ENV, capture_output=True, text=True)
 def mock(body=None): return requests.post(M + f"/mock/{KEY}-set", json=body or {}).json()
 def text(t): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", t)))
 def last_run(): return json.loads(q("select summary from sync_runs order by id desc limit 1")[0]["summary"])
@@ -62,7 +61,7 @@ r = st.post(B + f"/integrations/{KEY}/test", data={"_csrf": csrf(st, f"/integrat
 ok("Connected. 2 customers readable." in text(r.text), "Test reads the customers (bad ids left out): " + flash(r.text)[:200])
 
 # ---- the sync
-run_align("sync", "--quiet")
+sync_now()
 got = mine(last_run())
 ok(got and not any(str(v).startswith("ERROR") for v in got.values()) and "2 companies" in " ".join(map(str, got.values())), "the sync reads it: %s" % got)
 link = q("select client_id from client_links where provider=%s and external_id=%s", KEY, f"{KEY}:c-1")
@@ -86,11 +85,11 @@ ok(NAME in st.get(B + "/mapping").text, "Client mapping has a column for it")
 
 # ---- gone from the product: removed; bad answers never remove anything
 mock({"drop": ["m-2"]})
-run_align("sync", "--quiet")
-ok(machine("m-2") is None and machine("m-1") is not None, "a machine gone from the product is removed")
+sync_now()
+ok(machine("m-2") is None and machine("m-1") is not None, "a machine gone from the product is removed: %s %s" % (mine(last_run()), {k: (machine(k) or {}).get("synced_at") for k in ("m-1", "m-2")}))
 for mode, why in [("html", "other than a list"), ("noitems", "other than a list"), ("down", "couldn't be read"), ("loop", "doesn't move forward")]:
     mock({"mode": mode})
-    run_align("sync", "--quiet")
+    sync_now()
     err = " ".join(str(v) for v in mine(last_run()).values())
     ok("ERROR" in err and why in err and machines() == 1 and job("j-1") is not None, f"a {mode} answer is an error and removes nothing: " + err[:160])
 mock({})

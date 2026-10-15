@@ -17,7 +17,6 @@ KEY = "fabrikamrmm"
 NAME = "Fabrikam RMM"
 
 
-def run_align(*a): return subprocess.run(["php", ALIGN, *a], env=ENV, capture_output=True, text=True)
 def mock(body=None): return requests.post(M + f"/mock/{KEY}-set", json=body or {}).json()
 def dev(i): return (q("select * from devices where rmm_provider=%s and rmm_device_id=%s", KEY, i) or [None])[0]
 def text(t): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", t)))
@@ -60,7 +59,7 @@ r = st.post(B + f"/integrations/{KEY}/test", data={"_csrf": csrf(st, f"/integrat
 ok("Connected. 2 organizations readable." in text(r.text), "Test reads the organizations (a bad id is skipped): " + flash(r.text)[:200])
 
 # ---- the sync
-run_align("sync", "--quiet")
+sync_now()
 got = mine(last_run())
 ok(f"{NAME} organizations" in got and f"{NAME} devices" in got and not any(str(v).startswith("ERROR") for v in got.values()), "the sync reads it: %s" % got)
 orgs = {r["org_id"]: r for r in q("select org_id, name, description from rmm_orgs where provider=%s", KEY)}
@@ -90,11 +89,11 @@ ok(NAME in st.get(B + "/mapping").text, "Client mapping has a column for it")
 
 # ---- gone from the product: removed; bad answers never remove anything
 mock({"drop": ["dev-stray-04"]})
-run_align("sync", "--quiet")
+sync_now()
 ok(dev("dev-stray-04")["removed_at"] is not None and dev("dev-srv-01")["removed_at"] is None, "a device gone from the product is marked removed")
 for mode, why in [("html", "other than a list"), ("noitems", "other than a list"), ("down", "couldn't be read"), ("loop", "doesn't move forward")]:
     mock({"mode": mode})
-    run_align("sync", "--quiet")
+    sync_now()
     err = " ".join(str(v) for v in mine(last_run()).values())
     ok("ERROR" in err and why in err and live() == 3, f"a {mode} answer is an error and removes nothing: " + err[:160])
 mock({})
