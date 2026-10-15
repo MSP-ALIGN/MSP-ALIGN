@@ -3,11 +3,16 @@
 MSP Align fills a few **data areas** from the tools an MSP already runs. Screens, reports, the client
 portal and the REST API read only neutral tables, so they don't know or care which product supplied the data.
 
+**Adding a tool?** [Writing a connector](CONNECTORS.md) has the quick way: `php bin/align make:connector` writes a
+working RMM, PSA, backup or security connector from a template, with its mock API and tests (2.22.0), and the
+[review checklist](CONNECTOR_REVIEW.md) is what its pull request goes through. This page explains the parts.
+
 | Area | Provider today | Neutral tables |
 |---|---|---|
 | PSA (at most one per install; none is fine) | ITFlow, HaloPSA (beta, read-only) | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `client_vendors.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
 | RMM (any number) | NinjaOne, Tactical RMM (beta), Datto RMM (beta) | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links`, `rmm_hardware` (hardware read per device, 2.13.0) |
 | Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
+| Security and SaaS checks (community connectors, any number) | none yet (template: `src/Templates/Saas`) | `connector_records`, `connector_results` (each with `provider`, 2.22.0), `client_links` |
 
 ## PSA providers
 
@@ -87,8 +92,10 @@ A connector whose records are linked one-to-one to clients implements
 devices or machines each holds, and the client it's linked to), what one is called ("organization",
 "company"), and what each client gets through its link. `RmmConnector` and `BackupConnector` already do,
 so an RMM or backup provider gets its column on **Client mapping** without extra code. A new kind of
-area (a security product's organizations, a Microsoft 365 tenant) implements the interface itself, and
-adds its record table to `ClientLinks::recordTable()` so sync can auto-match it by name.
+area (a security product's organizations, a Microsoft 365 tenant) implements the interface itself. A built-in one
+adds its record table to `ClientLinks::recordTable()`; a community connector implements
+`Align\Integrations\HasLinkTable` instead (2.22.0, `connector_records` when it uses `SaasStore`), and either way
+sync can auto-match it by name.
 
 Links live in `client_links` (one per client per provider; each outside record belongs to one client). A
 row with `external_id` NULL and `match_method` 'manual' means "kept unlinked" and is left alone by sync.

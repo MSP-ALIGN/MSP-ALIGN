@@ -64,6 +64,50 @@ def php(code, env=None): return subprocess.run(["php", "-r", f'require "{BOOTSTR
 def graph(): return requests.get(M + "/mock/graph").json()
 
 
+def sync_now(timeout=300):
+    """2.22.0 Runs `align sync` and waits until it has really run: a sync already running (a background one another
+    suite started) makes `align sync` refuse, so it waits for that one to end and tries again. Returns the new run's
+    summary (step => result); fails loudly if no run was recorded."""
+    before = (q("select max(id) m from sync_runs") or [{"m": 0}])[0]["m"] or 0
+    # Syncs remove what wasn't seen in this run by its time to the second: a run in the same second as the last one
+    # would remove nothing
+    time.sleep(1.1)
+    end = time.time() + timeout
+    while True:
+        r = subprocess.run(["php", ALIGN, "sync", "--quiet"], env=ENV, capture_output=True, text=True)
+        if "already running" not in r.stdout + r.stderr or time.time() > end:
+            break
+        time.sleep(2)
+    row = q("select id, summary from sync_runs where id > %s order by id desc limit 1", before)
+    if not row:
+        raise RuntimeError("align sync didn't run: " + (r.stdout + r.stderr)[-300:])
+    return json.loads(row[0]["summary"] or "{}")
+
+
+def dev_connectors(*classes):
+    """2.22.0 Switches connector templates (src/Templates) on in the test config for this suite only: they're added as
+    'dev_connectors' and the config file is put back when the suite ends (so other suites never see them)."""
+    import atexit
+    orig = open(CONFIG).read()
+    body = orig.rstrip().removesuffix("];")
+
+    def write(content):
+        # The web server's opcache rechecks a file at most every 2 seconds and only when its time changed: give the
+        # file a newer time than any version before it, then wait for the server to see it
+        before = os.stat(CONFIG).st_mtime
+        open(CONFIG, "w").write(content)
+        t = max(time.time(), before + 2)
+        os.utime(CONFIG, (t, t))
+        time.sleep(2.5)
+
+    write(body + ", \"dev_connectors\" => [" + ", ".join(json.dumps(c) for c in classes) + "]];\n")
+    atexit.register(lambda: write(orig))
+    # run.sh stops a suite that runs too long with SIGTERM, which skips atexit: exit normally instead, so the config
+    # is still put back
+    import signal, sys
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+
+
 def setting(k, v, secret=False):
     if secret:
         php(f'Align\\Settings::setSecret({json.dumps(k)}, {json.dumps(v)});')

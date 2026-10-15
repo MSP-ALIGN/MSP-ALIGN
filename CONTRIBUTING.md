@@ -34,6 +34,10 @@ fine once client names are blurred.
    - Words on screen are short and plain. Staff and clients read them, not developers.
 6. **Sign off every commit** (below), then open the pull request and fill in its checklist.
 
+**Adding a connector for a tool?** Start with `php bin/align make:connector` and follow
+[Writing a connector](docs/CONNECTORS.md); the pull request is reviewed against the
+[connector review checklist](docs/CONNECTOR_REVIEW.md).
+
 ## Sign-off (Developer Certificate of Origin)
 
 MSP Align uses the [Developer Certificate of Origin](https://developercertificate.org/) (DCO) instead of a contributor

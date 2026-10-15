@@ -160,6 +160,12 @@ final class SyncRunner
         if (\Align\DB::value('SELECT 1 FROM client_knowbe4 LIMIT 1')) {
             $this->step('KnowBe4', fn() => \Align\Sat\KnowBe4::run());
         }
+        // 2.22.0: community connectors with their own data (Integrations\SyncsData), each as its own step
+        foreach (\Align\Integrations\Registry::all() as $c) {
+            if ($c instanceof \Align\Integrations\SyncsData && $c->configured()) {
+                $this->step($c->syncStepName(), fn() => $c->sync());
+            }
+        }
         if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth UNION SELECT 1 FROM client_email_domains LIMIT 1")) { // 2.7.4: or domains added by hand
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }

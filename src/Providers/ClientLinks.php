@@ -202,8 +202,29 @@ final class ClientLinks
             isset(Providers::backupConnectors()[$provider]) => ['backup_companies', 'uid'],
             $provider === \Align\Huntress\Sync::PROVIDER => ['huntress_orgs', 'org_id'], // 2.7.0
             $provider === \Align\Sat\Curricula::PROVIDER => ['sat_accounts', 'account_id'], // 2.7.2
-            default => null,
+            default => self::connectorTable($provider), // 2.22.0: a community connector's own (Integrations\HasLinkTable)
         };
+    }
+
+    /**
+     * 2.22.0 The record table a registered connector declares (Integrations\HasLinkTable): SaasStore's connector_records,
+     * or a table of its own whose names are plain identifiers and which has provider, name and the id column.
+     */
+    private static function connectorTable(string $provider): ?array
+    {
+        $c = \Align\Integrations\Registry::get($provider);
+        if (!$c instanceof \Align\Integrations\HasLinkTable) {
+            return null;
+        }
+        [$t, $id] = $c->linkTable() + [null, null];
+        if (!is_string($t) || !is_string($id) || !preg_match('/^[a-z_][a-z0-9_]{0,63}$/', $t) || !preg_match('/^[a-z_][a-z0-9_]{0,63}$/', $id)) {
+            return null;
+        }
+        if ([$t, $id] === ['connector_records', 'record_id']) {
+            return [$t, $id];
+        }
+        $cols = array_column(DB::all('SELECT column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?', [$t]), 'c');
+        return !array_diff(['provider', 'name', $id], $cols) ? [$t, $id] : null;
     }
 
     /**

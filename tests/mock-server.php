@@ -1,6 +1,6 @@
 <?php
 /**
- * Fake NinjaOne / ITFlow / Dell / Lenovo APIs for local testing.
+ * Fake NinjaOne / ITFlow / Dell / Lenovo APIs for local testing (community connectors' mocks are in tests/mock/).
  *   php -S 127.0.0.1:8099 tests/mock-server.php
  * Then set ninja_instance = http://127.0.0.1:8099, itflow_url = http://127.0.0.1:8099,
  * dell_api_base / lenovo_api_base = http://127.0.0.1:8099 in the settings table.
@@ -12,6 +12,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 header('Content-Type: application/json');
 $json = fn($v) => print(json_encode($v));
 mt_srand(42);
+// 2.22.0 Community connectors bring their own mock API: tests/mock/<key>.php, each answering only its own paths
+// (/<key>/...) and returning true once it has answered (see docs/CONNECTORS.md).
+foreach (glob(__DIR__ . '/mock/*.php') ?: [] as $mockModule) {
+    if ((require $mockModule) === true) {
+        return;
+    }
+}
 
 // ITFlow side keeps edits between requests so two-way sync can be tested.
 $stateFile = sys_get_temp_dir() . '/itflow-mock-state.json';
