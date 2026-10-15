@@ -35,10 +35,16 @@ final class Ics
         return implode("\r\n", array_map([self::class, 'fold'], $lines)) . "\r\n";
     }
 
+    /** 2.23.0 The host part of every invitation's UID (uid@host): the server's name. Also used to recognise invitations in Outlook. */
+    public static function host(): string
+    {
+        return (string) (Config::get('fqdn') ?: parse_url((string) Config::get('base_url', ''), PHP_URL_HOST) ?: 'align.local');
+    }
+
     /** The VEVENT lines of one meeting (not yet folded). */
     private static function event(array $m): array
     {
-        $host = (string) (Config::get('fqdn') ?: parse_url((string) Config::get('base_url', ''), PHP_URL_HOST) ?: 'align.local');
+        $host = self::host();
         $desc = [];
         if (!empty($m['client_name'])) {
             $desc[] = 'Client: ' . $m['client_name'];

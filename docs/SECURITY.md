@@ -65,6 +65,7 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
 **Links and tokens**
 
 - The calendar feed is tech/admin only, and carries titles and times only (no agendas or attendees).
+- Microsoft 365 email and calendars (2.23.0): the app Align can create for you is single tenant, has a certificate whose key never leaves Align, and only delegated permissions (it can act only as someone who signed in to it). Each person connects only their own Outlook calendar (the account must match their Align email and your tenant); refresh tokens are encrypted, and private Outlook events are kept as times only. Outlook events of connected staff are visible to all staff on Align's calendar.
 - Invite, reset and calendar tokens are 256-bit, and only their SHA-256 hash is stored. A password change or 2FA reset voids any link still out. A password change, 2FA change, admin reset or "sign out everywhere" also turns off the person's calendar feed link (2.2.1): a new one is made on the Meetings page. A reset link on an account with two-factor asks for the code on the same form before anything changes.
 - Onboarding links stop working 7 days after onboarding is complete. Requests sent from one say the name and email were typed, not verified. A link can save contacts 30 times a day, and a client can send 25 requests a day; these limits are counted so parallel posts can't get past them (2.2.1).
 - Emailed links use the configured address (`base_url`), never the Host header of an unauthenticated request.

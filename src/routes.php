@@ -175,6 +175,11 @@ $r->get('/meetings/{id}/ics', [MeetingController::class, 'ics']);
 $r->get('/calendar', [MeetingController::class, 'calendar']);
 $r->get('/calendar/events', [MeetingController::class, 'events']);
 $r->post('/calendar/feed', [MeetingController::class, 'feedToken']);
+$r->get('/account/calendar/connect', [\Align\Controllers\CalendarController::class, 'connect']); // 2.23.0 Outlook calendars
+$r->get('/account/calendar/callback', [\Align\Controllers\CalendarController::class, 'callback']);
+$r->post('/account/calendar/sync', [\Align\Controllers\CalendarController::class, 'sync']);
+$r->post('/account/calendar/disconnect', [\Align\Controllers\CalendarController::class, 'disconnect']);
+$r->post('/integrations/email/calendars/{id}/disconnect', [\Align\Controllers\CalendarController::class, 'adminDisconnect']);
 $r->get('/ics/{token:str}', [MeetingController::class, 'feed']);
 
 // Documents
@@ -245,6 +250,11 @@ $r->post('/integrations/email', [$E, 'save']);
 $r->post('/integrations/email/test', [$E, 'test']);
 $r->get('/integrations/email/connect', [$E, 'connect']);
 $r->post('/integrations/email/disconnect', [$E, 'disconnect']);
+$r->post('/integrations/email/setup/start', [$E, 'setupStart']); // 2.23.0
+$r->post('/integrations/email/setup/finish', [$E, 'setupFinish']);
+$r->post('/integrations/email/setup/cancel', [$E, 'setupCancel']);
+$r->post('/integrations/email/setup/forget', [$E, 'setupForget']);
+$r->post('/integrations/email/setup/rotate', [$E, 'setupRotate']);
 // 2.6.0 Microsoft 365 for clients (before the generic integration routes)
 $M = \Align\Controllers\M365Controller::class;
 $r->get('/integrations/microsoft-365', [$M, 'index']);

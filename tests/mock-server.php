@@ -19,6 +19,10 @@ foreach (glob(__DIR__ . '/mock/*.php') ?: [] as $mockModule) {
         return;
     }
 }
+// 2.23.0 Set up with Microsoft (email and calendars app) and staff Outlook calendars: /msl, /msg (tests/mock-msmail.php)
+if ((require __DIR__ . '/mock-msmail.php') === true) {
+    return;
+}
 
 // ITFlow side keeps edits between requests so two-way sync can be tested.
 $stateFile = sys_get_temp_dir() . '/itflow-mock-state.json';

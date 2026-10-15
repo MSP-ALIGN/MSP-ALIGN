@@ -94,6 +94,10 @@
     </div>
   </div>
   <div class="col-lg-4">
+    <div class="card card-dark" id="outlook">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fab fa-fw fa-microsoft me-2"></i>Outlook calendar</h3></div>
+      <div class="card-body small"><?= \Align\View::fetch('calendar/_outlook', ['conn' => $outlook, 'available' => $outlookAvailable, 'return' => '/account']) ?></div>
+    </div>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-rss me-2"></i>Calendar feed</h3></div>
       <div class="card-body small">

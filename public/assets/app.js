@@ -498,6 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const calEl = document.getElementById('calendar');
   if (calEl && window.FullCalendar) {
     const clientSel = document.getElementById('calendar-client');
+    const outlookSel = document.getElementById('calendar-outlook'); // 2.23.0 staff Outlook calendars
     const cal = new FullCalendar.Calendar(calEl, {
       initialView: window.innerWidth < 768 ? 'listMonth' : 'dayGridMonth',
       headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listMonth' },
@@ -513,8 +514,36 @@ document.addEventListener('DOMContentLoaded', () => {
       events: (info, success, failure) => {
         const q = new URLSearchParams({ start: info.startStr, end: info.endStr });
         if (clientSel && clientSel.value) q.set('client', clientSel.value);
+        if (outlookSel) {
+          q.set('outlook', outlookSel.value === 'off' ? '0' : '1');
+          if (/^\d+$/.test(outlookSel.value)) q.set('person', outlookSel.value);
+        }
         fetch(calEl.dataset.events + '?' + q.toString(), { credentials: 'same-origin' })
           .then((r) => r.json()).then(success).catch(failure);
+      },
+      // 2.23.0 An Outlook event opens its details (set as text, never HTML); Align events follow their link
+      eventClick: (info) => {
+        const o = info.event.extendedProps && info.event.extendedProps.outlook;
+        const modal = document.getElementById('modal-outlook-event');
+        if (!o || !modal) return;
+        info.jsEvent.preventDefault();
+        const set = (k, v) => { const el = modal.querySelector('[data-oe="' + k + '"]'); if (el) el.textContent = v || ''; };
+        const row = (k, show) => { const el = modal.querySelector('[data-oe-row="' + k + '"]'); if (el) el.classList.toggle('d-none', !show); };
+        set('subject', o.subject);
+        set('person', o.person);
+        const fmt = (d) => d ? d.toLocaleString([], info.event.allDay ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short', hour12: !alignFmt.hour24 }) : '';
+        set('when', fmt(info.event.start) + (info.event.end ? ' – ' + fmt(info.event.end) : ''));
+        set('location', o.location); row('location', !!o.location);
+        set('organizer', o.organizer); row('organizer', !!o.organizer);
+        const ul = modal.querySelector('[data-oe="attendees"]');
+        ul.textContent = '';
+        (o.attendees || []).forEach((a) => { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); });
+        row('attendees', (o.attendees || []).length > 0);
+        const link = modal.querySelector('[data-oe="link"]');
+        const safe = typeof o.link === 'string' && /^https:\/\/(outlook\.office(365)?\.com|outlook\.live\.com)\//.test(o.link);
+        link.classList.toggle('d-none', !safe);
+        if (safe) link.href = o.link; else link.removeAttribute('href');
+        bsModal(modal).show();
       },
       dateClick: (info) => {
         if (calEl.dataset.canCreate !== '1') return;
@@ -533,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     cal.render();
     if (clientSel) clientSel.addEventListener('change', () => cal.refetchEvents());
+    if (outlookSel) outlookSel.addEventListener('change', () => cal.refetchEvents());
   }
 });
 

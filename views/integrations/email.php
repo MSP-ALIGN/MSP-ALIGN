@@ -3,7 +3,7 @@ use Align\Mail\Invites;
 use Align\Mail\Mail;
 use Align\Mail\Notifications as N;
 
-/** @var array $v, $secrets, $stats; bool $ready, $baseUrlSet; string $redirectUri, $provider; ?array $certInfo, $sa */
+/** @var array $v, $secrets, $stats, $auto (M365Setup::info()), $calendars (2.23.0 Calendar\Outlook::connections()); bool $ready, $baseUrlSet; string $redirectUri, $calendarRedirectUri, $provider; ?array $certInfo, $sa, $autoSetup */
 $mode = $v['mail_mode'] ?: 'off';
 if ($provider === 'smtp' && $mode === 'delegated') {
     $mode = 'app'; // SMTP is just on or off
@@ -30,6 +30,7 @@ $pname = Mail::PROVIDERS[$provider];
 $status = match (true) {
     $mode === 'off' => ['secondary', 'Off', 'Email is switched off. Nothing is sent or queued.'],
     !$ready && $provider === 'smtp' => ['warning', 'Not finished', trim((string) $v['smtp_user']) !== '' && !($secrets['smtp_pass'] ?? false) ? 'Enter the password (or API key) for ' . $v['smtp_user'] . ', then save.' : 'Fill in the SMTP server and the From address, then save.'],
+    !$ready && $auto['auto'] && $provider === 'microsoft' => ['warning', 'Not finished', 'Align\'s app is ready: press Connect with Microsoft and sign in as the mailbox Align sends from.'],
     !$ready => ['warning', 'Not finished', $mode === 'delegated' ? 'Save the app details, then click Connect with ' . ($provider === 'google' ? 'Google' : 'Microsoft') . '.'
         : ($provider === 'google' ? 'Paste the service account key and the From mailbox, then save.' : 'Fill in the tenant, client ID, credential and From mailbox, then save.')],
     $stats['failed7'] && $stats['last_error'] => ['danger', 'Problem', 'Recent sends failed: ' . $stats['last_error']],
@@ -65,6 +66,40 @@ $status = match (true) {
           </div>
           <small class="text-muted" data-show-when="mail_provider=smtp">Your own mail server or a relay (SMTP2GO, Mailgun, SendGrid, Amazon SES, or the Microsoft 365 / Google relay). Meeting invitations go out as emails with an .ics invitation, since there's no calendar to put them in.</small>
         </div>
+        <?php /* 2.23.0 Set up with Microsoft: Align makes its own app (M365Setup) */ ?>
+        <div data-show-when="mail_provider=microsoft" class="mb-3" id="email-auto">
+          <?php if ($auto['auto']): ?>
+            <div class="border rounded p-2 small">
+              <div class="d-flex align-items-start"><i class="fab fa-microsoft text-primary me-2 mt-1"></i>
+                <div class="me-auto">Align's own app <b><?= e($auto['name']) ?></b><?= $auto['tenant_name'] ? ' in ' . e($auto['tenant_name']) : '' ?>, set up <?= e(fmt_date((string) $auto['set_up_at'])) ?>.
+                  It signs in as the mailbox you connect below, and staff can connect their own Outlook calendars to it.
+                  <div class="text-muted">Certificate expires <?= e(fmt_date((string) $auto['expires'])) ?> and is replaced automatically 30 days before.<?= $auto['rotated_at'] ? ' Last replaced ' . e(fmt_date((string) $auto['rotated_at'])) . '.' : '' ?></div>
+                  <?php if ($auto['rotate_error']): ?><div class="text-danger">Replacing the certificate failed: <?= e($auto['rotate_error']) ?></div><?php endif; ?></div>
+                <div class="ms-2 text-nowrap"><button class="btn btn-xs btn-default" form="email-setup-rotate">Replace certificate</button>
+                  <button class="btn btn-xs btn-outline-danger" form="email-setup-forget" data-confirm="Remove Align's email app from Align? Email stops until it's set up again, and staff calendars disconnect. The app stays in Entra ID (delete it there if you won't use it)." data-confirm-ok="Remove">Remove</button></div>
+              </div>
+            </div>
+          <?php elseif ($autoSetup): ?>
+            <div class="border border-primary rounded p-3 small">
+              <div class="fw-bold mb-2"><i class="fab fa-microsoft me-1"></i>Sign in to create Align's email app</div>
+              <ol class="ps-3 mb-2">
+                <li class="mb-2">Open <a href="<?= e($autoSetup['verification_uri']) ?>" target="_blank" rel="noopener"><?= e(preg_replace('#^https://#', '', $autoSetup['verification_uri'])) ?></a> and enter this code:
+                  <div class="h3 fw-bold my-2 font-monospace" id="email-user-code"><?= e($autoSetup['user_code']) ?></div></li>
+                <li class="mb-2">Sign in as a <b>Global Administrator</b> of your own Microsoft 365 and accept.</li>
+                <li>Come back and press <b>Continue</b>. Align creates the app, then you sign in as the mailbox it sends from.</li>
+              </ol>
+              <button class="btn btn-sm btn-primary" form="email-setup-finish"><i class="fas fa-arrow-right me-1"></i>Continue</button>
+              <button class="btn btn-sm btn-link" form="email-setup-cancel">Cancel</button>
+            </div>
+          <?php else: ?>
+            <div class="border rounded p-2 small d-flex align-items-center flex-wrap gap-2">
+              <div class="me-auto"><b>Set up with Microsoft</b> (recommended): sign in once as a Global Administrator and Align creates its own app, with a certificate it renews itself. No app registration by hand.
+                <span class="text-muted">It can only act as the people who sign in to it: the sending mailbox, and staff who connect their calendars.</span></div>
+              <button class="btn btn-sm btn-primary" form="email-setup-start"<?= $ready ? ' data-confirm="' . e('Set up Align\'s own Microsoft 365 app? Once it\'s created it replaces the email connection you have now (' . Mail::PROVIDERS[$provider] . '), and you then sign in as the sending mailbox. Staff calendars connected to the current app are disconnected.') . '" data-confirm-ok="Set up"' : '' ?>><i class="fab fa-microsoft me-1"></i>Set up with Microsoft</button>
+            </div>
+            <div class="small text-muted mt-1">Or use an app you register yourself: choose how Align signs in below and follow the steps.</div>
+          <?php endif; ?>
+        </div>
         <div class="mb-3">
           <label class="d-block"><span data-show-when="mail_provider=microsoft,google">How Align signs in</span><span data-show-when="mail_provider=smtp">Sending</span></label>
           <div class="form-check "><input type="radio" class="form-check-input" id="mode-off" name="mail_mode" value="off" <?= $mode === 'off' ? 'checked' : '' ?>><label class="form-check-label fw-normal" for="mode-off">Off</label></div>
@@ -72,11 +107,13 @@ $status = match (true) {
             <label class="form-check-label fw-normal" for="mode-app"><span data-show-when="mail_provider=microsoft">App-only (recommended for servers)</span><span data-show-when="mail_provider=google">Service account with domain-wide delegation (recommended for servers)</span><span data-show-when="mail_provider=smtp">On: send through the SMTP server below</span></label></div>
           <div class="form-check " data-show-when="mail_provider=microsoft,google"><input type="radio" class="form-check-input" id="mode-delegated" name="mail_mode" value="delegated" <?= $mode === 'delegated' ? 'checked' : '' ?>>
             <label class="form-check-label fw-normal" for="mode-delegated"><span data-show-when="mail_provider=microsoft">Sign in as a mailbox (Connect with Microsoft)</span><span data-show-when="mail_provider=google">Sign in as a mailbox (Connect with Google)</span></label></div>
+          <?php if ($auto['auto']): ?><small class="text-muted" data-show-when="mail_provider=microsoft">Align's own app always signs in as a mailbox: App-only isn't used with it.</small><?php endif; ?>
         </div>
 
         <div data-show-when="mail_mode=app,delegated">
+          <?php if (!$auto['auto']): ?>
           <details class="mb-3 small border rounded p-2 bg-light" data-show-when="mail_provider=microsoft">
-            <summary class="fw-bold">Setup steps in Microsoft Entra ID</summary>
+            <summary class="fw-bold">Setup steps in Microsoft Entra ID (your own app)</summary>
             <ol class="ps-3 mt-2 mb-1">
               <li>Entra admin center → <b>App registrations</b> → <b>New registration</b>. Name it "MSP Align", single tenant.</li>
               <li>Copy the <b>Application (client) ID</b> and <b>Directory (tenant) ID</b> into the fields below.</li>
@@ -92,9 +129,11 @@ New-ManagementRoleAssignment -App &lt;client ID&gt; -Role "Application Calendars
 Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($v['mail_from'] ?: 'alerts@yourdomain.com') ?></pre>
                 Set the attribute on each staff mailbox too if meetings should be organized from the owner's own calendar. Don't also grant the Graph permissions tenant-wide, or the scope has no effect.</li>
               <li data-show-when="mail_mode=delegated"><b>Authentication</b> → Add a platform → <b>Web</b> → redirect URI <code><?= e($redirectUri) ?></code>.
-                <b>API permissions</b> → Microsoft Graph → <b>Delegated</b>: <code>Mail.Send</code>, <code>Mail.Send.Shared</code>, <code>Calendars.ReadWrite</code>, <code>Calendars.ReadWrite.Shared</code>, <code>User.Read</code>, <code>offline_access</code>. Grant admin consent, save here, then click <b>Connect with Microsoft</b> and sign in as the mailbox that should send (or an account with Send As on it).</li>
+                <b>API permissions</b> → Microsoft Graph → <b>Delegated</b>: <code>Mail.Send</code>, <code>Mail.Send.Shared</code>, <code>Calendars.ReadWrite</code>, <code>Calendars.ReadWrite.Shared</code>, <code>User.Read</code>, <code>offline_access</code>. Grant admin consent, save here, then click <b>Connect with Microsoft</b> and sign in as the mailbox that should send (or an account with Send As on it).
+                For staff to connect their own Outlook calendars, add the redirect URI <code><?= e($calendarRedirectUri) ?></code> too.</li>
             </ol>
           </details>
+          <?php endif; ?>
           <details class="mb-3 small border rounded p-2 bg-light" data-show-when="mail_provider=google">
             <summary class="fw-bold">Setup steps in Google Cloud and the Admin console</summary>
             <ol class="ps-3 mt-2 mb-1">
@@ -144,9 +183,10 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <div class="small text-muted mt-1">Redirect URI to register: <code><?= e($redirectUri) ?></code></div>
             </div>
           </div>
+          <?php if (!$auto['auto']): ?>
           <div data-show-when="mail_provider=microsoft">
           <div class="row g-2">
-            <div class="mb-3 col-md-6"><label>Directory (tenant) ID</label><input name="m365_tenant" class="form-control" value="<?= e($v['m365_tenant']) ?>" placeholder="contoso.onmicrosoft.com or GUID" autocomplete="off"></div>
+            <div class="mb-3 col-md-6"><label>Directory (tenant) ID</label><input name="m365_tenant" class="form-control" value="<?= e($v['m365_tenant']) ?>" placeholder="11111111-2222-3333-4444-555555555555" autocomplete="off"><small class="text-muted">The ID (a domain also works for email, but staff Outlook calendars need the ID).</small></div>
             <div class="mb-3 col-md-6"><label>Application (client) ID</label><input name="m365_client_id" class="form-control font-monospace" value="<?= e($v['m365_client_id']) ?>" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off"></div>
           </div>
           <div class="mb-3 mb-2">
@@ -161,10 +201,11 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <div class="col-md-6"><?= $secret('m365_cert_pem', 'Certificate (PEM)', true, '-----BEGIN CERTIFICATE-----') ?></div>
               <div class="col-md-6"><?= $secret('m365_key_pem', 'Private key (PEM, unencrypted)', true, '-----BEGIN PRIVATE KEY-----') ?></div>
             </div>
-            <p class="small text-muted">Create one with <code>openssl req -x509 -newkey rsa:2048 -nodes -days 730 -subj "/CN=MSP Align" -keyout align.key -out align.crt</code>, upload <code>align.crt</code> to the app registration, and paste both files here. In delegated mode a client secret is still needed for the sign-in button.</p>
+            <p class="small text-muted">Create one with <code>openssl req -x509 -newkey rsa:2048 -nodes -days 730 -subj "/CN=MSP Align" -keyout align.key -out align.crt</code>, upload <code>align.crt</code> to the app registration, and paste both files here.</p>
           </div>
 
           </div>
+          <?php endif; ?>
           <div data-show-when="mail_provider=microsoft;mail_mode=delegated" class="border rounded p-2 mb-3">
             <?php if ($secrets['m365_refresh_token']): ?>
               <div class="d-flex align-items-center"><i class="fas fa-circle-check text-success me-2"></i>
@@ -175,7 +216,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
               <div class="d-flex align-items-center"><span class="small text-muted me-auto">Save the details above first, then sign in as the sending mailbox.</span>
                 <a class="btn btn-sm btn-primary" href="/integrations/email/connect"><i class="fab fa-microsoft me-1"></i>Connect with Microsoft</a></div>
             <?php endif; ?>
-            <div class="small text-muted mt-1">Redirect URI to register: <code><?= e($redirectUri) ?></code></div>
+            <?php if (!$auto['auto']): ?><div class="small text-muted mt-1">Redirect URI to register: <code><?= e($redirectUri) ?></code></div><?php endif; ?>
           </div>
 
           <div class="row g-2">
@@ -197,6 +238,7 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
       <div class="card-footer"><button class="btn btn-primary"><i class="fas fa-check me-1"></i>Save</button></div>
     </form>
     <form method="post" action="/integrations/email/disconnect" id="email-disconnect" class="d-none"><?= csrf_field() ?></form>
+    <?php foreach (['start', 'finish', 'cancel', 'forget', 'rotate'] as $a): ?><form method="post" action="/integrations/email/setup/<?= $a ?>" id="email-setup-<?= $a ?>" class="d-none"><?= csrf_field() ?></form><?php endforeach; ?>
   </div>
 
   <div class="col-xl-5">
@@ -218,6 +260,22 @@ Test-ServicePrincipalAuthorization -Identity &lt;client ID&gt; -Resource <?= e($
           <div class="flex-fill"><div class="h5 mb-0 fw-bold <?= $stats['failed7'] ? 'text-danger' : '' ?>"><?= (int) $stats['failed7'] ?></div><div class="small text-muted">failed (7 days)</div></div>
         </div>
         <p class="small text-muted mb-0 mt-2">Email is sent every minute by the <code>msp-align-mail</code> timer and retried automatically if the <?= $provider === 'smtp' ? 'server' : 'provider' ?> is unavailable.<?= $stats['last_sent'] ? ' Last sent ' . e(rel_time($stats['last_sent'])) . '.' : '' ?></p>
+      </div>
+    </div>
+    <div class="card card-dark" id="calendars" data-show-when="mail_provider=microsoft">
+      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-days me-2"></i>Staff Outlook calendars</h3></div>
+      <div class="card-body small">
+        <p class="text-muted">Each person connects their own calendar under <a href="/account#outlook">Your account</a> or on the Calendar page: their Outlook events show on Align's calendar, and the meetings they own in Align go into their Outlook.</p>
+        <?php if (!$calendars): ?><p class="mb-0 text-muted">Nobody has connected yet.</p><?php endif; ?>
+        <?php foreach ($calendars as $uid => $c): ?>
+          <div class="d-flex align-items-center border-top py-1">
+            <i class="fas fa-fw <?= $c['status'] === 'connected' && !$c['error'] ? 'fa-circle-check text-success' : 'fa-triangle-exclamation text-warning' ?> me-1"></i>
+            <div class="me-auto"><b><?= e($c['name']) ?></b> · <?= e($c['account']) ?><?= $c['synced_at'] ? ' · synced ' . e(rel_time($c['synced_at'])) : '' ?>
+              <?php if ($c['error']): ?><div class="text-danger"><?= e($c['error']) ?></div><?php endif; ?></div>
+            <form method="post" action="/integrations/email/calendars/<?= (int) $uid ?>/disconnect"><?= csrf_field() ?>
+              <button class="btn btn-xs btn-outline-danger" data-confirm="<?= e('Disconnect ' . $c['name'] . '\'s Outlook calendar? Align\'s copies of their meetings are removed from it.') ?>" data-confirm-ok="Disconnect">Disconnect</button></form>
+          </div>
+        <?php endforeach; ?>
       </div>
     </div>
   </div>

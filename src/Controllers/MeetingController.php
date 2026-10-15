@@ -326,6 +326,9 @@ final class MeetingController
             'users' => ClientController::users(),
             'feedUrl' => self::freshFeedUrl(),
             'feedOn' => !empty($u['ics_token']),
+            'outlook' => \Align\Calendar\Outlook::connection((int) $u['id']), // 2.23.0
+            'outlookAvailable' => \Align\Calendar\Outlook::available(),
+            'outlookPeople' => array_map(fn($c) => (string) $c['name'], \Align\Calendar\Outlook::connections()),
         ]);
     }
 
@@ -391,6 +394,10 @@ final class MeetingController
                     'classNames' => ['contract-event'],
                 ];
             }
+        }
+        // 2.23.0 Staff Outlook calendars (not when looking at one client: Outlook events aren't tied to clients)
+        if (!$cid && query('outlook', '1') === '1') {
+            array_push($out, ...\Align\Calendar\Outlook::calendarEvents(date('Y-m-d H:i:s', $start), date('Y-m-d H:i:s', $end), (int) query('person') ?: null));
         }
         header('Content-Type: application/json');
         echo json_encode($out);

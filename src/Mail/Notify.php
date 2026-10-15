@@ -55,8 +55,21 @@ final class Notify
             if ($r = \Align\M365\App::updatePermissions(true)) { // 2.6.1: an app made before the security checks
                 $out[] = 'm365: ' . $r;
             }
+            if ($r = \Align\Mail\M365Setup::rotateIfDue()) { // 2.23.0: the email app Align made replaces its own certificate
+                $out[] = 'email app: ' . $r;
+            }
         }
+        // 2.23.0 Staff Outlook calendars, two-way: every few minutes per person, sooner when their meetings changed.
+        // After the mail is sent (a slow Microsoft mustn't hold up email), and within a time budget (Outlook::syncAll)
+        $calendars = function () use (&$out, $force): void {
+            try {
+                array_push($out, ...\Align\Calendar\Outlook::syncAll($force));
+            } catch (\Throwable $e) {
+                $out[] = 'calendars: ' . safe_error($e);
+            }
+        };
         if (!Mail::on()) {
+            $calendars();
             return array_merge($out, ['email is off']);
         }
         try {
@@ -81,6 +94,7 @@ final class Notify
         if ($sent || $failed) {
             $out[] = "sent $sent, failed $failed";
         }
+        $calendars();
         return $out;
     }
 
