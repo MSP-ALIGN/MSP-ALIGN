@@ -1,0 +1,101 @@
+<h1>Access Control Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>This policy defines how {{client_name}} grants, changes, reviews and removes access to its systems and information so that each person has only the access their job requires, and access is removed promptly when it is no longer needed.</p>
+
+<h2>2. Scope</h2>
+<p>This policy applies to all user, administrator, service and vendor accounts on {{client_name}} systems, including Microsoft 365 / Entra ID or Google Workspace, Active Directory, workstations and servers, line-of-business applications, banking and payroll portals, network equipment, cloud consoles, and shared folders and document libraries. It covers employees, contractors, vendors and {{company_name}} staff.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<ul>
+<li><strong>Security lead ([name, title]):</strong> owns this policy, coordinates access reviews and approves exceptions.</li>
+<li><strong>Data and system owners:</strong> the manager responsible for each application or data set. Approves who may access it and at what level, and certifies access during reviews.</li>
+<li><strong>Managers / HR:</strong> submit requests for new hires, role changes and departures, and notify {{company_name}} of terminations before or at the time they occur.</li>
+<li><strong>{{company_name}}:</strong> provisions and removes access on approved requests, maintains role groups, manages privileged accounts, and produces account reports for reviews.</li>
+<li><strong>Users:</strong> use only the access granted to them, never share credentials, and report access they should not have.</li>
+</ul>
+
+<h2>4. Access control principles</h2>
+<ul>
+<li><strong>Least privilege:</strong> users receive the minimum access needed to perform their duties. Access to Confidential and Restricted information requires a documented business need.</li>
+<li><strong>Role-based access:</strong> access is granted through security groups tied to job roles (for example Accounting, Operations, Management) rather than assigned to individuals one at a time. {{company_name}} maintains a role matrix listing each role's groups, applications and permission levels.</li>
+<li><strong>Need to know:</strong> Restricted data (PHI, CUI, payment card data, SSNs, payroll) is limited to named individuals approved by the data owner.</li>
+<li><strong>Separation of duties:</strong> where practical, no single person can both create and approve a payment, vendor record or payroll change. Where the business is too small to separate duties, compensating controls such as owner review of bank activity are used.</li>
+<li><strong>Default deny:</strong> access not explicitly granted is denied. New shared folders, SharePoint sites and Teams inherit restrictive permissions and are not shared with "Everyone" or anonymous links.</li>
+</ul>
+
+<h2>5. Account provisioning</h2>
+<ul>
+<li>All access requests are submitted by a manager through {{company_name}}'s ticketing system ([portal or email]) and include the user's name, role, start date and any access beyond the standard role.</li>
+<li>Each person receives a unique user ID. Accounts are created only after the request is approved by the manager and, for non-standard access, by the data owner.</li>
+<li>New accounts are created with a temporary password that must be changed at first sign-in, and MFA registration is required before access to company data.</li>
+<li>Contractor and vendor accounts are created with an expiration date no longer than the contract term or 90 days, whichever is shorter, and are renewed only on request.</li>
+<li>Role changes are processed within 5 business days; access that is no longer needed for the new role is removed at the same time as new access is added.</li>
+</ul>
+
+<h2>6. Deprovisioning (offboarding)</h2>
+<ul>
+<li>Managers or HR notify {{company_name}} of every departure as early as possible and no later than the user's last working day.</li>
+<li>Access is disabled within 24 hours of departure, and <strong>immediately</strong> (before or during the termination meeting) for involuntary terminations or where there is elevated risk.</li>
+<li>Offboarding includes: disabling the account and blocking sign-in; revoking active sessions and tokens; removing MFA methods; removing the user from groups and shared mailboxes; wiping or retiring company data on mobile devices; changing any shared or known credentials the person had (door codes, alarm codes, vendor portals, Wi-Fi keys); retrieving company equipment; and transferring mailbox and OneDrive data to the manager as directed.</li>
+<li>Disabled accounts are retained for [30/90] days for data recovery and then deleted or converted, unless a legal hold applies.</li>
+<li>{{company_name}} records completion of each offboarding step in the ticket.</li>
+</ul>
+
+<h2>7. Access reviews</h2>
+<ul>
+<li><strong>Quarterly:</strong> {{company_name}} provides each data owner with a list of users, group memberships and privileged roles for their systems. Owners confirm or remove access within 10 business days. Results are recorded and kept for at least 3 years (6 years where HIPAA applies).</li>
+<li>Privileged and administrative accounts, vendor accounts and access to Restricted data are included in every quarterly review.</li>
+<li>Accounts with no sign-in activity for 45 days are disabled unless documented as an exception (for example seasonal staff).</li>
+<li>Any access found without a valid approval is removed immediately and the cause is recorded.</li>
+</ul>
+
+<h2>8. Privileged accounts</h2>
+<ul>
+<li>Administrators use a separate privileged account (for example <em>adm-jsmith</em>) for administrative tasks, and a standard account for email, web browsing and daily work. Privileged accounts do not have mailboxes and are not used to browse the internet.</li>
+<li>Everyday user accounts do not have local administrator rights on workstations. Software installation and elevation are handled by {{company_name}} or through an approved privilege elevation tool.</li>
+<li>Global administrator (or equivalent) roles are limited to no more than [4] accounts, including at least one break-glass account.</li>
+<li>Privileged accounts require phishing-resistant MFA and, where licensing allows, just-in-time activation (for example Entra Privileged Identity Management).</li>
+<li><strong>Break-glass accounts:</strong> {{client_name}} keeps [1–2] emergency cloud administrator accounts excluded from conditional access policies that could lock everyone out. Their credentials are stored securely (sealed or in a restricted password manager vault), every sign-in generates an alert, and they are tested at least every 6 months.</li>
+</ul>
+
+<h2>9. Service accounts</h2>
+<ul>
+<li>Service accounts (used by applications, scanners, backup tools and integrations) are listed in an inventory with their owner, purpose, systems accessed and date last reviewed.</li>
+<li>Service accounts are granted only the permissions the service needs, are denied interactive sign-in where possible, and use long random passwords (at least 25 characters) or managed identities, certificates or managed service accounts.</li>
+<li>Service account credentials are stored in the password manager, rotated when someone with knowledge of them leaves, and reviewed quarterly.</li>
+</ul>
+
+<h2>10. Shared and generic accounts</h2>
+<ul>
+<li>Shared or generic user accounts (for example "frontdesk" or "scanner" used for sign-in by multiple people) are <strong>prohibited</strong>. Every sign-in must be traceable to one person.</li>
+<li>Shared mailboxes are allowed but have sign-in blocked; users access them through delegated permissions from their own accounts.</li>
+<li>Where a vendor system only supports a single account, the exception is documented, the credential is stored in a restricted password manager vault with access logging, and it is changed when anyone with access leaves.</li>
+</ul>
+
+<h2>11. Vendor and MSP access</h2>
+<ul>
+<li>Vendors receive named accounts, MFA, and access only to the systems they support. Vendor remote access is enabled only when needed and disabled afterwards, or routed through {{company_name}}'s controlled remote support tools.</li>
+<li>{{company_name}} technicians use individual named accounts with MFA; {{company_name}} maintains its own access review for technicians who leave its employment.</li>
+</ul>
+
+<h2>12. Exceptions</h2>
+<p>Exceptions require a written request to the security lead with the business reason, compensating controls and an end date, approved by the executive sponsor and recorded in the risk register. Exceptions are reviewed at least annually.</p>
+
+<h2>13. Enforcement</h2>
+<p>Attempting to access information without authorization, sharing credentials, or using another person's account may result in disciplinary action up to and including termination. Unauthorized access may also violate law, including California Penal Code 502.</p>
+
+<h2>14. Related documents</h2>
+<ul>
+<li>Information Security Policy</li>
+<li>Password &amp; Multi-Factor Authentication Policy</li>
+<li>Remote Access Policy</li>
+<li>Logging &amp; Monitoring Policy</li>
+<li>Role access matrix and onboarding/offboarding checklists (maintained by {{company_name}})</li>
+</ul>
+<p>Supports: CMMC AC.L2-3.1.1, AC.L2-3.1.2, AC.L2-3.1.5, AC.L2-3.1.6, AC.L2-3.1.7, PS.L2-3.9.2 · CIS 5.1, 5.3, 5.4, 5.5, 6.1, 6.2, 6.8 · HIPAA 164.308(a)(3), 164.308(a)(4), 164.312(a)(1), 164.312(a)(2)(i) · NIST CSF PR.AA-01, PR.AA-05 · PCI DSS 7.2.1, 7.2.2, 7.2.4, 7.2.5, 8.2.1, 8.2.2, 8.2.6</p>
+
+<h2>15. Review and approval</h2>
+<p>This policy is reviewed at least annually and after significant changes to systems or organization.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>
