@@ -23,6 +23,7 @@
 <li><strong>{{vcio_name}} ({{company_name}}, vCIO):</strong> coordinates between {{company_name}} and {{client_name}} leadership for serious incidents, and leads the post-incident review.</li>
 <li><strong>Legal counsel / breach coach:</strong> decides, with the Service Manager, whether notification laws apply and reviews outside communications.</li>
 <li><strong>Cyber insurance carrier:</strong> may require early notice and may assign approved forensic, legal and recovery vendors.</li>
+<li><strong>Organizations that must be told (if any):</strong> a parent or national organization, franchisor, lender, grant funder or customer whose agreement requires notice of an incident within a set time. Who they are and their deadlines are listed in section 5. The Service Manager makes these reports, with {{company_name}}'s help on the details.</li>
 <li><strong>All staff:</strong> report anything suspicious immediately, follow the first steps in section 7, and do not discuss the incident outside the company or on social media.</li>
 </ul>
 
@@ -33,6 +34,7 @@
 <li><strong>Primary business contact:</strong> {{client_contact}} · {{client_contact_email}} · {{client_phone}}</li>
 <li><strong>Cyber insurance carrier / breach hotline:</strong> [carrier, policy number, 24/7 hotline]</li>
 <li><strong>Legal counsel / breach coach:</strong> [name, firm, phone]</li>
+<li><strong>Required incident reports:</strong> [organization, how to report (phone, email or portal), and the deadline counted from when the incident is first discovered, e.g. within 48 hours] — or "None"</li>
 <li><strong>Bank fraud line (for payment fraud):</strong> [bank, phone]</li>
 <li><strong>Law enforcement:</strong> 911 for emergencies; local police non-emergency [number]; FBI Internet Crime Complaint Center (ic3.gov) for cybercrime and wire fraud</li>
 </ul>
@@ -83,6 +85,7 @@
 <ul>
 <li>☐ <strong>Contain:</strong> isolate affected devices through endpoint protection, disable or block affected accounts, revoke active sessions and block malicious senders, domains and IP addresses.</li>
 <li>☐ <strong>Notify the insurer:</strong> with the Service Manager's approval, contact the cyber insurance carrier before engaging outside vendors or rebuilding systems, if the policy requires it.</li>
+<li>☐ <strong>Required reports:</strong> with the Service Manager, make any report a parent organization, funder or contract requires (section 5) within its deadline, even before the investigation is finished. Record when and to whom it was made.</li>
 <li>☐ <strong>Accounts:</strong> reset passwords for affected accounts (and privileged accounts if there is any sign of wider access), verify each account's MFA methods and remove any the user didn't add, and check mailbox rules, forwarding and app consents.</li>
 <li>☐ <strong>Devices:</strong> clean or reimage affected devices; reimage when in doubt.</li>
 <li>☐ <strong>Persistence:</strong> find and remove anything the attacker left behind, such as new accounts, scheduled tasks, remote access tools or OAuth apps.</li>
@@ -92,6 +95,13 @@
 <li>☐ <strong>Close:</strong> close the incident with documented findings: what happened, how, what was affected, what was done and what will change.</li>
 </ul>
 <p>The Service Manager is kept informed at each stage: at intake, after containment, when recovery starts and at closure, and at least every [4] hours during a Critical or High incident.</p>
+<h3>Communication plan</h3>
+<ul>
+<li><strong>Inside {{client_name}}:</strong> the Service Manager decides what staff are told and when, through a channel that isn't affected (for example phone or text if email may be compromised). Staff get what they need to keep working safely: what to avoid, what to watch for and who to ask.</li>
+<li><strong>Outside {{client_name}}:</strong> only the Service Manager, or someone they name, speaks for {{client_name}} to customers, donors or members, vendors, partners and the media. Statements are reviewed by legal counsel first when sensitive data may be involved, and say only what is known.</li>
+<li><strong>Who is told:</strong> the people and organizations in section 5, regulators and affected individuals where notification is required (section 11), and anyone else the Service Manager decides needs to know, such as a bank, key customers or business partners.</li>
+<li>[Optional: a short holding statement prepared in advance, for example "We are investigating a technical issue affecting some of our systems and will share more when we can."]</li>
+</ul>
 
 <h2>11. Incidents that may involve sensitive data</h2>
 <ul>
@@ -109,7 +119,7 @@
 <p>For every Critical and High incident, and any other incident the Service Manager requests, {{vcio_name}} leads a review within two weeks of closure with the Service Manager and the Incident Handler. The review records what worked, what didn't and the improvements agreed, each with an owner and date, and updates this plan, the risk register and training as needed.</p>
 
 <h2>14. Testing</h2>
-<p>This plan is reviewed and tested at least annually through a tabletop exercise facilitated by {{company_name}}, using a realistic scenario such as ransomware or a compromised mailbox. Results and corrective actions are documented. Last exercise: [date]. Next exercise: [date].</p>
+<p>This plan is reviewed and tested at least annually through a tabletop exercise facilitated by {{company_name}}, using a realistic scenario such as ransomware or a compromised mailbox. The exercise includes the communication plan and any required incident reports (section 5). Results and corrective actions are documented. Last exercise: [date]. Next exercise: [date].</p>
 
 <h2>15. Related documents</h2>
 <ul>
