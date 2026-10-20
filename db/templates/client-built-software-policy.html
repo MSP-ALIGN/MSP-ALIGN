@@ -1,0 +1,90 @@
+<h1>Client-Built Software Policy</h1>
+<p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
+
+<h2>1. Purpose</h2>
+<p>Software that {{client_name}}'s own staff build runs on company devices only after {{company_name}} has reviewed, packaged and signed it. Staff increasingly build their own tools with AI coding assistants, and those tools often handle confidential data with no review behind them. This policy sets the gate between that code and company devices, so a tool built in an afternoon can't quietly send client data somewhere it shouldn't go.</p>
+
+<h2>2. Scope</h2>
+<p>This policy covers scripts, desktop applications, browser extensions, macros and automations written by {{client_name}} staff or contractors, whether AI-assisted or not. It does not cover commercial software, which follows the normal software approval process in the Asset Management Policy.</p>
+
+<h2>3. Roles and responsibilities</h2>
+<p>The developer owns the code. {{company_name}} owns the gate between that code and company devices, and does not write or fix the code.</p>
+<ul>
+<li><strong>Developer ([name, title]):</strong> writes the code, fixes bugs, builds updates and documents how the tool works. Does not deploy to devices, sign software or work around the review.</li>
+<li><strong>Sponsor ([name, title], e.g. office manager or owner):</strong> approves the tool for business use, accepts any remaining risk in writing, and approves billable review time. Not responsible for the technical review.</li>
+<li><strong>{{company_name}}:</strong> reviews the code and data flow, tests, packages, signs and deploys the tool, and keeps the version records. Does not write features, fix bugs or maintain the code.</li>
+</ul>
+<p>Problems found during review are documented and sent back to the developer. Any development work by {{company_name}} is a separate, quoted project approved by the sponsor, never part of routine review.</p>
+
+<h2>4. Intake</h2>
+<p>Review starts only once the developer has handed over everything below. A partial submission goes back without review.</p>
+<ul>
+<li>☐ Full source code, any build or launch files, and a list of every dependency with its version</li>
+<li>☐ A plain-language description of what the tool does and who will use it</li>
+<li>☐ Where data goes: whether documents are processed on the device or sent to an AI service or other outside service, and which one</li>
+<li>☐ Any API keys, accounts or subscriptions the tool relies on, and whose name they are in</li>
+<li>☐ Sample input files and the expected output</li>
+<li>☐ Written approval from the sponsor to proceed</li>
+</ul>
+
+<h2>5. Review checklist</h2>
+<p>Data flow is checked first, because a bad answer there ends the review before any code is read. A tool passes only when every item below is cleared, or the sponsor has accepted the risk in writing.</p>
+<ul>
+<li><strong>Data flow:</strong> whether company or customer data leaves the device, where it goes, and whether that service's terms allow it to keep the data or train on it. Restricted and Confidential data follow the Data Classification &amp; Handling Policy.</li>
+<li><strong>Outbound connections:</strong> every network call in the code matches what the developer described, confirmed by watching the traffic during testing.</li>
+<li><strong>Secrets:</strong> no API keys, passwords or tokens written into the source.</li>
+<li><strong>Dependencies:</strong> every package comes from a known source, is pinned to a version and has no known vulnerabilities.</li>
+<li><strong>Permissions:</strong> runs as a standard user, with no administrator rights, no security tools turned off and no start-up entries or services it doesn't need.</li>
+<li><strong>Function:</strong> does what it claims with the sample files and fails safely on bad input.</li>
+<li><strong>Output:</strong> for tools that change documents, the output itself is checked, not just the code (for redaction, text extraction or metadata removal, confirm the removed content is really gone).</li>
+<li><strong>Logging:</strong> doesn't write sensitive content to logs, temporary folders or cloud sync folders.</li>
+</ul>
+<p>The findings and the reviewed version number are kept in {{client_name}}'s documentation.</p>
+
+<h2>6. Packaging, signing and deployment</h2>
+<p>The installer is built from the exact code that was reviewed, so what lands on devices is what was checked.</p>
+<ol>
+<li>{{company_name}} builds the installer from the reviewed source, never from a file the developer supplies.</li>
+<li>The installer is signed with [a code-signing certificate issued to {{client_name}} / {{company_name}}'s code-signing certificate], and its version, file hash and review date are recorded.</li>
+<li>It is deployed through {{company_name}}'s device management to the devices the sponsor approved.</li>
+<li>Where application control is in place, only the signed file's hash is allowed, so an unreviewed copy can't run.</li>
+</ol>
+
+<h2>7. Updates and change control</h2>
+<p>Every update goes through the same intake, review and packaging steps as the first release, with no exceptions for small changes.</p>
+<ul>
+<li>The developer submits the full updated source with a short note on what changed and why.</li>
+<li>Review can focus on the changes since the last approved version, but data flow and outbound connections are checked again every time, since a one-line change can start sending data somewhere new.</li>
+<li>Each approved version gets a record of its version number, file hash, review date and reviewer, kept in {{client_name}}'s documentation.</li>
+<li>Old versions are removed from devices when the new one is deployed.</li>
+<li>Urgent fixes still go through review. They can be prioritized, but the review is never skipped.</li>
+</ul>
+
+<h2>8. Billing, support and retirement</h2>
+<p>[Optional: review, packaging and deployment time is billable project work, not covered by the managed services agreement, and the sponsor approves it before work starts.]</p>
+<ul>
+<li><strong>Support:</strong> {{company_name}} supports the installation and deployment. Questions about how the tool behaves, and any bugs, go to the developer.</li>
+<li><strong>Breakage:</strong> if an operating system or dependency update breaks the tool, {{company_name}} can roll back to the last approved version, but the fix comes from the developer.</li>
+<li><strong>Ownership:</strong> {{client_name}} owns the code and keeps a copy of the source outside the developer's personal accounts.</li>
+<li><strong>Developer leaves:</strong> if the developer leaves or stops maintaining the tool, it stays at its last approved version until a new developer is named. If none is named within [90] days, or a security problem is found, it is removed.</li>
+<li><strong>Retirement:</strong> when a tool is retired, {{company_name}} uninstalls it from all devices, and any API keys or accounts it used are revoked.</li>
+<li>[Optional: <strong>Liability:</strong> the service agreement with {{company_name}} states that {{company_name}} is not liable for the behavior of client-built software it reviews.]</li>
+</ul>
+
+<h2>9. Enforcement</h2>
+<p>Running, installing or sharing client-built software that hasn't been through this review, or changing a reviewed tool without review, is not allowed. Unreviewed tools found on company devices are removed, and the sponsor is told.</p>
+
+<h2>10. Related documents</h2>
+<ul>
+<li>Information Security Policy</li>
+<li>Asset Management Policy</li>
+<li>Change Management Policy</li>
+<li>Data Classification &amp; Handling Policy</li>
+<li>Vendor &amp; Third-Party Risk Management Policy</li>
+<li>Acceptable Use Policy</li>
+</ul>
+<p>Supports: CMMC CM.L2-3.4.8, CM.L2-3.4.9 · CIS 2.5, 16.1 · NIST CSF PR.PS-02, PR.PS-06 · PCI DSS 6.2.1, 6.3.2</p>
+
+<h2>11. Review and approval</h2>
+<p>This policy is reviewed at least annually, and when {{client_name}} starts using a new kind of AI coding tool.</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

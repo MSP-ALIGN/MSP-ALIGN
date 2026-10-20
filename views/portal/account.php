@@ -1,4 +1,4 @@
-<?php /** @var array $pu; ?string $setupSecret, $setupUri */ ?>
+<?php /** @var array $pu; ?string $setupSecret, $setupUri (the setup link, also drawn as a QR code by Align\Qr, 2.24.0) */ ?>
 <h1 class="h4 mb-3"><i class="fas fa-user-gear me-2 text-secondary"></i>Account &amp; security</h1>
 <div class="row">
   <div class="col-lg-6">
@@ -36,9 +36,12 @@
       <div class="card-body">
         <?php if ($setupSecret): ?>
           <ol class="small ps-3">
-            <li>Open an authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…).</li>
-            <li>Add an account and enter this key: <code class="d-block my-1 user-select-all"><?= e(trim(chunk_split($setupSecret, 4, ' '))) ?></code>
-              <span class="text-muted">or open this link on your phone: <a href="<?= e($setupUri) ?>">add to authenticator</a></span></li>
+            <li>Open an authenticator app on your phone (Microsoft Authenticator, Google Authenticator, 1Password…).</li>
+            <li>Add an account and scan this QR code:
+              <?php /* 2.24.0 Drawn here from the setup link (Align\Qr), never sent anywhere or emailed */ $qr = null; try { $qr = \Align\Qr::svg($setupUri, 'QR code to add your account to an authenticator app', 180); } catch (\Throwable) {} ?>
+              <?php if ($qr): ?><div class="qr-box my-2"><?= $qr ?></div><?php endif; ?>
+              <div class="text-muted">Can't scan it? Enter this key instead:</div><code class="d-block my-1 user-select-all"><?= e(trim(chunk_split($setupSecret, 4, ' '))) ?></code>
+              <span class="text-muted">or, on the phone itself, open this link: <a href="<?= e($setupUri) ?>">add to authenticator</a></span></li>
             <li>Enter the 6-digit code it shows.</li>
           </ol>
           <form method="post" action="/portal/account/2fa" class="d-flex flex-wrap align-items-center"><?= csrf_field() ?><input type="hidden" name="action" value="confirm">

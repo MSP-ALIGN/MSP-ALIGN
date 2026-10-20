@@ -11,6 +11,7 @@ $cid = (int) $client['id'];
     <div class="card-tools d-flex">
       <input type="search" class="form-control form-control-sm me-2 filter-input" data-filter-table="contacts-table" placeholder="Filter…">
       <?php if ($archivedCount): ?><a class="btn btn-sm btn-default me-2" href="?archived=<?= $showArchived ? '0' : '1' ?>"><?= $showArchived ? 'Hide' : 'Show' ?> archived (<?= (int) $archivedCount ?>)</a><?php endif; ?>
+      <a class="btn btn-sm btn-default me-2" href="/clients/<?= $cid ?>/report/contacts" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Review report</a><?php /* 2.24.0 */ ?>
       <?php if (Auth::can('tech')): ?><button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-contact"><i class="fas fa-plus me-1"></i>Add contact</button><?php endif; ?>
     </div>
   </div>

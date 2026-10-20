@@ -512,7 +512,7 @@ final class Notify
         $hours = $kind === 'self-reset' ? 1 : \Align\Portal\PortalAuth::INVITE_DAYS * 24;
         return (bool) Mailer::queue($kind === 'self-reset' ? 'client_portal_reset' : 'client_portal_invite', [['address' => $u['email'], 'name' => $u['name']]], $subject,
             T::render($heading, [T::p('Hi ' . $u['name'] . ','), T::p($intro), T::button($btn, $url),
-                T::p('The link works once and expires in ' . ($hours >= 48 ? intdiv($hours, 24) . ' days' : $hours . ' hour' . ($hours === 1 ? '' : 's')) . '. You\'ll also set up two-factor sign-in with an authenticator app.', true)],
+                T::p('The link works once and expires in ' . ($hours >= 48 ? intdiv($hours, 24) . ' days' : $hours . ' hour' . ($hours === 1 ? '' : 's')) . '. You\'ll also set up two-factor sign-in' . ($kind === 'invite' ? ', so have an authenticator app (such as Microsoft Authenticator or Google Authenticator) on your phone, ready to scan a QR code.' : ' with an authenticator app.'), true)],
                 'Sent by ' . $company . ' through MSP Align.'),
             // Self-service resets wait for the mail timer so response time never hints whether an account exists
             ['client_id' => (int) $u['client_id'], 'immediate' => $kind !== 'self-reset']);

@@ -119,6 +119,8 @@ $r->get('/clients/{id}/report/roadmap', [ReportController::class, 'roadmap']);
 $r->get('/clients/{id}/report/qbr', [ReportController::class, 'qbr']);
 $r->get('/clients/{id}/report/backup', [\Align\Controllers\BackupController::class, 'report']);
 $r->get('/clients/{id}/report/sla', [\Align\Controllers\ServiceController::class, 'report']);
+$r->get('/clients/{id}/report/contacts', [ReportController::class, 'contacts']); // 2.24.0
+$r->get('/clients/{id}/report/contacts-csv', [ReportController::class, 'contactsCsv']); // 2.24.0
 $r->get('/clients/{id}/service-levels', [\Align\Controllers\ServiceController::class, 'client']);
 $r->get('/clients/{id}/backups', [\Align\Controllers\BackupController::class, 'client']);
 $r->post('/clients/{id}/backups/exempt', [\Align\Controllers\BackupController::class, 'exempt']);

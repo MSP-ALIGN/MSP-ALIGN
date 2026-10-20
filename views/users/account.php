@@ -3,7 +3,8 @@
  * Your account. Vars: $u (your own row), ?$setupSecret / ?$setupUri (2FA set-up in progress, this session only),
  * ?$feedUrl (a new calendar link, shown once), $feedOn, $notifPrefs, $notifScope, $mailOn, $vcioCount.
  * Security: only the signed-in user's own data; shown also before 2FA is set up, so nothing about clients. The set-up
- * link is an otpauth: URI built by Totp::uri from the secret and email, escaped. Every form posts with CSRF.
+ * link is an otpauth: URI built by Totp::uri from the secret and email, escaped, and also drawn as an inline QR code
+ * (Align\Qr, 2.24.0; only rectangles, nothing fetched). Every form posts with CSRF.
  */
 ?><h1 class="h3 mb-3">Your account <small class="text-muted h6"><?= e($u['email']) ?> · <?= e($u['role']) ?></small></h1>
 <div class="card card-dark">
@@ -72,9 +73,11 @@
         <?php endif; ?>
         <?php if ($setupSecret): ?>
           <ol class="small ps-3">
-            <li>In your authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…) add an account and choose <b>enter a setup key</b>.</li>
-            <li>Account: <b><?= e($u['email']) ?></b>, time-based.</li>
-            <li>Key: <code class="select-all"><?= e(implode(' ', str_split($setupSecret, 4))) ?></code></li>
+            <li>In your authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…) add an account and scan this QR code:
+              <?php /* 2.24.0 Drawn here from the setup link (Align\Qr), never sent anywhere or emailed */ $qr = null; try { $qr = \Align\Qr::svg($setupUri, 'QR code to add your account to an authenticator app', 180); } catch (\Throwable) {} ?>
+              <?php if ($qr): ?><div class="qr-box my-2"><?= $qr ?></div><?php endif; ?></li>
+            <li>Can't scan it? Choose <b>enter a setup key</b> instead. Account: <b><?= e($u['email']) ?></b>, time-based.
+              Key: <code class="select-all"><?= e(implode(' ', str_split($setupSecret, 4))) ?></code></li>
           </ol>
           <p class="small">On a phone you can <a href="<?= e($setupUri) ?>">open the setup link</a> instead.</p>
           <form method="post" action="/account/2fa">
