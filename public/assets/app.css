@@ -1127,3 +1127,7 @@ textarea.pv-in { resize: none; white-space: normal; }
   .portal-devices td { border: 0; padding: .15rem 1rem !important; text-align: left !important; }
   .portal-devices td:not(:first-child)::before { content: attr(data-label); display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); }
 }
+
+/* 2.24.0 Authenticator setup QR code (Align\Qr): always black on white with its quiet zone, so phones read it in dark mode too */
+.qr-box { display: block; width: fit-content; line-height: 0; border-radius: .5rem; overflow: hidden; border: 1px solid var(--bs-border-color); }
+.qr-box svg { display: block; max-width: 100%; height: auto; }

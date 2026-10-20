@@ -106,6 +106,50 @@ final class ReportController
         ], 'layout/print');
     }
 
+    /** 2.24.0 Contact review report for a client (any staff role): details, roles, portal access, licenses and review columns. */
+    public static function contacts(int $id): void
+    {
+        Auth::require();
+        self::renderContacts(ClientController::load($id), self::contactOptions());
+    }
+
+    /** The contact review report's switches from the query string (all on unless switched off). */
+    private static function contactOptions(): array
+    {
+        return ['licenses' => query('licenses', '1') === '1', 'portal' => query('portal', '1') === '1', 'review' => query('review', '1') === '1'];
+    }
+
+    /** 2.24.0 The same contacts as a CSV with blank review columns (any staff role). Audited. */
+    public static function contactsCsv(int $id): void
+    {
+        Auth::require();
+        $client = ClientController::load($id);
+        $data = \Align\Reports\ContactsReport::data((int) $client['id']);
+        Audit::log('report.contacts_csv', $client['name'] . ' (' . count($data['contacts']) . ' contacts)');
+        \Align\Reports\ContactsReport::csv($data, (trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $client['name']), '-') ?: 'client') . '-contacts-' . date('Y-m-d') . '.csv', true);
+    }
+
+    /**
+     * Contact review report for one client; also used by the client portal (the caller checked access to $client;
+     * '_hide' => ['licenses'] for portal users who may not see licensing, which also leaves them unread). Audited.
+     */
+    public static function renderContacts(array $client, array $opt): void
+    {
+        $opt['licenses'] = $opt['licenses'] && !in_array('licenses', $opt['_hide'] ?? [], true);
+        $data = \Align\Reports\ContactsReport::data((int) $client['id'], $opt['licenses']);
+        Audit::log('report.contacts', $client['name']);
+        View::render('reports/contacts', [
+            'title' => $client['name'] . ' — Contact Review',
+            'reportTitle' => 'Contact Review',
+            'reportSubtitle' => count($data['contacts']) . (count($data['contacts']) === 1 ? ' contact' : ' contacts') . ' · as of ' . \Align\Fmt::date(time(), 'long'),
+            'client' => $client,
+            'opt' => $opt,
+            'optLabels' => ['licenses' => 'Licenses', 'portal' => 'Portal access', 'review' => 'Review columns'],
+            'brand' => self::branding($client),
+            'd' => $data,
+        ], 'layout/print');
+    }
+
     /** Roadmap report for a client (any staff role). */
     public static function roadmap(int $id): void
     {

@@ -12,6 +12,7 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
 <div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-address-book me-2 text-secondary"></i>Contacts</h1>
     <div class="small text-muted">The people at your organization your IT provider works with.</div></div>
+  <a class="btn btn-sm btn-default mt-2 mt-md-0 me-2" href="/portal/report/contacts" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Print for review</a><?php /* 2.24.0 */ ?>
   <?php if ($canRequest): ?><a class="btn btn-sm btn-primary mt-2 mt-md-0" href="/portal/requests"><i class="fas fa-user-plus me-1"></i>New user or termination request</a><?php endif; ?>
 </div>
 <div class="card">

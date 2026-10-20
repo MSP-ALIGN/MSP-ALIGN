@@ -659,7 +659,8 @@ final class PortalController
      */
     public static function report(string $kind): void
     {
-        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'backup' => 'can_devices', 'sla' => 'can_devices', 'qbr' => ''][$kind] ?? null;
+        $perm = ['assets' => 'can_devices', 'roadmap' => 'can_roadmap', 'budget' => 'can_budget', 'backup' => 'can_devices', 'sla' => 'can_devices', 'qbr' => '',
+            'contacts' => 'can_documents'][$kind] ?? null; // 2.24.0 contacts: the same people the portal's Contacts page shows
         if ($perm === null) {
             http_response_code(404);
             exit;
@@ -681,6 +682,12 @@ final class PortalController
             // Summary only in the portal: no ticket list
             $period = query('period', '90');
             \Align\Controllers\ServiceController::renderReport($client, ['missed' => false, '_hide' => ['missed']], isset(\Align\Service\Sla::PERIODS[$period]) || $period === 'quarter' ? $period : '90');
+            return;
+        }
+        if ($kind === 'contacts') {
+            // Licenses only for users who may see licensing (can_budget), as on the Contacts page; no CSV in the portal
+            ReportController::renderContacts($client, ['licenses' => $pu['can_budget'] && query('licenses', '1') === '1', 'portal' => query('portal', '1') === '1',
+                'review' => query('review', '1') === '1', '_hide' => $pu['can_budget'] ? [] : ['licenses']]);
             return;
         }
         if ($kind === 'backup') {

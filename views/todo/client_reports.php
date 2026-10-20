@@ -12,7 +12,9 @@ $reports = [
     ['fa-coins', 'Technology budget', 'Recurring costs, licensing, projects and replacements by year.', "/clients/$cid/report/budget", true],
     ...($backup ? [['fa-database', 'Backup & recovery', 'What is backed up, how recently, and anything that needs attention.', "/clients/$cid/report/backup", true]] : []),
     ...($sla ? [['fa-stopwatch', 'Service levels', 'Tickets answered and resolved on time, month by month.', "/clients/$cid/report/sla", true]] : []),
+    ['fa-address-book', 'Contact review', 'The client\'s contacts, roles, portal access and licenses, for the client to check and sign off.', "/clients/$cid/report/contacts", true], // 2.24.0
     ['fa-file-csv', 'Device list (CSV)', 'The lifecycle table as a spreadsheet.', "/clients/$cid/export", false],
+    ['fa-file-csv', 'Contact list (CSV)', 'The contacts as a spreadsheet with blank review columns.', "/clients/$cid/report/contacts-csv", false], // 2.24.0
 ];
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-print', 'title' => 'Reports', 'count' => count($reports),

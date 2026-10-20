@@ -32,6 +32,7 @@ final class AuditController
             'portal.submission' => 'suggested', 'portal.submission_withdrawn' => 'withdrew a suggestion',
             'portal.submission_accepted' => 'added a client\'s suggestion', 'portal.submission_declined' => 'declined a client\'s suggestion',
             'report.assets' => 'printed the asset report', 'report.roadmap' => 'printed the roadmap', 'report.budget' => 'printed the budget',
+            'report.contacts' => 'printed the contact review', // 2.24.0
         ][$action] ?? $action;
     }
 

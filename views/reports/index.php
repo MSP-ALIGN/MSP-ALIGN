@@ -77,6 +77,13 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       'Every control in a framework with its status, owner, due date, notes, evidence and linked document, as a spreadsheet.',
       'compliance',
       '<div class="mb-3 mb-1 w-100"><select class="form-select form-select-sm report-framework" aria-label="Framework"></select></div>', 'frameworks', 'Download CSV', '_self') ?>
+  <?= $card('fa-address-book', 'Contact review',
+      'The client\'s contacts with their details, roles, client portal access and licenses, with columns for the client to mark who\'s still there and what changed, room to add anyone missing, and a sign-off. Also in the client portal.',
+      '/report/contacts',
+      $chk('licenses', 'Licenses') . $chk('portal', 'Portal access') . $chk('review', 'Review columns')) ?>
+  <?= $card('fa-file-csv', 'Contact list (CSV)',
+      'The same contacts as a spreadsheet, with blank "Still here?" and "Changes" columns, for clients who\'d rather edit a file.',
+      '/report/contacts-csv', '', '', 'Download CSV', '_self') ?>
   <?= $card('fa-file-csv', 'Device list (CSV)',
       'All of the client\'s devices with type, make and model, serial, OS, last user, dates, lifecycle status and replacement cost.',
       '/export', '', '', 'Download CSV', '_self') ?>

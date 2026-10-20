@@ -24,6 +24,8 @@ return [
     ['data-classification-policy', 'Data Classification & Handling Policy', 'policy', 'The four classification levels, data owner and custodian roles, how each level is stored, shared, emailed, printed, kept and destroyed, and extra rules for PHI, card data and CUI where present.'],
     ['security-awareness-policy', 'Security Awareness Training Policy', 'policy', 'Onboarding, quarterly and annual training, phishing simulations, role-based training and records.'],
     ['vendor-risk-policy', 'Vendor & Third-Party Risk Management Policy', 'policy', 'Vendor inventory, due diligence by risk tier, contract security terms and periodic reviews.'],
+    // 2.24.0
+    ['client-built-software-policy', 'Client-Built Software Policy', 'policy', 'Software the client\'s own staff build (scripts, apps, macros, AI-assisted tools): intake, the data-flow-first review checklist, packaging and signing, updates, support and retirement, with clear roles for the developer, sponsor and MSP.'],
     // Continuity & risk
     ['bcdr-plan', 'Business Continuity & Disaster Recovery Plan', 'plan', 'Critical systems with recovery time and point objectives, contacts, recovery procedures and testing.'],
     ['backup-recovery-policy', 'Backup & Recovery Policy', 'policy', 'What is backed up, how often, retention, off-site and immutable copies, and restore testing.'],
