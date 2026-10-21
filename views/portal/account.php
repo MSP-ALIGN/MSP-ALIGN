@@ -35,6 +35,7 @@
         <div class="card-tools"><span class="badge text-bg-<?= $pu['totp_enabled'] ? 'success' : 'secondary' ?>"><?= $pu['totp_enabled'] ? 'On' : 'Off' ?></span></div></div>
       <div class="card-body">
         <?php if ($setupSecret): ?>
+          <?php if (!$pu['totp_enabled']): ?><p class="small"><b>Set up two-factor sign-in to continue.</b> It's required, and protects your organization's information even if your password is stolen.</p><?php endif; ?>
           <ol class="small ps-3">
             <li>Open an authenticator app on your phone (Microsoft Authenticator, Google Authenticator, 1Password…).</li>
             <li>Add an account and scan this QR code:
@@ -48,12 +49,12 @@
             <input name="code" class="form-control form-control-sm me-2 mb-2" inputmode="numeric" autocomplete="one-time-code" placeholder="<?= $pu['totp_enabled'] ? 'New phone\'s code' : '123456' ?>" aria-label="Code from the new authenticator" required autofocus>
             <?php if ($pu['totp_enabled']): ?><input name="current_code" class="form-control form-control-sm me-2 mb-2" inputmode="numeric" autocomplete="off" placeholder="Current phone's code" aria-label="Code from your current authenticator" required><?php endif; ?>
             <button class="btn btn-sm btn-primary mb-2 me-2"><?= $pu['totp_enabled'] ? 'Use this authenticator' : 'Turn on' ?></button></form>
-          <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-sm btn-link px-0">Cancel</button></form>
+          <?php if ($pu['totp_enabled']): /* first setup is required and restarts by itself, so only replacing can be cancelled (2.24.1) */ ?><form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="cancel"><button class="btn btn-sm btn-link px-0">Cancel</button></form><?php endif; ?>
         <?php elseif ($pu['totp_enabled']): ?>
           <p class="small">Each sign-in asks for a code from your authenticator app<?= \Align\Remember::days() ? ', except on a browser you asked it to remember' : '' ?>. Two-factor sign-in is required, so it can't be turned off.</p>
           <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-sm btn-default">Replace authenticator (new phone)</button></form>
           <?= \Align\View::fetch('partials/remembered', ['kind' => 'portal', 'uid' => (int) $pu['id'], 'action' => '/portal/account/remembered']) ?>
-        <?php else: ?>
+        <?php else: /* fallback: setup normally starts by itself (PortalController::account, 2.24.1) */ ?>
           <p class="small"><b>Two-factor sign-in is required.</b> It protects your organization's information even if your password is stolen. Set it up to continue.</p>
           <form method="post" action="/portal/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-sm btn-primary">Set up two-factor sign-in</button></form>
         <?php endif; ?>

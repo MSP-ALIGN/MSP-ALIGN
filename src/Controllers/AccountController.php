@@ -22,10 +22,18 @@ use Align\View;
  */
 final class AccountController
 {
-    /** The account page. The pending 2FA secret (if set-up was started) is shown to its own user only. */
+    /**
+     * The account page. The pending 2FA secret (if set-up was started) is shown to its own user only. 2.24.1: while
+     * two-factor sign-in isn't on yet, setup starts by itself (a new key in this session only, as the begin action
+     * does), so the QR code shows straight away; but only once the person has chosen their own password, so whoever
+     * knew a temporary one (an admin reset) isn't the one who sets up the authenticator.
+     */
     public static function show(): void
     {
         $u = Auth::require();
+        if (!$u['totp_enabled'] && !$u['must_change_password'] && empty($_SESSION['totp_setup'])) {
+            $_SESSION['totp_setup'] = Totp::generateSecret();
+        }
         $pending = $_SESSION['totp_setup'] ?? null;
         View::render('users/account', [
             'title' => 'Your account',

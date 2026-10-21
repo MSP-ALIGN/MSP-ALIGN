@@ -180,6 +180,7 @@ final class Auth
         if ($u['totp_enabled']) {
             DB::run('DELETE FROM login_attempts WHERE id = ?', [$attemptId]); // the code step counts on its own
             session_regenerate_id(true);
+            unset($_SESSION['totp_setup']); // a key someone else was setting up in this browser isn't carried over (2.24.1)
             // 'sv': the password was checked against this session_version; the code step refuses a newer one
             $_SESSION['pending_2fa'] = ['uid' => (int) $u['id'], 'at' => time(), 'sv' => (int) $u['session_version']];
             return '2fa';
@@ -280,7 +281,9 @@ final class Auth
     private static function completeLogin(int $uid, string $note = '', ?int $sv = null): void
     {
         session_regenerate_id(true);
-        unset($_SESSION['_csrf'], $_SESSION['timed_out']); // fresh CSRF token for the signed-in session
+        // Fresh CSRF token for the signed-in session, and nothing half-done by whoever used this browser before carries
+        // over: an authenticator key being set up would otherwise be offered to the new user (2.24.1, as the portal)
+        unset($_SESSION['_csrf'], $_SESSION['timed_out'], $_SESSION['totp_setup'], $_SESSION['pending_2fa']);
         $_SESSION['uid'] = $uid;
         // $sv: the version the password (and code) were checked against, so a reset landing in between ends this session
         $_SESSION['sv'] = $sv ?? (int) DB::value('SELECT session_version FROM users WHERE id = ?', [$uid]);
