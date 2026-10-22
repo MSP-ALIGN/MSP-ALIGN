@@ -88,9 +88,7 @@ php('Align\\DB::insert("portal_users", ["client_id"=>1,"email"=>"newbie@rel224.e
     f'"invite_token_hash"=>hash("sha256","{tok}"),"invite_expires_at"=>date("Y-m-d H:i:s", time()+3600)]);')
 s = requests.Session()
 r = s.post(B + f"/portal/invite/{tok}", data={"_csrf": csrf(s, f"/portal/invite/{tok}"), "password": "Harbor-Willow-Stone-58", "confirm": "Harbor-Willow-Stone-58"})
-if "Set up two-factor" in r.text and "qr-code" not in r.text:
-    r = s.post(B + "/portal/account/2fa", data={"_csrf": csrf(s, "/portal/account"), "action": "begin"})
-p = s.get(B + "/portal/account").text
+p = r.text  # 2.24.1: setup starts by itself, so the page right after the password already has the QR code
 key = re.search(r'<code class="d-block my-1 user-select-all">([A-Z2-7 ]+)</code>', p)
 mx = svg_matrix(p)
 ok(key and mx and "scan this QR code" in p and "Can't scan it?" in p and not errs(p), "a newly invited portal user sees a QR code to scan, with the key as a fallback")

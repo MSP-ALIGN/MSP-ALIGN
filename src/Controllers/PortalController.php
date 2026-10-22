@@ -720,10 +720,17 @@ final class PortalController
 
     // ---- Account ------------------------------------------------------------------------------
 
-    /** Account page: details, password, 2FA setup (reachable before 2FA is set up). */
+    /**
+     * Account page: details, password, 2FA setup (reachable before 2FA is set up). 2.24.1: while two-factor sign-in
+     * isn't on yet, setup starts by itself (a new key in this session only, as the begin action does), so someone
+     * arriving from their invitation sees the QR code straight away.
+     */
     public static function account(): void
     {
         $pu = PortalAuth::require();
+        if (!$pu['totp_enabled'] && empty($_SESSION['portal_totp_setup'])) {
+            $_SESSION['portal_totp_setup'] = Totp::generateSecret();
+        }
         $pending = $_SESSION['portal_totp_setup'] ?? null;
         self::render('account', ['title' => 'Your account', 'nav' => 'account', 'setupSecret' => $pending,
             'setupUri' => $pending ? Totp::uri($pending, $pu['email']) : null], $pu);

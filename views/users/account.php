@@ -72,6 +72,7 @@
           <?= \Align\View::fetch('partials/remembered', ['kind' => 'staff', 'uid' => (int) $u['id'], 'action' => '/account/remembered']) ?>
         <?php endif; ?>
         <?php if ($setupSecret): ?>
+          <?php if (!$u['totp_enabled']): ?><p class="small text-danger"><b>Required.</b> Set up two-factor sign-in to continue: every staff account needs it before it can open client data.</p><?php endif; ?>
           <ol class="small ps-3">
             <li>In your authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…) add an account and scan this QR code:
               <?php /* 2.24.0 Drawn here from the setup link (Align\Qr), never sent anywhere or emailed */ $qr = null; try { $qr = \Align\Qr::svg($setupUri, 'QR code to add your account to an authenticator app', 180); } catch (\Throwable) {} ?>
@@ -87,11 +88,15 @@
               <div class="mb-3"><label>And a code from your <b>current</b> authenticator</label><input name="current_code" class="form-control" inputmode="numeric" autocomplete="off" required></div>
             <?php endif; ?>
             <button class="btn btn-primary"><?= $u['totp_enabled'] ? 'Replace' : 'Turn on' ?></button>
-            <button class="btn btn-light" name="action" value="cancel" formnovalidate>Cancel</button>
+            <?php if ($u['totp_enabled']): /* first setup is required and restarts by itself (2.24.1) */ ?><button class="btn btn-light" name="action" value="cancel" formnovalidate>Cancel</button><?php endif; ?>
           </form>
         <?php elseif (!$u['totp_enabled']): ?>
           <p class="text-danger"><b>Required.</b> Every staff account needs two-factor sign-in before it can open client data.</p>
-          <form method="post" action="/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-primary">Set up two-factor</button></form>
+          <?php if ($u['must_change_password']): /* 2.24.1 setup starts by itself once they've chosen their own password */ ?>
+            <p class="small">Choose your new password first; two-factor setup (a QR code to scan) starts right after.</p>
+          <?php else: /* fallback: setup normally starts by itself (AccountController::show) */ ?>
+            <form method="post" action="/account/2fa"><?= csrf_field() ?><input type="hidden" name="action" value="begin"><button class="btn btn-primary">Set up two-factor</button></form>
+          <?php endif; ?>
         <?php endif; ?>
       </div>
     </div>
