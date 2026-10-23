@@ -1023,6 +1023,9 @@ body.login-page.has-login-bg .login-box > p.text-center { width: fit-content; ma
 .pv-item { position: absolute; display: flex; align-items: center; overflow: hidden; color: #11151b; font-family: Helvetica, Arial, sans-serif;
   font-size: calc(var(--fs, 10) * var(--k) * 1px); line-height: 1.15; white-space: nowrap; }
 .pv-item.pv-over { overflow: visible; }
+/* 2.24.2 Long text in a tall box wraps, top first, like the signed PDF (PdfStamp) */
+.pv-item.pv-wrap { white-space: pre-line; align-items: flex-start; line-height: 1.2; }
+.pv-item.pv-wrap.pv-a-center { text-align: center; } .pv-item.pv-wrap.pv-a-right { text-align: right; }
 .pv-item.pv-a-center { justify-content: center; } .pv-item.pv-a-right { justify-content: flex-end; }
 .pv-item img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .pv-script, .pv-sig { font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", "Times New Roman", cursive; font-style: italic; color: #14246b;
