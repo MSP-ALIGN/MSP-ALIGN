@@ -62,17 +62,32 @@
     resizeTimer = setTimeout(() => viewers.forEach((v) => (v.el.isConnected ? v.resized() : viewers.delete(v))), 200);
   });
 
-  /** Like the PDF: shrink a value until it fits its box (down to 6.5 pt), never cut it; past that it runs over. */
-  const fit = (el, size) => {
+  /**
+   * Like the PDF (PdfStamp::draw): a value too wide for its box wraps onto more lines when the box is at least 2.4
+   * lines tall, then shrinks until it fits (down to 6.5 pt); it's never cut, and past that it runs over the box.
+   * 2.24.2: it used to stay on one line here, so a tall box (special terms) showed tiny text running off the page.
+   */
+  const fit = (el, it) => {
     if (!el.clientWidth) return;
-    let s = +size || 10;
-    el.classList.remove('pv-over');
+    let s = +it.size || 10;
+    el.classList.remove('pv-over', 'pv-wrap');
     el.style.setProperty('--fs', s);
-    while (el.scrollWidth > el.clientWidth + 1 && s > 6.5) {
+    // initials and typed signatures are drawn larger in the PDF and never wrap there
+    const multi = !it.sig && (+it.h || 0) >= s * 2.4;
+    if (multi && el.scrollWidth > el.clientWidth + 1) el.classList.add('pv-wrap');
+    const wraps = el.classList.contains('pv-wrap');
+    const over = () => el.scrollWidth > el.clientWidth + 1 || (wraps && el.scrollHeight > el.clientHeight + 1);
+    while (over() && s > 6.5) {
       s = Math.max(6.5, s - 0.5);
       el.style.setProperty('--fs', s);
     }
-    if (el.scrollWidth > el.clientWidth + 1) el.classList.add('pv-over');
+    if (over()) el.classList.add('pv-over');
+    // One line after all (a single long word, or it fits on one line once smaller): centred, as the PDF does with one line
+    if (wraps) {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      if (r.getBoundingClientRect().height <= parseFloat(getComputedStyle(el).lineHeight) * 1.5) el.classList.remove('pv-wrap');
+    }
   };
 
   /** One item's element (not for build mode, where the builder draws its own boxes). */
@@ -180,6 +195,17 @@
     resized() {
       this.scale();
       this.pages.forEach((p, i) => { if (p.drawn) { p.drawn = 0; this.draw(i); } });
+      this.refit();
+    }
+
+    /** Fits every text value again at the new size (browser text widths don't scale exactly; 2.24.2). */
+    refit() {
+      if (this.mode === 'build') return;
+      const byId = new Map(this.items.map((it) => [String(it.id), it]));
+      this.pages.forEach((p) => p.layer.querySelectorAll('.pv-item.pv-text').forEach((el) => {
+        const it = byId.get(el.dataset.id);
+        if (it) fit(el, it);
+      }));
     }
 
     /** Text size follows the page: --k is screen pixels per point. */
@@ -230,7 +256,7 @@
         const el = itemEl(it);
         Object.assign(el.style, { left: pct(it.x, p.W), top: pct(it.y, p.H), width: pct(it.w, p.W), height: pct(it.h, p.H) });
         p.layer.appendChild(el);
-        if (it.kind === 'text') fit(el, it.size);
+        if (it.kind === 'text') fit(el, it);
       });
       this.el.dispatchEvent(new CustomEvent('pv:rendered', { bubbles: true }));
     }
