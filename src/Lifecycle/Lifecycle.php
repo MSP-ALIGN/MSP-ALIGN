@@ -27,15 +27,17 @@ final class Lifecycle
         'printer' => 'Printers',
         'storage' => 'Storage / NAS',
         'power' => 'UPS / power',
+        'display' => 'Monitors & displays', // 2.25.0
         'other' => 'Other hardware',
     ];
     /** Classes that have hardware (end of life, warranty, replacement cost); virtual devices never do. */
-    public const HARDWARE_CLASSES = ['desktop', 'laptop', 'server', 'network', 'printer', 'storage', 'power', 'other'];
+    public const HARDWARE_CLASSES = ['desktop', 'laptop', 'server', 'network', 'printer', 'storage', 'power', 'display', 'other'];
 
     /**
-     * Device types shown in the UI => [policy class, Font Awesome icon, virtual].
+     * Built-in device types => [policy class, Font Awesome icon, virtual].
      * Virtual types group with servers / desktops but get OS-support tracking only
-     * (no hardware end-of-life, warranty or replacement cost).
+     * (no hardware end-of-life, warranty or replacement cost). Use types() for the full list, which adds the types an
+     * admin made (2.25.0, AssetTypes).
      */
     public const TYPES = [
         'Desktop' => ['desktop', 'fa-desktop', false],
@@ -51,6 +53,7 @@ final class Lifecycle
         'Printer' => ['printer', 'fa-print', false],
         'NAS / Storage' => ['storage', 'fa-hard-drive', false],
         'UPS' => ['power', 'fa-car-battery', false],
+        'Monitor' => ['display', 'fa-tv', false], // 2.25.0
         'Phone' => ['other', 'fa-phone', false],
         'Camera / NVR' => ['other', 'fa-video', false],
         'Other' => ['other', 'fa-tag', false],
@@ -63,8 +66,30 @@ final class Lifecycle
     /** The type a device gets from its class when it has none of its own. */
     public const DEFAULT_TYPE = [
         'desktop' => 'Desktop', 'laptop' => 'Laptop', 'server' => 'Server', 'network' => 'Switch',
-        'printer' => 'Printer', 'storage' => 'NAS / Storage', 'power' => 'UPS', 'other' => 'Other',
+        'printer' => 'Printer', 'storage' => 'NAS / Storage', 'power' => 'UPS', 'display' => 'Monitor', 'other' => 'Other',
     ];
+
+    /** Built-in and custom types for this request (types()). */
+    private static ?array $types = null;
+
+    /**
+     * Every device type => [policy class, icon, virtual]: the built-in ones, then the ones an admin added (AssetTypes),
+     * then Other and Unassigned last. Read once per request; forgetTypes() clears it after a change.
+     */
+    public static function types(): array
+    {
+        if (self::$types !== null) {
+            return self::$types;
+        }
+        $tail = array_intersect_key(self::TYPES, ['Other' => 1, self::UNASSIGNED => 1]);
+        return self::$types = array_diff_key(self::TYPES, $tail) + \Align\Lifecycle\AssetTypes::custom() + $tail;
+    }
+
+    /** Forgets the cached type list (after an admin adds, renames or removes a custom type). */
+    public static function forgetTypes(): void
+    {
+        self::$types = null;
+    }
 
     /** Picks the virtual type from the OS: server OS => Virtual server, desktop OS => VDI. */
     public static function virtualType(?string $osName, string $nodeClass = ''): string
@@ -131,7 +156,7 @@ final class Lifecycle
     {
         $defaults = [
             'desktop' => [5, 1100], 'laptop' => [4, 1500], 'server' => [6, 9000], 'network' => [7, 1200],
-            'printer' => [5, 800], 'storage' => [5, 2500], 'power' => [4, 600], 'other' => [5, 500],
+            'printer' => [5, 800], 'storage' => [5, 2500], 'power' => [4, 600], 'display' => [6, 250], 'other' => [5, 500],
         ];
         $this->policy = [
             'lifespan' => [],
@@ -170,7 +195,7 @@ final class Lifecycle
     /** The Font Awesome icon class of a type (fa-tag for an unknown one). */
     public static function icon(?string $type): string
     {
-        return self::TYPES[$type ?? ''][1] ?? 'fa-tag';
+        return self::types()[$type ?? ''][1] ?? 'fa-tag';
     }
 
     /**
@@ -308,11 +333,12 @@ final class Lifecycle
     {
         $today = $this->today;
         $type = $d['o_type'] ?: ($d['device_type'] ?: (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other'));
-        if (!isset(self::TYPES[$type])) {
+        $types = self::types();
+        if (!isset($types[$type])) {
             $type = $d['is_virtual'] ? self::virtualType($d['os_name'] ?? null, (string) ($d['node_class'] ?? '')) : (self::DEFAULT_TYPE[$d['device_class']] ?? 'Other');
         }
-        $class = self::TYPES[$type][0];
-        $virtual = $d['o_type'] ? self::TYPES[$type][2] : ((bool) $d['is_virtual'] || self::TYPES[$type][2]);
+        $class = $types[$type][0];
+        $virtual = $d['o_type'] ? $types[$type][2] : ((bool) $d['is_virtual'] || $types[$type][2]);
         $d['device_class'] = $class;
         $d['is_virtual'] = $virtual ? 1 : 0;
         $isHardware = !$virtual && in_array($class, self::HARDWARE_CLASSES, true);

@@ -29,7 +29,7 @@ $twoWay = \Align\Sync\PsaAssetSync::twoWay();
       <div class="card-tools d-flex flex-wrap align-items-center">
         <select name="device_type" class="form-select form-select-sm me-2" required aria-label="Type to apply">
           <option value="">Set selected to…</option>
-          <?php foreach (Lifecycle::TYPES as $t => [$class, , $virt]): if ($t === Lifecycle::UNASSIGNED) continue; ?>
+          <?php foreach (Lifecycle::types() as $t => [$class, , $virt]): if ($t === Lifecycle::UNASSIGNED) continue; ?>
             <option value="<?= e($t) ?>"><?= e($t) ?> — <?= e(Lifecycle::CLASSES[$class]) ?></option>
           <?php endforeach; ?>
         </select>

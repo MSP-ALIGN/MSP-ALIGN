@@ -181,7 +181,7 @@ final class NinjaOne
             'system_name' => $d['systemName'] ?? ($d['dnsName'] ?? null),
             'node_class' => $nodeClass ?: null,
             'device_type' => $type = self::type($nodeClass, $chassis, $manufacturer, $model, self::str($d['displayName'] ?? null), $isVirtual, self::str($os['name'] ?? null)),
-            'device_class' => \Align\Lifecycle\Lifecycle::TYPES[$type][0],
+            'device_class' => \Align\Lifecycle\Lifecycle::types()[$type][0],
             'manufacturer' => $manufacturer ?: null,
             'model' => $model ?: null,
             // A serial sent as a JSON number is still a serial (and a TypeError here would stop the whole sync)

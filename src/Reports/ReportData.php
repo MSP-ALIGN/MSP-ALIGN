@@ -35,22 +35,37 @@ final class ReportData
         'Network & security' => ['Firewall', 'Router', 'Switch', 'Access point'],
         'Power' => ['UPS'],
         'Computers' => ['Desktop', 'Laptop', 'VDI / virtual desktop'],
+        'Monitors & displays' => ['Monitor'], // 2.25.0
         'Printers, phones & other' => ['Printer', 'Phone', 'Camera / NVR', 'Other', 'Unassigned'],
     ];
 
-    /** Rows of the "By device type" table, in report order (virtual machines next to their physical kind). */
-    public const CLASS_ORDER = ['server', 'virtual_server', 'storage', 'network', 'power', 'desktop', 'laptop', 'virtual_desktop', 'printer', 'other'];
+    /** 2.25.0 The family of an admin's own type, from the lifecycle category it plans under. */
+    private const CLASS_FAMILY = [
+        'server' => 'Servers & virtualization', 'storage' => 'Storage', 'network' => 'Network & security', 'power' => 'Power',
+        'desktop' => 'Computers', 'laptop' => 'Computers', 'display' => 'Monitors & displays', 'printer' => 'Printers, phones & other',
+        'other' => 'Printers, phones & other',
+    ];
 
-    /** Position of a device type in report order (unknown types go last, alphabetically). */
+    /** Rows of the "By device type" table, in report order (virtual machines next to their physical kind). */
+    public const CLASS_ORDER = ['server', 'virtual_server', 'storage', 'network', 'power', 'desktop', 'laptop', 'virtual_desktop', 'display', 'printer', 'other'];
+
+    /**
+     * Position of a device type in report order. An admin's own type goes at the end of its family, by name (2.25.0),
+     * so a family's devices stay together; anything else unknown goes last, alphabetically.
+     */
     public static function typeRank(string $type): array
     {
         $n = 0;
-        foreach (self::FAMILIES as $types) {
+        $custom = isset(Lifecycle::types()[$type]) && !isset(Lifecycle::TYPES[$type]) ? self::family($type) : null;
+        foreach (self::FAMILIES as $fam => $types) {
             foreach ($types as $t) {
                 if ($t === $type) {
                     return [$n, ''];
                 }
                 $n++;
+            }
+            if ($fam === $custom) {
+                return [$n - 1, '~' . strtolower($type)];
             }
         }
         return [$n, strtolower($type)];
@@ -64,7 +79,7 @@ final class ReportData
                 return $f;
             }
         }
-        return 'Printers, phones & other';
+        return self::CLASS_FAMILY[Lifecycle::types()[$type][0] ?? 'other'] ?? 'Printers, phones & other';
     }
 
     /** Evaluated devices per client for this request (the QBR asks for them from several sections). */
@@ -113,9 +128,9 @@ final class ReportData
         // Fleet by lifecycle class
         $classes = [];
         foreach ($devices as $d) {
-            $cls = Lifecycle::TYPES[$d['type']][0] ?? 'other';
-            if ($d['is_virtual']) {
-                $cls = $cls === 'desktop' ? 'virtual_desktop' : 'virtual_server';
+            $cls = Lifecycle::types()[$d['type']][0] ?? 'other';
+            if ($d['is_virtual'] && in_array($cls, ['desktop', 'laptop', 'server'], true)) {
+                $cls = $cls === 'server' ? 'virtual_server' : 'virtual_desktop';
             }
             $c = &$classes[$cls];
             $c ??= ['label' => ['virtual_server' => 'Virtual servers', 'virtual_desktop' => 'Virtual desktops'][$cls] ?? Lifecycle::CLASSES[$cls], 'count' => 0, 'ok' => 0, 'warn' => 0, 'bad' => 0, 'ages' => [], 'value' => 0.0, 'overdue_cost' => 0.0];

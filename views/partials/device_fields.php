@@ -17,7 +17,7 @@ $type = $d ? ($d['o_type'] ?: ($d['device_type'] ?: $d['type'])) : 'Switch';
   <div class="mb-3 col-md-6">
     <label>Type<?= $manual ? '' : ' <small class="text-muted">(override what ' . e(\Align\Providers\Providers::rmmName($d['rmm_provider'] ?? null)) . ' reports)</small>' ?></label>
     <select name="device_type" class="form-select">
-      <?php foreach (Lifecycle::TYPES as $t => [$class, , $virt]): ?>
+      <?php foreach (Lifecycle::types() as $t => [$class, , $virt]): ?>
         <option value="<?= e($t) ?>" <?= $sel($t, $type) ?>><?= e($t) ?> — <?= e(Lifecycle::CLASSES[$class]) ?><?= $virt ? ' (OS support only)' : '' ?></option>
       <?php endforeach; ?>
     </select>
