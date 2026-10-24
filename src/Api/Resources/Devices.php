@@ -33,7 +33,7 @@ final class Devices
             'excluded' => ['bool', ['desc' => 'Leave the device out of planning, budgets and reports.']],
             'notes' => ['string', ['max' => 5000, 'desc' => 'Align notes.']],
             'asset_tag' => ['string', ['max' => 64, 'desc' => 'The client\'s own asset tag (2.21.0). null = none. Not unique: the same tag on two devices is allowed.']],
-            'device_type' => ['string', ['enum' => array_keys(Lifecycle::TYPES), 'desc' => 'Device type (sets its lifecycle category). null = the type the RMM reports (not for devices added in Align or the PSA, whose type is their own).']],
+            'device_type' => ['string', ['enum' => array_keys(Lifecycle::types()), 'desc' => 'Device type (sets its lifecycle category). null = the type the RMM reports (not for devices added in Align or the PSA, whose type is their own).']],
         ];
     }
 
@@ -48,7 +48,7 @@ final class Devices
             Clients::load($clientId);
         }
         $status = Input::queryStr('status', array_keys(Lifecycle::STATUS));
-        $type = Input::queryStr('type', array_keys(Lifecycle::TYPES));
+        $type = Input::queryStr('type', array_keys(Lifecycle::types()));
         $class = Input::queryStr('class', [...Lifecycle::HARDWARE_CLASSES]);
         $virtual = Input::queryBool('virtual');
         $attention = Input::queryBool('attention');

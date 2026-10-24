@@ -28,6 +28,7 @@ final class SettingsController
         'cost_desktop' => [0, 1000000], 'cost_laptop' => [0, 1000000], 'cost_server' => [0, 1000000], 'cost_network' => [0, 1000000],
         'lifespan_printer' => [1, 20], 'lifespan_storage' => [1, 20], 'lifespan_power' => [1, 20], 'lifespan_other' => [1, 20],
         'cost_printer' => [0, 1000000], 'cost_storage' => [0, 1000000], 'cost_power' => [0, 1000000], 'cost_other' => [0, 1000000],
+        'lifespan_display' => [1, 20], 'cost_display' => [0, 1000000], // 2.25.0
         'meeting_default_minutes' => [15, 480], 'fiscal_year_start' => [1, 12],
         'warranty_warn_days' => [1, 730], 'eol_plan_months' => [1, 60], 'stale_days' => [1, 365], 'warranty_recheck_days' => [1, 365],
         'session_idle_minutes' => [5, 60], 'session_max_hours' => [1, 24], 'remember_2fa_days' => [0, \Align\Remember::MAX_DAYS],

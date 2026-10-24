@@ -400,6 +400,9 @@ $r->post('/clients/{id}/onboarding/revoke', [$O, 'revoke']);
 $r->post('/clients/{id}/onboarding/status', [$O, 'status']);
 $r->get('/settings', [SettingsController::class, 'index']);
 $r->get('/settings/planning', [SettingsController::class, 'planning']);
+$r->post('/settings/asset-types', [\Align\Controllers\AssetTypeController::class, 'create']); // 2.25.0
+$r->post('/settings/asset-types/{id}', [\Align\Controllers\AssetTypeController::class, 'update']);
+$r->post('/settings/asset-types/{id}/delete', [\Align\Controllers\AssetTypeController::class, 'delete']);
 $r->get('/settings/checks', [SettingsController::class, 'checks']); // 2.16.0
 $r->post('/settings', [SettingsController::class, 'save']);
 $r->post('/settings/test', [SettingsController::class, 'test']);

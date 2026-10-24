@@ -18,7 +18,7 @@ use Align\View;
  * Security assumptions: any staff role reads; techs and admins change (the router checks CSRF). Every staff role
  * sees every client, so a device id in the URL only has to exist; bulk actions on a client's page keep only the ids
  * that are that client's devices. Form values are checked (dates are real days, amounts fit their columns, types
- * come from Lifecycle::TYPES) and column names are fixed in code. Changes to a device linked to the PSA are sent by
+ * come from Lifecycle::types(): built-in or an admin's own, 2.25.0) and column names are fixed in code. Changes to a device linked to the PSA are sent by
  * PsaAssetSync::pushDevice, which itself checks two-way sync and staging mode. Every change is audited.
  */
 final class DeviceController
@@ -254,7 +254,7 @@ final class DeviceController
             'excluded' => isset($_POST['excluded']) ? 1 : 0,
             'notes' => mb_substr(post('notes'), 0, 5000) ?: null,
             'asset_tag' => self::tag(post('asset_tag')), // 2.21.0
-            'device_type' => isset(Lifecycle::TYPES[$type]) ? $type : null,
+            'device_type' => isset(Lifecycle::types()[$type]) ? $type : null,
             'updated_by' => Auth::id(),
         ];
     }
@@ -291,14 +291,14 @@ final class DeviceController
     private static function manualFields(): array
     {
         $type = post('device_type');
-        $type = isset(Lifecycle::TYPES[$type]) ? $type : 'Other';
+        $type = isset(Lifecycle::types()[$type]) ? $type : 'Other';
         $s = fn(string $k, int $len = 190) => mb_substr(post($k), 0, $len) ?: null;
         $build = substr((string) preg_replace('/\D/', '', post('os_build')), 0, 60) ?: null; // devices.os_build is VARCHAR(60)
         return [
             'display_name' => $s('display_name', 255),
             'device_type' => $type,
-            'device_class' => Lifecycle::TYPES[$type][0],
-            'is_virtual' => Lifecycle::TYPES[$type][2] ? 1 : 0,
+            'device_class' => Lifecycle::types()[$type][0],
+            'is_virtual' => Lifecycle::types()[$type][2] ? 1 : 0,
             'manufacturer' => $s('manufacturer'),
             'model' => $s('model'),
             'serial' => normalize_serial(post('serial')),
@@ -396,12 +396,12 @@ final class DeviceController
     }
 
     /**
-     * Sets a device's type (used by the Unassigned triage page). $type must be a key of Lifecycle::TYPES and $d a
+     * Sets a device's type (used by the Unassigned triage page). $type must be a key of Lifecycle::types() and $d a
      * device row (PsaAssetSync::loadDevice); the caller has checked the role. An RMM device gets an override instead.
      */
     public static function setType(array $d, string $type): void
     {
-        [$class, , $virtual] = Lifecycle::TYPES[$type];
+        [$class, , $virtual] = Lifecycle::types()[$type];
         if (PsaAssetSync::owns($d)) {
             DB::run('UPDATE devices SET device_type = ?, device_class = ?, is_virtual = ? WHERE id = ?', [$type, $class, $virtual ? 1 : 0, $d['id']]);
             DB::run('UPDATE device_overrides SET device_type = NULL WHERE device_id = ?', [$d['id']]);
@@ -519,7 +519,7 @@ final class DeviceController
         $type = post('device_type');
         $ids = array_unique(array_filter(array_map('intval', (array) ($_POST['ids'] ?? []))));
         $back = \Align\Security::safePath(post('back'), '/devices/unassigned');
-        if (!isset(Lifecycle::TYPES[$type]) || !$ids) {
+        if (!isset(Lifecycle::types()[$type]) || !$ids) {
             flash('error', 'Pick one or more devices and a type.');
             redirect($back);
         }

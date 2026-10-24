@@ -67,10 +67,11 @@ final class PsaAssetSync
         'storage' => 'NAS / storage',
         'camera' => 'Cameras / NVR',
         'phone' => 'Phones',
+        'display' => 'Monitors & displays', // 2.25.0
         'server' => 'Servers & hosts not in your RMM',
         'workstation' => 'Desktops & laptops not in your RMM',
         'vm' => 'Virtual machines not in your RMM',
-        'other' => 'Everything else → Unassigned, to categorize in Align (types Align doesn\'t know, displays, tablets…)',
+        'other' => 'Everything else → Unassigned, to categorize in Align (types Align doesn\'t know, tablets…)',
     ];
 
     private const COMPUTER_CLASSES = ['desktop', 'laptop', 'server'];
@@ -177,7 +178,7 @@ final class PsaAssetSync
     /** Desktops, laptops and servers keep an OS; everything else keeps firmware in that field. */
     private static function isComputer(array $d): bool
     {
-        return in_array(Lifecycle::TYPES[self::effectiveType($d)][0] ?? 'other', self::COMPUTER_CLASSES, true);
+        return in_array(Lifecycle::types()[self::effectiveType($d)][0] ?? 'other', self::COMPUTER_CLASSES, true);
     }
 
     /** Align's value, or null when Align has no say on this field for this device. */
@@ -212,8 +213,10 @@ final class PsaAssetSync
     private static function same(PsaProvider $p, string $f, string $al, string $psa, array $a): bool
     {
         if ($f === 'type') {
-            if ($al === Lifecycle::UNASSIGNED) {
-                return true; // not categorized yet: nothing to tell the PSA
+            if ($al === Lifecycle::UNASSIGNED || $p->assetTypeFor($al) === null) {
+                // not categorized yet, or a type the PSA has no name for (Monitor, an admin's own type; 2.25.0):
+                // nothing to tell the PSA, so its own type is never overwritten with a vaguer one
+                return true;
             }
             if (strcasecmp((string) $p->assetTypeFor($al), $psa) === 0) {
                 return true;
@@ -254,7 +257,7 @@ final class PsaAssetSync
     /** Sets an Align-owned device's type (and class and virtual flag), clearing any type override. */
     private static function setType(int $id, string $type): void
     {
-        [$class, , $virtual] = Lifecycle::TYPES[$type] ?? Lifecycle::TYPES['Other'];
+        [$class, , $virtual] = Lifecycle::types()[$type] ?? Lifecycle::types()['Other'];
         DB::run('UPDATE devices SET device_type = ?, device_class = ?, is_virtual = ? WHERE id = ?', [$type, $class, $virtual ? 1 : 0, $id]);
         DB::run('UPDATE device_overrides SET device_type = NULL WHERE device_id = ?', [$id]);
     }
@@ -881,7 +884,7 @@ final class PsaAssetSync
      */
     private static function importAssets(PsaProvider $p): string
     {
-        $cats = array_filter(array_map('trim', explode(',', (string) Settings::get('psa_import_types', 'network,printer,ups,storage,camera,phone,server,workstation,vm,other'))));
+        $cats = array_filter(array_map('trim', explode(',', (string) Settings::get('psa_import_types', 'network,printer,ups,storage,camera,phone,display,server,workstation,vm,other'))));
         $claimed = array_flip(array_map('strval', array_column(DB::all(
             "SELECT DISTINCT psa_asset_id FROM devices WHERE source IN ('rmm','manual') AND psa_asset_id IS NOT NULL
              AND (removed_at IS NULL OR retired_at IS NOT NULL)"), 'psa_asset_id')));
@@ -934,7 +937,7 @@ final class PsaAssetSync
                 if (!$eligible || (int) $a['is_archived'] === 1 || $p->statusRetired($a['status'])) {
                     continue;
                 }
-                [$class, , $virtual] = Lifecycle::TYPES[$type] ?? Lifecycle::TYPES['Other'];
+                [$class, , $virtual] = Lifecycle::types()[$type] ?? Lifecycle::types()['Other'];
                 $computer = in_array($class, self::COMPUTER_CLASSES, true);
                 DB::insert('devices', [
                     'source' => 'psa',

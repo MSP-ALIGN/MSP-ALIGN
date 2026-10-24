@@ -181,9 +181,31 @@ final class Itflow
      * ITFlow's built-in types: Laptop, Desktop, Server, Phone, Mobile Phone, Tablet, Firewall/Router,
      * Switch, Access Point, Printer, Display, Camera, Virtual Machine, Other. Unknown/custom types
      * are matched by keyword. UPS gear (usually typed "Other") is recognized by make/model/name.
+     * 2.25.0: a type named exactly like an admin's own type (AssetTypes) is that type; monitor, display, screen and TV
+     * (whole words) are monitors.
      * @return array{0:string,1:string}  [Align type, category]
      */
     public static function mapType(string $itType, string $make, string $model, string $name, string $os): array
+    {
+        $builtIn = self::mapBuiltIn($itType, $make, $model, $name, $os);
+        // 2.25.0 A PSA type with exactly the name of an admin's own type is that type. Its import choice stays the one the
+        // built-in rules give, so adding a type never changes which PSA assets are brought in.
+        if (($own = \Align\Lifecycle\AssetTypes::byName($itType)) !== null) {
+            return [$own, $builtIn[1]];
+        }
+        return $builtIn;
+    }
+
+    /** True for a PSA type that names a monitor, display, screen or TV as a whole word (not monitoring, display ports…). */
+    public static function isMonitorType(string $t): bool
+    {
+        $t = strtolower($t);
+        return preg_match('/\b(monitors?|displays?|screens?|tvs?|televisions?)\b/', $t) === 1
+            && preg_match('/monitoring|port|adapter|cable|dongle|touch|kiosk|\bpos\b|point of sale|sensor|temperature|environment/', $t) !== 1;
+    }
+
+    /** mapType() with Align's built-in types only. */
+    private static function mapBuiltIn(string $itType, string $make, string $model, string $name, string $os): array
     {
         $t = strtolower(trim($itType));
         if (\Align\Lifecycle\Lifecycle::looksLikeUps($t === 'other' || $t === '' || str_contains($t, 'ups') ? "$t $make $model $name" : "$make $model")) {
@@ -198,6 +220,7 @@ final class Itflow
             str_contains($t, 'printer'), str_contains($t, 'copier'), str_contains($t, 'mfp'), str_contains($t, 'scanner') => ['Printer', 'printer'],
             str_contains($t, 'nas'), str_contains($t, 'storage'), $t === 'san' => ['NAS / Storage', 'storage'],
             str_contains($t, 'camera'), str_contains($t, 'nvr'), str_contains($t, 'dvr') => ['Camera / NVR', 'camera'],
+            self::isMonitorType($t) => ['Monitor', 'display'], // 2.25.0
             str_contains($t, 'phone') => ['Phone', 'phone'],
             str_contains($t, 'virtual') => [\Align\Lifecycle\Lifecycle::virtualType($os), 'vm'],
             $t === 'server' => ['Server', 'server'],
@@ -225,6 +248,7 @@ final class Itflow
             'Printer' => 'Printer',
             'Phone' => 'Phone',
             'Camera / NVR' => 'Camera',
+            'Monitor' => 'Display', // 2.25.0 (an admin's own types have no ITFlow name: null, never pushed)
             'NAS / Storage', 'UPS', 'Other' => 'Other',
             default => null,
         };

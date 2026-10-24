@@ -487,7 +487,7 @@ final class SyncRunner
                     'system_name' => $t('system_name', 255),
                     'node_class' => $t('node_class', 60),
                     'device_type' => $type,
-                    'device_class' => \Align\Lifecycle\Lifecycle::TYPES[$type][0] ?? 'other',
+                    'device_class' => \Align\Lifecycle\Lifecycle::types()[$type][0] ?? 'other',
                     'manufacturer' => $t('manufacturer', 190),
                     'model' => $t('model', 190),
                     'serial' => normalize_serial($t('serial', 190)),
