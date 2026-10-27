@@ -5,8 +5,7 @@ note, or delete them. Pages that aren't a path on this site are dropped (and nev
 screenshots are checked by content and sent back as images with nosniff and a sandbox CSP, text is escaped, viewers
 and techs can't change or delete, each person is limited to 20 an hour, everything is audited. Migration 086 runs
 twice; the menu presets the kind and a pasted image becomes the screenshot."""
-import io, os, re, html as H
-from PIL import Image
+import base64, os, re, struct, html as H
 from lib import *
 
 st = login("admin@example.com", "LongPassword123!")
@@ -19,8 +18,21 @@ DIR = UPLOADS + "/feedback"
 def text(t): return re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", t)))
 
 
-def png(w=40, h=30, fmt="PNG", **kw):
-    b = io.BytesIO(); Image.new("RGB", (w, h), (30, 120, 200)).save(b, fmt, **kw); return b.getvalue()
+def png(w=40, h=30, fmt="PNG", exif=None):
+    """A small image drawn by PHP's GD (as CI has it; no Python imaging library needed); exif: text put into a JPEG's
+    EXIF segment (APP1) to check it isn't kept."""
+    out = php(f'$i = imagecreatetruecolor({w}, {h}); imagefill($i, 0, 0, imagecolorallocate($i, 30, 120, 200)); ob_start(); '
+              + ('imagepng($i);' if fmt == "PNG" else 'imagejpeg($i, null, 90);') + ' echo base64_encode(ob_get_clean());').stdout
+    b = base64.b64decode(out)
+    if exif:
+        seg = b"Exif\0\0MM\0*\0\0\0\x08\0\0" + exif.encode()
+        b = b[:2] + b"\xff\xe1" + struct.pack(">H", len(seg) + 2) + seg + b[2:]
+    return b
+
+
+def png_size(path):
+    """A PNG's width and height from its IHDR."""
+    return struct.unpack(">II", open(path, "rb").read()[16:24])
 
 
 def files_now():
@@ -61,10 +73,11 @@ try:
        f"a viewer sends a bug: control characters removed, text kept as text: {f and {k: f[k] for k in ('title', 'body', 'page', 'priority')}}")
     ok(r.url.endswith("/clients/1?tab=devices") and "Bug report #%d was sent" % f["id"] in flash(r.text), "and goes back to the page it came from: " + flash(r.text)[:80])
     ok(f["file_type"] == "png" and re.fullmatch(r"fb-[a-f0-9]{16}\.png", f["file_name"]) and os.path.isfile(DIR + "/" + f["file_name"]), "the screenshot is stored under a random name")
-    ok(b"<script>" not in open(DIR + "/" + f["file_name"], "rb").read() and Image.open(DIR + "/" + f["file_name"]).size == (40, 30), "re-encoded: bytes hidden after the image are gone")
+    ok(b"<script>" not in open(DIR + "/" + f["file_name"], "rb").read() and png_size(DIR + "/" + f["file_name"]) == (40, 30), "re-encoded: bytes hidden after the image are gone")
     bug = f["id"]
-    ex = Image.Exif(); ex[0x010E] = "R227 secret place"
-    r = send(tech, files={"screenshot": ("photo.jpeg", png(fmt="JPEG", exif=ex.tobytes()), "image/jpeg")}, kind="feature", title="R227 Dark mode for reports", priority="nonsense", page="//evil.example/x")
+    photo = png(fmt="JPEG", exif="R227 secret place")
+    ok(b"R227 secret place" in photo and photo[:2] == b"\xff\xd8", "(the test photo carries EXIF text)")
+    r = send(tech, files={"screenshot": ("photo.jpeg", photo, "image/jpeg")}, kind="feature", title="R227 Dark mode for reports", priority="nonsense", page="//evil.example/x")
     f = last()
     ok(f["kind"] == "feature" and f["priority"] == "normal" and f["page"] is None and f["file_type"] == "jpg", "a tech requests a feature (JPEG); an unknown priority is normal")
     ok(b"R227 secret place" not in open(DIR + "/" + f["file_name"], "rb").read(), "a photo's metadata isn't kept")
