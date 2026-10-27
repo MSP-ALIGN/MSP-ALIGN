@@ -304,7 +304,8 @@ final class Alignment
 
     /**
      * Suggestions from Align's own data for standards with an automatic check: [check => ['text', 'suggest' (an
-     * answer or null), 'ok', 'unknown']]. $devices: Lifecycle::devices($clientId); $backup: Backup::forClient();
+     * answer or null), 'ok', 'unknown']]. $devices: Lifecycle::devices($clientId); $backup: Backup::forClient(), or
+     * ['not_needed' => true] for a client set to not need backups (2.26.0);
      * $m365: the client's stored Microsoft 365 security results (M365\Security::forClient(), 2.6.1; null = none);
      * $m365On: whether its Microsoft 365 is connected (only the text of a check without a result changes).
      * 2.6.3 $more: further compliance-style indicators (Health\SecurityChecks::indicators(): Google Workspace, email
@@ -322,7 +323,10 @@ final class Alignment
             $out[$k] = ['label' => $i['label'], 'text' => $i['text'], 'ok' => $i['ok'], 'unknown' => $i['unknown'],
                 'suggest' => $i['suggest'] ? self::fromCompliance($i['suggest']) : null];
         }
-        if ($backup && ($backup['stats']['protected'] || $backup['stats']['unprotected'] || !empty($backup['m365']))) {
+        if (!empty($backup['not_needed'])) {
+            // 2.26.0 set to "Doesn't need backups" (Client mapping): suggested N/A, not a gap
+            $out['backups'] = ['label' => 'Backups', 'ok' => true, 'unknown' => false, 'suggest' => 'na', 'text' => 'This client doesn\'t need backups (set on Client mapping)'];
+        } elseif ($backup && ($backup['stats']['protected'] || $backup['stats']['unprotected'] || !empty($backup['m365']))) {
             // "Backed up daily": no server without a backup, no failed job, nothing without a recent restore point
             $st = $backup['stats'];
             $bad = (int) $st['unprotected'] + (int) $st['failed'] + (int) $st['overdue'] + (int) $st['m365_overdue'];

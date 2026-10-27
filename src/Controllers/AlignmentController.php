@@ -107,7 +107,7 @@ final class AlignmentController
             'score' => Alignment::score($rows),
             'last' => $last,
             'lastAnswers' => $lastAnswers,
-            'indicators' => $edit ? Alignment::indicators($devices, \Align\Backup\Backup::forClient($client, $devices),
+            'indicators' => $edit ? Alignment::indicators($devices, \Align\Backup\Backup::forClient($client, $devices) ?? (\Align\Backup\Backup::notNeeded($client) ? ['not_needed' => true] : null), // 2.26.0
                 ...[...array_reverse(\Align\M365\Security::forClient($id)), \Align\Health\SecurityChecks::indicators($id, $devices)]) : [], // 2.6.1: Microsoft 365 checks too (result, connected); 2.6.3: Google Workspace, email
             'matches' => Alignment::complianceMatches($id, $rows),
         ]);

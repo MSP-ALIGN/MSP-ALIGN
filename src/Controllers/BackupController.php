@@ -238,9 +238,14 @@ final class BackupController
         }
         $rows = [];
         $unlinked = [];
+        $notNeeded = []; // 2.26.0 set to "Doesn't need backups": listed apart, never as not linked
         foreach ($clients as $c) {
             if (!\Align\Backup\Backup::has($c)) {
-                $unlinked[] = $c['name'];
+                if (\Align\Backup\Backup::notNeeded($c)) {
+                    $notNeeded[] = $c['name'];
+                } else {
+                    $unlinked[] = $c['name'];
+                }
                 continue;
             }
             $devs = array_values(array_filter($byClient[(int) $c['id']] ?? [], fn($d) => !\Align\Lifecycle\Lifecycle::notInUse($d)));
@@ -263,6 +268,7 @@ final class BackupController
             'rows' => $rows,
             'shown' => $shown,
             'unlinked' => $unlinked,
+            'notNeeded' => $notNeeded,
         ], 'layout/print');
     }
 }

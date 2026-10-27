@@ -98,7 +98,9 @@ adds its record table to `ClientLinks::recordTable()`; a community connector imp
 sync can auto-match it by name.
 
 Links live in `client_links` (one per client per provider; each outside record belongs to one client). A
-row with `external_id` NULL and `match_method` 'manual' means "kept unlinked" and is left alone by sync.
+row with `external_id` NULL and `match_method` 'manual' means "kept unlinked" and is left alone by sync;
+`match_method` 'not_needed' (backup products only, 2.26.0) is the same and also marks the client as not needing
+backups (`Backup::notNeeded()`), so nothing counts it as missing one.
 `ClientLinks::autoMatch()` links clients with no row yet (or only an empty automatic one) to the record with
 the same normalized name (`ClientLinks::normalizeName()`); backup products also match on the client's RMM
 organization name.

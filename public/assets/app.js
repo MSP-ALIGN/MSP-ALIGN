@@ -335,9 +335,9 @@ const fillOptions = (ev) => {
   if (!tpl) return;
   sel.dataset.filled = '1';
   const value = sel.value;
-  const keep = sel.options[0];
   const frag = document.createDocumentFragment();
-  frag.appendChild(keep);
+  // the first choice (Not linked) and any fixed ones marked data-keep (2.26.0: Doesn't need backups) stay
+  [...sel.options].filter((o, i) => i === 0 || o.dataset.keep).forEach((o) => frag.appendChild(o));
   tpl.content.querySelectorAll('option').forEach((o) => {
     const opt = o.cloneNode(true);
     if (opt.dataset.client && opt.dataset.client !== sel.dataset.client) opt.textContent += ' (linked elsewhere)';

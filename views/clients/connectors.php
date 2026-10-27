@@ -18,7 +18,8 @@ use Align\View;
 
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
-$badge = ['linked' => ['Linked', 'success'], 'missing' => ['Link broken', 'danger'], 'kept' => ['Kept unlinked', 'secondary'], 'none' => ['Not linked', 'warning']];
+$badge = ['linked' => ['Linked', 'success'], 'missing' => ['Link broken', 'danger'], 'kept' => ['Kept unlinked', 'secondary'], 'none' => ['Not linked', 'warning'],
+    'not_needed' => ['Doesn\'t need backups', 'secondary']]; // 2.26.0
 $tone = ['ok' => 'success', 'warn' => 'warning', 'off' => 'secondary'];
 $names = array_column(\Align\DB::all('SELECT id, name FROM clients'), 'name', 'id'); // for "linked to another client"
 $back = "/clients/$cid/connectors";
@@ -44,7 +45,8 @@ $links = function (array $rows) use ($badge, $cid, $names, $back): string {
                     <form method="post" action="/mapping" class="d-flex gap-1 align-items-center">
                       <?= csrf_field() ?><input type="hidden" name="back" value="<?= e($back) ?>">
                       <select name="link[<?= e($l['key']) ?>][<?= $cid ?>]" class="form-select form-select-sm" aria-label="<?= e($l['name']) ?> link">
-                        <option value=""<?= $l['external_id'] === null ? ' selected' : '' ?>>Not linked</option>
+                        <option value=""<?= $l['external_id'] === null && $l['status'] !== 'not_needed' ? ' selected' : '' ?>>Not linked</option>
+                        <?php if (!empty($l['backup'])): // 2.26.0 ?><option value="<?= e(\Align\Controllers\MappingController::NOT_NEEDED) ?>"<?= $l['status'] === 'not_needed' ? ' selected' : '' ?>>Doesn't need backups</option><?php endif; ?>
                         <?php if ($l['status'] === 'missing'): // the linked record is gone from the tool: kept selected, so Save doesn't unlink it by accident ?>
                           <option value="<?= e($l['external_id']) ?>" selected>(no longer in <?= e($l['name']) ?>)</option>
                         <?php endif; ?>

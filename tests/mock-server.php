@@ -1985,7 +1985,7 @@ switch (true) {
                 ['instanceUid' => 'j-1001', 'name' => 'Servers nightly', 'organizationUid' => $c['c1'], 'type' => 'BackupVm', 'status' => 'Success', 'isEnabled' => true,
                     'lastRun' => $iso(6), 'lastEndTime' => $iso(5), 'lastDuration' => 2640, 'destination' => 'Local repository', 'backupChainSize' => 912 * 1024 ** 3, 'failureMessage' => ''],
                 ['instanceUid' => 'j-1002', 'name' => 'Offsite copy to cloud', 'organizationUid' => $c['c0'], 'mappedOrganizationUid' => $c['c1'], 'type' => 'BackupCopy', 'status' => 'Warning', 'isEnabled' => true,
-                    'lastRun' => $iso(10), 'lastEndTime' => $iso(9), 'lastDuration' => 5400, 'destination' => 'Cloud Connect', 'failureMessage' => 'Restore point for PC-0029 was not copied: source file is locked.'],
+                    'lastRun' => $iso(10), 'lastEndTime' => $iso(9), 'lastDuration' => 5400, 'destination' => 'Cloud Connect', 'backupChainSize' => 0, 'failureMessage' => 'Restore point for PC-0029 was not copied: source file is locked.'],
                 ['instanceUid' => 'j-2001', 'name' => 'File server', 'organizationUid' => $c['c2'], 'type' => 'BackupVm', 'status' => 'Failed', 'isEnabled' => true,
                     'lastRun' => $iso(20), 'lastEndTime' => $iso(19), 'lastDuration' => 300, 'failureMessage' => 'Error: Failed to connect to repository REPO01. The network path was not found.'],
                 ['instanceUid' => 'j-2002', 'name' => 'DR replica', 'organizationUid' => $c['c2'], 'type' => 'ReplicationVM', 'status' => 'Success', 'isEnabled' => false,
@@ -2022,6 +2022,12 @@ switch (true) {
                 ['instanceUid' => 'vm-svl1', 'name' => 'HPLG-DC01', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0102', 'latestRestorePointDate' => $iso(5), 'restorePoints' => 14, 'totalRestorePointSize' => 60 * 1024 ** 3],
                 ['instanceUid' => 'vm-svl2', 'name' => 'HPLG-FS01', 'organizationUid' => $c['c0'], 'jobUid' => 'j-0102', 'latestRestorePointDate' => $iso(5), 'restorePoints' => 14, 'totalRestorePointSize' => 410 * 1024 ** 3],
             ], array_map(fn($i) => ['instanceUid' => "int-$i", 'name' => sprintf('INT-VM-%03d', $i), 'organizationUid' => $c['c0'], 'jobUid' => 'j-0001', 'latestRestorePointDate' => $iso(3), 'restorePoints' => 7], range(1, 620))),
+            // 2.26.0 one row per VM per job: the copy job's restore points (Veeam sends the copy job's own size as 0);
+            // vm-35 twice, as VSPC can list a backup more than once: counted once
+            '/api/v3/protectedWorkloads/virtualMachines/backups' => [
+                ['virtualMachineUid' => 'vm-35', 'jobUid' => 'j-1002', 'restorePoints' => 7, 'totalRestorePointSize' => 41 * 1024 ** 3],
+                ['virtualMachineUid' => 'vm-35', 'jobUid' => 'j-1002', 'restorePoints' => 7, 'totalRestorePointSize' => 41 * 1024 ** 3],
+            ],
             '/api/v3/protectedWorkloads/computersManagedByConsole' => [
                 ['backupAgentUid' => 'a-1', 'name' => 'PC-0001', 'organizationUid' => $c['c1'], 'numberOfJobs' => 1, 'operationMode' => 'Workstation', 'latestRestorePointDate' => $iso(12)],
                 ['backupAgentUid' => 'a-2', 'name' => 'PC-0008', 'organizationUid' => $c['c1'], 'numberOfJobs' => 1, 'operationMode' => 'Workstation', 'latestRestorePointDate' => $iso(24 * 6)],

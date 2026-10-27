@@ -22,6 +22,9 @@ use Align\View;
  */
 final class MappingController
 {
+    /** 2.26.0 The picker value for "Doesn't need backups" (backup products only; never a real record id). */
+    public const NOT_NEEDED = '__not_needed';
+
     /** The mapping screen: one column per linking connector, for every active client in planning. */
     public static function index(): void
     {
@@ -54,8 +57,10 @@ final class MappingController
                 'linked' => $linked,
             ];
         }
-        // "Missing a link": a client with no link (and no "kept unlinked" decision) for a provider that has records to link to
-        $missing = fn(array $cl) => (bool) array_filter($providers, fn($p) => $p['records'] && !isset($p['links'][(int) $cl['id']]));
+        // "Missing a link": a client with no link (and no "kept unlinked" decision) for a provider that has records to link to.
+        // 2.26.0 A client set to not need backups in one backup product isn't missing one in another either.
+        $missing = fn(array $cl) => (bool) array_filter($providers, fn($p) => $p['records'] && !isset($p['links'][(int) $cl['id']])
+            && !($p['backup'] && \Align\Backup\Backup::notNeeded($cl)));
         $show = query('show', '') === 'missing' ? 'missing' : 'all';
         View::render('mapping/index', [
             'title' => 'Client mapping',
@@ -103,6 +108,8 @@ final class MappingController
      * Tech or above. A record id is used only when the provider has it; one record can't go to two clients; a record
      * held by a client that isn't on the form is refused (naming that client) instead of being taken. Client ids
      * that don't exist are ignored. Everything changes in one transaction and is audited.
+     * 2.26.0 For a backup product, NOT_NEEDED ('__not_needed') stores "Doesn't need backups" (no record, match_method
+     * 'not_needed'); for any other connector it's only a record id like any other, used when the connector has it.
      */
     public static function save(): void
     {
@@ -136,18 +143,21 @@ final class MappingController
             $known = array_flip(array_column($records, 'id'));
             $wanted[$key] = [];
             $isRmm = in_array($key, $rmmKeys, true);
+            $isBackup = $c instanceof \Align\Integrations\BackupConnector;
             foreach ($rows as $clientId => $id) {
                 if (!is_scalar($id)) {
                     continue; // malformed: leave that client as it is
                 }
                 $id = (string) $id;
-                if ($id === '' || ($isRmm && $id === '0' && !isset($known['0']))) { // '0' meant "none" on RMM pages before 1.29
+                if ($id === self::NOT_NEEDED && $isBackup) {
+                    $wanted[$key][(int) $clientId] = self::NOT_NEEDED; // 2.26.0 "Doesn't need backups"
+                } elseif ($id === '' || ($isRmm && $id === '0' && !isset($known['0']))) { // '0' meant "none" on RMM pages before 1.29
                     $wanted[$key][(int) $clientId] = '';
                 } elseif (isset($known[$id])) {
                     $wanted[$key][(int) $clientId] = $id;
                 } // a record that's gone since the page loaded: leave that client as it is
             }
-            $picked = array_filter($wanted[$key], fn($o) => $o !== '');
+            $picked = array_filter($wanted[$key], fn($o) => $o !== '' && $o !== self::NOT_NEEDED);
             if (count($picked) !== count(array_unique($picked))) {
                 flash('error', 'Each ' . $c->linkName() . ' ' . $c->linkNoun() . ' can only be linked to one client. Nothing was saved.');
                 redirect(self::backTo());
@@ -174,7 +184,8 @@ final class MappingController
         foreach ($wanted as $key => $rows) {
             $links = ClientLinks::forProvider($key);
             foreach ($rows as $cid => $id) {
-                if (isset($clientIds[$cid]) && (string) ($links[$cid]['external_id'] ?? '') !== $id) {
+                $now = ($links[$cid]['match_method'] ?? null) === 'not_needed' && ($links[$cid]['external_id'] ?? null) === null ? self::NOT_NEEDED : (string) ($links[$cid]['external_id'] ?? '');
+                if (isset($clientIds[$cid]) && $now !== $id) {
                     $changed[$key][$cid] = $id;
                 }
             }
@@ -192,7 +203,8 @@ final class MappingController
                 }
                 foreach ($rows as $clientId => $id) {
                     // A manual link with no record means "deliberately not linked": auto-match leaves it alone.
-                    ClientLinks::set((int) $clientId, $key, $id === '' ? null : $id, 'manual');
+                    // "Doesn't need backups" is the same with its own method (2.26.0, Backup::notNeeded).
+                    ClientLinks::set((int) $clientId, $key, $id === '' || $id === self::NOT_NEEDED ? null : $id, $id === self::NOT_NEEDED ? 'not_needed' : 'manual');
                 }
             }
         });

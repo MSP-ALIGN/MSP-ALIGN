@@ -9,7 +9,8 @@ use Align\DB;
  * Which record in another system each client is linked to (an RMM organization, a backup company; see
  * Integrations\LinksClients). One link per client per provider, and each outside record belongs to at most one client.
  * A row with external_id NULL and match_method 'manual' means "deliberately not linked": auto-match
- * leaves that client alone.
+ * leaves that client alone. 2.26.0: match_method 'not_needed' (backup products only) is the same, and also says the
+ * client doesn't need backups (Backup::notNeeded), so nothing counts it as missing one.
  *
  * SECURITY: a link decides which client gets an outside record's devices, backups and Microsoft 365 data, so
  * the database keeps one link per client per provider and one client per outside record (unique keys), and
@@ -49,12 +50,14 @@ final class ClientLinks
 
     /**
      * Links (or, with null, unlinks) a client. The outside record is taken away from any other client first.
-     * $method: 'auto' (matched by name) or 'manual' (someone chose it; a manual null link stops auto-matching).
+     * $method: 'auto' (matched by name) or 'manual' (someone chose it; a manual null link stops auto-matching), or
+     * with no record 'not_needed' (a backup product: the client doesn't need backups; 2.26.0).
      * Null id and null method delete the row (the client is undecided again). Run inside the caller's transaction
      * when several links change together (MappingController::save does).
      */
     public static function set(int $clientId, string $provider, ?string $externalId, ?string $method): void
     {
+        \Align\Backup\Backup::forget(); // 2.26.0 its per-request answers follow the links
         if ($externalId !== null && $externalId !== '') {
             DB::run('DELETE FROM client_links WHERE provider = ? AND external_id = ? AND client_id <> ?', [$provider, $externalId, $clientId]);
         } else {
@@ -123,7 +126,7 @@ final class ClientLinks
         $matched = 0;
         foreach (DB::all('SELECT c.id, c.name' . ($alsoRmmNames ? ', ' . self::rmmOrgNamesSql() . ' AS org_name' : '') . ' FROM clients c
                 LEFT JOIN client_links l ON l.client_id = c.id AND l.provider = ?
-                WHERE (l.client_id IS NULL OR (l.external_id IS NULL AND COALESCE(l.match_method, \'\') <> \'manual\')) AND c.is_archived = 0 AND c.planning_excluded = 0 AND c.is_demo = 0', [$provider]) as $c) {
+                WHERE (l.client_id IS NULL OR (l.external_id IS NULL AND COALESCE(l.match_method, \'\') NOT IN (\'manual\', \'not_needed\'))) AND c.is_archived = 0 AND c.planning_excluded = 0 AND c.is_demo = 0', [$provider]) as $c) {
             $names = [self::normalizeName((string) $c['name'])];
             if ($alsoRmmNames) {
                 $names[] = self::normalizeName((string) $c['org_name']);
