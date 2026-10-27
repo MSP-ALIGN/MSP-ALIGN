@@ -175,6 +175,8 @@ alignInit.add((root) => root.querySelectorAll('form[data-confirm-rules], form[da
 /** Whether a form's fields differ from when it opened (forms with data-unsaved or data-confirm-rules). */
 const formDirty = (f) => {
   if (!f.alignStart) return false;
+  // a file chosen in a field marked data-unsaved-file counts as a change (file fields aren't in formState) (2.27.0)
+  if ([...f.querySelectorAll('input[type=file][data-unsaved-file]')].some((i) => i.files && i.files.length)) return true;
   const now = formState(f);
   return Object.keys({ ...now, ...f.alignStart }).some((k) => !sameField(now[k], f.alignStart[k]));
 };
@@ -1955,3 +1957,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 })();
+
+// 2.27.0 Send feedback (views/partials/feedback_modal.php): the menu item picks bug or feature request, and a
+// screenshot can be pasted (Ctrl+V) while the form is open; the pasted image goes into the file input
+document.addEventListener('show.bs.modal', (ev) => {
+  if (ev.target.id !== 'modal-feedback') return;
+  const kind = ev.relatedTarget && ev.relatedTarget.dataset.feedbackKind;
+  const radio = kind && ev.target.querySelector('input[name=kind][value="' + (kind === 'feature' ? 'feature' : 'bug') + '"]');
+  if (radio) radio.checked = true;
+  // the kind the menu picked is where the form starts, so closing it untouched doesn't ask to discard changes
+  const form = ev.target.querySelector('form[data-unsaved]');
+  if (form) form.alignStart = formState(form);
+});
+// The screenshot field's hint says what's attached, and a file over the limit is cleared at once (the server would
+// refuse it, or the whole form if it's over PHP's post limit)
+const feedbackFile = (input) => {
+  const hint = document.getElementById('fb-paste-hint');
+  const f = input.files && input.files[0];
+  const max = parseInt(input.dataset.maxBytes || '0', 10);
+  if (f && max && f.size > max) {
+    input.value = '';
+    if (hint) { hint.textContent = 'That image is larger than 5 MB: choose a smaller one, or crop it.'; hint.classList.add('text-danger'); }
+    return;
+  }
+  if (hint) {
+    hint.classList.remove('text-danger');
+    hint.textContent = f ? (f.name === 'pasted-screenshot.png' || f.name === 'pasted-screenshot.jpg' ? 'Pasted screenshot attached' : 'Attached') + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' KB).' : hint.dataset.default;
+  }
+};
+document.addEventListener('change', (ev) => { if (ev.target.id === 'fb-screenshot') feedbackFile(ev.target); });
+document.addEventListener('shown.bs.modal', (ev) => {
+  if (ev.target.id === 'modal-feedback') ev.target.querySelector('#fb-title')?.focus();
+});
+document.addEventListener('paste', (ev) => {
+  const modal = document.getElementById('modal-feedback');
+  if (!modal || !modal.classList.contains('show') || !ev.clipboardData) return;
+  const img = [...ev.clipboardData.files].find((f) => f.type === 'image/png' || f.type === 'image/jpeg');
+  const input = modal.querySelector('#fb-screenshot');
+  if (!img || !input || typeof DataTransfer === 'undefined') return; // text pastes as usual
+  ev.preventDefault();
+  const dt = new DataTransfer();
+  dt.items.add(new File([img], 'pasted-screenshot.' + (img.type === 'image/png' ? 'png' : 'jpg'), { type: img.type }));
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change', { bubbles: true })); // feedbackFile: the hint and the size limit
+});
