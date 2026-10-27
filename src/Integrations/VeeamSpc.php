@@ -142,6 +142,15 @@ final class VeeamSpc
     }
 
     /**
+     * 2.26.0 Backups of protected virtual machines: one row per VM per job (jobUid, totalRestorePointSize), used
+     * for the size of jobs VSPC reports no size for, such as backup copy jobs. Null when unavailable.
+     */
+    public function protectedVmBackups(): ?array
+    {
+        return $this->optional('/protectedWorkloads/virtualMachines/backups');
+    }
+
+    /**
      * Protected computers, managed by the console or by a backup server (each list skipped when unavailable). Null
      * when neither list could be read, so the sync keeps the computers it has instead of deleting them all (2.2.1).
      */

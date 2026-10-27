@@ -32,12 +32,15 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
     <?php if (!$configured): ?>
       <p class="mb-1"><b><?= e($bn = \Align\Providers\Providers::backupNames()) ?> isn't connected yet.</b></p>
       <p class="text-muted mb-0"><?php $bc = \Align\Providers\Providers::backupConnectors(); if (count($bc) === 1): $one = reset($bc); ?>Add your <?= e($one->name()) ?> URL and an API key under <?= Auth::can('admin') ? '<a href="/integrations/' . e($one->key()) . '">Integrations → ' . e($one->shortName()) . '</a>' : 'Integrations → ' . e($one->shortName()) ?>.<?php else: ?>Connect your backup product under <?= Auth::can('admin') ? '<a href="/integrations">Integrations</a>' : 'Integrations' ?>.<?php endif; ?> Backup jobs, protected machines and cloud storage then sync every hour.</p>
+    <?php elseif (\Align\Backup\Backup::notNeeded($client)): // 2.26.0 ?>
+      <p class="mb-1"><i class="fas fa-circle-minus text-secondary me-1"></i><b>This client doesn't need backups.</b></p>
+      <p class="text-muted mb-0">Set on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>, so it isn't counted as missing a backup anywhere. To start managing its backups, link it to its <?= e(\Align\Providers\Providers::backupNames()) ?> company there.</p>
     <?php else: ?>
       <p class="mb-1"><b>No backups found for this client.</b></p>
       <p class="text-muted mb-0">It isn't linked to a<?= preg_match('/^[AEIOU]/i', $bn = \Align\Providers\Providers::backupNames()) ? 'n' : '' ?> <?= e($bn) ?> company, and nothing on your own backup server is matched to it. Companies with the same name link automatically on sync; otherwise pick it on <?= Auth::can('tech') ? '<a href="/mapping">Client mapping</a>' : 'Client mapping' ?>. If you back up this client's servers on your own <?= e($bn) ?> server, match them under <?= Auth::can('tech') ? '<a href="/mapping/backups">Hosted backups</a>' : 'Hosted backups' ?>.</p>
     <?php endif; ?>
   </div>
-  <?php if (!empty($claim)): // 2.16.0: claimed on the Connectors page ?><div class="alert alert-light border small py-2" id="hosted-claim-hint"><i class="fas fa-server me-1"></i><?= count($claim['machines']) ?> machine<?= count($claim['machines']) === 1 ? '' : 's' ?> on your own backup server <?= count($claim['machines']) === 1 ? 'isn\'t' : 'aren\'t' ?> matched to a client yet. If some are this client's, claim them on <a href="/clients/<?= (int) $client['id'] ?>/connectors#hosted-claim">Connectors</a>.</div><?php endif; ?>
+  <?php if (!empty($claim) && !\Align\Backup\Backup::notNeeded($client)): // 2.16.0: claimed on the Connectors page (2.26.0: not for a client that doesn't need backups) ?><div class="alert alert-light border small py-2" id="hosted-claim-hint"><i class="fas fa-server me-1"></i><?= count($claim['machines']) ?> machine<?= count($claim['machines']) === 1 ? '' : 's' ?> on your own backup server <?= count($claim['machines']) === 1 ? 'isn\'t' : 'aren\'t' ?> matched to a client yet. If some are this client's, claim them on <a href="/clients/<?= (int) $client['id'] ?>/connectors#hosted-claim">Connectors</a>.</div><?php endif; ?>
 <?php else: $s = $b['stats']; ?>
 <div class="row">
   <div class="col-lg col-md-4 col-6"><div class="info-box"><span class="info-box-icon bg-<?= tone_class($s['tone']) ?>"><i class="fas fa-<?= $s['tone'] === 'ok' ? 'circle-check' : 'triangle-exclamation' ?>"></i></span><div class="info-box-content"><span class="info-box-text">Backup health</span><span class="info-box-number"><?= ['ok' => 'Healthy', 'warn' => 'Needs attention', 'bad' => 'Action needed'][$s['tone']] ?></span></div></div></div>
@@ -100,7 +103,7 @@ $pill = fn(string $label, string $tone) => '<span class="badge text-bg-' . tone_
           <td class="small text-nowrap"><?= $j['last_run'] ? e(rel_time($j['last_run'])) . '<div class="text-muted">' . e(fmt_datetime($j['last_run'])) . '</div>' : '<span class="text-muted">never</span>' ?></td>
           <td class="small text-nowrap"><?php $sec = (int) $j['duration_sec']; // hours counted on past 24 (gmdate's G starts again at 0) ?><?= $sec ? e($sec >= 3600 ? sprintf('%dh %02dm', intdiv($sec, 3600), intdiv($sec % 3600, 60)) : sprintf('%02dm %02ds', intdiv($sec, 60), $sec % 60)) : '—' ?></td>
           <td class="small"><?= e($j['target'] ?? '—') ?></td>
-          <td class="small text-end text-nowrap"><?= e(fmt_bytes($j['chain_bytes'])) ?></td>
+          <td class="small text-end text-nowrap"><?= $j['chain_bytes'] ? e(fmt_bytes($j['chain_bytes'])) : '<span class="text-muted" title="' . e(\Align\Providers\Providers::backupName($j['provider'] ?? null) . ' doesn\'t report a size for this job') . '">—</span>' /* 2.26.0: not "0 B" */ ?></td>
         </tr>
       <?php endforeach; ?>
       <?php if (!$b['jobs']): ?><tr><td colspan="7" class="empty-state">No backup jobs for this client in <?= e($b['source']) ?>.</td></tr><?php endif; ?>

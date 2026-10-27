@@ -163,6 +163,18 @@ final class VeeamBackup implements BackupProvider
                 $wlJobs['computer:' . $j['agent_uid']][$j['uid']] = true;
             }
         }
+        // 2.26.0 A job Veeam reports no size for (backup copy jobs send 0): the restore points its protected machines
+        // hold through that job (jobSizes()). Read only when a job needs it; the per-backup list when VSPC has it.
+        if (array_filter($jobs, fn($j) => !$j['chain_bytes'])) {
+            $sizes = self::jobSizes($api->protectedVmBackups() ?? [], [...($vms ?? []), ...($computers ?? [])]);
+            foreach ($jobs as &$j) {
+                if (!$j['chain_bytes'] && !empty($sizes[$j['uid']])) {
+                    $j['chain_bytes'] = $sizes[$j['uid']];
+                }
+            }
+            unset($j);
+        }
+
         $workloads = [];
         foreach ($wl as $key => $row) {
             $workloads[] = $row + ['job_uids' => array_map('strval', array_keys($wlJobs[$key] ?? []))];
@@ -177,6 +189,49 @@ final class VeeamBackup implements BackupProvider
             'workload_lists' => $wlLists,
             'm365' => $m365 === null ? null : ['orgs' => $m365['orgs'], 'objects' => $m365['objects']],
         ];
+    }
+
+    /**
+     * 2.26.0 Bytes held per job uid, for jobs Veeam reports no size for: each machine counted once per job (its
+     * largest record, as VSPC can list a machine more than once), then added up. $backups: VSPC's per-backup list of
+     * protected VMs (one row per VM per job), used for the jobs it covers; $records: the protected VM and computer
+     * lists (each row names its job), for the rest. Sizes are read from the first positive of totalRestorePointSize,
+     * backupSize and totalBackupSize. Untrusted input: rows that aren't arrays, uids that aren't text and sizes that
+     * aren't whole non-negative numbers are skipped (V::int); a job's total stops at PHP_INT_MAX.
+     *
+     * @return array<string,int> job uid => bytes
+     */
+    public static function jobSizes(array $backups, array $records): array
+    {
+        $per = function (array $rows): array {
+            $max = [];
+            foreach ($rows as $r) {
+                if (!is_array($r)) {
+                    continue;
+                }
+                $ju = self::uid($r['jobUid'] ?? null);
+                $mu = self::uid(V::pick($r, ['virtualMachineUid', 'protectedVmUid', 'instanceUid', 'uid']), 100) ?? '';
+                $bytes = 0;
+                foreach (['totalRestorePointSize', 'backupSize', 'totalBackupSize'] as $k) {
+                    if (($bytes = (int) V::int($r[$k] ?? null)) > 0) {
+                        break;
+                    }
+                }
+                if ($ju !== null && $ju !== V::ZERO_UID && $bytes > 0) {
+                    $max[$ju][$mu] = max($max[$ju][$mu] ?? 0, $bytes);
+                }
+            }
+            $out = [];
+            foreach ($max as $ju => $machines) {
+                $sum = 0;
+                foreach ($machines as $b) {
+                    $sum = $b > PHP_INT_MAX - $sum ? PHP_INT_MAX : $sum + $b;
+                }
+                $out[(string) $ju] = $sum;
+            }
+            return $out;
+        };
+        return $per($backups) + $per($records);
     }
 
     /** A server or agent job as a neutral job row (fixed keys). */

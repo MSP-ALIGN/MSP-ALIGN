@@ -145,6 +145,33 @@ final class Backup
             'suggested' => count(array_filter($machines, fn($m) => $m['score'] > 0)) + count(array_filter($jobs, fn($j) => $j['score'] > 0))];
     }
 
+    /** Clients set to "Doesn't need backups" for this request (notNeeded()). */
+    private static ?array $notNeeded = null;
+
+    /**
+     * 2.26.0 Whether the client is set to not need backups (Client mapping or its Connectors page, for any backup
+     * product) and has no backup data of its own: then nothing counts it as missing a backup. A client that does have
+     * backup data shows it as usual. Read once per request (forget() after links change). SECURITY: checks no user;
+     * the caller has checked the viewer may see this client, and only a yes/no about it is returned.
+     */
+    public static function notNeeded(array|int $client): bool
+    {
+        $id = (int) (is_array($client) ? $client['id'] : $client);
+        if (self::$notNeeded === null) {
+            $keys = array_keys(Providers::backupConnectors());
+            self::$notNeeded = $keys ? array_flip(array_map('intval', array_column(DB::all("SELECT DISTINCT client_id FROM client_links
+                WHERE match_method = 'not_needed' AND external_id IS NULL AND provider IN (" . implode(',', array_fill(0, count($keys), '?')) . ')', $keys), 'client_id'))) : [];
+        }
+        return isset(self::$notNeeded[$id]) && !self::has($id);
+    }
+
+    /** 2.26.0 Drops this request's cached answers of has() and notNeeded() (ClientLinks::set() calls it). */
+    public static function forget(): void
+    {
+        self::$notNeeded = null;
+        self::$hasCache = [];
+    }
+
     /** Whether a client has any backup data: its own backup company, or machines / jobs sorted to it from a hosting server. */
     public static function has(array|int $client): bool
     {

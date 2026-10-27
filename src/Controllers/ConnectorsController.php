@@ -60,11 +60,12 @@ final class ConnectorsController
      * The client's links to the systems set up under Integrations: the PSA, then each RMM and backup product that is
      * configured. Each: ['kind' (PSA, RMM, Backups, Other), 'name', 'icon' (classes), 'key' (integration), 'status'
      * (linked; missing = linked to a record Align doesn't have, removed there or not synced yet; kept = deliberately
-     * not linked; none), 'record' (the linked record's name), 'detail' (plain text), 'url' (open in the PSA, or null)].
+     * not linked; not_needed = a backup product set to "Doesn't need backups", 2.26.0; none), 'record' (the linked record's name), 'detail' (plain text), 'url' (open in the PSA, or null)].
      * Untrusted: 'record' and the counts come from the PSA, RMM or backup product (escape them); 'url' is built by
      * Providers::psaLink() from the configured PSA's address. One query per connector (LinksClients::linkRecord).
      * 2.16.0 With $choices, each link connector's row also has 'external_id' and 'choices' (its records to pick from,
-     * LinksClients::linkRecords(): id, name, count, client_id = the client it's linked to now) for changing the link.
+     * LinksClients::linkRecords(): id, name, count, client_id = the client it's linked to now) for changing the link,
+     * and 'backup' (whether it's a backup product, which also offers "Doesn't need backups").
      */
     private static function linked(array $client, bool $choices = false): array
     {
@@ -90,13 +91,13 @@ final class ConnectorsController
             $rec = $ext !== null ? $c->linkRecord((string) $ext, $cid) : null;
             $out[] = ['kind' => $c instanceof \Align\Integrations\RmmConnector ? 'RMM' : ($c instanceof \Align\Integrations\BackupConnector ? 'Backups' : ($c->category() === 'Security' ? 'Security' : 'Other')),
                 'name' => $c->linkName(), 'icon' => $c->icon(), 'key' => $c->key(),
-                'status' => $ext !== null ? ($rec ? 'linked' : 'missing') : ($l ? 'kept' : 'none'),
+                'status' => $ext !== null ? ($rec ? 'linked' : 'missing') : ($l ? (($l['match_method'] ?? null) === 'not_needed' ? 'not_needed' : 'kept') : 'none'), // 2.26.0 not_needed
                 'record' => $rec['name'] ?? null,
                 'detail' => $ext !== null ? ($rec ? $rec['count'] . ' ' . $c->linkCountLabel()
                         : 'Its ' . $c->linkNoun() . ' wasn\'t in the last read from ' . $c->linkName() . ': removed there, or not synced yet. Check Client mapping.')
-                    : ($l ? 'Kept unlinked on Client mapping.' : 'Not linked to a ' . $c->linkNoun() . ' yet.'),
+                    : ($l ? (($l['match_method'] ?? null) === 'not_needed' ? 'This client doesn\'t need backups: it isn\'t counted as missing one.' : 'Kept unlinked on Client mapping.') : 'Not linked to a ' . $c->linkNoun() . ' yet.'),
                 'url' => null]
-                + ($choices ? ['external_id' => $ext !== null ? (string) $ext : null, 'choices' => $c->linkRecords()] : []);
+                + ($choices ? ['external_id' => $ext !== null ? (string) $ext : null, 'choices' => $c->linkRecords(), 'backup' => $c instanceof \Align\Integrations\BackupConnector] : []);
         }
         return $out;
     }
@@ -110,7 +111,7 @@ final class ConnectorsController
         $chips = [];
         $anchor = ['PSA' => '#links', 'RMM' => '#links', 'Backups' => '#backups', 'Security' => '#security', 'Other' => '#links'];
         foreach ($linked as $l) {
-            $chips[] = ['label' => $l['name'] . match ($l['status']) { 'linked' => '', 'missing' => ': link broken', 'kept' => ': kept unlinked', default => ': not linked' },
+            $chips[] = ['label' => $l['name'] . match ($l['status']) { 'linked' => '', 'missing' => ': link broken', 'kept' => ': kept unlinked', 'not_needed' => ': no backups needed', default => ': not linked' },
                 'tone' => match ($l['status']) { 'linked' => 'ok', 'missing' => 'warn', default => 'off' }, 'href' => $anchor[$l['kind']] ?? '#links'];
         }
         if ($sat !== null) {

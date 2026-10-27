@@ -71,7 +71,9 @@ final class Todo
                 $k = preg_replace('/[^a-z0-9_-]/', '', $c->key());
                 // Clients with no link at all (a client kept unlinked on purpose has a row with no id and isn't counted)
                 $n = (int) DB::value("SELECT COUNT(*) FROM clients c WHERE c.is_archived = 0 AND c.planning_excluded = 0 AND c.is_demo = 0
-                    AND NOT EXISTS (SELECT 1 FROM client_links l WHERE l.client_id = c.id AND l.provider = '$k')");
+                    AND NOT EXISTS (SELECT 1 FROM client_links l WHERE l.client_id = c.id AND l.provider = '$k')"
+                    // 2.26.0 a client set to not need backups (in any backup product) isn't missing a backup link
+                    . ($c instanceof \Align\Integrations\BackupConnector ? " AND NOT EXISTS (SELECT 1 FROM client_links n WHERE n.client_id = c.id AND n.match_method = 'not_needed' AND n.external_id IS NULL)" : ''));
                 if ($n) {
                     $out[] = ['key' => "mapping-$k", 'category' => 'integrations', 'icon' => 'fa-link', 'tone' => 'warning',
                         'title' => $plural($n, 'client', 'clients') . ' not linked to ' . $c->name(),

@@ -7,12 +7,13 @@
  * $p['summary'][...]['html'] is built by the connector from numbers and fixed text (LinksClients::linkClientSummary
  * promises it is already escaped). Both forms carry the CSRF field; MappingController checks roles and ids.
  */
-/** The "How" cell: kept unlinked / by name / by hand (fixed HTML, nothing from the link itself). */
+/** The "How" cell: no backups needed (2.26.0) / kept unlinked / by name / by hand (fixed HTML, nothing from the link itself). */
 $how = function (?array $link): string {
     if (!$link) {
         return '';
     }
     return match (true) {
+        $link['external_id'] === null && $link['match_method'] === 'not_needed' => '<span class="text-muted" title="Set by hand: this client doesn\'t need backups, so nothing counts it as missing one">no backups needed</span>', // 2.26.0
         $link['external_id'] === null => '<span class="text-muted" title="Set to not linked by hand; sync won\'t link it by name">kept unlinked</span>',
         $link['match_method'] === 'auto' => '<span class="text-muted" title="Linked on sync because the names match">by name</span>',
         default => '<span class="text-muted" title="Chosen here by hand">by hand</span>',
@@ -104,6 +105,9 @@ $cols = 1 + 3 * count($providers);
               $cur = (string) ($link['external_id'] ?? ''); $r = $cur !== '' ? ($p['byId'][$cur] ?? null) : null; ?>
               <select name="link[<?= e($key) ?>][<?= $cid ?>]" class="form-select form-select-sm" data-options="map-opts-<?= e($key) ?>" data-client="<?= $cid ?>" aria-label="<?= e($p['name'] . ' ' . $p['noun']) ?> for <?= e($c['name']) ?>">
                 <option value="">— Not linked —</option>
+                <?php if ($p['backup']): $nn = ($link['match_method'] ?? null) === 'not_needed' && $cur === ''; // 2.26.0 ?>
+                  <option value="<?= e(\Align\Controllers\MappingController::NOT_NEEDED) ?>" data-keep="1"<?= $nn ? ' selected' : '' ?>>— Doesn't need backups —</option>
+                <?php endif; ?>
                 <?php if ($r): ?><option value="<?= e($r['id']) ?>" selected><?= e($r['name']) ?><?= $r['client_id'] !== null && $r['client_id'] !== $cid ? ' (linked elsewhere)' : '' ?></option><?php endif; ?>
               </select>
               <?php else: ?>
@@ -122,7 +126,7 @@ $cols = 1 + 3 * count($providers);
       <template id="map-opts-<?= e($key) ?>"><?php foreach ($p['records'] as $r): ?><option value="<?= e($r['id']) ?>" data-client="<?= $r['client_id'] === null ? '' : (int) $r['client_id'] ?>"><?= e($r['name']) ?></option><?php endforeach; ?></template>
       <?php endif; endforeach; ?>
     </div>
-    <?php if ($clients): ?><div class="card-footer py-2 d-flex align-items-center"><span class="small text-muted me-auto">Pick <b>— Not linked —</b> to keep a client unlinked; sync won't link it by name later.</span><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save mapping</button></div><?php endif; ?>
+    <?php if ($clients): ?><div class="card-footer py-2 d-flex align-items-center"><span class="small text-muted me-auto">Pick <b>— Not linked —</b> to keep a client unlinked; sync won't link it by name later.<?= array_filter($providers, fn($p) => $p['backup'] && $p['records']) ? ' For a client with no backups to manage, pick <b>— Doesn\'t need backups —</b>: it\'s then never counted as missing one.' : '' ?></span><button class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save mapping</button></div><?php endif; ?>
   </div>
 </form>
 <?php endif; ?>

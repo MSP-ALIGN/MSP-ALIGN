@@ -2,7 +2,7 @@
 use Align\Backup\Backup;
 use Align\Reports\Ui;
 
-/** @var array $rows [client, b], $shown, $unlinked; array $opt */
+/** @var array $rows [client, b], $shown, $unlinked, $notNeeded (2.26.0: set to not need backups); array $opt */
 $n = count($rows);
 $sum = fn(callable $f) => array_sum(array_map($f, $rows));
 $failedClients = count(array_filter($rows, fn($r) => $r['b']['stats']['failed']));
@@ -83,3 +83,4 @@ $label = ['ok' => ['Healthy', 'ok'], 'warn' => ['Attention', 'warn'], 'bad' => [
 </section>
 <?php endif; ?>
 <?php if ($unlinked): ?><p class="footnote">Not linked to a<?= preg_match('/^[AEIOU]/i', $bn = \Align\Providers\Providers::backupNames()) ? 'n' : '' ?> <?= e($bn) ?> company: <?= e(implode(', ', $unlinked)) ?>. Link them on Client mapping if <?= e($bn) ?> protects them. Internal: not for client distribution.</p><?php endif; ?>
+<?php if (!empty($notNeeded)): ?><p class="footnote">Don't need backups (set on Client mapping): <?= e(implode(', ', $notNeeded)) ?>.</p><?php endif; ?>
