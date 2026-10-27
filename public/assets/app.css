@@ -1134,3 +1134,6 @@ textarea.pv-in { resize: none; white-space: normal; }
 /* 2.24.0 Authenticator setup QR code (Align\Qr): always black on white with its quiet zone, so phones read it in dark mode too */
 .qr-box { display: block; width: fit-content; line-height: 0; border-radius: .5rem; overflow: hidden; border: 1px solid var(--bs-border-color); }
 .qr-box svg { display: block; max-width: 100%; height: auto; }
+
+/* 2.27.0 Feedback button: the new-count badge sits on the icon's top-right corner instead of over it */
+#feedback-menu .navbar-badge { top: 2px; right: -4px; }

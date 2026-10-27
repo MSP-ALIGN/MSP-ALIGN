@@ -159,6 +159,20 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
             </div>
           </li>
         <?php endif; ?>
+        <?php if ($ready): // 2.27.0 Feedback: bug reports and feature requests; admins see how many are new
+          try { $fbNew = $isAdmin ? \Align\Feedback\Feedback::newCount() : 0; } catch (\PDOException) { $fbNew = 0; } // (before migration 086 has run) ?>
+          <li class="nav-item dropdown">
+            <a class="nav-link position-relative" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false" title="Feedback: report a bug or request a feature" aria-label="Feedback<?= $fbNew ? ', ' . (int) $fbNew . ' new' : '' ?>" id="feedback-menu">
+              <i class="fas fa-comment-dots"></i><?php if ($fbNew): ?><span class="navbar-badge badge text-bg-warning" id="feedback-badge"><?= (int) $fbNew ?></span><?php endif; ?>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end">
+              <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modal-feedback" data-feedback-kind="bug"><i class="fas fa-fw fa-bug me-2"></i>Report a bug</a>
+              <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modal-feedback" data-feedback-kind="feature"><i class="fas fa-fw fa-lightbulb me-2"></i>Request a feature</a>
+              <div class="dropdown-divider"></div>
+              <a href="/feedback" class="dropdown-item d-flex align-items-center"><i class="fas fa-fw fa-list me-2"></i>All feedback<?php if ($fbNew): ?><span class="badge text-bg-warning ms-auto ps-2"><?= (int) $fbNew ?> new</span><?php endif; ?></a>
+            </div>
+          </li>
+        <?php endif; ?>
         <li class="nav-item"><a class="nav-link" href="/help" title="Help &amp; how-to" aria-label="Help"><i class="fas fa-circle-question"></i></a></li>
         <li class="nav-item dropdown user-menu">
           <a href="#" class="nav-link dropdown-toggle d-flex align-items-center" data-bs-toggle="dropdown">
@@ -257,6 +271,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
     <span class="float-end"><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
   </footer>
 </div>
+<?php if ($ready): // 2.27.0 ?><?= \Align\View::fetch('partials/feedback_modal', []) ?><?php endif; ?>
 <?php if ($ready && Auth::can('tech') && empty($noMeetingModal)): ?>
   <?= \Align\View::fetch('partials/meeting_modal', [
       'modalClients' => $modalClients ?? \Align\DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),

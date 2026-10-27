@@ -84,6 +84,13 @@ $r->get('/vendors/{id}/form', [\Align\Controllers\FormController::class, 'vendor
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
 $r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
 $r->get('/help', [\Align\Controllers\HelpController::class, 'show']);
+// 2.27.0 Feedback: bug reports and feature requests from the top bar
+$r->get('/feedback', [\Align\Controllers\FeedbackController::class, 'index']);
+$r->post('/feedback', [\Align\Controllers\FeedbackController::class, 'create']);
+$r->get('/feedback/{id}', [\Align\Controllers\FeedbackController::class, 'show']);
+$r->get('/feedback/{id}/screenshot', [\Align\Controllers\FeedbackController::class, 'file']);
+$r->post('/feedback/{id}', [\Align\Controllers\FeedbackController::class, 'update']);
+$r->post('/feedback/{id}/delete', [\Align\Controllers\FeedbackController::class, 'delete']);
 // Terms and license: public (readable before signing in)
 $r->get('/terms', [\Align\Controllers\LegalController::class, 'terms']);
 $r->get('/license', [\Align\Controllers\LegalController::class, 'license']);
