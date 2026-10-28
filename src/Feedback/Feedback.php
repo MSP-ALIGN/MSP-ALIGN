@@ -32,6 +32,15 @@ final class Feedback
     public const TITLE_MAX = 150;
     public const BODY_MAX = 5000;
 
+    /**
+     * 2.27.1 Whether Feedback is turned on (Settings → General, admins). Off by default: until an admin turns it on,
+     * the top bar has no Feedback button and /feedback isn't available; reports already sent are kept.
+     */
+    public static function enabled(): bool
+    {
+        return \Align\Settings::get('feedback_enabled', '0') === '1';
+    }
+
     /** Where screenshots are kept, inside the upload folder. */
     public static function dir(): string
     {

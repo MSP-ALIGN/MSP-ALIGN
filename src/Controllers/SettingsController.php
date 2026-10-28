@@ -177,6 +177,14 @@ final class SettingsController
                 $changed[] = 'spares_in_seats';
             }
         }
+        // 2.27.1 Feedback (bug reports and feature requests): a checkbox on the General tab, off unless ticked
+        if (isset($_POST['feedback_enabled_present'])) {
+            $v = isset($_POST['feedback_enabled']) ? '1' : '0';
+            if ($v !== (string) Settings::get('feedback_enabled', '0')) {
+                Settings::set('feedback_enabled', $v);
+                $changed[] = 'feedback_enabled';
+            }
+        }
         foreach (self::NUMBERS as $k => [$min, $max]) {
             $v = post($k);
             if ($v === '' || !is_numeric($v)) {

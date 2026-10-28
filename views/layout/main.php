@@ -159,7 +159,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
             </div>
           </li>
         <?php endif; ?>
-        <?php if ($ready): // 2.27.0 Feedback: bug reports and feature requests; admins see how many are new
+        <?php if ($ready && ($fbOn = \Align\Feedback\Feedback::enabled())): // 2.27.0 Feedback: bug reports and feature requests; admins see how many are new (2.27.1: once turned on in Settings)
           try { $fbNew = $isAdmin ? \Align\Feedback\Feedback::newCount() : 0; } catch (\PDOException) { $fbNew = 0; } // (before migration 086 has run) ?>
           <li class="nav-item dropdown">
             <a class="nav-link position-relative" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false" title="Feedback: report a bug or request a feature" aria-label="Feedback<?= $fbNew ? ', ' . (int) $fbNew . ' new' : '' ?>" id="feedback-menu">
@@ -271,7 +271,7 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
     <span class="float-end"><a href="/terms" class="text-muted">Terms of use</a> · <a href="/license" class="text-muted">License</a> · <a href="<?= e(\Align\Controllers\LegalController::sourceUrl()) ?>" class="text-muted" target="_blank" rel="noopener">Source</a></span>
   </footer>
 </div>
-<?php if ($ready): // 2.27.0 ?><?= \Align\View::fetch('partials/feedback_modal', []) ?><?php endif; ?>
+<?php if ($ready && !empty($fbOn)): // 2.27.0 ?><?= \Align\View::fetch('partials/feedback_modal', []) ?><?php endif; ?>
 <?php if ($ready && Auth::can('tech') && empty($noMeetingModal)): ?>
   <?= \Align\View::fetch('partials/meeting_modal', [
       'modalClients' => $modalClients ?? \Align\DB::all('SELECT id, name FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name'),

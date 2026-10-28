@@ -51,6 +51,7 @@ def last():
 
 
 q("delete from feedback")
+setting("feedback_enabled", "1")  # 2.27.1: off by default (fix2271_e2e covers the switch)
 try:
     out = php(f'(require "{MIG}")(); (require "{MIG}")(); echo "ok";')
     ok(out.stdout.strip() == "ok", "migration 086 runs twice " + out.stderr[-200:])
@@ -221,4 +222,5 @@ finally:
         try: os.remove(DIR + "/" + r["file_name"])
         except OSError: pass
     q("delete from feedback")
+    q("delete from settings where name='feedback_enabled'")
 done()
