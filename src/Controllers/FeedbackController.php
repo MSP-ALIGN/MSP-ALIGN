@@ -11,6 +11,8 @@ use Align\View;
 /**
  * 2.27.0 Feedback: bug reports and feature requests. Any staff member sends one from the top bar (the Feedback
  * button's form) and sees every report on /feedback; admins change a report's status, priority and note, or delete it.
+ * 2.27.1 Only while an admin has turned it on (Settings → General, off by default): otherwise every action stops
+ * right after the role check (requireOn).
  *
  * Security assumptions: Auth::require() (any staff role, sign-in complete) or Auth::requireRole('admin') is the first
  * statement of every action; POSTs are CSRF-checked by the router; not in the client portal. Ids come from the route
@@ -25,6 +27,7 @@ final class FeedbackController
     public static function index(): void
     {
         Auth::require();
+        self::requireOn();
         $show = in_array(query('show'), ['closed', 'all'], true) ? query('show') : 'open';
         $kind = isset(Feedback::KINDS[query('kind')]) ? query('kind') : '';
         View::render('feedback/index', [
@@ -42,6 +45,7 @@ final class FeedbackController
     public static function show(int $id): void
     {
         Auth::require();
+        self::requireOn();
         $f = self::load($id);
         View::render('feedback/show', ['title' => 'Feedback #' . $id, 'nav' => 'feedback', 'f' => $f, 'isAdmin' => Auth::can('admin')]);
     }
@@ -50,6 +54,7 @@ final class FeedbackController
     public static function file(int $id): void
     {
         Auth::require();
+        self::requireOn();
         Feedback::sendFile(self::load($id));
     }
 
@@ -57,6 +62,7 @@ final class FeedbackController
     public static function create(): void
     {
         $u = Auth::require();
+        self::requireOn();
         $back = Feedback::page(post('page')) ?? '/feedback';
         if (Feedback::tooMany((int) $u['id'])) {
             flash('error', 'That\'s a lot of reports in an hour. Please try again later.');
@@ -78,6 +84,7 @@ final class FeedbackController
     public static function update(int $id): void
     {
         $u = Auth::requireRole('admin');
+        self::requireOn();
         $f = self::load($id);
         // A field left out of the form (the list's Mark done button posts only the status) stays as it is
         $keep = fn(string $k, string $col) => is_string($_POST[$k] ?? null) ? post($k) : (string) ($f[$col] ?? '');
@@ -95,11 +102,38 @@ final class FeedbackController
     public static function delete(int $id): void
     {
         Auth::requireRole('admin');
+        self::requireOn();
         $f = self::load($id);
         Feedback::delete($f);
         Audit::log('feedback.delete', '#' . $id . ' ' . $f['title']);
         flash('success', 'Deleted #' . $id . '.');
         redirect('/feedback');
+    }
+
+    /**
+     * 2.27.1 Stops unless Feedback is turned on (Feedback::enabled); returns only when it is. Admins are sent to the
+     * setting with a message. Anyone else gets the router's own "Page not found" page, as if the pages weren't there,
+     * except when sending the form (left open in a tab while an admin turned Feedback off): they go back to the page
+     * they were on (only a path on this site, Feedback::page) with a message, so they know why it wasn't sent.
+     * Security assumptions: called after the action's Auth::require / requireRole (Auth::can relies on a completed
+     * sign-in); shows nothing from any report; the redirects go to fixed paths or a checked path on this site.
+     */
+    private static function requireOn(): void
+    {
+        if (Feedback::enabled()) {
+            return;
+        }
+        if (Auth::can('admin')) {
+            flash('info', 'Feedback is turned off. Turn it on under Feedback below to show the button to your team.');
+            redirect('/settings#feedback');
+        }
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/feedback') {
+            flash('error', 'Your report wasn\'t sent: Feedback has been turned off by an admin.');
+            redirect(Feedback::page(post('page')) ?? '/');
+        }
+        http_response_code(404);
+        View::render('error', ['title' => 'Page not found', 'message' => 'There is nothing at this address.']); // as Router::dispatch
+        exit;
     }
 
     /** Report $id, or back to the list with a message. */

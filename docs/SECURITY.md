@@ -61,10 +61,11 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
 - SVG is refused.
 - Contract PDFs (2.2) are up to 25 MB, must start as a PDF, are never stored under a name from the upload, and are
   served with a sandbox CSP (see Contracts below).
-- Feedback screenshots (2.27.0) are PNG or JPEG only, up to 5 MB, checked by their content, stored under a random
-  name, shown only to signed-in staff and served with nosniff and a sandbox CSP. Feedback (bug reports and feature
-  requests) is visible to all staff, changed only by admins, limited to 20 reports an hour per person, and the page
-  it was sent from is kept only when it's a path on this site.
+- Feedback (2.27.0) is off until an admin turns it on (2.27.1, Settings → General); while off, its pages answer
+  404 (admins are sent to the setting). Screenshots are PNG or JPEG only, up to 5 MB, checked by their content,
+  re-encoded under a random name, shown only to signed-in staff and served with nosniff and a sandbox CSP. Reports
+  are visible to all staff, changed only by admins, limited to 20 an hour per person, and the page a report was
+  sent from is kept only when it's a path on this site.
 
 **Links and tokens**
 

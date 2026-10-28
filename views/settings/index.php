@@ -1,6 +1,6 @@
 <?php
 /**
- * Settings → General (admins). @var array $v saved values (plain settings only; no secrets).
+ * Settings → General (admins). @var array $v saved values (plain settings only; no secrets). 2.27.1: the Feedback switch.
  * Security: every value is escaped; the confirm rules go into a data attribute as escaped JSON.
  */
 use Align\Lifecycle\Lifecycle;
@@ -41,6 +41,15 @@ $num = fn(string $name, string $label, string $prefix = '', string $suffix = '')
           <div class="mb-3"><label>Source code link</label><input type="url" name="source_url" class="form-control" value="<?= e($v['source_url'] ?? '') ?>" placeholder="<?= e(\Align\Controllers\LegalController::DEFAULT_SOURCE) ?>">
             <small class="text-muted">Shown as "Source" in the footer and on the License page. The software is licensed under the AGPL-3.0: if you run a changed version for other people, this must lead to your version's source code.</small></div>
           <p class="small mb-0"><a href="/terms">Terms of use</a> (staff) · <a href="/portal/terms">Client portal terms</a> · <a href="/license">License</a>. The terms use the company name, email and phone above.</p>
+        </div>
+      </div>
+      <div class="card card-dark" id="feedback">
+        <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-comment-dots me-2"></i>Feedback</h3></div>
+        <div class="card-body">
+          <input type="hidden" name="feedback_enabled_present" value="1">
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="feedback_enabled" value="1" id="feedback-enabled"<?= \Align\Feedback\Feedback::enabled() ? ' checked' : '' ?>>
+            <label class="form-check-label" for="feedback-enabled">Let staff report bugs and request features</label></div>
+          <p class="small text-muted mb-0 mt-2">Adds a <i class="fas fa-comment-dots"></i> button at the top right of every page for all staff, and the <?= \Align\Feedback\Feedback::enabled() ? '<a href="/feedback">Feedback</a>' : 'Feedback' ?> list where admins mark each report done. Off by default; turning it off hides both and keeps the reports already sent. Not in the client portal.</p>
         </div>
       </div>
       <p class="small text-muted">Logo, colours and the app name are under <a href="/settings/branding">Branding</a>. <a href="/setup"><i class="fas fa-wand-magic-sparkles me-1"></i>Open the setup wizard</a> to go through the main settings step by step.</p>
