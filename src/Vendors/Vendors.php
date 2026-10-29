@@ -17,6 +17,9 @@ use Align\Providers\Psa\PsaProvider;
  * syncFromPsa() treats the PSA's rows as untrusted (ids must map to a linked client, text is cleaned and cut to the
  * column sizes, an empty answer never retires every vendor). Account numbers and notes are staff data: callers
  * don't show them to the client portal. Passwords and PINs are never stored (they belong in the PSA's credentials).
+ * 2.28.0 With two-way sync on and a PSA that takes vendors (PsaVendorWrites, capability vendors.write), a client
+ * vendor added, edited, retired or restored in Align is added, updated, archived or restored in the PSA too
+ * (canPush and the push* methods; the controller checks the role first). A test server never writes (Staging).
  */
 final class Vendors
 {
@@ -37,7 +40,10 @@ final class Vendors
     /** Fields a client vendor takes from its template when its own value is blank. */
     public const SHARED = ['name', 'category', 'website', 'support_phone', 'support_email', 'hours', 'sla'];
 
-    /** Fields the PSA owns for synced vendors (read-only in Align); category, template, services and align_notes are Align's. */
+    /**
+     * Fields the PSA owns for synced vendors (read-only in Align unless they can be sent back, canPush); category,
+     * template, services and align_notes are Align's.
+     */
     public const PSA_FIELDS = ['name', 'description', 'account_number', 'contact_name', 'support_phone', 'support_email', 'website', 'hours', 'sla', 'notes'];
 
     /** Column sizes for the text fields (client_vendors and vendor_templates share them). */
@@ -132,10 +138,10 @@ final class Vendors
             FROM client_vendors v LEFT JOIN vendor_templates t ON t.id = v.template_id';
     }
 
-    /** One client vendor as shown (effective()), with its client's name; null when there's none. */
+    /** One client vendor as shown (effective()), with its client's name and PSA id (client_psa_id); null when there's none. */
     public static function one(int $id): ?array
     {
-        $r = DB::one(str_replace(' FROM client_vendors v', ', c.name AS client_name FROM client_vendors v JOIN clients c ON c.id = v.client_id', self::select()) . ' WHERE v.id = ?', [$id]);
+        $r = DB::one(str_replace(' FROM client_vendors v', ', c.name AS client_name, c.psa_id AS client_psa_id FROM client_vendors v JOIN clients c ON c.id = v.client_id', self::select()) . ' WHERE v.id = ?', [$id]);
         return $r ? self::effective($r) : null;
     }
 
@@ -445,6 +451,127 @@ final class Vendors
             self::relinkManual(); // a vendor taken over, renamed or new may match Align licenses' vendor names
         }
         return count($rows) . ' vendors' . ($added ? ", $added new" : '') . ($retired ? ", $retired retired in $n" : '');
+    }
+
+    // ---- 2.28.0 Two-way: vendors sent to the PSA ----
+
+    /**
+     * Whether a vendor of this client added or changed in Align is sent to the PSA: the client is linked to the PSA,
+     * two-way sync is on (Settings → PSA) and the PSA takes vendors (vendors.write; never on a test server).
+     */
+    public static function canPush(array $client): bool
+    {
+        return !empty($client['psa_id']) && \Align\Sync\PsaAssetSync::twoWay() && \Align\Providers\Providers::psaSupports('vendors.write')
+            && \Align\Providers\Providers::psa() instanceof \Align\Providers\Psa\PsaVendorWrites;
+    }
+
+    /** canPush() for a client by its id (false for one that doesn't exist). */
+    public static function canPushClient(int $clientId): bool
+    {
+        $c = DB::one('SELECT psa_id FROM clients WHERE id = ?', [$clientId]);
+        return $c && self::canPush($c);
+    }
+
+    /**
+     * A vendor's details as the PSA takes them (PsaVendorWrites names), from its values as shown (effective(): a
+     * blank shared field is its template's). $v: Vendors::one() or effective(). Values are text ('' = empty).
+     */
+    public static function psaFields(array $v): array
+    {
+        $out = [];
+        foreach (['name' => 'name', 'description' => 'description', 'account_number' => 'account_number', 'contact_name' => 'contact_name',
+            'support_phone' => 'phone', 'support_email' => 'email', 'website' => 'website', 'hours' => 'hours', 'sla' => 'sla', 'notes' => 'notes'] as $ours => $theirs) {
+            $out[$theirs] = (string) ($v[$ours] ?? '');
+        }
+        return $out;
+    }
+
+    /**
+     * Whether two psaFields() sets would leave the PSA the same: compared as the PSA keeps them (a phone by its
+     * digits and extension, without a leading +country code; a website without http(s)://; surrounding spaces ignored).
+     */
+    public static function samePsaFields(array $a, array $b): bool
+    {
+        $phone = function (string $v): string {
+            $v = trim($v);
+            $ext = '';
+            if (preg_match('/^(.*\d)\s*(?:ext\.?|extension|x)\s*(\d{1,10})\s*$/i', $v, $m)) {
+                [$v, $ext] = [$m[1], $m[2]];
+            }
+            $v = (string) preg_replace('/^\+\d{1,3}[\s.-]+/', '', $v);
+            return preg_replace('/\D/', '', $v) . '#' . $ext;
+        };
+        $n = fn(string $k, string $v) => match ($k) {
+            'phone' => $phone($v),
+            'website' => (string) preg_replace('#^https?://#', '', trim($v)), // as the PSA (ITFlow) strips it
+            default => trim($v),
+        };
+        foreach (array_unique([...array_keys($a), ...array_keys($b)]) as $k) {
+            if ($n($k, (string) ($a[$k] ?? '')) !== $n($k, (string) ($b[$k] ?? ''))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The fields of $after that differ from $before as the PSA keeps them (samePsaFields, field by field). */
+    public static function changedPsaFields(array $before, array $after): array
+    {
+        return array_filter($after, fn($v, $k) => !self::samePsaFields([$k => $before[$k] ?? ''], [$k => $v]), ARRAY_FILTER_USE_BOTH);
+    }
+
+    /**
+     * Adds an Align vendor to the PSA and links it (source psa, its psa_id), so the next sync updates it instead of
+     * adding it again. Returns null on success, or an error message for people. The caller has checked the role and
+     * canPush(); $v is Vendors::one() of a vendor without a psa_id.
+     */
+    public static function pushCreate(array $v, string $psaClientId): ?string
+    {
+        try {
+            $p = \Align\Providers\Providers::psa(true);
+            $sid = trim($p->createVendor($psaClientId, self::psaFields($v)));
+            if ($sid === '' || mb_strlen($sid) > 64) {
+                return $p->name() . ' didn\'t return the new vendor\'s id';
+            }
+            DB::run("UPDATE client_vendors SET source = 'psa', psa_id = ?, synced_at = NOW() WHERE id = ? AND psa_id IS NULL", [$sid, $v['id']]);
+            return null;
+        } catch (\Throwable $e) {
+            return safe_error($e);
+        }
+    }
+
+    /**
+     * Sends the PSA the fields of a PSA vendor's new details ($after: psaFields of the values being saved) that differ
+     * from the ones Align last had from it ($before). Returns null on success or when nothing changed, else an error
+     * message for people. The PSA is asked with a short timeout (a person is waiting). The
+     * caller has checked the role and canPush(); $v is Vendors::one() of a vendor with a psa_id.
+     */
+    public static function pushUpdate(array $v, array $before, array $after, string $psaClientId): ?string
+    {
+        // Only what changed here: a field changed in the PSA since the last sync isn't overwritten with Align's older copy
+        $changed = self::changedPsaFields($before, $after);
+        if (!$changed) {
+            return null;
+        }
+        try {
+            $p = \Align\Providers\Providers::psa(true);
+            return $p->updateVendor($psaClientId, (string) $v['psa_id'], $changed) ? null
+                : $p->name() . ' didn\'t change it: it may be archived or removed there, or the API key can\'t edit vendors';
+        } catch (\Throwable $e) {
+            return safe_error($e);
+        }
+    }
+
+    /** Archives (or restores) a PSA vendor in the PSA. Null on success, else an error message (caller checks as pushUpdate). */
+    public static function pushArchive(array $v, string $psaClientId, bool $archived): ?string
+    {
+        try {
+            $p = \Align\Providers\Providers::psa(true);
+            return $p->archiveVendor($psaClientId, (string) $v['psa_id'], $archived) ? null
+                : $p->name() . ' didn\'t change it: it may already be ' . ($archived ? 'archived' : 'active') . ' or removed there, or the API key can\'t edit vendors';
+        } catch (\Throwable $e) {
+            return safe_error($e);
+        }
     }
 
     /**

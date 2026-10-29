@@ -6,14 +6,19 @@ use Align\Vendors\Vendors;
  * @var ?array $v vendor as Vendors::one() gives it (null = new); int $cid client id; array $templates Vendors::templates();
  *      string $back return path; ?string $preset a vendor name to fill in for a new one (from a license's vendor)
  * A vendor from the PSA has its details read-only (the PSA owns them); its template, category, services and Align
- * notes stay editable. With a template, a blank shared field uses the template's (shown as the placeholder).
+ * notes stay editable. 2.28.0: with two-way sync (Vendors::canPush) its details are editable too and are sent to the
+ * PSA on save, and a new vendor is added there as well. With a template, a blank shared field uses the template's
+ * (shown as the placeholder).
  * Every value is escaped; $back is checked again by the controller.
  */
 $v = $v ?? null;
 $edit = $v !== null;
 $fromPsa = $edit && $v['source'] === 'psa';
 $id = $edit ? 'modal-vendor-' . (int) $v['id'] : 'modal-vendor';
-$ro = $fromPsa ? 'readonly' : '';
+// 2.28.0 two-way: the PSA takes vendors from Align, so a PSA vendor's details can be changed here too (not a retired
+// one: it's archived there, and the PSA takes no changes to it), and an Align-only one is added there on save
+$push = $edit ? $v['retired_at'] === null && Vendors::canPush(['psa_id' => $v['client_psa_id'] ?? null]) : Vendors::canPushClient((int) $cid);
+$ro = $fromPsa && !$push ? 'readonly' : '';
 $tag = $fromPsa ? ' <span class="badge text-bg-light border fw-normal" title="Managed in ' . e(psa_name()) . '">' . e(psa_name()) . '</span>' : '';
 $own = fn(string $k) => $edit ? (in_array($k, Vendors::SHARED, true) ? ($v['own'][$k] ?? '') : ($v[$k] ?? '')) : '';
 // a shared field's placeholder: the template's value (what a blank shows)
@@ -34,8 +39,12 @@ $field = function (string $k, string $label, string $placeholder = '', string $t
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <?php if ($fromPsa): ?>
+          <?php if ($fromPsa && $push): ?>
+            <div class="alert alert-light border small py-2"><i class="fas fa-arrows-rotate me-1"></i>This vendor is kept in step with <?= e(psa_name()) ?>: changes to its name, account number, contact, support details and <?= e(psa_name()) ?> notes are saved there too, and retiring it archives it there. The template, category, services and Align notes are kept in Align.</div>
+          <?php elseif ($fromPsa): ?>
             <div class="alert alert-light border small py-2"><i class="fas fa-circle-info me-1"></i>This vendor comes from <?= e(psa_name()) ?>. Its name, account number, contact and support details update from <?= e(psa_name()) ?> every few minutes, so change those there. The template, category, services and Align notes are kept in Align.</div>
+          <?php elseif ($push): ?>
+            <div class="alert alert-light border small py-2"><i class="fas fa-arrows-rotate me-1"></i><?= $edit ? 'Saving' : 'Adding' ?> this vendor adds it to <?= e(psa_name()) ?> too, and from then on it's kept in step with <?= e(psa_name()) ?>.</div>
           <?php endif; ?>
           <div class="row g-2">
             <div class="mb-3 col-md-6"><label for="<?= $id ?>-template">Template</label>
@@ -67,9 +76,13 @@ $field = function (string $k, string $label, string $placeholder = '', string $t
             <?= $field('hours', 'Support hours', '24/7, M-F 8-5…') ?>
             <?= $field('sla', 'SLA / response time', '4 hours, next business day…') ?>
           </div>
-          <?php if ($fromPsa && ($v['description'] ?? '') !== ''): ?><div class="mb-3"><label>Description<?= $tag ?></label><input class="form-control" value="<?= e($v['description']) ?>" readonly></div><?php endif; ?>
+          <?php if ($fromPsa && $push): ?><div class="mb-3"><label for="<?= $id ?>-description">Description<?= $tag ?></label><input id="<?= $id ?>-description" name="description" class="form-control" value="<?= e($v['description'] ?? '') ?>" maxlength="255"></div>
+          <?php elseif ($fromPsa && ($v['description'] ?? '') !== ''): ?><div class="mb-3"><label>Description<?= $tag ?></label><input class="form-control" value="<?= e($v['description']) ?>" readonly></div><?php endif; ?>
           <div class="mb-3"><label for="<?= $id ?>-services">Services <small class="text-muted">(what the client has)</small></label><input id="<?= $id ?>-services" name="services" class="form-control" value="<?= e($v['services'] ?? '') ?>" placeholder="200 Mbps fiber, 5 static IPs · 3 domains · Creative Cloud for teams…" maxlength="500"></div>
-          <?php if ($fromPsa): ?>
+          <?php if ($fromPsa && $push): ?>
+            <div class="mb-3"><label for="<?= $id ?>-notes"><?= e(psa_name()) ?> notes<?= $tag ?></label><textarea id="<?= $id ?>-notes" name="notes" class="form-control" rows="2" maxlength="5000" placeholder="Never passwords or PINs"><?= e($v['notes'] ?? '') ?></textarea></div>
+            <div class="mb-0"><label for="<?= $id ?>-align_notes">Notes <small class="text-muted">(Align)</small></label><textarea id="<?= $id ?>-align_notes" name="align_notes" class="form-control" rows="2" maxlength="5000"><?= e($v['align_notes'] ?? '') ?></textarea></div>
+          <?php elseif ($fromPsa): ?>
             <?php if (($v['notes'] ?? '') !== ''): ?><div class="mb-3"><label><?= e(psa_name()) ?> notes<?= $tag ?></label><textarea class="form-control" rows="2" readonly><?= e($v['notes']) ?></textarea></div><?php endif; ?>
             <div class="mb-0"><label for="<?= $id ?>-align_notes">Notes <small class="text-muted">(Align)</small></label><textarea id="<?= $id ?>-align_notes" name="align_notes" class="form-control" rows="2" maxlength="5000"><?= e($v['align_notes'] ?? '') ?></textarea></div>
           <?php else: ?>
@@ -82,7 +95,7 @@ $field = function (string $k, string $label, string $placeholder = '', string $t
             <?php if ($v['retired_at']): ?>
               <button class="btn btn-outline-success me-auto" name="action" value="restore" formnovalidate data-enter-skip><i class="fas fa-rotate-left me-1"></i>Restore</button>
             <?php else: ?>
-              <button class="btn btn-outline-secondary me-auto" name="action" value="retire" formnovalidate data-confirm="Retire <?= e($v['name']) ?>? Its licenses stay linked; you can restore it."><i class="fas fa-box-archive me-1"></i>Retire</button>
+              <button class="btn btn-outline-secondary me-auto" name="action" value="retire" formnovalidate data-confirm="Retire <?= e($v['name']) ?>? Its licenses stay linked; you can restore it.<?= $fromPsa && $push ? ' It is archived in ' . e(psa_name()) . ' too.' : '' ?>"><i class="fas fa-box-archive me-1"></i>Retire</button>
             <?php endif; ?>
             <?php if (!$v['template_id']): ?><button class="btn btn-outline-primary me-2" name="action" value="template" formnovalidate data-confirm="Make a template from <?= e($v['name']) ?>'s name, category and support details, to add it to other clients?" data-confirm-danger="0" data-confirm-ok="Save as template"><i class="fas fa-layer-group me-1"></i>Save as template</button><?php endif; ?>
             <?php if (!$fromPsa): ?><button class="btn btn-outline-danger me-2" name="action" value="delete" formnovalidate data-confirm="Delete <?= e($v['name']) ?>? Its licenses keep the vendor name but aren't linked."><i class="fas fa-trash"></i></button><?php endif; ?>

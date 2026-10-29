@@ -279,10 +279,19 @@ final class EmailAuth
      * The domains connected clients' Microsoft 365 and Google Workspace bring in: Microsoft 365's default domain
      * (skipped when it's an onmicrosoft.com address) and Google Workspace's primary domain; Google's wins when both are
      * the same domain. [client id => [domain => provider]]. $clientId: one client only (archived ones included).
+     * 2.28.0 Also the client's domains in the PSA (PsaDomainSync), as provider 'psa' where no connection brings that
+     * domain in already.
      */
     public static function domains(?int $clientId = null): array
     {
         $out = [];
+        foreach (PsaDomainSync::forClients($clientId) as $cid => $list) {
+            foreach (array_keys($list) as $d) {
+                if (self::domainOk((string) $d)) {
+                    $out[(int) $cid][(string) $d] = 'psa';
+                }
+            }
+        }
         $where = $clientId === null ? 'c.is_archived = 0' : 'c.id = ' . (int) $clientId;
         foreach (DB::all("SELECT m.client_id, m.tenant_domain FROM client_m365 m JOIN clients c ON c.id = m.client_id WHERE m.status = 'connected' AND $where") as $r) {
             if (self::domainOk($r['tenant_domain'])) {
@@ -299,7 +308,8 @@ final class EmailAuth
 
     /**
      * 2.7.4 Every domain to check: [client id => [domain => ['provider' => google|m365|null, 'selectors' => [...],
-     * 'source' => 'm365'|'google'|'manual']]], from the connections (unless skipped) and the domains added by hand.
+     * 'source' => 'm365'|'google'|'psa'|'manual']]], from the connections (unless skipped) and the domains added by
+     * hand. A PSA domain (2.28.0) has no mail provider: 'provider' is null for it.
      * $clientId: one client only (archived ones included, for its own page).
      */
     public static function targets(?int $clientId = null): array
@@ -316,7 +326,7 @@ final class EmailAuth
             foreach ($list as $domain => $provider) {
                 $m = $manual[$cid][$domain] ?? null;
                 if (!$m || !(int) $m['skip']) {
-                    $out[$cid][$domain] = ['provider' => $provider, 'selectors' => self::selectors($m['dkim_selectors'] ?? null), 'source' => $provider];
+                    $out[$cid][$domain] = ['provider' => $provider === 'psa' ? null : $provider, 'selectors' => self::selectors($m['dkim_selectors'] ?? null), 'source' => $provider];
                 }
             }
         }

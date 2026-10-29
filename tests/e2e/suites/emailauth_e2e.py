@@ -9,6 +9,12 @@ score and the overview card; the migration running again."""
 import re, json, html as H
 from lib import *
 
+# 2.28.0 With two-way sync on, vendors and domains added here would go to ITFlow too (rel228_e2e covers that); this suite
+# checks the one-way behaviour, so two-way sync is off while it runs
+import atexit as _atexit
+setting("psa_two_way", "0")
+_atexit.register(lambda: setting("psa_two_way", "1"))
+
 C1, C2 = 1, 2
 A, Bn = M + "/doh/a", M + "/doh/b"
 

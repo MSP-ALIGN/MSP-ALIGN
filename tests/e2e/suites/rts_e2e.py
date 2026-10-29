@@ -22,8 +22,8 @@ cols = {r["column_name"] for r in q("select column_name from information_schema.
 ok({"ticket_at", "ticket_by", "ticket_claimed_at", "ticket_snooze_until"} <= cols, "migration 052 adds the ticket columns")
 ok(pval('echo Align\\Roadmap\\ProjectTickets::addMonths("2027-01-31", 1), " ", Align\\Roadmap\\ProjectTickets::addMonths("2027-11-30", 3), " ", Align\\Roadmap\\ProjectTickets::addMonths("2027-05-15", 6);')
    == "2027-02-28 2028-02-29 2027-11-15", "Not yet dates keep the day, or the month's last day when it has fewer")
-ok(pval('echo implode(",", array_map([Align\\Roadmap\\ProjectTickets::class, "priority"], ["critical","high","medium","low","x"]));') == "High,High,Medium,Low,Medium",
-   "the project's priority becomes the ticket's (critical and high are High)")
+ok(pval('echo implode(",", array_map([Align\\Roadmap\\ProjectTickets::class, "priority"], ["critical","high","medium","low","x"]));') == "Urgent,High,Medium,Low,Medium",
+   "the project's priority becomes the ticket's (2.28.0: critical is Urgent)")
 
 q("delete from roadmap_items where title like 'RTS %%'")
 q("delete from clients where name = 'RTS Manual Example'")

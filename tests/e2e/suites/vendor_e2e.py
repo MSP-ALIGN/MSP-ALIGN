@@ -8,6 +8,12 @@ restore, duplicates refused, names escaped, techs only, audited."""
 import re, json, subprocess, atexit, requests, html as H
 from lib import *
 
+# 2.28.0 With two-way sync on, vendors and domains added here would go to ITFlow too (rel228_e2e covers that); this suite
+# checks the one-way behaviour, so two-way sync is off while it runs
+import atexit as _atexit
+setting("psa_two_way", "0")
+_atexit.register(lambda: setting("psa_two_way", "1"))
+
 PHP = 'require "' + BOOTSTRAP + '"; '
 def phpv(code): r = subprocess.run(["php", "-r", PHP + code], env=ENV, capture_output=True, text=True); return (r.stdout + r.stderr).strip()
 def mock(path, body=None): return requests.post(M + path, json=body or {}).json()

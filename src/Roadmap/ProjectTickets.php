@@ -358,10 +358,10 @@ final class ProjectTickets
         return sprintf('%04d-%02d-%02d', $y, $m, min($d, (int) date('t', mktime(0, 0, 0, $m, 1, $y))));
     }
 
-    /** The project's priority as the PSA's ticket priority (critical and high are High). */
+    /** The project's priority as the PSA's ticket priority (2.28.0: critical is Urgent, the top one in ITFlow). */
     public static function priority(string $p): string
     {
-        return match ($p) { 'critical', 'high' => 'High', 'low' => 'Low', default => 'Medium' };
+        return match ($p) { 'critical' => 'Urgent', 'high' => 'High', 'low' => 'Low', default => 'Medium' };
     }
 
     /**

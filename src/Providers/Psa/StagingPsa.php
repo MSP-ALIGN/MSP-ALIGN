@@ -11,9 +11,10 @@ namespace Align\Providers\Psa;
  * SECURITY: Providers::psa() is the only way code gets a PSA provider, and it returns this wrapper whenever
  * staging is on, so every write path (asset create/update, contact create/update/archive, tickets) ends in
  * refuse() no matter which setting or user started it. A new write method on PsaProvider must refuse here too
- * (and be listed in Staging::WRITES). Reads and links are passed through unchanged.
+ * (and be listed in Staging::WRITES). Reads and links are passed through unchanged. 2.28.0: vendor writes and domain
+ * creation refuse too; domains() reads from the real PSA when it keeps domains (else none).
  */
-final class StagingPsa implements PsaProvider
+final class StagingPsa implements PsaProvider, PsaVendorWrites, PsaDomains
 {
     /** $inner: the real provider; only its read methods are ever called. */
     public function __construct(private PsaProvider $inner)
@@ -67,6 +68,16 @@ final class StagingPsa implements PsaProvider
 
     /** 2.8.0 Vendors are read-only, so a test server reads them too. */
     public function vendors(): array { return $this->inner->vendors(); }
+    /** 2.28.0 Write: refused (a test server never changes the PSA). */
+    public function createVendor(string $clientId, array $fields): string { $this->refuse(); }
+    /** 2.28.0 Write: refused (a test server never changes the PSA). */
+    public function updateVendor(string $clientId, string $vendorId, array $fields): bool { $this->refuse(); }
+    /** 2.28.0 Write: refused (a test server never changes the PSA). */
+    public function archiveVendor(string $clientId, string $vendorId, bool $archived = true): bool { $this->refuse(); }
+    /** 2.28.0 Read: the real PSA's domains, or none when it doesn't keep any. */
+    public function domains(): array { return $this->inner instanceof PsaDomains ? $this->inner->domains() : []; }
+    /** 2.28.0 Write: refused (a test server never changes the PSA). */
+    public function createDomain(string $clientId, string $domain): string { $this->refuse(); }
     /** Read: passed through to the real PSA. */
     public function invoices(): array { return $this->inner->invoices(); }
     /** Read: passed through to the real PSA. */

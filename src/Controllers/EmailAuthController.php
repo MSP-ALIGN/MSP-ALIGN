@@ -43,7 +43,10 @@ final class EmailAuthController
         self::back($id);
     }
 
-    /** Adds a domain (and its DKIM selectors, optional) and checks it right away. */
+    /**
+     * Adds a domain (and its DKIM selectors, optional) and checks it right away. 2.28.0: with two-way sync it's added to
+     * the client in the PSA too (PsaDomainSync::push; a failure there is reported, the domain stays added here).
+     */
     public static function add(int $id): void
     {
         $u = Auth::requireRole('tech');
@@ -63,12 +66,16 @@ final class EmailAuthController
         $origin = isset(EmailAuth::domains($id)[$id][$domain]) ? 'connection' : 'manual'; // adding the connection's domain: brings it back
         DB::run('INSERT INTO client_email_domains (client_id, domain, dkim_selectors, skip, origin, added_by) VALUES (?, ?, ?, 0, ?, ?)
             ON DUPLICATE KEY UPDATE skip = 0, dkim_selectors = COALESCE(VALUES(dkim_selectors), dkim_selectors)', [$id, $domain, $sel ? implode(',', $sel) : null, $origin, (int) $u['id']]);
-        Audit::log('email_domain.add', "{$client['name']}: $domain");
+        // 2.28.0 two-way: a domain added here is added to the client in the PSA too (unless it has it already)
+        $pushErr = null;
+        $pushed = $origin === 'manual' && \Align\Domains\PsaDomainSync::canPush($client) && ($pushErr = \Align\Domains\PsaDomainSync::push($client, $domain)) === null;
+        Audit::log('email_domain.add', "{$client['name']}: $domain" . ($pushed ? ' (also in ' . psa_name() . ')' : ''));
+        $also = $pushed ? ' It is in ' . psa_name() . ' too.' : ($pushErr !== null ? ' Not added to ' . psa_name() . " ($pushErr)." : '');
         $t = EmailAuth::targets($id)[$id][$domain] ?? null;
         if ($t) {
             $r = EmailAuth::refresh($id, $domain, $t['provider'], $t['selectors']);
             $fails = count(array_filter($r['checks'], fn($c) => $c['status'] === 'fail'));
-            flash($fails ? 'warning' : 'success', "Added $domain and checked it: " . ($fails ? "$fails of 3 checks fail." : 'nothing failing.'));
+            flash($fails || $pushErr !== null ? 'warning' : 'success', "Added $domain and checked it: " . ($fails ? "$fails of 3 checks fail." : 'nothing failing.') . $also);
         }
         self::back($id);
     }

@@ -127,6 +127,10 @@ final class SyncRunner
         if ($psaOk && $psa->supports('assets')) {
             $this->step("$psaName assets (" . (PsaAssetSync::twoWay() ? 'two-way' : 'one-way') . ')', fn() => PsaAssetSync::run($psa, fn($m) => $this->info($m)));
         }
+        // 2.28.0 each client's domains as the PSA keeps them (before the email and registration checks that use them)
+        if ($psaOk && $psa->supports('domains')) {
+            $this->step("$psaName domains", fn() => \Align\Domains\PsaDomainSync::sync($psa));
+        }
         if ($psaOk && $psa->supports('tickets') && Settings::get('psa_sla_sync', '1') === '1') {
             $this->step("$psaName tickets & SLAs", fn() => \Align\Service\Sla::sync($psa));
         }
@@ -166,7 +170,7 @@ final class SyncRunner
                 $this->step($c->syncStepName(), fn() => $c->sync());
             }
         }
-        if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth UNION SELECT 1 FROM client_email_domains LIMIT 1")) { // 2.7.4: or domains added by hand
+        if (\Align\DB::value("SELECT 1 FROM client_gws WHERE status = 'connected' UNION SELECT 1 FROM client_m365 WHERE status = 'connected' UNION SELECT 1 FROM client_email_auth UNION SELECT 1 FROM client_email_domains UNION SELECT 1 FROM psa_domains LIMIT 1")) { // 2.7.4: or domains added by hand; 2.28.0 or the PSA's
             $this->step('Email authentication', fn() => \Align\Domains\EmailAuth::refreshDue());
         }
         // 2.10.0 domain registrars and expiry dates from public RDAP (each domain every few days)
@@ -246,7 +250,8 @@ final class SyncRunner
 
     /**
      * Adds and updates clients from the PSA (matched by PSA id; a hand-added client with the same name is adopted)
-     * and archives PSA clients the PSA no longer lists. An empty read archives nothing.
+     * and archives PSA clients the PSA no longer lists. An empty read archives nothing. 2.28.0: a PSA lead ('lead')
+     * that isn't in Align yet is left out until the PSA makes it a client.
      */
     private function syncPsaClients(PsaProvider $psa): string
     {
@@ -254,6 +259,7 @@ final class SyncRunner
         $n = $psa->name();
         $now = date('Y-m-d H:i:s');
         $ids = [];
+        $leads = 0;
         foreach ($rows as $r) {
             $id = ext_id($r['id'] ?? null);
             if ($id === '') {
@@ -261,6 +267,12 @@ final class SyncRunner
             }
             $ids[] = $id;
             $existing = DB::one('SELECT id FROM clients WHERE psa_id = ?', [$id]);
+            // 2.28.0 A lead (a prospect in the PSA) isn't brought in until it becomes a client there. One already in
+            // Align (from before 2.28.0, or linked by hand) is kept up to date as before.
+            if (!$existing && !empty($r['lead'])) {
+                $leads++;
+                continue;
+            }
             if (!$existing) {
                 // Adopt a client that was added by hand before it existed in the PSA.
                 $key = self::normalizeName((string) ($r['name'] ?? ''));
@@ -293,7 +305,7 @@ final class SyncRunner
         } catch (\Throwable $e) {
             $details = 'contact details not updated (' . safe_error($e) . ')';
         }
-        return count($ids) . ' clients; ' . $details;
+        return (count($ids) - $leads) . ' clients' . ($leads ? " ($leads lead" . ($leads === 1 ? '' : 's') . ' left out until they become clients)' : '') . '; ' . $details;
     }
 
     /** Align client field => label, for fields that can come from the PSA. */
