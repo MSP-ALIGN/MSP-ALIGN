@@ -71,7 +71,8 @@ ok(s and s["device_type"] == "Server" and s["manufacturer"] == "Dell Inc." and s
    and s["os_name"] == "Windows Server 2022 Standard" and s["os_build"] == "20348" and s["last_user"] == "CEDAR\\admin" and s["offline"] == 0 and s["client_id"] is None,
    "a server: type, hardware, serial, OS, user, online: %s" % ({k: s[k] for k in ("device_type", "manufacturer", "model", "os_name", "os_build")} if s else None))
 lt = dev("dev-lt-02")
-ok(lt and lt["device_type"] == "Laptop" and lt["offline"] == 1 and lt["last_contact"] and abs((datetime.now() - lt["last_contact"]).total_seconds() - 3 * 86400) < 600,
+# Compared as aware times so a daylight-saving change in the last few days doesn't add or lose an hour.
+ok(lt and lt["device_type"] == "Laptop" and lt["offline"] == 1 and lt["last_contact"] and abs((datetime.now().astimezone() - lt["last_contact"].astimezone()).total_seconds() - 3 * 86400) < 600,
    "a laptop, offline, last seen in this server's timezone")
 vm = dev("dev-vm-03")
 ok(vm and vm["is_virtual"] == 1 and vm["device_type"] == "Virtual server" and vm["serial"] is None and vm["rmm_org_id"] == "org-2",

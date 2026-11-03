@@ -60,7 +60,8 @@ ok(s and s["device_type"] == "Server" and s["manufacturer"] == "Dell Inc." and s
 lt = dev("TRMMagentLaptop02bbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 ok(lt and lt["device_type"] == "Laptop" and lt["manufacturer"] == "LENOVO" and lt["os_build"] == "22631" and lt["offline"] == 1, "a ThinkPad is a laptop; overdue counts as offline; the build drops its revision")
 seen = lt["last_contact"]
-ok(seen and abs((datetime.now() - seen).total_seconds() - 3 * 86400) < 600, "last seen is in this server's timezone: %s" % seen)
+# Compared as aware times so a daylight-saving change in the last few days doesn't add or lose an hour.
+ok(seen and abs((datetime.now().astimezone() - seen.astimezone()).total_seconds() - 3 * 86400) < 600, "last seen is in this server's timezone: %s" % seen)
 mac = dev("TRMMagentMac03ccccccccccccccccccccccccccccccc")
 ok(mac and mac["device_type"] == "Laptop" and mac["manufacturer"] == "Apple" and mac["rmm_org_id"] == "1", "a MacBook is a laptop; a client name differing in case still finds its client")
 un = dev("TRMMagentUnknown04dddddddddddddddddddddddddd")
