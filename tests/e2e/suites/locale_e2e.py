@@ -20,11 +20,14 @@ SAMPLE = ('$t = strtotime("2026-09-29 14:30:05"); echo implode("|", [money(1234.
 
 # ---- defaults: exactly the US style MSP Align always used
 d = fmt(SAMPLE).split("|")
-ok(d == ["$1,235", "$1,234.50", "$22", "$-980", "$12.5k", "$1.3M", "1,150", "Sep 29, 2026", "September 29, 2026", "Tue Sep 29, 2026", "Sep 29", "2:30 pm", "Tue Sep 29, 2026 · 2:30 pm", "7 am", "97.5", "98"], "defaults unchanged: " + str(d))
+ok(d == ["$1,235", "$1,234.50", "$22", "-$980", "$12.5k", "$1.3M", "1,150", "Sep 29, 2026", "September 29, 2026", "Tue Sep 29, 2026", "Sep 29", "2:30 pm", "Tue Sep 29, 2026 · 2:30 pm", "7 am", "97.5", "98"], "defaults unchanged: " + str(d))
 
 # chart labels exactly as each chart wrote them before (Ui::k, the budget chart, the forecast)
 sh = fmt('echo implode("|", [Align\\Fmt::moneyShort(-1500), Align\\Fmt::moneyShort(999), Align\\Fmt::moneyShort(1250000, false), Align\\Fmt::moneyShort(1250000, false, false), Align\\Fmt::moneyShort(12000, false, false), money_exact(-4.5)]);').split("|")
-ok(sh == ["$-1,500", "$999", "$1,250k", "$1250k", "$12k", "$-4.50"], "short amounts and negatives as before: " + str(sh))
+ok(sh == ["-$1.5k", "$999", "$1,250k", "$1250k", "$12k", "-$4.50"], "short amounts; negatives with the sign first (2.32.1): " + str(sh))
+# (2.32.1) the minus sign goes before the symbol: -$45, -$1,234.50, -$1.3M; an amount that rounds to 0 has no sign
+ng = fmt('echo implode("|", [money(-45), money_exact(-1234.5), Align\\Fmt::moneyShort(-1250000), Align\\Fmt::moneyShort(-980), money(-0.4), Align\\Fmt::stripSymbol(money_exact(-1234.5))]);').split("|")
+ok(ng == ["-$45", "-$1,234.50", "-$1.3M", "-$980", "$0", "-1,234.50"], "negative amounts: sign first, plain amounts keep it: " + str(ng))
 
 # ---- other styles
 def with_settings(vals, code):
@@ -37,8 +40,12 @@ ok(e[:7] == ["1.235" + NB + "€", "1.234,50" + NB + "€", "22" + NB + "€", "
 ok(e[7:] == ["29 Sep 2026", "29 September 2026", "Tue 29 Sep 2026", "29 Sep", "14:30", "Tue 29 Sep 2026 · 14:30", "07:00", "97,5", "98"], "day-first dates, 24-hour clock: " + str(e[7:]))
 g = with_settings({"locale_currency": "GBP", "locale_date": "iso"}, SAMPLE).split("|")
 ok(g[0] == "£1,235" and g[7] == "2026-09-29" and g[8] == "29 September 2026", "pound, ISO dates: " + str(g[:9]))
-c = with_settings({"locale_currency": "CHF", "locale_number": "apostrophe"}, 'echo money(1234567), "|", money_exact(4.5);').split("|")
-ok(c == ["CHF" + NB + "1'234'567", "CHF" + NB + "4.50"], "letter symbol gets a space: " + str(c))
+c = with_settings({"locale_currency": "CHF", "locale_number": "apostrophe"}, 'echo money(1234567), "|", money_exact(4.5), "|", money(-45), "|", Align\\Fmt::stripSymbol(money(-45));').split("|")
+ok(c == ["CHF" + NB + "1'234'567", "CHF" + NB + "4.50", "-CHF" + NB + "45", "-45"], "letter symbol gets a space, the sign goes first (2.32.1): " + str(c))
+ea = with_settings({"locale_currency": "EUR", "locale_currency_position": "after"}, 'echo money(-45), "|", money_exact(-1234.5), "|", Align\\Fmt::moneyShort(-12500), "|", Align\\Fmt::stripSymbol(money(-45));').split("|")
+ok(ea == ["-45" + NB + "€", "-1,234.50" + NB + "€", "-12.5k" + NB + "€", "-45"], "symbol after: the sign stays in front of the number (2.32.1): " + str(ea))
+kr = with_settings({"locale_currency": "SEK"}, 'echo money(-45);')
+ok(kr == "-45" + NB + "kr", "krona after, negative: " + repr(kr))
 s = with_settings({"locale_currency": "SEK", "locale_number": "space"}, 'echo money(1234567);')
 ok(s == "1" + NNB + "234" + NNB + "567" + NB + "kr", "krona after, narrow-space thousands: " + repr(s))
 j = with_settings({"locale_currency": "JPY"}, 'echo money_exact(1234.5);')

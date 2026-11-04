@@ -26,8 +26,10 @@ const alignFmt = (() => {
     ...f,
     money: (n) => {
       const r = f.decimals === 0 ? Math.round(n) : Math.round(n * 100) / 100;
-      const t = number(r, r % 1 ? 2 : 0);
-      return f.after ? t + '\u00A0' + f.symbol : f.symbol + (/\p{L}$/u.test(f.symbol) ? '\u00A0' : '') + t;
+      // (2.32.1) The minus sign goes first, as on the server: -$45, -CHF 45, -45 €
+      const t = number(Math.abs(r), r % 1 ? 2 : 0);
+      const sign = r < 0 && /[1-9]/.test(t) ? '-' : '';
+      return sign + (f.after ? t + '\u00A0' + f.symbol : f.symbol + (/\p{L}$/u.test(f.symbol) ? '\u00A0' : '') + t);
     },
     date: (d) => f.date === 'iso' ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
       : f.date === 'dmy' ? d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() : months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(),

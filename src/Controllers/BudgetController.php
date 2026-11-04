@@ -54,8 +54,9 @@ final class BudgetController
     }
 
     /**
-     * Budget totals for every client in planning (any staff role). Devices are loaded once for all clients; each
-     * client's budget still runs its own few queries (budget lines, billing, licenses, projects).
+     * Budget totals for every client in planning (any staff role). Devices are loaded once for all clients, and
+     * (2.32.1) budget lines, billing, licenses and projects once for all clients too (Budget::preloadAll()), so
+     * the page's query count no longer grows with the number of clients.
      */
     public static function index(): void
     {
@@ -68,8 +69,10 @@ final class BudgetController
             }
         }
         $rows = [];
+        // (2.32.1) Budget lines, billing, licenses and projects for every client in four queries, not four per client
+        $pre = Budget::preloadAll();
         foreach (DB::all('SELECT id, name, logo_file FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name') as $c) {
-            $b = Budget::build((int) $c['id'], $byClient[$c['id']] ?? []);
+            $b = Budget::build((int) $c['id'], $byClient[$c['id']] ?? [], $pre[(int) $c['id']] ?? Budget::EMPTY_PRELOAD);
             $rows[] = ['client' => $c, 'year' => $b['years'][$year], 'runRate' => $b['runRate'], 'notes' => $b['notes']];
         }
         usort($rows, fn($a, $b) => $b['year']['total'] <=> $a['year']['total']);

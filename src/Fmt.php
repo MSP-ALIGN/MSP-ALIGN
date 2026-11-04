@@ -120,12 +120,14 @@ final class Fmt
     }
 
     /**
-     * Short amounts for charts: $950, $12.5k, $1.2M. Below 1,000 (and negative amounts) it's the full amount.
+     * Short amounts for charts: $950, $12.5k, $1.2M. Below 1,000 it's the full amount.
      * $millions false keeps thousands only ($1,250k); $group false leaves out the thousands separator ($1250k).
+     * (2.32.1) Negative amounts are shortened the same way, with the minus sign in front: -$1.3M, -$12.5k, -$980.
      */
     public static function moneyShort(float|int|string|null $v, bool $millions = true, bool $group = true): string
     {
         $f = (float) $v;
+        $a = abs($f);
         $dec = self::NUMBERS[self::cfg()['number']][2];
         $short = function (float $n, string $unit) use ($group, $dec) {
             if ($group) {
@@ -134,22 +136,48 @@ final class Fmt
             $t = number_format($n, 1, $dec, '');
             return rtrim(rtrim($t, '0'), $dec) . $unit;
         };
+        // The sign is put back by withSymbol(), so it goes before the symbol (2.32.1)
+        $sign = $f < 0 ? '-' : '';
         return match (true) {
-            $millions && $f >= 1000000 => self::withSymbol($short($f / 1000000, 'M')),
-            $f >= 1000 => self::withSymbol($short($f / 1000, 'k')),
+            $millions && $a >= 1000000 => self::withSymbol($sign . $short($a / 1000000, 'M')),
+            $a >= 1000 => self::withSymbol($sign . $short($a / 1000, 'k')),
             default => self::money($f),
         };
     }
 
-    /** The symbol goes in front of the number as written, sign included ($-980, as MSP Align always showed it), or after it (-980 €). */
+    /**
+     * Puts the symbol on a number already written with the chosen separators. The symbol goes before the number
+     * ($1,234) or after it (1.234 €). (2.32.1) A minus sign always goes first: -$45, -$1,234.50, -CHF 45, -45 €
+     * (it was $-45 before). A number that rounds to zero ("-0") loses its sign.
+     */
     private static function withSymbol(string $n): string
     {
         $s = self::symbol();
+        $neg = str_starts_with($n, '-');
+        if ($neg) {
+            $n = substr($n, 1);
+            // -0.4 rounds to "-0": no digit other than 0 means there is nothing negative to show
+            $neg = preg_match('/[1-9]/', $n) === 1;
+        }
+        $sign = $neg ? '-' : '';
         if (self::symbolAfter()) {
-            return $n . "\u{00A0}" . $s;
+            return $sign . $n . "\u{00A0}" . $s;
         }
         // A letter symbol (CHF, AED, kr) needs a space; $ £ € ¥ sit next to the number
-        return $s . (preg_match('/\p{L}$/u', $s) ? "\u{00A0}" : '') . $n;
+        return $sign . $s . (preg_match('/\p{L}$/u', $s) ? "\u{00A0}" : '') . $n;
+    }
+
+    /**
+     * An amount written by money() without its currency symbol: "-45", "1,234.50" (2.32.1). For contract PDF pages
+     * that print their own symbol. $s is text this class wrote (or a stored total written by it); only the symbol and
+     * the no-break space next to it are taken out, the sign and digits stay.
+     */
+    public static function stripSymbol(string $s): string
+    {
+        $sym = self::symbol();
+        $s = str_replace([$sym . "\u{00A0}", "\u{00A0}" . $sym, $sym], '', $s);
+        // trim() works on bytes, so the no-break space is taken off with a Unicode pattern instead
+        return (string) preg_replace('/^[\s\x{00A0}\x{202F}]+|[\s\x{00A0}\x{202F}]+$/u', '', $s);
     }
 
     /** A date in one of the styles above, from a date string or a timestamp; '' for none. */

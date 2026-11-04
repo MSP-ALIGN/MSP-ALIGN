@@ -126,7 +126,12 @@ final class ImportController
             redirect('/clients/import');
         }
         $kind = self::kind((string) $data['kind']);
-        [$added, $updated, $names] = CsvImport::apply($kind, (array) $data['plan'], Auth::id());
+        try {
+            [$added, $updated, $names] = CsvImport::apply($kind, (array) $data['plan'], Auth::id());
+        } catch (\InvalidArgumentException $e) { // (2.32.1) a client name was busy: nothing was imported
+            flash('error', $e->getMessage() . ' Nothing was imported. Upload the file again.');
+            redirect('/clients/import');
+        }
         // Names which records were added (+) or changed (with the fields), so a changed contact can be found (2.2.1)
         Audit::log('import.' . $kind, ($data['file'] ?? 'CSV') . ": $added added, $updated updated" . ($names ? ' (' . mb_strimwidth(implode(', ', $names), 0, 1000, '…') . ')' : ''));
         if ($kind === 'asset_tags') { // 2.21.0

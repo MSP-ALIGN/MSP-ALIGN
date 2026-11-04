@@ -144,7 +144,7 @@ final class PdfStamp
     private static function money(float $v, bool $plain): string
     {
         $s = Fmt::money($v, true);
-        return $plain ? trim(str_replace(Fmt::symbol(), '', $s)) : $s;
+        return $plain ? Fmt::stripSymbol($s) : $s; // (2.32.1) the sign stays: -45
     }
 
     /**
@@ -223,7 +223,7 @@ final class PdfStamp
                 } else {
                     $v = (string) ($vals[$key] ?? '');
                     if (in_array($key, ['monthly_total', 'yearly_total', 'one_time_total'], true) && $pl['plain']) {
-                        $v = trim(str_replace(Fmt::symbol(), '', $v));
+                        $v = Fmt::stripSymbol($v); // (2.32.1)
                     }
                     if ($f && $f['type'] === 'checkbox') {
                         $v = $v === 'Yes' ? 'X' : '';

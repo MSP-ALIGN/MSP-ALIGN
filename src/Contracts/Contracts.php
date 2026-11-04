@@ -1226,16 +1226,9 @@ final class Contracts
     public static function createClient(array $c): array
     {
         // Two contracts for the same new company added at the same moment make one client: the lock is held until
-        // the transaction has committed, so the second one finds the first one's client
-        $lock = 'align_contract_client_' . md5(mb_strtolower(trim((string) ($c['lead_company'] ?? ''))));
-        if ((int) DB::value('SELECT GET_LOCK(?, 10)', [$lock]) !== 1) {
-            throw new \InvalidArgumentException('Someone is adding this client right now. Try again in a moment.');
-        }
-        try {
-            return self::createClientLocked($c);
-        } finally {
-            DB::value('SELECT RELEASE_LOCK(?)', [$lock]);
-        }
+        // the transaction has committed, so the second one finds the first one's client. (2.32.1) The lock is the
+        // one every way of adding a client takes (Clients\NameLock), so Clients → Add and the CSV import wait too.
+        return \Align\Clients\NameLock::with((string) ($c['lead_company'] ?? ''), fn() => self::createClientLocked($c));
     }
 
     /**
