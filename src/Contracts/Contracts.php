@@ -316,7 +316,7 @@ final class Contracts
             }
             $vals['svc'][$r['key']] = [
                 'qty' => is_numeric($s['qty'] ?? null) ? max(0, min(1_000_000, round((float) $s['qty'], 2))) : 0,
-                'price' => is_numeric($s['price'] ?? null) ? max(0, min(10_000_000, round((float) $s['price'], 2))) : $r['price'],
+                'price' => is_numeric($s['price'] ?? null) ? max(-10_000_000, min(10_000_000, round((float) $s['price'], 2))) : $r['price'], // (2.28.1) below 0: a discount
                 'on' => !empty($s['on']),
             ];
         }

@@ -101,7 +101,7 @@ $meta = ['builtIn' => array_map(fn($b) => ['label' => $b[0], 'help' => $b[1]], T
             <div class="alert alert-light border small mt-3 mb-0" data-pv-checks></div>
           </div>
           <div class="tab-pane fade" id="ct-tab-services" role="tabpanel">
-            <p class="small text-muted">What you charge for, with a price and how it's billed. Each row's quantity, price and total can go in a box on your PDF, and the totals too. For existing clients Align can count the quantity (users, workstations, servers…).</p>
+            <p class="small text-muted">What you charge for, with a price and how it's billed (a price below 0 is a discount). Each row's quantity, price and total can go in a box on your PDF, and the totals too. For existing clients Align can count the quantity (users, workstations, servers…).</p>
             <input type="hidden" data-ct-svc-title>
             <div id="ct-services"></div>
             <button type="button" class="btn btn-sm btn-primary mt-2" data-ct-add-row><i class="fas fa-plus me-1"></i>Add a service</button>

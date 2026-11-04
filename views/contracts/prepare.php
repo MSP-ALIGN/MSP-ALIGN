@@ -128,7 +128,7 @@ $input = function (array $f) use ($vals) {
                     <div class="small text-muted">Counted for you on existing clients (<?= e(mb_strtolower(Template::AUTO[$r['auto']])) ?>).</div>
                   <?php endif; ?></td>
                 <td><input type="number" step="any" min="0" id="sq-<?= $k ?>" name="svc[<?= $k ?>][qty]" class="form-control form-control-sm" value="<?= e(rtrim(rtrim(number_format((float) $s['qty'], 2, '.', ''), '0'), '.')) ?>" aria-label="Quantity of <?= e($r['label']) ?>"></td>
-                <td><input type="number" step="any" min="0" name="svc[<?= $k ?>][price]" class="form-control form-control-sm" value="<?= e(rtrim(rtrim(number_format((float) $s['price'], 2, '.', ''), '0'), '.')) ?>" aria-label="Price of <?= e($r['label']) ?>"></td>
+                <td><input type="number" step="any" name="svc[<?= $k ?>][price]" class="form-control form-control-sm" value="<?= e(rtrim(rtrim(number_format((float) $s['price'], 2, '.', ''), '0'), '.')) ?>" aria-label="Price of <?= e($r['label']) ?> (below 0 for a discount)" title="Below 0 for a discount"></td>
               </tr>
             <?php endforeach; ?>
             </tbody>
@@ -144,7 +144,7 @@ $input = function (array $f) use ($vals) {
             <?php endforeach; ?>
             </tbody>
           </table>
-          <div class="small text-muted px-3 py-2">Untick a service to leave it out. Add a line with a price below 0 for a discount. Prices in <?= e($cur) ?>; totals are in the preview.</div>
+          <div class="small text-muted px-3 py-2">Untick a service to leave it out. A price below 0 is a discount (on any row, or add a line for one). Prices in <?= e($cur) ?>; totals are in the preview.</div>
         </div>
       </div>
       <?php endif; ?>

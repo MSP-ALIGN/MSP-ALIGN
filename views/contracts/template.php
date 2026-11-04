@@ -79,7 +79,7 @@ $meta = ['builtIn' => array_map(fn($b) => ['label' => $b[0], 'help' => $b[1]], T
           </div>
           <div class="tab-pane fade" id="ct-tab-services" role="tabpanel">
             <div class="mb-2"><label for="ct-svc-title" class="small">Table title</label><input id="ct-svc-title" class="form-control form-control-sm" maxlength="120" data-ct-svc-title></div>
-            <p class="small text-muted">Each row has a price and how it's billed. For existing clients, Align can fill in the quantity from what it counts (devices, users, licenses). An optional row starts unticked unless Align counts some.</p>
+            <p class="small text-muted">Each row has a price and how it's billed (a price below 0 is a discount). For existing clients, Align can fill in the quantity from what it counts (devices, users, licenses). An optional row starts unticked unless Align counts some.</p>
             <div id="ct-services"></div>
             <button type="button" class="btn btn-sm btn-primary mt-2" data-ct-add-row><i class="fas fa-plus me-1"></i>Add a service</button>
           </div>
