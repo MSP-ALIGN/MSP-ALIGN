@@ -49,7 +49,7 @@ final class Ai
         'test' => 'Connection test',
         'documents' => 'Read documents', // 2.29.0 vendor invoices, quotes and contracts into vendors and licenses (Ai\Documents)
         'compliance' => 'Compliance review', // 2.30.0 a client's documents checked against its compliance controls (Ai\Compliance)
-        'drafts' => 'Draft documents', // 2.30.0 reserved for drafting documents from templates (a later step)
+        'drafts' => 'Draft documents', // 2.30.0 client documents drafted from templates or updated, as new drafts (Ai\Drafts)
     ];
 
     /** Tokens reserved per PDF page sent as a file (a page is read as text and as an image: about 1,500–3,000). */
@@ -169,7 +169,9 @@ final class Ai
      * PDF_PAGE_TOKENS. Throws AiException when AI can't be used (whyOff()), when the request could go past the monthly
      * limit ($e->limit), or when the provider fails (recorded with its message).
      *
-     * @return array{text:string, input:int, output:int}
+     * 2.30.0 'truncated' (the provider's own flag) says the answer was cut off at $maxOutput: callers refuse it.
+     *
+     * @return array{text:string, input:int, output:int, truncated:bool}
      */
     public static function ask(string $feature, string $system, string $user, int $maxOutput = 1024, bool $switchOk = false, array $pdfs = []): array
     {
@@ -230,7 +232,7 @@ final class Ai
         }
         DB::update('ai_usage', ['status' => 'ok', 'input_tokens' => $r['input'], 'output_tokens' => $r['output'], 'finished_at' => date('Y-m-d H:i:s')], ['id' => $id]);
         self::warnings($month);
-        return $r;
+        return ['text' => (string) $r['text'], 'input' => (int) $r['input'], 'output' => (int) $r['output'], 'truncated' => (bool) ($r['truncated'] ?? false)];
     }
 
     /** After a request in $month: the 80% email, once a month (and the limit email when this one used the last tokens). */

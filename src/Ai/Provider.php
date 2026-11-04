@@ -29,9 +29,10 @@ interface Provider
      * Sends one request: $system (Align's own instructions) and $user (the material), with at most $maxOutput tokens
      * in the answer. $pdfs: PDFs sent as files, each ['name' => …, 'bytes' => …], only when readsPdf(). Returns the
      * answer's text and the tokens the provider counted for it (input includes cached and system tokens; output
-     * includes any reasoning tokens), so the monthly limit counts what the provider bills.
+     * includes any reasoning tokens), so the monthly limit counts what the provider bills. 2.30.0 'truncated': true
+     * when the provider stopped because the answer reached $maxOutput (the text is cut off; callers refuse it).
      *
-     * @return array{text:string, input:int, output:int}
+     * @return array{text:string, input:int, output:int, truncated:bool}
      * @throws AiException with a message an admin can act on (wrong key, unknown model, rate limit)
      */
     public function ask(string $model, string $system, string $user, int $maxOutput, array $pdfs = []): array;

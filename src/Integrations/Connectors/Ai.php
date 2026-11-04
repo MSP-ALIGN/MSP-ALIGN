@@ -82,8 +82,8 @@ final class Ai extends Connector
             // 2.30.0
             ['name' => 'ai_feature_compliance', 'label' => 'Review compliance documents: check a client\'s policies and plans against its frameworks', 'type' => 'switch', 'default' => '1',
                 'help' => 'On a client\'s Compliance page and its documents (admins and techs), with a review before any answer changes.'],
-            ['name' => 'ai_feature_drafts', 'label' => 'Draft documents from templates', 'type' => 'switch', 'default' => '1',
-                'help' => 'Coming in a later release. Turn it off now if you don\'t want it when it arrives.'],
+            ['name' => 'ai_feature_drafts', 'label' => 'Draft documents: fill Align\'s templates or update a client\'s documents', 'type' => 'switch', 'default' => '1',
+                'help' => 'From a compliance review and a client document\'s page (admins and techs). Every draft is a new document to check; nothing existing is changed.'],
             ['name' => 'ai_provider', 'label' => 'Provider', 'type' => 'select', 'options' => $providers, 'default' => ''],
             ['name' => 'ai_model', 'label' => 'Model', 'type' => 'text', 'placeholder' => 'claude-sonnet-5-5', 'help' => 'The model\'s name as the provider lists it.'],
             ['name' => 'ai_api_key', 'label' => 'API key', 'type' => 'secret', 'help' => 'Belongs to the provider above: choosing another provider needs its own key. Optional for Ollama.'],

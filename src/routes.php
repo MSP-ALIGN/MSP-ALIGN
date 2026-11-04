@@ -87,6 +87,10 @@ $r->post('/clients/{id}/ai-reviews', [\Align\Controllers\AiReviewController::cla
 $r->get('/clients/{id}/ai-reviews/{rid}', [\Align\Controllers\AiReviewController::class, 'show']);
 $r->post('/clients/{id}/ai-reviews/{rid}', [\Align\Controllers\AiReviewController::class, 'update']);
 $r->post('/clients/{id}/ai-reviews/{rid}/step', [\Align\Controllers\AiReviewController::class, 'step']);
+// 2.30.0 AI drafting: a template drafted from a review's facts; a client document updated (always as a new draft)
+$r->post('/clients/{id}/ai-reviews/{rid}/draft', [\Align\Controllers\AiDraftController::class, 'fromReview']);
+$r->get('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'form']);
+$r->post('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'update']);
 $r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
 $r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
 $r->get('/vendors/templates/{id}/form', [\Align\Controllers\FormController::class, 'vendorTemplate']);

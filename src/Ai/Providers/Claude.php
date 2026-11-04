@@ -52,6 +52,7 @@ final class Claude extends Base
         }
         return ['text' => $text,
             'input' => self::count($u['input_tokens'] ?? 0) + self::count($u['cache_creation_input_tokens'] ?? 0) + self::count($u['cache_read_input_tokens'] ?? 0),
-            'output' => self::count($u['output_tokens'] ?? 0)];
+            'output' => self::count($u['output_tokens'] ?? 0),
+            'truncated' => ($j['stop_reason'] ?? null) === 'max_tokens']; // 2.30.0 cut off at max_tokens
     }
 }

@@ -32,7 +32,7 @@ use Align\Docs\Files;
 final class Review
 {
     /** Groups of controls sent in one matching request. */
-    public const BATCH = 60;
+    public const BATCH = 40; // 2.30.0 40 (was 60) so one batch's answer fits in Matching's output limit
 
     /** Client documents that can be picked for one review. */
     public const MAX_DOCS = 20;
@@ -42,6 +42,12 @@ final class Review
 
     /** Days a review waits before it is discarded. */
     private const KEEP_DAYS = 14;
+
+    /** 2.30.0 Days an applied review keeps the facts AI read (what drafting uses); then they are cleared. */
+    public const FACTS_DAYS = 90;
+
+    /** 2.30.0 What people are told when a review's facts were cleared. */
+    public const FACTS_CLEARED = 'The facts this review read have been cleared (they are kept 90 days after it was applied). Review the documents with AI again to draft from them.';
 
     /** A source is stale when its last review is older than this many months. */
     public const STALE_MONTHS = 12;
@@ -259,10 +265,11 @@ final class Review
         return DB::all("SELECT id, created_name, created_at, sources, frameworks FROM ai_reviews WHERE client_id = ? AND status = 'review' ORDER BY id DESC LIMIT 20", [$clientId]);
     }
 
-    /** Discards a waiting review and deletes its uploads. False when it wasn't waiting (applied or discarded meanwhile). */
+    /** Discards a waiting review, clears its facts (2.30.0) and deletes its uploads. False when it wasn't waiting (applied or discarded meanwhile). */
     public static function discard(array $review): bool
     {
-        $n = DB::run("UPDATE ai_reviews SET status = 'discarded', done_by = ?, done_at = NOW() WHERE id = ? AND status = 'review'", [Auth::id(), $review['id']])->rowCount();
+        // 2.30.0 the facts AI read are cleared straight away: a discarded review is never used again
+        $n = DB::run("UPDATE ai_reviews SET status = 'discarded', facts = '[]', done_by = ?, done_at = NOW() WHERE id = ? AND status = 'review'", [Auth::id(), $review['id']])->rowCount();
         if ($n) {
             Uploads::forget($review['files'], self::dir());
         }
@@ -270,16 +277,22 @@ final class Review
     }
 
     /**
-     * Discards reviews left for KEEP_DAYS days (their uploads deleted), and deletes files in dir() older than a day
+     * Discards reviews left for KEEP_DAYS days (their uploads deleted), clears the facts of discarded reviews and of
+     * reviews applied more than FACTS_DAYS days ago (2.30.0), and deletes files in dir() older than a day
      * that no waiting review lists (a review whose client was deleted, or a start that stopped half-way). Run on each
      * start and after each sync (SyncRunner, with 2.29.0's cleanup).
      */
     public static function cleanup(): void
     {
         foreach (DB::all("SELECT id, files FROM ai_reviews WHERE status = 'review' AND created_at < NOW() - INTERVAL " . self::KEEP_DAYS . ' DAY') as $r) {
-            DB::run("UPDATE ai_reviews SET status = 'discarded', done_at = NOW(), summary = 'Discarded after " . self::KEEP_DAYS . " days without a review.' WHERE id = ? AND status = 'review'", [$r['id']]);
+            DB::run("UPDATE ai_reviews SET status = 'discarded', facts = '[]', done_at = NOW(), summary = 'Discarded after " . self::KEEP_DAYS . " days without a review.' WHERE id = ? AND status = 'review'", [$r['id']]);
             Uploads::forget(json_decode((string) $r['files'], true) ?: [], self::dir());
         }
+        // 2.30.0 retention: an applied review keeps its facts FACTS_DAYS days (for drafting), then they are cleared
+        // and noted in its summary; what was applied stays in the checklist, and the matches stay for the review page
+        DB::run("UPDATE ai_reviews SET facts = '[]', summary = CONCAT(COALESCE(summary, ''), '\nThe facts AI read were cleared after " . self::FACTS_DAYS . " days.')
+            WHERE status = 'applied' AND done_at < NOW() - INTERVAL " . self::FACTS_DAYS . " DAY AND JSON_LENGTH(facts) > 0");
+        DB::run("UPDATE ai_reviews SET facts = '[]' WHERE status = 'discarded' AND JSON_LENGTH(facts) > 0");
         if (!is_dir(self::dir())) {
             return;
         }

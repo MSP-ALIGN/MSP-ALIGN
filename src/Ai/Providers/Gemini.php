@@ -52,6 +52,7 @@ final class Gemini extends Base
             throw new AiException($this->name() . ' answered without saying how many tokens it used.');
         }
         return ['text' => $text, 'input' => self::count($u['promptTokenCount'] ?? 0),
-            'output' => self::count($u['candidatesTokenCount'] ?? 0) + self::count($u['thoughtsTokenCount'] ?? 0)];
+            'output' => self::count($u['candidatesTokenCount'] ?? 0) + self::count($u['thoughtsTokenCount'] ?? 0),
+            'truncated' => ($j['candidates'][0]['finishReason'] ?? null) === 'MAX_TOKENS']; // 2.30.0 cut off at maxOutputTokens
     }
 }

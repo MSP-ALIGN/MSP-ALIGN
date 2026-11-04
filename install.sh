@@ -606,10 +606,10 @@ Header always unset X-Powered-By
     </IfModule>
 </LocationMatch>
 
-# AI document reading (2.29.0) and AI compliance reviews with their matching steps (2.30.0): up to 5 files of 10 MB
+# AI document reading (2.29.0), AI compliance reviews with their matching steps and AI drafting (2.30.0): up to 5 files of 10 MB
 # in one upload, and time for the AI provider to answer.
 # The same as docker/apache.conf.
-<LocationMatch "^/clients/[0-9]+/(ai-documents|ai-reviews|ai-reviews/[0-9]+/step)$">
+<LocationMatch "^/clients/[0-9]+/(ai-documents|ai-reviews|ai-reviews/[0-9]+/(step|draft)|ai-drafts/[0-9]+)$">
     LimitRequestBody 57671680
     <IfModule php_module>
         php_value upload_max_filesize 11M

@@ -52,6 +52,7 @@ final class Ollama extends Base
             throw new AiException($this->name() . ' answered without saying how many tokens it used.');
         }
         $text = $j['message']['content'] ?? '';
-        return ['text' => is_string($text) ? $text : '', 'input' => self::count($j['prompt_eval_count'] ?? 0), 'output' => self::count($j['eval_count'] ?? 0)];
+        return ['text' => is_string($text) ? $text : '', 'input' => self::count($j['prompt_eval_count'] ?? 0), 'output' => self::count($j['eval_count'] ?? 0),
+            'truncated' => ($j['done_reason'] ?? null) === 'length']; // 2.30.0 cut off at num_predict
     }
 }

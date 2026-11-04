@@ -23,7 +23,8 @@ use Align\Docs\Files;
  * to the client in the URL. Only rows Review::rows offers now are applied, so a crafted row id (another control, a
  * control of a framework not in the review, another client's) does nothing. Values follow ComplianceController::save
  * rules: statuses from Compliance::STATUSES, notes at most 5000 characters, evidence 2000, a document only when it
- * is the client's own. A framework is assigned only while active (as ComplianceController::assign). The review is
+ * is the client's own. 2.30.0: when the old text and the new note (or quotes) are over that size, the old text is
+ * shortened (never the new); a quote already in the evidence isn't added again. A framework is assigned only while active (as ComplianceController::assign). The review is
  * claimed first (status review → applied in one statement), so it is applied once even if Apply is pressed twice.
  */
 final class Apply
@@ -121,21 +122,43 @@ final class Apply
         $old = DB::one('SELECT notes, evidence, document_id FROM client_control_status WHERE client_id = ? AND control_id = ?', [$cid, $r['control_id']]) ?? [];
         $note = 'AI review (' . $date . '): ' . ($r['reason'] !== '' ? $r['reason'] : Compliance::STATUSES[$r['status']][0] . '.');
         $notes = trim((string) ($old['notes'] ?? ''));
+        $evidence = trim((string) ($old['evidence'] ?? ''));
         $quotes = [];
         foreach ($r['facts'] as $f) {
-            $quotes[] = '“' . ($f['quote'] ?? $f['text']) . '” (' . $f['source_title'] . ')';
+            $quote = '“' . ($f['quote'] ?? $f['text']) . '”';
+            if (!str_contains($evidence, $quote)) { // 2.30.0 the same words aren't added twice (an earlier review)
+                $quotes[] = $quote . ' (' . $f['source_title'] . ')';
+            }
         }
-        $evidence = trim((string) ($old['evidence'] ?? ''));
         $src = $review['sources'][$r['source'] - 1] ?? [];
         $doc = ($src['kind'] ?? '') === 'document' ? (int) $src['document_id'] : (int) ($kept[$r['source']] ?? 0);
         DB::upsert('client_control_status', [
             'client_id' => $cid, 'control_id' => $r['control_id'], 'status' => $r['status'],
-            'notes' => mb_substr($notes !== '' ? "$notes\n\n$note" : $note, 0, 5000),
-            'evidence' => mb_substr(($evidence !== '' ? "$evidence\n" : '') . implode("\n", array_unique($quotes)), 0, 2000) ?: null,
+            'notes' => self::join($notes, "\n\n", $note, 5000),
+            'evidence' => self::join($evidence, "\n", implode("\n", array_unique($quotes)), 2000) ?: null,
             'document_id' => isset($clientDocs[$doc]) ? $doc : (isset($clientDocs[(int) ($old['document_id'] ?? 0)]) ? (int) $old['document_id'] : null),
             'updated_by' => Auth::id(),
         ], ['client_id', 'control_id']);
         return true;
+    }
+
+    /**
+     * 2.30.0 $old, then $sep and $new, in at most $max characters (multibyte-safe). The new text is kept whole (cut
+     * only if it alone is longer than $max); the old text is shortened from its end, marked with "…", to make room.
+     */
+    public static function join(string $old, string $sep, string $new, int $max): string
+    {
+        if ($new === '') {
+            return mb_substr($old, 0, $max);
+        }
+        if ($old === '') {
+            return mb_substr($new, 0, $max);
+        }
+        if (mb_strlen($old) + mb_strlen($sep) + mb_strlen($new) <= $max) {
+            return $old . $sep . $new;
+        }
+        $room = $max - mb_strlen($sep) - mb_strlen($new) - 1; // 1 for the "…"
+        return $room > 0 ? rtrim(mb_substr($old, 0, $room)) . '…' . $sep . $new : mb_substr($new, 0, $max);
     }
 
     /**

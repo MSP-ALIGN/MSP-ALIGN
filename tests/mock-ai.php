@@ -13,6 +13,10 @@
  *  - "fail": a status to answer with instead (404, 429, 500…), with a provider-style error message.
  *  - "queue" (2.30.0): a list of answer texts; each successful answer takes the next one, then "text" again once
  *    the queue is empty. A failed request (fail, a wrong key) leaves the queue as it was.
+ *  - "truncated" (2.30.0): true makes the next successful answer say it was cut off at the token limit (each
+ *    provider's own field: Claude stop_reason max_tokens, OpenAI/Grok finish_reason length, Gemini finishReason
+ *    MAX_TOKENS, Ollama done_reason length), then goes back to false. A queued answer can also be
+ *    {"text": "...", "truncated": true} to cut off just that one.
  * Every request is recorded (provider, path, the auth header's name and value, the body). Control: POST /mock/ai
  * (merge into the state), GET /mock/ai-state, /mock/ai-reset.
  */
@@ -22,7 +26,7 @@ if (!str_starts_with($path, '/ai/') && !str_starts_with($path, '/mock/ai')) {
     return false;
 }
 $file = sys_get_temp_dir() . '/ai-mock.json';
-$fresh = ['text' => 'OK', 'input' => 12, 'output' => 3, 'fail' => 0, 'queue' => [], 'calls' => []];
+$fresh = ['text' => 'OK', 'input' => 12, 'output' => 3, 'fail' => 0, 'queue' => [], 'truncated' => false, 'calls' => []];
 $state = json_decode((string) @file_get_contents($file), true) ?: $fresh;
 $save = function () use (&$state, $file): void { // by reference: the state as changed below
     file_put_contents($file, json_encode($state), LOCK_EX);
@@ -78,14 +82,24 @@ if ((int) $state['fail'] > 0) {
     return true;
 }
 [$text, $in, $out] = [(string) $state['text'], (int) $state['input'], (int) $state['output']];
+$cut = !empty($state['truncated']); // 2.30.0 a cut-off answer, once
+if ($cut) {
+    $state['truncated'] = false;
+    $save();
+}
 if (!empty($state['queue']) && is_array($state['queue'])) { // 2.30.0 the next queued answer
-    $text = (string) array_shift($state['queue']);
+    $next = array_shift($state['queue']);
+    if (is_array($next)) {
+        $cut = $cut || !empty($next['truncated']);
+        $next = $next['text'] ?? '';
+    }
+    $text = (string) $next;
     $save();
 }
 $json(match ($provider) {
-    'claude' => ['id' => 'msg_mock', 'type' => 'message', 'role' => 'assistant', 'content' => [['type' => 'text', 'text' => $text]], 'usage' => ['input_tokens' => $in, 'output_tokens' => $out]],
-    'openai', 'grok' => ['id' => 'chatcmpl-mock', 'choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => $text]]], 'usage' => ['prompt_tokens' => $in, 'completion_tokens' => $out, 'total_tokens' => $in + $out]],
-    'gemini' => ['candidates' => [['content' => ['role' => 'model', 'parts' => [['text' => $text]]]]], 'usageMetadata' => ['promptTokenCount' => $in, 'candidatesTokenCount' => $out]],
-    'ollama' => ['model' => $body['model'] ?? '', 'message' => ['role' => 'assistant', 'content' => $text], 'done' => true, 'prompt_eval_count' => $in, 'eval_count' => $out],
+    'claude' => ['id' => 'msg_mock', 'type' => 'message', 'role' => 'assistant', 'content' => [['type' => 'text', 'text' => $text]], 'stop_reason' => $cut ? 'max_tokens' : 'end_turn', 'usage' => ['input_tokens' => $in, 'output_tokens' => $out]],
+    'openai', 'grok' => ['id' => 'chatcmpl-mock', 'choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => $text], 'finish_reason' => $cut ? 'length' : 'stop']], 'usage' => ['prompt_tokens' => $in, 'completion_tokens' => $out, 'total_tokens' => $in + $out]],
+    'gemini' => ['candidates' => [['content' => ['role' => 'model', 'parts' => [['text' => $text]]], 'finishReason' => $cut ? 'MAX_TOKENS' : 'STOP']], 'usageMetadata' => ['promptTokenCount' => $in, 'candidatesTokenCount' => $out]],
+    'ollama' => ['model' => $body['model'] ?? '', 'message' => ['role' => 'assistant', 'content' => $text], 'done' => true, 'done_reason' => $cut ? 'length' : 'stop', 'prompt_eval_count' => $in, 'eval_count' => $out],
 });
 return true;

@@ -30,6 +30,9 @@ $sel = fn($a, $b) => $a === $b ? 'selected' : '';
       <?php if ($client && $doc['status'] === 'active' && in_array($doc['file_type'], \Align\Ai\Compliance\Review::READ_TYPES, true) && \Align\Ai\Ai::usable('compliance')): /* 2.30.0 */ ?>
         <a class="btn btn-sm btn-default" href="/clients/<?= (int) $client['id'] ?>/ai-reviews?doc=<?= $id ?>"><i class="fas fa-wand-magic-sparkles me-1"></i>Review with AI</a>
       <?php endif; ?>
+      <?php if ($client && $doc['status'] !== 'archived' && in_array($doc['file_type'], \Align\Ai\Compliance\Review::READ_TYPES, true) && \Align\Ai\Ai::usable('drafts')): /* 2.30.0 */ ?>
+        <a class="btn btn-sm btn-default" href="/clients/<?= (int) $client['id'] ?>/ai-drafts/<?= $id ?>"><i class="fas fa-file-pen me-1"></i>Update with AI</a>
+      <?php endif; ?>
       <button class="btn btn-sm btn-default" data-bs-toggle="modal" data-bs-target="#modal-replace-file"><i class="fas fa-upload me-1"></i>Replace file</button>
       <?php if (\Align\Auth::can('admin')): ?><button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modal-delete-doc" aria-label="Delete"><i class="fas fa-trash"></i></button><?php endif; ?>
     <?php endif; ?>

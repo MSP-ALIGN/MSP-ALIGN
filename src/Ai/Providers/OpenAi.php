@@ -47,6 +47,7 @@ class OpenAi extends Base
         if (!$u) {
             throw new AiException($this->name() . ' answered without saying how many tokens it used.');
         }
-        return ['text' => is_string($text) ? $text : '', 'input' => self::count($u['prompt_tokens'] ?? 0), 'output' => self::count($u['completion_tokens'] ?? 0)];
+        return ['text' => is_string($text) ? $text : '', 'input' => self::count($u['prompt_tokens'] ?? 0), 'output' => self::count($u['completion_tokens'] ?? 0),
+            'truncated' => ($j['choices'][0]['finish_reason'] ?? null) === 'length']; // 2.30.0 cut off at the token limit (Grok too)
     }
 }

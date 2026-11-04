@@ -5,7 +5,10 @@
  * AI found something about (the answer now, the suggestion, the reason and the quoted facts with their document),
  * each with a tick box; the controls nothing was found for (gaps); and documents that look out of date.
  * @var array $client, $review (Review::load), $rows (Review::rows), $gaps (Review::gaps), $stale (Review::stale),
- *      $assigned (framework id => index); int $total; bool $ready
+ *      $assigned (framework id => index), $suggest (Templates::suggest), $templates (Templates::all); int $total;
+ *      bool $ready, $drafts (the Draft documents section: matched or applied, and AI usable for drafts)
+ * 2.30.0 Draft documents: each suggested template (with how many gaps it covers) and every template can be drafted
+ * from this review's facts (a POST per template), and each client document the review read can be updated with AI.
  * Security: everything from the documents or AI (reasons, facts, quotes, titles, file names, notes) is escaped. Only
  * row ids Review::rows offers are written as tick boxes, and Apply works the rows out again anyway. The step URL is
  * posted with this page's CSRF token (data-csrf).
@@ -33,7 +36,7 @@ $hasUploads = (bool) $review['files'];
 <?php if ($review['status'] !== 'review'): ?>
   <div class="card card-body">
     <p class="mb-2"><b><?= $review['status'] === 'applied' ? 'Applied' : 'Discarded' ?></b> <?= e(rel_time($review['done_at'])) ?>.</p>
-    <?php if ($review['summary']): ?><ul class="small mb-0"><?php foreach (explode("\n", (string) $review['summary']) as $line): ?><li><?= e($line) ?></li><?php endforeach; ?></ul><?php endif; ?>
+    <?php if ($review['summary']): ?><ul class="small mb-0"><?php foreach (array_filter(explode("\n", (string) $review['summary']), 'strlen') as $line): ?><li><?= e($line) ?></li><?php endforeach; ?></ul><?php endif; ?>
   </div>
 <?php elseif (!$ready): ?>
   <div class="card" data-ai-steps="/clients/<?= $cid ?>/ai-reviews/<?= $rid ?>/step" data-csrf="<?= e(csrf_token()) ?>" data-step="<?= (int) $review['step'] ?>" data-total="<?= $total ?>">
@@ -124,4 +127,45 @@ $hasUploads = (bool) $review['files'];
   <button class="btn btn-primary" name="action" value="apply"><i class="fas fa-check me-1"></i>Apply ticked answers</button>
   <button class="btn btn-default ms-1" name="action" value="discard" data-confirm="Discard this review? Nothing is changed and any uploaded files are deleted."><i class="fas fa-trash me-1"></i>Discard</button>
 </form>
+<?php endif; ?>
+
+<?php if ($drafts): /* 2.30.0 drafting from this review's facts; each draft is a new document */ ?>
+  <div class="card mt-3 mb-3" id="ai-drafts">
+    <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-file-pen me-2"></i>Draft documents</h3></div>
+    <div class="card-body small">
+      <p class="text-muted mb-2">AI fills one of Align's templates for <?= e($client['name']) ?> with the facts this review read, and marks anything it doesn't know as <b>[To confirm: …]</b>. Each draft is a new document (a Draft, not shared in the portal) to check before you set it Active.</p>
+      <?php if ($suggest): ?>
+        <h4 class="h6">Suggested for the gaps</h4>
+        <ul class="list-unstyled mb-3">
+          <?php foreach ($suggest as $t): ?>
+            <li class="d-flex align-items-center gap-2 mb-1">
+              <form method="post" action="/clients/<?= $cid ?>/ai-reviews/<?= $rid ?>/draft" data-ai-upload class="mb-0"><?= csrf_field() ?>
+                <input type="hidden" name="template_id" value="<?= (int) $t['id'] ?>">
+                <button class="btn btn-sm btn-default" data-ai-submit aria-label="Draft <?= e($t['name']) ?>"><i class="fas fa-wand-magic-sparkles me-1"></i>Draft</button>
+                <span class="text-muted d-none" data-ai-wait><span class="spinner-border spinner-border-sm" aria-hidden="true"></span></span>
+              </form>
+              <span><?= e($t['name']) ?> <span class="text-muted">· covers <?= (int) $t['gaps'] ?> gap<?= (int) $t['gaps'] === 1 ? '' : 's' ?></span></span>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+      <form method="post" action="/clients/<?= $cid ?>/ai-reviews/<?= $rid ?>/draft" data-ai-upload class="d-flex flex-wrap align-items-center gap-2 mb-3"><?= csrf_field() ?>
+        <label for="ai-draft-template" class="mb-0">Any template</label>
+        <select id="ai-draft-template" name="template_id" class="form-select form-select-sm w-auto">
+          <?php foreach ($templates as $t): ?><option value="<?= (int) $t['id'] ?>"><?= e($t['name']) ?></option><?php endforeach; ?>
+        </select>
+        <button class="btn btn-sm btn-primary" data-ai-submit><i class="fas fa-wand-magic-sparkles me-1"></i>Draft</button>
+        <span class="text-muted d-none" data-ai-wait><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Writing… this can take a few minutes.</span>
+      </form>
+      <?php $docs = []; foreach ($review['sources'] as $s) { if (!empty($s['document_id'])) { $docs[(int) $s['document_id']] = (string) $s['name']; } } ?>
+      <?php if ($docs): ?>
+        <h4 class="h6">Update a document this review read</h4>
+        <ul class="mb-0">
+          <?php foreach ($docs as $docId => $name): ?>
+            <li><?= e($name) ?> · <a href="/clients/<?= $cid ?>/ai-drafts/<?= $docId ?>?review=<?= $rid ?>"><i class="fas fa-wand-magic-sparkles me-1"></i>Update with AI</a></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </div>
+  </div>
 <?php endif; ?>

@@ -56,12 +56,20 @@ final class AiReviewController
             Audit::log('ai.compliance_read', "{$client['name']}: failed (" . mb_substr($e->getMessage(), 0, 200) . ')');
             flash('error', $e->getMessage());
             redirect($back);
+        } catch (\RuntimeException $e) {
+            // 2.30.0 e.g. a database error (PDOException): Review::create deleted the uploads; people see safe_error's sentence
+            Audit::log('ai.compliance_read', "{$client['name']}: failed (" . mb_substr(safe_error($e), 0, 200) . ')');
+            flash('error', 'Reading the documents failed: ' . safe_error($e) . '.');
+            redirect($back);
         }
         Audit::log('ai.compliance_read', "{$client['name']}: review #$rid");
         redirect("/clients/$id/ai-reviews/$rid");
     }
 
-    /** One review: the matching progress while batches remain, then the suggested answers, gaps and stale documents. Techs and admins. */
+    /**
+     * One review: the matching progress while batches remain, then the suggested answers, gaps and stale documents,
+     * and (2.30.0) drafting: the templates its gaps suggest and the documents it read. Techs and admins.
+     */
     public static function show(int $id, int $rid): void
     {
         Auth::requireRole('tech');
@@ -72,17 +80,22 @@ final class AiReviewController
         }
         Audit::access('ai_review', "{$client['name']}: review #$rid");
         $ready = $r['status'] === 'review' && Review::finished($r);
+        // 2.30.0 drafting from this review's facts: once it's matched (or applied), with AI usable for drafts
+        $drafts = ($ready || $r['status'] === 'applied') && $r['facts'] && Ai::usable('drafts');
+        $gaps = $ready || $drafts ? Review::gaps($r) : [];
         View::render('ai_reviews/show', [
             'title' => $client['name'] . ' · AI compliance review', 'nav' => 'clients', 'client' => $client, 'clientNav' => 'compliance',
             'review' => $r, 'total' => Review::total($r), 'ready' => $ready,
-            'rows' => $ready ? Review::rows($r) : [], 'gaps' => $ready ? Review::gaps($r) : [], 'stale' => $ready ? Review::stale($r) : [],
+            'rows' => $ready ? Review::rows($r) : [], 'gaps' => $ready ? $gaps : [], 'stale' => $ready ? Review::stale($r) : [],
+            'drafts' => $drafts, 'suggest' => $drafts ? \Align\Ai\Drafts\Templates::suggest($r, $gaps) : [], 'templates' => $drafts ? \Align\Ai\Drafts\Templates::all() : [],
             'assigned' => array_flip(array_map('intval', array_column(\Align\DB::all('SELECT framework_id FROM client_frameworks WHERE client_id = ?', [$id]), 'framework_id'))),
         ]);
     }
 
     /**
      * Matches the next batch (one AI request) and answers JSON {ok, done, step, total, message}. The review page
-     * calls it until done. Techs and admins. A failure leaves the review as it was (message for people).
+     * calls it until done. Techs and admins. A failure leaves the review as it was (message for people; 2.30.0: any
+     * error answers JSON, an internal one only as safe_error's sentence, never a database or PHP message).
      */
     public static function step(int $id, int $rid): void
     {
@@ -99,8 +112,10 @@ final class AiReviewController
         try {
             $s = Matching::step($r);
             echo json_encode(['ok' => true, 'message' => null] + $s);
-        } catch (AiException | \RuntimeException $e) {
-            echo json_encode(['ok' => false, 'done' => false, 'step' => (int) $r['step'], 'total' => Review::total($r), 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            // 2.30.0 any failure answers JSON; a database or PHP error only as safe_error's sentence (the details go to the log)
+            $msg = $e instanceof AiException || $e instanceof \InvalidArgumentException || $e instanceof \JsonException ? $e->getMessage() : safe_error($e);
+            echo json_encode(['ok' => false, 'done' => false, 'step' => (int) $r['step'], 'total' => Review::total($r), 'message' => $msg]);
         }
     }
 

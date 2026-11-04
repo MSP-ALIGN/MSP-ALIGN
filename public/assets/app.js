@@ -2024,7 +2024,7 @@ document.addEventListener('change', (ev) => {
   const form = document.querySelector('[data-ai-estimate-form]');
   const box = form && form.querySelector('[data-ai-estimate]');
   if (!box) return;
-  const batch = Number(box.dataset.batch) || 60;
+  const batch = Number(box.dataset.batch) || 40;
   const remaining = Number(box.dataset.remaining) || 0;
   const update = () => {
     let docs = 0;
@@ -2033,9 +2033,9 @@ document.addEventListener('change', (ev) => {
     form.querySelectorAll('input[name="frameworks[]"]:checked').forEach((c) => { groups += Number(c.dataset.groups) || 0; });
     const files = form.querySelector('input[name="files[]"]');
     Array.from((files && files.files) || []).forEach((f) => { docs += Math.min(133000, Math.ceil(f.size / 4)); });
-    const facts = Math.min(18000, Math.max(500, Math.round(docs * 0.1)));
+    const facts = Math.min(12000, Math.max(500, Math.round(docs * 0.1))); // 2.30.0 at most 150 facts
     const steps = Math.ceil(groups / batch);
-    const total = docs || groups ? docs + 16000 + 1000 + steps * (facts + Math.min(groups, batch) * 60 + 8000 + 800) : 0;
+    const total = docs || groups ? docs + 24000 + 1000 + steps * (facts + Math.min(groups, batch) * 60 + 12000 + 800) : 0;
     box.querySelector('[data-ai-estimate-tokens]').textContent = total.toLocaleString();
     box.querySelector('[data-ai-estimate-over]').classList.toggle('d-none', total <= remaining);
   };
@@ -2063,7 +2063,14 @@ document.addEventListener('change', (ev) => {
         const body = new FormData();
         body.append('_csrf', card.dataset.csrf);
         const r = await fetch(card.dataset.aiSteps, { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
-        j = await r.json();
+        // 2.30.0 an expired session: the token is refused (419) or the sign-in page answers instead
+        if (r.status === 419 || (r.redirected && new URL(r.url).pathname === '/login')) {
+          j = { ok: false, message: 'Your session expired: reload the page (finished steps are kept).' };
+        } else if (r.status === 403) {
+          j = { ok: false, message: 'You no longer have access to this review. Reload the page.' };
+        } else {
+          j = await r.json();
+        }
       } catch (e) {
         j = { ok: false, message: 'The server did not answer. Check your connection and try again.' };
       }

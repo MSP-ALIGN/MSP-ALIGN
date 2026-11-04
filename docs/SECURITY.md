@@ -86,7 +86,15 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   with the never-follow-instructions rule; so do the facts AI read in them when they are compared with the controls.
   AI's answers are taken only as fixed fields (statuses from a fixed list, cited facts that exist, sizes cut), an
   answer that cites nothing is dropped, and nothing changes until a person ticks it. Only the rows Align offers can be
-  applied, with the checklist's own rules, and every change is audited, marked "from AI review".
+  applied, with the checklist's own rules, and every change is audited, marked "from AI review". An answer the
+  provider cut off at its length limit is refused, never half-used. The facts AI read are cleared when a review is
+  discarded, and 90 days after it was applied (what was applied stays in the checklist).
+- AI drafting (2.30.0, techs and admins): a template is filled, or a client document updated, with one AI request.
+  The source document must be the client's own and the review the client's own (both looked up with the client's id
+  from the URL). The source document and the review's facts go to the AI provider between random-boundary markers
+  with the never-follow-instructions rule. AI's answer is stored only after the same HTML allowlist as the editor (no
+  scripts, event attributes or javascript: links) and is refused when little text is left. Every draft is a new
+  document (a Draft, not shared in the portal); nothing existing is changed. Audited.
 
 **Links and tokens**
 

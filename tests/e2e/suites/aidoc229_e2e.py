@@ -246,6 +246,9 @@ try:
     mock(text="Sorry, I can't help with that.")
     r = upload(tech, [("invoice.pdf", fx("invoice.pdf"))])
     ok("couldn't be read" in flash(r.text) and not ai_files() and not q("select 1 from ai_documents"), "an answer that isn't JSON: told so, nothing kept")
+    mock(text=json.dumps(ANSWER), truncated=True)  # 2.30.0 an answer cut off at the token limit
+    r = upload(tech, [("invoice.pdf", fx("invoice.pdf"))])
+    ok("more lines than AI can list" in flash(r.text) and not ai_files() and not q("select 1 from ai_documents"), "a cut-off answer: told so, nothing kept")
     mock(text=json.dumps({"vendors": [], "lines": []}))
     ok("found no vendor or products" in flash(upload(tech, [("invoice.pdf", fx("invoice.pdf"))]).text), "nothing found: told so")
     mock(text=json.dumps(ANSWER))
