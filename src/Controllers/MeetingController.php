@@ -102,6 +102,12 @@ final class MeetingController
             'users' => ClientController::users(),
             'series' => $m['series_id'] ? DB::all("SELECT id, starts_at, status FROM meetings WHERE series_id = ? ORDER BY starts_at", [$m['series_id']]) : [],
             'prep' => $client ? self::prep((int) $client['id'], $client) : null,
+            // 2.31.0 AI meeting prep (client meetings, techs and admins): the agenda AI drafted (this session's, not saved yet) and reviews waiting
+            'ai' => $client && Auth::can('tech') ? [
+                'usable' => \Align\Ai\Ai::usable('meetings'),
+                'agenda' => is_string($_SESSION['ai_agenda'][$id] ?? null) ? $_SESSION['ai_agenda'][$id] : null,
+                'waiting' => \Align\Ai\Meetings\Actions::waiting($id),
+            ] : null,
         ]);
     }
 
@@ -223,7 +229,7 @@ final class MeetingController
     }
 
     /**
-     * Edits a meeting (tech): action complete | cancel | reopen | notes, or save (the edit form). A status change
+     * Edits a meeting (tech): action complete | cancel | reopen | notes | agenda (2.31.0, the agenda only), or save (the edit form). A status change
      * happens only from the state the page offers it in: complete and cancel a scheduled meeting, reopen one that
      * isn't. The state is checked in the UPDATE itself, so a double submit or a second tab changes it once, and
      * attendees get one cancellation, not one per click; cancelling a completed meeting no longer emails them
@@ -251,6 +257,14 @@ final class MeetingController
             $inv = $action === 'cancel' ? \Align\Mail\Invites::send($id, 'cancel')
                 : ($action === 'reopen' && $m['invites_sent_at'] && $m['status'] === 'cancelled' ? \Align\Mail\Invites::send($id) : null);
             flash($inv && str_contains($inv, 'not sent') ? 'warning' : 'success', 'Meeting marked ' . $status . '.' . ($inv ? ' ' . $inv : ''));
+            redirect("/meetings/$id");
+        }
+        if ($action === 'agenda') {
+            // 2.31.0 "Use" on an agenda AI drafted (edited or not): only the agenda changes, cut as the edit form cuts it
+            DB::run('UPDATE meetings SET agenda = ? WHERE id = ?', [self::text(post('agenda'), 20000), $id]);
+            unset($_SESSION['ai_agenda']);
+            Audit::log('meeting.agenda', $m['title'] . (post('from_ai') === '1' ? ' (drafted with AI)' : ''));
+            flash('success', 'Agenda saved.');
             redirect("/meetings/$id");
         }
         if ($action === 'notes') {

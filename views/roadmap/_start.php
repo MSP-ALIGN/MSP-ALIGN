@@ -50,7 +50,7 @@ $quarter = $it['target_quarter'] ? (Plan::quarterFor((string) $it['target_quarte
               <dt class="col-sm-3 text-muted fw-normal">In the ticket</dt>
               <dd class="col-sm-9 mb-0">
                 <?= e($quarter) ?> · budget <?= e(money((float) $it['cost'])) ?> · <?= e(Roadmap::STATUSES[$it['status']][0] ?? $it['status']) ?>
-                <?php if (!empty($it['decided_by_name']) && $it['status'] !== 'declined'): ?> by <?= e($it['decided_by_name']) ?> (client portal)<?php endif; ?>
+                <?php if (!empty($it['decided_by_name']) && $it['status'] !== 'declined'): ?> by <?= e($it['decided_by_name']) ?><?= !empty($it['decided_by_portal_user_id']) ? ' (client portal)' : '' /* 2.31.0 a decision recorded from meeting notes names who recorded it */ ?><?php endif; ?>
                 <?php if ($note !== ''): ?><div class="mt-1 text-body-secondary" style="white-space: pre-line"><?= e(mb_strimwidth($note, 0, 600, '…')) ?></div><?php endif; ?>
                 <?php if ($devices): // a device project lists what it replaces; a hand-added one shows its description (the note) ?>
                   <div class="table-responsive mt-2"><table class="table table-sm mb-1 font-monospace small">

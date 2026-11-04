@@ -84,6 +84,11 @@ final class Ai extends Connector
                 'help' => 'On a client\'s Compliance page and its documents (admins and techs), with a review before any answer changes.'],
             ['name' => 'ai_feature_drafts', 'label' => 'Draft documents: fill Align\'s templates or update a client\'s documents', 'type' => 'switch', 'default' => '1',
                 'help' => 'From a compliance review and a client document\'s page (admins and techs). Every draft is a new document to check; nothing existing is changed.'],
+            // 2.31.0
+            ['name' => 'ai_feature_qbr', 'label' => 'QBR summary: write the business review\'s executive summary and top recommendations', 'type' => 'switch', 'default' => '1',
+                'help' => 'From a client\'s QBR pack (admins and techs). AI is sent numbers about the client, never names of people, contact details or device names. Never shown in the client portal.'],
+            ['name' => 'ai_feature_meetings', 'label' => 'Meeting prep: draft agendas and turn meeting notes into actions', 'type' => 'switch', 'default' => '1',
+                'help' => 'On a client meeting\'s page (admins and techs). New roadmap items, decisions and a follow-up meeting are reviewed before anything changes.'],
             ['name' => 'ai_provider', 'label' => 'Provider', 'type' => 'select', 'options' => $providers, 'default' => ''],
             ['name' => 'ai_model', 'label' => 'Model', 'type' => 'text', 'placeholder' => 'claude-sonnet-5-5', 'help' => 'The model\'s name as the provider lists it.'],
             ['name' => 'ai_api_key', 'label' => 'API key', 'type' => 'secret', 'help' => 'Belongs to the provider above: choosing another provider needs its own key. Optional for Ollama.'],

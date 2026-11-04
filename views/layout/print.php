@@ -1,7 +1,8 @@
 <?php
 /**
  * Printable report layout. Vars: $title, $reportTitle, ?$reportSubtitle, ?$client, $brand, ?$opt,
- * ?$optLabels (extra toolbar checkboxes), ?$noMasthead (QBR pack draws its own cover), ?$docPrint.
+ * ?$optLabels (extra toolbar checkboxes), ?$noMasthead (QBR pack draws its own cover), ?$docPrint,
+ * ?$toolbarLinks (2.31.0: [[same-site path, label, icon]] buttons in the toolbar, never printed).
  * Security: every value is escaped for its context: e() for HTML, $cssStr for the CSS string in @page, the brand
  * colour is a validated #rrggbb. The toolbar keeps the current query's string fields as escaped hidden inputs.
  */
@@ -51,6 +52,7 @@ $cssStr = fn(string $s) => '"' . str_replace(['\\', '"', '<'], ['\\\\', '\\"', '
         </select>
       <?php endif; ?>
     </form>
+    <?php foreach ($toolbarLinks ?? [] as [$href, $label, $icon]): ?><a class="btn btn-sm btn-light" href="<?= e($href) ?>"><i class="fas <?= e($icon) ?> me-1"></i><?= e($label) ?></a><?php endforeach; ?>
     <button class="btn btn-sm btn-primary" data-print><i class="fas fa-file-pdf me-1"></i>Print / Save as PDF</button>
   </div>
 </div>

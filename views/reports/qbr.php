@@ -18,7 +18,8 @@ use Align\View;
  *   A Full inventory           appendix
  * @var array $client, $brand, $quarter, $opt, $provider, $people, $highlights
  * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed),
- *   $hl (2.5.0 health headline: h, since), $sec (2.7.0 ReportData::security()), $ven (2.10.0 ReportData::vendors())
+ *   $hl (2.5.0 health headline: h, since), $sec (2.7.0 ReportData::security()), $ven (2.10.0 ReportData::vendors()),
+ *   ?string $aiSummary (2.31.0 the saved executive summary as safe HTML from Summary::html(); staff packs only)
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -83,6 +84,9 @@ foreach ($sections as $k => $_) {
 <section class="rsection page-break">
   <?= Ui::head('Executive summary', '01', $client['name']) ?>
   <p class="lede">Where your technology stands today, what's coming up, and the decisions we recommend for the next few quarters.</p>
+  <?php if (!empty($aiSummary)): // 2.31.0 already escaped and limited to its own tags by Summary::html() ?>
+    <div class="ai-summary"><?= $aiSummary ?></div>
+  <?php endif; ?>
   <?php if (!empty($hl) && $hl['h']['score'] !== null): // 2.5.0 the health headline ?>
     <?= View::fetch('reports/sections/health', $hl) ?>
   <?php endif; ?>

@@ -91,6 +91,10 @@ $r->post('/clients/{id}/ai-reviews/{rid}/step', [\Align\Controllers\AiReviewCont
 $r->post('/clients/{id}/ai-reviews/{rid}/draft', [\Align\Controllers\AiDraftController::class, 'fromReview']);
 $r->get('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'form']);
 $r->post('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'update']);
+// 2.31.0 the QBR executive summary (written with AI or by hand; the staff QBR pack prints it, never the portal's)
+$r->get('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summary']);
+$r->post('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summarySave']);
+$r->post('/clients/{id}/qbr-summary/ai', [\Align\Controllers\AiMeetingController::class, 'summaryWrite']);
 $r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
 $r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
 $r->get('/vendors/templates/{id}/form', [\Align\Controllers\FormController::class, 'vendorTemplate']);
@@ -196,6 +200,11 @@ $r->get('/meetings/{id}', [MeetingController::class, 'show']);
 $r->post('/meetings/{id}', [MeetingController::class, 'update']);
 $r->post('/meetings/{id}/delete', [MeetingController::class, 'delete']);
 $r->get('/meetings/{id}/ics', [MeetingController::class, 'ics']);
+// 2.31.0 AI meeting prep: draft an agenda; turn the notes into roadmap items, decisions and a follow-up (reviewed first)
+$r->post('/meetings/{id}/ai-agenda', [\Align\Controllers\AiMeetingController::class, 'agenda']);
+$r->post('/meetings/{id}/ai-actions', [\Align\Controllers\AiMeetingController::class, 'actions']);
+$r->get('/meetings/{id}/ai-actions/{aid}', [\Align\Controllers\AiMeetingController::class, 'actionsShow']);
+$r->post('/meetings/{id}/ai-actions/{aid}', [\Align\Controllers\AiMeetingController::class, 'actionsUpdate']);
 $r->get('/calendar', [MeetingController::class, 'calendar']);
 $r->get('/calendar/events', [MeetingController::class, 'events']);
 $r->post('/calendar/feed', [MeetingController::class, 'feedToken']);

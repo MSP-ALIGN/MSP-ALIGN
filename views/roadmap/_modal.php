@@ -33,7 +33,7 @@ $planEnd = $planQs[count($planQs) - 1]['end'];
         <div class="modal-body">
           <?php if ($it && !empty($it['decided_by_name'])): ?>
             <div class="alert alert-<?= $it['status'] === 'declined' ? 'secondary' : 'success' ?> small py-2"><i class="fas fa-door-open me-1"></i>
-              <b><?= $it['status'] === 'declined' ? 'Declined' : 'Approved' ?> by <?= e($it['decided_by_name']) ?></b> (client portal) on <?= e(fmt_date($it['decided_at'])) ?>.
+              <b><?= $it['status'] === 'declined' ? 'Declined' : 'Approved' ?> by <?= e($it['decided_by_name']) ?></b><?= !empty($it['decided_by_portal_user_id']) ? ' (client portal)' : '' /* 2.31.0 or recorded from meeting notes */ ?> on <?= e(fmt_date($it['decided_at'])) ?>.
               <?php if ($it['decision_comment']): ?><div class="mt-1">&ldquo;<?= e($it['decision_comment']) ?>&rdquo;</div><?php endif; ?></div>
           <?php endif; ?>
           <?php if ($pickClients && !$it): ?>

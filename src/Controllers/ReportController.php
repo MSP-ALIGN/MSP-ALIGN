@@ -187,7 +187,12 @@ final class ReportController
         Auth::require();
         $client = ClientController::load($id);
         $opt = ['inventory' => query('inventory', '0') === '1', 'missed' => query('missed', '1') === '1'] + self::options() + self::qbrSections(true);
-        self::renderQbr($client, $opt, array_keys(self::QBR_SECTIONS));
+        // 2.31.0 the executive summary saved for this client (QBR summary page): a toolbar switch only when there is one
+        $summary = \Align\Ai\Meetings\Summary::load($id);
+        if ($summary) {
+            $opt['ai_summary'] = query('ai_summary', '1') === '1';
+        }
+        self::renderQbr($client, $opt, array_keys(self::QBR_SECTIONS), summary: $summary);
     }
 
     /** QBR sections, in the order the meeting runs (see views/reports/qbr.php). */
@@ -212,10 +217,14 @@ final class ReportController
      * the compliance score and the frameworks below 80% on the first page).
      * 2.5.0: the health headline opens the executive summary (s_health); $portal gives the portal's version of it
      * (no alignment area, no lines; the portal passes s_health only when the client's portal_health switch is on).
+     * 2.31.0 $summary: the staff pack's executive summary (a qbr_summaries row), printed at the top of the summary page
+     * when $opt['ai_summary'] is on. Never in the client portal: dropped when $portal or IS_PORTAL, whatever is passed.
      */
-    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true, ?array $changeParts = null, bool $portal = false): void
+    public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true, ?array $changeParts = null, bool $portal = false, ?array $summary = null): void
     {
         $id = (int) $client['id'];
+        $staff = !$portal && !(defined('IS_PORTAL') && IS_PORTAL);
+        $summary = $staff && !empty($opt['ai_summary']) && $summary && (int) $summary['client_id'] === $id ? $summary : null;
         $hl = null;
         if (in_array('s_health', $allowed, true) && !empty($opt['s_health'])) {
             $h = $portal ? \Align\Health\Health::forPortal(\Align\Health\Health::today($client)) : \Align\Health\Health::forClient($client);
@@ -280,7 +289,10 @@ final class ReportController
             'noMasthead' => true,
             'client' => $client,
             'opt' => array_filter($opt, fn($v, $k) => !str_starts_with($k, 's_') || in_array($k, $allowed, true), ARRAY_FILTER_USE_BOTH),
-            'optLabels' => array_intersect_key(self::QBR_SECTIONS, array_flip($allowed)) + ['missed' => 'Missed tickets'],
+            'optLabels' => array_intersect_key(self::QBR_SECTIONS, array_flip($allowed)) + ['missed' => 'Missed tickets'] + ($staff ? ['ai_summary' => 'Summary'] : []),
+            // 2.31.0 staff only: the summary as safe HTML (Summary::html escapes it), and the link to write or edit it
+            'aiSummary' => $summary ? \Align\Ai\Meetings\Summary::html((string) $summary['body']) : null,
+            'toolbarLinks' => $staff && Auth::can('tech') ? [["/clients/$id/qbr-summary", 'Executive summary', 'fa-wand-magic-sparkles']] : [],
             'brand' => self::branding($client),
             'quarter' => $q,
             'on' => $on,

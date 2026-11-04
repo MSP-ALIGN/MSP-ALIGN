@@ -76,6 +76,12 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .report h3, .sub-head { font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); margin: 1rem 0 .45rem; break-after: avoid; page-break-after: avoid; }
 .report p { margin: 0 0 .5rem; }
 .lede { font-size: .92rem; color: var(--ink-2); margin-bottom: .8rem !important; max-width: 6.4in; }
+/* 2.31.0 the QBR executive summary written for the client (Summary::html) */
+.ai-summary { font-size: .9rem; max-width: 6.6in; margin-bottom: .9rem; break-inside: auto; }
+.ai-summary p { margin: 0 0 .55rem; }
+.ai-summary h4.ai-summary-head { font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); margin: .8rem 0 .35rem; }
+.ai-summary ol, .ai-summary ul { margin: 0 0 .55rem; padding-left: 1.3rem; }
+.ai-summary li { margin-bottom: .25rem; }
 .footnote { font-size: .72rem; color: var(--ink-3); margin-top: .4rem !important; }
 
 /* ---- KPI tiles ---- */

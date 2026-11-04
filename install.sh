@@ -618,6 +618,13 @@ Header always unset X-Powered-By
     </IfModule>
 </LocationMatch>
 
+# AI QBR summaries and meeting prep (2.31.0): no uploads, but time for the AI provider to answer. The same as docker/apache.conf.
+<LocationMatch "^/(clients/[0-9]+/qbr-summary/ai|meetings/[0-9]+/(ai-agenda|ai-actions))$">
+    <IfModule php_module>
+        php_value max_execution_time 300
+    </IfModule>
+</LocationMatch>
+
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
 <Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"

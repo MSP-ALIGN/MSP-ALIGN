@@ -1,8 +1,10 @@
 <?php
 /**
  * A meeting's page. @var array $m (meeting with client_name, owner_name); ?array $client; array $clients, $users,
- * $series; ?array $prep. Everything from the meeting is staff-typed or synced text and is escaped; the edit, status
- * and delete forms show for techs and admins only (the controller checks the role again).
+ * $series; ?array $prep; ?array $ai (2.31.0: usable, agenda (AI's suggestion, not saved), waiting reviews; null for
+ * viewers and internal meetings). Everything from the meeting is staff-typed or synced text and is escaped, and so is
+ * AI's suggested agenda; the edit, status, delete and AI forms show for techs and admins only (the controllers check
+ * the role again).
  */
 use Align\Auth;
 use Align\Meetings\Meetings;
@@ -94,13 +96,44 @@ $past = strtotime($m['ends_at']) < time();
     <?php endif; ?>
   </div>
   <div class="col-lg-8">
-    <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-list-ol me-2"></i>Agenda</h3></div>
-      <div class="card-body"><?= $m['agenda'] ? '<div class="pre-line">' . e($m['agenda']) . '</div>' : '<span class="text-muted">No agenda yet.</span>' ?></div>
+    <div class="card card-dark" id="ai-agenda">
+      <div class="card-header py-2 d-flex align-items-center"><h3 class="card-title mt-1 me-auto"><i class="fas fa-fw fa-list-ol me-2"></i>Agenda</h3>
+        <?php if (!empty($ai['usable'])): // 2.31.0 ?>
+          <form method="post" action="/meetings/<?= (int) $m['id'] ?>/ai-agenda" class="ms-2" data-ai-upload><?= csrf_field() ?>
+            <span class="small d-none me-1" data-ai-wait><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Drafting…</span>
+            <button class="btn btn-xs btn-outline-light" data-ai-submit><i class="fas fa-wand-magic-sparkles me-1"></i>Draft agenda with AI</button></form>
+        <?php endif; ?>
+      </div>
+      <?php if (!empty($ai['agenda'])): // 2.31.0 AI's suggestion next to the current agenda; Use saves the (edited) text ?>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-2"><div class="fw-bold small mb-1">Current agenda</div>
+              <?= $m['agenda'] ? '<div class="pre-line small border rounded p-2">' . e($m['agenda']) . '</div>' : '<span class="text-muted small">No agenda yet.</span>' ?></div>
+            <div class="col-md-6 mb-2"><div class="fw-bold small mb-1"><i class="fas fa-wand-magic-sparkles text-secondary me-1"></i>Suggested by AI</div>
+              <form method="post" action="/meetings/<?= (int) $m['id'] ?>"><?= csrf_field() ?><input type="hidden" name="action" value="agenda"><input type="hidden" name="from_ai" value="1">
+                <textarea name="agenda" class="form-control form-control-sm mb-2" rows="12" aria-label="Suggested agenda"><?= e($ai['agenda']) ?></textarea>
+                <button class="btn btn-primary btn-sm"<?= $m['agenda'] ? ' data-confirm="Replace the current agenda with this one?" data-confirm-ok="Use"' : '' ?>><i class="fas fa-check me-1"></i>Use</button>
+                <span class="small text-muted ms-2">Check it first: AI can be wrong.</span>
+              </form></div>
+          </div>
+        </div>
+      <?php else: ?>
+        <div class="card-body"><?= $m['agenda'] ? '<div class="pre-line">' . e($m['agenda']) . '</div>' : '<span class="text-muted">No agenda yet.</span>' ?></div>
+      <?php endif; ?>
     </div>
     <div class="card card-dark">
-      <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-note-sticky me-2"></i>Meeting notes &amp; action items</h3></div>
+      <div class="card-header py-2 d-flex align-items-center"><h3 class="card-title mt-1 me-auto"><i class="fas fa-fw fa-note-sticky me-2"></i>Meeting notes &amp; action items</h3>
+        <?php if (!empty($ai['usable']) && trim((string) $m['notes']) !== ''): // 2.31.0 ?>
+          <form method="post" action="/meetings/<?= (int) $m['id'] ?>/ai-actions" class="ms-2" data-ai-upload><?= csrf_field() ?>
+            <span class="small d-none me-1" data-ai-wait><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Reading the notes…</span>
+            <button class="btn btn-xs btn-outline-light" data-ai-submit><i class="fas fa-wand-magic-sparkles me-1"></i>Turn notes into actions</button></form>
+        <?php endif; ?>
+      </div>
       <div class="card-body">
+        <?php if (!empty($ai['usable'])): // 2.31.0 ?><p class="small text-muted mb-2"><i class="fas fa-circle-info me-1"></i>The AI buttons send this meeting's notes (and the previous meeting's) to your AI provider as written.</p><?php endif; ?>
+        <?php foreach ($ai['waiting'] ?? [] as $w): // 2.31.0 reviews not applied yet ?>
+          <div class="alert alert-info py-1 small"><i class="fas fa-wand-magic-sparkles me-1"></i><a href="/meetings/<?= (int) $m['id'] ?>/ai-actions/<?= (int) $w['id'] ?>">Actions from these notes</a> are waiting for review (<?= e($w['created_name'] ?: '—') ?>, <?= e(rel_time($w['created_at'])) ?>).</div>
+        <?php endforeach; ?>
         <?php if ($canEdit): ?>
           <form method="post" action="/meetings/<?= (int) $m['id'] ?>">
             <?= csrf_field() ?><input type="hidden" name="action" value="notes">

@@ -192,6 +192,12 @@ final class SyncRunner
         } catch (\Throwable $e) {
             error_log('[msp-align] AI compliance review cleanup: ' . $e->getMessage());
         }
+        // 2.31.0 actions AI found in meeting notes, left for 14 days without a review
+        try {
+            \Align\Ai\Meetings\Actions::cleanup();
+        } catch (\Throwable $e) {
+            error_log('[msp-align] AI meeting actions cleanup: ' . $e->getMessage());
+        }
         $status = !$this->errors ? 'success' : (count($this->summary) > count($this->errors) ? 'partial' : 'failed');
         $this->info("Sync finished: $status");
         $this->save($status, true);

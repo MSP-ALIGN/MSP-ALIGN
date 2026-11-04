@@ -6,6 +6,7 @@ $backup = \Align\Backup\Backup::has($client);
 $sla = !empty($client['psa_id']) && \Align\Service\Sla::enabled();
 $reports = [
     ['fa-book-open', 'Business review pack (QBR)', 'Everything for a review meeting in one document: roadmap, budget, lifecycle, security and service levels.', "/clients/$cid/report/qbr", true],
+    ...(\Align\Auth::can('tech') ? [['fa-wand-magic-sparkles', 'QBR executive summary', 'A few paragraphs for the business owner and the top 3 recommendations, written with AI or by hand, printed at the top of the QBR pack.', "/clients/$cid/qbr-summary", false]] : []), // 2.31.0
     ['fa-desktop', 'Asset & lifecycle report', 'Every device with its age, warranty, end of life and replacement cost.', "/clients/$cid/report/assets", true],
     ['fa-file-lines', 'Asset summary', 'The same report without the device-by-device inventory.', "/clients/$cid/report/assets?inventory=0", true],
     ['fa-road', '3-year roadmap', 'Planned projects and hardware replacements by quarter.', "/clients/$cid/report/roadmap", true],
@@ -28,7 +29,7 @@ echo \Align\View::fetch('partials/page_header', [
     <li class="list-group-item d-flex align-items-center">
       <i class="fas fa-fw <?= e($icon) ?> text-secondary fa-lg me-3"></i>
       <div class="me-auto pe-3"><a class="fw-bold" href="<?= e($href) ?>"<?= $tab ? ' target="_blank"' : '' ?>><?= e($title) ?></a><div class="small text-muted"><?= e($desc) ?></div></div>
-      <a class="btn btn-sm btn-default text-nowrap" href="<?= e($href) ?>"<?= $tab ? ' target="_blank"' : '' ?>><?= $tab ? 'Open' : 'Download' ?></a>
+      <a class="btn btn-sm btn-default text-nowrap" href="<?= e($href) ?>"<?= $tab ? ' target="_blank"' : '' ?>><?= $tab || str_ends_with($href, '/qbr-summary') ? 'Open' : 'Download' ?></a>
     </li>
   <?php endforeach; ?>
 </ul></div>
