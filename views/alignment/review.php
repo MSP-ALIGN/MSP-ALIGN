@@ -2,6 +2,8 @@
 /**
  * 2.3.0 an alignment review: the open draft as a form (techs and admins) or a finished review, read-only.
  * @var array $client, $review, $groups (category => rows), $score, $lastAnswers, $indicators, $matches; ?array $last; bool $edit
+ * 2.32.0 ?array $writeup (a finished review's alignment_writeups row), bool $canWrite (techs and admins), bool $aiUsable
+ * (the AI button): the write-up is untrusted text, shown only through Summary::html() (escaped, then its own tags).
  * Every standard title, note and hint is escaped (data-* values too). The form posts only changed rows (data-post-changed);
  * the controller checks the role and every answer again.
  */
@@ -55,6 +57,35 @@ foreach ($groups as $rows) {
   </div>
   <div class="progress mt-2" style="height:6px" role="img" aria-label="Answered"><div class="progress-bar" id="al-prog" style="width: <?= $total ? (int) round($answered / $total * 100) : 0 ?>%"></div></div>
 </div>
+
+<?php if (!$draft && ($writeup || $canWrite)): // 2.32.0 the owner-facing write-up of this finished review ?>
+  <div class="card" id="writeup">
+    <div class="card-header py-2 d-flex flex-wrap align-items-center gap-2"><h3 class="card-title mt-1 me-auto"><i class="fas fa-wand-magic-sparkles text-secondary me-1"></i>Write-up for the owner</h3>
+      <?php if ($aiUsable): ?>
+        <form method="post" action="/clients/<?= $cid ?>/alignment/reviews/<?= (int) $review['id'] ?>/writeup/ai" data-ai-upload><?= csrf_field() ?>
+          <span class="small text-muted d-none me-1" data-ai-wait><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Writing… this can take a minute.</span>
+          <button class="btn btn-sm btn-primary" data-ai-submit<?= $writeup ? ' data-confirm="Write new recommendations with AI? The saved write-up stays until you save the new one." data-confirm-ok="Write"' : '' ?>><i class="fas fa-wand-magic-sparkles me-1"></i>Write recommendations with AI</button>
+        </form>
+      <?php endif; ?>
+      <?php if ($canWrite): ?>
+        <a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/alignment/reviews/<?= (int) $review['id'] ?>/writeup"><i class="fas fa-pen me-1"></i><?= $writeup ? 'Edit' : 'Write it yourself' ?></a>
+        <?php if ($writeup): ?>
+          <form method="post" action="/clients/<?= $cid ?>/alignment/reviews/<?= (int) $review['id'] ?>/writeup"><?= csrf_field() ?>
+            <button class="btn btn-sm btn-default" name="action" value="delete" data-confirm="Remove the write-up from this review?" data-confirm-ok="Remove"><i class="fas fa-trash me-1"></i>Remove</button>
+          </form>
+        <?php endif; ?>
+      <?php endif; ?>
+    </div>
+    <div class="card-body">
+      <?php if ($writeup): ?>
+        <div class="ai-summary"><?= \Align\Ai\Meetings\Summary::html((string) $writeup['body']) ?></div>
+        <div class="small text-muted mt-2">Saved by <?= e($writeup['updated_name'] ?: '—') ?> <?= e(rel_time($writeup['updated_at'])) ?><?= (int) $writeup['from_ai'] ? ' (written with AI)' : '' ?>. The QBR pack prints it in the Alignment section while this is the newest review; the client portal never shows it.</div>
+      <?php else: ?>
+        <p class="small text-muted mb-0">Recommendations for the business owner, grouped by priority, for the QBR pack's Alignment section. <?= $aiUsable ? 'AI is sent the score, the standards not met (why they matter, how you check them, the usual fix) and their roadmap projects (titles as typed): never the notes on answers or contacts\' names. <a href="/clients/' . $cid . '/alignment/reviews/' . (int) $review['id'] . '/writeup?digest=1#ai-writeup">What AI is sent</a>' : '' ?></p>
+      <?php endif; ?>
+    </div>
+  </div>
+<?php endif; ?>
 
 <form method="post" action="/clients/<?= $cid ?>/alignment/review" id="al-form" <?= $edit ? 'data-post-changed data-unsaved' : '' ?>>
   <?= csrf_field() ?>

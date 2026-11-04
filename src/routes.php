@@ -164,6 +164,10 @@ $r->get('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentControlle
 $r->post('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentController::class, 'save']);
 $r->post('/clients/{id}/alignment/review/discard', [\Align\Controllers\AlignmentController::class, 'discard']);
 $r->get('/clients/{id}/alignment/reviews/{rid}', [\Align\Controllers\AlignmentController::class, 'show']);
+// 2.32.0 a finished review's write-up for the owner (written with AI or by hand; the staff QBR pack prints it, never the portal's)
+$r->get('/clients/{id}/alignment/reviews/{rid}/writeup', [\Align\Controllers\AiAlignmentController::class, 'edit']);
+$r->post('/clients/{id}/alignment/reviews/{rid}/writeup', [\Align\Controllers\AiAlignmentController::class, 'save']);
+$r->post('/clients/{id}/alignment/reviews/{rid}/writeup/ai', [\Align\Controllers\AiAlignmentController::class, 'write']);
 $r->get('/clients/{id}/compliance', [ComplianceController::class, 'client']);
 $r->post('/clients/{id}/compliance', [ComplianceController::class, 'assign']);
 $r->get('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'checklist']);

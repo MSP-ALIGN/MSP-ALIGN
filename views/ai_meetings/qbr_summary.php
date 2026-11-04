@@ -56,7 +56,7 @@ $text = $draft ?? ($saved['body'] ?? '');
     <div class="card">
       <div class="card-header py-2"><h3 class="card-title mt-1">What AI is sent</h3></div>
       <div class="card-body small">
-        <p class="text-muted">Numbers and short labels about <?= e($client['name']) ?>: health, changes since the last review, service levels, devices, licensing, backups, security, compliance, alignment, roadmap and budget. No names of people, email addresses, phone numbers, device names or serial numbers.</p>
+        <p class="text-muted">Numbers and short labels about <?= e($client['name']) ?>: health, changes since the last review, service levels, devices, licensing, backups, security, compliance, alignment, roadmap and budget. No contacts' names, email addresses, phone numbers, device names or serial numbers. Titles your team types (projects, renewals, budget lines) are sent as written, so keep people's names out of them.</p>
         <?php if ($digest !== null): ?><pre class="small border rounded p-2 mb-0" style="white-space: pre-wrap"><?= e($digest) ?></pre>
         <?php else: ?><a href="/clients/<?= $cid ?>/qbr-summary?digest=1#ai-summary">Show it</a><?php endif; ?>
       </div>

@@ -86,9 +86,12 @@ final class Ai extends Connector
                 'help' => 'From a compliance review and a client document\'s page (admins and techs). Every draft is a new document to check; nothing existing is changed.'],
             // 2.31.0
             ['name' => 'ai_feature_qbr', 'label' => 'QBR summary: write the business review\'s executive summary and top recommendations', 'type' => 'switch', 'default' => '1',
-                'help' => 'From a client\'s QBR pack (admins and techs). AI is sent numbers about the client, never names of people, contact details or device names. Never shown in the client portal.'],
+                'help' => 'From a client\'s QBR pack (admins and techs). AI is sent numbers and short labels about the client, never contacts\' names, contact details or device names (titles your team types are sent as written). Never shown in the client portal.'],
             ['name' => 'ai_feature_meetings', 'label' => 'Meeting prep: draft agendas and turn meeting notes into actions', 'type' => 'switch', 'default' => '1',
                 'help' => 'On a client meeting\'s page (admins and techs). New roadmap items, decisions and a follow-up meeting are reviewed before anything changes.'],
+            // 2.32.0
+            ['name' => 'ai_feature_alignment', 'label' => 'Alignment write-up: recommendations for the owner from a finished alignment review', 'type' => 'switch', 'default' => '1',
+                'help' => 'On a finished alignment review (admins and techs). AI is sent the standards not met and their roadmap projects (titles as your team typed them), never the notes on answers or contacts\' names. Printed in the staff QBR pack, never in the client portal.'],
             ['name' => 'ai_provider', 'label' => 'Provider', 'type' => 'select', 'options' => $providers, 'default' => ''],
             ['name' => 'ai_model', 'label' => 'Model', 'type' => 'text', 'placeholder' => 'claude-sonnet-5-5', 'help' => 'The model\'s name as the provider lists it.'],
             ['name' => 'ai_api_key', 'label' => 'API key', 'type' => 'secret', 'help' => 'Belongs to the provider above: choosing another provider needs its own key. Optional for Ollama.'],

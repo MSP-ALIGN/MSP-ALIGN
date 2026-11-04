@@ -88,7 +88,7 @@ final class AlignmentController
         self::form($client, $r, false);
     }
 
-    /** Renders the review page for a draft ($edit) or a finished review. */
+    /** Renders the review page for a draft ($edit) or a finished review (2.32.0: with its write-up, if any). */
     private static function form(array $client, array $review, bool $edit): void
     {
         $id = (int) $client['id'];
@@ -110,6 +110,10 @@ final class AlignmentController
             'indicators' => $edit ? Alignment::indicators($devices, \Align\Backup\Backup::forClient($client, $devices) ?? (\Align\Backup\Backup::notNeeded($client) ? ['not_needed' => true] : null), // 2.26.0
                 ...[...array_reverse(\Align\M365\Security::forClient($id)), \Align\Health\SecurityChecks::indicators($id, $devices)]) : [], // 2.6.1: Microsoft 365 checks too (result, connected); 2.6.3: Google Workspace, email
             'matches' => Alignment::complianceMatches($id, $rows),
+            // 2.32.0 a finished review's write-up (any staff role reads it; techs write, edit and remove it)
+            'writeup' => $review['status'] === 'done' ? \Align\Ai\Alignment\WriteUp::load((int) $review['id']) : null,
+            'canWrite' => $review['status'] === 'done' && Auth::can('tech'),
+            'aiUsable' => $review['status'] === 'done' && Auth::can('tech') && \Align\Ai\Ai::usable('alignment'),
         ]);
     }
 

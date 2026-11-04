@@ -20,6 +20,7 @@ use Align\View;
  * @var ?array $a, $r, $bd, $comp, $lic, $bk, $sla, $al (2.3.0 alignment, staff packs only), $ch (2.4.0 what changed),
  *   $hl (2.5.0 health headline: h, since), $sec (2.7.0 ReportData::security()), $ven (2.10.0 ReportData::vendors()),
  *   ?string $aiSummary (2.31.0 the saved executive summary as safe HTML from Summary::html(); staff packs only)
+ *   ?string $alWriteup (2.32.0 the alignment review's write-up as safe HTML from Summary::html(); staff packs only)
  * @var callable $on  fn(section key): bool
  * Client-facing: everything shown is this one client's (the controller loaded it by its id) and escaped here or in
  * the section views. The executive summary uses only the sections switched on, like the rest of the pack (2.2.1).
@@ -174,7 +175,7 @@ foreach ($sections as $k => $_) {
 
 <?php if (isset($sections['alignment'])): ?>
 <div class="page-break"></div>
-<?= View::fetch('reports/sections/alignment', ['al' => $al, 'num' => $numOf['alignment'], 'company' => $provider['company'], 'client' => $client]) ?>
+<?= View::fetch('reports/sections/alignment', ['al' => $al, 'num' => $numOf['alignment'], 'company' => $provider['company'], 'client' => $client, 'writeup' => $alWriteup ?? null]) ?>
 <?php endif; ?>
 
 <?php if (isset($sections['roadmap'])): ?>

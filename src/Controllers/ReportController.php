@@ -192,6 +192,8 @@ final class ReportController
         if ($summary) {
             $opt['ai_summary'] = query('ai_summary', '1') === '1';
         }
+        // 2.32.0 the Alignment section's write-up: renderQbr keeps the switch only when the review it shows has one
+        $opt['ai_alignment'] = query('ai_alignment', '1') === '1';
         self::renderQbr($client, $opt, array_keys(self::QBR_SECTIONS), summary: $summary);
     }
 
@@ -219,6 +221,8 @@ final class ReportController
      * (no alignment area, no lines; the portal passes s_health only when the client's portal_health switch is on).
      * 2.31.0 $summary: the staff pack's executive summary (a qbr_summaries row), printed at the top of the summary page
      * when $opt['ai_summary'] is on. Never in the client portal: dropped when $portal or IS_PORTAL, whatever is passed.
+     * 2.32.0 $opt['ai_alignment']: print the write-up saved with the review the Alignment section shows (the newest
+     * finished one). Staff packs only, like the summary; its switch is offered only when that review has one.
      */
     public static function renderQbr(array $client, array $opt, array $allowed, bool $people = true, ?array $changeParts = null, bool $portal = false, ?array $summary = null): void
     {
@@ -267,6 +271,12 @@ final class ReportController
         if (!$al) {
             $allowed = array_values(array_diff($allowed, ['s_alignment']));
         }
+        // 2.32.0 that review's write-up (staff packs only; never the portal's, whatever $opt holds)
+        $alWriteup = $staff && $al && array_key_exists('ai_alignment', $opt) ? \Align\Ai\Alignment\WriteUp::load((int) $al['review']['id']) : null;
+        if (!$alWriteup || (int) $alWriteup['client_id'] !== $id) {
+            $alWriteup = null;
+            unset($opt['ai_alignment']);
+        }
         // 2.7.0 Security (Huntress, training, every automatic security check): nothing to show = no switch
         $sec = in_array('s_security', $allowed, true) ? ReportData::security($id) : null;
         if (!$sec) {
@@ -289,7 +299,7 @@ final class ReportController
             'noMasthead' => true,
             'client' => $client,
             'opt' => array_filter($opt, fn($v, $k) => !str_starts_with($k, 's_') || in_array($k, $allowed, true), ARRAY_FILTER_USE_BOTH),
-            'optLabels' => array_intersect_key(self::QBR_SECTIONS, array_flip($allowed)) + ['missed' => 'Missed tickets'] + ($staff ? ['ai_summary' => 'Summary'] : []),
+            'optLabels' => array_intersect_key(self::QBR_SECTIONS, array_flip($allowed)) + ['missed' => 'Missed tickets'] + ($staff ? ['ai_summary' => 'Summary', 'ai_alignment' => 'Alignment write-up'] : []),
             // 2.31.0 staff only: the summary as safe HTML (Summary::html escapes it), and the link to write or edit it
             'aiSummary' => $summary ? \Align\Ai\Meetings\Summary::html((string) $summary['body']) : null,
             'toolbarLinks' => $staff && Auth::can('tech') ? [["/clients/$id/qbr-summary", 'Executive summary', 'fa-wand-magic-sparkles']] : [],
@@ -298,6 +308,8 @@ final class ReportController
             'on' => $on,
             'a' => $a, 'r' => $r, 'bd' => $bd, 'comp' => $comp, 'lic' => $lic, 'bk' => $on('s_backup') ? $bk : null, 'sla' => $on('s_sla') ? $sla : null,
             'al' => $on('s_alignment') ? $al : null,
+            // 2.32.0 staff only: the alignment write-up as safe HTML (Summary::html escapes it)
+            'alWriteup' => $on('s_alignment') && $alWriteup && !empty($opt['ai_alignment']) ? \Align\Ai\Meetings\Summary::html((string) $alWriteup['body']) : null,
             'sec' => $on('s_security') ? $sec : null, // 2.7.0
             'ven' => $on('s_vendors') ? $ven : null, // 2.10.0
             'ch' => $on('s_changes') ? $ch : null,

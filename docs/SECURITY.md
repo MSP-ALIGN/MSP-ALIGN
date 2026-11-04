@@ -96,14 +96,16 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   scripts, event attributes or javascript: links) and is refused when little text is left. Every draft is a new
   document (a Draft, not shared in the portal); nothing existing is changed. Audited.
 - AI QBR summaries and meeting prep (2.31.0, techs and admins): AI is sent a digest of the client built from
-  numbers and short labels (scores, counts, totals, product and project names, dates), never names of people,
-  email addresses, phone numbers, device names or serial numbers. The digest, the previous meeting's notes and the
+  numbers and short labels (scores, counts, totals, product and project names, dates), never contacts' names,
+  email addresses, phone numbers, device names or serial numbers. Titles staff type (projects, renewals, budget lines) are sent as
+  written. The digest, the previous meeting's notes and the
   notes being turned into actions go between random-boundary markers with the never-follow-instructions rule. AI's
   text is kept as plain text and escaped wherever it is shown; the QBR summary is printed only in the staff QBR pack,
   never in the client portal's. Actions from notes are taken only as fixed fields (categories, priorities, quarters
   and decisions from Align's own lists, amounts within the columns' limits, real dates, decisions only for the
   client's own open projects that were sent), nothing changes until a person ticks it, a review is applied once, and
   a follow-up meeting is scheduled without sending invitations. Every change is audited, marked "from meeting notes".
+- AI alignment write-ups (2.32.0, techs and admins, finished reviews only): AI is sent the review's score and counts and the standards not met (title, priority, why, how, usual fix, linked roadmap projects with neutral device titles), never the notes on answers, contacts' names, contact details, device names or serials (project titles go as staff typed them). The text is kept as plain text, escaped wherever it is shown, audited, and printed only in the staff QBR pack, never in the client portal.
 
 **Links and tokens**
 

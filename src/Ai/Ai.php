@@ -52,6 +52,7 @@ final class Ai
         'drafts' => 'Draft documents', // 2.30.0 client documents drafted from templates or updated, as new drafts (Ai\Drafts)
         'qbr' => 'QBR summary', // 2.31.0 the QBR pack's executive summary, from a digest without people (Ai\Meetings\Summary)
         'meetings' => 'Meeting prep', // 2.31.0 meeting agendas, and meeting notes turned into roadmap items, decisions and a follow-up (Ai\Meetings)
+        'alignment' => 'Alignment write-up', // 2.32.0 a finished alignment review's recommendations for the owner, from a digest without notes or people (Ai\Alignment)
     ];
 
     /** Tokens reserved per PDF page sent as a file (a page is read as text and as an image: about 1,500–3,000). */
