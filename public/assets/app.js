@@ -2001,3 +2001,17 @@ document.addEventListener('paste', (ev) => {
   input.files = dt.files;
   input.dispatchEvent(new Event('change', { bubbles: true })); // feedbackFile: the hint and the size limit
 });
+
+// ---- 2.29.0 Read a document with AI: show that it's working while the provider reads (it can take a minute), and
+// the button can't be pressed twice; on the review page, "tick all" for a group of rows
+document.addEventListener('submit', (ev) => {
+  const f = ev.target;
+  if (!(f instanceof HTMLFormElement) || !f.matches('[data-ai-upload]') || ev.defaultPrevented) return;
+  f.querySelector('[data-ai-submit]').disabled = true;
+  f.querySelector('[data-ai-wait]')?.classList.remove('d-none');
+});
+document.addEventListener('change', (ev) => {
+  const all = ev.target.closest?.('[data-ai-all]');
+  if (!all) return;
+  all.closest('table')?.querySelectorAll('input[name="rows[]"]:not(:disabled)').forEach((c) => { c.checked = all.checked; });
+});

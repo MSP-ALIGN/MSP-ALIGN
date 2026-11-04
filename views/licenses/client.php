@@ -15,6 +15,7 @@ $t = $totals;
   <h1 class="h4 mb-0 me-auto"><i class="fas fa-key text-secondary me-2"></i>Licensing</h1>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
     <?php if ($retiredCount): ?><a class="btn btn-default" href="?retired=<?= $showRetired ? '0' : '1' ?>"><?= $showRetired ? 'Hide' : 'Show' ?> retired (<?= (int) $retiredCount ?>)</a><?php endif; ?>
+    <?php if (Auth::can('tech') && \Align\Ai\Ai::usable('documents')): /* 2.29.0 */ ?><a class="btn btn-default" href="/clients/<?= $cid ?>/ai-documents?from=licenses"><i class="fas fa-wand-magic-sparkles me-1"></i>Read a document</a><?php endif; ?>
     <?php if (Auth::can('tech')): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-license"><i class="fas fa-plus me-1"></i>Add license</button><?php endif; ?>
   </div>
 </div>

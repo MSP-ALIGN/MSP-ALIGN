@@ -47,7 +47,23 @@ final class Ai
     /** What AI is used for (the usage table's feature column), by key. Later features add theirs here. */
     public const FEATURES = [
         'test' => 'Connection test',
+        'documents' => 'Read documents', // 2.29.0 vendor invoices, quotes and contracts into vendors and licenses (Ai\Documents)
     ];
+
+    /** Tokens reserved per PDF page sent as a file (a page is read as text and as an image: about 1,500–3,000). */
+    private const PDF_PAGE_TOKENS = 3000;
+
+    /** Whether a feature (other than the test) is switched on under Integrations → AI (ai_feature_<key>, on by default). */
+    public static function featureOn(string $feature): bool
+    {
+        return $feature === 'test' || Settings::get('ai_feature_' . $feature, '1') === '1';
+    }
+
+    /** Whether $feature can be used now: AI on (enabled()) and the feature switched on. */
+    public static function usable(string $feature): bool
+    {
+        return self::enabled() && self::limit() > 0 && self::featureOn($feature);
+    }
 
     /** The monthly limit when none is saved: a million tokens. */
     public const DEFAULT_LIMIT = 1_000_000;
@@ -146,12 +162,14 @@ final class Ai
 
     /**
      * Sends one request for $feature (a FEATURES key) and returns the answer's text and token counts. $maxOutput caps
-     * the answer. $switchOk: send even while AI is switched off (only the connection test; the limit still applies). Throws AiException when AI can't be used (whyOff()), when the request could go past the monthly
+     * the answer. $switchOk: send even while AI is switched off (only the connection test; the limit still applies).
+     * $pdfs: PDFs sent as files (['name', 'bytes', 'pages']), only to a provider that readsPdf(); each page reserves
+     * PDF_PAGE_TOKENS. Throws AiException when AI can't be used (whyOff()), when the request could go past the monthly
      * limit ($e->limit), or when the provider fails (recorded with its message).
      *
      * @return array{text:string, input:int, output:int}
      */
-    public static function ask(string $feature, string $system, string $user, int $maxOutput = 1024, bool $switchOk = false): array
+    public static function ask(string $feature, string $system, string $user, int $maxOutput = 1024, bool $switchOk = false, array $pdfs = []): array
     {
         if (!isset(self::FEATURES[$feature])) {
             throw new \InvalidArgumentException("Unknown AI feature $feature");
@@ -160,10 +178,17 @@ final class Ai
         if (($why = self::whyOff($switchOk)) !== null) {
             throw new AiException($why);
         }
+        if (!self::featureOn($feature)) {
+            throw new AiException('This AI feature is turned off. An admin can turn it on under Integrations → AI.');
+        }
         $provider = self::provider();
+        if ($pdfs && !$provider->readsPdf()) {
+            throw new \InvalidArgumentException($provider->name() . ' takes no PDF files: send their text');
+        }
         $model = self::model();
         $maxOutput = max(1, min(64_000, $maxOutput));
-        $reserve = (int) ceil((strlen($system) + strlen($user)) / 3) + self::OVERHEAD + $maxOutput;
+        $reserve = (int) ceil((strlen($system) + strlen($user)) / 3) + self::OVERHEAD + $maxOutput
+            + array_sum(array_map(fn($p) => max(1, (int) ($p['pages'] ?? 1)) * self::PDF_PAGE_TOKENS, $pdfs));
         $u = Auth::user();
         $month = self::month();
 
@@ -195,7 +220,7 @@ final class Ai
         }
 
         try {
-            $r = $provider->ask($model, $system, $user, $maxOutput);
+            $r = $provider->ask($model, $system, $user, $maxOutput, $pdfs);
         } catch (\Throwable $e) {
             $msg = $e instanceof AiException ? $e->getMessage() : $provider->name() . ' failed: ' . safe_error($e);
             DB::update('ai_usage', ['status' => 'error', 'error' => mb_substr($msg, 0, 300), 'finished_at' => date('Y-m-d H:i:s')], ['id' => $id]);

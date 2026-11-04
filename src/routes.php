@@ -76,6 +76,11 @@ $r->get('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'c
 $r->post('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'create']);
 $r->post('/clients/{id}/domains/check', [\Align\Controllers\VendorController::class, 'checkDomains']); // 2.10.0
 $r->get('/vendors', [\Align\Controllers\VendorController::class, 'index']);
+// 2.29.0 AI document reading on a client's Licensing and Vendors pages
+$r->get('/clients/{id}/ai-documents', [\Align\Controllers\AiDocumentController::class, 'index']);
+$r->post('/clients/{id}/ai-documents', [\Align\Controllers\AiDocumentController::class, 'upload']);
+$r->get('/clients/{id}/ai-documents/{doc}', [\Align\Controllers\AiDocumentController::class, 'show']);
+$r->post('/clients/{id}/ai-documents/{doc}', [\Align\Controllers\AiDocumentController::class, 'update']);
 $r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
 $r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
 $r->get('/vendors/templates/{id}/form', [\Align\Controllers\FormController::class, 'vendorTemplate']);

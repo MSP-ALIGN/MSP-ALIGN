@@ -77,6 +77,8 @@ final class Ai extends Connector
         }
         return [
             ['name' => 'ai_enabled', 'label' => 'Use AI in Align', 'type' => 'switch', 'default' => '0', 'help' => 'Off: no AI features show and nothing is sent. The connection test works either way.'],
+            ['name' => 'ai_feature_documents', 'label' => 'Read documents: vendor invoices, quotes and contracts into vendors and licenses', 'type' => 'switch', 'default' => '1',
+                'help' => 'On a client\'s Licensing and Vendors pages (admins and techs), with a review before anything changes.'],
             ['name' => 'ai_provider', 'label' => 'Provider', 'type' => 'select', 'options' => $providers, 'default' => ''],
             ['name' => 'ai_model', 'label' => 'Model', 'type' => 'text', 'placeholder' => 'claude-sonnet-5-5', 'help' => 'The model\'s name as the provider lists it.'],
             ['name' => 'ai_api_key', 'label' => 'API key', 'type' => 'secret', 'help' => 'Belongs to the provider above: choosing another provider needs its own key. Optional for Ollama.'],

@@ -606,6 +606,17 @@ Header always unset X-Powered-By
     </IfModule>
 </LocationMatch>
 
+# AI document reading: up to 5 files of 10 MB in one upload, and time for the AI provider to answer (2.29.0).
+# The same as docker/apache.conf.
+<LocationMatch "^/clients/[0-9]+/ai-documents$">
+    LimitRequestBody 57671680
+    <IfModule php_module>
+        php_value upload_max_filesize 11M
+        php_value post_max_size 52M
+        php_value max_execution_time 300
+    </IfModule>
+</LocationMatch>
+
 # Static files: page links carry ?v=<version>, so browsers can keep them for 30 days
 <Directory /opt/msp-align/public/assets>
     Header set Cache-Control "public, max-age=2592000"

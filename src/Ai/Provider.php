@@ -22,13 +22,17 @@ interface Provider
     /** Name for people ("Claude (Anthropic)"). */
     public function name(): string;
 
+    /** 2.29.0 Whether PDFs can be sent as they are (the provider reads the pages itself, scans included); else Align sends their text. */
+    public function readsPdf(): bool;
+
     /**
      * Sends one request: $system (Align's own instructions) and $user (the material), with at most $maxOutput tokens
-     * in the answer. Returns the answer's text and the tokens the provider counted for it (input includes cached and
-     * system tokens; output includes any reasoning tokens), so the monthly limit counts what the provider bills.
+     * in the answer. $pdfs: PDFs sent as files, each ['name' => …, 'bytes' => …], only when readsPdf(). Returns the
+     * answer's text and the tokens the provider counted for it (input includes cached and system tokens; output
+     * includes any reasoning tokens), so the monthly limit counts what the provider bills.
      *
      * @return array{text:string, input:int, output:int}
      * @throws AiException with a message an admin can act on (wrong key, unknown model, rate limit)
      */
-    public function ask(string $model, string $system, string $user, int $maxOutput): array;
+    public function ask(string $model, string $system, string $user, int $maxOutput, array $pdfs = []): array;
 }

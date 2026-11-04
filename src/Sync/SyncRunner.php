@@ -180,6 +180,12 @@ final class SyncRunner
             $this->step("Write warranty dates to $psaName", fn() => $this->writeBack($psa));
         }
 
+        // 2.29.0 AI document reviews left for 14 days are discarded and their files deleted (not a step: nothing to report)
+        try {
+            \Align\Ai\Documents\Documents::cleanup();
+        } catch (\Throwable $e) {
+            error_log('[msp-align] AI document cleanup: ' . $e->getMessage());
+        }
         $status = !$this->errors ? 'success' : (count($this->summary) > count($this->errors) ? 'partial' : 'failed');
         $this->info("Sync finished: $status");
         $this->save($status, true);

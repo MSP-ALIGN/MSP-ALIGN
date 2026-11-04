@@ -25,12 +25,22 @@ class OpenAi extends Base
     /** The field that caps the answer's length (OpenAI's current name for it). */
     protected function maxField(): string { return 'max_completion_tokens'; }
 
-    /** See Provider::ask(). */
-    public function ask(string $model, string $system, string $user, int $maxOutput): array
+    /** OpenAI reads PDFs itself (file parts); Grok overrides this. */
+    public function readsPdf(): bool
     {
+        return true;
+    }
+
+    /** See Provider::ask(). PDFs go first as file parts (a data: URL). */
+    public function ask(string $model, string $system, string $user, int $maxOutput, array $pdfs = []): array
+    {
+        $parts = [];
+        foreach ($pdfs as $p) {
+            $parts[] = ['type' => 'file', 'file' => ['filename' => $p['name'], 'file_data' => 'data:application/pdf;base64,' . base64_encode($p['bytes'])]];
+        }
         $j = $this->post($this->base() . '/v1/chat/completions', ['Authorization' => 'Bearer ' . $this->apiKey()], [
             'model' => $model, $this->maxField() => $maxOutput,
-            'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]],
+            'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $parts ? [...$parts, ['type' => 'text', 'text' => $user]] : $user]],
         ]);
         $text = $j['choices'][0]['message']['content'] ?? '';
         $u = is_array($j['usage'] ?? null) ? $j['usage'] : [];

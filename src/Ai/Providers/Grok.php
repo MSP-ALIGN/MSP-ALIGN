@@ -19,6 +19,12 @@ final class Grok extends OpenAi
     /** xAI's API. */
     protected function host(): string { return 'https://api.x.ai'; }
 
+    /** Align sends Grok a PDF's text (its Chat Completions take no PDF files). */
+    public function readsPdf(): bool
+    {
+        return false;
+    }
+
     /** xAI takes the classic name. */
     protected function maxField(): string { return 'max_tokens'; }
 }

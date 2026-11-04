@@ -84,6 +84,35 @@ final class Files
             'file_size' => $size, 'file_hash' => hash_file('sha256', self::dir() . '/' . $name)];
     }
 
+    /**
+     * 2.29.0 Keeps a file Align already has in memory (an original AI read: a PDF, Word, Excel or CSV file, or one
+     * attached to an email) as a document file: the same checks as store() (size, a TYPES extension, content that
+     * matches it) and a new random name. Returns store()'s fields, or null when the file isn't one that can be kept.
+     */
+    public static function adopt(string $bytes, string $name, string $ext): ?array
+    {
+        $ext = strtolower($ext);
+        if ($bytes === '' || strlen($bytes) > self::MAX || !isset(self::TYPES[$ext]) || in_array($ext, ['png', 'jpg', 'doc', 'xls'], true)) {
+            return null;
+        }
+        if (!is_dir(self::dir()) && !mkdir(self::dir(), 0750, true) && !is_dir(self::dir())) {
+            throw new \RuntimeException('Could not create the documents folder.');
+        }
+        $file = 'doc-' . bin2hex(random_bytes(8)) . '.' . $ext;
+        $path = self::dir() . '/' . $file;
+        if (file_put_contents($path, $bytes, LOCK_EX) !== strlen($bytes)) {
+            @unlink($path);
+            throw new \RuntimeException('Could not save the file.');
+        }
+        @chmod($path, 0640);
+        if (!self::matches($path, $ext)) {
+            @unlink($path);
+            return null;
+        }
+        $orig = trim(preg_replace('/[^\w .()&,+-]/u', '', mb_scrub(basename(str_replace('\\', '/', $name)), 'UTF-8')) ?? '');
+        return ['file_name' => $file, 'file_orig' => mb_substr($orig ?: 'file.' . $ext, 0, 190), 'file_type' => $ext, 'file_size' => strlen($bytes), 'file_hash' => hash('sha256', $bytes)];
+    }
+
     /** Whether the file's content is what its extension says (see the class comment). */
     public static function matches(string $path, string $ext): bool
     {

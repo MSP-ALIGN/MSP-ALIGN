@@ -791,6 +791,30 @@ final class PdfDoc
         return $out;
     }
 
+    /**
+     * 2.29.0 One stream's data, decoded (for reading a font's ToUnicode map or a form XObject's content), or null
+     * when it uses a compression Align can't decode.
+     *
+     * SECURITY: the stream comes from the untrusted file. Its decoded bytes count toward the same per-stream
+     * (MAX_STREAM) and whole-file (MAX_TOTAL) budget as pageContent(), so a stream referenced from many fonts or
+     * pages can't be materialised without limit. Throws InvalidArgumentException when that limit is hit.
+     */
+    public function streamData(PdfStream $s): ?string
+    {
+        try {
+            $data = $this->decode($s);
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Throwable) {
+            return null;
+        }
+        $this->contentBytes += strlen($data);
+        if (strlen($data) > self::MAX_STREAM || $this->contentBytes > self::MAX_TOTAL) {
+            throw new \InvalidArgumentException('This PDF is too large to read. Save it again as a PDF (for example "Save as PDF" in Word) and upload that.');
+        }
+        return $data;
+    }
+
     /** The root of the page tree: [reference, dictionary]. */
     public function pagesRoot(): array
     {

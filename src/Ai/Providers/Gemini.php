@@ -23,8 +23,14 @@ final class Gemini extends Base
     /** Google's API. */
     protected function host(): string { return 'https://generativelanguage.googleapis.com'; }
 
-    /** See Provider::ask(). The answer is the first candidate's text parts joined. */
-    public function ask(string $model, string $system, string $user, int $maxOutput): array
+    /** Gemini reads PDFs itself (inline data). */
+    public function readsPdf(): bool
+    {
+        return true;
+    }
+
+    /** See Provider::ask(). PDFs go first as inline data. The answer is the first candidate's text parts joined. */
+    public function ask(string $model, string $system, string $user, int $maxOutput, array $pdfs = []): array
     {
         $model = preg_replace('#^models/#', '', $model) ?? '';
         if (!preg_match('/^[A-Za-z0-9._-]+$/', $model)) {
@@ -32,7 +38,7 @@ final class Gemini extends Base
         }
         $j = $this->post($this->base() . '/v1beta/models/' . rawurlencode($model) . ':generateContent', ['x-goog-api-key' => $this->apiKey()], [
             'systemInstruction' => ['parts' => [['text' => $system]]],
-            'contents' => [['role' => 'user', 'parts' => [['text' => $user]]]],
+            'contents' => [['role' => 'user', 'parts' => [...array_map(fn($p) => ['inline_data' => ['mime_type' => 'application/pdf', 'data' => base64_encode($p['bytes'])]], $pdfs), ['text' => $user]]]],
             'generationConfig' => ['maxOutputTokens' => $maxOutput],
         ]);
         $text = '';

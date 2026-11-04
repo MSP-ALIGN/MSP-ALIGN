@@ -40,8 +40,8 @@ final class Ollama extends Base
         return $u;
     }
 
-    /** See Provider::ask(). */
-    public function ask(string $model, string $system, string $user, int $maxOutput): array
+    /** See Provider::ask(). Ollama takes no PDF files ($pdfs is always empty: readsPdf() is false, so Align sends their text). */
+    public function ask(string $model, string $system, string $user, int $maxOutput, array $pdfs = []): array
     {
         $key = Settings::secret('ai_api_key');
         $j = $this->post($this->base() . '/api/chat', $key ? ['Authorization' => 'Bearer ' . $key] : [], [

@@ -1,0 +1,42 @@
+From: Northwind Backup Billing <billing@northwind-backup.example>
+To: office@cedarridge-dental.example
+Subject: Your Northwind Backup renewal (account NB-55120)
+Date: Mon, 02 Nov 2026 09:15:00 -0800
+Message-ID: <renewal-55120@northwind-backup.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="nb-boundary-1"
+
+--nb-boundary-1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello,
+
+Your Northwind Backup plan renews on 2026-11-01 for 12 months. The invoice=
+ is attached.
+Questions: support@northwind-backup.example or (555) 010-2233.
+
+Northwind Backup Co.
+--nb-boundary-1
+Content-Type: application/pdf; name="invoice.pdf"
+Content-Disposition: attachment; filename="invoice.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4K
+ZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFs0IDAgUl0gL0NvdW50IDEgPj4K
+ZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAv
+SGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nID4+CmVuZG9iago0IDAgb2JqCjw8
+IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0gL1Jlc291
+cmNlcyA8PCAvRm9udCA8PCAvRjEgMyAwIFIgPj4gPj4gL0NvbnRlbnRzIDUgMCBSID4+CmVuZG9i
+ago1IDAgb2JqCjw8IC9MZW5ndGggMzM0IC9GaWx0ZXIgL0ZsYXRlRGVjb2RlID4+CnN0cmVhbQp4
+nG1RXW+CMBR951ecB5PpItiCaMLTBtPEZHHL1uzJlwplskFLoEz996viYIu7SZOb9Hzce27IrMmS
+glKw1KJTsEfLJ5ibxxJruFaV3u0zmSDk8WdTIlLOCOzDYrfWcLV+e1pFC6xD27S2S9yZTQn1O0CY
+5Tm0ChCJhFd4yZJ3gSUvsvyIByE1zzvofRyrRmrIptiKKjhp+j51SW8mv1QWCyRciwAXL/uXWddE
+uWoSbNt5a8F1DY/ggMHUMVtNCiX1Dl0NqOc7pPd5StM60wK1VhU347pgoaESg7ninvnnr47OlNkK
+pajwD/a6BnT+x73XEVURgLqtTI20UsVla2oTOgZvtLIrIcW+HmNGTC7H+gZS6VNIWiHmMhZ5f6zX
+pizNMQPUbXMnf05rt1E54sCLMhdmquedkibkzdD3/c0IxATtup531low6xvgPpV+CmVuZHN0cmVh
+bQplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE1IDAwMDAwIG4g
+CjAwMDAwMDAwNjQgMDAwMDAgbiAKMDAwMDAwMDEyMSAwMDAwMCBuIAowMDAwMDAwMjE4IDAwMDAw
+IG4gCjAwMDAwMDAzNDQgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+
+CnN0YXJ0eHJlZgo3NTAKJSVFT0YK
+--nb-boundary-1--

@@ -51,6 +51,7 @@ final class AuditController
         'portal' => ['Client portal', ['portal']],
         'user' => ['Staff accounts', ['user']],
         'settings' => ['Settings & integrations', ['settings', 'integration']],
+        'ai' => ['AI', ['ai']], // 2.29.0 the monthly limit reached, documents read, applied and discarded
         'email' => ['Email', ['email']],
         'backup' => ['Backups', ['backup']],
         'system' => ['Updates & audit', ['system', 'audit']],

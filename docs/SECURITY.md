@@ -73,6 +73,13 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   hard stop for everyone (tokens are reserved before each request goes out), with emails to admins at 80% and when
   it stops. Answers are treated as untrusted text. A self-hosted Ollama may use plain http:// only to an address
   on a private network (checked when saved and again on the address connected to); a public address needs https.
+- AI document reading (2.29.0, techs and admins): uploads are at most 5 files of 10 MB, checked by their content,
+  kept under random names only until the review is applied or discarded (14 days at most). Word and Excel files are
+  read with ZIP-bomb and XML-entity limits, emails with depth and attachment limits. The documents are sent to the AI
+  provider as data between random-boundary markers, with instructions never to follow instructions in them; AI's
+  answer is only taken as a fixed set of fields, each type-checked and cut to size, and nothing changes until a person
+  ticks it. Only the rows Align offers can be applied (a PSA vendor only with two-way sync), and every change is
+  audited as the edit forms audit it.
 
 **Links and tokens**
 

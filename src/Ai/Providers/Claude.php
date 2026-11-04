@@ -22,12 +22,23 @@ final class Claude extends Base
     /** Anthropic's API. */
     protected function host(): string { return 'https://api.anthropic.com'; }
 
-    /** See Provider::ask(). The answer is the text blocks joined; other blocks (if any) are left out. */
-    public function ask(string $model, string $system, string $user, int $maxOutput): array
+    /** Claude reads PDFs itself (document blocks). */
+    public function readsPdf(): bool
     {
+        return true;
+    }
+
+    /** See Provider::ask(). PDFs go first as base64 document blocks. The answer is the text blocks joined. */
+    public function ask(string $model, string $system, string $user, int $maxOutput, array $pdfs = []): array
+    {
+        $content = [];
+        foreach ($pdfs as $p) {
+            $content[] = ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => base64_encode($p['bytes'])], 'title' => $p['name']];
+        }
+        $content[] = ['type' => 'text', 'text' => $user];
         $j = $this->post($this->base() . '/v1/messages', ['x-api-key' => $this->apiKey(), 'anthropic-version' => '2023-06-01'], [
             'model' => $model, 'max_tokens' => $maxOutput, 'system' => $system,
-            'messages' => [['role' => 'user', 'content' => $user]],
+            'messages' => [['role' => 'user', 'content' => $content]],
         ]);
         $text = '';
         foreach (is_array($j['content'] ?? null) ? $j['content'] : [] as $b) {

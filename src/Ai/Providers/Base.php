@@ -35,6 +35,12 @@ abstract class Base implements Provider
         return $o !== '' ? rtrim($o, '/') . '/' . $this->key() : $this->host();
     }
 
+    /** See Provider::readsPdf(): not unless the provider says so. */
+    public function readsPdf(): bool
+    {
+        return false;
+    }
+
     /** Whether plain http:// may be used to an address on a private network (only a self-hosted server). */
     protected function privateHttp(): bool
     {
