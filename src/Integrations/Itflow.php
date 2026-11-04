@@ -120,7 +120,16 @@ final class Itflow
         return $this->readAll('assets');
     }
 
-    /** Software / licenses (ITFlow's API only supports reading these). */
+    /**
+     * 2.28.0 Every domain (untrusted rows). ITFlow 26.10 leaves archived ones out; an older one sends them with
+     * domain_archived_at (ItflowPsa leaves those out too).
+     */
+    public function domains(): array
+    {
+        return $this->readAll('domains');
+    }
+
+    /** Software / licenses (ITFlow's API only supports reading these). ITFlow 26.10+ leaves archived ones out. */
     public function software(): array
     {
         return $this->readAll('software');
@@ -375,6 +384,90 @@ final class Itflow
             throw new \RuntimeException('ITFlow created the ticket but did not return its ID.');
         }
         return $id;
+    }
+
+    // ---- 2.28.0 Vendors and domains (ITFlow 26.10's write endpoints) ----
+
+    /**
+     * One POST to a write endpoint of ITFlow 26.10+ ($what names it for messages). Returns the decoded reply. A 404
+     * (an older ITFlow without that endpoint) is explained; a refusal ITFlow explains in its JSON body is passed on.
+     * Not retried (a POST), as createAsset.
+     */
+    private function post(string $endpoint, array $body, string $what): array
+    {
+        try {
+            $r = $this->http->request('POST', "{$this->baseUrl}/api/v1/$endpoint.php", ['Content-Type' => 'application/json', 'Accept' => 'application/json'],
+                json_encode(['api_key' => $this->apiKey] + $body, self::JSON));
+        } catch (HttpException $e) {
+            if ($e->getCode() === 404) {
+                throw new \RuntimeException("this version of ITFlow can't $what from other apps (it needs ITFlow 26.10 or later); update ITFlow, or do it there");
+            }
+            $msg = $this->remoteMessage(json_decode($e->body, true), '');
+            throw $msg !== '' ? new \RuntimeException('ITFlow: ' . $msg) : $e;
+        }
+        return is_array($r['json'] ?? null) ? $r['json'] : [];
+    }
+
+    /** The new record's ID from a create reply, or an exception naming $what. */
+    private function insertId(array $j, string $what): int
+    {
+        if (($j['success'] ?? 'False') !== 'True') {
+            throw new \RuntimeException("ITFlow refused the new $what: " . $this->remoteMessage($j, 'unknown error'));
+        }
+        $id = self::id($j['data'][0]['insert_id'] ?? $j['insert_id'] ?? null);
+        if (!$id) {
+            throw new \RuntimeException("ITFlow created the $what but did not return its ID.");
+        }
+        return $id;
+    }
+
+    /** One active vendor (ITFlow 26.10 leaves archived ones out), or null. Only a row with that vendor_id counts. */
+    public function vendor(int $vendorId): ?array
+    {
+        foreach ($this->read('vendors', ['vendor_id' => $vendorId]) as $r) {
+            if (self::id($r['vendor_id'] ?? null) === $vendorId) {
+                return $r;
+            }
+        }
+        return null;
+    }
+
+    /** Active domains with exactly this name (any client the key can see; the caller picks the client's). */
+    public function domainsNamed(string $name): array
+    {
+        return array_values(array_filter($this->read('domains', ['domain_name' => $name]),
+            fn($r) => strcasecmp((string) ($r['domain_name'] ?? ''), $name) === 0 && empty($r['domain_archived_at'])));
+    }
+
+    /** Creates a client vendor (vendors/create.php) and returns its ID. $fields: vendor_* names only (ItflowPsa). */
+    public function createVendor(int $clientId, array $fields): int
+    {
+        return $this->insertId($this->post('vendors/create', ['client_id' => $clientId] + $fields, 'add vendors'), 'vendor');
+    }
+
+    /**
+     * Updates a client vendor's fields (others kept). True when ITFlow changed it; false when it says nothing changed
+     * or there's no such active vendor for that client (ITFlow answers both the same way).
+     */
+    public function updateVendor(int $clientId, int $vendorId, array $fields): bool
+    {
+        return ($this->post('vendors/update', ['client_id' => $clientId, 'vendor_id' => $vendorId] + $fields, 'update vendors')['success'] ?? 'False') === 'True';
+    }
+
+    /** Archives or restores a client vendor. True when ITFlow made the change (false: already that way, or not found). */
+    public function archiveVendor(int $clientId, int $vendorId, bool $archived = true): bool
+    {
+        return ($this->post('vendors/' . ($archived ? 'archive' : 'unarchive'), ['client_id' => $clientId, 'vendor_id' => $vendorId],
+            ($archived ? 'archive' : 'restore') . ' vendors')['success'] ?? 'False') === 'True';
+    }
+
+    /**
+     * Adds a domain to the client (domains/create.php) and returns its ID. ITFlow looks up its DNS records, WHOIS and
+     * expiry date itself, so this can take a few seconds.
+     */
+    public function createDomain(int $clientId, string $domain): int
+    {
+        return $this->insertId($this->post('domains/create', ['client_id' => $clientId, 'domain_name' => $domain], 'add domains'), 'domain');
     }
 
     /** Reads one client to prove the address and key work. Returns a short message for the admin. */

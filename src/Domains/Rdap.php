@@ -10,7 +10,8 @@ use Align\Settings;
 /**
  * 2.10.0 Domain registrations from public RDAP (the registration data protocol that replaced WHOIS): for each client
  * domain, its registrar and expiry date. The domains are the client's email domains (EmailAuth::targets: the ones
- * Microsoft 365 or Google Workspace bring in, and the ones added by hand) plus its website's domain. IANA's bootstrap
+ * Microsoft 365 or Google Workspace bring in, and the ones added by hand) plus its website's domain, and (2.28.0) its
+ * domains in the PSA, left out of the email checks or not. IANA's bootstrap
  * file says which registry answers for each ending (.com, .org...); it's kept for a week. Each domain is read at
  * most every REFRESH_DAYS days (daily once it expires within SOON_DAYS), at most MAX_PER_RUN per sync.
  *
@@ -87,6 +88,14 @@ final class Rdap
                 }
             }
         }
+        // 2.28.0 the PSA's domains even when left out of the email checks (their registration still matters)
+        foreach (PsaDomainSync::forClients($clientId) as $cid => $list) {
+            foreach (array_keys($list) as $d) {
+                if ($r = self::registrable((string) $d)) {
+                    $out[(int) $cid][$r] = true;
+                }
+            }
+        }
         $sites = $clientId === null ? DB::all("SELECT id, website FROM clients WHERE is_archived = 0 AND website IS NOT NULL AND website <> ''")
             : DB::all('SELECT id, website FROM clients WHERE id = ?', [$clientId]);
         foreach ($sites as $c) {
@@ -103,6 +112,7 @@ final class Rdap
     /**
      * A client's domains with what RDAP said: [domain, registrar, expires_on, status, detail, checked_at, vendor_id
      * (the client's vendor whose name matches the registrar, or null), vendor (its name)]. Not read yet = status null.
+     * 2.28.0 expires_from: 'rdap', or 'psa' when RDAP has no date and the PSA's is shown instead.
      * $vendors: the client's Vendors::forClient() when the caller has it already.
      */
     public static function forClient(int $clientId, ?array $vendors = null): array
@@ -116,11 +126,19 @@ final class Rdap
             $have[strtolower($r['domain'])] = $r;
         }
         $vendors ??= \Align\Vendors\Vendors::forClient($clientId);
+        $psa = []; // 2.28.0 the PSA's expiry where RDAP has none, by registrable domain
+        foreach (PsaDomainSync::forClients($clientId)[$clientId] ?? [] as $pd => $exp) {
+            if ($exp && ($r = self::registrable((string) $pd)) && !isset($psa[$r])) {
+                $psa[$r] = $exp;
+            }
+        }
         $out = [];
         foreach ($domains as $d) {
             $r = $have[$d] ?? ['registrar' => null, 'expires_on' => null, 'status' => null, 'detail' => null, 'checked_at' => null];
             $v = self::matchVendor($r['registrar'], $vendors);
-            $out[] = ['domain' => $d, 'registrar' => $r['registrar'], 'expires_on' => $r['expires_on'], 'status' => $r['status'], 'detail' => $r['detail'],
+            $fromPsa = !$r['expires_on'] && !empty($psa[$d]);
+            $out[] = ['domain' => $d, 'registrar' => $r['registrar'], 'expires_on' => $fromPsa ? $psa[$d] : $r['expires_on'], 'expires_from' => $fromPsa ? 'psa' : 'rdap',
+                'status' => $r['status'], 'detail' => $r['detail'],
                 'checked_at' => $r['checked_at'], 'vendor_id' => $v ? (int) $v['id'] : null, 'vendor' => $v['name'] ?? null];
         }
         return $out;
@@ -138,6 +156,14 @@ final class Rdap
         $out = [];
         // only clients with a domain expiring in the window get the full look (with their vendors)
         $due = array_flip(array_map('strtolower', array_column(DB::all('SELECT domain FROM domain_rdap WHERE expires_on BETWEEN ? AND ?', [$from, $to]), 'domain')));
+        // 2.28.0 and the PSA's dates, shown where RDAP has none (forClient decides which one counts)
+        foreach (PsaDomainSync::forClients($clientId) as $list) {
+            foreach ($list as $d => $exp) {
+                if ($exp && $exp >= $from && $exp <= $to && ($r = self::registrable((string) $d))) {
+                    $due[$r] = true;
+                }
+            }
+        }
         if (!$due) {
             return [];
         }

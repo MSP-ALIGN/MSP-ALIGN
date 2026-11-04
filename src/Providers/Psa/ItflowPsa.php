@@ -16,8 +16,10 @@ use Align\Integrations\Itflow;
  * keys win even if a field had the same name (2.2.1; before, the fields were on the left). Callers decide whether
  * a write is allowed (role, psa_two_way, capability); on a test server Providers::psa() wraps this in
  * StagingPsa, so these write methods are never reached there.
+ * 2.28.0 Also PsaVendorWrites (VENDOR_KEYS; the phone is sent as ITFlow keeps it: digits, with the extension apart)
+ * and PsaDomains (ITFlow 26.10's vendor and domain endpoints), and clients carry 'lead' (ITFlow's prospects).
  */
-final class ItflowPsa implements PsaProvider
+final class ItflowPsa implements PsaProvider, PsaVendorWrites, PsaDomains
 {
     private const ASSET_KEYS = [
         'name' => 'asset_name', 'type' => 'asset_type', 'make' => 'asset_make', 'model' => 'asset_model', 'serial' => 'asset_serial',
@@ -28,6 +30,13 @@ final class ItflowPsa implements PsaProvider
         'name' => 'contact_name', 'title' => 'contact_title', 'department' => 'contact_department', 'email' => 'contact_email',
         'phone' => 'contact_phone', 'extension' => 'contact_extension', 'mobile' => 'contact_mobile',
         'important' => 'contact_important', 'billing' => 'contact_billing', 'technical' => 'contact_technical',
+    ];
+
+    /** 2.28.0 Neutral vendor field => ITFlow's (phone is split into number and extension by vendorBody). */
+    private const VENDOR_KEYS = [
+        'name' => 'vendor_name', 'description' => 'vendor_description', 'account_number' => 'vendor_account_number',
+        'contact_name' => 'vendor_contact_name', 'email' => 'vendor_email', 'website' => 'vendor_website', 'hours' => 'vendor_hours',
+        'sla' => 'vendor_sla', 'notes' => 'vendor_notes',
     ];
 
     /** $api is built from the admin's saved ITFlow URL and key (https and TLS checks live in Itflow / HttpClient). */
@@ -177,6 +186,7 @@ final class ItflowPsa implements PsaProvider
             'id' => self::id($r['client_id'] ?? null),
             'name' => self::str($r, 'client_name'),
             'archived' => !empty($r['client_archived_at']),
+            'lead' => self::flag($r['client_lead'] ?? $r['client_is_lead'] ?? 0), // 2.28.0 a prospect, not a client yet
             'website' => self::str($r, 'client_website'),
             'type' => self::str($r, 'client_type'),
             'email' => self::str($r, 'client_email'),
@@ -427,6 +437,122 @@ final class ItflowPsa implements PsaProvider
                 'archived' => !empty($r['vendor_archived_at']),
             ];
         }, $this->vendorRows());
+    }
+
+    // ---- 2.28.0 Vendor writes and domains ----
+
+    /**
+     * The ITFlow body for neutral vendor fields (only VENDOR_KEYS and phone). ITFlow keeps a phone as digits with the
+     * extension in its own field, so "800-555-0101 ext. 2" is sent as vendor_phone 8005550101 and vendor_extension 2;
+     * a leading "+1" becomes the country code. A field sent empty clears it in ITFlow.
+     */
+    private static function vendorBody(array $fields): array
+    {
+        // null: '' (cleared; ITFlow keeps a field that isn't sent); cut to ITFlow's columns (200, notes unlimited)
+        $out = [];
+        foreach (self::keys($fields, self::VENDOR_KEYS) as $k => $v) {
+            $v = is_scalar($v) ? (string) $v : '';
+            $out[$k] = $k === 'vendor_notes' ? $v : mb_substr($v, 0, 200);
+        }
+        if (array_key_exists('phone', $fields)) {
+            $p = trim((string) $fields['phone']);
+            $ext = '';
+            if (preg_match('/^(.*\d)\s*(?:ext\.?|extension|x)\s*(\d{1,10})\s*$/i', $p, $m)) { // "Fax 5551234" has no extension
+                [$p, $ext] = [$m[1], $m[2]];
+            }
+            if (preg_match('/^\+(\d{1,3})[\s.-]+(.*)$/', $p, $m)) {
+                [$out['vendor_phone_country_code'], $p] = [$m[1], $m[2]]; // only when given: otherwise ITFlow's stays
+            }
+            $out['vendor_phone'] = mb_substr((string) preg_replace('/\D/', '', $p), 0, 20);
+            $out['vendor_extension'] = $ext;
+        }
+        return $out;
+    }
+
+    /** Adds a vendor to the ITFlow client (caller checks: see PsaVendorWrites). */
+    public function createVendor(string $clientId, array $fields): string
+    {
+        return (string) $this->api->createVendor(self::num($clientId), self::vendorBody($fields));
+    }
+
+    /**
+     * Updates the ITFlow vendor's fields (caller checks: see PsaVendorWrites). ITFlow answers "failed" also when the
+     * update changed nothing (the same edit made there already, or values it stores the same way), so then the vendor
+     * is read back: it counts as done when it's still that client's and has the values sent.
+     */
+    public function updateVendor(string $clientId, string $vendorId, array $fields): bool
+    {
+        $body = self::vendorBody($fields);
+        if ($this->api->updateVendor(self::num($clientId), self::num($vendorId), $body)) {
+            return true;
+        }
+        $now = $this->api->vendor(self::num($vendorId));
+        if (!$now || self::id($now['vendor_client_id'] ?? null) !== $clientId) {
+            return false;
+        }
+        // compared as ITFlow stores them: tags and surrounding spaces dropped, phones as digits, websites without the scheme
+        $norm = fn(string $k, string $v) => match ($k) {
+            'vendor_phone', 'vendor_extension', 'vendor_phone_country_code' => (string) preg_replace('/\D/', '', $v),
+            'vendor_website' => (string) preg_replace('#^https?://#', '', trim(strip_tags($v))),
+            default => trim(strip_tags($v)),
+        };
+        foreach ($body as $k => $v) {
+            if ($norm($k, (string) (is_scalar($now[$k] ?? null) ? $now[$k] : '')) !== $norm($k, (string) $v)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Archives or restores the ITFlow vendor (caller checks: see PsaVendorWrites). */
+    public function archiveVendor(string $clientId, string $vendorId, bool $archived = true): bool
+    {
+        return $this->api->archiveVendor(self::num($clientId), self::num($vendorId), $archived);
+    }
+
+    /**
+     * Every active ITFlow domain as a neutral record (see PsaDomains); an older ITFlow sends archived ones too, and
+     * they're left out here. The name is lower-cased and trimmed of a scheme and path ITFlow may keep.
+     */
+    public function domains(): array
+    {
+        $out = [];
+        foreach (self::rows($this->api->domains()) as $r) {
+            if (!empty($r['domain_archived_at'])) {
+                continue;
+            }
+            $d = strtolower((string) self::text($r['domain_name'] ?? '', 253));
+            $d = (string) preg_replace('#^[a-z]+://|/.*$#', '', $d);
+            $out[] = ['id' => self::id($r['domain_id'] ?? null), 'client_id' => self::id($r['domain_client_id'] ?? null),
+                'domain' => rtrim($d, '.'), 'expires' => self::date($r['domain_expire'] ?? null)];
+        }
+        return $out;
+    }
+
+    /**
+     * Adds a domain to the ITFlow client (ITFlow looks up its records and expiry itself) and returns its id. ITFlow
+     * doesn't refuse duplicates and its lookups can outlast a short timeout, so the client's domain with that name is
+     * looked for first, and again after a failure (it may have been made all the same): found, its id is returned.
+     */
+    public function createDomain(string $clientId, string $domain): string
+    {
+        $cid = self::num($clientId);
+        $existing = fn() => current(array_filter($this->api->domainsNamed($domain), fn($r) => self::id($r['domain_client_id'] ?? null) === $clientId)) ?: null;
+        if ($r = $existing()) {
+            return self::id($r['domain_id'] ?? null);
+        }
+        try {
+            return (string) $this->api->createDomain($cid, $domain);
+        } catch (\Throwable $e) {
+            try {
+                if ($r = $existing()) {
+                    return self::id($r['domain_id'] ?? null);
+                }
+            } catch (\Throwable) {
+                // ITFlow still unreachable: the first error explains it
+            }
+            throw $e;
+        }
     }
 
     /**

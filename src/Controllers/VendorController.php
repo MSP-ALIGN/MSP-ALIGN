@@ -18,6 +18,9 @@ use Align\View;
  * keep the details the PSA owns (fields() leaves them out) and can't be deleted (they'd come back on the next sync).
  * Every value is cleaned and cut to its column size (Vendors::clean), categories come from a fixed list and column
  * names are fixed in code. Every change is audited. Account numbers and notes are staff data (never shown in the portal).
+ * 2.28.0 With two-way sync (Vendors::canPush: the client is linked, psa_two_way is on and the PSA takes vendors; never
+ * on a test server), adding, editing, retiring and restoring a vendor does the same in the PSA: a PSA vendor's details
+ * are saved here only once the PSA has accepted them, a new or Align-only vendor is added there and linked.
  */
 final class VendorController
 {
@@ -147,10 +150,15 @@ final class VendorController
             flash('error', "{$client['name']} already has {$name} as a vendor.");
             redirect($back);
         }
-        DB::insert('client_vendors', $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()]);
+        $vid = DB::insert('client_vendors', $f + ['client_id' => $id, 'source' => 'manual', 'created_by' => Auth::id()]);
         $linked = Vendors::relinkManual($id);
-        Audit::log('vendor.create', "{$client['name']}: $name");
-        flash('success', "Added $name." . ($linked ? " Linked $linked license" . ($linked === 1 ? ' or budget line' : 's and budget lines') . ' to it.' : ''));
+        // 2.28.0 two-way: added to the PSA too and linked, so the next sync updates it instead of adding it again
+        $err = null;
+        $pushed = Vendors::canPush($client) && ($err = Vendors::pushCreate(Vendors::one($vid), (string) $client['psa_id'])) === null;
+        Audit::log('vendor.create', "{$client['name']}: $name" . ($pushed ? ' (also in ' . psa_name() . ')' : ''));
+        flash($err === null ? 'success' : 'warning', "Added $name." . ($pushed ? ' Added in ' . psa_name() . ' too.' : '')
+            . ($err !== null ? ' Saved in Align only; ' . psa_name() . " didn't take it ($err)." : '')
+            . ($linked ? " Linked $linked license" . ($linked === 1 ? ' or budget line' : 's and budget lines') . ' to it.' : ''));
         redirect($back);
     }
 
@@ -169,20 +177,50 @@ final class VendorController
         $back = self::back("/clients/$cid/vendors");
         $fromPsa = $v['source'] === 'psa';
         $label = "{$v['client_name']}: {$v['name']}";
+        $psaClient = (string) ($v['client_psa_id'] ?? '');
+        // 2.28.0 two-way: changes go to the PSA too (a PSA vendor by its id; an Align-only one is added there on save)
+        $push = Vendors::canPush(['psa_id' => $v['client_psa_id'] ?? null]);
+        $pushPsa = $push && $fromPsa && $v['psa_id'] !== null;
+        // A retired vendor is archived in the PSA, which takes no changes to it: its details are kept as they are
+        $pushEdit = $pushPsa && $v['retired_at'] === null;
         switch (post('action')) {
             case 'retire':
-                DB::run("UPDATE client_vendors SET retired_at = NOW(), retired_reason = 'align' WHERE id = ?", [$id]);
-                Audit::log('vendor.retire', $label);
-                flash('success', "Retired {$v['name']}. Licenses and budget lines stay linked to it." . ($fromPsa ? ' Archive it in ' . psa_name() . ' too.' : ''));
+                if ($v['retired_at'] !== null) { // already (a second click): nothing to do, and its reason stays as it is
+                    flash('success', "{$v['name']} is already retired.");
+                    redirect($back);
+                }
+                $err = $pushPsa ? Vendors::pushArchive($v, $psaClient, true) : null;
+                // Archived in the PSA too: restoring it there brings it back here on the next sync
+                DB::run('UPDATE client_vendors SET retired_at = NOW(), retired_reason = ? WHERE id = ?', [$pushPsa && $err === null ? 'psa' : 'align', $id]);
+                Audit::log('vendor.retire', $label . ($pushPsa && $err === null ? ' (also in ' . psa_name() . ')' : ''));
+                if ($pushPsa && $err !== null) {
+                    flash('warning', "Retired {$v['name']} in Align only; " . psa_name() . " didn't archive it ($err). Licenses and budget lines stay linked to it.");
+                } else {
+                    flash('success', "Retired {$v['name']}" . ($pushPsa ? ' in Align and ' . psa_name() : '') . '. Licenses and budget lines stay linked to it.'
+                        . ($fromPsa && !$pushPsa ? ' Archive it in ' . psa_name() . ' too.' : ''));
+                }
                 redirect($back);
             case 'restore':
+                if ($v['retired_at'] === null) {
+                    flash('success', "{$v['name']} is already active.");
+                    redirect($back);
+                }
                 if (Vendors::activeNamed($cid, $v['name'], $id) !== null) { // 2.15.2: the same rule as adding one
                     flash('error', "{$v['client_name']} already has an active vendor named {$v['name']}. Rename or retire that one first.");
                     redirect($back);
                 }
+                // 2.28.0 Archived in the PSA (there, or from here): restored there first, or the next sync would retire it again
+                $restoredThere = false;
+                if ($pushPsa && $v['retired_reason'] === 'psa') {
+                    if (($err = Vendors::pushArchive($v, $psaClient, false)) !== null) {
+                        flash('warning', "{$v['name']} is archived in " . psa_name() . " and couldn't be restored there ($err), so it stays retired here (the next sync would retire it again). Restore it in " . psa_name() . ' and it comes back within a few minutes.');
+                        redirect($back);
+                    }
+                    $restoredThere = true;
+                }
                 DB::run('UPDATE client_vendors SET retired_at = NULL, retired_reason = NULL WHERE id = ?', [$id]);
-                Audit::log('vendor.restore', $label);
-                flash('success', "Restored {$v['name']}.");
+                Audit::log('vendor.restore', $label . ($restoredThere ? ' (also in ' . psa_name() . ')' : ''));
+                flash('success', "Restored {$v['name']}." . ($restoredThere ? ' It is active in ' . psa_name() . ' again too.' : ''));
                 redirect($back);
             case 'delete':
                 if ($fromPsa) {
@@ -199,29 +237,54 @@ final class VendorController
             case 'template':
                 self::saveAsTemplate($v, $back);
         }
-        $f = self::fields($fromPsa);
+        $f = self::fields($fromPsa && !$pushEdit);
         $f = self::followTemplate($f, $f['template_id'] ? DB::one('SELECT * FROM vendor_templates WHERE id = ?', [$f['template_id']]) : null);
+        if ($pushEdit && $f['name'] === null) {
+            $f['name'] = $v['name']; // a PSA vendor always keeps a name of its own (the PSA needs one)
+        }
         if (!$fromPsa && $f['name'] === null && $f['template_id'] === null) {
             $f['name'] = $v['name']; // a vendor without a template keeps a name
         }
         // The shown name after this save (its own, else the new template's) mustn't be another of the client's vendors
         $newName = $f['name'] ?? ($fromPsa ? $v['name'] : null) ?? ($f['template_id'] ? DB::value('SELECT name FROM vendor_templates WHERE id = ?', [$f['template_id']]) : $v['name']);
         // 2.15.2: only an active vendor's name must be free among the active ones (restoring a retired one checks then)
-        if (!$fromPsa && $v['retired_at'] === null && Vendors::activeNamed($cid, (string) $newName, $id) !== null) {
+        if ((!$fromPsa || $pushEdit) && $v['retired_at'] === null && Vendors::activeNamed($cid, (string) $newName, $id) !== null) {
             flash('error', "{$v['client_name']} already has a vendor named $newName.");
             redirect($back);
         }
-        DB::transaction(function () use ($f, $id, $cid, $v) {
-            $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
-            DB::run("UPDATE client_vendors SET $sets WHERE id = ?", [...array_values($f), $id]);
-            $now = Vendors::one($id);
-            if (Vendors::key($now['name']) !== Vendors::key($v['name'])) {
-                Vendors::renameLinked($id, $now['name']);
+        $err = null;
+        try {
+            DB::transaction(function () use ($f, $id, $cid, $v, $pushEdit, $psaClient, &$err) {
+                $sets = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($f)));
+                DB::run("UPDATE client_vendors SET $sets WHERE id = ?", [...array_values($f), $id]);
+                $now = Vendors::one($id);
+                // 2.28.0 a PSA vendor's details are kept only once the PSA has taken them (its values as now shown)
+                if ($pushEdit && ($err = Vendors::pushUpdate($v, Vendors::psaFields($v), Vendors::psaFields($now), $psaClient)) !== null) {
+                    throw new \RuntimeException('not saved'); // rolls the change back
+                }
+                if (Vendors::key($now['name']) !== Vendors::key($v['name'])) {
+                    Vendors::renameLinked($id, $now['name']);
+                }
+                Vendors::relinkManual($cid);
+            });
+        } catch (\RuntimeException $e) {
+            if ($err === null) {
+                throw $e;
             }
-            Vendors::relinkManual($cid);
-        });
-        Audit::log('vendor.update', $label);
-        flash('success', 'Saved.');
+            flash('error', 'Not saved: ' . psa_name() . " didn't accept the change ($err).");
+            redirect($back);
+        }
+        // 2.28.0 an Align-only vendor is added to the PSA on its next save (two-way), and linked
+        $created = null;
+        if ($push && !$fromPsa && $v['psa_id'] === null && $v['retired_at'] === null) {
+            $created = Vendors::pushCreate(Vendors::one($id), $psaClient);
+        }
+        Audit::log('vendor.update', $label . ($pushEdit || ($push && !$fromPsa && $created === null && $v['retired_at'] === null) ? ' (also in ' . psa_name() . ')' : ''));
+        if ($created !== null) {
+            flash('warning', 'Saved in Align only; ' . psa_name() . " didn't take it ($created).");
+        } else {
+            flash('success', 'Saved.' . ($pushEdit ? ' ' . psa_name() . ' has the change too.' : ($push && !$fromPsa && $v['retired_at'] === null ? ' Added in ' . psa_name() . ' too.' : '')));
+        }
         redirect($back);
     }
 

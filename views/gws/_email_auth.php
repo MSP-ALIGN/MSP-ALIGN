@@ -20,7 +20,7 @@ $icon = ['pass' => 'fa-circle-check text-success', 'fail' => 'fa-circle-xmark te
 $names = ['email_spf' => 'SPF', 'email_dkim' => 'DKIM', 'email_dmarc' => 'DMARC'];
 $per = $ea['domains'] ?? [];
 $list = $domains['list'] ?? null;      // null: not managed on this page
-$source = ['m365' => 'Microsoft 365', 'google' => 'Google Workspace', 'manual' => 'added here'];
+$source = ['m365' => 'Microsoft 365', 'google' => 'Google Workspace', 'psa' => psa_name(), 'manual' => 'added here']; // 2.28.0 psa: the client's domains in the PSA
 ?>
 <div class="card card-dark" id="email-auth">
   <div class="card-header py-2">

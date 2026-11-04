@@ -48,6 +48,20 @@ if (in_array($path, ['/mock/vendor-edit', '/mock/vendor-delete', '/mock/vendor-a
     $json(['ok' => true]);
     return;
 }
+// 2.28.0 ITFlow leads, domains and vendor-write failures for a test
+if (in_array($path, ['/mock/client-lead', '/mock/domain-add', '/mock/itflow-flags'], true)) {
+    $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
+    $st = $loadState();
+    match ($path) {
+        '/mock/client-lead' => $st['lead_clients'][(string) (int) $in['client_id']] = ['client_id' => (int) $in['client_id'], 'client_name' => (string) $in['name'], 'client_archived_at' => null, 'client_lead' => (int) ($in['lead'] ?? 1)],
+        '/mock/domain-add' => $st['domains'][] = ['domain_id' => (int) $in['domain_id'], 'domain_client_id' => (int) $in['client_id'], 'domain_name' => (string) $in['name'],
+            'domain_expire' => $in['expire'] ?? null, 'domain_archived_at' => $in['archived'] ?? null],
+        default => $st = array_merge($st, array_intersect_key($in, array_flip(['vendor_write_404', 'vendor_write_fail', 'domain_write_404', 'domains_old_itflow']))),
+    };
+    $saveState($st);
+    $json(['ok' => true]);
+    return;
+}
 if ($path === '/mock/software-edit' || $path === '/mock/software-delete') {
     $in = json_decode((string) file_get_contents('php://input'), true) ?: [];
     $st = $loadState();
@@ -1663,6 +1677,30 @@ function page(array $rows, string $key = 'id'): array
     return array_slice($rows, 0, $size);
 }
 
+// 2.8.0 ITFlow vendors (2.28.0: as a closure, so the vendor writes see the same rows): vendors 1-4 are the MSP's own
+// (no client), as ITFlow returns them for a distributor; 10+ are client vendors, 10 and 12 made from the same ITFlow
+// vendor template, 14 for a client not linked in Align. Archived ones are included (with vendor_archived_at).
+$mockVendors = function (array $st): array {
+    $v = fn(int $id, int $cid, string $name, int $tpl = 0, array $more = []) => ['vendor_id' => $id, 'vendor_client_id' => $cid, 'vendor_template_id' => $tpl,
+        'vendor_name' => $name, 'vendor_archived_at' => null] + $more;
+    $all = [
+        ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],
+        ['vendor_id' => 3, 'vendor_name' => 'Datto / Kaseya'], ['vendor_id' => 4, 'vendor_name' => 'SentinelOne'],
+        $v(10, 1, 'Comcast Business', 5, ['vendor_account_number' => 'CB-1001', 'vendor_phone_country_code' => '1', 'vendor_phone' => '800-555-0101', 'vendor_extension' => '2',
+            'vendor_email' => 'support@comcast.example.com', 'vendor_website' => 'business.comcast.example.com', 'vendor_hours' => '24/7', 'vendor_sla' => '4 hours',
+            'vendor_contact_name' => 'Pat Rep', 'vendor_notes' => "Circuit 12/ABCD/345\nStatic block /29", 'vendor_description' => 'Fiber internet']),
+        $v(11, 1, 'GoDaddy', 0, ['vendor_account_number' => 'GD-77', 'vendor_website' => 'https://www.godaddy.example.com']),
+        $v(12, 2, 'Comcast Business', 5, ['vendor_account_number' => 'CB-2002', 'vendor_phone' => '800-555-0101']),
+        $v(13, 1, 'Adobe', 0, ['vendor_website' => 'javascript:alert(1)', 'vendor_account_number' => "AD\r\n-9\x00"]),
+        $v(14, 9, 'Unmapped client vendor'),
+    ];
+    foreach ($st['added_vendors'] ?? [] as $id => $f) {
+        $all[] = $f + $v((int) $id, 1, "Vendor $id");
+    }
+    return array_values(array_filter(array_map(fn($r) => ($st['vendor_updates'][(string) $r['vendor_id']] ?? []) + $r, $all),
+        fn($r) => !in_array((int) $r['vendor_id'], $st['deleted_vendors'] ?? [], true)));
+};
+
 switch (true) {
     case $path === '/ws/oauth/token' && $method === 'POST':
         if (($_POST['client_id'] ?? '') !== 'ninja-id' || ($_POST['client_secret'] ?? '') !== 'ninja-secret') {
@@ -1696,7 +1734,7 @@ switch (true) {
         $limit = (int) ($_GET['limit'] ?? 50);
         $offset = (int) ($_GET['offset'] ?? 0);
         if ($path === '/api/v1/clients/read.php') {
-            $rows = array_slice($clients, $offset, $limit);
+            $rows = array_slice(array_merge($clients, array_values($loadState()['lead_clients'] ?? [])), $offset, $limit); // 2.28.0 leads a test adds
         } elseif ($path === '/api/v1/assets/read.php') {
             $all = [];
             foreach (devices() as $d) {
@@ -1828,28 +1866,76 @@ switch (true) {
                 $rows = array_slice($all, $offset, $limit);
             }
         } elseif ($path === '/api/v1/vendors/read.php') {
-            // Vendors 1-4 are the MSP's own (no client), as ITFlow returns them for a distributor; 10+ are client
-            // vendors (2.8.0), 10 and 12 made from the same ITFlow vendor template, 14 for a client not linked in Align
-            $v = fn(int $id, int $cid, string $name, int $tpl = 0, array $more = []) => ['vendor_id' => $id, 'vendor_client_id' => $cid, 'vendor_template_id' => $tpl,
-                'vendor_name' => $name, 'vendor_archived_at' => null] + $more;
-            $st = $loadState();
-            $all = [
-                ['vendor_id' => 1, 'vendor_name' => 'Microsoft (via Pax8)'], ['vendor_id' => 2, 'vendor_name' => 'Henry Schein One'],
-                ['vendor_id' => 3, 'vendor_name' => 'Datto / Kaseya'], ['vendor_id' => 4, 'vendor_name' => 'SentinelOne'],
-                $v(10, 1, 'Comcast Business', 5, ['vendor_account_number' => 'CB-1001', 'vendor_phone_country_code' => '1', 'vendor_phone' => '800-555-0101', 'vendor_extension' => '2',
-                    'vendor_email' => 'support@comcast.example.com', 'vendor_website' => 'business.comcast.example.com', 'vendor_hours' => '24/7', 'vendor_sla' => '4 hours',
-                    'vendor_contact_name' => 'Pat Rep', 'vendor_notes' => "Circuit 12/ABCD/345\nStatic block /29", 'vendor_description' => 'Fiber internet']),
-                $v(11, 1, 'GoDaddy', 0, ['vendor_account_number' => 'GD-77', 'vendor_website' => 'https://www.godaddy.example.com']),
-                $v(12, 2, 'Comcast Business', 5, ['vendor_account_number' => 'CB-2002', 'vendor_phone' => '800-555-0101']),
-                $v(13, 1, 'Adobe', 0, ['vendor_website' => 'javascript:alert(1)', 'vendor_account_number' => "AD\r\n-9\x00"]),
-                $v(14, 9, 'Unmapped client vendor'),
-            ];
-            foreach ($st['added_vendors'] ?? [] as $id => $f) {
-                $all[] = $f + $v((int) $id, 1, "Vendor $id");
-            }
-            $all = array_values(array_filter(array_map(fn($r) => ($st['vendor_updates'][(string) $r['vendor_id']] ?? []) + $r, $all),
-                fn($r) => !in_array((int) $r['vendor_id'], $st['deleted_vendors'] ?? [], true) && empty($r['vendor_archived_at']))); // ITFlow leaves archived ones out
+            $all = array_values(array_filter($mockVendors($loadState()), fn($r) => empty($r['vendor_archived_at']))); // ITFlow 26.10 leaves archived ones out
             $rows = array_slice($all, $offset, $limit);
+        } elseif (in_array($path, ['/api/v1/vendors/create.php', '/api/v1/vendors/update.php', '/api/v1/vendors/archive.php', '/api/v1/vendors/unarchive.php'], true) && $method === 'POST') {
+            // 2.28.0 ITFlow 26.10's vendor writes: scoped to the posted client_id; update/archive only an active vendor of
+            // that client, unarchive only an archived one; "no rows changed" is a failure, as in ITFlow
+            $st = $loadState();
+            file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode([basename($path, '.php') . '_vendor' => $body]) . "\n", FILE_APPEND);
+            if (!empty($st['vendor_write_404'])) {
+                http_response_code(404);
+                echo 'Not found';
+                break;
+            }
+            if (!empty($st['vendor_write_fail'])) {
+                $json(['success' => 'False', 'message' => 'Mock: vendor write refused']);
+                break;
+            }
+            $cid = (int) ($body['client_id'] ?? 0);
+            $fields = array_filter($body, fn($k) => str_starts_with((string) $k, 'vendor_') && $k !== 'vendor_id', ARRAY_FILTER_USE_KEY);
+            if (str_ends_with($path, '/create.php')) {
+                if (trim((string) ($body['vendor_name'] ?? '')) === '') {
+                    $json(['success' => 'False', 'message' => 'Auth success but insert query failed']);
+                    break;
+                }
+                $id = 300 + count($st['added_vendors'] ?? []);
+                $st['added_vendors'][(string) $id] = ['vendor_client_id' => $cid, 'vendor_template_id' => 0] + $fields;
+                $saveState($st);
+                $json(['success' => 'True', 'count' => 1, 'data' => [['insert_id' => $id]]]);
+                break;
+            }
+            $vid = (int) ($body['vendor_id'] ?? 0);
+            $row = null;
+            foreach ($mockVendors($st) as $r) {
+                if ((int) $r['vendor_id'] === $vid && (int) ($r['vendor_client_id'] ?? 0) === $cid) {
+                    $row = $r;
+                }
+            }
+            $archived = $row && !empty($row['vendor_archived_at']);
+            $ok = $row && (str_ends_with($path, '/unarchive.php') ? $archived : !$archived);
+            if ($ok && str_ends_with($path, '/update.php')) {
+                $ok = (bool) array_filter($fields, fn($v, $k) => (string) ($row[$k] ?? '') !== (string) $v, ARRAY_FILTER_USE_BOTH);
+                $change = $fields;
+            } else {
+                $change = ['vendor_archived_at' => str_ends_with($path, '/archive.php') ? date('Y-m-d H:i:s') : null];
+            }
+            if (!$ok) {
+                $json(['success' => 'False', 'message' => 'Auth success but update query failed/returned no results.']);
+                break;
+            }
+            $st['vendor_updates'][(string) $vid] = $change + ($st['vendor_updates'][(string) $vid] ?? []);
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1]);
+            break;
+        } elseif ($path === '/api/v1/domains/read.php') {
+            // 2.28.0 none unless a test adds some (/mock/domain-add), so other suites' domain lists stay as they are
+            $st = $loadState();
+            $rows = array_slice(array_values(array_filter($st['domains'] ?? [], fn($r) => empty($r['domain_archived_at']) || !empty($st['domains_old_itflow']))), $offset, $limit);
+        } elseif ($path === '/api/v1/domains/create.php' && $method === 'POST') {
+            $st = $loadState();
+            file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['create_domain' => $body]) . "\n", FILE_APPEND);
+            if (!empty($st['domain_write_404'])) {
+                http_response_code(404);
+                echo 'Not found';
+                break;
+            }
+            $id = 700 + count($st['domains'] ?? []);
+            $st['domains'][] = ['domain_id' => $id, 'domain_client_id' => (int) ($body['client_id'] ?? 0), 'domain_name' => (string) ($body['domain_name'] ?? ''),
+                'domain_expire' => '2027-03-01', 'domain_archived_at' => null];
+            $saveState($st);
+            $json(['success' => 'True', 'count' => 1, 'data' => [['insert_id' => $id]]]);
+            break;
         } elseif ($path === '/api/v1/contacts/update.php' && $method === 'POST') {
             file_put_contents(sys_get_temp_dir() . '/itflow-updates.log', json_encode(['contact_update' => $body]) . "\n", FILE_APPEND);
             $st = $loadState();

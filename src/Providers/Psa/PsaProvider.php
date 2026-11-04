@@ -54,6 +54,9 @@ interface PsaProvider
         'assets.create' => 'Create assets',
         'licenses' => 'Read software licenses',
         'vendors' => 'Read vendors', // 2.8.0
+        'vendors.write' => 'Add, update and archive vendors', // 2.28.0 (PsaVendorWrites)
+        'domains' => 'Read domains', // 2.28.0 (PsaDomains)
+        'domains.create' => 'Add domains', // 2.28.0
         'invoices' => 'Read invoices',
         'tickets' => 'Read tickets',
         'sla' => 'Ticket SLA results',
@@ -72,7 +75,7 @@ interface PsaProvider
     /** Checks the connection; returns a short success message or throws. */
     public function test(): string;
 
-    /** Every client (neutral client records). */
+    /** Every client (neutral client records; 'lead' => true marks a prospect, left out until it's a client, 2.28.0). */
     public function clients(): array;
 
     /** Every contact, archived ones included (neutral contact records). */

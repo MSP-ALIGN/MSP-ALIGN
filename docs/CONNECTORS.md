@@ -108,6 +108,9 @@ The provider implements `Align\Providers\Psa\PsaProvider`. The template reads cl
 (`CAPS = ['contacts', 'assets']`); add a capability to `CAPS` only once its method really reads it. Everything else
 returns nothing and every write refuses. An install has one PSA: it decides the client list, so a second one set
 up shows **Not in use**. Clients the PSA stops listing are archived. The connector extends `PsaConnector`.
+A PSA that can take client vendors from Align or keeps clients' domains can also implement the optional
+`PsaVendorWrites` and `PsaDomains` interfaces (2.28.0) and list `vendors.write`, `domains` and `domains.create` in `CAPS`;
+[`ItflowPsa`](../src/Providers/Psa/ItflowPsa.php) shows both. Leave them out and nothing changes.
 
 ### Backup
 

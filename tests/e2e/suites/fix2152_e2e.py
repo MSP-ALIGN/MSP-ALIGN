@@ -49,6 +49,7 @@ tech.post(B + f"/clients/{C}/gws/disconnect", data={"_csrf": csrf(tech, f"/clien
 ok(not q("select 1 from client_gws where client_id=%s", C), "a tech can still disconnect one on your service account")
 
 # ---- vendors: one rule for duplicate names (a retired vendor never blocks a name)
+setting("psa_two_way", "0")  # 2.28.0: with two-way on these vendors would go to ITFlow too (rel228_e2e covers that)
 def addv(name):
     return tech.post(B + f"/clients/{C}/vendors", data={"_csrf": csrf(tech, f"/clients/{C}/vendors"), "name": name, "back": f"/clients/{C}/vendors"})
 addv("Fix2152 Telecom")
@@ -68,6 +69,8 @@ ok(q("select account_number from client_vendors where id=%s", old)[0]["account_n
 r = addv("Fix2152 Telecom")
 ok(len(q("select id from client_vendors where client_id=%s and name='Fix2152 Telecom' and retired_at is null", C)) == 1 and "already has" in flash(r.text),
    "two active vendors with one name are still refused")
+
+setting("psa_two_way", "1")
 
 # ---- tech closet: a field posted as an array, the portal's contacts list, ?office=abc
 r = tech.post(B + f"/clients/{C}/closet/items", data={"_csrf": csrf(tech, f"/clients/{C}/closet"), "name": "Fix2152 cable", "category[]": "x", "quantity": "2", "back": f"/clients/{C}/closet"})

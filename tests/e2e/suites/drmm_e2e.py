@@ -76,7 +76,8 @@ ok(s and s["device_type"] == "Server" and s["manufacturer"] == "Dell Inc." and s
    "a server: hardware from its audit, OS name and build, user, online: %s" % ({k: s[k] for k in ("device_type", "manufacturer", "model", "serial", "os_name", "os_build")} if s else None))
 lt = dev("drmm-dev-0002")
 ok(lt and lt["device_type"] == "Laptop" and lt["manufacturer"] == "LENOVO" and lt["offline"] == 1 and lt["os_build"] == "22631", "a laptop, offline")
-ok(lt and lt["last_contact"] and abs((datetime.now() - lt["last_contact"]).total_seconds() - 2 * 86400) < 600, "last seen (epoch milliseconds) is in this server's timezone: %s" % (lt and lt["last_contact"]))
+# Compared as aware times so a daylight-saving change in the last few days doesn't add or lose an hour.
+ok(lt and lt["last_contact"] and abs((datetime.now().astimezone() - lt["last_contact"].astimezone()).total_seconds() - 2 * 86400) < 600, "last seen (epoch milliseconds) is in this server's timezone: %s" % (lt and lt["last_contact"]))
 mac = dev("drmm-dev-0003")
 ok(mac and mac["device_type"] == "Laptop" and mac["os_name"] == "macOS Sonoma 14.5" and mac["os_build"] is None, "a Mac laptop; an OS without a Windows build keeps its name")
 prn = dev("drmm-dev-0004")
