@@ -13,6 +13,10 @@ SCFG = WORK + "/staging-ai.php"
 base_cfg = open(CONFIG).read().rstrip().rstrip(";").rstrip()
 open(SCFG, "w").write(base_cfg[:-1] + ', "staging" => true];\n')
 SENV = {**ENV, "ALIGN_CONFIG": SCFG}
+# A real install's rules (no allow_insecure_integrations) with Ollama on this machine allowed, for plain http:// checks
+NCFG = WORK + "/nohttp-ai.php"
+open(NCFG, "w").write(base_cfg.replace('"allow_insecure_integrations" => true', '"allow_local_integrations" => true') + ";\n")
+NENV = {**ENV, "ALIGN_CONFIG": NCFG}
 MONTH = php("echo Align\\Ai\\Ai::month();").stdout  # the app's month (its timezone)
 
 
@@ -106,6 +110,25 @@ try:
     c = calls()[-1]
     ok("Connected to Ollama (self-hosted)" in flash(r.text) and c["provider"] == "ollama" and c["key"] == "" and c["body"]["stream"] is False and c["body"]["options"]["num_predict"] == 16,
        "Ollama: /api/chat, not streamed, no key sent: " + flash(r.text)[:80])
+
+    # ======== plain http:// to Ollama on a private network only (a real install's rules)
+    def chk(url, private=True):
+        r = php(f"try {{ echo Align\\Http\\HttpClient::check({json.dumps(url)}, false, {'true' if private else 'false'}); }} catch (Align\\Http\\HttpException $e) {{ echo 'REFUSED: ' . $e->getMessage(); }}", NENV)
+        return r.stdout + r.stderr
+    ok(chk("http://10.0.0.20:11434") == "10.0.0.20" and chk("http://192.168.1.5:11434") == "192.168.1.5" and chk("http://100.100.10.4:11434") == "100.100.10.4"
+       and chk("http://[fd12:3456::7]:11434") == "[fd12:3456::7]", "http:// to a private address is accepted for Ollama (10/8, 192.168/16, 100.64/10, fc00::/7)")
+    ok("public address" in chk("http://8.8.8.8:11434") and "public address" in chk("http://[2001:4860:4860::8888]/"), "but not to a public address: " + chk("http://8.8.8.8:11434")[:90])
+    ok("cloud metadata" in chk("http://169.254.169.254/"), "never the cloud metadata address")
+    ok("Only https://" in chk("http://10.0.0.20:11434", private=False), "other integrations still need https")
+    ok(chk("https://8.8.8.8/") == "8.8.8.8", "https:// to a public address is fine")
+    # a real request over http:// to Ollama on this machine (loopback, allowed by allow_local_integrations here)
+    setting("ai_provider", "ollama"); setting("ai_model", "llama-local"); setting("ai_ollama_url", M + "/ai/ollama"); q("delete from settings where name in ('ai_api_key', 'ai_api_key_for')")
+    r = json.loads(php("try { echo json_encode(Align\\Ai\\Ai::ask('test', 'sys', 'hello', 16, true)); } catch (Align\\Ai\\AiException $e) { echo json_encode(['error' => $e->getMessage()]); }", NENV).stdout)
+    ok(r.get("text") == "OK" and calls()[-1]["provider"] == "ollama", "Ollama over plain http:// on this machine works: " + str(r)[:80])
+    setting("ai_ollama_url", "http://8.8.8.8:11434")
+    n = len(calls())
+    r = json.loads(php("try { echo json_encode(Align\\Ai\\Ai::ask('test', 'sys', 'hello', 16, true)); } catch (Align\\Ai\\AiException $e) { echo json_encode(['error' => $e->getMessage()]); }", NENV).stdout)
+    ok("public address" in r.get("error", "") and len(calls()) == n, "and a public address over http:// is refused before anything is sent: " + r.get("error", "")[:90])
 
     # ======== errors and checks
     r = save(ai_provider="claude", ai_model="claude-sonnet-5-5", ai_api_key="wrong-key")
@@ -205,8 +228,9 @@ finally:
     q("delete from notify_state where k like 'ai_%%'")
     q("delete from mail_queue where subject like 'AI has %%'")
     q("delete from settings where name like 'ai\\_%%'")
-    try:
-        os.remove(SCFG)
-    except OSError:
-        pass
+    for f in (SCFG, NCFG):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
 done()

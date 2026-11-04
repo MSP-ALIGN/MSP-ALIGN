@@ -61,7 +61,7 @@ final class Ai extends Connector
     public function setup(): string
     {
         return '<ol class="ps-3 mb-2"><li>Choose the <b>provider</b> and get an API key from it: Anthropic Console (Claude), OpenAI Platform, xAI Console (Grok) or Google AI Studio (Gemini). '
-            . 'For <b>Ollama</b>, enter your server\'s address (https; a key only if your server asks for one).</li>'
+            . 'For <b>Ollama</b>, enter your server\'s address: http:// works on your own network, a public address needs https (a key only if your server asks for one).</li>'
             . '<li>Type the <b>model</b> name exactly as the provider lists it (for example claude-sonnet-5-5). Newer models work without an Align update.</li>'
             . '<li>Set the <b>monthly limit</b> in tokens. When it\'s used up, AI stops for everyone until the 1st, or until you raise it. Admins are emailed at 80% and when it stops (notification "AI usage").</li>'
             . '<li>Save, press <b>Test connection</b> (it uses a few tokens), then switch AI on.</li></ol>'
@@ -80,7 +80,8 @@ final class Ai extends Connector
             ['name' => 'ai_provider', 'label' => 'Provider', 'type' => 'select', 'options' => $providers, 'default' => ''],
             ['name' => 'ai_model', 'label' => 'Model', 'type' => 'text', 'placeholder' => 'claude-sonnet-5-5', 'help' => 'The model\'s name as the provider lists it.'],
             ['name' => 'ai_api_key', 'label' => 'API key', 'type' => 'secret', 'help' => 'Belongs to the provider above: choosing another provider needs its own key. Optional for Ollama.'],
-            ['name' => 'ai_ollama_url', 'label' => 'Ollama server address (Ollama only)', 'type' => 'url', 'placeholder' => 'https://ollama.example.com'],
+            ['name' => 'ai_ollama_url', 'label' => 'Ollama server address (Ollama only)', 'type' => 'url', 'placeholder' => 'http://10.0.0.20:11434', 'private_http' => true,
+                'help' => 'https://, or http:// to an address on your own network (a public address needs https). On this server itself: add \'allow_local_integrations\' => true to config.php.'],
             ['name' => 'ai_monthly_tokens', 'label' => 'Monthly limit', 'type' => 'number', 'min' => 0, 'max' => 1_000_000_000, 'suffix' => 'tokens', 'default' => (string) A::DEFAULT_LIMIT,
                 'help' => 'Input and output tokens together, for everyone. When it\'s used up, AI stops until the 1st. 0 turns AI off.'],
             ['name' => 'ai_price_in', 'label' => 'Price per million input tokens (optional)', 'type' => 'number', 'min' => 0, 'max' => 10_000, 'help' => 'From your provider\'s price list, to estimate cost below. Leave empty for none.'],

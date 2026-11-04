@@ -35,6 +35,12 @@ abstract class Base implements Provider
         return $o !== '' ? rtrim($o, '/') . '/' . $this->key() : $this->host();
     }
 
+    /** Whether plain http:// may be used to an address on a private network (only a self-hosted server). */
+    protected function privateHttp(): bool
+    {
+        return false;
+    }
+
     /** The saved API key, or an AiException naming what to do when there's none. */
     protected function apiKey(): string
     {
@@ -52,7 +58,7 @@ abstract class Base implements Provider
     protected function post(string $url, array $headers, array $body): array
     {
         try {
-            $r = (new HttpClient(self::TIMEOUT, 2))->request('POST', $url, $headers + ['Content-Type' => 'application/json', 'Accept' => 'application/json'],
+            $r = (new HttpClient(self::TIMEOUT, 2, $this->privateHttp()))->request('POST', $url, $headers + ['Content-Type' => 'application/json', 'Accept' => 'application/json'],
                 json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         } catch (HttpException $e) {
             $detail = $this->remoteError($e->body);

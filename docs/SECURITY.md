@@ -71,7 +71,8 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   counts, feature and who asked, never the text. A key belongs to the provider it was entered for: switching
   providers needs the new provider's key, so a key is never sent to another company. A monthly token limit is a
   hard stop for everyone (tokens are reserved before each request goes out), with emails to admins at 80% and when
-  it stops. Answers are treated as untrusted text.
+  it stops. Answers are treated as untrusted text. A self-hosted Ollama may use plain http:// only to an address
+  on a private network (checked when saved and again on the address connected to); a public address needs https.
 
 **Links and tokens**
 

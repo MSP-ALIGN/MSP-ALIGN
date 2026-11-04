@@ -11,9 +11,10 @@ use Align\Settings;
  * An API key is optional: when one is saved it is sent as a Bearer token (for an Ollama behind a proxy that asks
  * for one). Tokens are Ollama's own counts (prompt_eval_count and eval_count), so the monthly limit works the same.
  *
- * Security assumptions: as Base. The address passed Connector::save (https unless allow_insecure_integrations,
- * no loopback unless allow_local_integrations, never cloud metadata) and HttpClient checks it again on every
- * request; the saved key is only sent there (moving the address needs the key typed again, Connector::save).
+ * Security assumptions: as Base. The address passed Connector::save (https, or http:// only to an address on a
+ * private network (2.29.0, often how Ollama runs in-house), no loopback unless allow_local_integrations, never cloud
+ * metadata) and HttpClient checks it again on every request, including the address it connected to; the saved key
+ * is only sent there (moving the address needs the key typed again, Connectors\Ai::save).
  */
 final class Ollama extends Base
 {
@@ -22,6 +23,12 @@ final class Ollama extends Base
 
     /** See Provider::name(). */
     public function name(): string { return 'Ollama (self-hosted)'; }
+
+    /** http:// is allowed to a private address: an in-house Ollama often has no TLS (HttpClient checks the address). */
+    protected function privateHttp(): bool
+    {
+        return true;
+    }
 
     /** The saved server address. */
     protected function host(): string

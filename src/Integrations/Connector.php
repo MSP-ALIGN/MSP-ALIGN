@@ -11,7 +11,8 @@ use Align\Settings;
  * (name, fields, setup steps, test), and add it to Registry::CONNECTORS. The page, form, saving
  * (secrets encrypted), validation, Test button, audit log and status badge come from here.
  *
- * Field types: text, url (https only), secret (encrypted, never shown again), select (options),
+ * Field types: text, url (https only; with 'private_http' => true, 2.29.0, also http:// to an address on a private
+ * network, HttpClient's rules), secret (encrypted, never shown again), select (options),
  * switch (on/off), checkboxes (options, saved comma-separated), number (min/max).
  *
  * Security assumptions: only admins reach these pages (IntegrationController checks the role, the router the CSRF
@@ -196,9 +197,10 @@ abstract class Connector
                     }
                     if ($f['type'] === 'url' && $val !== '') {
                         $val = rtrim($val, '/');
-                        $scheme = \Align\Config::get('allow_insecure_integrations', false) ? 'https?' : 'https';
+                        $privateHttp = !empty($f['private_http']); // 2.29.0
+                        $scheme = \Align\Config::get('allow_insecure_integrations', false) || $privateHttp ? 'https?' : 'https';
                         if (!filter_var($val, FILTER_VALIDATE_URL) || !preg_match('#^' . $scheme . '://#i', $val)) {
-                            throw new \InvalidArgumentException($f['label'] . ' must start with https:// (for example ' . ($f['placeholder'] ?? 'https://example.com') . ').');
+                            throw new \InvalidArgumentException($f['label'] . ' must start with https://' . ($privateHttp ? ' (or http:// on your own network)' : '') . ' (for example ' . ($f['placeholder'] ?? 'https://example.com') . ').');
                         }
                         // Just the server (and a path): a user name would be sent as a login, and ? or # would swallow
                         // the API path the connector adds
@@ -207,7 +209,7 @@ abstract class Connector
                             throw new \InvalidArgumentException($f['label'] . ' must be just the address, without a user name, password, ? or #.');
                         }
                         try {
-                            \Align\Http\HttpClient::check($val);
+                            \Align\Http\HttpClient::check($val, false, !empty($f['private_http']));
                         } catch (\Align\Http\HttpException $e) {
                             throw new \InvalidArgumentException($f['label'] . ': ' . $e->getMessage());
                         }
