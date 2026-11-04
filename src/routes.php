@@ -81,6 +81,12 @@ $r->get('/clients/{id}/ai-documents', [\Align\Controllers\AiDocumentController::
 $r->post('/clients/{id}/ai-documents', [\Align\Controllers\AiDocumentController::class, 'upload']);
 $r->get('/clients/{id}/ai-documents/{doc}', [\Align\Controllers\AiDocumentController::class, 'show']);
 $r->post('/clients/{id}/ai-documents/{doc}', [\Align\Controllers\AiDocumentController::class, 'update']);
+// 2.30.0 AI compliance review: the client's documents checked against its frameworks (the step URL is called by the review page)
+$r->get('/clients/{id}/ai-reviews', [\Align\Controllers\AiReviewController::class, 'index']);
+$r->post('/clients/{id}/ai-reviews', [\Align\Controllers\AiReviewController::class, 'start']);
+$r->get('/clients/{id}/ai-reviews/{rid}', [\Align\Controllers\AiReviewController::class, 'show']);
+$r->post('/clients/{id}/ai-reviews/{rid}', [\Align\Controllers\AiReviewController::class, 'update']);
+$r->post('/clients/{id}/ai-reviews/{rid}/step', [\Align\Controllers\AiReviewController::class, 'step']);
 $r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
 $r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
 $r->get('/vendors/templates/{id}/form', [\Align\Controllers\FormController::class, 'vendorTemplate']);

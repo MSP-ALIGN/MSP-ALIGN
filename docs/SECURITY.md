@@ -80,6 +80,13 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   answer is only taken as a fixed set of fields, each type-checked and cut to size, and nothing changes until a person
   ticks it. Only the rows Align offers can be applied (a PSA vendor only with two-way sync), and every change is
   audited as the edit forms audit it.
+- AI compliance review (2.30.0, techs and admins): only the client's own active documents can be picked; uploads have
+  the same limits and checks as document reading and are kept in their own folder under random names only until the
+  review is applied or discarded (14 days at most). Documents go to the AI provider between random-boundary markers
+  with the never-follow-instructions rule; so do the facts AI read in them when they are compared with the controls.
+  AI's answers are taken only as fixed fields (statuses from a fixed list, cited facts that exist, sizes cut), an
+  answer that cites nothing is dropped, and nothing changes until a person ticks it. Only the rows Align offers can be
+  applied, with the checklist's own rules, and every change is audited, marked "from AI review".
 
 **Links and tokens**
 

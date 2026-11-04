@@ -27,6 +27,9 @@ $sel = fn($a, $b) => $a === $b ? 'selected' : '';
       <?php if ($doc['file_type'] === 'docx'): ?>
         <form method="post" action="/documents/<?= $id ?>/import"><?= csrf_field() ?><button class="btn btn-sm btn-default" data-confirm="Make a new editable document from this Word file's text? Text, headings, lists and links come across; tables become one line per row, and pictures, headers and footers are left out. The Word file stays as it is." data-confirm-danger="0" data-confirm-ok="Import"><i class="fas fa-file-import me-1"></i>Import into an editable document</button></form>
       <?php endif; ?>
+      <?php if ($client && $doc['status'] === 'active' && in_array($doc['file_type'], \Align\Ai\Compliance\Review::READ_TYPES, true) && \Align\Ai\Ai::usable('compliance')): /* 2.30.0 */ ?>
+        <a class="btn btn-sm btn-default" href="/clients/<?= (int) $client['id'] ?>/ai-reviews?doc=<?= $id ?>"><i class="fas fa-wand-magic-sparkles me-1"></i>Review with AI</a>
+      <?php endif; ?>
       <button class="btn btn-sm btn-default" data-bs-toggle="modal" data-bs-target="#modal-replace-file"><i class="fas fa-upload me-1"></i>Replace file</button>
       <?php if (\Align\Auth::can('admin')): ?><button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modal-delete-doc" aria-label="Delete"><i class="fas fa-trash"></i></button><?php endif; ?>
     <?php endif; ?>

@@ -19,6 +19,7 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
     <div class="btn-group btn-group-sm">
       <?php if ($canEdit): ?><button type="button" class="btn btn-default" data-bs-toggle="modal" data-bs-target="#modal-checkpoint"><i class="fas fa-bookmark me-1"></i>Save version</button><?php endif; ?>
       <a class="btn btn-default" href="/documents/<?= $id ?>/print" target="_blank"><i class="fas fa-print me-1"></i>Print / PDF</a>
+      <?php if ($canEdit && $client && $doc['status'] === 'active' && \Align\Ai\Ai::usable('compliance')): /* 2.30.0 */ ?><a class="btn btn-default" href="/clients/<?= (int) $client['id'] ?>/ai-reviews?doc=<?= $id ?>"><i class="fas fa-wand-magic-sparkles me-1"></i>Review with AI</a><?php endif; ?>
       <?php if ($canEdit): ?>
         <div class="btn-group">
           <button class="btn btn-default dropdown-toggle" data-bs-toggle="dropdown" aria-label="More"><i class="fas fa-ellipsis-vertical"></i></button>

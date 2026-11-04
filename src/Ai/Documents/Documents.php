@@ -74,11 +74,13 @@ final class Documents
     }
 
     /**
-     * Moves the uploaded files into dir() under random names. Returns [['name' (cleaned original name), 'type' (its
-     * extension), 'stored', 'size']]. Throws \InvalidArgumentException with a sentence for people.
+     * Moves the uploaded files into dir() (or $dir: 2.30.0 the compliance review keeps its own folder) under random
+     * names. Returns [['name' (cleaned original name), 'type' (its extension), 'stored', 'size']]. Throws
+     * \InvalidArgumentException with a sentence for people. Public since 2.30.0 (Ai\Compliance\Review uses it).
      */
-    private static function store(array $upload): array
+    public static function store(array $upload, string $dir = ''): array
     {
+        $dir = $dir !== '' ? $dir : self::dir();
         $files = [];
         foreach ((array) ($upload['name'] ?? []) as $i => $name) {
             if (($upload['error'][$i] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
@@ -104,7 +106,7 @@ final class Documents
                 throw new \InvalidArgumentException('Send PDF, Word (.docx), Excel (.xlsx), CSV, text or email (.eml, .msg) files.');
             }
         }
-        if (!is_dir(self::dir()) && !mkdir(self::dir(), 0750, true) && !is_dir(self::dir())) {
+        if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
             throw new \RuntimeException('Could not create the AI upload folder.');
         }
         $out = [];
@@ -112,14 +114,14 @@ final class Documents
             foreach ($files as $f) {
                 $ext = self::ext($f['name']);
                 $stored = 'ai-' . bin2hex(random_bytes(12)) . '.' . $ext;
-                if (!move_uploaded_file($f['tmp'], self::dir() . '/' . $stored)) {
+                if (!move_uploaded_file($f['tmp'], $dir . '/' . $stored)) {
                     throw new \RuntimeException('Could not save the file.');
                 }
-                @chmod(self::dir() . '/' . $stored, 0640);
-                $out[] = ['name' => self::cleanName($f['name'], $ext), 'type' => $ext, 'stored' => $stored, 'size' => (int) filesize(self::dir() . '/' . $stored)];
+                @chmod($dir . '/' . $stored, 0640);
+                $out[] = ['name' => self::cleanName($f['name'], $ext), 'type' => $ext, 'stored' => $stored, 'size' => (int) filesize($dir . '/' . $stored)];
             }
         } catch (\Throwable $e) {
-            self::forget($out);
+            self::forget($out, $dir);
             throw $e;
         }
         return $out;
@@ -138,21 +140,21 @@ final class Documents
         return mb_substr($n !== '' ? $n : "file.$ext", 0, 190);
     }
 
-    /** A stored file's full path, or null when the name isn't one of ours or it's gone. */
-    public static function path(string $stored): ?string
+    /** A stored file's full path in dir() (or $dir, 2.30.0), or null when the name isn't one of ours or it's gone. */
+    public static function path(string $stored, string $dir = ''): ?string
     {
         if (!preg_match('/^ai-[0-9a-f]{24}\.(pdf|docx|xlsx|csv|txt|eml|msg)$/', $stored)) {
             return null;
         }
-        $p = self::dir() . '/' . $stored;
+        $p = ($dir !== '' ? $dir : self::dir()) . '/' . $stored;
         return is_file($p) ? $p : null;
     }
 
-    /** Deletes stored files (rows of store()); missing ones are skipped. */
-    public static function forget(array $files): void
+    /** Deletes stored files (rows of store()) in dir() (or $dir, 2.30.0); missing ones are skipped. */
+    public static function forget(array $files, string $dir = ''): void
     {
         foreach ($files as $f) {
-            if (is_array($f) && is_string($f['stored'] ?? null) && ($p = self::path($f['stored'])) !== null) {
+            if (is_array($f) && is_string($f['stored'] ?? null) && ($p = self::path($f['stored'], $dir)) !== null) {
                 @unlink($p);
             }
         }

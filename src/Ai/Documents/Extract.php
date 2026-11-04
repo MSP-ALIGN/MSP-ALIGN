@@ -165,8 +165,8 @@ TXT;
         return $out;
     }
 
-    /** A string value without control characters, trimmed and cut to $max characters; null for none or not a string/number. */
-    private static function str(mixed $v, int $max): ?string
+    /** A string value without control characters, trimmed and cut to $max characters; null for none or not a string/number. Public since 2.30.0 (Ai\Compliance). */
+    public static function str(mixed $v, int $max): ?string
     {
         if (is_int($v) || is_float($v)) {
             $v = (string) $v;
@@ -178,14 +178,14 @@ TXT;
         return $v === '' ? null : mb_substr($v, 0, $max);
     }
 
-    /** One line for the request (no line breaks, so a file name can't fake a marker). */
-    private static function line(string $v, int $max): string
+    /** One line for the request (no line breaks, so a file name can't fake a marker). Public since 2.30.0. */
+    public static function line(string $v, int $max): string
     {
         return self::str($v, $max) ?? '';
     }
 
-    /** A real day as YYYY-MM-DD between 1990 and 2100, else null. */
-    private static function date(mixed $v): ?string
+    /** A real day as YYYY-MM-DD between 1990 and 2100, else null. Public since 2.30.0. */
+    public static function date(mixed $v): ?string
     {
         return is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v, $m) && (int) $m[1] >= 1990 && (int) $m[1] <= 2100
             && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $v : null;

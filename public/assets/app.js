@@ -2015,3 +2015,71 @@ document.addEventListener('change', (ev) => {
   if (!all) return;
   all.closest('table')?.querySelectorAll('input[name="rows[]"]:not(:disabled)').forEach((c) => { c.checked = all.checked; });
 });
+
+// ---- 2.30.0 AI compliance review. The start page: a rough token estimate for what is ticked (documents and uploads
+// for reading the facts, then the matching steps: the facts and one batch of control groups per step). The review
+// page: posts the step URL (with the page's CSRF token) until every batch is done, then reloads to show the review;
+// a failure shows its message and a Try again button (finished batches are kept by the server).
+(() => {
+  const form = document.querySelector('[data-ai-estimate-form]');
+  const box = form && form.querySelector('[data-ai-estimate]');
+  if (!box) return;
+  const batch = Number(box.dataset.batch) || 60;
+  const remaining = Number(box.dataset.remaining) || 0;
+  const update = () => {
+    let docs = 0;
+    let groups = 0;
+    form.querySelectorAll('input[name="docs[]"]:checked').forEach((c) => { docs += Number(c.dataset.tokens) || 0; });
+    form.querySelectorAll('input[name="frameworks[]"]:checked').forEach((c) => { groups += Number(c.dataset.groups) || 0; });
+    const files = form.querySelector('input[name="files[]"]');
+    Array.from((files && files.files) || []).forEach((f) => { docs += Math.min(133000, Math.ceil(f.size / 4)); });
+    const facts = Math.min(18000, Math.max(500, Math.round(docs * 0.1)));
+    const steps = Math.ceil(groups / batch);
+    const total = docs || groups ? docs + 16000 + 1000 + steps * (facts + Math.min(groups, batch) * 60 + 8000 + 800) : 0;
+    box.querySelector('[data-ai-estimate-tokens]').textContent = total.toLocaleString();
+    box.querySelector('[data-ai-estimate-over]').classList.toggle('d-none', total <= remaining);
+  };
+  form.addEventListener('change', update);
+  update();
+})();
+(() => {
+  const card = document.querySelector('[data-ai-steps]');
+  if (!card) return;
+  const bar = card.querySelector('[data-ai-steps-bar]');
+  const text = card.querySelector('[data-ai-steps-text]');
+  const err = card.querySelector('[data-ai-steps-error]');
+  const retry = card.querySelector('[data-ai-steps-retry]');
+  const show = (step, total) => {
+    bar.style.width = (total ? Math.round(step / total * 100) : 100) + '%';
+    bar.parentElement.setAttribute('aria-valuenow', String(step));
+    text.textContent = step >= total ? 'Done. Opening the review…' : 'Step ' + (step + 1) + ' of ' + total + '…';
+  };
+  const run = async () => {
+    retry.classList.add('d-none');
+    err.classList.add('d-none');
+    for (;;) {
+      let j;
+      try {
+        const body = new FormData();
+        body.append('_csrf', card.dataset.csrf);
+        const r = await fetch(card.dataset.aiSteps, { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        j = await r.json();
+      } catch (e) {
+        j = { ok: false, message: 'The server did not answer. Check your connection and try again.' };
+      }
+      if (!j.ok) {
+        err.textContent = j.message || 'That step failed. Try again.';
+        err.classList.remove('d-none');
+        retry.classList.remove('d-none');
+        return;
+      }
+      show(j.step, j.total);
+      if (j.done) {
+        window.location.reload();
+        return;
+      }
+    }
+  };
+  retry.addEventListener('click', run);
+  run();
+})();

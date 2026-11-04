@@ -48,6 +48,8 @@ final class Ai
     public const FEATURES = [
         'test' => 'Connection test',
         'documents' => 'Read documents', // 2.29.0 vendor invoices, quotes and contracts into vendors and licenses (Ai\Documents)
+        'compliance' => 'Compliance review', // 2.30.0 a client's documents checked against its compliance controls (Ai\Compliance)
+        'drafts' => 'Draft documents', // 2.30.0 reserved for drafting documents from templates (a later step)
     ];
 
     /** Tokens reserved per PDF page sent as a file (a page is read as text and as an image: about 1,500–3,000). */

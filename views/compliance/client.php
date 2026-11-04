@@ -1,7 +1,7 @@
 <?php
 /**
  * A client's compliance summary. @var array $client, $assigned (frameworks with score and gaps), $available, $indicators.
- * The add-framework form shows for techs only.
+ * The add-framework form shows for techs only; so does 2.30.0's "Review documents with AI" (when AI is usable for it).
  */
 use Align\Auth;
 use Align\Compliance\Compliance;
@@ -10,6 +10,9 @@ require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 ?>
 <h1 class="visually-hidden">Compliance</h1>
+<?php if (Auth::can('tech') && \Align\Ai\Ai::usable('compliance')): /* 2.30.0 */ ?>
+  <div class="d-flex justify-content-end mb-2"><a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/ai-reviews"><i class="fas fa-wand-magic-sparkles me-1"></i>Review documents with AI</a></div>
+<?php endif; ?>
 <div class="row">
   <div class="col-lg-8">
     <?php foreach ($assigned as $fw): $s = $fw['score']; ?>
