@@ -199,7 +199,8 @@ final class Render
         }
         $out .= '</tbody><tfoot>';
         foreach (['month' => 'Monthly total', 'year' => 'Yearly total', 'once' => 'One-time total'] as $p => $label) {
-            if ($t['sum'][$p] > 0 || ($p === 'month' && !array_filter($t['sum']))) {
+            // (2.28.1) any period with a total, below 0 too (a discount bigger than its charges); Monthly when there's none
+            if ($t['sum'][$p] != 0 || ($p === 'month' && !array_filter($t['sum']))) {
                 $out .= '<tr><td colspan="3">' . $label . '</td><td class="num">' . e(Fmt::money($t['sum'][$p], true)) . '</td></tr>';
             }
         }

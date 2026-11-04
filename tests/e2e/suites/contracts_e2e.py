@@ -104,7 +104,7 @@ ok("<script" not in row["def"] and "onerror" not in row["def"] and "{{hourly_rat
 ok([f["key"] for f in s["fields"]][-2:] == ["clashes_with_a_built_in", "response_time"] and s["fields"][-2]["type"] == "text" and s["fields"][-2]["by"] == "provider", "a field can't take a built-in name; bad type and side fall back")
 ok(s["fields"][-1]["options"] == ["1 hour", "4 hours"], "choice options kept")
 bad = s["services"]["rows"][-1]
-ok(bad["price"] == 0 and bad["period"] == "month" and bad["auto"] == "" and bad["label"] == "<b>Bad</b>", "service row values are limited (the label is text, escaped when shown)")
+ok(bad["price"] == -5 and bad["period"] == "month" and bad["auto"] == "" and bad["label"] == "<b>Bad</b>", "service row values are limited, a price below 0 kept as a discount (the label is text, escaped when shown)")
 ok(s["style"]["color"] == "" and s["style"]["size"] == 12 and row["version"] == 3, "style limited; the version went up")
 prev = a.post(B + f"/contracts/templates/{tid}/preview", data={"_csrf": csrf(a, f"/contracts/templates/{tid}"), "def": json.dumps(s)}).text
 ok("cf-unknown" in prev and "&lt;b&gt;Bad&lt;/b&gt;" in prev and "<script" not in prev and "Example Client, Inc." in prev, "live preview: sample values, unknown placeholder flagged, text escaped")

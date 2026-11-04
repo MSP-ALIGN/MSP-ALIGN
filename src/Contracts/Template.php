@@ -330,7 +330,10 @@ final class Template
         return [$sections, $keys];
     }
 
-    /** The services table: at most 50 rows with unique keys, prices and quantities clamped, periods and counts from fixed lists. */
+    /**
+     * The services table: at most 50 rows with unique keys, prices and quantities clamped (a price may be below 0 for a
+     * discount, a quantity can't), periods and counts from fixed lists.
+     */
     private static function normServices(mixed $in): array
     {
         $svc = is_array($in) ? $in : [];
@@ -349,7 +352,7 @@ final class Template
                 'key' => $key, 'label' => $label,
                 'description' => self::str($r['description'] ?? '', 300),
                 'unit' => self::str($r['unit'] ?? '', 40),
-                'price' => self::num($r['price'] ?? 0, 0, 10_000_000, 0),
+                'price' => self::num($r['price'] ?? 0, -10_000_000, 10_000_000, 0), // (2.28.1) below 0: a discount row
                 'period' => self::pick($r['period'] ?? null, self::PERIODS, 'month'),
                 'qty' => self::num($r['qty'] ?? 1, 0, 1_000_000, 1),
                 'auto' => self::pick($r['auto'] ?? null, self::AUTO, ''),

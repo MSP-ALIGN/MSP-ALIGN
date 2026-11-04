@@ -610,7 +610,8 @@ final class PdfRender
             $this->paragraph([['t' => 'No services listed.', 'i' => true, 'color' => self::GRAY]], $s);
         }
         foreach (['month' => 'Monthly total', 'year' => 'Yearly total', 'once' => 'One-time total'] as $p => $label) {
-            if ($t['sum'][$p] <= 0 && !($p === 'month' && !array_filter($t['sum']))) {
+            // (2.28.1) as Render::services: a total below 0 prints too
+            if ($t['sum'][$p] == 0 && !($p === 'month' && !array_filter($t['sum']))) {
                 continue;
             }
             $this->need($s * 1.8);
