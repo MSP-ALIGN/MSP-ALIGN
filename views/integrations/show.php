@@ -2,7 +2,7 @@
 /**
  * One connector's settings page (admin only): the form, the Test button (POST with CSRF) and the setup steps.
  * @var \Align\Integrations\Connector $c; array $values, $status
- * Security: setup() and notes() are trusted HTML from code (notes() escapes what it shows from the PSA); everything
+ * Security: setup(), notes() and panel() are trusted HTML from code (notes() escapes what it shows from the PSA); everything
  * else is escaped. The confirm rules are JSON in an escaped attribute, read with JSON.parse by the page script.
  */
 [$tone, $label, $detail] = $status;
@@ -51,3 +51,4 @@ $rules = array_values(array_filter([
     </div>
   </div>
 </div>
+<?= $c->panel() /* 2.29.0 trusted HTML from code, e.g. the AI usage tables */ ?>

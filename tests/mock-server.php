@@ -23,6 +23,10 @@ foreach (glob(__DIR__ . '/mock/*.php') ?: [] as $mockModule) {
 if ((require __DIR__ . '/mock-msmail.php') === true) {
     return;
 }
+// 2.29.0 AI providers (Claude, OpenAI, Grok, Gemini, Ollama): /ai/<provider>/... (tests/mock-ai.php)
+if ((require __DIR__ . '/mock-ai.php') === true) {
+    return;
+}
 
 // ITFlow side keeps edits between requests so two-way sync can be tested.
 $stateFile = sys_get_temp_dir() . '/itflow-mock-state.json';

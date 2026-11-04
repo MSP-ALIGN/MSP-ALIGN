@@ -60,6 +60,12 @@ abstract class Connector
         return '';
     }
 
+    /** 2.29.0 A panel under the form (trusted HTML from code; escape anything it shows from elsewhere), e.g. the AI usage tables. */
+    public function panel(): string
+    {
+        return '';
+    }
+
     /** Integrations with their own page (email) return its URL. */
     public function url(): string
     {

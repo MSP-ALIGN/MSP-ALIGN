@@ -74,6 +74,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.29.0', 'fa-wand-magic-sparkles', 'AI providers and a monthly limit', 'Admins choose Claude, OpenAI, Grok, Gemini or a self-hosted Ollama under <b>Integrations → AI</b>, with a monthly token limit that stops AI for everyone when it\'s used up (emails at 80% and when it stops). The page shows who used how much, by month.', 'ai', 'admin'],
         ['2.28.1', 'fa-tag', 'Discounts on any contract row', 'A contract\'s services can now take a price below 0 on any row, not only on a line you add, so a discount can sit on a template row too. A template\'s own rows can have a negative default price (a standing bundle discount, for example).', 'contracts', 'tech'],
         ['2.28.0', 'fa-arrows-rotate', 'ITFlow 26.10: vendors both ways, domains, leads', 'With two-way sync on, vendors you add, edit, retire or restore in Align go to ' . psa_name() . ' too, and each client\'s domains in ' . psa_name() . ' join its domain list (email checks and expiry dates); domains you add here go there as well. ' . psa_name() . ' leads stay out until they become clients, and critical projects open Urgent tickets. Needs ITFlow 26.10 or later for the vendor and domain changes.', 'vendors', 'tech'],
         ['2.27.1', 'fa-toggle-on', 'Feedback is now a setting', 'The Feedback button is off until an admin turns it on under <b>Settings → General → Feedback</b>. Reports already sent are kept.', 'feedback', 'admin'],
@@ -307,6 +308,14 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'Something that genuinely doesn\'t need a backup (a test VM, a kiosk)? A tech can mark it <b>Backup not required</b> with a reason; it stops counting as missing everywhere.',
       '<b>Reports → Backup &amp; recovery</b> prints it for the client, and <b>Reports → Backups (all clients)</b> shows the whole portfolio.',
   ], ['Backups report (all clients)' => '/reports/backups']) ?>
+  <?= $guide('ai', 'fa-wand-magic-sparkles', 'Set up AI and its monthly limit', 'admin', [
+      'Open <b>Integrations → AI</b> (admins). Choose the <b>provider</b>: Claude (Anthropic), OpenAI, Grok (xAI), Gemini (Google) or your own <b>Ollama</b> server. Type the <b>model</b> name exactly as the provider lists it, and paste the <b>API key</b> from the provider\'s console (Ollama: your server\'s https address; a key only if it asks for one) (2.29.0).',
+      'A key belongs to the provider it was entered for: choosing another provider asks for that provider\'s key, so a key is never sent to another company.',
+      'Set the <b>monthly limit</b> in tokens (input and output together, for everyone). When it\'s used up, AI stops for everyone until the 1st, or until you raise it; the rest of MSP Align carries on. Admins are emailed at 80% and when it stops (Settings → Notifications → <b>AI usage</b>). 0 turns AI off.',
+      'Press <b>Save</b>, then <b>Test connection</b>: it sends a tiny request (a few tokens, counted like any other) and works before AI is switched on. Then switch on <b>Use AI in Align</b>.',
+      'The <b>Usage</b> panel shows this month against the limit, who used how much for what, and each month\'s tokens. Enter your provider\'s prices per million tokens to see an estimated cost; the provider\'s bill is what counts.',
+      'What is sent to AI goes to the provider you chose, under its terms. MSP Align keeps only how many tokens each request used and who asked, never the text. AI is always off on a test server.',
+  ], ['AI settings' => '/integrations/ai']) ?>
   <?= $guide('feedback', 'fa-comment-dots', 'Report a bug or request a feature', 'viewer', [
       'An admin turns it on first: <b>Settings → General → Feedback</b>, tick <b>Let staff report bugs and request features</b> (off by default; turning it off hides the button and keeps the reports) (2.27.1).',
       'Press the <i class="fas fa-comment-dots"></i> button at the top right of any page, then <b>Report a bug</b> or <b>Request a feature</b>. Give it a short title, details if you like, a priority and a screenshot: choose a PNG or JPEG file, or copy a screenshot and paste it (Ctrl+V) while the form is open. The page you were on is sent with it (2.27.0).',
