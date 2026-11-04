@@ -12,6 +12,7 @@ working RMM, PSA, backup or security connector from a template, with its mock AP
 | PSA (at most one per install; none is fine) | ITFlow, HaloPSA (beta, read-only) | `clients.psa_id`, `contacts.psa_id`, `licenses.psa_id`, `client_vendors.psa_id`, `psa_assets`, `psa_tickets`, `psa_billing`, `psa_sync_state` |
 | RMM (any number) | NinjaOne, Tactical RMM (beta), Datto RMM (beta) | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links`, `rmm_hardware` (hardware read per device, 2.13.0) |
 | Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
+| AI (at most one, optional, 2.29.0) | Claude, OpenAI, Grok, Gemini, Ollama (self-hosted) | `ai_usage` (token counts only), reviews in `ai_documents`, `ai_reviews`, `ai_meeting_actions` |
 | Security and SaaS checks (community connectors, any number) | none yet (template: `src/Templates/Saas`) | `connector_records`, `connector_results` (each with `provider`, 2.22.0), `client_links` |
 
 ## PSA providers
@@ -84,6 +85,16 @@ sync never prunes another's. Each client links to at most one company per produc
 companies whose name matches a client's link automatically on sync. Machines under a company linked to
 no client, or under one flagged in `<key>_hosting_companies`, are treated as backups on your own server
 and sorted into clients by device name, by job, or by hand (**Integrations → Hosted backups**).
+
+## AI providers
+
+Since 2.29.0 an admin can set up one AI provider under **Integrations → AI**: Claude (Anthropic), OpenAI, Grok
+(xAI), Gemini (Google) or a self-hosted Ollama server (plain `http://` is accepted only to an address on your own
+network). Each is a class in `src/Ai/Providers` behind `Ai\Provider`; every request goes through `Ai\Ai::ask()`, which
+checks the switches, the test-server rule and the monthly token limit (reserved before each request, so it's a hard
+stop), and records the tokens used. The API key belongs to the provider it was typed for, so switching providers asks
+for the new provider's key. The model is typed as text, so new models work without an update. Claude, OpenAI and
+Gemini are sent PDFs as files; Grok and Ollama get the text Align reads from them.
 
 ## Client links
 
