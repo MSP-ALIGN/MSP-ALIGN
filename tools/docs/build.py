@@ -355,6 +355,8 @@ ICONS = {
     "portal": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5"/>',
     "shield": '<path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
     "pen": '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    # 2.32.1 (docs) AI: a sparkle
+    "spark": '<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
     "key": '<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M17 6l3 3M14.5 8.5l2 2"/>',
     "plug": '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/>',
     "server": '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
@@ -375,6 +377,7 @@ FEATURES = [
     ("lifecycle", "Lifecycle at a glance", "Warranty, end of life and OS support for every device, with Dell and Lenovo warranty lookups."),
     ("target", "Alignment reviews", "Score every client against your own standards, then turn each gap into a roadmap project."),
     ("roadmap", "Roadmaps and budgets", "Projects by quarter and a three-year budget that fills itself from hardware, licenses and services."),
+    ("spark", "Optional AI", "Reads vendor invoices into licenses, checks policies against frameworks, drafts missing ones and writes QBR summaries. You check everything first."),
     ("report", "QBRs in one click", "A polished pack that opens with what changed since the last review, then lifecycle, backups, compliance, roadmap and budget."),
     ("portal", "Client portal", "Clients see their plan, approve projects, send requests and check out spare parts, with two-factor sign-in."),
     ("pulse", "Security and client health", "Huntress, security awareness training, Microsoft 365 and Google Workspace checked daily, rolled into one health score per client."),
@@ -385,7 +388,7 @@ FEATURES = [
     ("plug", "To do and automation", "One list of what's waiting on your team, and a REST API for n8n, Zapier and scripts."),
 ]
 TOOLS = ["ITFlow", "HaloPSA (beta)", "NinjaOne", "Tactical RMM (beta)", "Datto RMM (beta)", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)", "KnowBe4 (beta)",
-         "SMTP", "Dell warranties", "Lenovo warranties", "CSV import"]
+         "SMTP", "Dell warranties", "Lenovo warranties", "CSV import", "Claude, OpenAI, Grok, Gemini or Ollama (AI, optional)"]
 TRUST = [
     ("server", "Your server, your data", "Self-hosted on a Debian VM or Docker. No telemetry, no cloud account."),
     ("lock", "Locked down", "Two-factor for every account, a tamper-evident audit log, encrypted secrets and backups."),
@@ -404,7 +407,8 @@ def home_body(install):
         '<p class="h-eyebrow">Free and open source · Self-hosted · Built by MSPs, for MSPs</p>'
         '<h1>Every client\'s IT plan, <span>in one place.</span></h1>'
         '<p class="h-sub">MSP Align pulls in your clients, devices and backups, shows what needs replacing and what it will '
-        'cost, and turns it into roadmaps, budgets and QBRs your clients understand.</p>'
+        'cost, and turns it into roadmaps, budgets and QBRs your clients understand. Optional AI does the reading and the '
+        'first drafts for you.</p>'
         '<p class="h-cta"><a class="button" href="install.html">Install it free</a>'
         '<a class="button secondary" href="screenshots.html">See screenshots</a>'
         f'<a class="button ghost" href="{REPO}">View on GitHub</a></p>'
