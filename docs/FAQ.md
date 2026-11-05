@@ -56,13 +56,21 @@ keys in `/etc/msp-align`. In Docker, the same data lives in named volumes.
 **Does it send anything to the developers?**
 No. There's no telemetry or analytics, and the interface's scripts and fonts are bundled, not loaded from the internet.
 The server contacts only the tools you connect, GitHub (to check for and download updates), and your Debian mirror for
-security updates.
+security updates. If you set up AI (optional, 2.29.0), what you choose to send goes to the AI provider you picked.
 
 **How is client information protected?**
 Two-factor sign-in is required for every account, people see only what their role (or, in the client portal, their
 own client) allows, sessions sign out when idle, everything that matters goes into a tamper-evident audit log, and
 stored secrets and backups are encrypted. MSP Align isn't meant to hold regulated personal data such as health records
 or card numbers. See [Security](SECURITY.md).
+
+**Does MSP Align use AI? What does it send?**
+Only if an admin sets it up under Integrations → AI (Claude, OpenAI, Grok, Gemini or your own Ollama server), and each
+feature has its own switch. A request is sent only when someone presses a button: the document they upload or pick
+(vendor invoices, policies), or a summary of the client's numbers for QBR and alignment write-ups, which leaves out
+contacts' names, email addresses, phone numbers, device names and serial numbers. Align keeps the token counts and who
+asked, never the text. Nothing changes until a person reviews and ticks it, AI's text is never shown in the client
+portal, a monthly token limit stops it for everyone, and it's always off on a test server. See [Security](SECURITY.md).
 
 **How are updates kept safe?**
 Since 2.0, a server installs only releases signed with the project's release key, which is never stored on GitHub or a build machine, and refuses

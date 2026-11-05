@@ -6,6 +6,7 @@ use Align\Reports\Ui;
  * 2.3.0 the QBR section "Alignment with our standards": score and band, the last few reviews, and the gaps with the
  * plan for each (the roadmap project made for it). Client-facing: titles and "why it matters" only, no staff notes.
  * @var array $al (ReportData::alignment), $client; string $company; ?string $num
+ * 2.32.0 ?string $writeup: the review's write-up as safe HTML (Summary::html(): escaped, then its own tags); staff packs only.
  */
 $sc = $al['score'];
 $tone = fn(?int $s) => $s === null ? 'muted' : ($s >= 80 ? 'ok' : ($s >= 60 ? 'warn' : 'bad'));
@@ -47,5 +48,9 @@ $hist = array_reverse(array_values(array_filter($al['history'], fn($h) => $h['sc
     <?php if (count($al['gaps']) > 12): ?><p class="muted"><?= count($al['gaps']) - 12 ?> smaller gaps aren't listed here; ask us for the full review.</p><?php endif; ?>
   <?php else: ?>
     <p>Every standard that applies is met. We'll keep checking at each review.</p>
+  <?php endif; ?>
+  <?php if (!empty($writeup)): // 2.32.0 already escaped and limited to its own tags by Summary::html() ?>
+    <h3>Our recommendations</h3>
+    <div class="ai-summary al-writeup"><?= $writeup ?></div>
   <?php endif; ?>
 </section>

@@ -30,6 +30,10 @@ use Align\Config;
  *   proxy, so the connected-address check is skipped and the name is looked up here instead (IPv4 and IPv6); a name
  *   that changes between that lookup and the proxy's own lookup isn't caught, and the proxy's policy applies.
  * - The server's own LAN address and a Docker host's gateway are private addresses, so they are allowed.
+ * - 2.29.0 http on a private network: a client made with $privateHttp (only a self-hosted Ollama, often run without
+ *   TLS in-house) may use http:// when the name resolves only to private addresses (10/8, 172.16/12, 192.168/16,
+ *   100.64/10, fc00::/7; loopback only with allow_local_integrations), and the address curl connected to is checked
+ *   to be private too. A public address over http is still refused, so a key never crosses the internet unencrypted.
  * Redirects are never followed (a 3xx is an error), TLS 1.2+ with certificate and host name checks is always on,
  * and a header with a line break is refused, so a pasted key can't add headers of its own.
  */
@@ -50,6 +54,7 @@ final class HttpClient
     public function __construct(
         private int $timeout = 60,
         private int $retries = 3,
+        private bool $privateHttp = false, // 2.29.0 http allowed to private addresses only (see the class comment)
     ) {
     }
 
@@ -73,7 +78,8 @@ final class HttpClient
         $local = self::loopbackOk();
         $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
         $checkConnected = defined('CURLOPT_PREREQFUNCTION') && !self::viaProxy($scheme, strtolower(trim((string) parse_url($url, PHP_URL_HOST), '[]')));
-        $host = self::check($url, !$checkConnected);
+        $privateOnly = $this->privateHttp && $scheme === 'http' && !$insecure; // 2.29.0 plain http: private addresses only
+        $host = self::check($url, !$checkConnected || $privateOnly, $this->privateHttp);
 
         $hdrs = [];
         foreach ($headers as $k => $v) {
@@ -100,7 +106,7 @@ final class HttpClient
             CURLOPT_CONNECTTIMEOUT => 15,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_USERAGENT => 'MSP-ALIGN/' . APP_VERSION,
-            CURLOPT_PROTOCOLS => $insecure ? CURLPROTO_HTTPS | CURLPROTO_HTTP : CURLPROTO_HTTPS,
+            CURLOPT_PROTOCOLS => $insecure || $privateOnly ? CURLPROTO_HTTPS | CURLPROTO_HTTP : CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
@@ -111,8 +117,8 @@ final class HttpClient
         ];
         if ($checkConnected) {
             // Runs after connecting, before anything is sent: judges the address really connected to
-            $opts[CURLOPT_PREREQFUNCTION] = function ($c, string $ip) use (&$blocked, $local): int {
-                $blocked = self::refusedIp($ip, $local);
+            $opts[CURLOPT_PREREQFUNCTION] = function ($c, string $ip) use (&$blocked, $local, $privateOnly): int {
+                $blocked = self::refusedIp($ip, $local) ?? ($privateOnly && !self::privateIp($ip) ? 'a public address, and plain http:// is only used on a private network' : null);
                 return $blocked === null ? CURL_PREREQFUNC_OK : CURL_PREREQFUNC_ABORT;
             };
         }
@@ -176,18 +182,21 @@ final class HttpClient
      * Checks a URL against the address policy (see the class comment) without connecting. Returns its host for
      * messages, or throws HttpException with a plain reason that names the host only. $resolve: also look a name
      * up in DNS (IPv4); without it only literal addresses and localhost are judged here and request() judges the
-     * connected address. Also used by Connector::save() to refuse an address as it is typed.
+     * connected address. Also used by Connector::save() to refuse an address as it is typed. $privateHttp (2.29.0):
+     * http:// is accepted too, but then the name is always looked up and every address must be private.
      */
-    public static function check(string $url, bool $resolve = false): string
+    public static function check(string $url, bool $resolve = false, bool $privateHttp = false): string
     {
         $p = parse_url($url) ?: [];
         $scheme = strtolower((string) ($p['scheme'] ?? ''));
         $host = strtolower((string) ($p['host'] ?? ''));
         $insecure = (bool) Config::get('allow_insecure_integrations', false);
         $local = self::loopbackOk();
-        if ($scheme !== 'https' && !($insecure && $scheme === 'http')) {
+        $privateOnly = $privateHttp && $scheme === 'http' && !$insecure;
+        if ($scheme !== 'https' && !(($insecure || $privateHttp) && $scheme === 'http')) {
             throw new HttpException('Only https:// addresses can be used' . ($host !== '' ? " ($host)" : '') . '.');
         }
+        $resolve = $resolve || $privateOnly;
         // Spaces, controls and backslashes are read differently by parse_url and curl, and a user name or password
         // in the address would be sent as a login: refuse them instead of guessing which server is meant
         if ($host === '' || isset($p['user']) || isset($p['pass']) || preg_match('/[\x00-\x20\x7F\\\\]/', $url)) {
@@ -221,8 +230,41 @@ final class HttpClient
             if (($why = self::refusedIp($ip, $local)) !== null) {
                 throw new HttpException("Align won't connect to $host: it is $why.");
             }
+            if ($privateOnly && !self::privateIp($ip)) {
+                throw new HttpException("Align won't use plain http:// with $host: it is a public address. Use https://, or an address on your own network.");
+            }
+        }
+        if ($privateOnly && !$ips) {
+            throw new HttpException("$host couldn't be looked up, so Align can't check it's on your own network (plain http:// is only used there).");
         }
         return $host;
+    }
+
+    /**
+     * 2.29.0 Whether an address is on a private network: 10/8, 172.16/12, 192.168/16, 100.64/10 (carrier-grade NAT,
+     * also used by VPN overlays), fc00::/7, IPv4 inside IPv6 judged as IPv4, and loopback (refusedIp() decides
+     * whether loopback may be used at all). Used only for plain http:// (see the class comment).
+     */
+    public static function privateIp(string $ip): bool
+    {
+        $bin = (string) @inet_pton($ip);
+        if (strlen($bin) === 16) {
+            foreach (['::ffff:0:0', '64:ff9b::', '::'] as $prefix) {
+                if (self::inNet($bin, $prefix, 96) && $bin !== inet_pton('::1')) {
+                    return self::privateIp((string) inet_ntop(substr($bin, 12)));
+                }
+            }
+            return $bin === inet_pton('::1') || self::inNet($bin, 'fc00::', 7);
+        }
+        if (strlen($bin) !== 4) {
+            return false;
+        }
+        foreach ([['10.0.0.0', 8], ['172.16.0.0', 12], ['192.168.0.0', 16], ['100.64.0.0', 10], ['127.0.0.0', 8]] as [$net, $bits]) {
+            if (self::inNet($bin, $net, $bits)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -6,3 +6,4 @@
 *.webm binary
 *.woff2 binary
 *.svg text
+tests/e2e/fixtures/ai/* -text

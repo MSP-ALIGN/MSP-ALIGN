@@ -26,9 +26,10 @@ final class Registry
         Connectors\KnowBe4::class, // 2.14.0 (beta)
         Connectors\Dell::class,
         Connectors\Lenovo::class,
+        Connectors\Ai::class, // 2.29.0
     ];
 
-    public const CATEGORIES = ['PSA & documentation', 'RMM', 'Backup', 'Microsoft 365', 'Google Workspace', 'Security', 'Email & calendar', 'Warranty'];
+    public const CATEGORIES = ['PSA & documentation', 'RMM', 'Backup', 'Microsoft 365', 'Google Workspace', 'Security', 'Email & calendar', 'Warranty', 'AI'];
 
     /**
      * One instance of each connector, keyed by key() (made once per request).

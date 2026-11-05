@@ -26,8 +26,10 @@ const alignFmt = (() => {
     ...f,
     money: (n) => {
       const r = f.decimals === 0 ? Math.round(n) : Math.round(n * 100) / 100;
-      const t = number(r, r % 1 ? 2 : 0);
-      return f.after ? t + '\u00A0' + f.symbol : f.symbol + (/\p{L}$/u.test(f.symbol) ? '\u00A0' : '') + t;
+      // (2.32.1) The minus sign goes first, as on the server: -$45, -CHF 45, -45 €
+      const t = number(Math.abs(r), r % 1 ? 2 : 0);
+      const sign = r < 0 && /[1-9]/.test(t) ? '-' : '';
+      return sign + (f.after ? t + '\u00A0' + f.symbol : f.symbol + (/\p{L}$/u.test(f.symbol) ? '\u00A0' : '') + t);
     },
     date: (d) => f.date === 'iso' ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
       : f.date === 'dmy' ? d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() : months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(),
@@ -2001,3 +2003,92 @@ document.addEventListener('paste', (ev) => {
   input.files = dt.files;
   input.dispatchEvent(new Event('change', { bubbles: true })); // feedbackFile: the hint and the size limit
 });
+
+// ---- 2.29.0 Read a document with AI: show that it's working while the provider reads (it can take a minute), and
+// the button can't be pressed twice; on the review page, "tick all" for a group of rows
+document.addEventListener('submit', (ev) => {
+  const f = ev.target;
+  if (!(f instanceof HTMLFormElement) || !f.matches('[data-ai-upload]') || ev.defaultPrevented) return;
+  f.querySelector('[data-ai-submit]').disabled = true;
+  f.querySelector('[data-ai-wait]')?.classList.remove('d-none');
+});
+document.addEventListener('change', (ev) => {
+  const all = ev.target.closest?.('[data-ai-all]');
+  if (!all) return;
+  all.closest('table')?.querySelectorAll('input[name="rows[]"]:not(:disabled)').forEach((c) => { c.checked = all.checked; });
+});
+
+// ---- 2.30.0 AI compliance review. The start page: a rough token estimate for what is ticked (documents and uploads
+// for reading the facts, then the matching steps: the facts and one batch of control groups per step). The review
+// page: posts the step URL (with the page's CSRF token) until every batch is done, then reloads to show the review;
+// a failure shows its message and a Try again button (finished batches are kept by the server).
+(() => {
+  const form = document.querySelector('[data-ai-estimate-form]');
+  const box = form && form.querySelector('[data-ai-estimate]');
+  if (!box) return;
+  const batch = Number(box.dataset.batch) || 40;
+  const remaining = Number(box.dataset.remaining) || 0;
+  const update = () => {
+    let docs = 0;
+    let groups = 0;
+    form.querySelectorAll('input[name="docs[]"]:checked').forEach((c) => { docs += Number(c.dataset.tokens) || 0; });
+    form.querySelectorAll('input[name="frameworks[]"]:checked').forEach((c) => { groups += Number(c.dataset.groups) || 0; });
+    const files = form.querySelector('input[name="files[]"]');
+    Array.from((files && files.files) || []).forEach((f) => { docs += Math.min(133000, Math.ceil(f.size / 4)); });
+    const facts = Math.min(12000, Math.max(500, Math.round(docs * 0.1))); // 2.30.0 at most 150 facts
+    const steps = Math.ceil(groups / batch);
+    const total = docs || groups ? docs + 24000 + 1000 + steps * (facts + Math.min(groups, batch) * 60 + 12000 + 800) : 0;
+    box.querySelector('[data-ai-estimate-tokens]').textContent = total.toLocaleString();
+    box.querySelector('[data-ai-estimate-over]').classList.toggle('d-none', total <= remaining);
+  };
+  form.addEventListener('change', update);
+  update();
+})();
+(() => {
+  const card = document.querySelector('[data-ai-steps]');
+  if (!card) return;
+  const bar = card.querySelector('[data-ai-steps-bar]');
+  const text = card.querySelector('[data-ai-steps-text]');
+  const err = card.querySelector('[data-ai-steps-error]');
+  const retry = card.querySelector('[data-ai-steps-retry]');
+  const show = (step, total) => {
+    bar.style.width = (total ? Math.round(step / total * 100) : 100) + '%';
+    bar.parentElement.setAttribute('aria-valuenow', String(step));
+    text.textContent = step >= total ? 'Done. Opening the review…' : 'Step ' + (step + 1) + ' of ' + total + '…';
+  };
+  const run = async () => {
+    retry.classList.add('d-none');
+    err.classList.add('d-none');
+    for (;;) {
+      let j;
+      try {
+        const body = new FormData();
+        body.append('_csrf', card.dataset.csrf);
+        const r = await fetch(card.dataset.aiSteps, { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        // 2.30.0 an expired session: the token is refused (419) or the sign-in page answers instead
+        if (r.status === 419 || (r.redirected && new URL(r.url).pathname === '/login')) {
+          j = { ok: false, message: 'Your session expired: reload the page (finished steps are kept).' };
+        } else if (r.status === 403) {
+          j = { ok: false, message: 'You no longer have access to this review. Reload the page.' };
+        } else {
+          j = await r.json();
+        }
+      } catch (e) {
+        j = { ok: false, message: 'The server did not answer. Check your connection and try again.' };
+      }
+      if (!j.ok) {
+        err.textContent = j.message || 'That step failed. Try again.';
+        err.classList.remove('d-none');
+        retry.classList.remove('d-none');
+        return;
+      }
+      show(j.step, j.total);
+      if (j.done) {
+        window.location.reload();
+        return;
+      }
+    }
+  };
+  retry.addEventListener('click', run);
+  run();
+})();

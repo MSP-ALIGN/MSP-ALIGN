@@ -78,11 +78,41 @@ final class Budget
     }
 
     /**
+     * (2.32.1) What build() reads from the database, for every client in planning at once (the Budgets page): four
+     * queries in all instead of four per client. Returns client id => ['manual' => budget lines, 'billing' => the
+     * psa_billing row or null, 'licenses' => Licenses::load() rows, 'projects' => roadmap items], each in the order
+     * build() reads them for one client. A client with nothing has no entry: use EMPTY_PRELOAD for it.
+     * Security: staff only, like the page that calls it; no client input is used.
+     */
+    public static function preloadAll(): array
+    {
+        $out = [];
+        $planned = 'JOIN clients c ON c.id = x.client_id WHERE c.is_archived = 0 AND c.planning_excluded = 0';
+        foreach (DB::all("SELECT x.* FROM budget_lines x $planned ORDER BY x.client_id, x.category, x.name, x.id") as $r) {
+            $out[(int) $r['client_id']]['manual'][] = $r;
+        }
+        foreach (DB::all("SELECT x.* FROM psa_billing x $planned") as $r) {
+            $out[(int) $r['client_id']]['billing'] = $r;
+        }
+        foreach (Licenses::load(null) as $r) { // the same filter: active clients in planning
+            $out[(int) $r['client_id']]['licenses'][] = $r;
+        }
+        foreach (DB::all("SELECT x.* FROM roadmap_items x $planned AND x.status <> 'declined' ORDER BY x.client_id, x.target_quarter, x.title, x.id") as $r) {
+            $out[(int) $r['client_id']]['projects'][] = $r;
+        }
+        return array_map(fn($p) => $p + self::EMPTY_PRELOAD, $out);
+    }
+
+    /** A client with no budget lines, billing, licenses or projects, for build()'s $pre (2.32.1). */
+    public const EMPTY_PRELOAD = ['manual' => [], 'billing' => null, 'licenses' => [], 'projects' => []];
+
+    /**
      * The client's 3-year budget: lines, totals per category and quarter, per plan year, and the monthly run rate.
      * $devices: the client's evaluated devices when the caller has them already (saves a query per client on the
-     * all-clients pages), else loaded here.
+     * all-clients pages), else loaded here. (2.32.1) $pre: this client's rows from preloadAll() (the Budgets page),
+     * else they are read here; the result is the same either way.
      */
-    public static function build(int $clientId, ?array $devices = null): array
+    public static function build(int $clientId, ?array $devices = null, ?array $pre = null): array
     {
         $qs = Plan::quarters();
         $planStartMonth = substr($qs[0]['start'], 5, 2);
@@ -91,7 +121,8 @@ final class Budget
         $notes = [];
 
         // Manual lines first (a manual "Managed services" line replaces the PSA estimate)
-        $manual = DB::all('SELECT * FROM budget_lines WHERE client_id = ? ORDER BY category, name', [$clientId]);
+        // (2.32.1) id last, so lines with the same category and name come in the same order as from preloadAll()
+        $manual = $pre['manual'] ?? DB::all('SELECT * FROM budget_lines WHERE client_id = ? ORDER BY category, name, id', [$clientId]);
         $hasManualManaged = false;
         foreach ($manual as $m) {
             $cat = isset(self::CATEGORIES[$m['category']]) ? $m['category'] : 'other';
@@ -124,7 +155,8 @@ final class Budget
         }
 
         // Managed services estimate from PSA invoices
-        if (!$hasManualManaged && ($b = Billing::forClient($clientId)) && (float) $b['monthly'] > 0) {
+        $b = $pre !== null ? $pre['billing'] : (!$hasManualManaged ? Billing::forClient($clientId) : null);
+        if (!$hasManualManaged && $b && (float) $b['monthly'] > 0) {
             $l = self::newLine('managed-psa', 'managed', 'Managed services', 'psa', ['tentative' => true]);
             self::spread($l, 'monthly', (float) $b['monthly'], null, null);
             $l['monthly'] = (float) $b['monthly'];
@@ -135,7 +167,7 @@ final class Budget
         }
 
         // Licensing
-        foreach (Licenses::load($clientId) as $lic) {
+        foreach ($pre['licenses'] ?? Licenses::load($clientId) as $lic) {
             if (!$lic['priced']) {
                 $notes['unpriced'] = ($notes['unpriced'] ?? 0) + 1;
                 continue;
@@ -191,7 +223,8 @@ final class Budget
 
         // Projects
         $unscheduled = 0;
-        foreach (DB::all("SELECT * FROM roadmap_items WHERE client_id = ? AND status <> 'declined' ORDER BY target_quarter, title", [$clientId]) as $p) {
+        $projects = $pre['projects'] ?? DB::all("SELECT * FROM roadmap_items WHERE client_id = ? AND status <> 'declined' ORDER BY target_quarter, title, id", [$clientId]);
+        foreach ($projects as $p) {
             if (!$p['target_quarter']) {
                 $unscheduled++;
                 continue;

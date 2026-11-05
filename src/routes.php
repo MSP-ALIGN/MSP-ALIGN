@@ -76,6 +76,25 @@ $r->get('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'c
 $r->post('/clients/{id}/vendors', [\Align\Controllers\VendorController::class, 'create']);
 $r->post('/clients/{id}/domains/check', [\Align\Controllers\VendorController::class, 'checkDomains']); // 2.10.0
 $r->get('/vendors', [\Align\Controllers\VendorController::class, 'index']);
+// 2.29.0 AI document reading on a client's Licensing and Vendors pages
+$r->get('/clients/{id}/ai-documents', [\Align\Controllers\AiDocumentController::class, 'index']);
+$r->post('/clients/{id}/ai-documents', [\Align\Controllers\AiDocumentController::class, 'upload']);
+$r->get('/clients/{id}/ai-documents/{doc}', [\Align\Controllers\AiDocumentController::class, 'show']);
+$r->post('/clients/{id}/ai-documents/{doc}', [\Align\Controllers\AiDocumentController::class, 'update']);
+// 2.30.0 AI compliance review: the client's documents checked against its frameworks (the step URL is called by the review page)
+$r->get('/clients/{id}/ai-reviews', [\Align\Controllers\AiReviewController::class, 'index']);
+$r->post('/clients/{id}/ai-reviews', [\Align\Controllers\AiReviewController::class, 'start']);
+$r->get('/clients/{id}/ai-reviews/{rid}', [\Align\Controllers\AiReviewController::class, 'show']);
+$r->post('/clients/{id}/ai-reviews/{rid}', [\Align\Controllers\AiReviewController::class, 'update']);
+$r->post('/clients/{id}/ai-reviews/{rid}/step', [\Align\Controllers\AiReviewController::class, 'step']);
+// 2.30.0 AI drafting: a template drafted from a review's facts; a client document updated (always as a new draft)
+$r->post('/clients/{id}/ai-reviews/{rid}/draft', [\Align\Controllers\AiDraftController::class, 'fromReview']);
+$r->get('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'form']);
+$r->post('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'update']);
+// 2.31.0 the QBR executive summary (written with AI or by hand; the staff QBR pack prints it, never the portal's)
+$r->get('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summary']);
+$r->post('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summarySave']);
+$r->post('/clients/{id}/qbr-summary/ai', [\Align\Controllers\AiMeetingController::class, 'summaryWrite']);
 $r->post('/vendors/templates', [\Align\Controllers\VendorController::class, 'templateCreate']);
 $r->post('/vendors/templates/{id}', [\Align\Controllers\VendorController::class, 'templateUpdate']);
 $r->get('/vendors/templates/{id}/form', [\Align\Controllers\FormController::class, 'vendorTemplate']);
@@ -145,6 +164,10 @@ $r->get('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentControlle
 $r->post('/clients/{id}/alignment/review', [\Align\Controllers\AlignmentController::class, 'save']);
 $r->post('/clients/{id}/alignment/review/discard', [\Align\Controllers\AlignmentController::class, 'discard']);
 $r->get('/clients/{id}/alignment/reviews/{rid}', [\Align\Controllers\AlignmentController::class, 'show']);
+// 2.32.0 a finished review's write-up for the owner (written with AI or by hand; the staff QBR pack prints it, never the portal's)
+$r->get('/clients/{id}/alignment/reviews/{rid}/writeup', [\Align\Controllers\AiAlignmentController::class, 'edit']);
+$r->post('/clients/{id}/alignment/reviews/{rid}/writeup', [\Align\Controllers\AiAlignmentController::class, 'save']);
+$r->post('/clients/{id}/alignment/reviews/{rid}/writeup/ai', [\Align\Controllers\AiAlignmentController::class, 'write']);
 $r->get('/clients/{id}/compliance', [ComplianceController::class, 'client']);
 $r->post('/clients/{id}/compliance', [ComplianceController::class, 'assign']);
 $r->get('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'checklist']);
@@ -181,6 +204,11 @@ $r->get('/meetings/{id}', [MeetingController::class, 'show']);
 $r->post('/meetings/{id}', [MeetingController::class, 'update']);
 $r->post('/meetings/{id}/delete', [MeetingController::class, 'delete']);
 $r->get('/meetings/{id}/ics', [MeetingController::class, 'ics']);
+// 2.31.0 AI meeting prep: draft an agenda; turn the notes into roadmap items, decisions and a follow-up (reviewed first)
+$r->post('/meetings/{id}/ai-agenda', [\Align\Controllers\AiMeetingController::class, 'agenda']);
+$r->post('/meetings/{id}/ai-actions', [\Align\Controllers\AiMeetingController::class, 'actions']);
+$r->get('/meetings/{id}/ai-actions/{aid}', [\Align\Controllers\AiMeetingController::class, 'actionsShow']);
+$r->post('/meetings/{id}/ai-actions/{aid}', [\Align\Controllers\AiMeetingController::class, 'actionsUpdate']);
 $r->get('/calendar', [MeetingController::class, 'calendar']);
 $r->get('/calendar/events', [MeetingController::class, 'events']);
 $r->post('/calendar/feed', [MeetingController::class, 'feedToken']);

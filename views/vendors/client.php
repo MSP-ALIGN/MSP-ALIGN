@@ -25,6 +25,7 @@ $soon = date('Y-m-d', strtotime('+90 days'));
     <?php if ($retiredCount): ?><a class="btn btn-default" href="?retired=<?= $showRetired ? '0' : '1' ?>"><?= $showRetired ? 'Hide' : 'Show' ?> retired (<?= (int) $retiredCount ?>)</a><?php endif; ?>
     <a class="btn btn-default" href="/vendors"><i class="fas fa-layer-group me-1"></i>Templates</a>
     <?php if ($canEdit): ?><a class="btn btn-default" href="/clients/import?kind=vendors" title="Import vendors for this and other clients from a CSV file"><i class="fas fa-file-import me-1"></i>Import</a><?php endif; ?>
+    <?php if ($canEdit && \Align\Ai\Ai::usable('documents')): /* 2.29.0 */ ?><a class="btn btn-default" href="/clients/<?= (int) $client['id'] ?>/ai-documents?from=vendors"><i class="fas fa-wand-magic-sparkles me-1"></i>Read a document</a><?php endif; ?>
     <?php if ($canEdit): ?><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-vendor"><i class="fas fa-plus me-1"></i>Add vendor</button><?php endif; ?>
   </div>
 </div>

@@ -314,6 +314,14 @@ final class CsvImport
             $clients[mb_strtolower(trim($c['name']))] = $c;
         }
         $psaContacts = \Align\Providers\Providers::psaConfigured() && \Align\Providers\Providers::psaSupports('contacts');
+        // (2.32.1) The existing contacts of the file's clients, read once (it was two queries per row)
+        $ids = [];
+        foreach ($rows as $r) {
+            if ($c = $clients[mb_strtolower(self::cell($r, $map, 'client', 255) ?? '')] ?? null) {
+                $ids[(int) $c['id']] = true;
+            }
+        }
+        $existing = self::contactIndex(array_keys($ids));
         $seen = [];
         $plan = [];
         foreach ($rows as $i => $r) {
@@ -360,7 +368,7 @@ final class CsvImport
                 continue;
             }
             $seen[$key] = $i + 2;
-            $ex = self::findContact((int) $c['id'], $v['email'] ?? null, $v['name']);
+            $ex = self::findIn($existing, (int) $c['id'], $v['email'] ?? null, $v['name']);
             $e['client_id'] = (int) $c['id'];
             if ($ex && $ex['source'] === 'psa') {
                 $plan[] = ['action' => 'skip', 'note' => 'this contact comes from ' . psa_name()] + $e;
@@ -612,11 +620,70 @@ final class CsvImport
         return $plan;
     }
 
+    /**
+     * (2.32.1) The active contacts of these clients, indexed the way findContact() matches them, in one query:
+     * client id => ['email' => key => row, 'name' => key => row, 'noemail' => key => row (contacts without an
+     * email)]. The first contact by id wins, as findContact()'s LIMIT 1 finds it. Client ids are integers from the
+     * database; the names and emails are stored data, only used as array keys (see fold()).
+     */
+    private static function contactIndex(array $clientIds): array
+    {
+        $out = [];
+        foreach (array_chunk(array_map('intval', $clientIds), 1000) as $chunk) {
+            $rows = DB::all('SELECT id, source, client_id, email, name FROM contacts WHERE archived_at IS NULL AND client_id IN ('
+                . implode(',', array_fill(0, count($chunk), '?')) . ') ORDER BY id', $chunk);
+            foreach ($rows as $r) {
+                $cid = (int) $r['client_id'];
+                $row = ['id' => $r['id'], 'source' => $r['source']];
+                $nameKey = self::fold((string) $r['name']);
+                $out[$cid]['name'][$nameKey] ??= $row;
+                if ($r['email'] === null || $r['email'] === '') {
+                    $out[$cid]['noemail'][$nameKey] ??= $row;
+                } else {
+                    $out[$cid]['email'][self::fold((string) $r['email'])] ??= $row;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * findContact() on contactIndex()'s index (2.32.1): the contact with that email, else (with an email given) one
+     * with that name and no email, or (no email given) any one with that name.
+     */
+    private static function findIn(array $index, int $clientId, ?string $email, string $name): ?array
+    {
+        $c = $index[$clientId] ?? [];
+        if ($email !== null) {
+            return $c['email'][self::fold($email)] ?? $c['noemail'][self::fold($name)] ?? null;
+        }
+        return $c['name'][self::fold($name)] ?? null;
+    }
+
+    /**
+     * A match key for a name or an email, close to how the database compares them (utf8mb4_unicode_ci): case left
+     * out, accents on Latin letters left out (José = Jose), trailing spaces ignored (2.32.1). Marks on other scripts
+     * stay (a Thai or Devanagari vowel sign makes a different name). It must never be looser than the database:
+     * where it is stricter (ß and ss, say) a contact is planned as new, and apply() still finds it with
+     * findContact() and doesn't add it twice.
+     */
+    private static function fold(string $s): string
+    {
+        $s = mb_strtolower(rtrim($s, ' '), 'UTF-8');
+        if (class_exists(\Normalizer::class) && ($d = \Normalizer::normalize($s, \Normalizer::FORM_D)) !== false) {
+            // only the marks that follow a Latin letter (é = e + U+0301), then back to composed form for the rest
+            $d = preg_replace('/(\p{Latin})\p{Mn}+/u', '$1', $d) ?? $d;
+            $s = \Normalizer::normalize($d, \Normalizer::FORM_C) ?: $d;
+        }
+        return $s;
+    }
+
     /** An active contact at the client with that email, else one with that name and no email (the collation ignores case). */
     private static function findContact(int $clientId, ?string $email, string $name): ?array
     {
-        return ($email !== null ? DB::one('SELECT id, source FROM contacts WHERE client_id = ? AND email = ? AND archived_at IS NULL LIMIT 1', [$clientId, $email]) : null)
-            ?? DB::one('SELECT id, source FROM contacts WHERE client_id = ? AND name = ? AND (email IS NULL OR email = \'\' OR ? IS NULL) AND archived_at IS NULL LIMIT 1', [$clientId, $name, $email]);
+        // (2.32.1) the first by id, as contactIndex() picks it
+        return ($email !== null ? DB::one('SELECT id, source FROM contacts WHERE client_id = ? AND email = ? AND archived_at IS NULL ORDER BY id LIMIT 1', [$clientId, $email]) : null)
+            ?? DB::one('SELECT id, source FROM contacts WHERE client_id = ? AND name = ? AND (email IS NULL OR email = \'\' OR ? IS NULL) AND archived_at IS NULL ORDER BY id LIMIT 1', [$clientId, $name, $email]);
     }
 
     /**
@@ -625,14 +692,16 @@ final class CsvImport
      * changed since the file was checked: a client added meanwhile isn't added twice, a client linked to the PSA
      * meanwhile only takes industry and notes, and (2.2.1) a contact whose client was deleted meanwhile is skipped
      * instead of failing the whole import; (2.21.0) an asset tag is set only on a device that still exists. $plan
-     * comes from the plan* functions via the server-side stash.
+     * comes from the plan* functions via the server-side stash. (2.32.1) New clients are added under the client name
+     * lock; \InvalidArgumentException when one of those names stays busy (nothing is written then).
      */
     public static function apply(string $kind, array $plan, ?int $userId): array
     {
         $added = $updated = 0;
         $names = [];
         $label = fn(array $p) => $kind === 'clients' ? (string) $p['name'] : ($p['client'] ?? '') . ': ' . $p['name'];
-        DB::transaction(function () use ($kind, $plan, $userId, &$added, &$updated, &$names, $label) {
+        // a plain closure (not fn()), so the counters it sets by reference are this function's own
+        $work = function () use ($kind, $plan, $userId, &$added, &$updated, &$names, $label) {
             $clientIds = $kind !== 'clients' ? array_flip(array_map('intval', array_column(DB::all('SELECT id FROM clients'), 'id'))) : [];
             $touched = [];
             $vendorNames = []; // client id => Vendors::nameIndex()
@@ -691,8 +760,8 @@ final class CsvImport
                 }
                 if ($kind === 'clients') {
                     if ($p['action'] === 'add') {
-                        if (DB::value('SELECT 1 FROM clients WHERE name = ? AND is_archived = 0', [$p['name']])) {
-                            continue; // added since the file was checked
+                        if (\Align\Clients\NameLock::taken((string) $p['name'])) {
+                            continue; // added since the file was checked (read under the name lock, 2.32.1)
                         }
                         DB::insert('clients', $v + ['name' => $p['name'], 'source' => 'manual']);
                         $added++;
@@ -719,7 +788,13 @@ final class CsvImport
                         $added++;
                         $names[] = '+' . $label($p);
                     } elseif ($p['action'] === 'update') {
-                        if (DB::run('UPDATE contacts SET ' . implode(', ', array_map(fn($f) => "`$f` = ?", array_keys($v))) . ' WHERE id = ? AND source = \'manual\'', [...array_values($v), $p['id']])->rowCount() > 0) {
+                        // (2.32.1) The plan's contact must still be the one the database matches for this row (and
+                        // the row's client's), so a planned id never changes a different contact
+                        $ex = self::findContact((int) $p['client_id'], $v['email'] ?? null, $v['name']);
+                        if (!$ex || (int) $ex['id'] !== (int) $p['id']) {
+                            continue; // changed since the file was checked
+                        }
+                        if (DB::run('UPDATE contacts SET ' . implode(', ', array_map(fn($f) => "`$f` = ?", array_keys($v))) . ' WHERE id = ? AND client_id = ? AND source = \'manual\'', [...array_values($v), $p['id'], $p['client_id']])->rowCount() > 0) {
                             $updated++;
                             $names[] = $label($p) . ' (' . implode(', ', array_keys($v)) . ')';
                         }
@@ -729,7 +804,16 @@ final class CsvImport
             foreach (array_keys($touched) as $cid) {
                 \Align\Vendors\Vendors::relinkManual($cid); // 2.9.0: licenses and budget lines naming a new vendor link to it
             }
-        });
+        };
+        $write = fn() => DB::transaction($work);
+        if ($kind === 'clients') {
+            // (2.32.1) The names being added are locked until the transaction has committed, so Clients → Add (or a
+            // contract) adding one of them at the same moment waits and then finds it (Clients\NameLock)
+            $adding = array_map(fn($p) => (string) $p['name'], array_filter($plan, fn($p) => ($p['action'] ?? '') === 'add'));
+            \Align\Clients\NameLock::with($adding, $write);
+        } else {
+            $write();
+        }
         return [$added, $updated, $names];
     }
 }

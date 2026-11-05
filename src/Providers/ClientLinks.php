@@ -174,11 +174,14 @@ final class ClientLinks
             if ($name === '' || isset($taken[self::normalizeName($name)])) {
                 continue; // same name as a client that is linked elsewhere or kept unlinked: leave it for a person
             }
-            DB::transaction(function () use ($provider, $o, $name, &$made, &$taken) {
+            // (2.32.1) Under the client name lock (Clients\NameLock), held until the transaction has committed: a client
+            // added by hand with this name at the same moment is seen, and the organization is left for a person
+            // a plain closure (not fn()), so $made and $taken are this function's own (set by reference)
+            $work = function () use ($provider, $o, $name, &$made, &$taken) {
                 // the button and a sync can run at once: take the organization first, then check it's still free
                 $still = DB::one('SELECT o.client_created_at, l.client_id FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
                     WHERE o.provider = ? AND o.org_id = ? FOR UPDATE', [$provider, $o['org_id']]);
-                if (!$still || $still['client_created_at'] !== null || $still['client_id'] !== null) {
+                if (!$still || $still['client_created_at'] !== null || $still['client_id'] !== null || \Align\Clients\NameLock::taken($name)) {
                     return;
                 }
                 $taken[self::normalizeName($name)] = true;
@@ -186,7 +189,12 @@ final class ClientLinks
                 self::set($id, $provider, (string) $o['org_id'], 'auto');
                 DB::run('UPDATE rmm_orgs SET client_created_at = NOW() WHERE provider = ? AND org_id = ?', [$provider, $o['org_id']]);
                 $made[] = $name;
-            });
+            };
+            try {
+                \Align\Clients\NameLock::with($name, fn() => DB::transaction($work));
+            } catch (\InvalidArgumentException) {
+                continue; // someone is adding a client with this name right now: the next run (or a person) sees it
+            }
         }
         return $made;
     }

@@ -80,9 +80,9 @@ try:
     # a one-time line below 0 with nothing else one-time: its total (below 0) still shows
     F["extra[1][label]"] = "Setup fee waived"; F["extra[1][qty]"] = "1"; F["extra[1][price]"] = "-500"; F["extra[1][period]"] = "once"
     pv = tech.post(B + f"/contracts/{kid}", data=F).text.split("data-ct-preview>")[1]
-    ok("One-time total" in pv and "$-500" in pv and "Monthly total" in pv, "a total below 0 still shows (One-time total $-500), with the monthly one")
+    ok("One-time total" in pv and "-$500" in pv and "Monthly total" in pv, "a total below 0 still shows (One-time total -$500), with the monthly one")
     pdf = pdf_text(base64.b64decode(php(f'$c = Align\\Contracts\\Contracts::load({kid}); echo base64_encode(Align\\Contracts\\PdfRender::build($c));').stdout))
-    ok("One-time total" in pdf and "$-500" in pdf and "$987.50" in pdf and "Setup fee waived" in pdf, "and in the PDF: " + pdf[pdf.find("Monthly"):][:90])
+    ok("One-time total" in pdf and "-$500" in pdf and "$987.50" in pdf and "Setup fee waived" in pdf, "and in the PDF: " + pdf[pdf.find("Monthly"):][:90])
 finally:
     q("delete from contracts where template_id=%s", tid)
     q("delete from contract_templates where id=%s", tid)

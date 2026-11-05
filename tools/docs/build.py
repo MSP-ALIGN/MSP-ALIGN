@@ -25,7 +25,7 @@ SITE = "https://mspalign.org"   # 2.7.8: the one address search engines are told
 # 2.7.8: the home page's title and description in search results: what it is, in the words people search for
 HOME_TITLE = "MSP Align: free, self-hosted vCIO software for MSPs"
 HOME_DESCRIPTION = ("Free, open-source vCIO software for MSPs: hardware lifecycle, technology roadmaps, IT budgets, QBR reports, "
-                    "compliance and a client portal, self-hosted.")
+                    "compliance, a client portal and optional AI, self-hosted.")
 SUGGEST = REPO + "/issues/new?template=feature_request.yml"   # the Feature request form (.github/ISSUE_TEMPLATE)
 
 # slug, nav title, source: ("readme", [section headings]) or ("file", path), one-line summary for the home page

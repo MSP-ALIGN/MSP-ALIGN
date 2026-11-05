@@ -202,8 +202,9 @@ final class ClientController
     }
 
     /**
-     * Adds a client by hand (source manual). Techs and admins. The name must be new among clients not archived;
-     * two people adding the same name at the same moment can still both succeed (there is no unique key on name).
+     * Adds a client by hand (source manual). Techs and admins. The name must be new among clients not archived.
+     * (2.32.1) The check and the insert run under the client name lock (Clients\NameLock), so two people adding the
+     * same name at the same moment make one client: the second is told it already exists.
      */
     public static function create(): void
     {
@@ -213,11 +214,21 @@ final class ClientController
             flash('error', 'Client name is required.');
             redirect('/clients');
         }
-        if (DB::value('SELECT COUNT(*) FROM clients WHERE name = ? AND is_archived = 0', [$f['name']])) {
+        try {
+            $id = \Align\Clients\NameLock::with($f['name'], function () use ($f) {
+                if (\Align\Clients\NameLock::taken($f['name'])) {
+                    return 0; // checked again under the lock (2.32.1)
+                }
+                return DB::insert('clients', $f + ['source' => 'manual']);
+            });
+        } catch (\InvalidArgumentException $e) {
+            flash('error', $e->getMessage());
+            redirect('/clients');
+        }
+        if (!$id) {
             flash('error', 'A client with that name already exists.');
             redirect('/clients');
         }
-        $id = DB::insert('clients', $f + ['source' => 'manual']);
         Audit::log('client.create', $f['name']);
         if ($err = self::handleLogo($id, null)) {
             flash('error', "Client added, but the logo wasn't saved: $err");

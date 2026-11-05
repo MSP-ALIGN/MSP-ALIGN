@@ -180,6 +180,24 @@ final class SyncRunner
             $this->step("Write warranty dates to $psaName", fn() => $this->writeBack($psa));
         }
 
+        // 2.29.0 AI document reviews left for 14 days are discarded and their files deleted (not a step: nothing to report)
+        try {
+            \Align\Ai\Documents\Documents::cleanup();
+        } catch (\Throwable $e) {
+            error_log('[msp-align] AI document cleanup: ' . $e->getMessage());
+        }
+        // 2.30.0 AI compliance reviews the same way
+        try {
+            \Align\Ai\Compliance\Review::cleanup();
+        } catch (\Throwable $e) {
+            error_log('[msp-align] AI compliance review cleanup: ' . $e->getMessage());
+        }
+        // 2.31.0 actions AI found in meeting notes, left for 14 days without a review
+        try {
+            \Align\Ai\Meetings\Actions::cleanup();
+        } catch (\Throwable $e) {
+            error_log('[msp-align] AI meeting actions cleanup: ' . $e->getMessage());
+        }
         $status = !$this->errors ? 'success' : (count($this->summary) > count($this->errors) ? 'partial' : 'failed');
         $this->info("Sync finished: $status");
         $this->save($status, true);
@@ -307,6 +325,10 @@ final class SyncRunner
         }
         return (count($ids) - $leads) . ' clients' . ($leads ? " ($leads lead" . ($leads === 1 ? '' : 's') . ' left out until they become clients)' : '') . '; ' . $details;
     }
+
+    /** (2.32.1) The most serials looked up per sync: Lenovo (one request each), and any other vendor (as before). */
+    public const LENOVO_PER_SYNC = 200;
+    public const WARRANTY_PER_SYNC = 500;
 
     /** Align client field => label, for fields that can come from the PSA. */
     public const CLIENT_DETAIL_FIELDS = [
@@ -543,7 +565,8 @@ final class SyncRunner
 
     /**
      * Looks up warranties for physical devices whose last lookup is due (an error is retried after a day), up to
-     * 500 serials per vendor per run. A vendor error is stored per serial (shown on device pages) as safe text.
+     * WARRANTY_PER_SYNC serials per vendor per run (LENOVO_PER_SYNC for Lenovo, 2.32.1), never-checked and oldest
+     * first; the rest are looked up on the next sync. A vendor error is stored per serial (shown on device pages) as safe text.
      */
     private function lookupWarranties(): string
     {
@@ -568,11 +591,13 @@ final class SyncRunner
         $okCutoff = date('Y-m-d H:i:s', time() - $recheck * 86400);
         $errCutoff = date('Y-m-d H:i:s', time() - 86400);
 
+        // (2.32.1) Never-checked serials first, then the longest ago, so the per-sync caps below work through them all
         $rows = DB::all("SELECT DISTINCT d.serial, d.manufacturer, w.status, w.looked_up_at
             FROM devices d
             LEFT JOIN warranty_lookups w ON w.serial = d.serial
             WHERE d.removed_at IS NULL AND d.is_virtual = 0 AND d.serial IS NOT NULL AND d.serial NOT LIKE 'DEMO%'
-              AND d.device_class IN ('desktop','laptop','server','network','storage')");
+              AND d.device_class IN ('desktop','laptop','server','network','storage')
+            ORDER BY w.looked_up_at IS NOT NULL, w.looked_up_at, d.serial");
         $todo = [];
         foreach ($rows as $r) {
             $vendor = self::vendorFor($r['manufacturer']);
@@ -588,7 +613,8 @@ final class SyncRunner
         }
         $counts = [];
         foreach ($todo as $vendor => $serials) {
-            $serials = array_slice(array_keys($serials), 0, 500);
+            // (2.32.1) Lenovo is asked one serial per request, so it gets its own lower cap; the rest wait for the next sync
+            $serials = array_slice(array_keys($serials), 0, $vendor === 'lenovo' ? self::LENOVO_PER_SYNC : self::WARRANTY_PER_SYNC);
             try {
                 $results = $vendors[$vendor]->lookup($serials);
             } catch (\Throwable $e) {
