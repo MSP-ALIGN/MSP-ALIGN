@@ -37,6 +37,7 @@ final class NinjaOne extends RmmConnector
         return '<ol class="ps-3 mb-0"><li>In NinjaOne open <b>Administration → Apps → API → Client app IDs → Add</b>.</li>'
             . '<li>Application platform <b>API Services (machine-to-machine)</b>, scope <b>Monitoring</b>, grant type <b>Client credentials</b>.</li>'
             . '<li>Copy the client ID and secret here, save, then press <b>Test</b>.</li>'
+            . '<li>Optional: if you sign in to NinjaOne at your own web address, enter it as the <b>console address</b> so the device buttons open it (2.33.0).</li>'
             . '<li>Run a sync, then link organizations to clients on <a href="/mapping">Client mapping</a> (matching names link automatically).</li></ol>';
     }
 
@@ -47,6 +48,10 @@ final class NinjaOne extends RmmConnector
             ['name' => 'ninja_instance', 'label' => 'Instance', 'type' => 'select', 'options' => \Align\Integrations\NinjaOne::INSTANCES, 'default' => 'app.ninjarmm.com'],
             ['name' => 'ninja_client_id', 'label' => 'Client ID', 'type' => 'text'],
             ['name' => 'ninja_client_secret', 'label' => 'Client secret', 'type' => 'secret'],
+            // 2.33.0 a custom NinjaOne web address (e.g. a branded domain NinjaOne gave you): only used for links
+            ['name' => 'ninja_console_url', 'label' => 'Console address for links (optional)', 'type' => 'url', 'link_only' => true,
+                'placeholder' => 'https://yourmsp.rmmservice.com',
+                'help' => 'Your own NinjaOne web address, if NinjaOne gave you one. The NinjaOne buttons on devices open it; the API still uses the instance above. Leave it empty to use the instance.'],
         ];
     }
 
