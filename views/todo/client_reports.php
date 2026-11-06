@@ -1,5 +1,5 @@
 <?php
-/** A client's reports (1.42). @var array $client */
+/** A client's reports (1.42). @var array $client; array $frameworks (2.33.0: the client's assigned frameworks, id and name) */
 require __DIR__ . '/../partials/client_header.php';
 $cid = (int) $client['id'];
 $backup = \Align\Backup\Backup::has($client);
@@ -13,6 +13,8 @@ $reports = [
     ['fa-coins', 'Technology budget', 'Recurring costs, licensing, projects and replacements by year.', "/clients/$cid/report/budget", true],
     ...($backup ? [['fa-database', 'Backup & recovery', 'What is backed up, how recently, and anything that needs attention.', "/clients/$cid/report/backup", true]] : []),
     ...($sla ? [['fa-stopwatch', 'Service levels', 'Tickets answered and resolved on time, month by month.', "/clients/$cid/report/sla", true]] : []),
+    // 2.33.0 a compliance report for each assigned framework
+    ...array_map(fn($f) => ['fa-clipboard-check', 'Compliance report: ' . $f['name'], 'The score by section, open items with owners and due dates, the full checklist and a sign-off.', "/clients/$cid/report/compliance/" . (int) $f['id'], true], $frameworks ?? []),
     ['fa-address-book', 'Contact review', 'The client\'s contacts, roles, portal access and licenses, for the client to check and sign off.', "/clients/$cid/report/contacts", true], // 2.24.0
     ['fa-file-csv', 'Device list (CSV)', 'The lifecycle table as a spreadsheet.', "/clients/$cid/export", false],
     ['fa-file-csv', 'Contact list (CSV)', 'The contacts as a spreadsheet with blank review columns.', "/clients/$cid/report/contacts-csv", false], // 2.24.0

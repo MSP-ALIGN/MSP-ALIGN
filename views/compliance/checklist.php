@@ -38,6 +38,7 @@ $show = function (array $c) use ($filter) {
   <div class="btn-group btn-group-sm mt-2">
     <?php foreach ($filters as $k => $l): ?><a class="btn <?= $filter === $k ? 'btn-primary' : 'btn-default' ?>" href="?filter=<?= $k ?>"><?= $l ?></a><?php endforeach; ?>
     <a class="btn btn-default" href="/clients/<?= $cid ?>/compliance/<?= $fid ?>/export"><i class="fas fa-file-csv me-1"></i>CSV</a>
+    <a class="btn btn-default" href="/clients/<?= $cid ?>/report/compliance/<?= $fid ?>" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Print report</a><?php /* 2.33.0 */ ?>
   </div>
 </div>
 <?php if ($fw['description']): ?><p class="text-muted small"><?= e($fw['description']) ?></p><?php endif; ?>

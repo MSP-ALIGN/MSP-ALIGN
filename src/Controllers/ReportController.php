@@ -150,6 +150,52 @@ final class ReportController
         ], 'layout/print');
     }
 
+    /**
+     * 2.33.0 Compliance report for one of the client's frameworks (any staff role). $id and $fw are from the URL;
+     * a framework that isn't assigned to this client is a 404 (renderCompliance checks it). Switches: open items
+     * only (off), notes (on), guidance (off).
+     */
+    public static function compliance(int $id, int $fw): void
+    {
+        Auth::require();
+        $client = ClientController::load($id);
+        if (!self::renderCompliance($client, $fw, ['open' => query('open', '0') === '1', 'notes' => query('notes', '1') === '1', 'guidance' => query('guidance', '0') === '1'], false)) {
+            http_response_code(404);
+            View::render('error', ['title' => 'Not found', 'message' => 'That framework is not assigned to this client.']);
+        }
+    }
+
+    /**
+     * 2.33.0 Compliance report for one client and framework; also used by the client portal. The caller checked
+     * access to $client (a staff role, or the portal's can_devices for the user's own client). $fwId is untrusted
+     * (from the URL): ComplianceReport::data reads it only when it is assigned to this client.
+     * $portal gives the portal's version: only what the portal's framework page shows (no notes, evidence, guidance,
+     * review dates or unshared documents; their switches are dropped whatever $opt holds). Audited (report.compliance).
+     * Returns false, with nothing rendered or logged, when the framework isn't assigned to the client.
+     */
+    public static function renderCompliance(array $client, int $fwId, array $opt, bool $portal): bool
+    {
+        $portal = $portal || (defined('IS_PORTAL') && IS_PORTAL);
+        $d = \Align\Reports\ComplianceReport::data((int) $client['id'], $fwId, $portal);
+        if (!$d) {
+            return false; // nothing rendered: the caller shows its own 404 page
+        }
+        $opt = ['open' => !empty($opt['open'])] + ($portal ? [] : ['notes' => !empty($opt['notes']), 'guidance' => !empty($opt['guidance'])]);
+        Audit::log('report.compliance', $client['name'] . ' / ' . $d['fw']['name']);
+        View::render('reports/compliance', [
+            'title' => $client['name'] . ' — ' . $d['fw']['name'] . ' Compliance Report',
+            'reportTitle' => 'Compliance Report',
+            'noMasthead' => true,
+            'client' => $client,
+            'opt' => $opt,
+            'optLabels' => ['open' => 'Open items only', 'notes' => 'Include notes', 'guidance' => 'Include guidance'],
+            'brand' => self::branding($client),
+            'd' => $d,
+            'portal' => $portal,
+        ], 'layout/print');
+        return true;
+    }
+
     /** Roadmap report for a client (any staff role). */
     public static function roadmap(int $id): void
     {

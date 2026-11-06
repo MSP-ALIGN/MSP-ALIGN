@@ -520,6 +520,23 @@ final class PortalController
             'score' => Compliance::score($cid, $id)], $pu);
     }
 
+    /**
+     * 2.33.0 The printable compliance report for one framework (can_devices, as the compliance pages). The client is
+     * always the portal user's own (never from the URL or query string); $id is from the URL and must be a framework
+     * assigned to that client, else the same 404 page as complianceFramework(). The report shows only what that page
+     * shows (ReportController::renderCompliance with $portal), and its only switch is "Open items only". Audited
+     * (report.compliance, with the portal user) like the portal's other reports.
+     */
+    public static function complianceReport(int $id): void
+    {
+        $pu = PortalAuth::require('can_devices');
+        $client = ClientController::loadRow((int) $pu['client_id']);
+        if (!$client || !ReportController::renderCompliance($client, $id, ['open' => query('open', '0') === '1'], true)) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That framework is not assigned to your organization.'], $pu);
+        }
+    }
+
     /** Shared, active documents of the user's client (can_documents). */
     public static function documents(): void
     {
