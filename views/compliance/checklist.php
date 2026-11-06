@@ -35,9 +35,15 @@ $show = function (array $c) use ($filter) {
     <div class="small"><a href="/clients/<?= $cid ?>/compliance">Compliance</a> /</div>
     <h1 class="h4 mb-0"><?= e($fw['name']) ?> <span class="badge text-bg-<?= $s['tone'] ?> align-middle"><?= $s['score'] ?>%</span></h1>
   </div>
-  <div class="btn-group btn-group-sm mt-2">
-    <?php foreach ($filters as $k => $l): ?><a class="btn <?= $filter === $k ? 'btn-primary' : 'btn-default' ?>" href="?filter=<?= $k ?>"><?= $l ?></a><?php endforeach; ?>
-    <a class="btn btn-default" href="/clients/<?= $cid ?>/compliance/<?= $fid ?>/export"><i class="fas fa-file-csv me-1"></i>CSV</a>
+  <?php /* 2.33.0 the filters and the downloads are two groups that wrap on a phone (one row was wider than the screen) */ ?>
+  <div class="d-flex flex-wrap gap-1 mt-2">
+    <div class="btn-group btn-group-sm">
+      <?php foreach ($filters as $k => $l): ?><a class="btn <?= $filter === $k ? 'btn-primary' : 'btn-default' ?>" href="?filter=<?= $k ?>"><?= $l ?></a><?php endforeach; ?>
+    </div>
+    <div class="btn-group btn-group-sm">
+      <a class="btn btn-default" href="/clients/<?= $cid ?>/compliance/<?= $fid ?>/export"><i class="fas fa-file-csv me-1"></i>CSV</a>
+      <a class="btn btn-default" href="/clients/<?= $cid ?>/report/compliance/<?= $fid ?>" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Print report</a>
+    </div>
   </div>
 </div>
 <?php if ($fw['description']): ?><p class="text-muted small"><?= e($fw['description']) ?></p><?php endif; ?>

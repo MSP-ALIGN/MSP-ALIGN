@@ -73,6 +73,11 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       'Print any of the client\'s documents (WISP, policies, procedures) with your branding.',
       'document',
       '<div class="mb-3 mb-1 w-100"><select class="form-select form-select-sm report-document" aria-label="Document"></select></div>', 'documents', 'Open document') ?>
+  <?= $card('fa-clipboard-check', 'Compliance report', // 2.33.0
+      'One framework for the client: the score with a bar per section, the open items with owners and due dates (overdue ones highlighted), the full checklist with notes, evidence and linked documents, and a sign-off. Also in the client portal, without notes and evidence.',
+      'compliance-report',
+      '<div class="mb-3 mb-1 w-100"><select class="form-select form-select-sm report-framework" aria-label="Framework"></select></div>'
+      . $chk('open', 'Open items only', false) . $chk('notes', 'Include notes') . $chk('guidance', 'Include guidance', false), 'frameworks') ?>
   <?= $card('fa-clipboard-check', 'Compliance checklist (CSV)',
       'Every control in a framework with its status, owner, due date, notes, evidence and linked document, as a spreadsheet.',
       'compliance',

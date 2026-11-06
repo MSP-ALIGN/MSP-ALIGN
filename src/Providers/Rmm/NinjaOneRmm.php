@@ -17,15 +17,20 @@ use Align\Settings;
  */
 final class NinjaOneRmm implements RmmProvider
 {
-    /** $api: null when only console links are needed. $instance: the saved ninja_instance (a host from NinjaOne::INSTANCES). */
-    public function __construct(private ?NinjaOne $api, private string $instance)
+    /**
+     * $api: null when only console links are needed. $instance: the saved ninja_instance (a host from
+     * NinjaOne::INSTANCES). $console (2.33.0): the saved ninja_console_url, a custom web address used for links
+     * instead of the instance ('' for none).
+     */
+    public function __construct(private ?NinjaOne $api, private string $instance, private string $console = '')
     {
     }
 
     /** $forLinks: only building console links, so no credentials are needed. */
     public static function fromSettings(bool $forLinks = false): self
     {
-        return new self($forLinks ? null : NinjaOne::fromSettings(), (string) Settings::get('ninja_instance', 'app.ninjarmm.com'));
+        return new self($forLinks ? null : NinjaOne::fromSettings(), (string) Settings::get('ninja_instance', 'app.ninjarmm.com'),
+            trim((string) Settings::get('ninja_console_url', '')));
     }
 
     /** The connector key (fixed; also stored with every record from this provider). */
@@ -139,11 +144,16 @@ final class NinjaOneRmm implements RmmProvider
         return $out;
     }
 
-    /** Link to the device's dashboard in NinjaOne; null for an id that isn't NinjaOne's or an instance that isn't http(s). */
+    /**
+     * Link to the device's dashboard in NinjaOne, at the custom console address when one is saved (2.33.0), else the
+     * instance; null for an id that isn't NinjaOne's or an address that isn't http(s). The console address passed
+     * Connector::save (https, just scheme, host, port and path) and is checked again here before it goes into an href.
+     */
     public function deviceUrl(string $deviceId): ?string
     {
         $id = self::id($deviceId);
-        $base = str_contains($this->instance, '://') ? rtrim($this->instance, '/') : 'https://' . $this->instance;
+        $site = $this->console !== '' ? $this->console : $this->instance;
+        $base = str_contains($site, '://') ? rtrim($site, '/') : 'https://' . $site;
         // The instance is normally one of NinjaOne::INSTANCES (tests point it at a local mock); only http(s) goes into an href
         if ($id === null || !preg_match('#^https?://[^\s"\'<>]+$#i', $base)) {
             return null;

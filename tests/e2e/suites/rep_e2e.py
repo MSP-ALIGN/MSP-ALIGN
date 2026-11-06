@@ -14,7 +14,7 @@ with sync_playwright() as p:
     pg.goto(B+"/reports?client=1"); pg.wait_for_timeout(300)
     ok(pg.locator("#report-client").input_value()=="1","preselected client from ?client=")
     cards=pg.locator("form.report-card")
-    ok(cards.count()==11,f"11 client report cards ({cards.count()})")  # 2.24.0 adds Contact review and Contact list (CSV)
+    ok(cards.count()==12,f"12 client report cards ({cards.count()})")  # 2.24.0 adds Contact review and Contact list (CSV); 2.33.0 Compliance report
     for i in range(cards.count()):
         f=cards.nth(i); title=f.locator("h3").inner_text().strip()
         btn=f.locator("button")

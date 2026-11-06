@@ -84,6 +84,8 @@ final class TodoController
             'nav' => 'clients',
             'client' => $client,
             'clientNav' => 'reports',
+            // 2.33.0 one compliance report per assigned framework
+            'frameworks' => DB::all('SELECT f.id, f.name FROM client_frameworks cf JOIN compliance_frameworks f ON f.id = cf.framework_id WHERE cf.client_id = ? ORDER BY f.name', [$id]),
         ]);
     }
 }

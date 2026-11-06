@@ -306,3 +306,14 @@ body.report { background: #e8ebef; color: var(--ink); font-size: 12.5px; line-he
 .rtable.review-blank td, .rtable.review-sign td { height: 1.9rem; }
 .rtable.review-sign { margin-top: .8rem; }
 .rtable td.role-list .pill { margin: 0 .15rem .15rem 0; }
+
+/* 2.33.0 Compliance report: six count tiles, the whole-framework bar, overdue due dates, wrapped notes and evidence */
+.kpi-row.comp-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 700px) { .kpi-row.comp-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.comp-total-bar .hbar { height: 12px; }
+.rtable td.overdue { color: var(--bad); font-weight: 700; }
+.rtable td.overdue .sub { color: var(--bad); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.rtable td.comp-text { white-space: pre-line; overflow-wrap: anywhere; }
+.rtable td.comp-text .comp-doc { white-space: normal; }
+.rtable .comp-guidance { white-space: pre-line; }
+.rtable.comp-sign td { height: 2.4rem; }

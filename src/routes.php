@@ -147,6 +147,7 @@ $r->get('/clients/{id}/report/backup', [\Align\Controllers\BackupController::cla
 $r->get('/clients/{id}/report/sla', [\Align\Controllers\ServiceController::class, 'report']);
 $r->get('/clients/{id}/report/contacts', [ReportController::class, 'contacts']); // 2.24.0
 $r->get('/clients/{id}/report/contacts-csv', [ReportController::class, 'contactsCsv']); // 2.24.0
+$r->get('/clients/{id}/report/compliance/{fw}', [ReportController::class, 'compliance']); // 2.33.0
 $r->get('/clients/{id}/service-levels', [\Align\Controllers\ServiceController::class, 'client']);
 $r->get('/clients/{id}/backups', [\Align\Controllers\BackupController::class, 'client']);
 $r->post('/clients/{id}/backups/exempt', [\Align\Controllers\BackupController::class, 'exempt']);
@@ -531,6 +532,7 @@ $r->post('/portal/closet/items/{id}', [PortalClosetController::class, 'closetUpd
 $r->get('/portal/devices', [PortalController::class, 'devices']);
 $r->get('/portal/compliance', [PortalController::class, 'compliance']);
 $r->get('/portal/compliance/{id}', [PortalController::class, 'complianceFramework']);
+$r->get('/portal/compliance/{id}/report', [PortalController::class, 'complianceReport']); // 2.33.0
 $r->get('/portal/documents', [PortalController::class, 'documents']);
 $r->get('/portal/documents/{id}', [PortalController::class, 'document']);
 $r->get('/portal/documents/{id}/file', [PortalController::class, 'documentFile']); // 2.20.0

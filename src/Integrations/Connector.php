@@ -12,7 +12,8 @@ use Align\Settings;
  * (secrets encrypted), validation, Test button, audit log and status badge come from here.
  *
  * Field types: text, url (https only; with 'private_http' => true, 2.29.0, also http:// to an address on a private
- * network, HttpClient's rules), secret (encrypted, never shown again), select (options),
+ * network, HttpClient's rules; with 'link_only' => true, 2.33.0, an address only used in links people click, which
+ * never receives a key, so changing it needs no key typed again), secret (encrypted, never shown again), select (options),
  * switch (on/off), checkboxes (options, saved comma-separated), number (min/max).
  *
  * Security assumptions: only admins reach these pages (IntegrationController checks the role, the router the CSRF
@@ -226,7 +227,8 @@ abstract class Connector
         $moved = [];
         foreach ($this->fields() as $f) {
             $old = (string) Settings::get($f['name'], '');
-            if ($f['type'] === 'url' && isset($writes[$f['name']]) && $old !== '' && $origin($writes[$f['name']][0]) !== $origin($old)) {
+            // 2.33.0 a link-only address never receives a key, so moving it is not moving the key
+            if ($f['type'] === 'url' && empty($f['link_only']) && isset($writes[$f['name']]) && $old !== '' && $origin($writes[$f['name']][0]) !== $origin($old)) {
                 $moved[] = $f;
             }
         }

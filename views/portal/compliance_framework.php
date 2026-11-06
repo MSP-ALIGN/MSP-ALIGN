@@ -5,6 +5,7 @@ $labels = ['met' => ['Met', 'success'], 'partial' => ['Partial', 'warning'], 'no
 <div class="d-flex flex-wrap align-items-center mb-3">
   <div class="me-auto"><a href="/portal/compliance" class="small"><i class="fas fa-arrow-left me-1"></i>Compliance</a>
     <h1 class="h4 mb-0"><?= e($fw['name']) ?></h1><?php if ($fw['description']): ?><div class="small text-muted"><?= e($fw['description']) ?></div><?php endif; ?></div>
+  <a class="btn btn-sm btn-default me-3 mt-2 mt-md-0" href="/portal/compliance/<?= (int) $fw['id'] ?>/report" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Print report</a><?php /* 2.33.0 */ ?>
   <div class="text-end"><span class="h3 mb-0 text-<?= $score['tone'] ?>"><?= (int) $score['score'] ?>%</span><div class="small text-muted"><?= (int) $score['assessed'] ?>% assessed</div></div>
 </div>
 <?php foreach ($sections as $name => $controls): ?>

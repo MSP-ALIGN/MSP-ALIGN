@@ -635,6 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (r === 'compliance') {
           const fw = num(f.querySelector('.report-framework').value);
           if (fw) path = '/clients/' + id + '/compliance/' + fw + '/export';
+        } else if (r === 'compliance-report') { // 2.33.0 the printable compliance report
+          const fw = num(f.querySelector('.report-framework').value);
+          if (fw) path = '/clients/' + id + '/report/compliance/' + fw;
         } else if (r === 'document') {
           const doc = num(f.querySelector('.report-document').value);
           if (doc) path = '/documents/' + doc + '/print';
