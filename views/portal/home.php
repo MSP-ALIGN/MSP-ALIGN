@@ -18,6 +18,8 @@ $vcio = $provider['vcio'] ?? null;
   <a href="/portal/report/qbr" target="_blank" class="btn btn-sm btn-outline-primary mt-2 mt-md-0"><i class="fas fa-book-open me-1"></i>Business review report (PDF)</a>
 </div>
 
+<?= \Align\View::fetch('portal/_signatures', ['signWaiting' => $signWaiting ?? []]) /* 2.34.0 */ ?>
+
 <?php if ($pending): ?>
   <div class="card card-outline card-warning">
     <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-circle-question text-warning me-2"></i><?= $pu['can_approve'] ? 'Waiting for your decision' : 'Proposed projects' ?></h3>

@@ -27,6 +27,8 @@ final class PdfRender
     private float $w;
     private ?int $logo = null;
     private bool $final;
+    /** (2.34.0) A document or report rather than a contract (see plain()): placeholders print as typed. */
+    private bool $plain = false;
     private const GRAY = [0.36, 0.40, 0.45];
     private const LIGHT = [0.85, 0.87, 0.89];
     private const TEXT = [0.11, 0.13, 0.16];
@@ -60,6 +62,146 @@ final class PdfRender
         $r->decorate($from, $from);
     }
 
+    // ---- (2.34.0) Documents and reports sent for signature (Docs\Signing) -----------------------------------
+
+    /**
+     * A settings array that sets up the renderer for a document or report instead of a contract: Helvetica, the
+     * brand colour and light logo, page numbers and $footer at the bottom of each page, no initials, and $ref after
+     * "Signature certificate" on certificate pages, numbered after $offset pages of the document's own. Only fixed values and the plain-text $title, $footer and $ref
+     * (printed through Pdf::text, so they can't add PDF operators).
+     */
+    private static function plain(string $title, string $footer, string $ref = '', int $offset = 0): array
+    {
+        return ['_plain' => true, '_ref' => $ref, '_offset' => max(0, $offset), 'id' => 0, 'title' => $title, 'status' => 'completed', 'client_sig' => null,
+            'def' => ['style' => ['paper' => 'letter', 'size' => 10.5, 'font' => 'sans', 'color' => '', 'logo' => true, 'header' => '', 'footer' => $footer,
+                'page_numbers' => true, 'initials_footer' => false, 'title' => $title, 'photo' => false], 'fields' => []]];
+    }
+
+    /**
+     * (2.34.0) A written document (or a report written as simple HTML) as a PDF: the title, a grey line under it
+     * ($subtitle: client, version, date), the body, and $footer with page numbers on every page. Returns the bytes.
+     * Untrusted: $html is a document body saved through Docs\Html::clean (or HTML the caller built with every value
+     * escaped); it's read the same way as a contract's text block (htmlBlock: libxml without the network, nothing
+     * fetched, images left out), so it can't run or load anything. Titles and footers are plain text.
+     */
+    public static function document(string $title, string $subtitle, string $html, string $footer): string
+    {
+        $r = new self(self::plain($title, $footer), true);
+        $r->newPage();
+        $r->paragraph([['t' => $title, 'b' => true, 'color' => $r->accent]], $r->size * 1.75, 'left', 0, 1.2);
+        if ($subtitle !== '') {
+            $r->paragraph([['t' => $subtitle, 'color' => self::GRAY]], $r->size * 0.9);
+        }
+        $r->y += $r->size * 0.6;
+        $r->htmlBlock($html);
+        $r->decorate($r->pdf->pageCount());
+        return $r->pdf->output();
+    }
+
+    /**
+     * (2.34.0) The signatures and signature certificate of a document signed in Align, as new pages at the end of
+     * $pdf (PdfStamp::append gives a Pdf sized like the document's first page). $cert (Signing::certificate builds
+     * it): title, ref, company, client, sent, completed, hash (SHA-256 of the PDF that was sent), signers (each with
+     * label, name, email, title, company, check (how they were identified) and sig: kind, png or text, at, ip,
+     * agent), events (each with at and text).
+     * Untrusted: names, titles, browser strings and event details come from signers' requests; drawn signatures were
+     * re-encoded by Contracts::signature when they were made and are checked again by Pdf::addImage. Everything prints
+     * through Pdf::text/textRaw/image, so nothing can add PDF operators.
+     */
+    public static function signingCertificateInto(Pdf $pdf, array $cert): void
+    {
+        $r = new self(self::plain((string) $cert['title'], '', (string) $cert['ref'], (int) ($cert['pages'] ?? 0)), true, $pdf);
+        $from = $pdf->pageCount();
+        $r->signingCertificate($cert);
+        $r->decorate($from, $from);
+    }
+
+    /** A label and its value side by side on the certificate (the value wraps; never split across pages). */
+    private function certRow(string $label, string $value, float $s = 9.0): void
+    {
+        $lw = 130;
+        $h = $this->measure([['t' => $value]], $s, $this->w - $lw, 1.35) + 4;
+        $this->need($h);
+        $y0 = $this->y;
+        $this->paragraph([['t' => $label, 'color' => self::GRAY]], $s, 'left', 0, 1.35, '', 0, $lw - 6, $this->ml);
+        $this->y = $y0;
+        $this->paragraph([['t' => $value]], $s, 'left', 0, 1.35, '', 0, $this->w - $lw, $this->ml + $lw);
+        $this->y = $y0 + $h;
+    }
+
+    /** A section heading with a line under it, kept with what follows. */
+    private function certSection(string $title, float $s = 9.0, float $keep = 40): void
+    {
+        $this->y += 6;
+        $this->need($keep);
+        $this->paragraph([['t' => $title, 'b' => true]], $s * 1.15, 'left', 0, 1.3);
+        $this->pdf->line($this->ml, $this->y, $this->ml + $this->w, $this->y, 0.4, self::LIGHT);
+        $this->y += 4;
+    }
+
+    /** One signature on a line: the drawn picture, or the typed one in a script font (as on a contract). */
+    private function sigBox(array $sig, float $x, float $top, float $w, float $boxH): void
+    {
+        if (($sig['kind'] ?? '') === 'drawn' && ($img = $this->pdf->addImage((string) base64_decode((string) ($sig['png'] ?? '')))) !== null) {
+            [$iw, $ih] = $this->pdf->imageSize($img);
+            $h = $boxH - 4;
+            $iwid = $iw / max(1, $ih) * $h;
+            if ($iwid > $w) {
+                $iwid = $w;
+                $h = $ih / max(1, $iw) * $iwid;
+            }
+            $this->pdf->image($img, $x, $top + ($boxH - $h) / 2, $iwid, $h);
+        } else {
+            $this->pdf->text($x + 4, $top + $boxH * 0.7, $this->fit((string) ($sig['text'] ?? $sig['name'] ?? ''), 'Times-BoldItalic', 22, $w - 8), 'Times-BoldItalic', 22, [0.08, 0.14, 0.42]);
+        }
+        $this->pdf->line($x, $top + $boxH, $x + $w, $top + $boxH, 0.6, self::TEXT);
+    }
+
+    /** The certificate pages for signingCertificateInto(). */
+    private function signingCertificate(array $c): void
+    {
+        $s = 9.0;
+        $dt = fn(?string $d) => $d ? Fmt::dateTime($d, 'day', ' · ', true) . ' ' . date('T', strtotime($d)) : '—';
+        $this->newPage();
+        $this->paragraph([['t' => 'Signatures and certificate', 'b' => true, 'color' => $this->accent]], 16, 'left', 0, 1.2);
+        $this->paragraph([['t' => 'This page records who signed the document before it, when, and how. It is part of the signed document.', 'color' => self::GRAY]], $s);
+        $this->y += 8;
+        $this->certSection('Document', $s);
+        $this->certRow('Document', $c['title'] . ($c['ref'] !== '' ? ' (' . $c['ref'] . ')' : ''));
+        $this->certRow('Between', $c['company'] . ' and ' . $c['client']);
+        if (!empty($c['pages'])) {
+            $this->certRow('Pages signed', (string) (int) $c['pages']);
+        }
+        $this->certRow('Sent', $dt($c['sent']));
+        $this->certRow('Completed', $dt($c['completed']));
+        $this->certRow('Fingerprint (SHA-256)', (string) $c['hash']);
+        $this->certRow('', 'The fingerprint is the SHA-256 of the PDF that was sent to sign (the pages before this certificate). Any change to those pages gives a different fingerprint.');
+        foreach ($c['signers'] as $sg) {
+            $sig = $sg['sig'];
+            $this->certSection($sg['label'] . ': ' . $sig['name'], $s, 150);
+            $boxH = 46;
+            $this->sigBox($sig, $this->ml, $this->y + 2, min(260, $this->w), $boxH);
+            $this->y += $boxH + 10;
+            if ($sg['company'] !== '') {
+                $this->certRow('Company', $sg['company']);
+            }
+            if (($sig['title'] ?? '') !== '') {
+                $this->certRow('Title', (string) $sig['title']);
+            }
+            $this->certRow('Email', (string) $sg['email']);
+            $this->certRow('Identity check', (string) $sg['check']);
+            $this->certRow('Signature', (($sig['kind'] ?? '') === 'drawn' ? 'Drawn' : 'Typed') . ' signature');
+            $this->certRow('Signed', $dt($sig['at'] ?? null));
+            $this->certRow('IP address', (string) ($sig['ip'] ?? ''));
+            $this->certRow('Browser', (string) ($sig['agent'] ?? ''));
+            $this->certRow('Consent', 'Agreed to do business electronically, to use an electronic signature, and that it is as binding as a handwritten one.');
+        }
+        $this->certSection('History (times in ' . date('T') . ')', $s);
+        foreach ($c['events'] as $e) {
+            $this->certRow(Fmt::dateTime($e['at'], 'day', ' · ', true), (string) $e['text']);
+        }
+    }
+
     /**
      * Sets up a renderer for $c (as Contracts::load() returns it: the def normalized by Template::normalize). With
      * $into it draws into that Pdf, at its page size, instead of a new one. Sets the document info and loads the
@@ -72,11 +214,19 @@ final class PdfRender
         $st = $c['def']['style'];
         [$pw, $ph] = $into ? [$into->w, $into->h] : ($st['paper'] === 'a4' ? Pdf::A4 : Pdf::LETTER);
         $this->pdf = $into ?? new Pdf($pw, $ph);
-        $this->pdf->setInfo(Contracts::party($c) . ' - ' . $c['title'], (string) (\Align\Settings::get('company_name') ?: ''), Contracts::number($c));
+        $this->plain = !empty($c['_plain']);
+        if ($this->plain) {
+            // (2.34.0) a document or report (plain()): no contract values, the title as given
+            if (!$into) {
+                $this->pdf->setInfo((string) $c['title'], (string) (\Align\Settings::get('company_name') ?: ''));
+            }
+        } else {
+            $this->pdf->setInfo(Contracts::party($c) . ' - ' . $c['title'], (string) (\Align\Settings::get('company_name') ?: ''), Contracts::number($c));
+        }
         $this->size = (float) $st['size'];
         $this->family = $st['font'] === 'serif' ? 'Times' : 'Helvetica';
         $this->accent = Pdf::hex($st['color'] ?: \Align\Branding::color());
-        $this->vals = Contracts::values($c);
+        $this->vals = $this->plain ? ['company_name' => (string) (\Align\Settings::get('company_name') ?: '')] : Contracts::values($c);
         $this->w = $pw - $this->ml - $this->mr;
         if ($st['logo'] && ($f = \Align\Branding::lightLogoFile())) { // the light mode logo, else the dark mode one (2.2.4)
             $this->logo = $this->pdf->addImage((string) file_get_contents($f));
@@ -165,7 +315,7 @@ final class PdfRender
                 }
                 $this->pdf->image($this->logo, $this->ml, $hy - 8, $w, $h);
             }
-            if ($st['header'] !== '') {
+            if ($st['header'] !== '' && !$this->plain) {
                 $t = Contracts::fillText($st['header'], $this->vals);
                 $this->pdf->text($this->ml + $this->w - Pdf::width($t, $this->font(), $fs), $hy + 8, $t, $this->font(), $fs, self::GRAY);
             }
@@ -175,15 +325,16 @@ final class PdfRender
             }
             $fy = $this->bottom + 36;
             $this->pdf->line($this->ml, $fy - 12, $this->ml + $this->w, $fy - 12, 0.4, self::LIGHT);
-            $left = $st['footer'] !== '' ? Contracts::fillText($st['footer'], $this->vals) : '';
+            $left = $st['footer'] !== '' ? ($this->plain ? $st['footer'] : Contracts::fillText($st['footer'], $this->vals)) : '';
             if ($p >= $contentPages) {
-                $left = 'Signature certificate · ' . Contracts::number($this->c);
+                $left = 'Signature certificate · ' . ($this->plain ? (string) ($this->c['_ref'] ?? '') : Contracts::number($this->c));
             }
             if ($left !== '') {
                 $this->pdf->text($this->ml, $fy, $this->fit($left, $this->font(), $fs, $this->w * 0.55), $this->font(), $fs, self::GRAY);
             }
             if ($st['page_numbers']) {
-                $t = 'Page ' . ($p + 1) . ' of ' . $n;
+                $off = $this->plain ? (int) ($this->c['_offset'] ?? 0) : 0; // (2.34.0) certificate pages after a document's own
+                $t = 'Page ' . ($p + 1 + $off) . ' of ' . ($n + $off);
                 $this->pdf->text($this->ml + $this->w - Pdf::width($t, $this->font(), $fs), $fy, $t, $this->font(), $fs, self::GRAY);
             }
             if ($st['initials_footer'] && $p < $contentPages) {
@@ -357,6 +508,9 @@ final class PdfRender
     /** Placeholders as text: value, or (draft) [Label], or (signed) a dash. */
     private function fill(string $text): string
     {
+        if ($this->plain) {
+            return $text; // (2.34.0) a document prints its text as saved
+        }
         return preg_replace_callback('/\{\{\s*([a-z][a-z0-9_]{0,39})\s*\}\}/', function ($m) {
             $v = $this->vals[$m[1]] ?? null;
             if ($v !== null && $v !== '') {

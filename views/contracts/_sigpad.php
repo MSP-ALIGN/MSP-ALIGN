@@ -3,8 +3,10 @@
  * Signature: type it or draw it, with name, title and the consent to sign electronically. Used on the signing
  * page and for the provider's signature. contracts.js runs the pad; without JavaScript, typing still works.
  * @var string $p (id prefix); string $sigName, $sigTitle, $sigTyped; string $company (who it's with); ?string $photo (img URL)
+ *   ?string $what (2.34.0: what is signed, in the consent sentence; "contract" when not given, "document" for Docs\Signing)
  */
 $sigTyped = $sigTyped ?? '';
+$what = ($what ?? '') === 'document' ? 'document' : 'contract';
 $photo = $photo ?? null;
 ?>
 <div class="sigpad" data-sigpad>
@@ -35,7 +37,7 @@ $photo = $photo ?? null;
   </div>
   <div class="form-check mt-3">
     <input class="form-check-input" type="checkbox" name="consent" value="1" id="<?= e($p) ?>-consent" required>
-    <label class="form-check-label small" for="<?= e($p) ?>-consent">I agree to do business electronically with <?= e($company) ?> and to sign this contract electronically.
+    <label class="form-check-label small" for="<?= e($p) ?>-consent">I agree to do business electronically with <?= e($company) ?> and to sign this <?= $what ?> electronically.
       My electronic signature is as binding as my handwritten signature.</label>
   </div>
 </div>

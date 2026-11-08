@@ -196,7 +196,10 @@ final class Files
         return $b >= 1048576 ? number_format($b / 1048576, 1) . ' MB' : max(1, (int) round($b / 1024)) . ' KB';
     }
 
-    /** Every stored file name of the given clients' documents and their history (to forget once they're deleted). */
+    /**
+     * Every stored file name of the given clients' documents and their history, and (2.34.0) of their signature
+     * requests (to forget once they're deleted).
+     */
     public static function ofClients(array $clientIds): array
     {
         $ids = array_values(array_unique(array_map('intval', $clientIds)));
@@ -204,8 +207,11 @@ final class Files
             return [];
         }
         $in = implode(',', array_fill(0, count($ids), '?'));
+        // (2.34.0) and the PDFs sent for signature and their signed copies (Docs\Signing)
         return array_column(DB::all("SELECT file_name FROM documents WHERE client_id IN ($in) AND file_name IS NOT NULL
-            UNION SELECT v.file_name FROM document_versions v JOIN documents d ON d.id = v.document_id WHERE d.client_id IN ($in) AND v.file_name IS NOT NULL", [...$ids, ...$ids]), 'file_name');
+            UNION SELECT v.file_name FROM document_versions v JOIN documents d ON d.id = v.document_id WHERE d.client_id IN ($in) AND v.file_name IS NOT NULL
+            UNION SELECT source_file FROM doc_sign_requests WHERE client_id IN ($in)
+            UNION SELECT signed_file FROM doc_sign_requests WHERE client_id IN ($in) AND signed_file IS NOT NULL", [...$ids, ...$ids, ...$ids, ...$ids]), 'file_name');
     }
 
     /**
@@ -215,7 +221,9 @@ final class Files
     public static function forget(array $names): void
     {
         foreach (array_unique(array_filter($names)) as $n) {
-            if (DB::value('SELECT 1 FROM documents WHERE file_name = ? UNION SELECT 1 FROM document_versions WHERE file_name = ? LIMIT 1', [$n, $n])) {
+            // (2.34.0) a PDF sent for signature, or a signed copy, is still in use while its request is kept
+            if (DB::value('SELECT 1 FROM documents WHERE file_name = ? UNION SELECT 1 FROM document_versions WHERE file_name = ?
+                    UNION SELECT 1 FROM doc_sign_requests WHERE source_file = ? OR signed_file = ? LIMIT 1', [$n, $n, $n, $n])) {
                 continue;
             }
             if (($p = self::path($n)) && !@unlink($p)) {

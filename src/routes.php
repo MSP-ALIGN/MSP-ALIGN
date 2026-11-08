@@ -37,7 +37,8 @@ use Align\Router;
  *   portal's sign-in, reset and terms pages.
  * - Public but secret-link only (each handler looks up a random token by its hash: 256-bit, or 192-bit for calendar
  *   feeds made before 1.45): /ics/{token} (calendar feed),
- *   /portal/invite/{token}, /portal/welcome/{token}/... (onboarding) and /portal/sign/{token}/... (contracts).
+ *   /portal/invite/{token}, /portal/welcome/{token}/... (onboarding), /portal/sign/{token}/... (contracts) and
+ *   (2.34.0) /portal/docsign/{token}/... (documents sent for signature).
  * - A literal route must come before a {placeholder} route that could match the same path; {id} is digits only,
  *   so "/clients/bulk" never reaches "/clients/{id}".
  */
@@ -148,6 +149,8 @@ $r->get('/clients/{id}/report/sla', [\Align\Controllers\ServiceController::class
 $r->get('/clients/{id}/report/contacts', [ReportController::class, 'contacts']); // 2.24.0
 $r->get('/clients/{id}/report/contacts-csv', [ReportController::class, 'contactsCsv']); // 2.24.0
 $r->get('/clients/{id}/report/compliance/{fw}', [ReportController::class, 'compliance']); // 2.33.0
+$r->get('/clients/{id}/report/compliance/{fw}/sign', [\Align\Controllers\DocumentSignatureController::class, 'reportForm']); // 2.34.0
+$r->post('/clients/{id}/report/compliance/{fw}/sign', [\Align\Controllers\DocumentSignatureController::class, 'reportSend']);
 $r->get('/clients/{id}/service-levels', [\Align\Controllers\ServiceController::class, 'client']);
 $r->get('/clients/{id}/backups', [\Align\Controllers\BackupController::class, 'client']);
 $r->post('/clients/{id}/backups/exempt', [\Align\Controllers\BackupController::class, 'exempt']);
@@ -239,6 +242,15 @@ $r->post('/documents/{id}/details', [DocumentController::class, 'details']);
 $r->post('/documents/{id}/import', [DocumentController::class, 'import']);
 $r->post('/documents/{id}/portal', [DocumentController::class, 'portalShare']);
 $r->post('/documents/{id}/delete', [DocumentController::class, 'delete']);
+// 2.34.0 send a client document for signature (techs and admins; the PDFs for any staff role)
+$DS = \Align\Controllers\DocumentSignatureController::class;
+$r->post('/documents/{id}/signatures', [$DS, 'send']);
+$r->post('/documents/{id}/signatures/{rid}/resend', [$DS, 'resend']);
+$r->post('/documents/{id}/signatures/{rid}/remind', [$DS, 'remind']);
+$r->post('/documents/{id}/signatures/{rid}/cancel', [$DS, 'cancel']);
+$r->post('/documents/{id}/signatures/{rid}/countersign', [$DS, 'countersign']);
+$r->post('/documents/{id}/signatures/{rid}/again', [$DS, 'again']);
+$r->get('/documents/{id}/signatures/{rid}/pdf', [$DS, 'pdf']);
 $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
 $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
@@ -512,6 +524,16 @@ $r->post('/portal/sign/{token:str}/verify', [$SG, 'verify']);
 $r->post('/portal/sign/{token:str}/decline', [$SG, 'decline']);
 $r->get('/portal/sign/{token:str}/pdf', [$SG, 'pdf']);
 $r->get('/portal/sign/{token:str}/source', [$SG, 'source']);
+// Document signing page (private link from the email; no sign-in) (2.34.0)
+$DSG = \Align\Controllers\DocSignController::class;
+$r->get('/portal/docsign/{token:str}', [$DSG, 'show']);
+$r->post('/portal/docsign/{token:str}', [$DSG, 'sign']);
+$r->post('/portal/docsign/{token:str}/code', [$DSG, 'code']);
+$r->post('/portal/docsign/{token:str}/verify', [$DSG, 'verify']);
+$r->post('/portal/docsign/{token:str}/decline', [$DSG, 'decline']);
+$r->get('/portal/docsign/{token:str}/file', [$DSG, 'file']);
+$r->get('/portal/docsign/{token:str}/pdf', [$DSG, 'pdf']);
+$r->get('/portal/signatures/{id}', [PortalController::class, 'signature']);
 $r->get('/portal/invite/{token:str}', [PortalController::class, 'inviteForm']);
 $r->post('/portal/invite/{token:str}', [PortalController::class, 'invite']);
 $r->get('/portal', [PortalController::class, 'home']);

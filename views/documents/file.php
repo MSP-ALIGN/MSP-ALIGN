@@ -79,6 +79,8 @@ $sel = fn($a, $b) => $a === $b ? 'selected' : '';
       </div>
     </div>
 
+    <?php if ($doc['client_id']): /* 2.34.0 */ ?><?= \Align\View::fetch('documents/_signatures', ['doc' => $doc, 'canEdit' => $canEdit, 'signatures' => $signatures, 'signContacts' => $signContacts, 'resign' => $resign, 'me' => \Align\Auth::user()]) ?><?php endif; ?>
+
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clipboard-check me-2"></i>Compliance evidence</h3></div>
       <div class="card-body small">

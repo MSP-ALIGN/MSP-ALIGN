@@ -528,8 +528,11 @@ final class Contracts
 
     // ---- Links and codes -------------------------------------------------------------------------------------
 
-    /** A random signing token: 256 bits, base64url without padding (43 characters, what byToken() accepts). */
-    private static function token(): string
+    /**
+     * A random signing token: 256 bits, base64url without padding (43 characters, what byToken() accepts). Public
+     * since 2.34.0: document signing links (Docs\Signing) are made the same way.
+     */
+    public static function token(): string
     {
         return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
     }

@@ -324,6 +324,49 @@ final class PdfStamp
         return $doc->update($objects);
     }
 
+    /**
+     * (2.34.0) New pages at the end of an existing PDF (a document sent for signature gets its signatures and
+     * certificate this way), as an incremental update: the original bytes stay exactly as they were, so their
+     * SHA-256 still matches what was sent. $draw gets a Pdf sized like the first page (Letter when that isn't a
+     * normal paper size) and adds the pages. As in build(), annotations other than plain links, document scripts,
+     * automatic actions and forms are left out of the update. Returns the new bytes; throws when the PDF can't be read.
+     * Untrusted: $bytes is an uploaded PDF (or one Align made); PdfDoc reads it under its own limits.
+     */
+    public static function append(string $bytes, callable $draw): string
+    {
+        $doc = new PdfDoc($bytes);
+        $pages = $doc->pages();
+        if (!$pages) {
+            throw new \RuntimeException('The PDF has no pages.');
+        }
+        $p0 = $pages[0];
+        [$cw, $ch] = $p0['rotate'] % 180 ? [$p0['h'], $p0['w']] : [$p0['w'], $p0['h']];
+        if ($cw < 300 || $ch < 300 || $cw > 1300 || $ch > 1300) {
+            [$cw, $ch] = [612.0, 792.0];
+        }
+        $pdf = new Pdf($cw, $ch);
+        $pdf->prefix = 'AlignS' . bin2hex(random_bytes(4)); // never clashes with names already in the file
+        $draw($pdf);
+        $shared = $pdf->exportShared($doc->nextNumber());
+        $objects = $shared['objects'];
+        $next = $shared['next'];
+        $fonts = array_map(fn($n) => new PdfRef($n), $shared['fonts']);
+        $images = array_map(fn($n) => new PdfRef($n), $shared['images']);
+        foreach ($pages as $p) {
+            $d = $p['dict']->d;
+            if (self::safeAnnots($doc, $d) || isset($p['dict']->d['Annots'])) {
+                $objects[$p['ref']->num] = PdfDoc::ser(new PdfDict($d));
+            }
+        }
+        if ($pdf->pageCount() > 0) {
+            self::appendPages($doc, $pdf, 0, $objects, $next, $fonts, $images);
+        }
+        if (($cat = self::safeCatalog($doc)) !== null) {
+            $objects[$doc->rootRef()->num] = $cat;
+        }
+        return $doc->update($objects);
+    }
+
     /** From the page as shown (top-left, rotation applied) to the page's own coordinates: the cm matrix. */
     private static function toPage(array $p): array
     {
