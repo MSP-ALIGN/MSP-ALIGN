@@ -349,6 +349,47 @@ try:
     ok(last_request(P)["signed_file"] is None and audit("document.sign_source_changed", P) == 1
        and not q("select 1 from doc_sign_events where request_id = %s and event = 'pdf_failed'", RS["id"]), "the hourly run doesn't try again; audited once")
 
+    # ---- "Create link only" (2.34.0): shown once, nothing emailed, works without email
+    q("update settings set value = 'off' where name = 'mail_mode'")
+    try:
+        before = len(mails())
+        r = tech.post(B + f"/documents/{P}/signatures", data={"_csrf": csrf(tech, f"/documents/{P}"), "signers[]": [str(AV)], "days": "30", "verify_code": "1", "action": "link"})
+        RK = last_request(P)
+        once = re.findall(r'value="(https?://[^"]+/portal/docsign/[A-Za-z0-9_-]+)" data-once-link', r.text)
+        ok("Signing link created" in flash(r.text) and len(once) == 1 and len(mails()) == before and RK["verify_code"] == 0 and signers(RK["id"])[0]["link_only"] == 1
+           and signers(RK["id"])[0]["token_hash"] == hashlib.sha256(once[0].split("/")[-1].encode()).hexdigest(), "link only with email off: the link is shown, nothing emailed, no code")
+        ok("data-once-link" not in tech.get(B + f"/documents/{P}").text and "link only (no emails)" in tech.get(B + f"/documents/{P}").text, "the link shows only once")
+        lk = local(once[0])
+        r = sign(requests.Session(), lk, typed="Avery Lane", name="Avery Lane")
+        ok("Signed by everyone" in r.text and last_request(P)["status"] == "completed" and len(mails()) == before, "signing with that link works (nothing emailed)")
+        ok(audit("document.sign_link", P) == 1, "creating the link is audited")
+        RK = last_request(P)
+    finally:
+        q("update settings set value = 'app' where name = 'mail_mode'")
+    # a link for one signer: the emailed one stops working; reminders skip link-only people
+    send(P, [BL])
+    RB = last_request(P)
+    lb_mail = link_in(mails_to("blake@docsign.example", "Please review and sign")[-1])
+    r = tech.post(B + f"/documents/{P}/signatures/{RB['id']}/signers/{signers(RB['id'])[0]['id']}/link", data={"_csrf": csrf(tech, f"/documents/{P}")})
+    once = re.findall(r'value="(https?://[^"]+/portal/docsign/[A-Za-z0-9_-]+)" data-once-link', r.text)
+    ok(len(once) == 1 and requests.get(lb_mail).status_code == 404 and requests.get(local(once[0])).status_code == 200 and signers(RB["id"])[0]["link_only"] == 1, "Link on one signer: a new link shown once; the emailed one stops working")
+    r = tech.post(B + f"/documents/{P}/signatures/{RB['id']}/remind", data={"_csrf": csrf(tech, f"/documents/{P}")})
+    ok("A reminder can only be sent" in flash(r.text), "no reminders for link-only people")
+    ok(viewer.post(B + f"/documents/{P}/signatures/{RB['id']}/signers/{signers(RB['id'])[0]['id']}/link", data={"_csrf": csrf(viewer, f"/documents/{P}")}).status_code == 403, "viewers can't make links")
+    tech.post(B + f"/documents/{P}/signatures/{RB['id']}/cancel", data={"_csrf": csrf(tech, f"/documents/{P}")})
+
+    # ---- signed copies in the client portal (2.34.0): only when the document is shared there
+    q("update documents set portal_shared = 0 where id = %s", P)
+    ok(pb.get(B + f"/portal/documents/{P}/signed/{RK['id']}").status_code == 404, "a signed copy of an unshared document isn't in the portal")
+    q("update documents set portal_shared = 1 where id = %s", P)
+    t = pb.get(B + f"/portal/documents/{P}").text
+    d = pb.get(B + f"/portal/documents/{P}/signed/{RK['id']}")
+    ok("Signed copy (PDF)" in t and f"/portal/documents/{P}/signed/{RK['id']}" in t and d.status_code == 200 and d.content == open(UPLOADS + "/documents/" + RK["signed_file"], "rb").read(),
+       "shared: portal users with Documents access see and download the signed copy")
+    ok(po.get(B + f"/portal/documents/{P}/signed/{RK['id']}").status_code in (403, 404) and pb.get(B + f"/portal/documents/{P}/signed/{RB['id']}").status_code == 404,
+       "never another client's portal user, nor a request that isn't completed")
+    q("update documents set portal_shared = 0 where id = %s", P)
+
     # ---- another document's request is refused
     ok(tech.get(B + f"/documents/{F['id']}/signatures/{R['id']}/pdf").status_code == 404, "a request can't be reached through another document's address")
     ok(tech.post(B + f"/documents/{F['id']}/signatures/{R2['id']}/remind", data={"_csrf": csrf(tech, f"/documents/{F['id']}")}).status_code == 404, "nor acted on")

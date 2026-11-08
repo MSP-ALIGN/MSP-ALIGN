@@ -47,7 +47,10 @@ $countersignOpen = array_values(array_filter($signatures, fn($r) => $r['status']
         <ul class="list-unstyled mb-1 mt-1">
           <?php foreach ($r['signers'] as $s): ?>
             <li class="text-break"><i class="fas fa-fw <?= $s['status'] === 'signed' ? 'fa-circle-check text-success' : ($s['status'] === 'declined' ? 'fa-circle-xmark text-danger' : 'fa-clock text-muted') ?> me-1"></i><?= e($s['name']) ?>
-              <span class="text-muted">&lt;<?= e($s['email']) ?>&gt;<?= $s['signed_at'] ? ' · signed ' . e(fmt_datetime($s['signed_at'])) : ($s['status'] === 'waiting' && $s['viewed_at'] ? ' · opened' : '') ?></span></li>
+              <span class="text-muted">&lt;<?= e($s['email']) ?>&gt;<?= $s['signed_at'] ? ' · signed ' . e(fmt_datetime($s['signed_at'])) : ($s['status'] === 'waiting' && $s['viewed_at'] ? ' · opened' : '') ?><?= !empty($s['link_only']) ? ' · link only (no emails)' : '' ?></span>
+              <?php if ($canEdit && $r['status'] === 'sent' && $s['status'] === 'waiting'): /* (2.34.0) a link for this signer, shown once, not emailed */ ?>
+                <form method="post" action="/documents/<?= $id ?>/signatures/<?= $rid ?>/signers/<?= (int) $s['id'] ?>/link" class="d-inline"><?= csrf_field() ?><button class="btn btn-link btn-sm p-0 align-baseline" data-confirm="Make a new link for <?= e($s['name']) ?> to send yourself? Their earlier link stops working and Align emails them nothing more." data-confirm-danger="0" data-confirm-ok="Create link">Link</button></form>
+              <?php endif; ?></li>
           <?php endforeach; ?>
           <?php if ($r['countersign'] && $r['countersigned_at']): ?><li><i class="fas fa-fw fa-circle-check text-success me-1"></i><?= e((string) $r['countersign_name']) ?> <span class="text-muted">· countersigned <?= e(fmt_datetime($r['countersigned_at'])) ?></span></li><?php endif; ?>
         </ul>
@@ -88,7 +91,9 @@ $countersignOpen = array_values(array_filter($signatures, fn($r) => $r['status']
       <div class="modal-body">
         <?= \Align\View::fetch('documents/_sign_fields', ['contacts' => $signContacts, 'what' => $doc['kind'] === 'file' ? 'The PDF is sent as it is.' : 'The document is sent as a PDF, the way it prints now (version ' . (int) $doc['version'] . ').']) ?>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>Send</button></div>
+      <div class="modal-footer"><?php $mr = \Align\Mail\Mail::ready(); /* (2.34.0) "Create link only" works without email */ ?>
+        <?php if (!$mr): ?><span class="small text-muted me-auto">Email isn't set up: create the links and send them yourself.</span><?php endif; ?>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-outline-primary" name="action" value="link" title="Nothing is emailed: you copy the links and send them yourself"><i class="fas fa-link me-1"></i>Create links only</button><button class="btn btn-primary" name="action" value="send"<?= $mr ? '' : ' disabled' ?>><i class="fas fa-paper-plane me-1"></i>Send</button></div>
     </form>
   </div></div>
 </div>

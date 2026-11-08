@@ -55,7 +55,8 @@ final class DocumentSignatureController
     private static function options(): array
     {
         return ['verify_code' => isset($_POST['verify_code']), 'countersign' => isset($_POST['countersign']), 'resign' => isset($_POST['resign']),
-            'days' => (int) post('days', (string) Signing::DEFAULT_DAYS), 'message' => mb_substr(post('message'), 0, 4000)];
+            'days' => (int) post('days', (string) Signing::DEFAULT_DAYS), 'message' => mb_substr(post('message'), 0, 4000),
+            'link_only' => post('action') === 'link']; // (2.34.0) "Create link only": nothing emailed, the links shown once
     }
 
     /** The posted signer ids (signers[]), untrusted: only scalars are passed on to Signing::pick. */
@@ -83,7 +84,25 @@ final class DocumentSignatureController
             redirect("/documents/$id");
         }
         $n = (int) DB::value('SELECT COUNT(*) FROM doc_sign_signers WHERE request_id = ?', [$rid]);
-        flash('success', 'Sent for signature to ' . $n . ' ' . ($n === 1 ? 'person' : 'people') . '.');
+        flash('success', post('action') === 'link' ? self::linkFlash($n) : 'Sent for signature to ' . $n . ' ' . ($n === 1 ? 'person' : 'people') . '.');
+        redirect("/documents/$id#signatures");
+    }
+
+    /** (2.34.0) The message after "Create link only". */
+    private static function linkFlash(int $n): string
+    {
+        return ($n === 1 ? 'Signing link' : "$n signing links") . ' created. Nothing was emailed: copy ' . ($n === 1 ? 'it' : 'them') . ' below, ' . ($n === 1 ? 'it\'s' : 'they\'re') . ' shown only once.';
+    }
+
+    /**
+     * POST: (2.34.0) "Link" on one signer who hasn't signed: a new link for them, shown once and not emailed (the
+     * earlier link stops working; Align emails them nothing more). $sid must be a signer of this request (Signing::linkFor).
+     */
+    public static function linkFor(int $id, int $rid, int $sid): void
+    {
+        Auth::requireRole('tech');
+        $r = self::request($id, $rid);
+        Signing::linkFor($r, $sid) ? flash('success', self::linkFlash(1)) : flash('error', 'A link can only be made for someone who hasn\'t signed, while the request is out for signature.');
         redirect("/documents/$id#signatures");
     }
 
@@ -172,7 +191,8 @@ final class DocumentSignatureController
         $ids = array_column(DB::all('SELECT contact_id FROM doc_sign_signers WHERE request_id = ? AND contact_id IS NOT NULL ORDER BY sort, id', [$rid]), 'contact_id');
         try {
             $new = Signing::create($doc, Signing::pick((int) $doc['client_id'], $ids), ['verify_code' => (bool) $r['verify_code'], 'countersign' => (bool) $r['countersign'],
-                'resign' => (bool) $r['resign_on_change'], 'days' => (int) $r['link_days'], 'message' => (string) $r['message']]);
+                'resign' => (bool) $r['resign_on_change'], 'days' => (int) $r['link_days'], 'message' => (string) $r['message'],
+                'link_only' => !Mail::ready()]); // (2.34.0) without email: links shown once instead
         } catch (\InvalidArgumentException | \RuntimeException $e) { // (2.34.0 review)
             flash('error', safe_error($e));
             redirect("/documents/$id#signatures");
@@ -237,8 +257,8 @@ final class DocumentSignatureController
         }
         $back = "/clients/$id/report/compliance/$fw/sign";
         $signers = Signing::pick($id, self::posted());
-        if (!$signers || !Mail::ready()) {
-            flash('error', !$signers ? 'Choose at least one person to sign (contacts need an email address).' : 'Email isn\'t set up (Integrations → Email), so the signing links can\'t be sent.');
+        if (!$signers || (!Mail::ready() && post('action') !== 'link')) { // (2.34.0) "Create link only" works without email
+            flash('error', !$signers ? 'Choose at least one person to sign (contacts need an email address).' : 'Email isn\'t set up (Integrations → Email): use "Create link only" and send the links yourself.');
             redirect($back);
         }
         $title = $d['fw']['name'] . ' compliance report';
@@ -268,7 +288,8 @@ final class DocumentSignatureController
             flash('error', safe_error($e) . ' The report is kept as a document; send it from there.');
             redirect("/documents/$docId");
         }
-        flash('success', 'The report is kept as a client document and sent for signature to ' . count($signers) . ' ' . (count($signers) === 1 ? 'person' : 'people') . '.');
+        flash('success', post('action') === 'link' ? 'The report is kept as a client document. ' . self::linkFlash(count($signers))
+            : 'The report is kept as a client document and sent for signature to ' . count($signers) . ' ' . (count($signers) === 1 ? 'person' : 'people') . '.');
         redirect("/documents/$docId#signatures");
     }
 }

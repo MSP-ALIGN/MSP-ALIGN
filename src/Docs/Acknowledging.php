@@ -57,7 +57,7 @@ final class Acknowledging
     /** Days a person can still open their link after acknowledging, to see that it's done. */
     public const DONE_DAYS = 30;
     /** Mail kinds (the ask holds a private link: Mailer wipes it after sending). */
-    public const MAIL_KINDS = ['docack_ask', 'docack_staff'];
+    public const MAIL_KINDS = ['docack_ask', 'docack_staff', 'docack_receipt'];
 
     public const STATUSES = [
         'sent' => ['Waiting', 'info'],
@@ -75,7 +75,7 @@ final class Acknowledging
     public const EVENT_LABELS = [
         'asked' => 'Asked to acknowledge', 'added' => 'Added to the request', 'resent' => 'Sent again', 'reminder' => 'Reminder sent',
         'opened' => 'Opened the link', 'portal' => 'Opened from the client portal', 'acknowledged' => 'Acknowledged', 'completed' => 'Everyone acknowledged',
-        'cancelled' => 'Cancelled', 'expired' => 'Links expired', 'evidence' => 'Set as compliance evidence', 'record' => 'Acknowledgment record saved as a document',
+        'cancelled' => 'Cancelled', 'expired' => 'Links expired', 'link' => 'Link created (not emailed)', 'evidence' => 'Set as compliance evidence', 'record' => 'Acknowledgment record saved as a document',
     ];
 
     // ---- Reading ------------------------------------------------------------------------------------------------
@@ -270,15 +270,18 @@ final class Acknowledging
      * Asks the people to acknowledge a document: the PDF (Signing::source, or $source when the caller made it), a
      * request and one link per person, each emailed. Returns the request id. $people is recipients()['people'];
      * $opt: resign (bool), days (clamped 1-Signing::MAX_DAYS), message (plain text, capped), control_id (kept only
-     * when controlOk). Throws InvalidArgumentException with a sentence for the person.
-     * Security: staff only (the caller checked the role). Links go only to the addresses chosen.
+     * when controlOk), (2.34.0) link_only ("Create link only": nothing emailed, the links shown to staff once,
+     * Signing::showOnce). Throws InvalidArgumentException with a sentence for the person.
+     * Security: staff only (the caller checked the role). Links go only to the addresses chosen, or to the staff
+     * member's own session.
      */
     public static function create(array $doc, array $people, array $opt, ?array $source = null): int
     {
         if (!$people) {
             throw new \InvalidArgumentException('Choose at least one person to ask (contacts need an email address), or paste their addresses.');
         }
-        if (!Mail::ready()) {
+        $linkOnly = !empty($opt['link_only']);
+        if (!$linkOnly && !Mail::ready()) {
             throw new \InvalidArgumentException('Email isn\'t set up (Integrations → Email), so the links can\'t be sent.');
         }
         if ($p = self::problem($doc)) {
@@ -289,7 +292,7 @@ final class Acknowledging
         $ctl = (int) ($opt['control_id'] ?? 0);
         $u = Auth::user();
         // (2.34.0 review) the request and its people together, or neither (emails go once it's committed)
-        [$id, $n] = DB::transaction(function () use ($doc, $people, $opt, $source, $days, $ctl, $u) {
+        [$id, $n] = DB::transaction(function () use ($doc, $people, $opt, $source, $days, $ctl, $u, $linkOnly) {
             $id = (int) DB::insert('doc_sign_requests', [
                 'kind' => self::KIND, 'document_id' => $doc['id'], 'client_id' => $doc['client_id'], 'title' => mb_substr((string) $doc['title'], 0, 255),
                 'doc_version' => (int) $doc['version'], 'doc_content_hash' => Signing::contentHash($doc),
@@ -299,39 +302,47 @@ final class Acknowledging
                 'message' => mb_substr(str_replace("\r", '', trim((string) ($opt['message'] ?? ''))), 0, 4000) ?: null,
                 'expires_at' => date('Y-m-d H:i:s', strtotime("+$days days")), 'sent_by' => $u['id'] ?? null,
             ]);
-            return [$id, self::insertPeople(self::load($id), $people, 'asked')];
+            return [$id, self::insertPeople(self::load($id), $people, 'asked', $linkOnly)];
         });
-        Audit::log('document.ack_sent', '#' . $doc['id'] . ' ' . $doc['title'] . " → $n " . ($n === 1 ? 'person' : 'people'));
+        Audit::log($linkOnly ? 'document.ack_link' : 'document.ack_sent', '#' . $doc['id'] . ' ' . $doc['title'] . " → $n " . ($n === 1 ? 'person' : 'people') . ($linkOnly ? ' (link only, not emailed)' : ''));
         return $id;
     }
 
     /**
      * Adds people to a request (inserts their rows with new links and emails them). $event: 'asked' or 'added'.
-     * Returns how many were added. Emails beyond SEND_NOW wait for the mail timer.
+     * Returns how many were added. Emails beyond SEND_NOW wait for the mail timer. (2.34.0) $linkOnly: nothing is
+     * emailed; the people are marked link_only and their links kept to show staff once (Signing::showOnce).
      */
-    private static function insertPeople(array $r, array $people, string $event): int
+    private static function insertPeople(array $r, array $people, string $event, bool $linkOnly = false): int
     {
         $days = max(1, min(Signing::MAX_DAYS, (int) $r['link_days']));
         $until = date('Y-m-d H:i:s', strtotime("+$days days"));
         $sort = (int) DB::value('SELECT COALESCE(MAX(sort) + 1, 0) FROM doc_sign_signers WHERE request_id = ?', [$r['id']]);
-        $tokens = DB::transaction(function () use ($r, $people, $until, $sort) {
+        $tokens = DB::transaction(function () use ($r, $people, $until, $sort, $linkOnly) {
             $tokens = [];
             foreach (array_values($people) as $i => $p) {
                 $t = Contracts::token();
                 $sid = (int) DB::insert('doc_sign_signers', [
                     'request_id' => $r['id'], 'contact_id' => $p['contact_id'], 'sort' => $sort + $i, 'name' => $p['name'], 'email' => $p['email'], 'title' => $p['title'] ?? null,
-                    'token_hash' => hash('sha256', $t), 'token_enc' => Crypto::encrypt($t), 'token_expires_at' => $until,
+                    'link_only' => $linkOnly ? 1 : 0, 'token_hash' => hash('sha256', $t), 'token_enc' => Crypto::encrypt($t), 'token_expires_at' => $until,
                 ]);
                 $tokens[] = [$sid, $t];
             }
             return $tokens;
         });
         $now = count($tokens) <= self::SEND_NOW;
+        $links = [];
         foreach ($tokens as [$sid, $t]) {
             $s = DB::one('SELECT id, name, email FROM doc_sign_signers WHERE id = ?', [$sid]);
+            if ($linkOnly) {
+                $links[] = ['name' => $s['name'], 'email' => $s['email'], 'url' => self::url($t), 'until' => $until];
+                Signing::event((int) $r['id'], $sid, 'link', 'Link created for ' . $s['name'] . ' <' . $s['email'] . '> (not emailed)');
+                continue;
+            }
             self::mailLink($r, $s, $t, false, false, $now);
             Signing::event((int) $r['id'], $sid, $event, 'To ' . $s['name'] . ' <' . $s['email'] . '>');
         }
+        Signing::showOnce((int) $r['document_id'], self::KIND, $links);
         return count($tokens);
     }
 
@@ -378,9 +389,9 @@ final class Acknowledging
      * the people who hadn't acknowledged get new links too (emailed), so "everyone acknowledged" can still happen.
      * Returns ['added' => n, 'renewed' => n], or null when the request can't take more.
      */
-    public static function add(array $r, array $people): ?array
+    public static function add(array $r, array $people, bool $linkOnly = false): ?array
     {
-        if (!in_array($r['status'], ['sent', 'completed', 'expired'], true) || !$people || !Mail::ready()) {
+        if (!in_array($r['status'], ['sent', 'completed', 'expired'], true) || !$people || (!$linkOnly && !Mail::ready())) {
             return null;
         }
         $days = max(1, min(Signing::MAX_DAYS, (int) $r['link_days']));
@@ -394,8 +405,8 @@ final class Acknowledging
         }
         $fresh = self::load((int) $r['id']);
         $renewed = 0;
-        if ($r['status'] === 'expired') {
-            $rows = DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND (token_expires_at IS NULL OR token_expires_at < NOW()) ORDER BY sort, id", [$r['id']]);
+        if ($r['status'] === 'expired' && Mail::ready()) { // (2.34.0) emailed people only: a link-only person gets a new link with "Link"
+            $rows = DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND link_only = 0 AND (token_expires_at IS NULL OR token_expires_at < NOW()) ORDER BY sort, id", [$r['id']]);
             foreach ($rows as $s) {
                 if (($t = self::newToken($s, $until)) !== null) {
                     self::mailLink($fresh, $s, $t, false, false, count($rows) + count($people) <= self::SEND_NOW);
@@ -404,7 +415,7 @@ final class Acknowledging
                 }
             }
         }
-        $n = self::insertPeople($fresh, $people, 'added');
+        $n = self::insertPeople($fresh, $people, 'added', $linkOnly);
         Audit::log('document.ack_added', '#' . $r['document_id'] . ' ' . $r['title'] . ' (' . self::ref($r) . "): $n more" . ($renewed ? ", $renewed sent new links" : ''));
         return ['added' => $n, 'renewed' => $renewed];
     }
@@ -430,7 +441,7 @@ final class Acknowledging
             [$r['id'], (int) $r['reminder_count']])->rowCount()) {
             return 0;
         }
-        $rows = DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND token_expires_at > NOW() ORDER BY sort, id", [$r['id']]);
+        $rows = DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND link_only = 0 AND token_expires_at > NOW() ORDER BY sort, id", [$r['id']]); // (2.34.0) never link-only people
         $n = 0;
         foreach ($rows as $s) {
             $t = Signing::currentToken($s) ?? self::newToken($s, (string) $s['token_expires_at']);
@@ -463,7 +474,7 @@ final class Acknowledging
         if (!$r || $r['status'] !== 'sent') {
             return null;
         }
-        $rows = DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' ORDER BY sort, id", [$r['id']]);
+        $rows = DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND link_only = 0 ORDER BY sort, id", [$r['id']]); // (2.34.0) never link-only people
         $n = 0;
         foreach ($rows as $s) {
             if (($t = self::newToken($s, $until)) !== null) {
@@ -515,7 +526,8 @@ final class Acknowledging
             throw new \InvalidArgumentException($onlyAcked ? 'Nobody acknowledged the earlier version, so there is nobody to ask again.' : 'There is nobody to ask again.');
         }
         $ctl = (int) ($old['control_id'] ?? 0);
-        $new = self::create($doc, $people, ['resign' => (bool) $old['resign_on_change'], 'days' => (int) $old['link_days'], 'message' => (string) $old['message'], 'control_id' => $ctl]);
+        $new = self::create($doc, $people, ['resign' => (bool) $old['resign_on_change'], 'days' => (int) $old['link_days'], 'message' => (string) $old['message'], 'control_id' => $ctl,
+            'link_only' => !Mail::ready()]); // (2.34.0) without email: the links are shown once instead
         $ref = self::ref(['id' => $new]);
         Signing::event($new, null, 'asked', 'Asked again after the document changed (replaces ' . self::ref($old) . ')' . ($onlyAcked ? ', only those who acknowledged it' : ''));
         if (in_array($old['status'], ['sent', 'expired'], true)) {
@@ -592,6 +604,9 @@ final class Acknowledging
         }
         Signing::event((int) $r['id'], (int) $s['id'], 'acknowledged', 'As ' . $name . ' (' . $s['email'] . '): "I have read and agree to this policy"' . ($rec['via'] === 'portal' ? ', from the client portal' : ''), $name);
         Audit::log('document.acknowledged', '#' . $r['document_id'] . ' ' . $r['title'] . ' by ' . $name . ' <' . $s['email'] . '>');
+        if (empty($s['link_only'])) {
+            self::receipt($r, $s, $rec);
+        }
         if (DB::run("UPDATE doc_sign_requests SET status = 'completed', completed_at = NOW() WHERE id = ? AND status = 'sent'
                 AND NOT EXISTS (SELECT 1 FROM doc_sign_signers s WHERE s.request_id = ? AND s.status <> 'signed')", [$r['id'], $r['id']])->rowCount()) {
             $n = (int) DB::value('SELECT COUNT(*) FROM doc_sign_signers WHERE request_id = ?', [$r['id']]);
@@ -599,6 +614,26 @@ final class Acknowledging
             self::notifyStaff(self::load((int) $r['id']), $n);
         }
         return null;
+    }
+
+    /**
+     * (2.34.0) A short receipt to the person who acknowledged: the document, its version and date, the name they typed
+     * and when. Sent to the address the link was sent to (never one from the form), once per person (deduplicated).
+     * Not for link-only people (Align emails them nothing). $rec is acknowledge()'s record; MailTemplate escapes it.
+     */
+    private static function receipt(array $r, array $s, array $rec): void
+    {
+        if (!Mail::ready()) {
+            return;
+        }
+        $company = Settings::get('company_name') ?: 'your IT provider';
+        $when = Fmt::dateTime((string) $rec['at']);
+        Mailer::queue('docack_receipt', [['address' => $s['email'], 'name' => $s['name']]], 'You acknowledged: ' . $r['title'], MailTemplate::render('Acknowledgment receipt', [
+            MailTemplate::p('You acknowledged "' . $r['title'] . '" on ' . $when . '. Keep this email for your records.'),
+            MailTemplate::p('Document: ' . $r['title'] . ' (version ' . (int) $r['doc_version'] . ', sent ' . Fmt::date((string) $r['sent_at'], 'long') . ')'),
+            MailTemplate::p('Name you typed: ' . $rec['name'] . ' · Statement: "I have read and agree to this policy"'),
+        ], 'You get this because you acknowledged a document ' . $company . ' sent you. If it wasn\'t you, please tell them.'),
+            ['client_id' => $r['client_id'], 'reply_to' => $r['sent_by_email'] ?: null, 'dedupe' => 'docack-receipt-' . $s['id'], 'immediate' => true, 'created_by' => null]);
     }
 
     /** Emails the sender once everyone has acknowledged (deduplicated per request and head count). */

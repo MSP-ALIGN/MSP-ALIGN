@@ -250,6 +250,7 @@ $r->post('/documents/{id}/signatures/{rid}/remind', [$DS, 'remind']);
 $r->post('/documents/{id}/signatures/{rid}/cancel', [$DS, 'cancel']);
 $r->post('/documents/{id}/signatures/{rid}/countersign', [$DS, 'countersign']);
 $r->post('/documents/{id}/signatures/{rid}/again', [$DS, 'again']);
+$r->post('/documents/{id}/signatures/{rid}/signers/{sid}/link', [$DS, 'linkFor']); // (2.34.0) a link for one signer, not emailed
 $r->get('/documents/{id}/signatures/{rid}/pdf', [$DS, 'pdf']);
 // 2.34.0 ask staff to acknowledge a client document (techs and admins; the record and the PDF for any staff role)
 $DA = \Align\Controllers\DocumentAckController::class;
@@ -259,6 +260,7 @@ $r->post('/documents/{id}/acknowledgments/{rid}/remind', [$DA, 'remind']);
 $r->post('/documents/{id}/acknowledgments/{rid}/resend', [$DA, 'resend']);
 $r->post('/documents/{id}/acknowledgments/{rid}/cancel', [$DA, 'cancel']);
 $r->post('/documents/{id}/acknowledgments/{rid}/again', [$DA, 'again']);
+$r->post('/documents/{id}/acknowledgments/{rid}/people/{sid}/link', [$DA, 'linkFor']); // (2.34.0)
 $r->post('/documents/{id}/acknowledgments/{rid}/evidence', [$DA, 'evidence']);
 $r->get('/documents/{id}/acknowledgments/{rid}/record', [$DA, 'record']);
 $r->post('/documents/{id}/acknowledgments/{rid}/record', [$DA, 'recordSave']);
@@ -576,6 +578,7 @@ $r->get('/portal/compliance/{id}/report', [PortalController::class, 'complianceR
 $r->get('/portal/documents', [PortalController::class, 'documents']);
 $r->get('/portal/documents/{id}', [PortalController::class, 'document']);
 $r->get('/portal/documents/{id}/file', [PortalController::class, 'documentFile']); // 2.20.0
+$r->get('/portal/documents/{id}/signed/{rid}', [PortalController::class, 'signedCopy']); // 2.34.0
 $r->get('/portal/contacts', [PortalController::class, 'contacts']);
 $r->get('/portal/requests', [PortalController::class, 'requests']);
 $r->post('/portal/requests/{kind:str}', [PortalController::class, 'requestSubmit']);

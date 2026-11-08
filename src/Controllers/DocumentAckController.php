@@ -96,13 +96,13 @@ final class DocumentAckController
         $list = Acknowledging::recipients((int) $doc['client_id'], self::posted(), mb_substr(post('pasted'), 0, Acknowledging::MAX_PASTE));
         try {
             $rid = Acknowledging::create($doc, $list['people'], ['resign' => isset($_POST['resign']), 'days' => (int) post('days', (string) Signing::DEFAULT_DAYS),
-                'message' => mb_substr(post('message'), 0, 4000), 'control_id' => (int) post('control_id')]);
+                'message' => mb_substr(post('message'), 0, 4000), 'control_id' => (int) post('control_id'), 'link_only' => post('action') === 'link']);
         } catch (\InvalidArgumentException | \RuntimeException $e) { // (2.34.0 review) a PDF that couldn't be made or kept too
             flash('error', safe_error($e) . self::leftOut($list));
             redirect("/documents/$id");
         }
         $n = (int) DB::value('SELECT COUNT(*) FROM doc_sign_signers WHERE request_id = ?', [$rid]);
-        flash('success', 'Asked ' . self::people($n) . ' to acknowledge it.' . self::leftOut($list));
+        flash('success', (post('action') === 'link' ? self::linkFlash($n) : 'Asked ' . self::people($n) . ' to acknowledge it.') . self::leftOut($list));
         redirect("/documents/$id#acknowledgments");
     }
 
@@ -121,9 +121,28 @@ final class DocumentAckController
         }
         $already = array_column(DB::all('SELECT email FROM doc_sign_signers WHERE request_id = ?', [$rid]), 'email');
         $list = Acknowledging::recipients((int) $doc['client_id'], self::posted(), mb_substr(post('pasted'), 0, Acknowledging::MAX_PASTE), $already);
-        $n = $list['people'] ? Acknowledging::add($r, $list['people']) : null;
-        $n ? flash('success', 'Added ' . self::people($n['added']) . '.' . ($n['renewed'] ? ' The request had expired, so the ' . self::people($n['renewed']) . ' who hadn\'t acknowledged got new links too.' : '') . self::leftOut($list))
-            : flash('error', ($list['people'] ? (Mail::ready() ? 'This request can\'t take more people (it was cancelled).' : 'Email isn\'t set up (Integrations → Email).') : 'Nobody new to add.') . self::leftOut($list));
+        $linkOnly = post('action') === 'link';
+        $n = $list['people'] ? Acknowledging::add($r, $list['people'], $linkOnly) : null;
+        $n ? flash('success', 'Added ' . self::people($n['added']) . '.' . ($linkOnly ? ' ' . self::linkFlash($n['added']) : '') . ($n['renewed'] ? ' The request had expired, so the ' . self::people($n['renewed']) . ' who hadn\'t acknowledged got new links too.' : '') . self::leftOut($list))
+            : flash('error', ($list['people'] ? (Mail::ready() || $linkOnly ? 'This request can\'t take more people (it was cancelled).' : 'Email isn\'t set up (Integrations → Email): use "Create links only".') : 'Nobody new to add.') . self::leftOut($list));
+        redirect("/documents/$id#acknowledgments");
+    }
+
+    /** (2.34.0) The message after "Create link only". */
+    private static function linkFlash(int $n): string
+    {
+        return ($n === 1 ? 'Link' : "$n links") . ' created. Nothing was emailed: copy ' . ($n === 1 ? 'it' : 'them') . ' below, ' . ($n === 1 ? 'it\'s' : 'they\'re') . ' shown only once.';
+    }
+
+    /**
+     * POST: (2.34.0) "Link" on one person who hasn't acknowledged: a new link for them, shown once and not emailed (the
+     * earlier link stops working; Align emails them nothing more). $sid must be on this request (Signing::linkFor).
+     */
+    public static function linkFor(int $id, int $rid, int $sid): void
+    {
+        Auth::requireRole('tech');
+        $r = self::request($id, $rid);
+        Signing::linkFor($r, $sid) ? flash('success', self::linkFlash(1)) : flash('error', 'A link can only be made for someone who hasn\'t acknowledged, while the request is open.');
         redirect("/documents/$id#acknowledgments");
     }
 

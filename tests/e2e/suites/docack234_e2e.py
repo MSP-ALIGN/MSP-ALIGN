@@ -25,7 +25,7 @@ def mails(): return requests.get(M + "/mock/graph").json()["mail"]
 def mails_to(addr, sub):
     return [m["message"] for m in mails() if sub in m["message"]["subject"] and any(r["emailAddress"]["address"] == addr for r in m["message"]["toRecipients"])]
 def link_in(msg): return local(re.search(r'href="(https?://[^"]+/portal/docack/[A-Za-z0-9_-]+)"', msg["body"]["content"]).group(1))
-def last_link(addr): return link_in(mails_to(addr, "acknowledge")[-1])
+def last_link(addr): return link_in([m for m in mails_to(addr, "acknowledge") if not m["subject"].startswith("You acknowledged")][-1])  # not the receipts
 def pcsrf(s, url):
     m = re.search(r'name="_csrf" value="([^"]+)"', s.get(url).text) or re.search(r'name="_csrf" value="([^"]+)"', s.get(B + "/portal/login").text)
     return m.group(1)
@@ -367,6 +367,27 @@ try:
         ok("fillable fields or comments" in flash(ask(AN[0]["id"], [AV]).text) and not q("select 1 from doc_sign_requests where document_id = %s", AN[0]["id"]), "asking to acknowledge it is refused")
         r = tech.post(B + f"/documents/{AN[0]['id']}/signatures", data={"_csrf": csrf(tech, f"/documents/{AN[0]['id']}"), "signers[]": [str(AV)], "days": "30"})
         ok("fillable fields or comments" in flash(r.text), "and sending it for signature too")
+
+    # ---- receipts (2.34.0): one per person after acknowledging
+    ok(len(mails_to("avery@docack.example", "You acknowledged: Zz234ack")) >= 1 and len(mails_to("kim@docack.example", "You acknowledged: Zz234ack")) == 1
+       and "Kim Zz234ack" in mails_to("kim@docack.example", "You acknowledged")[0]["body"]["content"] and "Keep this email for your records" in mails_to("kim@docack.example", "You acknowledged")[0]["body"]["content"],
+       "each person gets one receipt with the name they typed")
+    ok(not q("select 1 from mail_queue where kind = 'docack_receipt' and purged = 0 and status = 'sent'"), "receipts are wiped from the outbox like the others")
+
+    # ---- "Create link only" (2.34.0): with email off, shown once, nothing emailed, and no receipt
+    q("update settings set value = 'off' where name = 'mail_mode'")
+    try:
+        before = len(mails())
+        r = post(f"/documents/{P}/acknowledgments", {"pasted": "Nia Zz234ack <nia@docack.example>", "days": "30", "action": "link"})
+        once = re.findall(r'value="(https?://[^"]+/portal/docack/[A-Za-z0-9_-]+)" data-once-link', r.text)
+        R6 = last_request(P)
+        ok("Link created" in flash(r.text) and len(once) == 1 and people(R6["id"])[0]["link_only"] == 1 and len(mails()) == before, "link only with email off: shown once, nothing emailed")
+        ok("data-once-link" not in tech.get(B + f"/documents/{P}").text, "the link shows only once")
+    finally:
+        q("update settings set value = 'app' where name = 'mail_mode'")
+    r = ack(requests.Session(), local(once[0]), "Nia Zz234ack")
+    ok("Thank you" in r.text and last_request(P)["status"] == "completed" and not mails_to("nia@docack.example", "You acknowledged") and audit("document.ack_link", f"#{P} Zz234ack%") == 1,
+       "acknowledging with that link works; no receipt for a link-only person; audited")
 
     # ---- the link pages send no Referer (the token stays out of other sites' logs)
     ok(requests.get(last_link("lee@docack.example")).headers.get("Referrer-Policy") == "no-referrer" and requests.get(B + "/portal/docack/not-a-token").headers.get("Referrer-Policy") == "no-referrer",

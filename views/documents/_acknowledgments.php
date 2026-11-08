@@ -46,7 +46,10 @@ $open = array_values(array_filter(array_slice($acks, 0, 5), fn($r) => $r['status
         <ul class="list-unstyled mb-1 mt-1" style="max-height:320px;overflow:auto">
           <?php foreach ($r['people'] as $s): [$sl, $st, $si] = Acknowledging::PERSON[$s['state']]; ?>
             <li class="text-break" data-ack-person="<?= e($s['state']) ?>"><i class="fas fa-fw <?= e($si) ?> text-<?= e($st) ?> me-1" title="<?= e($sl) ?>"></i><?= e($s['name']) ?>
-              <span class="text-muted">&lt;<?= e($s['email']) ?>&gt; · <?= e($sl) ?><?= $s['signed_at'] ? ' ' . e(fmt_datetime($s['signed_at'])) : ($s['state'] === 'waiting' ? ($s['viewed_at'] ? ', opened' : '') . ' until ' . e(fmt_date($s['token_expires_at'])) : '') ?></span></li>
+              <span class="text-muted">&lt;<?= e($s['email']) ?>&gt; · <?= e($sl) ?><?= $s['signed_at'] ? ' ' . e(fmt_datetime($s['signed_at'])) : ($s['state'] === 'waiting' ? ($s['viewed_at'] ? ', opened' : '') . ' until ' . e(fmt_date($s['token_expires_at'])) : '') ?><?= !empty($s['link_only']) ? ' · link only (no emails)' : '' ?></span>
+              <?php if ($canEdit && $r['status'] === 'sent' && $s['state'] !== 'acknowledged'): /* (2.34.0) a link for this person, shown once, not emailed */ ?>
+                <form method="post" action="/documents/<?= $id ?>/acknowledgments/<?= $rid ?>/people/<?= (int) $s['id'] ?>/link" class="d-inline"><?= csrf_field() ?><button class="btn btn-link btn-sm p-0 align-baseline" data-confirm="Make a new link for <?= e($s['name']) ?> to send yourself? Their earlier link stops working and Align emails them nothing more." data-confirm-danger="0" data-confirm-ok="Create link">Link</button></form>
+              <?php endif; ?></li>
           <?php endforeach; ?>
         </ul>
         <?php if ($r['status'] === 'cancelled' && $r['cancel_reason']): ?><div class="text-muted mb-1">Cancelled: <?= e($r['cancel_reason']) ?></div><?php endif; ?>
@@ -96,7 +99,9 @@ $open = array_values(array_filter(array_slice($acks, 0, 5), fn($r) => $r['status
         <p class="small text-muted mb-2"><?= $doc['kind'] === 'file' ? 'The PDF is sent as it is.' : 'The document is sent as a PDF, the way it prints now (version ' . (int) $doc['version'] . ').' ?> Each person gets their own private link by email. They read it and tick <b>I have read and agree to this policy</b> with their name: no signature or code.</p>
         <?= \Align\View::fetch('documents/_ack_fields', ['p' => 'ak', 'contacts' => $contacts, 'controls' => $controls, 'full' => true]) ?>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>Send</button></div>
+      <div class="modal-footer"><?php $mr = \Align\Mail\Mail::ready(); /* (2.34.0) "Create link only" works without email */ ?>
+        <?php if (!$mr): ?><span class="small text-muted me-auto">Email isn't set up: create the links and send them yourself.</span><?php endif; ?>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-outline-primary" name="action" value="link" title="Nothing is emailed: you copy the links and send them yourself"><i class="fas fa-link me-1"></i>Create links only</button><button class="btn btn-primary" name="action" value="send"<?= $mr ? '' : ' disabled' ?>><i class="fas fa-paper-plane me-1"></i>Send</button></div>
     </form>
   </div></div>
 </div>
@@ -110,7 +115,8 @@ $open = array_values(array_filter(array_slice($acks, 0, 5), fn($r) => $r['status
         <?= \Align\View::fetch('documents/_ack_fields', ['p' => 'aa' . $rid, 'contacts' => $contacts, 'controls' => [], 'full' => false,
             'skip' => array_map(fn($s) => strtolower(trim((string) $s['email'])), $r['people'])]) ?>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>Add and send</button></div>
+      <div class="modal-footer"><?php $mr = \Align\Mail\Mail::ready(); ?>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-outline-primary" name="action" value="link" title="Nothing is emailed: you copy the links and send them yourself"><i class="fas fa-link me-1"></i>Add, links only</button><button class="btn btn-primary" name="action" value="send"<?= $mr ? '' : ' disabled' ?>><i class="fas fa-paper-plane me-1"></i>Add and send</button></div>
     </form>
   </div></div>
 </div>

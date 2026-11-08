@@ -188,7 +188,8 @@ final class DocumentController
             'resign' => \Align\Docs\Signing::needsResign($doc, $reqs),
             'contractsJs' => Auth::can('tech') && array_filter($reqs, fn($r) => $r['status'] === 'countersign'),
             'acks' => $acks, 'ackAgain' => \Align\Docs\Acknowledging::needsAgain($doc, $acks),
-            'ackControls' => Auth::can('tech') ? \Align\Docs\Acknowledging::controls((int) $doc['client_id']) : []];
+            'ackControls' => Auth::can('tech') ? \Align\Docs\Acknowledging::controls((int) $doc['client_id']) : [],
+            'linksOnce' => Auth::can('tech') ? \Align\Docs\Signing::takeOnce((int) $doc['id']) : null]; // (2.34.0) "Create link only", shown once
     }
 
     /**

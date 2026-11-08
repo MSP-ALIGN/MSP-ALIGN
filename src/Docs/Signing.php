@@ -72,6 +72,7 @@ final class Signing
         'portal' => 'Opened from the client portal', 'signed' => 'Signed', 'declined' => 'Declined', 'countersigned' => 'Countersigned',
         'completed' => 'Completed', 'cancelled' => 'Cancelled', 'expired' => 'Links expired', 'downloaded' => 'Signed copy downloaded',
         'emailed' => 'Signed copy emailed', 'pdf_failed' => 'Signed PDF not made yet (Align tries again within the hour)',
+        'link' => 'Link created (not emailed)', // (2.34.0)
         'source_changed' => 'The document\'s file changed after it was sent: no signed copy made', // (2.34.0 review)
     ];
 
@@ -116,7 +117,7 @@ final class Signing
             FROM doc_sign_requests r LEFT JOIN users su ON su.id = r.sent_by LEFT JOIN users cu ON cu.id = r.countersign_user_id
             WHERE r.document_id = ? AND r.kind = \'signature\' ORDER BY r.id DESC LIMIT 20', [$documentId]); // (2.34.0) not acknowledgments
         foreach ($rows as &$r) {
-            $r['signers'] = DB::all('SELECT id, contact_id, name, email, title, status, signed_at, declined_at, viewed_at FROM doc_sign_signers WHERE request_id = ? ORDER BY sort, id', [$r['id']]);
+            $r['signers'] = DB::all('SELECT id, contact_id, name, email, title, status, link_only, signed_at, declined_at, viewed_at FROM doc_sign_signers WHERE request_id = ? ORDER BY sort, id', [$r['id']]);
             $r['signed_count'] = count(array_filter($r['signers'], fn($s) => $s['status'] === 'signed'));
         }
         return $rows;
@@ -283,21 +284,30 @@ final class Signing
      * Returns the request id. $signers is pick()'s result; $opt: verify_code, countersign, resign (bools), days
      * (clamped 1-MAX_DAYS), message (plain text, capped). Throws InvalidArgumentException with a sentence for the
      * person (nobody chosen, email not set up, a PDF Align can't read).
-     * Security: staff only (the caller checked the role). Links go only to the chosen contacts' stored addresses.
+     * (2.34.0) $opt['link_only']: "Create link only": nothing is emailed; the links are kept for staff to see once
+     * (showOnce) and the signers are marked link_only (no reminders or signed copy by email). Without email the
+     * emailed code can't be asked for, so it's turned off and the trail says so (as contracts do).
+     * Security: staff only (the caller checked the role). Links go only to the chosen contacts' stored addresses, or
+     * only to the staff member's own session.
      */
     public static function create(array $doc, array $signers, array $opt, ?array $source = null): int
     {
         if (!$signers) {
             throw new \InvalidArgumentException('Choose at least one person to sign (contacts need an email address).');
         }
-        if (!Mail::ready()) {
+        $linkOnly = !empty($opt['link_only']);
+        if ($linkOnly && !empty($opt['verify_code']) && !Mail::ready()) {
+            $opt['verify_code'] = false;
+            $noCode = true;
+        }
+        if (!$linkOnly && !Mail::ready()) {
             throw new \InvalidArgumentException('Email isn\'t set up (Integrations → Email), so the signing links can\'t be sent.');
         }
         $source ??= self::source($doc);
         $days = max(1, min(self::MAX_DAYS, (int) ($opt['days'] ?? self::DEFAULT_DAYS)));
         $u = Auth::user();
         $tokens = [];
-        $id = DB::transaction(function () use ($doc, $signers, $opt, $source, $days, $u, &$tokens) {
+        $id = DB::transaction(function () use ($doc, $signers, $opt, $source, $days, $u, $linkOnly, &$tokens) {
             $id = (int) DB::insert('doc_sign_requests', [
                 'document_id' => $doc['id'], 'client_id' => $doc['client_id'], 'title' => mb_substr((string) $doc['title'], 0, 255),
                 'doc_version' => (int) $doc['version'], 'doc_content_hash' => self::contentHash($doc),
@@ -311,6 +321,7 @@ final class Signing
                 $t = Contracts::token();
                 $sid = (int) DB::insert('doc_sign_signers', [
                     'request_id' => $id, 'contact_id' => $s['contact_id'], 'sort' => $i, 'name' => $s['name'], 'email' => $s['email'], 'title' => $s['title'],
+                    'link_only' => $linkOnly ? 1 : 0,
                     'token_hash' => hash('sha256', $t), 'token_enc' => Crypto::encrypt($t), 'token_expires_at' => date('Y-m-d H:i:s', strtotime("+$days days")),
                 ]);
                 $tokens[] = [$sid, $t];
@@ -318,14 +329,71 @@ final class Signing
             return $id;
         });
         $r = self::load($id);
+        if (!empty($noCode)) {
+            self::event($id, null, 'link', 'Email isn\'t set up, so no code will be asked for: the link alone opens the document');
+        }
+        $links = [];
         foreach ($tokens as [$sid, $t]) {
             $s = DB::one('SELECT * FROM doc_sign_signers WHERE id = ?', [$sid]);
-            self::mailLink($r, $s, $t, false);
-            self::event($id, $sid, 'sent', 'To ' . $s['name'] . ' <' . $s['email'] . '>');
+            if ($linkOnly) {
+                $links[] = ['name' => $s['name'], 'email' => $s['email'], 'url' => self::url($t), 'until' => $s['token_expires_at']];
+                self::event($id, $sid, 'link', 'Link created for ' . $s['name'] . ' <' . $s['email'] . '> (not emailed)');
+            } else {
+                self::mailLink($r, $s, $t, false);
+                self::event($id, $sid, 'sent', 'To ' . $s['name'] . ' <' . $s['email'] . '>');
+            }
         }
-        Audit::log('document.sign_sent', '#' . $doc['id'] . ' ' . $doc['title'] . ' → ' . implode(', ', array_column($signers, 'email'))
-            . ($r['countersign'] ? ' (countersign)' : '') . ($r['verify_code'] ? ' (code)' : ''));
+        if ($linkOnly) {
+            self::showOnce((int) $doc['id'], 'signature', $links);
+        }
+        Audit::log($linkOnly ? 'document.sign_link' : 'document.sign_sent', '#' . $doc['id'] . ' ' . $doc['title'] . ' → ' . implode(', ', array_column($signers, 'email'))
+            . ($linkOnly ? ' (link only, not emailed)' : '') . ($r['countersign'] ? ' (countersign)' : '') . ($r['verify_code'] ? ' (code)' : ''));
         return $id;
+    }
+
+    /**
+     * (2.34.0) Keeps links made with "Create link only" for the staff member's own session, to show once on the
+     * document page (takeOnce). $kind is 'signature' or 'acknowledge'; each link: name, email, url, until. The tokens
+     * are never stored anywhere else in plain text (the database keeps their hash and an app-key encrypted copy).
+     */
+    public static function showOnce(int $docId, string $kind, array $links): void
+    {
+        if ($links) {
+            $_SESSION['doclinks_once'][$docId] = ['kind' => $kind, 'links' => array_values($links)];
+        }
+    }
+
+    /** (2.34.0) The links showOnce() kept for this document, taken out of the session (so they show once), or null. */
+    public static function takeOnce(int $docId): ?array
+    {
+        $l = $_SESSION['doclinks_once'][$docId] ?? null;
+        unset($_SESSION['doclinks_once'][$docId]);
+        return is_array($l) ? $l : null;
+    }
+
+    /**
+     * (2.34.0) "Create link only" for one signer who hasn't signed, on a request out for signature: a new link (any
+     * earlier one stops working), the signer marked link_only (no more emails), kept to show once. Returns false
+     * when they signed meanwhile or the request moved on. Audited.
+     */
+    public static function linkFor(array $r, int $signerId): bool
+    {
+        $s = DB::one("SELECT * FROM doc_sign_signers WHERE id = ? AND request_id = ? AND status = 'waiting'", [$signerId, $r['id']]);
+        if (!$s || $r['status'] !== 'sent') {
+            return false;
+        }
+        $days = max(1, min(self::MAX_DAYS, (int) $r['link_days']));
+        $until = max((string) $r['expires_at'], date('Y-m-d H:i:s', strtotime("+$days days")));
+        $t = self::newToken($s, $until);
+        if ($t === null) {
+            return false;
+        }
+        DB::run('UPDATE doc_sign_signers SET link_only = 1 WHERE id = ?', [$s['id']]);
+        DB::run('UPDATE doc_sign_requests SET expires_at = GREATEST(expires_at, ?) WHERE id = ?', [$until, $r['id']]);
+        self::showOnce((int) $r['document_id'], $r['kind'], [['name' => $s['name'], 'email' => $s['email'], 'url' => $r['kind'] === 'signature' ? self::url($t) : Acknowledging::url($t), 'until' => $until]]);
+        self::event((int) $r['id'], (int) $s['id'], 'link', 'New link created for ' . $s['name'] . ' <' . $s['email'] . '> (not emailed; the earlier link stops working)');
+        Audit::log($r['kind'] === 'signature' ? 'document.sign_link' : 'document.ack_link', '#' . $r['document_id'] . ' ' . $r['title'] . ' → ' . $s['email'] . ' (link only)');
+        return true;
     }
 
     /** The full signing URL, from the configured base_url (never the request's Host header). */
@@ -372,7 +440,8 @@ final class Signing
         }
         $r = self::load((int) $r['id']);
         $n = 0;
-        foreach (DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' ORDER BY sort, id", [$r['id']]) as $s) {
+        // (2.34.0) link-only signers keep their link (staff make a new one with "Link" on their row): nothing is emailed to them
+        foreach (DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND link_only = 0 ORDER BY sort, id", [$r['id']]) as $s) {
             $t = self::newToken($s, $until);
             if ($t !== null) {
                 self::mailLink($r, $s, $t, false);
@@ -413,7 +482,7 @@ final class Signing
             return 0;
         }
         $n = 0;
-        foreach (DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' ORDER BY sort, id", [$r['id']]) as $s) {
+        foreach (DB::all("SELECT * FROM doc_sign_signers WHERE request_id = ? AND status = 'waiting' AND link_only = 0 ORDER BY sort, id", [$r['id']]) as $s) { // (2.34.0) not link-only
             $t = self::currentToken($s) ?? self::newToken($s, (string) $r['expires_at']);
             if ($t === null) {
                 continue;
@@ -698,7 +767,8 @@ final class Signing
         if (Mail::ready()) {
             $company = Settings::get('company_name') ?: 'us';
             $att = [['name' => $f['file_orig'], 'type' => 'application/pdf', 'content' => $pdf]];
-            foreach (DB::all("SELECT id, name, email FROM doc_sign_signers WHERE request_id = ? AND status = 'signed' ORDER BY sort, id", [$r['id']]) as $s) {
+            // (2.34.0) not to link-only signers: they download it from their link (or staff send it)
+            foreach (DB::all("SELECT id, name, email FROM doc_sign_signers WHERE request_id = ? AND status = 'signed' AND link_only = 0 ORDER BY sort, id", [$r['id']]) as $s) {
                 Mailer::queue('docsign_signed', [['address' => $s['email'], 'name' => $s['name']]], 'Signed: ' . $r['title'],
                     MailTemplate::render('Your signed copy', [
                         MailTemplate::p('Thank you. "' . $r['title'] . '" from ' . $company . ' is signed by everyone. Your copy is attached, with the signatures and a certificate on the last pages.'),
@@ -862,6 +932,18 @@ final class Signing
     }
 
     // ---- Client portal --------------------------------------------------------------------------------------
+
+    /**
+     * (2.34.0) The signed copies a portal user may download from a shared document's portal page: completed signature
+     * requests of that document whose signed PDF is made (never acknowledgment records). The caller
+     * (PortalController::document) has checked the document is the portal user's client's, active and shared, and that
+     * they have Documents access. Fields for the view only.
+     */
+    public static function portalCopies(int $documentId): array
+    {
+        return array_values(array_filter(DB::all("SELECT id, title, completed_at, signed_file FROM doc_sign_requests WHERE document_id = ? AND kind = 'signature' AND status = 'completed'
+            AND signed_file IS NOT NULL ORDER BY id DESC LIMIT 10", [$documentId]), fn($r) => !str_starts_with((string) $r['signed_file'], 'pending')));
+    }
 
     /**
      * What waits for this portal user's own signature: requests for their client that are out for signature, where
