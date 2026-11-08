@@ -643,9 +643,12 @@ SetEnvIf Request_URI "^/ics/" align_secret_url
 SetEnvIf Request_URI "^/portal/invite/" align_secret_url
 SetEnvIf Request_URI "^/portal/welcome/" align_secret_url
 SetEnvIf Request_URI "^/portal/sign/" align_secret_url
+# (2.34.0) document signing and policy acknowledgment links
+SetEnvIf Request_URI "^/portal/docsign/" align_secret_url
+SetEnvIf Request_URI "^/portal/docack/" align_secret_url
 # ...and from the Referer of requests made by those pages (pages from 2.2.1 send none, a cached old one may): the
 # token part is cut from the header, so those requests are still logged and a forged Referer hides nothing
-RequestHeader edit Referer "(?i)^(https?://[^/]+/(?:ics|portal/(?:invite|welcome|sign))/).*$" "$1(hidden)"
+RequestHeader edit Referer "(?i)^(https?://[^/]+/(?:ics|portal/(?:invite|welcome|sign|docsign|docack))/).*$" "$1(hidden)"
 
 # REST API: make sure "Authorization: Bearer <key>" reaches PHP (PHP-FPM setups drop it otherwise)
 SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1

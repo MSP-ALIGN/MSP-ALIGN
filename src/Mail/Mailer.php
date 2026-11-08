@@ -26,7 +26,8 @@ final class Mailer
      * a hash elsewhere), so it is wiped too (2.2.1).
      */
     private const SENSITIVE = ['client_portal_invite', 'client_portal_reset', 'contract_code', 'contract_sign', 'contract_signed', 'contract_staff', 'client_onboarding',
-        'docsign_sign', 'docsign_code', 'docsign_signed', 'docsign_staff']; // (2.34.0) document signing (Docs\Signing::MAIL_KINDS)
+        'docsign_sign', 'docsign_code', 'docsign_signed', 'docsign_staff', // (2.34.0) document signing (Docs\Signing::MAIL_KINDS)
+        'docack_ask', 'docack_staff']; // (2.34.0) staff acknowledgments (Docs\Acknowledging::MAIL_KINDS): the ask holds a private link
     /** A message still marked "sending" this long after it was taken was cut off mid-send (a killed request or timer). */
     private const STUCK_MINUTES = 60;
 

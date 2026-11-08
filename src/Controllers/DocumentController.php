@@ -172,18 +172,23 @@ final class DocumentController
 
     /**
      * 2.34.0 The document page's Signatures card (documents/_signatures): its requests, the client's contacts who can
-     * sign, "Needs signing again", and the signature pad's script when a countersignature is waiting. Nothing for an
+     * sign, "Needs signing again", and the signature pad's script when a countersignature is waiting; (2.34.0) and the
+     * Acknowledgments card's requests, "Needs acknowledging again" and the client's compliance controls. Nothing for an
      * internal document.
      */
     private static function signatureVars(array $doc): array
     {
         if (!$doc['client_id']) {
-            return ['signatures' => [], 'signContacts' => [], 'resign' => null];
+            return ['signatures' => [], 'signContacts' => [], 'resign' => null, 'acks' => [], 'ackAgain' => null, 'ackControls' => []];
         }
         $reqs = \Align\Docs\Signing::forDocument((int) $doc['id']);
+        // (2.34.0) staff acknowledgments (documents/_acknowledgments): requests, "Needs acknowledging again", controls
+        $acks = \Align\Docs\Acknowledging::forDocument((int) $doc['id']);
         return ['signatures' => $reqs, 'signContacts' => Auth::can('tech') ? \Align\Docs\Signing::contacts((int) $doc['client_id']) : [],
             'resign' => \Align\Docs\Signing::needsResign($doc, $reqs),
-            'contractsJs' => Auth::can('tech') && array_filter($reqs, fn($r) => $r['status'] === 'countersign')];
+            'contractsJs' => Auth::can('tech') && array_filter($reqs, fn($r) => $r['status'] === 'countersign'),
+            'acks' => $acks, 'ackAgain' => \Align\Docs\Acknowledging::needsAgain($doc, $acks),
+            'ackControls' => Auth::can('tech') ? \Align\Docs\Acknowledging::controls((int) $doc['client_id']) : []];
     }
 
     /**

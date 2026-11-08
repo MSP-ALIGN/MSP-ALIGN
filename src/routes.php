@@ -38,7 +38,7 @@ use Align\Router;
  * - Public but secret-link only (each handler looks up a random token by its hash: 256-bit, or 192-bit for calendar
  *   feeds made before 1.45): /ics/{token} (calendar feed),
  *   /portal/invite/{token}, /portal/welcome/{token}/... (onboarding), /portal/sign/{token}/... (contracts) and
- *   (2.34.0) /portal/docsign/{token}/... (documents sent for signature).
+ *   (2.34.0) /portal/docsign/{token}/... (documents sent for signature) and /portal/docack/{token}/... (acknowledgments).
  * - A literal route must come before a {placeholder} route that could match the same path; {id} is digits only,
  *   so "/clients/bulk" never reaches "/clients/{id}".
  */
@@ -251,6 +251,18 @@ $r->post('/documents/{id}/signatures/{rid}/cancel', [$DS, 'cancel']);
 $r->post('/documents/{id}/signatures/{rid}/countersign', [$DS, 'countersign']);
 $r->post('/documents/{id}/signatures/{rid}/again', [$DS, 'again']);
 $r->get('/documents/{id}/signatures/{rid}/pdf', [$DS, 'pdf']);
+// 2.34.0 ask staff to acknowledge a client document (techs and admins; the record and the PDF for any staff role)
+$DA = \Align\Controllers\DocumentAckController::class;
+$r->post('/documents/{id}/acknowledgments', [$DA, 'send']);
+$r->post('/documents/{id}/acknowledgments/{rid}/add', [$DA, 'add']);
+$r->post('/documents/{id}/acknowledgments/{rid}/remind', [$DA, 'remind']);
+$r->post('/documents/{id}/acknowledgments/{rid}/resend', [$DA, 'resend']);
+$r->post('/documents/{id}/acknowledgments/{rid}/cancel', [$DA, 'cancel']);
+$r->post('/documents/{id}/acknowledgments/{rid}/again', [$DA, 'again']);
+$r->post('/documents/{id}/acknowledgments/{rid}/evidence', [$DA, 'evidence']);
+$r->get('/documents/{id}/acknowledgments/{rid}/record', [$DA, 'record']);
+$r->post('/documents/{id}/acknowledgments/{rid}/record', [$DA, 'recordSave']);
+$r->get('/documents/{id}/acknowledgments/{rid}/pdf', [$DA, 'pdf']);
 $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
 $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
@@ -534,6 +546,12 @@ $r->post('/portal/docsign/{token:str}/decline', [$DSG, 'decline']);
 $r->get('/portal/docsign/{token:str}/file', [$DSG, 'file']);
 $r->get('/portal/docsign/{token:str}/pdf', [$DSG, 'pdf']);
 $r->get('/portal/signatures/{id}', [PortalController::class, 'signature']);
+// Acknowledgment page (private link from the email; no sign-in) (2.34.0)
+$DAK = \Align\Controllers\DocAckController::class;
+$r->get('/portal/docack/{token:str}', [$DAK, 'show']);
+$r->post('/portal/docack/{token:str}', [$DAK, 'acknowledge']);
+$r->get('/portal/docack/{token:str}/file', [$DAK, 'file']);
+$r->get('/portal/acknowledgments/{id}', [PortalController::class, 'acknowledgment']);
 $r->get('/portal/invite/{token:str}', [PortalController::class, 'inviteForm']);
 $r->post('/portal/invite/{token:str}', [PortalController::class, 'invite']);
 $r->get('/portal', [PortalController::class, 'home']);

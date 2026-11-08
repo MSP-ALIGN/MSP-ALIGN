@@ -314,6 +314,41 @@ try:
     php("Align\\Docs\\Signing::hourly();")
     ok(last_request(F["id"])["status"] == "expired", "the hourly run expires requests whose links passed their date")
 
+    # ---- the emailed code locks out (2.34.0 review): CODE_ATTEMPTS wrong tries, CODE_SENDS sends a day
+    send(F["id"], [AV], verify_code=True)
+    RL = last_request(F["id"])
+    ll = link_in(mails_to("avery@docsign.example", "Please review and sign")[-1])
+    sl = requests.Session()
+    ok(sl.get(ll).headers.get("Referrer-Policy") == "no-referrer" and requests.get(B + "/portal/docsign/not-a-token").headers.get("Referrer-Policy") == "no-referrer",
+       "signing pages send Referrer-Policy: no-referrer")
+    sl.post(ll + "/code", data={"_csrf": pcsrf(sl, ll)})
+    code = re.search(r"letter-spacing:6px[^>]*>(\d{6})<", mails_to("avery@docsign.example", "Your code to sign")[-1]["body"]["content"]).group(1)
+    wrong = "000000" if code != "000000" else "111111"
+    for _ in range(5):  # Contracts::CODE_ATTEMPTS
+        r = sl.post(ll + "/verify", data={"_csrf": pcsrf(sl, ll), "code": wrong})
+    ok("Too many tries" in flash(r.text), "after 5 wrong codes: too many tries")
+    r = sl.post(ll + "/verify", data={"_csrf": pcsrf(sl, ll), "code": code})
+    ok("docsign-form" not in r.text and sl.get(ll + "/file").status_code == 403, "then even the right code doesn't open it")
+    q("update doc_sign_signers set code_sent_count = 10, code_sent_at = now() - interval 2 minute where request_id = %s", RL["id"])  # Contracts::CODE_SENDS
+    n = len(mails_to("avery@docsign.example", "Your code to sign"))
+    r = sl.post(ll + "/code", data={"_csrf": pcsrf(sl, ll)})
+    ok("Too many codes" in flash(r.text) and len(mails_to("avery@docsign.example", "Your code to sign")) == n, "after 10 codes in a day no more are sent")
+    tech.post(B + f"/documents/{F['id']}/signatures/{RL['id']}/cancel", data={"_csrf": csrf(tech, f"/documents/{F['id']}")})
+
+    # ---- the PDF that was sent changed on the server: no signed copy is stamped onto it (2.34.0 review)
+    send(P, [AV])
+    RS = last_request(P)
+    ls = link_in(mails_to("avery@docsign.example", "Please review and sign")[-1])
+    with open(UPLOADS + "/documents/" + RS["source_file"], "ab") as fh:
+        fh.write(b"\n% changed\n")
+    r = sign(requests.Session(), ls, typed="Avery Lane", name="Avery Lane")
+    RS = last_request(P)
+    t = tech.get(B + f"/documents/{P}").text
+    ok(RS["status"] == "completed" and RS["signed_file"] is None and "data-source-changed" in t and "file changed after it was sent" in t, "the signed copy isn't made; the page says to send it again")
+    php("Align\\Docs\\Signing::hourly();")
+    ok(last_request(P)["signed_file"] is None and audit("document.sign_source_changed", P) == 1
+       and not q("select 1 from doc_sign_events where request_id = %s and event = 'pdf_failed'", RS["id"]), "the hourly run doesn't try again; audited once")
+
     # ---- another document's request is refused
     ok(tech.get(B + f"/documents/{F['id']}/signatures/{R['id']}/pdf").status_code == 404, "a request can't be reached through another document's address")
     ok(tech.post(B + f"/documents/{F['id']}/signatures/{R2['id']}/remind", data={"_csrf": csrf(tech, f"/documents/{F['id']}")}).status_code == 404, "nor acted on")

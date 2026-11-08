@@ -3,8 +3,8 @@
  * 2.34.0 A client document's signatures (Docs\Signing), on the document page (written or uploaded): "Send for
  * signature", each request's status and signers, and its actions (remind, send again, cancel, countersign, the signed
  * PDF), "Needs signing again" when a signed document changed, and the send and countersign windows.
- * The actions row ([data-doc-requests]) is where another kind of request can sit next to "Send for signature" later
- * (staff acknowledgments of a policy); requests have a kind column for it.
+ * The actions row ([data-doc-requests]) also holds (2.34.0) "Ask staff to acknowledge", whose window and requests are
+ * documents/_acknowledgments.
  * @var array $doc; bool $canEdit; array $signatures (Signing::forDocument), $signContacts (Signing::contacts);
  *   ?array $resign (Signing::needsResign); array $me (the signed-in user)
  * Every value is escaped; forms post with CSRF to DocumentSignatureController, which checks the role and the ids again.
@@ -21,6 +21,7 @@ $countersignOpen = array_values(array_filter($signatures, fn($r) => $r['status']
     <?php if ($canEdit): ?>
       <div class="d-flex flex-wrap gap-1 mb-2" data-doc-requests>
         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modal-send-sign"><i class="fas fa-pen-nib me-1"></i>Send for signature</button>
+        <button type="button" class="btn btn-sm btn-default" data-bs-toggle="modal" data-bs-target="#modal-send-ack"><i class="fas fa-user-check me-1"></i>Ask staff to acknowledge</button>
       </div>
       <?php if ($problem): ?><div class="text-muted mb-2"><?= e($problem) ?></div><?php endif; ?>
     <?php endif; ?>
@@ -54,6 +55,9 @@ $countersignOpen = array_values(array_filter($signatures, fn($r) => $r['status']
         <div class="d-flex flex-wrap gap-1">
           <?php if ($r['status'] === 'completed' && $r['signed_file'] && !str_starts_with((string) $r['signed_file'], 'pending')): ?>
             <a class="btn btn-xs btn-success" href="/documents/<?= $id ?>/signatures/<?= $rid ?>/pdf"><i class="fas fa-download me-1"></i>Signed PDF</a>
+          <?php elseif ($r['status'] === 'completed' && !empty($r['source_changed'])): /* (2.34.0 review) */ ?>
+            <span class="text-danger" data-source-changed>The document's file changed after it was sent: send it again.</span>
+            <?php if ($canEdit): ?><form method="post" action="/documents/<?= $id ?>/signatures/<?= $rid ?>/again"><?= csrf_field() ?><button class="btn btn-xs btn-warning" data-confirm="Send the document as it is now to the same people to sign again?" data-confirm-danger="0" data-confirm-ok="Send again"><i class="fas fa-rotate me-1"></i>Send again</button></form><?php endif; ?>
           <?php elseif ($r['status'] === 'completed'): ?><span class="text-muted">The signed PDF is being made.</span><?php endif; ?>
           <a class="btn btn-xs btn-default" href="/documents/<?= $id ?>/signatures/<?= $rid ?>/pdf?sent=1" title="The PDF as it was sent to sign">PDF sent</a>
           <?php if ($canEdit): ?>

@@ -31,7 +31,9 @@ use Align\Settings;
  *
  * Status of a request: sent (waiting for signers; "Signed by 1 of 2" once someone has), countersign (everyone signed,
  * waiting for staff), completed, declined (a signer declined), expired (the links passed their date), cancelled.
- * kind is 'signature'; it leaves room for staff acknowledgments of policies on the same document later.
+ * kind is 'signature'. (2.34.0) Staff acknowledgments of policies (Docs\Acknowledging) share the tables with kind
+ * 'acknowledge': every read here that a signer or the hourly run can reach keeps to kind 'signature', so an
+ * acknowledgment link never opens the signing page and the other way round.
  *
  * Security assumptions: staff methods (create, resend, remind, cancel, countersign) trust their caller
  * (DocumentSignatureController) to have checked the role (tech or admin) and loaded the document. The signer's
@@ -57,6 +59,8 @@ final class Signing
     public const MAX_DAYS = 90;
     /** Days a signer can still open their link after signing (to see where it stands and download the signed copy). */
     public const DOWNLOAD_DAYS = 30;
+    /** (2.34.0 review) Why an uploaded PDF with form fields or comments is refused (plain text for the person). */
+    public const FLAT = 'This PDF has fillable fields or comments: save it as a flat PDF (Print → Save as PDF) and upload that.';
     /** Tries at making the signed PDF before Align stops and tells the sender. */
     public const PDF_TRIES = 12;
     /** Mail kinds (their bodies hold private links or signed copies: Mailer wipes them after sending). */
@@ -68,6 +72,7 @@ final class Signing
         'portal' => 'Opened from the client portal', 'signed' => 'Signed', 'declined' => 'Declined', 'countersigned' => 'Countersigned',
         'completed' => 'Completed', 'cancelled' => 'Cancelled', 'expired' => 'Links expired', 'downloaded' => 'Signed copy downloaded',
         'emailed' => 'Signed copy emailed', 'pdf_failed' => 'Signed PDF not made yet (Align tries again within the hour)',
+        'source_changed' => 'The document\'s file changed after it was sent: no signed copy made', // (2.34.0 review)
     ];
 
     // ---- Reading ------------------------------------------------------------------------------------------------
@@ -106,9 +111,10 @@ final class Signing
     {
         $rows = DB::all('SELECT r.id, r.kind, r.status, r.title, r.sent_at, r.expires_at, r.verify_code, r.countersign, r.resign_on_change, r.doc_version,
                 r.doc_content_hash, r.completed_at, r.declined_at, r.decline_reason, r.cancelled_at, r.countersigned_at, r.signed_file, r.signed_hash,
-                r.source_hash, r.reminder_count, r.last_reminder_at, su.name AS sent_by_name, cu.name AS countersign_name
+                r.source_hash, r.reminder_count, r.last_reminder_at, su.name AS sent_by_name,
+                EXISTS (SELECT 1 FROM doc_sign_events e WHERE e.request_id = r.id AND e.event = \'source_changed\') AS source_changed, cu.name AS countersign_name
             FROM doc_sign_requests r LEFT JOIN users su ON su.id = r.sent_by LEFT JOIN users cu ON cu.id = r.countersign_user_id
-            WHERE r.document_id = ? ORDER BY r.id DESC LIMIT 20', [$documentId]);
+            WHERE r.document_id = ? AND r.kind = \'signature\' ORDER BY r.id DESC LIMIT 20', [$documentId]); // (2.34.0) not acknowledgments
         foreach ($rows as &$r) {
             $r['signers'] = DB::all('SELECT id, contact_id, name, email, title, status, signed_at, declined_at, viewed_at FROM doc_sign_signers WHERE request_id = ? ORDER BY sort, id', [$r['id']]);
             $r['signed_count'] = count(array_filter($r['signers'], fn($s) => $s['status'] === 'signed'));
@@ -159,17 +165,22 @@ final class Signing
         return hash_equals((string) $last['doc_content_hash'], self::contentHash($doc)) ? null : $last;
     }
 
-    /** Why a document can't be sent for signature, or null. Plain text for the person. */
-    public static function problem(array $doc): ?string
+    /**
+     * Why a document can't be sent for signature, or null. Plain text for the person. (2.34.0) $what names the
+     * action in the sentences ("sent for signature", or "sent to acknowledge" for Docs\Acknowledging); it's always a
+     * fixed phrase from code.
+     */
+    public static function problem(array $doc, string $what = 'sent for signature'): ?string
     {
+        $to = str_replace('sent ', '', $what);
         if (!$doc['client_id']) {
-            return 'Only a client\'s documents can be sent for signature.';
+            return 'Only a client\'s documents can be ' . $what . '.';
         }
         if ($doc['status'] !== 'active') {
-            return 'Set the document to Active before sending it for signature.';
+            return 'Set the document to Active before sending it ' . $to . '.';
         }
         if (($doc['kind'] ?? 'page') === 'file' && $doc['file_type'] !== 'pdf') {
-            return 'Upload it as a PDF to send it for signature.';
+            return 'Upload it as a PDF to send it ' . $to . '.';
         }
         if (($doc['kind'] ?? 'page') === 'page' && trim(Html::excerpt((string) $doc['body_html'])) === '') {
             return 'The document is empty.';
@@ -185,9 +196,10 @@ final class Signing
 
     /**
      * The signers chosen on the form: only the client's own contacts with a valid email (ids from another client or
-     * made up are left out), one per address, at most MAX_SIGNERS, in the order picked. $ids is untrusted.
+     * made up are left out), one per address, at most MAX_SIGNERS (or (2.34.0) $max, for acknowledgments), in the
+     * order picked. $ids is untrusted.
      */
-    public static function pick(int $clientId, array $ids): array
+    public static function pick(int $clientId, array $ids, int $max = self::MAX_SIGNERS): array
     {
         $ids = array_values(array_unique(array_filter(array_map(fn($v) => is_scalar($v) && ctype_digit((string) $v) ? (int) $v : 0, $ids))));
         if (!$ids) {
@@ -207,7 +219,7 @@ final class Signing
             $seen[$mail] = true;
             $out[] = ['contact_id' => (int) $c['id'], 'name' => mb_substr(trim((string) $c['name']), 0, 190) ?: $mail, 'email' => $mail, 'title' => $c['title'] ?: null];
         }
-        return array_slice($out, 0, self::MAX_SIGNERS);
+        return array_slice($out, 0, $max);
     }
 
     // ---- The PDF that is signed -----------------------------------------------------------------------------
@@ -216,8 +228,9 @@ final class Signing
      * The PDF to sign for a document: ['file', 'name', 'hash', 'pages']. A written document is printed (title,
      * client, version and date, the body) and kept as a new file in the documents folder; an uploaded PDF is used as
      * it is (its file, which stays in the document's history even when replaced). Either way Align reads the PDF the
-     * way signing will (PdfStamp::inspect), so one it can't add the certificate to is refused now. Throws
-     * InvalidArgumentException with a sentence for the person.
+     * way signing will (PdfStamp::inspect), so one it can't add the certificate to is refused now, and (2.34.0 review)
+     * so is one with fillable fields, comments, scripts or attachments (FLAT), which the signed copy would leave out.
+     * Throws InvalidArgumentException with a sentence for the person; RuntimeException when keeping a file fails.
      */
     public static function source(array $doc): array
     {
@@ -230,7 +243,13 @@ final class Signing
                 throw new \InvalidArgumentException('The document\'s file is missing from the server.');
             }
             $bytes = (string) file_get_contents($path);
-            $pages = count(PdfStamp::inspect($bytes)['pages']);
+            $info = PdfStamp::inspect($bytes);
+            if ($info['notes']) {
+                // (2.34.0 review) PdfStamp::append leaves form fields, comments, scripts and attachments out of the copy
+                // it makes, so a filled form or a commented PDF would look different once signed: refuse it now
+                throw new \InvalidArgumentException(self::FLAT);
+            }
+            $pages = count($info['pages']);
             return ['file' => $doc['file_name'], 'name' => (string) $doc['file_orig'], 'hash' => hash('sha256', $bytes), 'pages' => $pages];
         }
         $client = $doc['client_name'] ?? DB::value('SELECT name FROM clients WHERE id = ?', [$doc['client_id']]);
@@ -444,8 +463,8 @@ final class Signing
         }
         $s = DB::one('SELECT * FROM doc_sign_signers WHERE token_hash = ?', [hash('sha256', $token)]);
         $r = $s ? self::load((int) $s['request_id']) : null;
-        if (!$r || in_array($r['status'], ['cancelled', 'expired'], true)) {
-            return null;
+        if (!$r || $r['kind'] !== 'signature' || in_array($r['status'], ['cancelled', 'expired'], true)) {
+            return null; // (2.34.0) an acknowledgment link never opens the signing page
         }
         $s['sig'] = json_decode((string) $s['signature'], true) ?: null;
         if ($r['status'] === 'sent' && $s['status'] === 'waiting') {
@@ -649,8 +668,15 @@ final class Signing
             if (!$path) {
                 throw new \RuntimeException('The PDF that was sent is missing from the server.');
             }
+            $src = (string) file_get_contents($path);
+            if (!hash_equals((string) $r['source_hash'], hash('sha256', $src))) {
+                // (2.34.0 review) the PDF on the server isn't the one that was sent: never stamp signatures onto it
+                DB::run('UPDATE doc_sign_requests SET signed_file = NULL WHERE id = ? AND signed_file = ?', [$r['id'], $claim]);
+                self::sourceChanged($r);
+                return false;
+            }
             $cert = self::certificate($r);
-            $pdf = PdfStamp::append((string) file_get_contents($path), fn($p) => PdfRender::signingCertificateInto($p, $cert));
+            $pdf = PdfStamp::append($src, fn($p) => PdfRender::signingCertificateInto($p, $cert));
             $f = Files::adopt($pdf, self::fileName($r['title'], ' (signed)'), 'pdf');
             if (!$f) {
                 throw new \RuntimeException('Could not keep the signed PDF.');
@@ -683,6 +709,22 @@ final class Signing
         }
         self::notifyStaff($r, 'completed', '"' . $r['title'] . '" is signed by everyone. The signed PDF is saved with the document.', 'Open the document');
         return true;
+    }
+
+    /**
+     * (2.34.0 review) The PDF that was sent changed on the server before the signed copy was made: no signed copy is
+     * made (the hourly run stops trying), the request's page says "The document's file changed after it was sent:
+     * send it again", and the sender is told. Recorded and audited once.
+     */
+    private static function sourceChanged(array $r): void
+    {
+        if (DB::value("SELECT 1 FROM doc_sign_events WHERE request_id = ? AND event = 'source_changed'", [$r['id']])) {
+            return;
+        }
+        self::event((int) $r['id'], null, 'source_changed', 'Expected SHA-256 ' . $r['source_hash'], 'Align');
+        error_log('[msp-align] document signature #' . $r['id'] . ': the PDF that was sent changed on the server; no signed copy made');
+        Audit::log('document.sign_source_changed', '#' . $r['document_id'] . ' ' . $r['title'] . ': the PDF that was sent changed on the server; no signed copy made');
+        self::notifyStaff($r, 'source_changed', 'Everyone signed "' . $r['title'] . '", but the document\'s file changed on the server after it was sent, so Align didn\'t make the signed copy. The signatures are saved; send it again.', 'Open the document');
     }
 
     /** The certificate's data for PdfRender::signingCertificateInto (plain text; the PDF writer escapes it). */
@@ -742,7 +784,8 @@ final class Signing
             return;
         }
         $subject = match ($kind) {
-            'countersign' => 'Countersign: ' . $r['title'], 'declined' => 'Declined: ' . $r['title'], 'pdf_failed' => 'Signed PDF not made: ' . $r['title'], default => 'Signed: ' . $r['title'],
+            'countersign' => 'Countersign: ' . $r['title'], 'declined' => 'Declined: ' . $r['title'], 'pdf_failed' => 'Signed PDF not made: ' . $r['title'],
+            'source_changed' => 'File changed, signed PDF not made: ' . $r['title'], default => 'Signed: ' . $r['title'],
         };
         Mailer::queue('docsign_staff', [['address' => $r['sent_by_email'], 'name' => (string) $r['sent_by_name']]], $subject, MailTemplate::render($r['title'], [
             MailTemplate::p($what . ' (' . $r['client_name'] . ')'),
@@ -784,15 +827,17 @@ final class Signing
     public static function hourly(): array
     {
         $out = [];
-        foreach (DB::all("SELECT id FROM doc_sign_requests WHERE status = 'sent' AND expires_at < NOW()") as $row) {
+        // (2.34.0) signature requests only: Docs\Acknowledging::hourly does acknowledgments
+        foreach (DB::all("SELECT id FROM doc_sign_requests WHERE kind = 'signature' AND status = 'sent' AND expires_at < NOW()") as $row) {
             if ($r = self::load((int) $row['id'])) {
                 self::expire($r);
                 $out[] = 'document signature #' . $r['id'] . ' expired';
             }
         }
-        foreach (DB::all("SELECT r.id FROM doc_sign_requests r WHERE r.status = 'completed' AND r.completed_at < ?
+        foreach (DB::all("SELECT r.id FROM doc_sign_requests r WHERE r.kind = 'signature' AND r.status = 'completed' AND r.completed_at < ?
                 AND (r.signed_file IS NULL OR (r.signed_file LIKE 'pending:%' AND r.signed_file < ?))
-                AND (SELECT COUNT(*) FROM doc_sign_events e WHERE e.request_id = r.id AND e.event = 'pdf_failed') < ?",
+                AND (SELECT COUNT(*) FROM doc_sign_events e WHERE e.request_id = r.id AND e.event = 'pdf_failed') < ?
+                AND NOT EXISTS (SELECT 1 FROM doc_sign_events e2 WHERE e2.request_id = r.id AND e2.event = 'source_changed')",
             [date('Y-m-d H:i:s', time() - 300), 'pending:' . (time() - 1800), self::PDF_TRIES]) as $row) {
             if (self::complete(self::load((int) $row['id']))) {
                 $out[] = 'document signature #' . $row['id'] . ' signed PDF made';
@@ -801,7 +846,7 @@ final class Signing
         $every = Settings::int('contract_remind_days', 3);
         $max = Settings::int('contract_max_reminders', 2);
         if ($every > 0 && $max > 0 && Mail::ready()) {
-            $due = DB::all("SELECT id FROM doc_sign_requests WHERE status = 'sent' AND reminder_count < ? AND COALESCE(last_reminder_at, sent_at) < ? AND expires_at > ?",
+            $due = DB::all("SELECT id FROM doc_sign_requests WHERE kind = 'signature' AND status = 'sent' AND reminder_count < ? AND COALESCE(last_reminder_at, sent_at) < ? AND expires_at > ?",
                 [$max, date('Y-m-d H:i:s', time() - $every * 86400), date('Y-m-d H:i:s', time() + 86400)]);
             foreach ($due as $row) {
                 try {
@@ -825,8 +870,8 @@ final class Signing
     public static function waitingFor(array $pu): array
     {
         return DB::all("SELECT s.id, r.title, r.sent_at, r.expires_at FROM doc_sign_signers s JOIN doc_sign_requests r ON r.id = s.request_id
-            WHERE r.client_id = ? AND r.status = 'sent' AND s.status = 'waiting' AND s.token_expires_at > NOW() AND s.token_hash IS NOT NULL
-            AND LOWER(s.email) = LOWER(?) ORDER BY r.sent_at", [$pu['client_id'], (string) $pu['email']]);
+            WHERE r.client_id = ? AND r.kind = 'signature' AND r.status = 'sent' AND s.status = 'waiting' AND s.token_expires_at > NOW() AND s.token_hash IS NOT NULL
+            AND LOWER(s.email) = LOWER(?) ORDER BY r.sent_at", [$pu['client_id'], (string) $pu['email']]); // (2.34.0) signatures only
     }
 
     /**

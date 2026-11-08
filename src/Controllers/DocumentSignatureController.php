@@ -43,7 +43,7 @@ final class DocumentSignatureController
     private static function request(int $id, int $rid): array
     {
         $r = Signing::load($rid);
-        if (!$r || (int) $r['document_id'] !== $id) {
+        if (!$r || (int) $r['document_id'] !== $id || $r['kind'] !== 'signature') { // (2.34.0) acknowledgments have their own controller
             http_response_code(404);
             View::render('error', ['title' => 'Not found', 'message' => 'That signature request doesn\'t exist.']);
             exit;
@@ -78,8 +78,8 @@ final class DocumentSignatureController
         }
         try {
             $rid = Signing::create($doc, Signing::pick((int) $doc['client_id'], self::posted()), self::options());
-        } catch (\InvalidArgumentException $e) {
-            flash('error', $e->getMessage());
+        } catch (\InvalidArgumentException | \RuntimeException $e) { // (2.34.0 review) a PDF that couldn't be made or kept too
+            flash('error', safe_error($e));
             redirect("/documents/$id");
         }
         $n = (int) DB::value('SELECT COUNT(*) FROM doc_sign_signers WHERE request_id = ?', [$rid]);
@@ -173,8 +173,8 @@ final class DocumentSignatureController
         try {
             $new = Signing::create($doc, Signing::pick((int) $doc['client_id'], $ids), ['verify_code' => (bool) $r['verify_code'], 'countersign' => (bool) $r['countersign'],
                 'resign' => (bool) $r['resign_on_change'], 'days' => (int) $r['link_days'], 'message' => (string) $r['message']]);
-        } catch (\InvalidArgumentException $e) {
-            flash('error', $e->getMessage());
+        } catch (\InvalidArgumentException | \RuntimeException $e) { // (2.34.0 review)
+            flash('error', safe_error($e));
             redirect("/documents/$id#signatures");
         }
         Signing::event($new, null, 'sent', 'Sent again after the document changed (replaces S-' . str_pad((string) $rid, 4, '0', STR_PAD_LEFT) . ')');
@@ -242,9 +242,14 @@ final class DocumentSignatureController
             redirect($back);
         }
         $title = $d['fw']['name'] . ' compliance report';
-        $bytes = \Align\Contracts\PdfRender::document($title, $client['name'] . ' · ' . \Align\Fmt::date(time(), 'long'),
-            \Align\Reports\ComplianceReport::html($client, $d), 'Confidential — prepared for ' . $client['name']);
-        $source = Signing::keep($bytes, $title . ' ' . date('Y-m-d'));
+        try { // (2.34.0 review) a PDF that can't be made or kept: say so, nothing is saved
+            $bytes = \Align\Contracts\PdfRender::document($title, $client['name'] . ' · ' . \Align\Fmt::date(time(), 'long'),
+                \Align\Reports\ComplianceReport::html($client, $d), 'Confidential — prepared for ' . $client['name']);
+            $source = Signing::keep($bytes, $title . ' ' . date('Y-m-d'));
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            flash('error', 'The report\'s PDF couldn\'t be made: ' . safe_error($e));
+            redirect($back);
+        }
         $size = strlen($bytes);
         $docId = DB::transaction(function () use ($id, $title, $source, $size) {
             $docId = DB::insert('documents', [
@@ -259,8 +264,8 @@ final class DocumentSignatureController
         Audit::log('document.upload', $client['name'] . ': ' . $title . ' (compliance report for signature)');
         try {
             Signing::create(Documents::load($docId), $signers, self::options(), $source);
-        } catch (\InvalidArgumentException $e) {
-            flash('error', $e->getMessage() . ' The report is kept as a document; send it from there.');
+        } catch (\InvalidArgumentException | \RuntimeException $e) { // (2.34.0 review)
+            flash('error', safe_error($e) . ' The report is kept as a document; send it from there.');
             redirect("/documents/$docId");
         }
         flash('success', 'The report is kept as a client document and sent for signature to ' . count($signers) . ' ' . (count($signers) === 1 ? 'person' : 'people') . '.');

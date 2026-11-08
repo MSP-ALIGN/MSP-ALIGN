@@ -301,6 +301,7 @@ final class PortalController
             }
         }
         $data['signWaiting'] = \Align\Docs\Signing::waitingFor($pu); // 2.34.0: whatever section permissions say, it's addressed to them
+        $data['ackWaiting'] = \Align\Docs\Acknowledging::waitingFor($pu); // (2.34.0) the same for acknowledgments
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
     }
 
@@ -543,7 +544,8 @@ final class PortalController
     {
         $pu = PortalAuth::require('can_documents');
         $docs = DB::all("SELECT id, title, category, kind, file_type, file_size, updated_at, review_due FROM documents WHERE client_id = ? AND status = 'active' AND portal_shared = 1 ORDER BY category, title", [$pu['client_id']]);
-        self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs, 'signWaiting' => \Align\Docs\Signing::waitingFor($pu)], $pu);
+        self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs, 'signWaiting' => \Align\Docs\Signing::waitingFor($pu),
+            'ackWaiting' => \Align\Docs\Acknowledging::waitingFor($pu)], $pu); // (2.34.0)
     }
 
     /**
@@ -568,6 +570,30 @@ final class PortalController
             \Align\Docs\Signing::event($rid, $id, 'portal', 'Signed in as ' . $pu['email'], (string) $pu['name']);
         }
         redirect('/portal/docsign/' . $token);
+    }
+
+    /**
+     * 2.34.0 Opens a document waiting for this portal user's acknowledgment (from "Waiting for you to acknowledge"):
+     * only a row that is their own (their client, their email address, not acknowledged, link live;
+     * Acknowledging::portalToken checks it), else 404. The session then remembers this link as opened from the portal
+     * (DocAckController::viaPortal records it with the acknowledgment). $id is untrusted.
+     */
+    public static function acknowledgment(int $id): void
+    {
+        $pu = PortalAuth::require();
+        $token = \Align\Docs\Acknowledging::portalToken($id, $pu);
+        if ($token === null) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That document isn\'t waiting for you to acknowledge it.'], $pu);
+            return;
+        }
+        $_SESSION['docack_portal'][$id] = hash('sha256', $token);
+        $rid = (int) DB::value('SELECT request_id FROM doc_sign_signers WHERE id = ?', [$id]);
+        if (empty($_SESSION['docack_seen_portal'][$id])) {
+            $_SESSION['docack_seen_portal'][$id] = 1;
+            \Align\Docs\Signing::event($rid, $id, 'portal', 'Signed in as ' . $pu['email'], (string) $pu['name']);
+        }
+        redirect('/portal/docack/' . $token);
     }
 
     /**
