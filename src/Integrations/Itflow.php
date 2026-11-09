@@ -224,13 +224,14 @@ final class Itflow
 
     /**
      * (2.35.0) ITFlow's own no-sign-in page for a ticket or quote ($kind ticket|quote), from a row just read, or null
-     * when the row has no usable key. The id is a checked number and the key only letters and digits (ITFlow makes
-     * them that way), so the URL can't be bent into another page. The key is a secret: the caller redirects a signed-in,
+     * when the row has no usable key. The id is a checked number and the key only letters, digits, - and _ (ITFlow's
+     * randomString() is URL-safe base64; 2.35.1: - and _ were refused, so most links failed), and it is URL-encoded,
+     * so the URL can't be bent into another page. The key is a secret: the caller redirects a signed-in,
      * permitted portal user there and never prints it.
      */
     public function guestUrl(string $kind, int $id, mixed $urlKey): ?string
     {
-        if (!in_array($kind, ['ticket', 'quote'], true) || $id <= 0 || !is_string($urlKey) || !preg_match('/^[A-Za-z0-9]{16,200}$/D', $urlKey)) {
+        if (!in_array($kind, ['ticket', 'quote'], true) || $id <= 0 || !is_string($urlKey) || !preg_match('/^[A-Za-z0-9_-]{16,200}$/D', $urlKey)) {
             return null;
         }
         return "{$this->baseUrl}/guest/guest_view_$kind.php?{$kind}_id=$id&url_key=" . rawurlencode($urlKey);
