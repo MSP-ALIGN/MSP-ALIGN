@@ -303,6 +303,8 @@ $r->post('/contracts/{id}/countersign', [$K, 'countersign']);
 $r->post('/contracts/{id}/void', [$K, 'void']);
 $r->post('/contracts/{id}/delete', [$K, 'delete']);
 $r->post('/contracts/{id}/client', [$K, 'client']);
+$r->post('/contracts/{id}/onboarding/skip', [\Align\Controllers\OnboardingController::class, 'skip']); // 2.35.2 "Not needed" on New clients
+$r->post('/contracts/{id}/onboarding/unskip', [\Align\Controllers\OnboardingController::class, 'unskip']);
 $r->post('/contracts/{id}/details', [$K, 'details']);
 $r->get('/onboarding', [\Align\Controllers\OnboardingController::class, 'overview']);
 
