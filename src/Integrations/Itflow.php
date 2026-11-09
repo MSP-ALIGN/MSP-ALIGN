@@ -161,6 +161,81 @@ final class Itflow
         return null;
     }
 
+    /**
+     * (2.35.0) The replies of one ticket (ticket_replies/read.php), or null when this ITFlow has no such endpoint (404:
+     * versions before it). Every type is returned; the caller keeps only what the client may see. Only rows whose
+     * ticket_reply_ticket_id is $ticketId count (a server that ignores the filter would send other tickets' replies).
+     */
+    public function ticketReplies(int $ticketId): ?array
+    {
+        try {
+            $rows = $this->readAll('ticket_replies', ['ticket_id' => $ticketId]);
+        } catch (\RuntimeException $e) {
+            if ($e->getPrevious() instanceof HttpException && $e->getPrevious()->getCode() === 404) {
+                return null;
+            }
+            throw $e;
+        }
+        return array_values(array_filter($rows, fn($r) => self::id($r['ticket_reply_ticket_id'] ?? null) === $ticketId));
+    }
+
+    /** (2.35.0) Every quote the key can see (rows as ITFlow sends them: untrusted). */
+    public function quotes(): array
+    {
+        return $this->readAll('quotes');
+    }
+
+    /** (2.35.0) One quote, or null. Only a row with that quote_id counts (see ticket()). */
+    public function quote(int $id): ?array
+    {
+        foreach ($this->read('quotes', ['quote_id' => $id]) as $r) {
+            if (self::id($r['quote_id'] ?? null) === $id) {
+                return $r;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * (2.35.0) Every document the key can see, archived ones left out by ITFlow, a page at a time: $each gets each page's
+     * rows (untrusted, with their bodies), so only one page of bodies is held at once. Paging stops as readAll()'s does.
+     */
+    public function eachDocumentPage(callable $each): void
+    {
+        for ($offset = 0; $offset < 1_000_000; $offset += self::PAGE) {
+            $rows = $this->read('documents', ['limit' => self::PAGE, 'offset' => $offset]);
+            $each($rows);
+            if (count($rows) < self::PAGE) {
+                break;
+            }
+        }
+    }
+
+    /** (2.35.0) One document, or null. Only a row with that document_id counts (see ticket()). */
+    public function document(int $id): ?array
+    {
+        foreach ($this->read('documents', ['document_id' => $id]) as $r) {
+            if (self::id($r['document_id'] ?? null) === $id) {
+                return $r;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * (2.35.0) ITFlow's own no-sign-in page for a ticket or quote ($kind ticket|quote), from a row just read, or null
+     * when the row has no usable key. The id is a checked number and the key only letters and digits (ITFlow makes
+     * them that way), so the URL can't be bent into another page. The key is a secret: the caller redirects a signed-in,
+     * permitted portal user there and never prints it.
+     */
+    public function guestUrl(string $kind, int $id, mixed $urlKey): ?string
+    {
+        if (!in_array($kind, ['ticket', 'quote'], true) || $id <= 0 || !is_string($urlKey) || !preg_match('/^[A-Za-z0-9]{16,200}$/D', $urlKey)) {
+            return null;
+        }
+        return "{$this->baseUrl}/guest/guest_view_$kind.php?{$kind}_id=$id&url_key=" . rawurlencode($urlKey);
+    }
+
     /** Rows per page (callers paging tickets use the same size). */
     public static function pageSize(): int
     {

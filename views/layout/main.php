@@ -23,7 +23,7 @@ $v = e(APP_VERSION);
 
 $todoCount = $ready ? \Align\Workflow\Todo::count() : 0;
 // Global menu (1.42), grouped by the vCIO workflow: know the clients -> plan -> meet and report -> stay compliant;
-// setup tools live under Admin as pages with tabs (Integrations, People).
+// setup tools live under Administration (2.35.0: the user menu) as pages with tabs (Integrations, People).
 $isAdmin = $ready && Auth::can('admin');
 $adminTabs = \Align\Workflow\Todo::adminTabs();
 $firstTab = fn(string $group) => ($t = array_values(array_filter($adminTabs[$group], fn($t) => Auth::can($t['role'])))) ? $t[0]['href'] : null;
@@ -55,19 +55,18 @@ $navSections = [
         ['compliance', '/compliance', 'Compliance', 'fa-clipboard-check', 'viewer'],
         ['documents', '/documents', 'Documents', 'fa-file-lines', 'viewer'],
     ],
-    'ADMIN' => [
-        ...(($h = $firstTab('integrations')) ? [['integrations', $h, 'Integrations', 'fa-plug', 'viewer', $isAdmin ? \Align\Integrations\Registry::problems() : 0]] : []),
-        ['libraries', '/libraries', 'Libraries', 'fa-book', 'viewer'], // 2.16.0: every template and library in one place
-        ...(($h = $firstTab('people')) ? [['people', $h, 'Staff & portal users', 'fa-user-shield', 'viewer']] : []),
-        ['settings', '/settings', 'Settings', 'fa-gear', 'admin', $isAdmin && \Align\System\Agent::updateAvailable() ? 'new' : 0],
-        ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin'],
-    ],
 ];
+// 2.35.0 The setup tools (Integrations, Libraries, Staff & portal users, Settings, Audit log) are the Administration area:
+// opened from the user menu, with its own sidebar on its pages (Todo::adminSections, only what this role may open)
+$adminSections = $ready ? \Align\Workflow\Todo::adminSections() : [];
+$adminProblems = array_sum(array_map(fn($i) => is_int($i[5]) ? $i[5] : 0, $adminSections)); // integrations in an error state
+$adminBadge = $adminProblems ? (string) $adminProblems : (array_filter($adminSections, fn($i) => is_string($i[5]) && $i[5] !== '') ? 'new' : ''); // or an update
 // Pages that belong to a menu item with tabs (their own nav key picks the tab)
 $navGroup = ['mapping' => 'integrations', 'hosted-backups' => 'integrations', 'sync' => 'integrations', 'users' => 'people', 'portal-users' => 'people', 'unassigned' => 'devices',
     'contract-templates' => 'contracts', 'welcome' => 'newclients', 'renewals' => 'licenses', 'vendors' => 'libraries', 'standards' => 'libraries'];
 $tabKey = $nav;
 $nav = $navGroup[$nav] ?? $nav;
+$inAdmin = $ready && in_array($nav, ['admin', ...array_column($adminSections, 0)], true); // 2.35.0 an Administration page
 // Client menu in workflow order (1.42: grouped): what they have -> the plan -> meetings.
 $cidM = $client ? (int) $client['id'] : 0;
 $clientMenu = $client ? [
@@ -176,11 +175,14 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
         <li class="nav-item"><a class="nav-link" href="/help" title="Help &amp; how-to" aria-label="Help"><i class="fas fa-circle-question"></i></a></li>
         <li class="nav-item dropdown user-menu">
           <a href="#" class="nav-link dropdown-toggle d-flex align-items-center" data-bs-toggle="dropdown">
-            <?= user_avatar($u ?? [], 'user-initials') ?>
+            <span class="position-relative d-inline-flex"><?= user_avatar($u ?? [], 'user-initials') ?><?php if ($adminBadge !== ''): // 2.35.0 something in Administration needs a look ?><span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-light rounded-circle" title="Administration needs a look"><span class="visually-hidden">Administration needs a look</span></span><?php endif; ?></span>
             <span class="d-none d-md-inline ms-2"><?= e($u['name'] ?? '') ?></span>
           </a>
           <div class="dropdown-menu dropdown-menu-end">
             <span class="dropdown-item-text small text-muted"><?= e($u['email'] ?? '') ?> · <?= e($u['role'] ?? '') ?></span>
+            <?php if ($adminSections): // 2.35.0 the Administration area, for what this role may open ?>
+              <a href="/admin" class="dropdown-item d-flex align-items-center<?= $inAdmin ? ' active' : '' ?>" id="menu-administration"><i class="fas fa-fw fa-screwdriver-wrench me-2"></i>Administration<?php if ($adminBadge !== ''): ?><span class="badge text-bg-<?= $adminProblems ? 'warning' : 'info' ?> ms-auto ps-2"><?= e($adminBadge) ?></span><?php endif; ?></a>
+            <?php endif; ?>
             <a href="/help" class="dropdown-item"><i class="fas fa-fw fa-circle-info me-2"></i>Help &amp; how-to</a>
             <div class="dropdown-divider"></div>
             <a href="/account" class="dropdown-item"><i class="fas fa-fw fa-user-gear me-2"></i>Account &amp; 2FA</a>
@@ -217,6 +219,11 @@ $theme = in_array($u['theme'] ?? 'auto', ['light', 'dark'], true) ? $u['theme'] 
                 <?php foreach ($navSections as $sec => $items) foreach ($items as $i) if (Auth::can($i[4]) && $i[0] !== 'clients') echo $item($i, ''); ?>
               </ul>
             </li>
+          <?php elseif ($inAdmin): // 2.35.0 the Administration area's own menu ?>
+            <li class="nav-item"><a href="/" class="nav-link"><i class="nav-icon fas fa-fw fa-arrow-left"></i><p>Back to <?= e(\Align\Branding::name()) ?></p></a></li>
+            <li class="nav-header">ADMINISTRATION</li>
+            <?= $item(['admin', '/admin', 'Overview', 'fa-screwdriver-wrench'], $nav) ?>
+            <?php foreach ($adminSections as $i) echo $item($i, $nav); ?>
           <?php else: ?>
             <?php foreach ($navSections as $sec => $items):
                 $visible = array_filter($items, fn($i) => Auth::can($i[4]));

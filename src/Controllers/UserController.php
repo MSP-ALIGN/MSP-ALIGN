@@ -9,7 +9,7 @@ use Align\DB;
 use Align\View;
 
 /**
- * Admin → People → Staff: staff accounts, roles, disabling, one-time passwords and 2FA resets.
+ * Administration → Staff & portal users → Staff: staff accounts, roles, disabling, one-time passwords and 2FA resets.
  *
  * Security assumptions: admins only (every action starts with requireRole('admin')); the Router has checked CSRF.
  * Changes are serialized with a database lock so the last active admin can never be demoted or disabled, even by two

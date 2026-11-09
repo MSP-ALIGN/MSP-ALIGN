@@ -9,6 +9,9 @@ $nav = $nav ?? '';
 $v = e(APP_VERSION);
 $items = $pu ? array_filter([
     ['home', '/portal', 'Home', 'fa-house', true],
+    // 2.35.0 the PSA's tickets and quotes (ITFlow; Portal\Support)
+    ['tickets', '/portal/tickets', 'Tickets', 'fa-life-ring', !empty($pu['can_tickets']) && \Align\Portal\Support::available()],
+    ['quotes', '/portal/quotes', 'Quotes', 'fa-file-signature', !empty($pu['can_quotes']) && \Align\Portal\Support::available()],
     ['roadmap', '/portal/roadmap', 'Roadmap', 'fa-road', $pu['can_roadmap']],
     ['budget', '/portal/budget', 'Budget', 'fa-coins', $pu['can_budget']],
     ['licensing', '/portal/licensing', 'Licensing', 'fa-key', $pu['can_budget']],
@@ -24,6 +27,7 @@ $items = $pu ? array_filter([
 // 1.42: the sections grouped into six tabs; a group with more than one page shows them as tabs under it
 $groups = [
     ['home', 'Home', 'fa-house', ['home']],
+    ['support', 'Support', 'fa-life-ring', ['tickets', 'quotes']], // 2.35.0
     ['plan', 'Plan', 'fa-road', ['roadmap', 'budget']],
     ['tech', 'Your technology', 'fa-desktop', ['devices', 'licensing', 'vendors', 'closet']],
     ['compliance', 'Compliance', 'fa-clipboard-check', ['compliance', 'documents']],
@@ -76,6 +80,9 @@ $clientLogo = $pu ? client_logo_url(['id' => $pu['client_id'], 'logo_file' => $p
         <span class="portal-brand-sub">IT portal<?= ($provider['company'] ?? '') !== '' ? ' · ' . e($provider['company']) : '' ?></span>
       </span>
     </a>
+    <?php if ($pu && !empty($pu['can_pay_bills']) && ($payUrl = \Align\Portal\Support::billingUrl())): // 2.35.0 the bill pay page (Integrations → ITFlow) ?>
+      <a href="<?= e($payUrl) ?>" class="btn btn-sm btn-success ms-2 text-nowrap" target="_blank" rel="noopener noreferrer"><i class="fas fa-credit-card"></i><span class="d-none d-sm-inline ms-1">Pay a bill</span></a>
+    <?php endif; ?>
     <?php if ($pu): ?>
       <div class="dropdown ms-2">
         <a href="#" class="portal-account dropdown-toggle" data-bs-toggle="dropdown" aria-label="Account" aria-expanded="false"><span class="user-initials"><?= e(initials($pu['name'])) ?></span><span class="d-none d-md-inline ms-2"><?= e($pu['name']) ?></span></a>

@@ -166,7 +166,7 @@ final class Sla
             }
             $seen[$id] = true;
             $batch[] = [
-                $id, $pc, $clients[$pc] ?? null, $cut($r['number'] ?? null, 60), $cut($r['subject'] ?? null, 500),
+                $id, $pc, $clients[$pc] ?? null, ($c = $key($r['contact_id'] ?? null)) === '' ? null : $c, $cut($r['number'] ?? null, 60), $cut($r['subject'] ?? null, 500),
                 $cut($r['category'] ?? null, 200), $cut($r['source'] ?? null, 100), $cut($r['priority'] ?? null, 40),
                 $int($r['status_id'] ?? 0, 2147483647), $int($r['sla_id'] ?? 0, 2147483647), $created,
                 $ts($r['first_response_at'] ?? null), $ts($r['response_due_at'] ?? null), $ts($r['resolution_due_at'] ?? null),
@@ -178,12 +178,23 @@ final class Sla
         if (!$batch) {
             return;
         }
-        $cols = ['id', 'psa_client_id', 'client_id', 'number', 'subject', 'category', 'source', 'priority', 'status_id', 'sla_id', 'created_at',
+        $cols = ['id', 'psa_client_id', 'client_id', 'contact_psa_id', 'number', 'subject', 'category', 'source', 'priority', 'status_id', 'sla_id', 'created_at',
             'first_response_at', 'response_due_at', 'resolution_due_at', 'resolved_at', 'closed_at', 'archived_at',
             'response_met', 'resolution_met', 'response_stage', 'resolution_stage', 'synced_at'];
         $row = '(' . implode(',', array_fill(0, count($cols), '?')) . ')';
         DB::run('INSERT INTO psa_tickets (' . implode(',', $cols) . ') VALUES ' . implode(',', array_fill(0, count($batch), $row))
             . ' ON DUPLICATE KEY UPDATE ' . implode(',', array_map(fn($c) => "$c = VALUES($c)", array_slice($cols, 1))), array_merge(...$batch));
+    }
+
+    /**
+     * (2.35.0) Stores one neutral ticket just read from the PSA (the portal, after opening or viewing a ticket), so its
+     * list is current before the next sync. Same checks as the sync; the client is linked by its PSA id.
+     */
+    public static function storeOne(array $ticket): void
+    {
+        $clients = array_map('intval', array_column(DB::all('SELECT id, psa_id FROM clients WHERE psa_id = ?', [(string) ($ticket['client_id'] ?? '')]), 'id', 'psa_id'));
+        $seen = [];
+        self::store([$ticket], $clients, date('Y-m-d H:i:s', strtotime('-' . self::KEEP_MONTHS . ' months')), date('Y-m-d H:i:s'), $seen);
     }
 
     /** Deletes stored tickets a complete read didn't return (deleted in the PSA, or aged out); returns how many. */

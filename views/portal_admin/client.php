@@ -14,8 +14,8 @@ $status = function (array $u): array {
     if (!$u['password_hash']) return [$u['invite_expires_at'] && $u['invite_expires_at'] >= date('Y-m-d H:i:s') ? 'Invited' : 'Invite expired', $u['invite_expires_at'] && $u['invite_expires_at'] >= date('Y-m-d H:i:s') ? 'info' : 'warning'];
     return ['Active', 'success'];
 };
-$sectionShort = ['can_roadmap' => 'Roadmap', 'can_budget' => 'Budget', 'can_devices' => 'Devices', 'can_documents' => 'Documents', 'can_closet' => 'Tech closet'];
-$actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests items', 'can_contacts' => 'Sends requests', 'can_checkout' => 'Checks out', 'can_closet_edit' => 'Updates closet'];
+$sectionShort = ['can_roadmap' => 'Roadmap', 'can_budget' => 'Budget', 'can_devices' => 'Devices', 'can_documents' => 'Documents', 'can_closet' => 'Tech closet', 'can_tickets' => 'Tickets', 'can_quotes' => 'Quotes', 'can_psa_docs' => 'PSA documents'];
+$actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests items', 'can_contacts' => 'Sends requests', 'can_checkout' => 'Checks out', 'can_closet_edit' => 'Updates closet', 'can_all_tickets' => 'All company tickets', 'can_pay_bills' => 'Pays bills'];
 ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-door-open me-2 text-secondary"></i>Client portal</h1>

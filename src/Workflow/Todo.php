@@ -135,7 +135,7 @@ final class Todo
     }
 
     /**
-     * The tabs of the menu items that group several pages (Admin → Integrations and People; Onboarding → Contracts and
+     * The tabs of the menu items that group several pages (Administration → Integrations and People, 2.35.0; Onboarding → Contracts and
      * New clients), by page nav key. 'role' only hides a tab; each page checks the role again.
      */
     public static function adminTabs(): array
@@ -163,6 +163,40 @@ final class Todo
                 'welcome' => ['label' => 'Welcome email & guide', 'href' => '/settings/onboarding', 'icon' => 'fa-envelope-open-text', 'role' => 'admin'],
             ],
         ];
+    }
+
+    /**
+     * 2.35.0 The Administration area (the user menu's Administration, its overview page /admin and the sidebar shown on
+     * its pages): [key, href, label, icon, role, badge, description], only those the signed-in user's role may open.
+     * Integrations and Staff & portal users open their first tab the user can see (adminTabs). Badges: integrations in
+     * an error state and an update waiting (admins only). Labels and descriptions are fixed strings.
+     */
+    public static function adminSections(): array
+    {
+        static $memo = []; // once per request and role: the layout and the overview page both ask
+        $role = (string) (Auth::user()['role'] ?? '');
+        if (isset($memo[$role])) {
+            return $memo[$role];
+        }
+        return $memo[$role] = self::buildAdminSections();
+    }
+
+    /** adminSections() worked out (see there). */
+    private static function buildAdminSections(): array
+    {
+        $isAdmin = Auth::can('admin');
+        $tabs = self::adminTabs();
+        $first = fn(string $group) => ($t = array_values(array_filter($tabs[$group], fn($t) => Auth::can($t['role'])))) ? $t[0]['href'] : null;
+        $all = [
+            ...(($h = $first('integrations')) ? [['integrations', $h, 'Integrations', 'fa-plug', 'viewer', $isAdmin ? \Align\Integrations\Registry::problems() : 0,
+                'Connect your PSA, RMM, backups, email and AI; match clients to them; the sync history.']] : []),
+            ['libraries', '/libraries', 'Libraries', 'fa-book', 'viewer', 0, 'Templates, vendors, alignment standards and the other lists every client uses.'],
+            ...(($h = $first('people')) ? [['people', $h, 'Staff & portal users', 'fa-user-shield', 'viewer', 0, 'Staff sign-ins and roles, and every client\'s portal users.']] : []),
+            ['settings', '/settings', 'Settings', 'fa-gear', 'admin', $isAdmin && \Align\System\Agent::updateAvailable() ? 'new' : 0,
+                'Company, branding, planning, email, notifications, updates and backups, diagnostics.'],
+            ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin', 0, 'Who did what, checked for tampering every night.'],
+        ];
+        return array_values(array_filter($all, fn($i) => Auth::can($i[4])));
     }
 
     /** Contracts the client signed that wait for your countersignature (menu badge). */

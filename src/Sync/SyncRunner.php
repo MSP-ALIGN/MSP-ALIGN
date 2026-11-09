@@ -131,8 +131,13 @@ final class SyncRunner
         if ($psaOk && $psa->supports('domains')) {
             $this->step("$psaName domains", fn() => \Align\Domains\PsaDomainSync::sync($psa));
         }
-        if ($psaOk && $psa->supports('tickets') && Settings::get('psa_sla_sync', '1') === '1') {
+        // 2.35.0 also when the client portal shows tickets, whatever SLA reporting is set to
+        if ($psaOk && $psa->supports('tickets') && (Settings::get('psa_sla_sync', '1') === '1' || \Align\Portal\Support::ticketsInUse())) {
             $this->step("$psaName tickets & SLAs", fn() => \Align\Service\Sla::sync($psa));
+        }
+        // 2.35.0 quotes and shared documents for the client portal, when any portal user can see them
+        if ($psaOk && $psa->supports('portal') && (\Align\Portal\Support::listsInUse() || \Align\Portal\Support::listsStored())) { // (clears them when not)
+            $this->step("$psaName quotes & shared documents (client portal)", fn() => \Align\Portal\Support::sync($psa));
         }
         if ($psaOk && $psa->supports('invoices') && Settings::get('budget_msp_estimate', '1') === '1') {
             $this->step("Managed-services estimate ($psaName invoices)", fn() => \Align\Budget\Billing::syncFromPsa($psa));

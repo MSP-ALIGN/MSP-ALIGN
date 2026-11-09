@@ -18,8 +18,9 @@ use Align\Integrations\Itflow;
  * StagingPsa, so these write methods are never reached there.
  * 2.28.0 Also PsaVendorWrites (VENDOR_KEYS; the phone is sent as ITFlow keeps it: digits, with the extension apart)
  * and PsaDomains (ITFlow 26.10's vendor and domain endpoints), and clients carry 'lead' (ITFlow's prospects).
+ * 2.35.0 Also PsaPortal: tickets, replies, quotes and shared documents for the client portal (see that interface).
  */
-final class ItflowPsa implements PsaProvider, PsaVendorWrites, PsaDomains
+final class ItflowPsa implements PsaProvider, PsaVendorWrites, PsaDomains, PsaPortal
 {
     private const ASSET_KEYS = [
         'name' => 'asset_name', 'type' => 'asset_type', 'make' => 'asset_make', 'model' => 'asset_model', 'serial' => 'asset_serial',
@@ -581,6 +582,7 @@ final class ItflowPsa implements PsaProvider, PsaVendorWrites, PsaDomains
         return [
             'id' => self::id($r['ticket_id'] ?? null),
             'client_id' => self::id($r['ticket_client_id'] ?? null),
+            'contact_id' => self::optId($r['ticket_contact_id'] ?? null), // 2.35.0 whose ticket it is (the portal)
             'number' => trim(self::text($r['ticket_prefix'] ?? '', 60) . self::text($r['ticket_number'] ?? '', 60)),
             // ITFlow keeps the subject HTML-escaped; Align stores plain text and escapes it when shown
             'subject' => trim(html_entity_decode(strip_tags((string) self::text($r['ticket_subject'] ?? '', 2000)), ENT_QUOTES)),
@@ -669,6 +671,136 @@ final class ItflowPsa implements PsaProvider, PsaVendorWrites, PsaDomains
         $subject = trim((string) self::text($subject, 250));
         return (string) $this->api->createTicket(self::num($clientId), $subject, $detailsHtml, $priority,
             $contactId !== null && self::isNum($contactId) ? self::num($contactId) : null);
+    }
+
+    // ---- Client portal (2.35.0, PsaPortal) ----
+
+    /** A text value from ITFlow as plain text: entities decoded, tags removed, one line, cut to $max. */
+    private static function plain(mixed $v, int $max): string
+    {
+        $s = trim(html_entity_decode(strip_tags((string) self::text($v, $max * 4)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        return mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/', ' ', $s), 0, $max);
+    }
+
+    /** One ticket for the portal (see PsaPortal::portalTicket). The status name comes from ITFlow's single-ticket read. */
+    public function portalTicket(string $ticketId): ?array
+    {
+        if (!self::isNum($ticketId)) {
+            return null;
+        }
+        $r = $this->api->ticket(self::num($ticketId));
+        if (!$r) {
+            return null;
+        }
+        $n = self::asNeutralTicket($r);
+        return [
+            'id' => $n['id'], 'client_id' => $n['client_id'], 'contact_id' => $n['contact_id'], 'number' => $n['number'],
+            'subject' => $n['subject'], 'priority' => $n['priority'], 'created_at' => $n['created_at'],
+            'updated_at' => self::ts($r['ticket_updated_at'] ?? null),
+            'status' => self::plain($r['ticket_status_name'] ?? '', 60),
+            'closed' => $n['closed_at'] !== null,
+            'details_html' => is_string($r['ticket_details'] ?? null) ? $r['ticket_details'] : '',
+            'guest_url' => $this->api->guestUrl('ticket', self::num($n['id']), $r['ticket_url_key'] ?? null),
+            'neutral' => $n,
+        ];
+    }
+
+    /** The replies the client may see: Public (sent to them) and Client (theirs); Internal notes never. */
+    public function portalTicketReplies(string $ticketId): ?array
+    {
+        if (!self::isNum($ticketId)) {
+            return [];
+        }
+        $rows = $this->api->ticketReplies(self::num($ticketId));
+        if ($rows === null) {
+            return null;
+        }
+        $out = [];
+        foreach (self::rows($rows) as $r) {
+            $type = is_string($r['ticket_reply_type'] ?? null) ? $r['ticket_reply_type'] : '';
+            if (!in_array($type, ['Public', 'Client'], true) || !empty($r['ticket_reply_archived_at'])) {
+                continue; // an unknown type counts as internal
+            }
+            $at = self::ts($r['ticket_reply_created_at'] ?? null);
+            if ($at === null) {
+                continue;
+            }
+            $out[] = ['by' => self::plain($r['ticket_reply_by_name'] ?? '', 120), 'from_client' => $type === 'Client', 'at' => $at,
+                'html' => is_string($r['ticket_reply'] ?? null) ? $r['ticket_reply'] : ''];
+        }
+        usort($out, fn($a, $b) => strcmp($a['at'], $b['at']));
+        return $out;
+    }
+
+    /** A quote row as the neutral quote (null for a draft or a row without an id or client). */
+    private static function asPortalQuote(array $r): ?array
+    {
+        $status = self::plain($r['quote_status'] ?? '', 40);
+        $id = self::id($r['quote_id'] ?? null);
+        $client = self::id($r['quote_client_id'] ?? null);
+        if ($id === '' || $client === '' || $status === '' || strcasecmp($status, 'Draft') === 0 || !empty($r['quote_archived_at'])) {
+            return null;
+        }
+        $amount = $r['quote_amount'] ?? null;
+        $cur = strtoupper((string) self::text($r['quote_currency_code'] ?? '', 3));
+        return [
+            'id' => $id, 'client_id' => $client,
+            'number' => trim(self::plain($r['quote_prefix'] ?? '', 30) . self::plain($r['quote_number'] ?? '', 30)),
+            'scope' => self::plain($r['quote_scope'] ?? '', 500), 'status' => $status,
+            'date' => self::date($r['quote_date'] ?? null), 'expire' => self::date($r['quote_expire'] ?? null),
+            'amount' => is_numeric($amount) && abs((float) $amount) < 1e13 ? round((float) $amount, 2) : null,
+            'currency' => preg_match('/^[A-Z]{3}$/', $cur) ? $cur : null,
+        ];
+    }
+
+    /** Every sent quote (drafts and archived ones left out). */
+    public function portalQuotes(): array
+    {
+        return array_values(array_filter(array_map([self::class, 'asPortalQuote'], self::rows($this->api->quotes()))));
+    }
+
+    /** One quote with its guest link (see PsaPortal::portalQuote). */
+    public function portalQuote(string $quoteId): ?array
+    {
+        if (!self::isNum($quoteId) || !($r = $this->api->quote(self::num($quoteId))) || !($q = self::asPortalQuote($r))) {
+            return null;
+        }
+        return $q + ['guest_url' => $this->api->guestUrl('quote', self::num($q['id']), $r['quote_url_key'] ?? null)];
+    }
+
+    /** A document row as the neutral shared document (null unless ITFlow shows it to the client). */
+    private static function asPortalDocument(array $r): ?array
+    {
+        $id = self::id($r['document_id'] ?? null);
+        $client = self::id($r['document_client_id'] ?? null);
+        $name = self::plain($r['document_name'] ?? '', 500);
+        // Shared only when ITFlow says so in so many words: a missing flag (an older ITFlow) counts as not shared
+        if ($id === '' || $client === '' || $name === '' || !array_key_exists('document_client_visible', $r) || !self::flag($r['document_client_visible'])
+            || !empty($r['document_archived_at']) || !empty($r['document_template'])) {
+            return null;
+        }
+        return ['id' => $id, 'client_id' => $client, 'name' => $name, 'description' => self::plain($r['document_description'] ?? '', 500),
+            'updated_at' => self::ts($r['document_updated_at'] ?? null) ?? self::ts($r['document_created_at'] ?? null)];
+    }
+
+    /** The documents ITFlow shares with their client (see PsaPortal::portalDocuments). */
+    public function portalDocuments(): array
+    {
+        // A page at a time, keeping only the list details: document bodies can be large
+        $out = [];
+        $this->api->eachDocumentPage(function (array $rows) use (&$out) {
+            array_push($out, ...array_filter(array_map([self::class, 'asPortalDocument'], self::rows($rows))));
+        });
+        return $out;
+    }
+
+    /** One shared document with its body (see PsaPortal::portalDocument). */
+    public function portalDocument(string $documentId): ?array
+    {
+        if (!self::isNum($documentId) || !($r = $this->api->document(self::num($documentId))) || !($d = self::asPortalDocument($r))) {
+            return null;
+        }
+        return $d + ['html' => is_string($r['document_content'] ?? null) ? $r['document_content'] : ''];
     }
 
     // ---- Links ----

@@ -61,6 +61,7 @@ interface PsaProvider
         'tickets' => 'Read tickets',
         'sla' => 'Ticket SLA results',
         'tickets.create' => 'Create tickets',
+        'portal' => 'Tickets, quotes and shared documents in the client portal', // 2.35.0 (PsaPortal)
     ];
 
     /** The connector key ("itflow"). */

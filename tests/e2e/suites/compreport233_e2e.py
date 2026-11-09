@@ -101,7 +101,7 @@ try:
     r = st.get(B + URL)
     t, tt = r.text, text(r.text)
     ok(r.status_code == 200 and not errs(t), "the report opens for an assigned framework (%s)" % r.status_code)
-    ok("Compliance report" in tt and "Zz233 Security Baseline" in tt and CNAME in tt and "Example MSP Inc." in tt, "cover: framework, client and prepared by the company")
+    ok("Compliance report" in tt and "Zz233 Security Baseline" in tt and CNAME in tt and q("select value from settings where name='company_name'")[0]["value"] in tt, "cover: framework, client and prepared by the company")
     ok("Last reviewed " + fmt("2026-05-04") in tt and "Next review " + fmt("2027-05-04") in tt, "cover: last reviewed and next review")
     ok('counter(pages)' in t and '@page :first' in t, "page numbers (not on the cover)")
     kpi = lambda v, l: f'<div class="kpi-val">{v}</div><div class="kpi-lbl">{l}</div>' in t

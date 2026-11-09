@@ -14,7 +14,7 @@ namespace Align\Providers\Psa;
  * (and be listed in Staging::WRITES). Reads and links are passed through unchanged. 2.28.0: vendor writes and domain
  * creation refuse too; domains() reads from the real PSA when it keeps domains (else none).
  */
-final class StagingPsa implements PsaProvider, PsaVendorWrites, PsaDomains
+final class StagingPsa implements PsaProvider, PsaVendorWrites, PsaDomains, PsaPortal
 {
     /** $inner: the real provider; only its read methods are ever called. */
     public function __construct(private PsaProvider $inner)
@@ -92,4 +92,21 @@ final class StagingPsa implements PsaProvider, PsaVendorWrites, PsaDomains
     public function assetUrl(string $clientId, string $assetId): ?string { return $this->inner->assetUrl($clientId, $assetId); }
     /** Link to the PSA page: passed through. */
     public function ticketUrl(string $ticketId): ?string { return $this->inner->ticketUrl($ticketId); }
+
+    // 2.35.0 PsaPortal: all reads, passed through when the real PSA has them (a test server shows the same portal)
+
+    /** The real provider as PsaPortal, or null. */
+    private function portal(): ?PsaPortal { return $this->inner instanceof PsaPortal ? $this->inner : null; }
+    /** Read: passed through to the real PSA. */
+    public function portalTicket(string $ticketId): ?array { return $this->portal()?->portalTicket($ticketId); }
+    /** Read: passed through to the real PSA. */
+    public function portalTicketReplies(string $ticketId): ?array { return $this->portal()?->portalTicketReplies($ticketId); }
+    /** Read: passed through to the real PSA. */
+    public function portalQuotes(): array { return $this->portal()?->portalQuotes() ?? []; }
+    /** Read: passed through to the real PSA. */
+    public function portalQuote(string $quoteId): ?array { return $this->portal()?->portalQuote($quoteId); }
+    /** Read: passed through to the real PSA. */
+    public function portalDocuments(): array { return $this->portal()?->portalDocuments() ?? []; }
+    /** Read: passed through to the real PSA. */
+    public function portalDocument(string $documentId): ?array { return $this->portal()?->portalDocument($documentId); }
 }

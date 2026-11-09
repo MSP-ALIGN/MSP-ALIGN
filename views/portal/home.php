@@ -56,6 +56,14 @@ $vcio = $provider['vcio'] ?? null;
     <div class="col-lg-3 col-sm-6"><a href="/portal/meetings" class="info-box text-dark"><span class="info-box-icon bg-teal"><i class="fas fa-handshake"></i></span>
       <div class="info-box-content"><span class="info-box-text">Next meeting</span><span class="info-box-number text-truncate"><?= e(fmt_date($nextMeeting['starts_at'])) ?></span><span class="small text-muted text-truncate"><?= e($nextMeeting['title']) ?> · <?= e(fmt_time($nextMeeting['starts_at'])) ?></span></div></a></div>
   <?php endif; ?>
+  <?php if (!empty($pu['can_tickets']) && \Align\Portal\Support::available()): $openTickets = count(\Align\Portal\Support::tickets($pu)); // 2.35.0 ?>
+    <div class="col-lg-3 col-sm-6"><a href="/portal/tickets" class="info-box text-dark"><span class="info-box-icon bg-info"><i class="fas fa-life-ring"></i></span>
+      <div class="info-box-content"><span class="info-box-text">Open tickets</span><span class="info-box-number"><?= $openTickets ?></span><span class="small text-muted"><?= \Align\Portal\Support::canOpen() ? 'See them or open a new one' : 'See where they stand' ?></span></div></a></div>
+  <?php endif; ?>
+  <?php if (!empty($pu['can_pay_bills']) && ($payUrl = \Align\Portal\Support::billingUrl())): // 2.35.0 the bill pay page (Integrations → ITFlow) ?>
+    <div class="col-lg-3 col-sm-6"><a href="<?= e($payUrl) ?>" target="_blank" rel="noopener noreferrer" class="info-box text-dark"><span class="info-box-icon bg-success"><i class="fas fa-credit-card"></i></span>
+      <div class="info-box-content"><span class="info-box-text">Billing</span><span class="info-box-number">Pay a bill</span><span class="small text-muted">Opens <?= e(parse_url($payUrl, PHP_URL_HOST) ?: 'your billing page') ?></span></div></a></div>
+  <?php endif; ?>
   <?php if ($pending || $waiting): ?>
     <div class="col-lg-3 col-sm-6"><a href="<?= $pending ? '/portal/roadmap#decisions' : ($waitingLicense ? '/portal/licensing#suggestions' : '/portal/budget#suggestions') ?>" class="info-box text-dark"><span class="info-box-icon bg-warning"><i class="fas <?= $pending ? 'fa-circle-question' : 'fa-paper-plane' ?>"></i></span>
       <div class="info-box-content"><span class="info-box-text"><?= $pending ? ($pu['can_approve'] ? 'Waiting for your decision' : 'Proposed projects') : 'Suggestions sent' ?></span><span class="info-box-number"><?= $pending ? count($pending) : $waiting ?></span>

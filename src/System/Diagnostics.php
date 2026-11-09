@@ -406,7 +406,7 @@ final class Diagnostics
         $m = self::minutes(is_array($v) ? ($v['at'] ?? null) : null);
         $rows[] = self::row('Audit log check (nightly)', is_array($v) && !empty($v['at']) ? (!empty($v['ok']) ? 'Intact' : 'PROBLEM FOUND') . ', checked ' . self::ago($v['at']) . ' (' . number_format((int) ($v['checked'] ?? 0)) . ' entries)' : 'Not checked yet',
             is_array($v) && isset($v['ok']) && !$v['ok'] ? 'bad' : (!is_array($v) || $late('nightly', $m) ? 'warn' : 'ok'),
-            is_array($v) && isset($v['ok']) && !$v['ok'] ? 'Open Admin → Audit log now.' : ($late('nightly', $m) ? 'The nightly job hasn\'t checked it lately: check the msp-align-nightly timer.' : null));
+            is_array($v) && isset($v['ok']) && !$v['ok'] ? 'Open Administration → Audit log now.' : ($late('nightly', $m) ? 'The nightly job hasn\'t checked it lately: check the msp-align-nightly timer.' : null));
         // Update check and the root agent (dedicated installs)
         if (!Agent::docker()) {
             $u = self::try(fn() => Agent::update());
