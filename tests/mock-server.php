@@ -1869,7 +1869,7 @@ switch (true) {
                     $all[] = ['ticket_id' => $c['ticket_id'], 'ticket_prefix' => 'TCK-', 'ticket_number' => $c['ticket_id'], 'ticket_subject' => (string) ($c['ticket_subject'] ?? ''),
                         'ticket_details' => (string) ($c['ticket_details'] ?? ''), 'ticket_priority' => (string) ($c['ticket_priority'] ?? 'Medium'), 'ticket_status' => 1,
                         'ticket_client_id' => (int) ($c['client_id'] ?? 0), 'ticket_contact_id' => $c['ticket_contact_id'] ?? null, 'ticket_created_at' => date('Y-m-d H:i:s'),
-                        'ticket_closed_at' => null, 'ticket_resolved_at' => null, 'ticket_archived_at' => null, 'ticket_url_key' => 'gk' . str_pad((string) $c['ticket_id'], 18, '0', STR_PAD_LEFT)];
+                        'ticket_closed_at' => null, 'ticket_resolved_at' => null, 'ticket_archived_at' => null, 'ticket_url_key' => 'g-k_' . str_pad((string) $c['ticket_id'], 18, '0', STR_PAD_LEFT)];
                 }
             }
             if (isset($_GET['ticket_id'])) {
@@ -1912,15 +1912,15 @@ switch (true) {
             $st = $loadState();
             $all = $st['quotes'] ?? [
                 ['quote_id' => 71, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 71, 'quote_scope' => 'Firewall replacement', 'quote_status' => 'Sent',
-                    'quote_date' => date('Y-m-d', strtotime('-5 days')), 'quote_expire' => date('Y-m-d', strtotime('+25 days')), 'quote_amount' => '2450.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000071', 'quote_archived_at' => null],
+                    'quote_date' => date('Y-m-d', strtotime('-5 days')), 'quote_expire' => date('Y-m-d', strtotime('+25 days')), 'quote_amount' => '2450.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'q-k_0000000000000071', 'quote_archived_at' => null],
                 ['quote_id' => 72, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 72, 'quote_scope' => 'Draft laptops', 'quote_status' => 'Draft',
-                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '9999.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000072', 'quote_archived_at' => null],
+                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '9999.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'q-k_0000000000000072', 'quote_archived_at' => null],
                 ['quote_id' => 73, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 73, 'quote_scope' => 'Microsoft 365 migration', 'quote_status' => 'Accepted',
-                    'quote_date' => date('Y-m-d', strtotime('-40 days')), 'quote_expire' => date('Y-m-d', strtotime('-10 days')), 'quote_amount' => '1200.50', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000073', 'quote_archived_at' => null],
+                    'quote_date' => date('Y-m-d', strtotime('-40 days')), 'quote_expire' => date('Y-m-d', strtotime('-10 days')), 'quote_amount' => '1200.50', 'quote_currency_code' => 'USD', 'quote_url_key' => 'q-k_0000000000000073', 'quote_archived_at' => null],
                 ['quote_id' => 74, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 74, 'quote_scope' => 'Archived quote', 'quote_status' => 'Sent',
-                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '10.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000074', 'quote_archived_at' => date('Y-m-d H:i:s')],
+                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '10.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'q-k_0000000000000074', 'quote_archived_at' => date('Y-m-d H:i:s')],
                 ['quote_id' => 81, 'quote_client_id' => 2, 'quote_prefix' => 'QT-', 'quote_number' => 81, 'quote_scope' => 'Other client quote', 'quote_status' => 'Sent',
-                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '500.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000081', 'quote_archived_at' => null],
+                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '500.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'q-k_0000000000000081', 'quote_archived_at' => null],
             ];
             $rows = isset($_GET['quote_id']) ? array_values(array_filter($all, fn($q) => (int) $q['quote_id'] === (int) $_GET['quote_id'])) : array_slice($all, $offset, $limit);
         } elseif ($path === '/api/v1/documents/read.php') {
@@ -2340,7 +2340,7 @@ function mockTickets(array $st): array
                 'ticket_archived_at' => null, 'ticket_response_sla_met' => null, 'ticket_resolution_sla_met' => null,
                 'ticket_response_sla_alert_stage' => 0, 'ticket_resolution_sla_alert_stage' => 0, 'ticket_client_id' => $t['client'],
                 // 2.35.0 the client portal: whose ticket it is, and the guest page key
-                'ticket_contact_id' => ['Server backup failing' => 6, 'Imaging software crashes' => 2][$t['subject']] ?? null, 'ticket_url_key' => 'gk' . str_pad((string) $id, 18, '0', STR_PAD_LEFT)];
+                'ticket_contact_id' => ['Server backup failing' => 6, 'Imaging software crashes' => 2][$t['subject']] ?? null, 'ticket_url_key' => 'g-k_' . str_pad((string) $id, 18, '0', STR_PAD_LEFT)]; // 2.35.1 keys like ITFlow's: URL-safe base64
             $respAt = $t['created'] + (int) ($resp * 60 * (mt_rand() / mt_getrandmax() < $miss ? 1.3 + mt_rand(0, 100) / 100 : 0.1 + mt_rand(0, 80) / 100));
             $resAt = $t['created'] + (int) ($res * 60 * (mt_rand() / mt_getrandmax() < $miss ? 1.2 + mt_rand(0, 150) / 100 : 0.2 + mt_rand(0, 75) / 100));
             if ($sla) {
