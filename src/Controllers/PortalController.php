@@ -300,6 +300,8 @@ final class PortalController
                 $data['health'] = ['h' => $h, 'trend' => \Align\Health\Health::history($cid, 90), 'since' => \Align\Health\Health::sinceReview($cid, $h['score'])];
             }
         }
+        $data['signWaiting'] = \Align\Docs\Signing::waitingFor($pu); // 2.34.0: whatever section permissions say, it's addressed to them
+        $data['ackWaiting'] = \Align\Docs\Acknowledging::waitingFor($pu); // (2.34.0) the same for acknowledgments
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
     }
 
@@ -542,7 +544,56 @@ final class PortalController
     {
         $pu = PortalAuth::require('can_documents');
         $docs = DB::all("SELECT id, title, category, kind, file_type, file_size, updated_at, review_due FROM documents WHERE client_id = ? AND status = 'active' AND portal_shared = 1 ORDER BY category, title", [$pu['client_id']]);
-        self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs], $pu);
+        self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs, 'signWaiting' => \Align\Docs\Signing::waitingFor($pu),
+            'ackWaiting' => \Align\Docs\Acknowledging::waitingFor($pu)], $pu); // (2.34.0)
+    }
+
+    /**
+     * 2.34.0 Opens a document waiting for this portal user's signature (from "Waiting for your signature"): only a row
+     * that is their own (their client, their email address, not signed, link live; Signing::portalToken checks it),
+     * else 404. The session then remembers this link as opened from the portal, which counts instead of the emailed
+     * code while the same person stays signed in (DocSignController::viaPortal). $id is untrusted.
+     */
+    public static function signature(int $id): void
+    {
+        $pu = PortalAuth::require();
+        $token = \Align\Docs\Signing::portalToken($id, $pu);
+        if ($token === null) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That document isn\'t waiting for your signature.'], $pu);
+            return;
+        }
+        $_SESSION['docsign_portal'][$id] = hash('sha256', $token);
+        $rid = (int) DB::value('SELECT request_id FROM doc_sign_signers WHERE id = ?', [$id]);
+        if (empty($_SESSION['docsign_seen']['portal'][$id])) {
+            $_SESSION['docsign_seen']['portal'][$id] = 1;
+            \Align\Docs\Signing::event($rid, $id, 'portal', 'Signed in as ' . $pu['email'], (string) $pu['name']);
+        }
+        redirect('/portal/docsign/' . $token);
+    }
+
+    /**
+     * 2.34.0 Opens a document waiting for this portal user's acknowledgment (from "Waiting for you to acknowledge"):
+     * only a row that is their own (their client, their email address, not acknowledged, link live;
+     * Acknowledging::portalToken checks it), else 404. The session then remembers this link as opened from the portal
+     * (DocAckController::viaPortal records it with the acknowledgment). $id is untrusted.
+     */
+    public static function acknowledgment(int $id): void
+    {
+        $pu = PortalAuth::require();
+        $token = \Align\Docs\Acknowledging::portalToken($id, $pu);
+        if ($token === null) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That document isn\'t waiting for you to acknowledge it.'], $pu);
+            return;
+        }
+        $_SESSION['docack_portal'][$id] = hash('sha256', $token);
+        $rid = (int) DB::value('SELECT request_id FROM doc_sign_signers WHERE id = ?', [$id]);
+        if (empty($_SESSION['docack_seen_portal'][$id])) {
+            $_SESSION['docack_seen_portal'][$id] = 1;
+            \Align\Docs\Signing::event($rid, $id, 'portal', 'Signed in as ' . $pu['email'], (string) $pu['name']);
+        }
+        redirect('/portal/docack/' . $token);
     }
 
     /**
@@ -560,7 +611,8 @@ final class PortalController
         }
         Audit::log('portal.document_view', $doc['title']);
         if ($doc['kind'] === 'file') { // 2.20.0: an uploaded file (shown for PDFs and images, else downloaded)
-            self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc, 'pdfJs' => $doc['file_type'] === 'pdf'], $pu);
+            self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc, 'pdfJs' => $doc['file_type'] === 'pdf',
+                'signedCopies' => \Align\Docs\Signing::portalCopies($id)], $pu); // (2.34.0)
             return;
         }
         if (query('print') === '1') {
@@ -568,7 +620,27 @@ final class PortalController
                 'reportTitle' => $doc['title'], 'brand' => ReportController::branding()], 'layout/print');
             return;
         }
-        self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc], $pu);
+        self::render('document', ['title' => $doc['title'], 'nav' => 'documents', 'doc' => $doc, 'signedCopies' => \Align\Docs\Signing::portalCopies($id)], $pu); // (2.34.0)
+    }
+
+    /**
+     * 2.34.0 A signed copy of a shared document (can_documents): only for a document of the user's own client that is
+     * active and shared in the portal, and a completed signature request of that document with its signed PDF made
+     * (else 404). Unshared documents' signed copies and acknowledgment records are never sent here. $id and $rid are
+     * untrusted. Audited as a download.
+     */
+    public static function signedCopy(int $id, int $rid): void
+    {
+        $pu = PortalAuth::require('can_documents');
+        $doc = DB::one("SELECT id, title FROM documents WHERE id = ? AND client_id = ? AND status = 'active' AND portal_shared = 1", [$id, $pu['client_id']]);
+        $r = $doc ? \Align\Docs\Signing::load($rid) : null;
+        if (!$r || (int) $r['document_id'] !== $id || $r['kind'] !== 'signature' || $r['status'] !== 'completed' || !\Align\Docs\Signing::signedPath($r)) {
+            http_response_code(404);
+            self::render('error', ['title' => 'Not found', 'message' => 'That signed copy is not available.'], $pu);
+            return;
+        }
+        Audit::log('portal.document_download', $doc['title'] . ' (signed copy)');
+        \Align\Docs\Signing::sendPdf($r, true);
     }
 
     /**

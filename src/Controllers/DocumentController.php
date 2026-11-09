@@ -167,7 +167,29 @@ final class DocumentController
                 WHERE s.document_id = ? ORDER BY f.name, c.sort', [$id]),
             'editor' => !$file,
             'pdfJs' => $file && $doc['file_type'] === 'pdf',
-        ]);
+        ] + self::signatureVars($doc));
+    }
+
+    /**
+     * 2.34.0 The document page's Signatures card (documents/_signatures): its requests, the client's contacts who can
+     * sign, "Needs signing again", and the signature pad's script when a countersignature is waiting; (2.34.0) and the
+     * Acknowledgments card's requests, "Needs acknowledging again" and the client's compliance controls. Nothing for an
+     * internal document.
+     */
+    private static function signatureVars(array $doc): array
+    {
+        if (!$doc['client_id']) {
+            return ['signatures' => [], 'signContacts' => [], 'resign' => null, 'acks' => [], 'ackAgain' => null, 'ackControls' => []];
+        }
+        $reqs = \Align\Docs\Signing::forDocument((int) $doc['id']);
+        // (2.34.0) staff acknowledgments (documents/_acknowledgments): requests, "Needs acknowledging again", controls
+        $acks = \Align\Docs\Acknowledging::forDocument((int) $doc['id']);
+        return ['signatures' => $reqs, 'signContacts' => Auth::can('tech') ? \Align\Docs\Signing::contacts((int) $doc['client_id']) : [],
+            'resign' => \Align\Docs\Signing::needsResign($doc, $reqs),
+            'contractsJs' => Auth::can('tech') && array_filter($reqs, fn($r) => $r['status'] === 'countersign'),
+            'acks' => $acks, 'ackAgain' => \Align\Docs\Acknowledging::needsAgain($doc, $acks),
+            'ackControls' => Auth::can('tech') ? \Align\Docs\Acknowledging::controls((int) $doc['client_id']) : [],
+            'linksOnce' => Auth::can('tech') ? \Align\Docs\Signing::takeOnce((int) $doc['id']) : null]; // (2.34.0) "Create link only", shown once
     }
 
     /**
@@ -399,6 +421,10 @@ final class DocumentController
         $files = DB::transaction(function () use ($id) { // both or neither: evidence never points at a deleted document
             $files = array_column(DB::all('SELECT file_name FROM documents WHERE id = ? AND file_name IS NOT NULL FOR UPDATE', [$id]), 'file_name');
             $files = array_merge($files, array_column(DB::all('SELECT file_name FROM document_versions WHERE document_id = ? AND file_name IS NOT NULL', [$id]), 'file_name'));
+            // 2.34.0 the PDFs sent for signature and the signed copies go with it (their requests cascade)
+            foreach (DB::all('SELECT source_file, signed_file FROM doc_sign_requests WHERE document_id = ?', [$id]) as $sr) {
+                array_push($files, $sr['source_file'], (string) $sr['signed_file']);
+            }
             DB::run('UPDATE client_control_status SET document_id = NULL WHERE document_id = ?', [$id]);
             DB::run('DELETE FROM documents WHERE id = ?', [$id]);
             return $files;

@@ -38,6 +38,18 @@ final class Notify
             } catch (\Throwable $e) {
                 $out[] = 'contracts: ' . $e->getMessage();
             }
+            // (2.34.0) documents sent for signature: the same hourly work, on its own so one can't stop the other
+            try {
+                array_push($out, ...\Align\Docs\Signing::hourly());
+            } catch (\Throwable $e) {
+                $out[] = 'document signatures: ' . $e->getMessage();
+            }
+            // (2.34.0) staff acknowledgments: expiry and reminders, on their own as well
+            try {
+                array_push($out, ...\Align\Docs\Acknowledging::hourly());
+            } catch (\Throwable $e) {
+                $out[] = 'document acknowledgments: ' . $e->getMessage();
+            }
         }
         // 2.5.0 client health: today's row for every client, once a day (the first run after midnight), with or
         // without email, before the digests that read it

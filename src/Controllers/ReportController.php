@@ -192,6 +192,8 @@ final class ReportController
             'brand' => self::branding($client),
             'd' => $d,
             'portal' => $portal,
+            // 2.34.0 techs and admins can send the client's version of this report for signature (never in the portal)
+            'toolbarLinks' => !$portal && Auth::can('tech') ? [['/clients/' . (int) $client['id'] . '/report/compliance/' . (int) $d['fw']['id'] . '/sign', 'Send for signature', 'fa-pen-nib']] : [],
         ], 'layout/print');
         return true;
     }

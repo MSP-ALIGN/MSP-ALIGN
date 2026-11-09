@@ -83,4 +83,60 @@ final class ComplianceReport
             'overdue' => $overdue,
         ];
     }
+
+    /**
+     * (2.34.0) The report as simple HTML (headings, paragraphs and lists) for Contracts\PdfRender::document, to send it
+     * for signature (Docs\Signing). $d is data() for the portal's version (the caller passes $portal = true), since
+     * the client signs it: status, owner, due date and shared documents' titles only, never notes, evidence or
+     * guidance. Every value is escaped here.
+     */
+    public static function html(array $client, array $d): string
+    {
+        $st = fn(string $s) => Compliance::STATUSES[$s][0] ?? 'Not assessed';
+        $s = $d['score'];
+        $h = '<p>' . e($client['name']) . ' · ' . e($d['fw']['name']) . ' · ' . e(\Align\Fmt::date(time(), 'long')) . '</p>';
+        if (trim((string) ($d['fw']['description'] ?? '')) !== '') {
+            $h .= '<p>' . e((string) $d['fw']['description']) . '</p>';
+        }
+        $h .= '<h2>Summary</h2><p><strong>Score: ' . (int) $s['score'] . '%</strong> (' . (int) $s['assessed'] . '% assessed)</p><ul>';
+        foreach (['met', 'partial', 'not_met', 'na', 'not_assessed'] as $k) {
+            $h .= '<li>' . e($st($k)) . ': ' . (int) $s[$k] . '</li>';
+        }
+        $h .= '</ul>';
+        foreach ($d['sectionScores'] as $name => $sc) {
+            $h .= '<p>' . e((string) $name) . ': ' . (int) $sc['score'] . '% (' . (int) $sc['met'] . ' of ' . (int) $sc['applicable'] . ' met)</p>';
+        }
+        $line = function (array $c): string {
+            $bits = [];
+            if (!empty($c['owner'])) {
+                $bits[] = 'Owner: ' . e((string) $c['owner']);
+            }
+            if (!empty($c['due_date'])) {
+                $bits[] = 'Due ' . e(\Align\Fmt::date((string) $c['due_date'])) . (!empty($c['overdue']) ? ' (overdue)' : '');
+            }
+            if (!empty($c['doc_title'])) {
+                $bits[] = 'Document: ' . e((string) $c['doc_title']);
+            }
+            return $bits ? ' — ' . implode(' · ', $bits) : '';
+        };
+        $h .= '<h2>Open items</h2>';
+        if ($d['open']) {
+            $h .= '<ul>';
+            foreach ($d['open'] as $c) {
+                $h .= '<li><strong>' . e((string) $c['ref']) . '</strong> ' . e((string) $c['title']) . ' — ' . e($st($c['status'])) . $line($c) . '</li>';
+            }
+            $h .= '</ul>';
+        } else {
+            $h .= '<p>None.</p>';
+        }
+        $h .= '<h2>Full checklist</h2>';
+        foreach ($d['sections'] as $name => $controls) {
+            $h .= '<h3>' . e((string) $name) . '</h3><ul>';
+            foreach ($controls as $c) {
+                $h .= '<li><strong>' . e((string) $c['ref']) . '</strong> ' . e((string) $c['title']) . ' — ' . e($st($c['status'])) . $line($c) . '</li>';
+            }
+            $h .= '</ul>';
+        }
+        return $h;
+    }
 }

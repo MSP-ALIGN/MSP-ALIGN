@@ -1,7 +1,7 @@
 <?php
 use Align\Docs\Documents;
 
-/** @var array $docs */
+/** @var array $docs; array $signWaiting (2.34.0, portal/_signatures); array $ackWaiting (2.34.0, portal/_acknowledgments) */
 $groups = [];
 foreach ($docs as $d) {
     $groups[$d['category']][] = $d;
@@ -9,6 +9,8 @@ foreach ($docs as $d) {
 ?>
 <div class="mb-3"><h1 class="h4 mb-0"><i class="fas fa-file-lines me-2 text-secondary"></i>Documents</h1>
   <div class="small text-muted">Policies, plans and procedures your IT provider maintains for your organization.</div></div>
+<?= \Align\View::fetch('portal/_signatures', ['signWaiting' => $signWaiting ?? []]) /* 2.34.0 */ ?>
+<?= \Align\View::fetch('portal/_acknowledgments', ['ackWaiting' => $ackWaiting ?? []]) /* 2.34.0 */ ?>
 <?php if (!$docs): ?><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-file-lines', 'text' => 'No documents have been shared with you yet.']) ?></div><?php endif; ?>
 <?php foreach (Documents::CATEGORIES as $cat => [$label, $icon, $tone]): if (empty($groups[$cat])) continue; ?>
   <div class="card">

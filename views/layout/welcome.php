@@ -22,6 +22,7 @@ $v = e(APP_VERSION);
 <script src="/vendor/bootstrap/bootstrap.bundle.min.js?v=<?= $v ?>" defer></script>
 <script src="/assets/app.js?v=<?= $v ?>" defer></script>
 <?php if (!empty($contractsJs)): ?><script src="/assets/pdfview.js?v=<?= $v ?>" defer></script><script src="/assets/contracts.js?v=<?= $v ?>" defer></script><?php endif; ?>
+<?php if (empty($contractsJs) && !empty($pdfJs)): /* 2.34.0 the acknowledgment page: the PDF viewer only */ ?><script src="/assets/pdfview.js?v=<?= $v ?>" defer></script><?php endif; ?>
 </head>
 <body class="welcome-page" data-fmt="<?= e(json_encode(\Align\Fmt::forJs(), JSON_UNESCAPED_UNICODE)) ?>">
 <header class="welcome-top">

@@ -79,6 +79,10 @@ $sel = fn($a, $b) => $a === $b ? 'selected' : '';
       </div>
     </div>
 
+    <?= \Align\View::fetch('documents/_links_once', ['once' => $linksOnce ?? null]) /* (2.34.0) "Create link only" */ ?>
+<?php if ($doc['client_id']): /* 2.34.0 */ ?><?= \Align\View::fetch('documents/_signatures', ['doc' => $doc, 'canEdit' => $canEdit, 'signatures' => $signatures, 'signContacts' => $signContacts, 'resign' => $resign, 'me' => \Align\Auth::user()]) ?><?php endif; ?>
+<?php if ($doc['client_id']): /* 2.34.0 staff acknowledgments */ ?><?= \Align\View::fetch('documents/_acknowledgments', ['doc' => $doc, 'canEdit' => $canEdit, 'acks' => $acks, 'ackAgain' => $ackAgain, 'contacts' => $signContacts, 'controls' => $ackControls]) ?><?php endif; ?>
+
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-clipboard-check me-2"></i>Compliance evidence</h3></div>
       <div class="card-body small">

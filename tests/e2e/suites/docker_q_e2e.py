@@ -107,13 +107,15 @@ ok(ref is not None and "SetEnvIfNoCase Referer" not in ap, "apache.conf cuts the
 if ref:
     rx = re.compile(ref.group(1), re.I)
     hits = ["https://align.example/portal/invite/" + "a" * 43, "https://align.example:8443/portal/welcome/tok/guide/3",
-            "HTTPS://align.example/portal/sign/tok", "http://align.example/ics/tok"]
-    miss = ["https://align.example/clients/portal/invite/x", "https://align.example/portal/login", "https://other.example/x?u=/portal/invite/x"]
-    ok(all(rx.search(h) for h in hits) and not any(rx.search(m) for m in miss), "the Referer rule matches the four secret paths and nothing else")
+            "HTTPS://align.example/portal/sign/tok", "http://align.example/ics/tok",
+            "https://align.example/portal/docsign/tok", "https://align.example/portal/docack/tok"]  # (2.34.0)
+    miss = ["https://align.example/clients/portal/invite/x", "https://align.example/portal/login", "https://other.example/x?u=/portal/invite/x",
+            "https://align.example/portal/documents/1"]
+    ok(all(rx.search(h) for h in hits) and not any(rx.search(m) for m in miss), "the Referer rule matches the six secret paths and nothing else")
     ok(rx.sub(r"\1(hidden)", hits[0]) == "https://align.example/portal/invite/(hidden)", "...and keeps only the path's start: " + rx.sub(r"\1(hidden)", hits[0]))
 ins = open(ROOT + "/install.sh").read()
-ok('RequestHeader edit Referer "(?i)^(https?://[^/]+/(?:ics|portal/(?:invite|welcome|sign))/).*$" "$1(hidden)"' in ins, "install.sh has the same Referer rule")
-for p in ["^/ics/", "^/portal/invite/", "^/portal/welcome/", "^/portal/sign/"]:
+ok('RequestHeader edit Referer "(?i)^(https?://[^/]+/(?:ics|portal/(?:invite|welcome|sign|docsign|docack))/).*$" "$1(hidden)"' in ins, "install.sh has the same Referer rule")
+for p in ["^/ics/", "^/portal/invite/", "^/portal/welcome/", "^/portal/sign/", "^/portal/docsign/", "^/portal/docack/"]:
     ok(f'SetEnvIf Request_URI "{p}" align_secret_url' in ap, f"{p} is still kept out of the access log")
 ok("reqenv('align_secret_url')" in ap and "AllowOverride None" in ap and "Options -Indexes" in ap and "ServerTokens Prod" in ap and "TraceEnable Off" in ap,
    "apache.conf: secret-link filter on the access log, no .htaccess, no listings, no version, no TRACE")

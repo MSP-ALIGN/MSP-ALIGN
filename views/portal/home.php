@@ -5,6 +5,7 @@ use Align\Roadmap\Roadmap;
  * Portal home: a card per section the controller filled in (each checked its own permission). Values are escaped;
  * the provider's website is only ever an https:// or http:// link and the phone link keeps digits and + only.
  * @var array $pu, $client, $provider; ?array $nextMeeting, $budget, $summary, $changes (2.4.0), $health (2.5.0: h, trend, since); array $pending, $dates, $frameworks
+ *   (2.34.0) array $signWaiting, $ackWaiting (portal/_signatures, portal/_acknowledgments)
  */
 $logo = client_logo_url($client);
 $vcio = $provider['vcio'] ?? null;
@@ -17,6 +18,9 @@ $vcio = $provider['vcio'] ?? null;
   </div>
   <a href="/portal/report/qbr" target="_blank" class="btn btn-sm btn-outline-primary mt-2 mt-md-0"><i class="fas fa-book-open me-1"></i>Business review report (PDF)</a>
 </div>
+
+<?= \Align\View::fetch('portal/_signatures', ['signWaiting' => $signWaiting ?? []]) /* 2.34.0 */ ?>
+<?= \Align\View::fetch('portal/_acknowledgments', ['ackWaiting' => $ackWaiting ?? []]) /* 2.34.0 */ ?>
 
 <?php if ($pending): ?>
   <div class="card card-outline card-warning">
