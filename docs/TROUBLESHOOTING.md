@@ -5,7 +5,7 @@ for a dedicated server; in Docker, run `align` commands as `docker compose exec 
 `docker compose logs app`.
 
 Useful everywhere: `sudo align check` (health check), the app's error log `/var/log/apache2/msp-align-error.log`, and
-**Admin → Audit log**.
+**Administration → Audit log** (your name, top right).
 
 ## Installing
 
@@ -26,7 +26,7 @@ Useful everywhere: `sudo align check` (health check), the app's error log `/var/
 | *Too many failed attempts. Wait 15 minutes and try again.* | Five wrong passwords lock the account for 15 minutes (ten from one address, across accounts). Wait it out. |
 | The page doesn't load at all after many failures | fail2ban banned the address for an hour (dedicated installs, not proxy mode): `sudo fail2ban-client set msp-align unbanip <IP>`. |
 | *That code is not valid.* | Check the time on the phone and on the server (`timedatectl`; the installer turns on time sync). Each code works once. |
-| Lost phone or authenticator | Another admin can use **Remove 2FA** on the user list (Admin → People), or on the server: `sudo align user:reset-password --email=you@example.com --clear-2fa`. It prints a one-time password; you set up a new authenticator at the next sign-in. |
+| Lost phone or authenticator | Another admin can use **Remove 2FA** on the user list (Administration → Staff & portal users), or on the server: `sudo align user:reset-password --email=you@example.com --clear-2fa`. It prints a one-time password; you set up a new authenticator at the next sign-in. |
 | A password stopped working, with a *Password replaced after wrong two-factor codes* alert | After 50 wrong codes in a row following the correct password, Align replaces the password and ends that person's sessions (2.2.1): someone else probably knows it. An admin sets a new one (**Reset password**, or `sudo align user:reset-password`); a portal user uses **Forgot password**. |
 | Calendar feed stopped updating | A password change, 2FA change or "sign out everywhere" turns off the feed link (2.2.1). Make a new one on the Meetings page and subscribe again. |
 | No admin can sign in | `sudo align user:create --email=you@example.com --role=admin` |

@@ -93,11 +93,15 @@ ok(st["queued"] == int(ref["qd"] or 0) and st["sent24"] == int(ref["s24"] or 0),
 # ---- 1.42 layout: the menu for each role
 side = lambda t: t.split('app-sidebar')[1].split('</aside>')[0]
 a = side(admin.get(B + "/").text); tt = side(tech.get(B + "/").text); v = side(viewer.get(B + "/").text)
-for label, href in [("To do", "/todo"), ("Devices &amp; assets", "/devices"), ("Integrations", "/integrations"), ("Staff &amp; portal users", "/users"), ("Libraries", "/libraries"), ("Settings", "/settings"), ("Audit log", "/audit")]:
+# 2.35.0: the setup tools are the Administration area (the user menu), with its own sidebar on its pages
+aa = side(admin.get(B + "/admin").text); ta = side(tech.get(B + "/admin").text); va = side(viewer.get(B + "/admin").text)
+for label, href in [("To do", "/todo"), ("Devices &amp; assets", "/devices")]:
     ok(f'href="{href}"' in a and label in a, f"admin menu: {H.unescape(label)}")
+for label, href in [("Integrations", "/integrations"), ("Staff &amp; portal users", "/users"), ("Libraries", "/libraries"), ("Settings", "/settings"), ("Audit log", "/audit")]:
+    ok(f'href="{href}"' in aa and label in aa and f'href="{href}"' not in a, f"admin Administration menu: {H.unescape(label)}")
 ok("Unassigned hardware" not in a and 'href="/help"' not in a and 'href="/mapping"' not in a and 'href="/sync"' not in a, "admin menu: queues and tools moved into To do and tabs")
-ok('href="/mapping"' in tt and "Integrations" in tt and 'href="/portal-users"' in tt and "Staff &amp; portal users" in tt and 'href="/settings"' not in tt, "tech menu: Integrations opens Client mapping, Staff & portal users opens portal users")
-ok('href="/sync"' in v and "People" not in v and 'href="/todo"' not in v, "viewer menu: Integrations opens Sync history, no People or To do")
+ok('href="/mapping"' in ta and "Integrations" in ta and 'href="/portal-users"' in ta and "Staff &amp; portal users" in ta and 'href="/settings"' not in ta, "tech Administration menu: Integrations opens Client mapping, Staff & portal users opens portal users")
+ok('href="/sync"' in va and "People" not in va and 'href="/todo"' not in v, "viewer: Administration's Integrations opens Sync history, no People or To do")
 ok(viewer.get(B + "/todo", allow_redirects=False).status_code == 403, "viewers can't open To do")
 top = admin.get(B + "/").text
 ok('action="/search"' in top and 'href="/help"' in top.split('app-header')[1].split('</nav>')[0], "top bar: search everything, help button")

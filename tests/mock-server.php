@@ -1864,11 +1864,80 @@ switch (true) {
             $all = mockTickets($st);
             $st['ticket_calls'][] = isset($_GET['ticket_id']) ? 'id:' . (int) $_GET['ticket_id'] : "page:$offset";
             $saveState($st);
+            if (!empty($st['tickets_created_readable'])) { // 2.35.0 portal tickets: what create.php made, readable back
+                foreach ($st['tickets_created'] ?? [] as $c) {
+                    $all[] = ['ticket_id' => $c['ticket_id'], 'ticket_prefix' => 'TCK-', 'ticket_number' => $c['ticket_id'], 'ticket_subject' => (string) ($c['ticket_subject'] ?? ''),
+                        'ticket_details' => (string) ($c['ticket_details'] ?? ''), 'ticket_priority' => (string) ($c['ticket_priority'] ?? 'Medium'), 'ticket_status' => 1,
+                        'ticket_client_id' => (int) ($c['client_id'] ?? 0), 'ticket_contact_id' => $c['ticket_contact_id'] ?? null, 'ticket_created_at' => date('Y-m-d H:i:s'),
+                        'ticket_closed_at' => null, 'ticket_resolved_at' => null, 'ticket_archived_at' => null, 'ticket_url_key' => 'gk' . str_pad((string) $c['ticket_id'], 18, '0', STR_PAD_LEFT)];
+                }
+            }
             if (isset($_GET['ticket_id'])) {
                 $rows = array_values(array_filter($all, fn($t) => $t['ticket_id'] === (int) $_GET['ticket_id']));
+                $names = [1 => 'New', 2 => 'Open', 3 => 'On Hold', 4 => 'Resolved', 5 => 'Closed'];
+                $rows = array_map(fn($t) => $t + ['ticket_status_name' => $names[(int) ($t['ticket_status'] ?? 0)] ?? 'Open'], $rows);
             } else {
                 $rows = array_slice($all, $offset, $limit);
             }
+        } elseif ($path === '/api/v1/ticket_replies/read.php') {
+            // 2.35.0 replies of the open tickets: public, internal and the client's own; one public reply carries HTML
+            // the portal must clean. replies_404: an ITFlow without this endpoint
+            $st = $loadState();
+            if (!empty($st['replies_404'])) {
+                http_response_code(404);
+                echo 'Not found';
+                break;
+            }
+            $tid = (int) ($_GET['ticket_id'] ?? 0);
+            $all = [];
+            foreach (mockTickets($st) as $t) {
+                if ($t['ticket_id'] !== $tid || !in_array($t['ticket_subject'], ['Server backup failing', 'Imaging software crashes'], true)) {
+                    continue;
+                }
+                $at = strtotime($t['ticket_created_at']);
+                $all = [
+                    ['ticket_reply_id' => $tid * 10 + 1, 'ticket_reply_ticket_id' => $tid, 'ticket_reply_type' => 'Public', 'ticket_reply_by_name' => 'Alex Tech',
+                        'ticket_reply' => '<p>We are looking into it.<script>alert(1)</script><img src=x onerror=alert(2)> <a href="javascript:alert(3)">details</a></p>', 'ticket_reply_created_at' => date('Y-m-d H:i:s', $at + 600), 'ticket_reply_archived_at' => null],
+                    ['ticket_reply_id' => $tid * 10 + 2, 'ticket_reply_ticket_id' => $tid, 'ticket_reply_type' => 'Internal', 'ticket_reply_by_name' => 'Alex Tech',
+                        'ticket_reply' => '<p>INTERNAL NOTE: the backup password is in the vault</p>', 'ticket_reply_created_at' => date('Y-m-d H:i:s', $at + 900), 'ticket_reply_archived_at' => null],
+                    ['ticket_reply_id' => $tid * 10 + 3, 'ticket_reply_ticket_id' => $tid, 'ticket_reply_type' => 'Client', 'ticket_reply_by_name' => 'Sam Rivera',
+                        'ticket_reply' => '<p>Thanks, it is still failing this morning.</p>', 'ticket_reply_created_at' => date('Y-m-d H:i:s', $at + 1800), 'ticket_reply_archived_at' => null],
+                    ['ticket_reply_id' => $tid * 10 + 4, 'ticket_reply_ticket_id' => $tid, 'ticket_reply_type' => 'Public', 'ticket_reply_by_name' => 'Alex Tech',
+                        'ticket_reply' => '<p>ARCHIVED REPLY</p>', 'ticket_reply_created_at' => date('Y-m-d H:i:s', $at + 2000), 'ticket_reply_archived_at' => date('Y-m-d H:i:s')],
+                ];
+            }
+            $rows = array_slice($all, $offset, $limit);
+        } elseif ($path === '/api/v1/quotes/read.php') {
+            // 2.35.0 quotes: a draft (never shown), sent, accepted, archived, and another client's
+            $st = $loadState();
+            $all = $st['quotes'] ?? [
+                ['quote_id' => 71, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 71, 'quote_scope' => 'Firewall replacement', 'quote_status' => 'Sent',
+                    'quote_date' => date('Y-m-d', strtotime('-5 days')), 'quote_expire' => date('Y-m-d', strtotime('+25 days')), 'quote_amount' => '2450.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000071', 'quote_archived_at' => null],
+                ['quote_id' => 72, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 72, 'quote_scope' => 'Draft laptops', 'quote_status' => 'Draft',
+                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '9999.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000072', 'quote_archived_at' => null],
+                ['quote_id' => 73, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 73, 'quote_scope' => 'Microsoft 365 migration', 'quote_status' => 'Accepted',
+                    'quote_date' => date('Y-m-d', strtotime('-40 days')), 'quote_expire' => date('Y-m-d', strtotime('-10 days')), 'quote_amount' => '1200.50', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000073', 'quote_archived_at' => null],
+                ['quote_id' => 74, 'quote_client_id' => 1, 'quote_prefix' => 'QT-', 'quote_number' => 74, 'quote_scope' => 'Archived quote', 'quote_status' => 'Sent',
+                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '10.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000074', 'quote_archived_at' => date('Y-m-d H:i:s')],
+                ['quote_id' => 81, 'quote_client_id' => 2, 'quote_prefix' => 'QT-', 'quote_number' => 81, 'quote_scope' => 'Other client quote', 'quote_status' => 'Sent',
+                    'quote_date' => date('Y-m-d'), 'quote_expire' => null, 'quote_amount' => '500.00', 'quote_currency_code' => 'USD', 'quote_url_key' => 'qk0000000000000081', 'quote_archived_at' => null],
+            ];
+            $rows = isset($_GET['quote_id']) ? array_values(array_filter($all, fn($q) => (int) $q['quote_id'] === (int) $_GET['quote_id'])) : array_slice($all, $offset, $limit);
+        } elseif ($path === '/api/v1/documents/read.php') {
+            // 2.35.0 documents: shared with the client, hidden from it, another client's, a template
+            $st = $loadState();
+            $all = $st['documents'] ?? [
+                ['document_id' => 601, 'document_client_id' => 1, 'document_name' => 'Wi-Fi guide for staff', 'document_description' => 'Joining the office network',
+                    'document_content' => '<h2>Joining Wi-Fi</h2><p>Pick <b>Cedar-Staff</b>.</p><script>alert(1)</script><img src="/uploads/documents/601/a.png">', 'document_client_visible' => 1,
+                    'document_template' => 0, 'document_created_at' => '2026-01-05 10:00:00', 'document_updated_at' => '2026-02-01 09:00:00', 'document_archived_at' => null],
+                ['document_id' => 602, 'document_client_id' => 1, 'document_name' => 'Internal runbook', 'document_description' => 'MSP only', 'document_content' => '<p>INTERNAL RUNBOOK</p>',
+                    'document_client_visible' => 0, 'document_template' => 0, 'document_created_at' => '2026-01-05 10:00:00', 'document_updated_at' => null, 'document_archived_at' => null],
+                ['document_id' => 603, 'document_client_id' => 2, 'document_name' => 'Other client guide', 'document_description' => '', 'document_content' => '<p>Not yours</p>',
+                    'document_client_visible' => 1, 'document_template' => 0, 'document_created_at' => '2026-01-05 10:00:00', 'document_updated_at' => null, 'document_archived_at' => null],
+                ['document_id' => 604, 'document_client_id' => 1, 'document_name' => 'A template', 'document_description' => '', 'document_content' => '<p>Template</p>',
+                    'document_client_visible' => 1, 'document_template' => 1, 'document_created_at' => '2026-01-05 10:00:00', 'document_updated_at' => null, 'document_archived_at' => null],
+            ];
+            $rows = isset($_GET['document_id']) ? array_values(array_filter($all, fn($d) => (int) $d['document_id'] === (int) $_GET['document_id'])) : array_slice($all, $offset, $limit);
         } elseif ($path === '/api/v1/vendors/read.php') {
             $all = array_values(array_filter($mockVendors($loadState()), fn($r) => empty($r['vendor_archived_at']))); // ITFlow 26.10 leaves archived ones out
             $rows = array_slice($all, $offset, $limit);
@@ -2269,7 +2338,9 @@ function mockTickets(array $st): array
                 'ticket_priority' => $t['priority'], 'ticket_status' => 5, 'ticket_sla_id' => $sla, 'ticket_created_at' => $f($t['created']),
                 'ticket_first_response_at' => null, 'ticket_response_due_at' => null, 'ticket_resolution_due_at' => null, 'ticket_resolved_at' => null, 'ticket_closed_at' => null,
                 'ticket_archived_at' => null, 'ticket_response_sla_met' => null, 'ticket_resolution_sla_met' => null,
-                'ticket_response_sla_alert_stage' => 0, 'ticket_resolution_sla_alert_stage' => 0, 'ticket_client_id' => $t['client']];
+                'ticket_response_sla_alert_stage' => 0, 'ticket_resolution_sla_alert_stage' => 0, 'ticket_client_id' => $t['client'],
+                // 2.35.0 the client portal: whose ticket it is, and the guest page key
+                'ticket_contact_id' => ['Server backup failing' => 6, 'Imaging software crashes' => 2][$t['subject']] ?? null, 'ticket_url_key' => 'gk' . str_pad((string) $id, 18, '0', STR_PAD_LEFT)];
             $respAt = $t['created'] + (int) ($resp * 60 * (mt_rand() / mt_getrandmax() < $miss ? 1.3 + mt_rand(0, 100) / 100 : 0.1 + mt_rand(0, 80) / 100));
             $resAt = $t['created'] + (int) ($res * 60 * (mt_rand() / mt_getrandmax() < $miss ? 1.2 + mt_rand(0, 150) / 100 : 0.2 + mt_rand(0, 75) / 100));
             if ($sla) {

@@ -14,6 +14,7 @@ use Align\Controllers\MappingController;
 use Align\Controllers\MeetingController;
 use Align\Controllers\PortalAdminController;
 use Align\Controllers\PortalClosetController;
+use Align\Controllers\PortalSupportController;
 use Align\Controllers\PortalController;
 use Align\Controllers\ReportController;
 use Align\Controllers\RoadmapController;
@@ -104,6 +105,7 @@ $r->get('/vendors/{id}/form', [\Align\Controllers\FormController::class, 'vendor
 $r->get('/budget', [\Align\Controllers\BudgetController::class, 'index']);
 $r->get('/renewals', [\Align\Controllers\LicenseController::class, 'renewals']);
 $r->get('/help', [\Align\Controllers\HelpController::class, 'show']);
+$r->get('/admin', [\Align\Controllers\AdminController::class, 'index']); // 2.35.0 the Administration area's overview
 // 2.27.0 Feedback: bug reports and feature requests from the top bar
 $r->get('/feedback', [\Align\Controllers\FeedbackController::class, 'index']);
 $r->post('/feedback', [\Align\Controllers\FeedbackController::class, 'create']);
@@ -563,6 +565,14 @@ $r->post('/portal/projects/{id}/decide', [PortalController::class, 'decide']);
 $r->get('/portal/budget', [PortalController::class, 'budget']);
 $r->get('/portal/licensing', [PortalController::class, 'licensing']);
 $r->get('/portal/vendors', [PortalController::class, 'vendors']); // 2.10.0
+// 2.35.0 the PSA's tickets, quotes and shared documents (ITFlow; Portal\Support)
+$r->get('/portal/tickets', [PortalSupportController::class, 'tickets']);
+$r->post('/portal/tickets', [PortalSupportController::class, 'open']);
+$r->get('/portal/tickets/{id}', [PortalSupportController::class, 'ticket']);
+$r->get('/portal/tickets/{id}/reply', [PortalSupportController::class, 'reply']);
+$r->get('/portal/quotes', [PortalSupportController::class, 'quotes']);
+$r->get('/portal/quotes/{id}/open', [PortalSupportController::class, 'quote']);
+$r->get('/portal/shared/{id}', [PortalSupportController::class, 'document']);
 $r->get('/portal/closet', [PortalClosetController::class, 'closet']); // 2.15.0
 $r->post('/portal/closet/items/{id}/checkout', [PortalClosetController::class, 'closetCheckout']);
 $r->post('/portal/closet/devices/{id}/checkout', [PortalClosetController::class, 'closetCheckoutDevice']);

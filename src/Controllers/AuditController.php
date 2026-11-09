@@ -8,7 +8,7 @@ use Align\DB;
 use Align\View;
 
 /**
- * Admin → Audit log: the hash-chained log, filtered by person, kind of action and text, and the full tamper check.
+ * Administration → Audit log: the hash-chained log, filtered by person, kind of action and text, and the full tamper check.
  *
  * Security assumptions: admins only; the Router has checked CSRF on the check. The log is read-only here: nothing
  * in this class changes or deletes an entry. Filters are untrusted: the text goes into LIKE as a bound value with

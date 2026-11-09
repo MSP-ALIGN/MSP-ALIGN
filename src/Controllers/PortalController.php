@@ -545,7 +545,8 @@ final class PortalController
         $pu = PortalAuth::require('can_documents');
         $docs = DB::all("SELECT id, title, category, kind, file_type, file_size, updated_at, review_due FROM documents WHERE client_id = ? AND status = 'active' AND portal_shared = 1 ORDER BY category, title", [$pu['client_id']]);
         self::render('documents', ['title' => 'Documents', 'nav' => 'documents', 'docs' => $docs, 'signWaiting' => \Align\Docs\Signing::waitingFor($pu),
-            'ackWaiting' => \Align\Docs\Acknowledging::waitingFor($pu)], $pu); // (2.34.0)
+            'ackWaiting' => \Align\Docs\Acknowledging::waitingFor($pu), // (2.34.0)
+            'shared' => !empty($pu['can_psa_docs']) && \Align\Portal\Support::available() ? \Align\Portal\Support::documents($pu) : []], $pu); // 2.35.0 the PSA's shared documents (can_psa_docs)
     }
 
     /**

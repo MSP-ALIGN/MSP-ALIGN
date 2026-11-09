@@ -197,17 +197,23 @@ abstract class Connector
                         throw new \InvalidArgumentException($f['label'] . ' can\'t contain line breaks or control characters.');
                     }
                     if ($f['type'] === 'url' && $val !== '') {
-                        $val = rtrim($val, '/');
+                        // A trailing / goes, except from a link's query or fragment, where it can matter (2.35.0)
+                        $val = !empty($f['allow_query']) && preg_match('/[?#]/', $val) ? $val : rtrim($val, '/');
+                        if (!empty($f['allow_query']) && preg_match('/["\'<>`\\\\\s]/', $val)) {
+                            throw new \InvalidArgumentException($f['label'] . ' can\'t contain spaces, quotes, < > ` or \\. Copy the address straight from the browser\'s address bar.');
+                        }
                         $privateHttp = !empty($f['private_http']); // 2.29.0
-                        $scheme = \Align\Config::get('allow_insecure_integrations', false) || $privateHttp ? 'https?' : 'https';
+                        $scheme = (\Align\Config::get('allow_insecure_integrations', false) || $privateHttp) && empty($f['allow_query']) ? 'https?' : 'https'; // 2.35.0 a link clients open (allow_query): https always
                         if (!filter_var($val, FILTER_VALIDATE_URL) || !preg_match('#^' . $scheme . '://#i', $val)) {
                             throw new \InvalidArgumentException($f['label'] . ' must start with https://' . ($privateHttp ? ' (or http:// on your own network)' : '') . ' (for example ' . ($f['placeholder'] ?? 'https://example.com') . ').');
                         }
                         // Just the server (and a path): a user name would be sent as a login, and ? or # would swallow
                         // the API path the connector adds
                         $parts = parse_url($val) ?: [];
-                        if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
-                            throw new \InvalidArgumentException($f['label'] . ' must be just the address, without a user name, password, ? or #.');
+                        // 2.35.0 a link people open (allow_query: a bill pay page) may carry ? and #; never a user name
+                        $q = empty($f['allow_query']) && (isset($parts['query']) || isset($parts['fragment']));
+                        if (isset($parts['user']) || isset($parts['pass']) || $q) {
+                            throw new \InvalidArgumentException($f['label'] . (empty($f['allow_query']) ? ' must be just the address, without a user name, password, ? or #.' : ' can\'t contain a user name or password.'));
                         }
                         try {
                             \Align\Http\HttpClient::check($val, false, !empty($f['private_http']));

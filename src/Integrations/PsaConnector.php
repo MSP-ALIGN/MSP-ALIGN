@@ -79,6 +79,12 @@ abstract class PsaConnector extends Connector
             $f[] = ['name' => 'psa_sla_sync', 'label' => 'Service levels: bring in ticket SLA results', 'type' => 'switch', 'default' => '1',
                 'help' => $this->slaHelp()];
         }
+        if ($this->can('portal')) {
+            // 2.35.0 an MSP that uses the PSA's own client portal keeps these out of Align's entirely (Portal\Support::available)
+            $f[] = ['name' => 'psa_portal', 'label' => "Client portal: show $n tickets, quotes and shared documents", 'type' => 'switch', 'default' => '1',
+                'help' => "On: you choose per portal user who sees them (Tickets, Quotes, Documents shared in the PSA; all off until you tick them). "
+                    . "Off: they never show in the client portal and aren't read from $n, whatever is ticked. The Pay a bill button has its own setting (the bill pay address)."];
+        }
         if ($this->can('assets.write')) {
             $f[] = ['name' => 'psa_writeback', 'label' => "Write warranty dates back to $n assets", 'type' => 'select', 'default' => 'off',
                 'options' => ['off' => 'Off (read only)', 'fill_empty' => 'Fill empty fields only', 'overwrite' => "Keep $n in sync (overwrite)"]];

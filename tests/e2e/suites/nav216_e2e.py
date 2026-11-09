@@ -20,8 +20,9 @@ def side(t): return t.split('class="app-sidebar')[1].split("</aside>")[0] if 'cl
 # ---- the main menu
 t = st.get(B + "/").text
 m = side(t)
-ok('href="/libraries"' in m and ">Libraries<" in m and 'href="/vendors"' not in m, "the main menu has Libraries and no Vendors item")
-ok("Licensing &amp; renewals" in m and 'href="/renewals"' not in m and "Staff &amp; portal users" in m, "Licensing & renewals is one item; People is Staff & portal users")
+am = side(st.get(B + "/admin").text)  # 2.35.0 Libraries and Staff & portal users are in the Administration menu
+ok('href="/libraries"' in am and ">Libraries<" in am and 'href="/vendors"' not in m + am, "Libraries is in the Administration menu and there is no Vendors item")
+ok("Licensing &amp; renewals" in m and 'href="/renewals"' not in m and "Staff &amp; portal users" in am, "Licensing & renewals is one item; People is Staff & portal users")
 ok('href="/search"' in t and "d-md-none" in t.split('href="/search"')[0][-120:], "phones get a search button")
 lt = st.get(B + "/licenses").text
 rt = st.get(B + "/renewals").text

@@ -30,6 +30,9 @@ final class PortalAuth
         'can_devices' => 'Devices & compliance',
         'can_documents' => 'Documents, contacts & meetings',
         'can_closet' => 'Tech closet', // 2.15.0
+        'can_tickets' => 'Tickets', // 2.35.0 the PSA's tickets (Portal\Support; ITFlow)
+        'can_quotes' => 'Quotes', // 2.35.0 the PSA's quotes, accepted or declined on its own page
+        'can_psa_docs' => 'Documents shared in the PSA', // 2.35.0 on the Documents page (needs can_documents)
     ];
     public const ACTIONS = [
         'can_approve' => 'Approve or decline proposed projects',
@@ -38,6 +41,8 @@ final class PortalAuth
         'can_contacts' => 'Send new user and termination requests',
         'can_checkout' => 'Check tech closet items out and in, and ask for parts', // 2.15.0
         'can_closet_edit' => 'Add tech closet items and keep them up to date', // 2.15.1
+        'can_all_tickets' => 'See every ticket of their company, not only their own', // 2.35.0
+        'can_pay_bills' => 'Pay bills (a button to your bill pay page)', // 2.35.0 (Portal\Support::billingUrl)
     ];
 
     /** The signed-in user's row for this request, once user() has checked it. */

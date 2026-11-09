@@ -57,6 +57,11 @@ final class Itflow extends PsaConnector
         return [
             ['name' => 'itflow_url', 'label' => 'ITFlow URL', 'type' => 'url', 'placeholder' => 'https://itflow.example.com'],
             ['name' => 'itflow_api_key', 'label' => 'API key', 'type' => 'secret'],
+            // 2.35.0 where clients pay their bills (ITFlow's portal, a payment provider's page): a link in the client
+            // portal only, never called by Align, so changing it needs no key typed again
+            ['name' => 'itflow_billing_url', 'label' => 'Bill pay address for the client portal (optional)', 'type' => 'url', 'link_only' => true, 'allow_query' => true,
+                'placeholder' => 'https://pay.example.com/yourcompany',
+                'help' => 'Where clients pay their bills. Portal users you allow to (Pay bills) get a Pay a bill button that opens it in a new tab. Leave it empty for no button.'],
         ];
     }
 

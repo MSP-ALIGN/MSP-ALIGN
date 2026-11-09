@@ -20,7 +20,10 @@ use Align\View;
 final class PortalAdminController
 {
     /** The permission columns, in the order the form and the UPDATE use them. */
-    private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts', 'can_closet', 'can_checkout', 'can_closet_edit']; // 2.15.0: closet
+    private const PERMS = ['can_roadmap', 'can_budget', 'can_devices', 'can_documents', 'can_approve', 'can_submit', 'can_contacts', 'can_closet', 'can_checkout', 'can_closet_edit',
+        'can_tickets', 'can_quotes', 'can_psa_docs', 'can_all_tickets', 'can_pay_bills']; // 2.15.0: closet; 2.35.0: the PSA's tickets, quotes, documents, bill pay
+    /** 2.35.0 Shown only when the PSA has them in the portal; kept as they are when hidden (see perms()). */
+    private const PSA_PERMS = ['can_tickets', 'can_quotes', 'can_psa_docs', 'can_all_tickets'];
 
     /** Every portal user across clients (tech). The view is audited (once per 15 minutes per session). */
     public static function index(): void
@@ -111,12 +114,17 @@ final class PortalAdminController
         redirect($back);
     }
 
-    /** The posted permission checkboxes as 0/1; an action is dropped without the section it acts on. */
-    private static function perms(): array
+    /**
+     * The posted permission checkboxes as 0/1; an action is dropped without the section it acts on. $old: the user being
+     * changed. 2.35.0: while the PSA's portal features aren't available (a PSA being reconnected), their boxes aren't
+     * shown, so a saved user keeps the values they had instead of losing them.
+     */
+    private static function perms(?array $old = null): array
     {
         $p = [];
+        $psaHidden = !\Align\Portal\Support::available();
         foreach (self::PERMS as $k) {
-            $p[$k] = isset($_POST[$k]) ? 1 : 0;
+            $p[$k] = $psaHidden && in_array($k, self::PSA_PERMS, true) ? (int) ($old[$k] ?? 0) : (isset($_POST[$k]) ? 1 : 0);
         }
         // Actions need the section they act on
         if (!$p['can_roadmap']) {
@@ -131,6 +139,12 @@ final class PortalAdminController
         if (!$p['can_closet']) { // 2.15.0
             $p['can_checkout'] = 0;
             $p['can_closet_edit'] = 0;
+        }
+        if (!$p['can_tickets']) { // 2.35.0
+            $p['can_all_tickets'] = 0;
+        }
+        if (!$p['can_documents']) { // 2.35.0 they show on the Documents page
+            $p['can_psa_docs'] = 0;
         }
         return $p;
     }
@@ -246,7 +260,7 @@ final class PortalAdminController
                 redirect($back);
         }
         $name = mb_substr(trim(post('name')), 0, 190) ?: $u['name'];
-        $perms = self::perms();
+        $perms = self::perms($u);
         DB::run('UPDATE portal_users SET name = ?, ' . implode(', ', array_map(fn($k) => "$k = ?", self::PERMS)) . ' WHERE id = ?',
             [$name, ...array_values($perms), $id]);
         $changed = array_filter([$name !== $u['name'] ? 'name "' . $u['name'] . '" to "' . $name . '"' : '', self::permsText($perms, $u)]);

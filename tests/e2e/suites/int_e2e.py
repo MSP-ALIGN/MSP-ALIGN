@@ -46,7 +46,8 @@ rid=q("select id from sync_runs where finished_at is not null order by id desc l
 old=q("select summary from sync_runs where id=%s",rid)[0]["summary"]
 s2=json.loads(old); s2["Veeam backups"]="ERROR: 401 Unauthorized"; q("update sync_runs set summary=%s where id=%s",json.dumps(s2),rid)
 t=st.get(B+"/integrations").text; ok("401 Unauthorized" in t and ">Error<" in t,"card shows last sync error")
-ok(re.search(r'href="/integrations" class="nav-link[^"]*"><i[^>]*></i><p>Integrations <span class="nav-badge badge text-bg-warning me-2">[1-9]<',st.get(B+"/").text),"menu badge counts integrations with errors")
+ok(re.search(r'id="menu-administration"><i[^>]*></i>Administration<span class="badge text-bg-warning ms-auto ps-2">[1-9]<',st.get(B+"/").text),"menu badge counts integrations with errors (2.35.0: on Administration in the user menu)")
+ok(re.search(r'href="/integrations" class="nav-link[^"]*"[^>]*><i[^>]*></i><p>Integrations <span class="nav-badge badge text-bg-warning me-2">[1-9]<',st.get(B+"/admin").text),"...and on Integrations in the Administration menu")
 q("update sync_runs set summary=%s where id=%s",old,rid)
 
 # ---- email page moved, callback kept
@@ -77,7 +78,7 @@ F=f2(st,"/settings/notifications"); F["notif_digest_hour"]="7"; F["mail_meeting_
 d=st.get(B+"/").text
 side=d.split('app-sidebar')[1].split('</aside>')[0]
 order=[m for m in re.findall(r'<li class="nav-header">([^<]+)</li>',side)]
-ok(order==["CLIENTS","ONBOARDING","PLANNING","MEETINGS &amp; REPORTS","COMPLIANCE","ADMIN"],"sidebar sections (1.42; Onboarding in 2.2): "+str(order))
+ok(order==["CLIENTS","ONBOARDING","PLANNING","MEETINGS &amp; REPORTS","COMPLIANCE"],"sidebar sections (1.42; Onboarding in 2.2; Admin moved to the user menu in 2.35.0): "+str(order))
 ok('href="/calendar"' not in side and 'href="/frameworks"' not in side and 'href="/settings/email"' not in side and 'href="/settings/branding"' not in side,"calendar, frameworks, email and branding moved out of the sidebar")
 t=st.get(B+"/meetings").text; ok('href="/calendar"' in t and 'nav-tabs' in t,"meetings has a calendar tab")
 t=st.get(B+"/compliance").text; ok('href="/frameworks"' in t,"compliance has a frameworks tab for admins")

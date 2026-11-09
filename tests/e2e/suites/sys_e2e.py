@@ -37,7 +37,7 @@ ok("Update to 9.99.0" in t and "<b>Shiny new thing</b>" in t and "Adds a <b>thin
 ok("Fix a typo" not in t and "Not yet" not in t and "Co-Authored" not in t and "2 changes" not in t and [n["version"] for n in u["notes"]]==["9.99.0"] and len(u["changes"])==2,
    "the notes, not every commit; a later release's entry left out")
 d=st.get(B+"/").text
-ok("MSP Align <b>9.99.0</b> is available" in d and 'nav-badge badge text-bg-info me-2">new<' in d,"banner and nav badge for admins")
+ok("MSP Align <b>9.99.0</b> is available" in d and 'badge text-bg-info ms-auto ps-2">new<' in d,"banner and nav badge for admins (2.35.0: on Administration in the user menu)")
 tech=login("viewer@example.com","ViewerPassword123!"); ok(tech.get(B+"/settings/system").status_code==403 and "is available" not in tech.get(B+"/").text,"non-admins can't see it")
 
 # ---- backup for download
