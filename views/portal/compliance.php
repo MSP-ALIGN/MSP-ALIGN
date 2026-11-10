@@ -1,5 +1,5 @@
 <?php /** @var array $frameworks */ ?>
-<div class="mb-3"><h1 class="h4 mb-0"><i class="fas fa-clipboard-check me-2 text-secondary"></i>Compliance</h1>
+<div class="portal-page-head"><h1 class="h4 mb-0"><i class="fas fa-clipboard-check me-2 text-secondary"></i>Compliance</h1>
   <div class="small text-muted">How your organization measures up against the frameworks you follow. Your IT provider keeps these assessments current.</div></div>
 <div class="row">
   <?php foreach ($frameworks as $fw): $s = $fw['score']; ?>

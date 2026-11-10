@@ -189,6 +189,18 @@ final class Support
         return $rows;
     }
 
+    /** (2.36.0) How many open tickets this user may see (the Home card), counted in the database. */
+    public static function openCount(array $pu): int
+    {
+        $psaClient = self::clientPsaId($pu);
+        if ($psaClient === '') {
+            return 0;
+        }
+        [$own, $params] = self::ownSql($pu);
+        return (int) DB::value('SELECT COUNT(*) FROM psa_tickets t WHERE t.psa_client_id = ? AND t.archived_at IS NULL AND t.resolved_at IS NULL AND t.closed_at IS NULL'
+            . (!empty($pu['can_all_tickets']) ? '' : " AND ($own)"), array_merge([$psaClient], !empty($pu['can_all_tickets']) ? [] : $params));
+    }
+
     /** SQL (on psa_tickets t) for "this user's own ticket", with its parameters. */
     private static function ownSql(array $pu): array
     {

@@ -96,3 +96,7 @@ if ($dopts || $df): ?>
     </div>
   <?php endif;
 endif;
+?>
+<?php if ($filter === 'unassigned' && \Align\Auth::can('tech')): // (2.36.0) the page that changes types in bulk ?>
+  <div class="px-3 py-2 small border-bottom"><i class="fas fa-circle-question text-warning me-1"></i>To give many devices a type at once, use <a href="/devices/unassigned">Unassigned hardware</a>.</div>
+<?php endif; ?>

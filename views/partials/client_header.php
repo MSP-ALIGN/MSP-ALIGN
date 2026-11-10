@@ -45,16 +45,7 @@ $cid = (int) $client['id'];
         <button class="btn btn-default btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-print me-1"></i>Reports</button>
         <div class="dropdown-menu dropdown-menu-end">
           <a class="dropdown-item fw-bold" href="/clients/<?= $cid ?>/report/qbr" target="_blank"><i class="fas fa-fw fa-book-open me-2"></i>Business review pack (QBR)</a>
-          <div class="dropdown-divider"></div>
-          <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets" target="_blank"><i class="fas fa-fw fa-desktop me-2"></i>Asset &amp; lifecycle report</a>
-          <a class="dropdown-item" href="/clients/<?= $cid ?>/report/assets?inventory=0" target="_blank"><i class="fas fa-fw fa-file-lines me-2"></i>Asset summary (no inventory)</a>
-          <a class="dropdown-item" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-fw fa-road me-2"></i>3-year roadmap</a>
-          <a class="dropdown-item" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-fw fa-coins me-2"></i>Technology budget</a>
-          <?php if (\Align\Backup\Backup::has($client)): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/backup" target="_blank"><i class="fas fa-fw fa-database me-2"></i>Backup &amp; recovery</a><?php endif; ?>
-          <?php if (!empty($client['psa_id']) && \Align\Service\Sla::enabled()): ?><a class="dropdown-item" href="/clients/<?= $cid ?>/report/sla" target="_blank"><i class="fas fa-fw fa-stopwatch me-2"></i>Service levels</a><?php endif; ?>
-          <div class="dropdown-divider"></div>
-          <a class="dropdown-item" href="/clients/<?= $cid ?>/export"><i class="fas fa-fw fa-file-csv me-2"></i>Device list (CSV)</a>
-          <div class="dropdown-divider"></div>
+          <div class="dropdown-divider"></div><?php /* (2.36.0) the rest are on the client's Reports page, not repeated here */ ?>
           <a class="dropdown-item" href="/clients/<?= $cid ?>/reports"><i class="fas fa-fw fa-print me-2"></i>All reports…</a>
         </div>
       </div>

@@ -106,6 +106,10 @@ In the client portal (two-factor sign-in required, with sections you choose per 
 documents and reports, and forms to request new users, terminations, licenses and budget items. They can approve or
 decline proposed projects there, and (since 2.15.0, with its permissions) see their tech closet, check spare parts and
 spare devices out and in, ask for parts, and (since 2.15.1) add items and update counts so their closet stays current.
+Since 2.34.0 they sign documents and acknowledge policies you send them. With ITFlow (2.35.0) they can also see and open
+tickets, read the quotes you sent and accept them on ITFlow's page, read the documents ITFlow shares with them, and use a
+Pay a bill button; you choose each of these per person, and an MSP that uses ITFlow's own portal can switch them off.
+Every list has a search box, and documents are organized by category (2.36.0).
 
 **Can I use my own branding?**
 Yes: your company name, logo and colours under **Settings → Branding**, for the app, the sign-in pages, the client

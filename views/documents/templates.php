@@ -1,5 +1,5 @@
 <?php use Align\Docs\Documents; ?>
-<div class="small"><a href="/documents">Documents</a> /</div>
+<div class="small"><a href="/libraries"><i class="fas fa-arrow-left me-1"></i>Libraries</a> · <a href="/documents">Documents</a></div><?php /* (2.36.0) */ ?>
 <div class="row">
   <div class="col-lg-8">
     <div class="card card-dark">

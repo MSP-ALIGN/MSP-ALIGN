@@ -1137,3 +1137,13 @@ textarea.pv-in { resize: none; white-space: normal; }
 
 /* 2.27.0 Feedback button: the new-count badge sits on the icon's top-right corner instead of over it */
 #feedback-menu .navbar-badge { top: 2px; right: -4px; }
+
+/* (2.36.0) client portal: search boxes and the Documents category tabs */
+.card-header .card-tools .portal-search { width: 260px; }
+.portal-doc-search { width: 240px; }
+.portal-doc-tabs { gap: .25rem; flex-wrap: wrap; }
+.portal-doc-tabs .nav-link { border: 0; background: none; font-size: .9rem; }
+.portal-doc-tabs .nav-link.active .badge { background: rgba(255, 255, 255, .85) !important; }
+@media (max-width: 767.98px) {
+  .card-header .card-tools .portal-search, .portal-doc-search { width: 100%; }
+}

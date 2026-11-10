@@ -25,7 +25,7 @@ final class Notifications
         'backup_failed' => ['Backup job failed', 'Backups & sync', 'staff', 'immediate', 'When a sync finds a backup job that failed on its last run (once per failure).', ['admin', 'tech'], true, true],
         'backup_digest' => ['Daily backup summary', 'Backups & sync', 'staff', 'daily', 'Failed jobs, overdue machines and Microsoft 365 items, and servers with no backup. Skipped when everything is healthy.', ['admin'], true, true],
         'sync_failed' => ['Sync problems', 'Backups & sync', 'staff', 'immediate', 'When the hourly sync fails or partly fails, and again when it recovers.', ['admin'], false, true],
-        'renewals' => ['Contracts & renewals', 'Planning', 'staff', 'weekly', 'Contract end dates, renegotiation deadlines and license renewals in the next 60 days.', ['admin', 'tech'], true, true],
+        'renewals' => ['Renewals', 'Planning', 'staff', 'weekly', 'Contract end dates, renegotiation deadlines and license renewals in the next 60 days.', ['admin', 'tech'], true, true],
         'meetings_due' => ['Meetings due', 'Planning', 'staff', 'weekly', 'Clients due for a review meeting with nothing scheduled, plus the week\'s meetings.', ['admin', 'tech'], true, true],
         'lifecycle' => ['Warranty & end of life', 'Planning', 'staff', 'monthly', 'Devices whose warranty ends or that reach end of life in the next 90 days.', ['admin', 'tech'], true, true],
         'weekly_digest' => ['Weekly vCIO digest', 'Planning', 'staff', 'weekly', 'One summary per vCIO: meetings this week, decisions waiting, renewals and backup problems for their clients.', ['admin'], true, true],

@@ -19,7 +19,7 @@ foreach ([30 => '30 days', 90 => '90 days', 180 => '6 months', 365 => '12 months
 $dayBtns .= '</div>';
 echo \Align\View::fetch('partials/section_tabs', ['tabs' => [['/licenses', 'Licensing', 'fa-key', false], ['/renewals', 'Renewals', 'fa-calendar-check', true]]]); // 2.16.0
 echo \Align\View::fetch('partials/page_header', [
-    'icon' => 'fa-calendar-check', 'title' => 'Renewals & contracts', 'count' => count($dates),
+    'icon' => 'fa-calendar-check', 'title' => 'Renewals', 'count' => count($dates),
     'desc' => 'Contract ends, renegotiate-by dates, license renewals and domain expiry dates across every client, soonest first.',
     'secondary' => [$dayBtns],
 ]);

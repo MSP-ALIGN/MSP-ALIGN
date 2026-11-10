@@ -6,7 +6,7 @@ $dates = $bd['dates'];
 $kindTone = ['renegotiate' => 'warn', 'contract_end' => 'bad', 'expires' => 'info'];
 ?>
 <section class="rsection avoid-break">
-  <?= Ui::head('Contracts & renewals', $num ?? null, $bd['yr']['label']) ?>
+  <?= Ui::head('Renewals and contract dates', $num ?? null, $bd['yr']['label']) ?>
   <?php if (!$dates): ?><p class="muted">No contract end, renegotiation or renewal dates in <?= e($bd['yr']['label']) ?>.</p><?php else: ?>
   <table class="rtable">
     <thead><tr><th>Date</th><th>What</th><th>Item</th><th>Term</th><th>Renewal</th><th class="num">Annual value</th></tr></thead>

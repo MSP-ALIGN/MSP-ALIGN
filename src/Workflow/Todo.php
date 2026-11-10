@@ -193,7 +193,7 @@ final class Todo
             ['libraries', '/libraries', 'Libraries', 'fa-book', 'viewer', 0, 'Templates, vendors, alignment standards and the other lists every client uses.'],
             ...(($h = $first('people')) ? [['people', $h, 'Staff & portal users', 'fa-user-shield', 'viewer', 0, 'Staff sign-ins and roles, and every client\'s portal users.']] : []),
             ['settings', '/settings', 'Settings', 'fa-gear', 'admin', $isAdmin && \Align\System\Agent::updateAvailable() ? 'new' : 0,
-                'Company, branding, planning, email, notifications, updates and backups, diagnostics.'],
+                'Company, branding, planning, notifications, updates and backups, diagnostics.'],
             ['audit', '/audit', 'Audit log', 'fa-clock-rotate-left', 'admin', 0, 'Who did what, checked for tampering every night.'],
         ];
         return array_values(array_filter($all, fn($i) => Auth::can($i[4])));

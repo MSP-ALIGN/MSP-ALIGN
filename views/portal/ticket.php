@@ -7,7 +7,7 @@
  * @var array $t
  */
 ?>
-<div class="d-flex flex-wrap align-items-center mb-2">
+<div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto min-w-0"><a href="/portal/tickets<?= $t['closed'] ? '?state=closed' : '' ?>" class="small"><i class="fas fa-arrow-left me-1"></i>Tickets</a>
     <h1 class="h4 mb-0"><?= e($t['subject'] ?: '(no subject)') ?></h1>
     <div class="small text-muted"><?= e(implode(' · ', array_filter([$t['number'], $t['status'] ?: null, $t['priority'] ? $t['priority'] . ' priority' : null, $t['created_at'] ? 'opened ' . fmt_datetime($t['created_at']) : null]))) ?></div></div>

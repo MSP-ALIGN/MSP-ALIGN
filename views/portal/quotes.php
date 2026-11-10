@@ -9,12 +9,13 @@ use Align\Fmt;
  */
 $tone = fn(string $s) => ['accepted' => 'success', 'declined' => 'secondary', 'invoiced' => 'success', 'sent' => 'primary', 'viewed' => 'info'][strtolower($s)] ?? 'light';
 ?>
-<div class="mb-3"><h1 class="h4 mb-0"><i class="fas fa-file-signature me-2 text-secondary"></i>Quotes</h1>
+<div class="portal-page-head"><h1 class="h4 mb-0"><i class="fas fa-file-signature me-2 text-secondary"></i>Quotes</h1>
   <div class="small text-muted">Quotes your IT provider has sent you. Open one to read it in full and accept or decline it.</div></div>
 <div class="card">
   <?php if (!$quotes): ?><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-file-signature', 'text' => 'No quotes have been sent to you yet.']) ?>
   <?php else: ?>
-  <div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <div class="card-header py-2"><div class="card-tools"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-quotes', 'placeholder' => 'Search number or what it\'s for']) /* (2.36.0) */ ?></div></div>
+  <div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle" id="portal-quotes">
     <thead><tr><th>Quote</th><th>For</th><th>Date</th><th>Expires</th><th class="text-end">Amount</th><th>Status</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($quotes as $q): $open = in_array(strtolower((string) $q['status']), ['sent', 'viewed'], true); $expired = $open && $q['expire_date'] && $q['expire_date'] < date('Y-m-d'); ?>
@@ -30,6 +31,7 @@ $tone = fn(string $s) => ['accepted' => 'success', 'declined' => 'secondary', 'i
     <?php endforeach; ?>
     </tbody>
   </table></div>
+  <?= \Align\View::fetch('portal/_search', ['target' => 'portal-quotes', 'none' => true]) ?>
   <?php endif; ?>
 </div>
 <p class="small text-muted">The list is brought up to date every hour. A quote opens on your IT provider's own page.</p>

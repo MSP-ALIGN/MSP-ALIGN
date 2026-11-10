@@ -248,7 +248,7 @@ try:
             pg.pdf(path=f"{RAW}/report.pdf", format="Letter", print_background=True)
             ctx.close()
             subprocess.run(["pdftoppm", "-png", "-r", "110", "-f", "1", "-l", "1", "-singlefile", f"{RAW}/report.pdf", f"{RAW}/report-roadmap"], check=True)
-        if want("portal") or want("portal-roadmap") or want("portal-phone"):
+        if want("portal") or want("portal-roadmap") or want("portal-phone") or want("portal-documents"):
             # the client portal, as a demo client user with a known password and authenticator
             enc = subprocess.run(["php", "-r", 'require $argv[1]; echo Align\\Crypto::encrypt($argv[2]);', ROOT + "/src/bootstrap.php", SECRET],
                                  env=dict(ENV, ALIGN_CONFIG=FRESH_CONFIG), capture_output=True, text=True, check=True).stdout
@@ -267,7 +267,7 @@ try:
             ctx = br.new_context(viewport={"width": 1400, "height": 900}, color_scheme="light")
             ctx.add_cookies(cookies)
             pg = ctx.new_page()
-            for name, path in [("portal", "/portal"), ("portal-roadmap", "/portal/roadmap")]:
+            for name, path in [("portal", "/portal"), ("portal-roadmap", "/portal/roadmap"), ("portal-documents", "/portal/documents")]:  # 2.36.0 documents
                 if want(name):
                     pg.goto(B_FRESH + path)
                     pg.wait_for_timeout(600)

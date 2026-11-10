@@ -6,8 +6,11 @@ st=login("admin@example.com","LongPassword123!")
 t0=time.time(); r=st.get(B+"/"); dt=time.time()-t0
 t=r.text; ok(r.status_code==200 and not errs(t),"dashboard renders (%.2fs)"%dt)
 ok("Good " in t and "Customize" in t,"greeting and Customize button")
-for k in ["attention","kpis","health","forecast","clients","sla","planning","meetings","due","backups","renewals","portal"]:
+for k in ["attention","kpis","health","forecast","sla","planning","meetings","backups","portal"]:
     ok(f'data-card="{k}"' in t, f"card {k} shown by default")
+# 2.36.0 cards repeating Needs attention / Client health are hidden by default, offered under Customize
+for k in ["clients","due","renewals"]:
+    ok(f'data-card="{k}"' not in t and f'data-dash-show="{k}"' in t, f"card {k} hidden by default, offered in the Customize bar")
 order=re.findall(r'data-card="(\w+)"',t); ok(order[:2]==["attention","kpis"],"Needs attention first, then health tiles: "+",".join(order[:3]))
 ok("past SLA target" in t and "backup job" in t and "Due for a meeting" in t,"attention list mixes SLA, backups and meetings")
 ok(re.search(r'att-bad.*?att-warn',t,re.S) is not None and not re.search(r'att-info.*?att-bad',t,re.S),"urgent items come before the rest")
@@ -28,8 +31,8 @@ ok(re.findall(r'data-card="(\w+)"',tv)[0]=="attention" and 'data-card="portal"' 
 ok(v.post(B+"/dashboard/layout",data={"_csrf":csrf(v,"/"),"layout":json.dumps({"order":{"top":["kpis"]},"hidden":["forecast"]})}).json()["ok"],"viewers can customize their own dashboard")
 tv=v.get(B+"/").text; ok(re.findall(r'data-card="(\w+)"',tv)[0]=="kpis" and 'data-card="attention"' in tv and 'data-card="forecast"' not in tv,"partial layouts are completed with the missing cards")
 v.post(B+"/dashboard/layout",data={"_csrf":csrf(v,"/"),"reset":"1"}); ok(q("select dashboard_layout from users where email='viewer@example.com'")[0]["dashboard_layout"] is None,"reset")
-# browser: customize with arrows, drag, hide, show, reset
-q("update users set dashboard_layout=NULL")
+# browser: customize with arrows, drag, hide, show, reset (a saved layout with nothing hidden: every card on the page)
+q("update users set dashboard_layout='{\"hidden\": []}'")
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1400,"height":1000})
     pg.goto(B+"/login"); pg.fill("input[name=email]","admin@example.com"); pg.fill("input[name=password]","LongPassword123!"); pg.click("button"); __import__('sitecustomize').after_login(pg,"admin@example.com")

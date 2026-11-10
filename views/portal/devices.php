@@ -1,7 +1,7 @@
 <?php
 /** @var array $devices, $summary; string $filter; bool $showCosts */
 ?>
-<div class="d-flex flex-wrap align-items-center mb-3">
+<div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-desktop me-2 text-secondary"></i>Devices</h1>
     <div class="small text-muted">Computers, servers and network equipment, with warranty and planned replacement dates.</div></div>
   <div class="btn-group btn-group-sm mt-2 mt-md-0">
@@ -19,14 +19,15 @@
       <a href="?filter=attention" class="btn <?= $filter === 'attention' ? 'btn-primary' : 'btn-default' ?>">Needs attention</a>
       <a href="?filter=virtual" class="btn <?= $filter === 'virtual' ? 'btn-primary' : 'btn-default' ?>">Virtual</a>
     </div>
+    <div class="card-tools"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-devices-table', 'placeholder' => 'Search name, serial, user, model']) /* (2.36.0) */ ?></div>
   </div>
   <div class="card-body p-0">
     <?php /* 2.18.1: fewer, stacked columns so the whole row fits without scrolling sideways; on phones each device is a card */ ?>
-    <table class="table table-sm table-hover mb-0 portal-devices">
+    <table class="table table-sm table-hover mb-0 portal-devices" id="portal-devices-table">
       <thead><tr><th>Device</th><th>Make / model</th><th>Operating system</th><th>Warranty and replacement</th><th>Status</th><?php if ($showCosts): ?><th class="text-end">Est. cost</th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($devices as $d): ?>
-        <tr>
+        <tr data-search="<?= e(trim(($d['last_user'] ?? '') . ' ' . ($d['manufacturer'] ?? ''))) ?>">
           <td data-label="Device"><div class="fw-semibold text-break"><i class="fas fa-fw <?= e($d['icon']) ?> text-secondary me-1"></i><?= e($d['name']) ?><?= $d['is_virtual'] ? ' <span class="badge text-bg-light border">virtual</span>' : '' ?></div>
             <div class="small text-muted"><?= e($d['type']) ?><?php if ($d['last_user']): ?> · <span title="<?= e($d['last_user']) ?>"><?= e(short_user($d['last_user'])) ?></span><?php endif; ?><?php if (!empty($d['asset_tag'])): // 2.21.0 ?> · <span title="Asset tag"><i class="fas fa-tag fa-xs me-1"></i><?= e($d['asset_tag']) ?></span><?php endif; ?></div></td>
           <td class="small" data-label="Make / model"><?= e(trim(short_make($d['manufacturer']) . ' ' . ($d['model'] ?? ''))) ?: '<span class="text-muted">—</span>' ?>
@@ -38,8 +39,9 @@
           <?php if ($showCosts): ?><td class="text-end" data-label="Est. cost"><?= $d['is_hardware'] ? money($d['replacement_cost']) : '<span class="text-muted">—</span>' ?></td><?php endif; ?>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$devices): ?><tr><td colspan="6" class="empty-state">No devices match.</td></tr><?php endif; ?>
+      <?php if (!$devices): ?><tr><td colspan="<?= $showCosts ? 6 : 5 ?>" class="empty-state">No devices match.</td></tr><?php endif; ?>
       </tbody>
     </table>
+    <?= \Align\View::fetch('portal/_search', ['target' => 'portal-devices-table', 'none' => true]) ?>
   </div>
 </div>

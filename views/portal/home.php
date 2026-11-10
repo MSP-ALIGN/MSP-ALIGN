@@ -48,15 +48,12 @@ $vcio = $provider['vcio'] ?? null;
       <div class="info-box-content"><span class="info-box-text">Devices</span><span class="info-box-number"><?= (int) $summary['total'] ?></span>
         <span class="small <?= $summary['replace'] ? 'text-danger' : 'text-muted' ?>"><?= $summary['replace'] ? (int) $summary['replace'] . ' due for replacement' : 'None overdue for replacement' ?></span></div></a></div>
   <?php endif; ?>
-  <?php if ($pu['can_documents'] && !$nextMeeting): ?>
-    <div class="col-lg-3 col-sm-6"><a href="/portal/meetings" class="info-box text-dark"><span class="info-box-icon bg-light"><i class="fas fa-handshake text-muted"></i></span>
-      <div class="info-box-content"><span class="info-box-text">Next meeting</span><span class="info-box-number fw-normal text-muted">Nothing scheduled</span><span class="small text-muted">Past meetings and notes</span></div></a></div>
-  <?php endif; ?>
+  <?php /* (2.36.0) no "Next meeting: nothing scheduled" box: an empty box was filler */ ?>
   <?php if ($nextMeeting): ?>
     <div class="col-lg-3 col-sm-6"><a href="/portal/meetings" class="info-box text-dark"><span class="info-box-icon bg-teal"><i class="fas fa-handshake"></i></span>
       <div class="info-box-content"><span class="info-box-text">Next meeting</span><span class="info-box-number text-truncate"><?= e(fmt_date($nextMeeting['starts_at'])) ?></span><span class="small text-muted text-truncate"><?= e($nextMeeting['title']) ?> · <?= e(fmt_time($nextMeeting['starts_at'])) ?></span></div></a></div>
   <?php endif; ?>
-  <?php if (!empty($pu['can_tickets']) && \Align\Portal\Support::available()): $openTickets = count(\Align\Portal\Support::tickets($pu)); // 2.35.0 ?>
+  <?php if (!empty($pu['can_tickets']) && \Align\Portal\Support::available()): $openTickets = \Align\Portal\Support::openCount($pu); // 2.35.0 ?>
     <div class="col-lg-3 col-sm-6"><a href="/portal/tickets" class="info-box text-dark"><span class="info-box-icon bg-info"><i class="fas fa-life-ring"></i></span>
       <div class="info-box-content"><span class="info-box-text">Open tickets</span><span class="info-box-number"><?= $openTickets ?></span><span class="small text-muted"><?= \Align\Portal\Support::canOpen() ? 'See them or open a new one' : 'See where they stand' ?></span></div></a></div>
   <?php endif; ?>
@@ -64,7 +61,7 @@ $vcio = $provider['vcio'] ?? null;
     <div class="col-lg-3 col-sm-6"><a href="<?= e($payUrl) ?>" target="_blank" rel="noopener noreferrer" class="info-box text-dark"><span class="info-box-icon bg-success"><i class="fas fa-credit-card"></i></span>
       <div class="info-box-content"><span class="info-box-text">Billing</span><span class="info-box-number">Pay a bill</span><span class="small text-muted">Opens <?= e(parse_url($payUrl, PHP_URL_HOST) ?: 'your billing page') ?></span></div></a></div>
   <?php endif; ?>
-  <?php if ($pending || $waiting): ?>
+  <?php if (!$pending && $waiting): // (2.36.0) pending projects have their own card above; this box is for suggestions ?>
     <div class="col-lg-3 col-sm-6"><a href="<?= $pending ? '/portal/roadmap#decisions' : ($waitingLicense ? '/portal/licensing#suggestions' : '/portal/budget#suggestions') ?>" class="info-box text-dark"><span class="info-box-icon bg-warning"><i class="fas <?= $pending ? 'fa-circle-question' : 'fa-paper-plane' ?>"></i></span>
       <div class="info-box-content"><span class="info-box-text"><?= $pending ? ($pu['can_approve'] ? 'Waiting for your decision' : 'Proposed projects') : 'Suggestions sent' ?></span><span class="info-box-number"><?= $pending ? count($pending) : $waiting ?></span>
         <span class="small text-muted"><?= $pending ? 'project' . (count($pending) === 1 ? '' : 's') . ' to review' : 'waiting for your IT provider' ?></span></div></a></div>
@@ -168,6 +165,6 @@ $vcio = $provider['vcio'] ?? null;
   <?php endif; ?>
 </div>
 
-<?php if (!$pending && !$budget && !$summary && !$nextMeeting && !$frameworks): ?>
+<?php if (!$pending && !$budget && !$summary && !$nextMeeting && !$frameworks && empty($pu['can_tickets']) && empty($pu['can_quotes'])): // (2.36.0) not for Support-only users ?>
   <div class="card card-body text-muted">Use the menu above to see what your IT provider has shared with you.</div>
 <?php endif; ?>

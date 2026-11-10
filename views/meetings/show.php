@@ -66,6 +66,9 @@ $past = strtotime($m['ends_at']) < time();
             <a class="btn btn-xs btn-default me-1 mb-1" href="/clients/<?= $cid ?>/report/roadmap" target="_blank"><i class="fas fa-road me-1"></i>Roadmap</a>
             <a class="btn btn-xs btn-default me-1 mb-1" href="/clients/<?= $cid ?>/report/budget" target="_blank"><i class="fas fa-coins me-1"></i>Budget</a>
             <?php if (!empty($prep['sla'])): ?><a class="btn btn-xs btn-default me-1 mb-1" href="/clients/<?= $cid ?>/report/sla" target="_blank"><i class="fas fa-stopwatch me-1"></i>Service levels</a><?php endif; ?>
+            <?php /* (2.36.0) the rest of QBR prep, otherwise only reachable from Reports */ ?>
+            <a class="btn btn-xs btn-default me-1 mb-1" href="/clients/<?= $cid ?>/changes"><i class="fas fa-timeline me-1"></i>Since last QBR</a>
+            <?php if (\Align\Auth::can('tech')): ?><a class="btn btn-xs btn-default me-1 mb-1" href="/clients/<?= $cid ?>/qbr-summary"><i class="fas fa-wand-magic-sparkles me-1"></i>Executive summary</a><?php endif; ?>
           </div>
           <div class="fw-bold mb-1">Talking points</div>
           <ul class="ps-3 mb-2">
@@ -79,7 +82,7 @@ $past = strtotime($m['ends_at']) < time();
           </ul>
           <div class="fw-bold mb-1">Planning checklist <span class="fw-normal text-muted"><?= (int) $r['done'] ?>/<?= (int) $r['total'] ?></span></div>
           <?php $todo = array_filter($r['steps'], fn($x) => $x['ok'] === false); ?>
-          <?php if ($todo): ?><ul class="ps-3 mb-0"><?php foreach (array_slice($todo, 0, 4) as $t): ?><li><a href="<?= e($t['link']) ?>"><?= e($t['label']) ?></a> <span class="text-muted">— <?= e($t['detail']) ?></span></li><?php endforeach; ?></ul>
+          <?php if ($todo): ?><ul class="ps-3 mb-0"><?php foreach (array_slice($todo, 0, 4) as $t): ?><li><?= $t['link'] !== '' ? '<a href="' . e($t['link']) . '">' . e($t['label']) . '</a>' : e($t['label']) /* (2.36.0) no link to a page this role can't open */ ?> <span class="text-muted">— <?= e($t['detail']) ?></span></li><?php endforeach; ?></ul>
           <?php else: ?><p class="text-success mb-0"><i class="fas fa-circle-check me-1"></i>Everything's in place.</p><?php endif; ?>
         </div>
       </div>

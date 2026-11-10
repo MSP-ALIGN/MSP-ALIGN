@@ -519,7 +519,7 @@ final class PortalController
             $sections[$c['section'] ?: 'General'][] = $c;
         }
         self::render('compliance_framework', ['title' => $fw['name'], 'nav' => 'compliance', 'fw' => $fw, 'sections' => $sections,
-            'score' => Compliance::score($cid, $id)], $pu);
+            'score' => Compliance::score($cid, $id), 'canDocs' => (bool) $pu['can_documents']], $pu); // (2.36.0) link documents only for those who can open them
     }
 
     /**

@@ -130,7 +130,7 @@ $card = function (string $icon, string $title, string $desc, string $path, strin
       <?php endif; ?>
       <div class="col-xl-4 col-md-6 d-flex">
         <div class="card card-outline card-secondary flex-fill">
-          <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-check me-2 text-secondary"></i>Contracts &amp; renewals</h3></div>
+          <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-calendar-check me-2 text-secondary"></i>Renewals</h3></div>
           <div class="card-body py-2 d-flex flex-column"><p class="small text-muted mb-2">Upcoming contract end dates, notice deadlines and license renewals across all clients.</p>
             <div class="mt-auto"><a class="btn btn-sm btn-default" href="/renewals?days=90">Next 90 days</a> <a class="btn btn-sm btn-default" href="/renewals?days=365">Next 12 months</a></div></div>
         </div>

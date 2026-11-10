@@ -16,6 +16,7 @@ foreach ($vendors as $v) {
     <div class="small text-muted">The companies you buy technology from, and how to reach their support. For anything else, contact us first.</div></div>
 </div>
 <div class="card">
+  <div class="card-header py-2"><div class="card-tools"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-vendors', 'placeholder' => 'Search vendors']) /* (2.36.0) */ ?></div></div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0" id="portal-vendors">
       <thead><tr><th>Vendor</th><th>Support</th><th>Hours</th></tr></thead>
@@ -38,5 +39,6 @@ foreach ($vendors as $v) {
       <?php endforeach; ?>
       </tbody>
     </table>
+    <?= \Align\View::fetch('portal/_search', ['target' => 'portal-vendors', 'none' => true]) ?>
   </div>
 </div>

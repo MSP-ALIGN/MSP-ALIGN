@@ -25,6 +25,18 @@ final class Documents
         'other' => ['Other', 'fa-file-lines', 'dark'],
     ];
 
+    /** (2.36.0) The categories as clients see them in the portal: plain words instead of staff terms (WISP, SOP, IR / DR / BCP). */
+    public const PORTAL_LABELS = [
+        'wisp' => 'Security program',
+        'policy' => 'Policies',
+        'procedure' => 'How-to guides',
+        'plan' => 'Emergency & recovery plans',
+        'assessment' => 'Records & assessments',
+        'network' => 'Network & systems',
+        'notes' => 'Notes',
+        'other' => 'Other',
+    ];
+
     /** Categories shared in the client portal by default when a document is created. */
     public const PORTAL_DEFAULT = ['wisp', 'policy', 'procedure', 'plan'];
 

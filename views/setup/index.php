@@ -186,7 +186,7 @@ case 'company': ?>
       <?php if (!\Align\Demo\Demo::blocked()): ?>
         <div class="col-md-6"><div class="card card-outline card-warning"><div class="card-body">
           <h3 class="h6"><i class="fas fa-flask text-warning me-1"></i>Try it with demo data</h3>
-          <p class="small text-muted">Four made-up clients with devices, licenses, budgets, projects, meetings, compliance, documents and backups, so every page has something to show. Remove them with one click under Settings → General.</p>
+          <p class="small text-muted">Four made-up clients with devices, licenses, budgets, projects, meetings, compliance, documents and backups, so every page has something to show. Remove them with one click under Settings → Diagnostics → Demo data.</p>
           <form method="post" action="/demo/load"><?= csrf_field() ?><?= $ret ?><button class="btn btn-default btn-sm">Load demo data</button></form>
         </div></div></div>
       <?php elseif (\Align\Demo\Demo::loaded()): ?>
@@ -224,7 +224,7 @@ case 'company': ?>
           <div class="mb-3 col-md-2 mb-2"><label for="t-role">Role</label><select id="t-role" name="role" class="form-select"><?php foreach (\Align\Controllers\UserController::ROLES as $k => $l): ?><option value="<?= e($k) ?>" <?= $k === 'tech' ? 'selected' : '' ?>><?= e(strtok($l, ' ')) ?></option><?php endforeach; ?></select></div>
           <div class="mb-3 col-md-2 mb-2"><button class="btn btn-primary w-100">Add</button></div>
         </div>
-        <div class="small text-muted">Admins manage settings and users, techs plan and edit, viewers read. More options (vCIO clients, notifications) are on the Users page.</div>
+        <div class="small text-muted">Admins manage settings and users, techs plan and edit, viewers read. More options (vCIO clients, notifications) are on the Staff page (Administration → Staff &amp; portal users).</div>
       </form>
     </div>
     <?= $footer() ?>

@@ -1,6 +1,7 @@
 <?php
 /** Onboarding → Contract templates. @var array $templates; int $remindDays, $maxReminders */
 ?>
+<nav class="small mb-1"><a href="/libraries"><i class="fas fa-arrow-left me-1"></i>Libraries</a></nav><?php /* (2.36.0) a library: the way back to the others */ ?>
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-shapes', 'title' => 'Contract templates',
     'desc' => 'Your own contracts. Upload each one as a PDF and put boxes on it for what you fill in, what the client fills in, and the signatures; Align keeps your layout exactly. Each contract keeps a copy of the template it was made from.',

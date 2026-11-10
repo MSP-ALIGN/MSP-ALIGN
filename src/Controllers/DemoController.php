@@ -7,7 +7,7 @@ use Align\Auth;
 use Align\Demo\Demo;
 
 /**
- * Load or remove the demo data (1.41), from Settings → General or the setup wizard. Admins only.
+ * Load or remove the demo data (1.41), from Settings → Diagnostics or the setup wizard. Admins only.
  *
  * Security assumptions: requireRole('admin') first; the Router has checked CSRF. Demo decides what may be loaded
  * (only on an empty, unconnected install) and what is removed (only clients made as demo and their rows); both are
@@ -21,7 +21,7 @@ final class DemoController
         Auth::requireRole('admin');
         try {
             $n = Demo::load(Auth::id());
-            flash('success', "Added $n demo clients with devices, licenses, budgets, projects, meetings, compliance, documents and backups. Remove them under Settings → General when you're ready to start for real.");
+            flash('success', "Added $n demo clients with devices, licenses, budgets, projects, meetings, compliance, documents and backups. Remove them under Administration → Settings → Diagnostics → Demo data when you're ready to start for real.");
         } catch (\DomainException $e) {
             flash('error', $e->getMessage()); // written for the admin (already loaded, clients exist, integrations connected)
         } catch (\Throwable $e) {
