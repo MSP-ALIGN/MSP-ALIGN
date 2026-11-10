@@ -33,20 +33,26 @@ final class Dashboard
         'meetings' => ['Next 30 days', 'fa-calendar-days', 'side', 'Scheduled meetings for the next month.'],
         'due' => ['Due for a meeting', 'fa-clock', 'side', 'Clients past their meeting cadence with nothing scheduled.'],
         'backups' => ['Backups needing attention', 'fa-database', 'side', 'Clients with failed jobs, warnings or machines without a recent restore point.'],
-        'renewals' => ['Contracts & renewals', 'fa-calendar-check', 'side', 'Contract ends, notice deadlines and license renewals in the next 90 days.'],
+        'renewals' => ['Renewals', 'fa-calendar-check', 'side', 'Contract ends, notice deadlines and license renewals in the next 90 days.'],
         'portal' => ['Client portal activity', 'fa-door-open', 'side', 'Project decisions and contact changes made by clients in the portal.'],
     ];
 
     // ---- Layout ---------------------------------------------------------------------
 
-    /** Every card in its default zone, none hidden. */
+    /**
+     * (2.36.0) Cards hidden until someone shows them under Customize, because the default layout already shows the same
+     * things: Due for a meeting and Renewals are in Needs attention, Clients needing attention in Client health.
+     */
+    public const DEFAULT_HIDDEN = ['due', 'renewals', 'clients'];
+
+    /** Every card in its default zone; DEFAULT_HIDDEN hidden (2.36.0; before, none). */
     public static function defaultLayout(): array
     {
         $order = array_fill_keys(self::ZONES, []);
         foreach (self::CARDS as $k => [, , $zone]) {
             $order[$zone][] = $k;
         }
-        return ['order' => $order, 'hidden' => []];
+        return ['order' => $order, 'hidden' => array_values(array_intersect(self::DEFAULT_HIDDEN, array_keys(self::CARDS)))];
     }
 
     /** The user's layout, cleaned up: unknown cards dropped, cards added since they saved it placed in their default zone. */
@@ -84,7 +90,9 @@ final class Dashboard
                 }
             }
         }
-        $hidden = array_values(array_unique(array_filter((array) ($in['hidden'] ?? []), fn($k) => is_string($k) && isset(self::CARDS[$k]))));
+        // A saved layout keeps exactly what its owner hid; none saved (or nothing usable in it) gets the default's (2.36.0)
+        $hidden = !$seen && !array_key_exists('hidden', $in) ? $def['hidden']
+            : array_values(array_unique(array_filter((array) ($in['hidden'] ?? []), fn($k) => is_string($k) && isset(self::CARDS[$k]))));
         return ['order' => $order, 'hidden' => $hidden];
     }
 

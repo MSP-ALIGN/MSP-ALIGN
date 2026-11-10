@@ -114,10 +114,17 @@ backup and recovery, the roadmap, the budget and policies, plus CSV exports.
 ## The client portal
 
 What your clients see: decisions waiting on them, their plan and budget, their devices, compliance and meetings, with
-their logo at the top. Every section is optional per portal user.
+their logo at the top. With ITFlow it can also hold their tickets, the quotes you sent, the documents you share and a
+bill pay button, and documents to sign or acknowledge; every list has a search box. Every section is optional per portal
+user.
 
 ![The client portal](screenshots/portal.png)
 
 ![The client's roadmap in the portal](screenshots/portal-roadmap.png)
+
+Documents in the portal (2.36.0): one list with category tabs in plain words, a search box, and anything waiting for a
+signature or acknowledgment on top. Every list in the portal has a search box like this one.
+
+![Documents in the client portal](screenshots/portal-documents.png)
 
 ![The client portal on a phone](screenshots/portal-phone.png)

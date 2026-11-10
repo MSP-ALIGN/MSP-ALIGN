@@ -9,6 +9,7 @@ use Align\Lifecycle\Lifecycle;
 $canEdit = Auth::can('tech');
 $twoWay = \Align\Sync\PsaAssetSync::twoWay();
 ?>
+<nav class="small mb-1"><a href="/devices"><i class="fas fa-arrow-left me-1"></i>Devices &amp; assets</a></nav><?php /* (2.36.0) */ ?>
 <div class="d-flex flex-wrap align-items-center mb-2">
   <h1 class="h4 mb-0 me-auto"><i class="fas fa-circle-question text-warning me-2"></i>Unassigned hardware <span class="badge text-bg-warning align-middle"><?= count($rows) ?></span></h1>
 </div>

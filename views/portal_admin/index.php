@@ -4,8 +4,9 @@
     <div class="small text-muted">Everyone with a client portal sign-in. Invite and manage users from each client's <b>Client portal</b> page. Portal address: <a href="<?= e($portalUrl) ?>" target="_blank"><?= e($portalUrl) ?></a></div></div>
 </div>
 <div class="card">
+  <div class="card-header py-2"><div class="card-tools"><input type="search" class="form-control form-control-sm filter-input" data-filter-table="portal-users-all" placeholder="Filter…" aria-label="Filter portal users"></div></div><?php /* (2.36.0) */ ?>
   <div class="card-body p-0 table-responsive">
-    <table class="table table-sm table-hover mb-0">
+    <table class="table table-sm table-hover mb-0" id="portal-users-all">
       <thead><tr><th>Name</th><th>Client</th><th>Access</th><th>Status</th><th>Last sign-in</th></tr></thead>
       <tbody>
       <?php foreach ($users as $u): ?>
@@ -29,7 +30,7 @@
   <?= csrf_field() ?>
   <div class="card-body py-2 d-flex flex-wrap align-items-center">
     <div class="form-check form-switch me-auto"><input type="checkbox" class="form-check-input" id="portal_submissions" name="portal_submissions" value="1" <?= \Align\Settings::get('portal_submissions', '1') === '1' ? 'checked' : '' ?>>
-      <label class="form-check-label fw-normal" for="portal_submissions">Clients can suggest licenses and budget items <span class="small text-muted d-block">For portal users with <i>Suggest licenses and budget items</i>. You review each one before it's added (client's Licensing or Budget page).</span></label></div>
+      <label class="form-check-label fw-normal" for="portal_submissions">Clients can suggest licenses and budget items <span class="small text-muted d-block">For portal users with <i>Suggest licenses and budget items</i>. You review each one before it's added (client's Licensing or Budget page).</span> <span class="small text-muted d-block">Request forms (new user, termination) are switched on <a href="/settings/onboarding">Welcome email &amp; guide</a>; the health score on each client's <b>Client portal</b> page.</span></label></div>
     <button class="btn btn-sm btn-default mt-2 mt-md-0">Save</button>
   </div>
 </form>

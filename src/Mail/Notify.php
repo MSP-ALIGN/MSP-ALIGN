@@ -270,7 +270,7 @@ final class Notify
             return null;
         }
         $rows = array_map(fn($d) => [fmt_date($d['date']), $d['client_name'], $d['name'], $d['label'] . ($d['auto_renew'] ? ' (auto-renews)' : ''), $d['annual'] > 0 ? money($d['annual']) . '/yr' : ''], array_values($items));
-        return [count($items) . ' contract date' . (count($items) === 1 ? '' : 's') . ' in the next 60 days', 'Contracts & renewals', [
+        return [count($items) . ' contract date' . (count($items) === 1 ? '' : 's') . ' in the next 60 days', 'Renewals', [
             T::p('Coming up in the next 60 days. Renegotiation dates are the last day to give notice.'),
             T::table(['Date', 'Client', 'Item', 'What', 'Value'], $rows),
             T::button('Open renewals', N::url('/renewals?days=90')),

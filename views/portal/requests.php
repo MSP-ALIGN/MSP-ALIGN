@@ -3,8 +3,8 @@ use Align\Onboarding\Requests;
 
 /** Portal: new user / termination requests. @var array $requests */
 ?>
-<h1 class="h4 mb-1"><i class="fas fa-user-plus text-secondary me-2"></i>Requests</h1>
-<p class="text-muted">Starting someone new, or someone leaving? Send it here and it goes straight to your IT team's service desk. Please send requests at least 48 hours ahead; call for anything urgent.</p>
+<div class="portal-page-head"><h1 class="h4 mb-0"><i class="fas fa-user-plus text-secondary me-2"></i>Requests</h1>
+<div class="small text-muted">Starting someone new, or someone leaving? Send it here and it goes straight to your IT team's service desk. Please send requests at least 48 hours ahead; call for anything urgent.</div></div><?php /* (2.36.0) the same header as the other pages */ ?>
 <div class="row" id="requests">
   <?php foreach (Requests::FORMS as $kind => [$title, $icon]): ?>
     <div class="col-md-6 mb-2"><button type="button" class="btn btn-outline-primary w-100 text-start collapsed" data-bs-toggle="collapse" data-bs-target="#rq-<?= $kind ?>" aria-expanded="false"><i class="fas <?= e($icon) ?> fa-fw me-2"></i><?= e($title) ?></button></div>

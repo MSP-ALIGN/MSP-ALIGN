@@ -13,21 +13,20 @@ $groups = [];
 foreach ($items as $it) {
     $groups[$it['category']][] = $it;
 }
-$who = function (string $pid) use ($contacts): string {
-    $h = '<select name="contact_id" class="form-select form-select-sm" aria-label="Who it\'s for" id="' . e($pid) . '"><option value="me">Me</option>';
-    foreach ($contacts as $c) {
-        $h .= '<option value="' . (int) $c['id'] . '">' . e($c['name']) . '</option>';
-    }
-    return $h . '</select>';
-};
+// (2.36.0) "Who it's for" lists every contact: the list is printed once, in a <template>, and copied into a row's
+// picker the first time it's used (app.js fillOptions), instead of once per row (thousands of options for a big client)
+$who = fn(string $pid): string => '<select name="contact_id" class="form-select form-select-sm" aria-label="Who it\'s for" id="' . e($pid) . '" data-options="closet-who"><option value="me">Me</option></select>';
 ?>
+<template id="closet-who"><?php foreach ($contacts as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?></template>
 <div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-boxes-stacked me-2 text-secondary"></i>Tech closet</h1>
     <div class="small text-muted">Spare parts and equipment kept for you, and who has what.<?= $canCheckout ? ' Check something out when you take it, and back in when it\'s returned.' : '' ?><?= $canEdit ? ' You and your IT provider keep this list up to date together: add what you have, and open an item to fix its details or count.' : '' ?></div></div>
   <?php if ($canEdit): ?><a class="btn btn-sm btn-primary mt-2 mt-md-0" href="#closet-add"><i class="fas fa-plus me-1"></i>Add item</a><?php endif; ?>
 </div>
 
-<div class="card">
+<div class="mb-2" style="max-width:320px"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-closet-all', 'placeholder' => 'Search the closet']) /* (2.36.0) */ ?></div>
+<div id="portal-closet-all">
+<div class="card" data-filter-group>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 align-middle" id="portal-closet">
       <thead><tr><th>Item</th><th>Where</th><th class="text-end">Available</th><?php if ($canCheckout): ?><th>Check out</th><?php endif; ?></tr></thead>
@@ -59,7 +58,7 @@ $who = function (string $pid) use ($contacts): string {
 </div>
 
 <?php if ($spares): ?>
-<div class="card">
+<div class="card" data-filter-group>
   <div class="card-header"><b><i class="fas fa-laptop me-1 text-secondary"></i>Spare computers and devices</b></div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 align-middle" id="portal-spares">
@@ -81,7 +80,7 @@ $who = function (string $pid) use ($contacts): string {
 </div>
 <?php endif; ?>
 
-<div class="card">
+<div class="card" data-filter-group>
   <div class="card-header"><b><i class="fas fa-right-from-bracket me-1 text-secondary"></i>Checked out</b></div>
   <div class="card-body p-0 table-responsive">
     <table class="table table-sm mb-0 align-middle" id="portal-closet-out">
@@ -101,6 +100,8 @@ $who = function (string $pid) use ($contacts): string {
     </table>
   </div>
 </div>
+<?= \Align\View::fetch('portal/_search', ['target' => 'portal-closet-all', 'none' => true]) ?>
+</div><?php /* #portal-closet-all (2.36.0) */ ?>
 
 <?php if ($canEdit): ?>
 <div class="card" id="closet-add">

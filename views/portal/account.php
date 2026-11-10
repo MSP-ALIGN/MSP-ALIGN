@@ -1,5 +1,5 @@
 <?php /** @var array $pu; ?string $setupSecret, $setupUri (the setup link, also drawn as a QR code by Align\Qr, 2.24.0) */ ?>
-<h1 class="h4 mb-3"><i class="fas fa-user-gear me-2 text-secondary"></i>Account &amp; security</h1>
+<div class="portal-page-head"><h1 class="h4 mb-0"><i class="fas fa-user-gear me-2 text-secondary"></i>Account &amp; security</h1></div>
 <div class="row">
   <div class="col-lg-6">
     <div class="card">
@@ -9,8 +9,10 @@
         <div class="mb-1"><span class="text-muted">Email</span> <?= e($pu['email']) ?></div>
         <div class="mb-1"><span class="text-muted">Organization</span> <?= e($pu['client_name']) ?></div>
         <div class="mt-2"><span class="text-muted">You can see:</span>
-          <?php foreach (\Align\Portal\PortalAuth::SECTIONS as $k => $label): if ($pu[$k]): ?><span class="badge text-bg-light border me-1"><?= e($label) ?></span><?php endif; endforeach; ?></div>
-        <?php $acts = array_filter(\Align\Portal\PortalAuth::ACTIONS, fn($k) => (bool) $pu[$k], ARRAY_FILTER_USE_KEY); if ($acts): ?>
+          <?php // (2.36.0) the client's own words for permissions whose staff labels speak about them
+          $mine = ['can_psa_docs' => 'Documents from your IT team', 'can_all_tickets' => 'see every ticket of your company', 'can_pay_bills' => 'pay bills'];
+          foreach (\Align\Portal\PortalAuth::SECTIONS as $k => $label): $label = $mine[$k] ?? $label; if (!empty($pu[$k])): ?><span class="badge text-bg-light border me-1"><?= e($label) ?></span><?php endif; endforeach; ?></div>
+        <?php $acts = array_filter(\Align\Portal\PortalAuth::ACTIONS, fn($k) => !empty($pu[$k]), ARRAY_FILTER_USE_KEY); $acts = array_map(fn($k) => $mine[$k] ?? $acts[$k], array_combine(array_keys($acts), array_keys($acts))); if ($acts): ?>
           <div class="mt-1"><span class="text-muted">You can:</span> <?= e(implode('; ', array_map('lcfirst', $acts))) ?></div><?php endif; ?>
         <div class="mt-2 text-muted">To change your name, email or access, ask your IT provider.</div>
       </div>

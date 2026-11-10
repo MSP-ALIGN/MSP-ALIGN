@@ -6,8 +6,9 @@
  */
 use Align\View;
 ?>
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-  <h1 class="h4 mb-0 me-auto">Since your last review</h1>
+<div class="mb-1"><a href="/portal" class="small"><i class="fas fa-arrow-left me-1"></i>Home</a></div><?php /* (2.36.0) */ ?>
+<div class="d-flex flex-wrap align-items-center gap-2 portal-page-head">
+  <h1 class="h4 mb-0 me-auto"><i class="fas fa-timeline me-2 text-secondary"></i>Since your last review</h1>
   <?php if ($base): ?><a class="btn btn-sm btn-default" href="/portal/report/qbr" target="_blank" rel="noopener"><i class="fas fa-book-open me-1"></i>Business review pack</a><?php endif; ?>
 </div>
 <?php if (!$ch): ?>

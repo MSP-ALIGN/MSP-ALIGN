@@ -14,6 +14,13 @@ $rmm = \Align\Providers\Providers::rmmNames(...);
 $bk = \Align\Providers\Providers::backupNames(...);
 $links = fn(array $l) => implode(' ', array_map(fn($k, $v) => '<a class="btn btn-xs btn-default me-1 mb-1" href="' . e($v) . '">' . e($k) . '</a>', array_keys($l), $l));
 $step = function (int $n, string $icon, string $title, string $body, array $l) use ($links) {
+    // (2.36.0) only the links this role can open: admin pages, tech pages, and (for viewers) the tech-only guides they don't see
+    $l = array_filter($l, fn($href) => match (true) {
+        (bool) preg_match('#^/(integrations|settings|users)\b#', $href) => Auth::can('admin'),
+        $href === '#guide-dashboard' => true, // a viewer guide
+        (bool) preg_match('#^/(mapping|portal-users|todo|contracts|onboarding)\b#', $href), str_starts_with($href, '#guide-') => Auth::can('tech'),
+        default => true,
+    });
     return '<div class="help-step d-flex mb-3"><div class="help-num me-3">' . $n . '</div><div class="flex-grow-1"><h5 class="mb-1"><i class="fas ' . $icon . ' text-secondary me-2"></i>' . e($title) . '</h5>'
         . '<p class="mb-1 text-muted">' . $body . '</p><div>' . $links($l) . '</div></div></div>';
 };
@@ -74,6 +81,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <p class="text-muted small">The biggest recent additions. Full release notes for each version are under <?= $isAdmin ? '<a href="/settings/system">Settings → Updates &amp; backups</a>' : 'Settings → Updates &amp; backups (admins)' ?>.</p>
   <div class="list-group mb-3">
     <?php foreach ([
+        ['2.36.0', 'fa-magnifying-glass', 'Search and tidier documents in the client portal', 'Every list in the client portal has a search box (devices, contacts, licensing, vendors, tech closet, tickets, quotes, documents). <b>Documents</b> is one list with category tabs in plain words and counts, plus a search, with anything waiting for a signature on top, and has its own tab; Meetings moved under Plan. Staff side: a quieter default dashboard, one name for <b>Renewals</b>, and shorter menus where things were listed twice.', 'portal', 'tech'],
         ['2.35.2', 'fa-mountain-sun', 'Renewals stay off New clients', 'An existing client\'s new contract no longer shows as <b>Signed, ready to onboard</b> (clients already in ' . e(\Align\Branding::name()) . ' 30+ days before the contract). Anything else has a <b>Not needed</b> button; both are listed under <b>Not needed</b> to undo or onboard anyway.', 'onboarding', 'tech'],
         ['2.35.1', 'fa-wrench', 'Quote and ticket buttons in the portal fixed', 'In the client portal, <b>View &amp; accept</b> on a quote and <b>Reply</b> on a ticket open ' . e(psa_name()) . '\'s page again (most gave "not found").', 'portal-tickets', 'tech'],
         ['2.35.0', 'fa-screwdriver-wrench', 'Administration is in your user menu', 'Integrations, Libraries, Staff &amp; portal users, Settings and the Audit log moved out of the left menu: click your name (top right) → <b>Administration</b>. Their pages have their own menu with <b>Back to ' . e(\Align\Branding::name()) . '</b>. A dot on your picture means something there needs a look.', 'integration', 'viewer'],
@@ -162,7 +170,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
         ['1.44', 'fa-box', 'Install with Docker', 'MSP Align now also comes as a container image with a ready-made Docker Compose file (the app and MariaDB, plus an optional add-on for automatic HTTPS). It\'s the same app with the same backups, so a backup moves between a Docker install and a dedicated server. Dedicated installs are unchanged. See Install with Docker on mspalign.org.', 'update', 'admin'],
         ['1.43', 'fa-circle-half-stroke', 'A cleaner look, and dark mode', 'A fresh, cleaner design: white cards on a light gray page, softer colors and a compact dark menu. Each person can pick <b>Light</b>, <b>Dark</b> or <b>Match my computer</b> under <b>Account → Light or dark</b>; printed reports always stay light. The client portal is friendlier too: the client\'s logo at the top, larger text and more room.', 'appearance', 'viewer'],
         ['1.42', 'fa-gauge-high', 'Faster, and easier to find your way', 'Pages stay under a second at 150 clients and 10,000 devices, and long lists load a fraction of what they did. The menu is shorter, with a new <b>To do</b> list and a <b>Devices &amp; assets</b> list across every client; the top search also finds devices by serial, contacts and licenses. Client menus are grouped, every page has the same header and filter row, device pages have tabs, and the client portal has six tabs instead of ten.', 'todo', 'viewer'],
-        ['1.41', 'fa-flask', 'Demo data', 'Try MSP Align with four made-up clients before adding your own: load them from the setup wizard or Settings → General, and remove them with one click.', 'demo', 'admin'],
+        ['1.41', 'fa-flask', 'Demo data', 'Try MSP Align with four made-up clients before adding your own: load them from the setup wizard or Settings → Diagnostics, and remove them with one click.', 'demo', 'admin'],
         ['1.40', 'fa-wand-magic-sparkles', 'Setup wizard', 'New installs start with a step-by-step setup: company, currency & dates, PSA, RMM, backups & warranty, email, clients and team. Skip any step; open it again any time from Settings → General.', 'setup', 'admin'],
         ['1.39', 'fa-door-open', 'Client portal update', 'Clients can suggest licenses and budget items from the portal; you add them (edited if needed) or decline with a note, and they see each one as waiting until then. Portal contacts are view-only, and the portal has a clearer layout with every section on one bar.', 'suggestions', 'tech'],
         ['1.38', 'fa-globe', 'Your currency and date style', 'Choose the currency, how numbers and dates are written, a 12- or 24-hour clock, the first day of the week and the timezone under Settings → General. Pages, reports, emails and the client portal all follow it.', 'currency', 'admin'],
@@ -237,6 +245,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'The email has a <b>Start onboarding</b> button that opens a private page (no sign-in; the link works for 30 days by default and sending again replaces it). There the client fills in <b>their team\'s contacts</b> (or pastes them from a spreadsheet), marks who approves changes, gets invoices and is the main IT contact, reads <b>how to reach you, billing and email security</b> and confirms, gives <b>getting-started details</b> (current IT provider, preferred onsite week, pain points), and can send <b>new user</b> or <b>user termination</b> requests.',
       'Contacts go straight into the client\'s contacts and ' . psa_name() . ' (with two-way sync on). Requests become ' . psa_name() . ' tickets, or an email to your company address without ' . psa_name() . '. You get a notification as they go.',
       'Follow along on the client\'s <b>Onboarding</b> page: what\'s done, their answers, and their requests. The dashboard flags onboardings that stall or whose link expired. You can turn the link off, send it again or mark onboarding complete. Started one by mistake? <b>Remove onboarding</b> deletes it and turns the link off (techs can until the client opens it, admins any time; contacts and requests the client sent stay).',
+      '<b>Onboarding → New clients</b> lists clients who signed a contract in ' . e(\Align\Branding::name()) . ' but haven\'t had the welcome email yet (existing clients\' renewals are left out; press <b>Not needed</b> for anything else that doesn\'t need onboarding, and undo it under <b>Not needed</b>).',
       'Admins edit the welcome email and the page\'s guides in <b>Onboarding → Welcome email &amp; guide</b> (with placeholders like the client\'s name and your phone), attach a PDF to a guide, and import or export the whole set. Request forms can be turned off there; they\'re also in the client portal for users who can send requests.',
   ], ['Welcome email & guide' => '/settings/onboarding']) ?>
   <?= $guide('add-client', 'fa-user-plus', 'Add a client or take one out of planning', 'tech', [
@@ -300,7 +309,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'In the client portal, <b>Licensing</b> shows who has each license (names only) and <b>Your team</b> shows each person\'s licenses.',
   ], ['Licensing' => '/licenses']) ?>
   <?= $guide('vendors', 'fa-store', 'Keep track of a client\'s vendors', 'tech', [ // 2.8.0
-      'For a vendor many clients use (an internet provider, a registrar, Microsoft), add a template once under <b>Vendors</b> in the main menu: name, category, support phone and email, website, hours and SLA.',
+      'For a vendor many clients use (an internet provider, a registrar, Microsoft), add a template once under <b>Libraries → Vendor templates</b> (your name, top right → Administration): name, category, support phone and email, website, hours and SLA.',
       'On the client\'s <b>Vendors</b> page, choose <b>Add vendor</b>, pick the template and fill in what\'s the client\'s own: account number, contact and services (for example "300 Mbps fiber, 5 static IPs"). Leave a shared field blank to use the template\'s; fill it in only where this client\'s differs. A vendor only one client uses needs no template: just type its name. <b>Save as template</b> on it makes one later.',
       'Licenses and budget lines link to their vendor: type or pick one of the client\'s vendors as their vendor. When one names a vendor that isn\'t on the list, the Vendors page offers to add it. Each vendor shows its licenses and budget lines, their monthly cost and the next renewal.',
       '<b>Renewals</b> shows who each date is with and counts the dates by vendor across every client; pick a vendor to see only its dates (for example every Comcast contract ending this year).',
@@ -383,7 +392,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
   <?= $guide('feedback', 'fa-comment-dots', 'Report a bug or request a feature', 'viewer', [
       'An admin turns it on first: <b>Settings → General → Feedback</b>, tick <b>Let staff report bugs and request features</b> (off by default; turning it off hides the button and keeps the reports) (2.27.1).',
       'Press the <i class="fas fa-comment-dots"></i> button at the top right of any page, then <b>Report a bug</b> or <b>Request a feature</b>. Give it a short title, details if you like, a priority and a screenshot: choose a PNG or JPEG file, or copy a screenshot and paste it (Ctrl+V) while the form is open. The page you were on is sent with it (2.27.0).',
-      'Everyone on your team sees every report under <b>Feedback</b> (the last item in that menu), so check there before asking for the same thing twice. Open shows open and planned ones; Closed shows the ones done or marked won\'t do, with any note an admin added.',
+      'Everyone on your team sees every report under <b>All feedback</b> (the last item in that menu), so check there before asking for the same thing twice. Open shows open and planned ones; Closed shows the ones done or marked won\'t do, with any note an admin added.',
       'Admins see how many new reports are waiting on the button. Open one to set it <b>Planned</b>, <b>Done</b> or <b>Won\'t do</b>, change its priority, add a note (for example "Fixed in the next update"), or delete it; <b>Mark done</b> in the list does it in one click. Every change is recorded in the audit log.',
       'Feedback stays inside your MSP Align: it isn\'t sent anywhere else, and the client portal doesn\'t have it.',
   ], \Align\Feedback\Feedback::enabled() ? ['Feedback' => '/feedback'] : []) ?>
@@ -561,6 +570,7 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
 
   <?php if ($isAdmin): ?>
   <h6 class="text-uppercase text-muted small fw-bold mt-4">Administration</h6>
+  <p class="small text-muted mb-2">Integrations, Libraries, Staff &amp; portal users, Settings and the Audit log are under your name (top right) → <b>Administration</b> (2.35.0).</p>
   <?php endif; ?>
   <?= $guide('integration', 'fa-plug', 'Connect or change an integration', 'admin', [
       'Open <b>Integrations</b> and click the card (' . psa_name() . ', ' . $rmm(', ') . ', ' . $bk(', ') . ', Email, Dell, Lenovo).',
@@ -601,10 +611,10 @@ $guide = function (string $id, string $icon, string $title, string $who, array $
       'CSV exports and the API keep plain numbers and ISO dates (2026-09-29), so spreadsheets and scripts read them the same everywhere; the API also says which currency the amounts are in.',
   ], ['Settings → General' => '/settings#currency-dates']) ?>
   <?= $guide('users', 'fa-user-shield', 'Add staff and manage access', 'admin', [
-      'Open <b>Users → New user</b>. Choose the role: <b>Viewer</b> reads, <b>Tech</b> edits clients and plans, <b>Admin</b> also manages settings, integrations and users.',
+      'Open <b>Administration → Staff &amp; portal users → Staff</b> (your name, top right) and press <b>New user</b>. Choose the role: <b>Viewer</b> reads, <b>Tech</b> edits clients and plans, <b>Admin</b> also manages settings, integrations and users.',
       'Everyone sets up two-factor sign-in at first sign-in. New phone? Use <b>Account → Replace authenticator</b>: it asks for a code from the new app and one from the old. To skip the code on your own computer for a while, tick <b>Remember this browser</b> after entering it (your password is still asked for); your Account page lists and forgets remembered browsers. Lost the phone? An admin uses <b>Remove 2FA</b> on the user list. That also gives a one-time password (pass it on): they choose their own and set up two-factor at the next sign-in. For your own account, use your Account page.',
       'Disable accounts as soon as someone leaves; the audit log keeps their history.',
-  ], ['Users' => '/users']) ?>
+  ], ['Staff' => '/users']) ?>
   <?= $guide('update', 'fa-circle-arrow-up', 'Update Align', 'admin', [
       'When a new version is out you\'ll see a banner and a <b>new</b> badge on Settings.',
       'Open <b>Settings → Updates &amp; backups</b>, read what\'s new, tick the confirmation and press <b>Update</b>. It makes a safety copy first and usually takes a few minutes.',

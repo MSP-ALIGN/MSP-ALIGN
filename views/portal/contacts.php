@@ -16,8 +16,9 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
   <?php if ($canRequest): ?><a class="btn btn-sm btn-primary mt-2 mt-md-0" href="/portal/requests"><i class="fas fa-user-plus me-1"></i>New user or termination request</a><?php endif; ?>
 </div>
 <div class="card">
+  <div class="card-header py-2"><div class="card-tools"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-contacts', 'placeholder' => 'Search name, email, title, phone']) /* (2.36.0) */ ?></div></div>
   <div class="card-body p-0 table-responsive">
-    <table class="table table-sm table-hover mb-0">
+    <table class="table table-sm table-hover mb-0" id="portal-contacts">
       <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Mobile</th><th>Roles</th><?php if ($licensesBy !== null): ?><th>Licenses</th><?php endif; ?></tr></thead>
       <tbody>
       <?php foreach ($contacts as $k): ?>
@@ -34,6 +35,7 @@ $tel = fn(string $n) => 'tel:' . preg_replace('/[^\d+]/', '', $n);
       <?php if (!$contacts): ?><tr><td colspan="<?= $licensesBy !== null ? 6 : 5 ?>" class="empty-state">No contacts yet.</td></tr><?php endif; ?>
       </tbody>
     </table>
+    <?= \Align\View::fetch('portal/_search', ['target' => 'portal-contacts', 'none' => true]) ?>
   </div>
 </div>
 <p class="small text-muted"><i class="fas fa-circle-info me-1"></i>Something out of date?

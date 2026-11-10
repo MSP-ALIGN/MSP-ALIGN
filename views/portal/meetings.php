@@ -22,17 +22,17 @@ $row = function (array $m): string {
     <?php return (string) ob_get_clean();
 };
 ?>
-<div class="mb-3"><h1 class="h4 mb-0"><i class="fas fa-handshake me-2 text-secondary"></i>Meetings</h1>
+<div class="portal-page-head"><h1 class="h4 mb-0"><i class="fas fa-handshake me-2 text-secondary"></i>Meetings</h1>
   <div class="small text-muted">Business reviews and planning meetings with your IT provider.</div></div>
 <div class="row">
   <div class="col-lg-6">
     <div class="card"><div class="card-header py-2"><h3 class="card-title mt-1">Upcoming</h3></div>
       <ul class="list-group list-group-flush"><?php foreach ($upcoming as $m) echo $row($m); ?>
-        <?php if (!$upcoming): ?><li class="list-group-item small text-muted">No meetings scheduled.</li><?php endif; ?></ul></div>
+        <?php if (!$upcoming): ?><li class="list-group-item empty-state">No meetings scheduled.</li><?php endif; ?></ul></div>
   </div>
   <div class="col-lg-6">
     <div class="card"><div class="card-header py-2"><h3 class="card-title mt-1">Recent</h3></div>
       <ul class="list-group list-group-flush"><?php foreach ($past as $m) echo $row($m); ?>
-        <?php if (!$past): ?><li class="list-group-item small text-muted">No past meetings yet.</li><?php endif; ?></ul></div>
+        <?php if (!$past): ?><li class="list-group-item empty-state">No past meetings yet.</li><?php endif; ?></ul></div>
   </div>
 </div>

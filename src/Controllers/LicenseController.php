@@ -145,7 +145,7 @@ final class LicenseController
         $asked = \Align\Vendors\Vendors::key(query('vendor'));
         $vendor = isset($byVendor[$asked]) && $asked !== '' ? $asked : '';
         View::render('licenses/renewals', [
-            'title' => 'Renewals & contracts',
+            'title' => 'Renewals',
             'nav' => 'renewals',
             'dates' => $vendor === '' ? $all : array_values(array_filter($all, fn($d) => $d['vendor_key'] === $vendor)),
             'days' => $days,

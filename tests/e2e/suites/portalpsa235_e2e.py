@@ -163,7 +163,8 @@ ok(q("select 1 from audit_log where action='portal.quote_opened' and portal_user
 
 # ---- shared documents
 t = sam.get(B + "/portal/documents").text
-ok("From ITFlow" in t and "Wi-Fi guide for staff" in t and "Internal runbook" not in t and "A template" not in t and not errs(t), "Documents lists what ITFlow shares, under From ITFlow")
+ok('data-cat="psa"' in t and "Wi-Fi guide for staff" in t and "Internal runbook" not in t and "A template" not in t and not errs(t), "Documents lists what ITFlow shares (2.36.0: its own tab, named for the MSP)")
+ok('data-value="psa"' in t and "From Example MSP" in t and "From ITFlow" not in t, "...the tab names the MSP, not the PSA product")
 r = sam.get(B + "/portal/shared/601")
 ok(r.status_code == 200 and "Joining Wi-Fi" in r.text and "Cedar-Staff" in r.text and "<script>alert" not in r.text and "/uploads/documents/601" not in r.text,
    "a shared document is read live and cleaned (no script; ITFlow images left out)")
@@ -171,7 +172,7 @@ ok(sam.get(B + "/portal/shared/602").status_code == 404, "a document ITFlow does
 ok(sam.get(B + "/portal/shared/603").status_code == 404, "nor another client's")
 ok(pat.get(B + "/portal/shared/601").status_code == 404, "...from the other side either")
 t = jordan.get(B + "/portal/documents").text
-ok("From ITFlow" not in t and jordan.get(B + "/portal/shared/601").status_code == 404, "ITFlow documents are their own permission: Documents access alone doesn't show them")
+ok('data-cat="psa"' not in t and jordan.get(B + "/portal/shared/601").status_code == 404, "ITFlow documents are their own permission: Documents access alone doesn't show them")
 
 # ---- staff side: the permissions on the portal user form
 a = login("admin@example.com", "LongPassword123!")
@@ -215,7 +216,7 @@ h = sam.get(B + "/portal").text
 ok('href="/portal/tickets"' not in h and 'href="/portal/quotes"' not in h and "Open tickets" not in h, "off: no Tickets or Quotes in the portal")
 ok(sam.get(B + "/portal/tickets").status_code == 404 and sam.get(B + "/portal/quotes").status_code == 404 and sam.get(B + "/portal/shared/601").status_code == 404
    and sam.get(B + f"/portal/tickets/{backup['id']}/reply", allow_redirects=False).status_code == 404, "off: their pages and redirects are gone")
-ok("From ITFlow" not in sam.get(B + "/portal/documents").text, "off: no ITFlow documents")
+ok('data-cat="psa"' not in sam.get(B + "/portal/documents").text, "off: no ITFlow documents")
 t = a.get(B + f"/clients/{cid1}/portal").text
 ok('name="can_tickets"' not in t and 'name="can_quotes"' not in t and 'name="can_psa_docs"' not in t, "off: the permissions aren't offered on the portal user form")
 a.post(B + f"/portal-users/{sam_id}", data={"_csrf": csrf(a, f"/clients/{cid1}/portal"), "name": "Sam Portal", "can_roadmap": "1", "can_documents": "1"})

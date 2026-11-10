@@ -9,20 +9,23 @@ use Align\Portal\Support;
 $draft = $_SESSION['ticket_draft'] ?? ['subject' => '', 'details' => '', 'priority' => 'Medium'];
 $tone = fn(string $s) => ['New' => 'primary', 'Open' => 'info', 'On hold' => 'warning', 'Resolved' => 'success', 'Closed' => 'secondary'][$s] ?? 'light';
 ?>
-<div class="d-flex flex-wrap align-items-center mb-3">
+<div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-life-ring me-2 text-secondary"></i>Tickets</h1>
     <div class="small text-muted"><?= !empty($pu['can_all_tickets']) ? 'Every ticket for your company.' : 'Tickets you opened, or that your IT team opened for you.' ?></div></div>
   <?php if ($canOpen && $linked): ?><a href="#new" class="btn btn-sm btn-primary mt-2 mt-md-0"><i class="fas fa-plus me-1"></i>New ticket</a><?php endif; ?>
 </div>
-<ul class="nav nav-tabs mb-0">
+<div class="d-flex flex-wrap align-items-end gap-2">
+<ul class="nav nav-tabs mb-0 me-auto">
   <li class="nav-item"><a class="nav-link<?= $state === 'open' ? ' active' : '' ?>" href="/portal/tickets">Open</a></li>
   <li class="nav-item"><a class="nav-link<?= $state === 'closed' ? ' active' : '' ?>" href="/portal/tickets?state=closed">Resolved &amp; closed</a></li>
 </ul>
+<?php if ($tickets): ?><div class="mb-1" style="min-width:240px"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-tickets', 'placeholder' => 'Search subject or number']) /* (2.36.0) */ ?></div><?php endif; ?>
+</div>
 <div class="card border-top-0">
   <?php if (!$linked): ?><div class="card-body small text-muted">Your company isn't linked to your IT team's ticket system yet. Please email or call them.</div>
   <?php elseif (!$tickets): ?><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-life-ring', 'text' => $state === 'open' ? 'No open tickets.' : 'No resolved or closed tickets in the last 12 months.']) ?>
   <?php else: ?>
-  <ul class="list-group list-group-flush">
+  <ul class="list-group list-group-flush" id="portal-tickets">
     <?php foreach ($tickets as $t): $st = Support::status($t); ?>
       <li class="list-group-item py-2 d-flex align-items-center">
         <div class="me-auto min-w-0"><a href="/portal/tickets/<?= e(rawurlencode((string) $t['id'])) ?>" class="fw-bold"><?= e($t['subject'] ?: '(no subject)') ?></a>
@@ -31,6 +34,8 @@ $tone = fn(string $s) => ['New' => 'primary', 'Open' => 'info', 'On hold' => 'wa
       </li>
     <?php endforeach; ?>
   </ul>
+  <?= \Align\View::fetch('portal/_search', ['target' => 'portal-tickets', 'none' => true]) ?>
+  <?php if (count($tickets) >= 300): ?><p class="small text-muted px-3 py-2 mb-0">Showing the newest 300.</p><?php endif; ?>
   <?php endif; ?>
 </div>
 <?php if ($canOpen && $linked): ?>

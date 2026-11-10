@@ -13,7 +13,8 @@ $section = function (string $icon, string $title, int $count, string $body, ?str
 <form method="get" action="/search" class="mb-3" role="search"><div class="input-group" style="max-width:560px">
   <input type="search" name="q" value="<?= e($q) ?>" class="form-control" placeholder="Search clients, devices, serials, contacts, licenses" aria-label="Search" autofocus>
   <button class="btn btn-primary" aria-label="Search"><i class="fas fa-search"></i></button></div></form>
-<?php if ($q !== '' && !$n): ?><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-magnifying-glass', 'text' => 'Nothing matches.', 'more' => 'Try part of a name, a serial number or an email address.']) ?></div><?php endif; ?>
+<?php if ($q !== '' && mb_strlen($q) < 2): // (2.36.0) the search needs two letters: say so instead of "Nothing matches" ?><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-magnifying-glass', 'text' => 'Type at least two letters.']) ?></div>
+<?php elseif ($q !== '' && !$n): ?><div class="card"><?= \Align\View::fetch('partials/empty', ['icon' => 'fa-magnifying-glass', 'text' => 'Nothing matches.', 'more' => 'Try part of a name, a serial number or an email address.']) ?></div><?php endif; ?>
 <?php
 if ($res['clients']) {
     $b = '<ul class="list-group list-group-flush">';

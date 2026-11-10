@@ -54,7 +54,7 @@ final class LibraryController
             ['key' => 'contracts', 'title' => 'Contract templates', 'icon' => 'fa-file-signature', 'href' => '/contracts/templates', 'role' => 'admin',
                 'count' => $n('SELECT COUNT(*) FROM contract_templates WHERE is_active = 1'), 'noun' => 'template',
                 'desc' => 'Your agreements, with the fields filled in and signed online.'],
-            ['key' => 'onboarding', 'title' => 'Onboarding', 'icon' => 'fa-mountain-sun', 'href' => '/settings/onboarding', 'role' => 'admin',
+            ['key' => 'onboarding', 'title' => 'Welcome email & guide', 'icon' => 'fa-mountain-sun', 'href' => '/settings/onboarding', 'role' => 'admin',
                 'count' => $n('SELECT COUNT(*) FROM onboarding_templates'), 'noun' => 'template',
                 'desc' => 'The welcome email and guide, onboarding emails and pages, and the request forms clients fill in.'],
         ];

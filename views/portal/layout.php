@@ -28,10 +28,10 @@ $items = $pu ? array_filter([
 $groups = [
     ['home', 'Home', 'fa-house', ['home']],
     ['support', 'Support', 'fa-life-ring', ['tickets', 'quotes']], // 2.35.0
-    ['plan', 'Plan', 'fa-road', ['roadmap', 'budget']],
+    ['plan', 'Plan', 'fa-road', ['roadmap', 'budget', 'meetings']], // (2.36.0) meetings are planning
     ['tech', 'Your technology', 'fa-desktop', ['devices', 'licensing', 'vendors', 'closet']],
-    ['compliance', 'Compliance', 'fa-clipboard-check', ['compliance', 'documents']],
-    ['meetings', 'Meetings', 'fa-handshake', ['meetings']],
+    ['compliance', 'Compliance', 'fa-clipboard-check', ['compliance']],
+    ['documents', 'Documents', 'fa-file-lines', ['documents']], // (2.36.0) its own tab: signatures and guides, not only compliance
     ['team', 'Your team', 'fa-user-group', ['contacts', 'requests']],
 ];
 $byKey = array_column($items, null, 0);

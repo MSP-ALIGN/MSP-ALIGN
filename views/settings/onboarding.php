@@ -3,6 +3,7 @@
  * Onboarding → Welcome email & guide (moved from Settings in 2.2). @var array $templates; int $days; bool $requestsOn
  * Security: titles, subjects and file names are escaped; ids are cast to int.
  */
+echo '<nav class="small mb-1"><a href="/libraries"><i class="fas fa-arrow-left me-1"></i>Libraries</a></nav>'; // (2.36.0) a library: the way back to the others
 echo \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-envelope-open-text', 'title' => 'Welcome email & guide',
     'desc' => 'What a new client gets after they sign: the welcome email and the private onboarding page where they add their contacts, read your guides and tell you how to get started.',
@@ -52,6 +53,7 @@ $pages = array_values(array_filter($templates, fn($t) => $t['kind'] === 'page'))
           <div class="input-group" style="max-width:200px"><input type="number" min="1" max="180" class="form-control" id="obd" name="onboarding_link_days" value="<?= (int) $days ?>"><span class="input-group-text">days</span></div></div>
         <div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="req" name="client_requests" value="1" <?= $requestsOn ? 'checked' : '' ?>><label class="form-check-label" for="req">Online request forms (new user, user termination)</label></div>
         <small class="form-text text-muted">On the onboarding page and in the client portal (for portal users who can send requests). Each request <?= psa_on() ? 'becomes a ticket in ' . e(psa_name()) . ', or an email to your company address when the client isn\'t in ' . e(psa_name()) : 'is emailed to your company address' ?>.</small>
+        <?php /* (2.36.0) */ ?><small class="form-text text-muted d-block">Other client portal switches: suggestions on <a href="/portal-users">Client portal users</a>; the health score on each client's <b>Client portal</b> page.</small>
       </div>
       <div class="card-footer text-end"><button class="btn btn-primary btn-sm">Save</button></div>
     </form>

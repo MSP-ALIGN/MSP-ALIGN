@@ -6,7 +6,7 @@
  * @var array $doc; array $signedCopies (2.34.0: Signing::portalCopies, the document's completed signature requests)
  */
 ?>
-<div class="d-flex flex-wrap align-items-center mb-2">
+<div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><a href="/portal/documents" class="small"><i class="fas fa-arrow-left me-1"></i>Documents</a>
     <h1 class="h4 mb-0"><?= e($doc['title']) ?></h1>
     <div class="small text-muted">Version <?= (int) $doc['version'] ?> · updated <?= e(fmt_date($doc['updated_at'])) ?><?= $doc['review_due'] ? ' · next review ' . e(fmt_date($doc['review_due'])) : '' ?></div></div>

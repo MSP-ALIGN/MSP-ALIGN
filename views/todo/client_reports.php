@@ -8,7 +8,6 @@ $reports = [
     ['fa-book-open', 'Business review pack (QBR)', 'Everything for a review meeting in one document: roadmap, budget, lifecycle, security and service levels.', "/clients/$cid/report/qbr", true],
     ...(\Align\Auth::can('tech') ? [['fa-wand-magic-sparkles', 'QBR executive summary', 'A few paragraphs for the business owner and the top 3 recommendations, written with AI or by hand, printed at the top of the QBR pack.', "/clients/$cid/qbr-summary", false]] : []), // 2.31.0
     ['fa-desktop', 'Asset & lifecycle report', 'Every device with its age, warranty, end of life and replacement cost.', "/clients/$cid/report/assets", true],
-    ['fa-file-lines', 'Asset summary', 'The same report without the device-by-device inventory.', "/clients/$cid/report/assets?inventory=0", true],
     ['fa-road', '3-year roadmap', 'Planned projects and hardware replacements by quarter.', "/clients/$cid/report/roadmap", true],
     ['fa-coins', 'Technology budget', 'Recurring costs, licensing, projects and replacements by year.', "/clients/$cid/report/budget", true],
     ...($backup ? [['fa-database', 'Backup & recovery', 'What is backed up, how recently, and anything that needs attention.', "/clients/$cid/report/backup", true]] : []),

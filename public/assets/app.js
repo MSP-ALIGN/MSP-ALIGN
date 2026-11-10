@@ -354,16 +354,57 @@ const fillOptions = (ev) => {
 ['mousedown', 'focusin', 'keydown', 'touchstart'].forEach((t) => document.addEventListener(t, fillOptions, true));
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Live table filter: <input data-filter-table="table-id">
+  // Live table filter: <input data-filter-table="table-id">. 2.36.0: a row can carry more words to match in data-search
+  // (a full user name, say); heading rows (.proj-quarter, [data-filter-head]) stay while a row under them matches;
+  // [data-filter-group] blocks hide when none of their rows match; data-filter-empty="id" shows that element when
+  // nothing matches; and <div data-filter-pills="table-id"> buttons with data-value narrow rows to data-cat.
+  const HEAD = '.proj-quarter, [data-filter-head]';
+  // A row's own words: not the choices of a picker in it (the closet's "who's taking it" list names everyone)
+  const ownText = (el) => {
+    let t = '';
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest('select, option, template') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+    while (w.nextNode()) t += w.currentNode.nodeValue + ' ';
+    return t;
+  };
   document.querySelectorAll('[data-filter-table]').forEach((input) => {
     const table = document.getElementById(input.dataset.filterTable);
     if (!table) return;
+    const pills = document.querySelector('[data-filter-pills="' + input.dataset.filterTable + '"]');
+    let cat = '';
     const apply = () => {
       const q = input.value.trim().toLowerCase();
+      const on = q !== '' || cat !== '';
+      let shown = 0;
       table.querySelectorAll('tbody tr, li.list-group-item').forEach((tr) => {
-        tr.hidden = q !== '' && !tr.textContent.toLowerCase().includes(q);
+        if (tr.matches(HEAD) || tr.querySelector('.empty-state')) return;
+        const text = (ownText(tr) + ' ' + (tr.dataset.search || '')).toLowerCase();
+        tr.hidden = (q !== '' && !text.includes(q)) || (cat !== '' && tr.dataset.cat !== cat);
+        if (!tr.hidden) shown++;
       });
+      table.querySelectorAll(HEAD).forEach((h) => {
+        let n = h.nextElementSibling, any = false;
+        while (n && !n.matches(HEAD)) { if (!n.hidden) any = true; n = n.nextElementSibling; }
+        h.hidden = on && !any;
+      });
+      table.querySelectorAll('[data-filter-group]').forEach((g) => {
+        // a card whose only row says it's empty ("Nothing is checked out") hides too
+        g.hidden = on && ![...g.querySelectorAll('tbody tr:not([hidden]), li.list-group-item:not([hidden])')].some((r) => !r.matches(HEAD) && !r.querySelector('.empty-state'));
+      });
+      const none = input.dataset.filterEmpty ? document.getElementById(input.dataset.filterEmpty) : null;
+      if (none) none.hidden = !on || shown > 0;
     };
+    if (pills) {
+      pills.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-value]');
+        if (!b) return;
+        cat = b.dataset.value;
+        pills.querySelectorAll('[data-value]').forEach((x) => {
+          x.classList.toggle('active', x === b);
+          x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+        });
+        apply();
+      });
+    }
     input.addEventListener('input', apply);
     apply();
   });

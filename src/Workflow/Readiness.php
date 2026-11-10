@@ -80,10 +80,10 @@ final class Readiness
         $steps = [
             ...(psa_on() || $client['psa_id'] ? [['key' => 'psa', 'label' => 'Linked to ' . psa_name(), 'ok' => $client['source'] === 'manual' && !$client['psa_id'] ? null : (bool) $client['psa_id'],
                 'detail' => $client['psa_id'] ? 'Contacts, assets and licenses sync' : 'Added in Align; links automatically when the same name appears in ' . psa_name(),
-                'link' => '/mapping', 'action' => 'Client mapping']] : []),
+                'link' => "$base/connectors", 'action' => 'Connectors']] : []),
             ['key' => 'rmm', 'label' => 'Linked to ' . \Align\Providers\Providers::rmmNames(), 'ok' => !\Align\Providers\Providers::anyRmm() && !$rmmLinked ? null : $rmmLinked,
                 'detail' => $rmmLinked ? count($devices) . ' devices tracked' : (\Align\Providers\Providers::anyRmm() ? 'Link the ' . \Align\Providers\Providers::rmmNames() . ' organization so computers and servers come in' : 'Connect your RMM, then link this client so computers and servers come in'),
-                'link' => '/mapping', 'action' => 'Link organization'],
+                'link' => "$base/connectors", 'action' => 'Link organization'],
             ['key' => 'contacts', 'label' => 'Key contacts identified', 'ok' => (int) $contacts['key_people'] > 0,
                 'detail' => (int) $contacts['key_people'] > 0 ? $plural((int) $contacts['key_people'], 'decision maker/invitee') . ' marked' : ((int) $contacts['n'] ? 'Mark who signs off and who attends reviews' : 'No contacts yet'),
                 'link' => "$base/contacts", 'action' => 'Contacts'],
@@ -110,7 +110,22 @@ final class Readiness
                 'link' => "$base/meetings", 'action' => 'Meetings'],
         ];
         $applicable = array_filter($steps, fn($s) => $s['ok'] !== null);
-        return ['steps' => $steps, 'done' => count(array_filter($applicable, fn($s) => $s['ok'])), 'total' => count($applicable)];
+        return ['steps' => self::forRole($steps), 'done' => count(array_filter($applicable, fn($s) => $s['ok'])), 'total' => count($applicable)];
+    }
+
+    /**
+     * (2.36.0) The steps with their link left out ('') where the signed-in role can't open that page (Integrations are
+     * admin-only; client mapping and connectors need a tech), so the checklist never leads to an
+     * access-denied page. The step itself still shows what's missing.
+     */
+    private static function forRole(array $steps): array
+    {
+        $need = fn(string $link): string => match (true) {
+            str_starts_with($link, '/integrations') => 'admin',
+            str_starts_with($link, '/mapping'), (bool) preg_match('#^/clients/\d+/connectors#', $link) => 'tech',
+            default => 'viewer',
+        };
+        return array_map(fn($s) => \Align\Auth::can($need((string) $s['link'])) ? $s : ['link' => ''] + $s, $steps);
     }
 
     /** System-wide setup checklist for the dashboard. */
@@ -138,7 +153,12 @@ final class Readiness
             ['key' => 'unassigned', 'label' => 'Hardware categorized', 'ok' => $unassigned === 0, 'detail' => $unassigned ? ($psa ? "$unassigned $psaName assets need a type" : "$unassigned devices need a type") : 'Nothing waiting', 'link' => '/devices/unassigned', 'action' => 'Categorize'],
             ['key' => 'licenses', 'label' => 'Licenses priced', 'ok' => $unpriced === 0, 'detail' => $unpriced ? "$unpriced licenses without a price" : 'All priced', 'link' => '/licenses?filter=unpriced', 'action' => 'Licensing'],
         ];
+        // (2.36.0) once the setup wizard is finished or skipped, only the setup itself: categorizing hardware and pricing
+        // licenses are day-to-day upkeep, which To do lists
+        if (!\Align\Controllers\SetupController::pending()) {
+            $steps = array_values(array_filter($steps, fn($s) => !in_array($s['key'], ['unassigned', 'licenses'], true)));
+        }
         $applicable = array_filter($steps, fn($s) => $s['ok'] !== null);
-        return ['steps' => $steps, 'done' => count(array_filter($applicable, fn($s) => $s['ok'])), 'total' => count($applicable)];
+        return ['steps' => self::forRole($steps), 'done' => count(array_filter($applicable, fn($s) => $s['ok'])), 'total' => count($applicable)];
     }
 }

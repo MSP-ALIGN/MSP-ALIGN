@@ -18,8 +18,9 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
 
 <?= \Align\View::fetch('portal/_suggestions', ['kind' => 'license', 'subs' => $subs, 'canSubmit' => $canSubmit, 'pu' => $pu]) ?>
 <div class="card">
+  <div class="card-header py-2"><div class="card-tools"><?= \Align\View::fetch('portal/_search', ['target' => 'portal-licenses', 'placeholder' => 'Search product or vendor']) /* (2.36.0) */ ?></div></div>
   <div class="card-body p-0 table-responsive">
-    <table class="table table-sm mb-0 license-table">
+    <table class="table table-sm mb-0 license-table" id="portal-licenses">
       <thead><tr><th>Product</th><th>Type</th><th class="text-end">Licenses</th><th>Billed</th><th class="text-end">Monthly</th><th class="text-end">Annual</th><th>Renews</th></tr></thead>
       <tbody>
       <?php if (!$licenses): ?><tr><td colspan="7" class="empty-state">No licenses have been added yet.</td></tr><?php endif; ?>
@@ -46,5 +47,6 @@ uksort($groups, fn($a, $b) => array_search($a, array_keys(Licenses::CATEGORIES))
       <?php endforeach; ?>
       </tbody>
     </table>
+    <?= \Align\View::fetch('portal/_search', ['target' => 'portal-licenses', 'none' => true]) ?>
   </div>
 </div>

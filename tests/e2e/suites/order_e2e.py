@@ -15,14 +15,14 @@ def inorder(t, items, label):
     ok(all(p>=0 for p in pos), label+": "+str(list(zip(items,pos))))
 q=re.sub(r"\s+"," ",text("/clients/1/report/qbr?virtual=1&inventory=1"))
 body=q[q.find("Executive summary",q.find("Appendix")):]
-inorder(body,["Executive summary","Service levels","Fleet at a glance","Software & licensing","Your vendors","Backup & recovery","Compliance","Three-year plan","technology budget","Three-year outlook","Contracts & renewals","Your team & next steps","Full inventory"],"QBR runs in meeting order")
+inorder(body,["Executive summary","Service levels","Fleet at a glance","Software & licensing","Your vendors","Backup & recovery","Compliance","Three-year plan","technology budget","Three-year outlook","Renewals and contract dates","Your team & next steps","Full inventory"],"QBR runs in meeting order")
 inorder(q[q.find("Technology Review"):],["01 Executive summary","02 Service levels","03 Assets & lifecycle","04 Software & licensing","05 Your vendors","06 Backup & recovery","07 Compliance","08 Roadmap & projects","09 Technology budget","10 Your team & next steps","A Appendix: full inventory"],"cover contents match")
 fleet=body[body.find("By device type"):body.find("Operating systems")]
 inorder(fleet,["Servers & hosts","Virtual servers","Network gear","Desktops","Laptops","Virtual desktops","Printers"],"device-type rows: servers with virtual servers, computers with virtual desktops")
 inv=body[body.find("Full inventory"):]
 inorder(inv,["Servers & virtualization","Server · ","Virtual server · ","Network & security","Computers","Desktop · ","Laptop · ","VDI / virtual desktop · ","Printers, phones & other"],"inventory families in order, VMs beside servers")
 b=re.sub(r"\s+"," ",text("/clients/1/report/budget?details=1"))
-inorder(b,["by category","Budget line items","Three-year outlook","By quarter","By year","Contracts & renewals"],"budget: this year, three years, then dates")
+inorder(b,["by category","Budget line items","Three-year outlook","By quarter","By year","Renewals and contract dates"],"budget: this year, three years, then dates")
 rm=re.sub(r"\s+"," ",text("/clients/1/report/roadmap"))
 inorder(rm,["Where things stand today","Three-year plan","Roadmap by quarter","Projects & recommendations"],"roadmap: today first, then the plan")
 bk=re.sub(r"\s+"," ",text("/clients/1/report/backup")); bk=bk[bk.find("Last 30 days"):]

@@ -87,7 +87,7 @@ $actionShort = ['can_approve' => 'Approves projects', 'can_submit' => 'Suggests 
           <input type="hidden" name="portal_health" value="0">
           <div class="form-check form-switch">
             <input type="checkbox" class="form-check-input" role="switch" id="portal-health-on" name="portal_health" value="1"<?= !empty($client['portal_health']) ? ' checked' : '' ?><?= \Align\Auth::can('admin') ? '' : ' disabled' ?> data-autosubmit-check>
-            <label class="form-check-label fw-normal" for="portal-health-on">Show the health score in the portal</label>
+            <label class="form-check-label fw-normal" for="portal-health-on">Show the health score in the portal <span class="small text-muted d-block">Other portal switches: suggestions on <a href="/portal-users">Client portal users</a>, request forms on <a href="/settings/onboarding">Welcome email &amp; guide</a>.</span></label>
           </div>
           <?php if (\Align\Auth::can('admin')): ?><noscript><button class="btn btn-xs btn-default mt-1">Save</button></noscript><?php else: ?><div class="text-muted mt-1">Only admins change this.</div><?php endif; ?>
         </form>

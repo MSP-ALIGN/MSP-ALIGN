@@ -17,11 +17,12 @@ $todo = array_values(array_filter($r['steps'], fn($s) => $s['ok'] === false));
       <?php if (!empty($intro)): ?><p class="small text-muted mb-2"><?= e($intro) ?></p><?php endif; ?>
       <?php $renderStep = function (array $s) { ?>
           <div class="col-md-6 col-xl-4 mb-2">
-            <a href="<?= e($s['link']) ?>" class="readiness-step d-flex text-reset <?= $s['ok'] ? 'is-done' : '' ?>">
+            <?php $tag = $s['link'] !== '' ? 'a' : 'div'; // (2.36.0) no link where this role can't open the page (Readiness::forRole) ?>
+            <<?= $tag ?><?= $tag === 'a' ? ' href="' . e($s['link']) . '"' : '' ?> class="readiness-step d-flex text-reset <?= $s['ok'] ? 'is-done' : '' ?>">
               <span class="step-icon me-2"><?= $s['ok'] ? '<i class="fas fa-circle-check text-success"></i>' : '<i class="far fa-circle text-muted"></i>' ?></span>
               <span class="flex-grow-1"><span class="d-block fw-bold small"><?= e($s['label']) ?></span><span class="d-block small text-muted"><?= e($s['detail']) ?></span></span>
-              <?php if (!$s['ok']): ?><span class="small text-primary text-nowrap ms-2"><?= e($s['action']) ?> <i class="fas fa-arrow-right"></i></span><?php endif; ?>
-            </a>
+              <?php if (!$s['ok'] && $tag === 'a'): ?><span class="small text-primary text-nowrap ms-2"><?= e($s['action']) ?> <i class="fas fa-arrow-right"></i></span><?php endif; ?>
+            </<?= $tag ?>>
           </div>
       <?php }; $done = array_filter($r['steps'], fn($s) => $s['ok'] === true); ?>
       <?php if ($todo): ?><div class="row"><?php foreach ($todo as $s) $renderStep($s); ?></div><?php endif; ?>

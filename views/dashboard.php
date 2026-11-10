@@ -236,7 +236,7 @@ $cards['backups'] = function () use ($backupIssues, $cardHead) {
 };
 
 $cards['renewals'] = function () use ($contractDates) {
-    return \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Contracts & renewals (90 days)', 'showClient' => true, 'showVendor' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90',
+    return \Align\View::fetch('partials/contract_dates', ['dates' => $contractDates, 'title' => 'Renewals (90 days)', 'showClient' => true, 'showVendor' => true, 'limit' => 5, 'moreLink' => '/renewals?days=90',
         'emptyText' => 'No contract dates or renewals in the next 90 days.']);
 };
 
@@ -253,7 +253,7 @@ $cards['planning'] = function () use ($planning, $cardHead) {
           <li class="list-group-item py-2">
             <div class="d-flex align-items-center"><a class="fw-bold me-auto text-truncate" href="/clients/<?= (int) $p['client']['id'] ?>"><?= e($p['client']['name']) ?></a><span class="text-muted ms-2"><?= (int) $p['done'] ?>/<?= (int) $p['total'] ?></span></div>
             <div class="progress progress-xxs my-1"><div class="progress-bar bg-primary" style="width: <?= $pct ?>%"></div></div>
-            <?php if ($p['next']): ?><a href="<?= e($p['next']['link']) ?>" class="text-muted">Next: <?= e($p['next']['label']) ?> <i class="fas fa-arrow-right"></i></a><?php endif; ?>
+            <?php if ($p['next'] && $p['next']['link'] !== ''): ?><a href="<?= e($p['next']['link']) ?>" class="text-muted">Next: <?= e($p['next']['label']) ?> <i class="fas fa-arrow-right"></i></a><?php elseif ($p['next']): // (2.36.0) a step this role can't open ?><span class="text-muted">Next: <?= e($p['next']['label']) ?></span><?php endif; ?>
           </li>
         <?php endforeach; ?>
       </ul>
@@ -318,7 +318,7 @@ $zone = function (string $z) use ($layout, $cards) {
     <a class="btn btn-sm btn-light mt-1 mt-md-0" href="/setup">Continue setup</a></div>
 <?php endif; ?>
 <?php if ($setup['done'] < $setup['total']) echo \Align\View::fetch('partials/readiness', ['r' => $setup, 'title' => 'Getting set up', 'id' => 'setup-checklist',
-    'intro' => 'Finish these once and the portal keeps itself up to date. New here? Help & how-to (the ? at the top) has the full walkthrough.']); ?>
+    'intro' => 'Finish these once and ' . \Align\Branding::name() . ' keeps itself up to date. New here? Help & how-to (the ? at the top) has the full walkthrough.']); ?>
 
 <div class="dash-editbar card card-body py-2 mb-3" id="dash-editbar" hidden data-csrf="<?= e(csrf_token()) ?>">
   <div class="d-flex flex-wrap align-items-center">

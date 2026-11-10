@@ -6,7 +6,7 @@ $pending = array_values(array_filter($items, fn($i) => $i['status'] === 'propose
 $others = array_values(array_filter($items, fn($i) => $i['status'] !== 'proposed'));
 $qLabel = fn($it) => $it['target_quarter'] ? quarter_label($it['target_quarter']) : 'Not scheduled';
 ?>
-<div class="d-flex flex-wrap align-items-center mb-3">
+<div class="d-flex flex-wrap align-items-center portal-page-head">
   <div class="me-auto"><h1 class="h4 mb-0"><i class="fas fa-road me-2 text-secondary"></i>Roadmap &amp; projects</h1>
     <div class="small text-muted">Your technology plan for the next three years: projects, device replacements and support dates.</div></div>
   <a class="btn btn-sm btn-default mt-2 mt-md-0" href="/portal/report/roadmap" target="_blank"><i class="fas fa-print me-1"></i>Print roadmap</a>
