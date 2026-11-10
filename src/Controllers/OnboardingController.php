@@ -25,6 +25,9 @@ use Align\View;
  */
 final class OnboardingController
 {
+    /** (2.35.2) A client already in Align this many days before its contract was made is an existing client: not listed as ready to onboard. */
+    public const EXISTING_DAYS = 30;
+
     /**
      * Onboarding → New clients (2.2): every client's onboarding at a glance, and clients who signed a contract
      * recently but haven't been sent the welcome email yet. Techs and admins (it lists contracts, which viewers don't
@@ -43,12 +46,20 @@ final class OnboardingController
             $rows = array_values(array_filter($rows, fn($o) => !$o['completed_at'] || strtotime($o['completed_at']) > strtotime('-30 days')));
         }
         $since = date('Y-m-d H:i:s', strtotime('-120 days'));
-        // The latest contract each client signed in Align, for clients not sent the welcome email yet
-        $signed = DB::all("SELECT k.id, k.title, k.client_id, k.signed_on, k.completed_at, c.name AS client_name FROM contracts k JOIN clients c ON c.id = k.client_id
-            LEFT JOIN client_onboardings o ON o.client_id = k.client_id
+        // The latest contract each client signed in Align, for clients not sent the welcome email yet. (2.35.2) Not a
+        // client that was already in Align EXISTING_DAYS before that contract was made (an existing client's renewal),
+        // and not a contract marked "Not needed" (listed apart, to undo)
+        $from = "FROM contracts k JOIN clients c ON c.id = k.client_id LEFT JOIN client_onboardings o ON o.client_id = k.client_id
+            LEFT JOIN users u ON u.id = k.onboarding_skipped_by
             WHERE k.id IN (SELECT MAX(id) FROM contracts WHERE status = 'completed' AND source = 'built' AND client_id IS NOT NULL AND completed_at > ? GROUP BY client_id)
-                AND c.is_archived = 0 AND (o.id IS NULL OR o.sent_at IS NULL)
+                AND c.is_archived = 0 AND (o.id IS NULL OR o.sent_at IS NULL)";
+        $newClient = 'c.created_at > k.created_at - INTERVAL ' . self::EXISTING_DAYS . ' DAY';
+        $signed = DB::all("SELECT k.id, k.title, k.client_id, k.signed_on, k.completed_at, c.name AS client_name $from AND $newClient AND k.onboarding_skipped_at IS NULL
             ORDER BY k.completed_at DESC", [$since]);
+        // Not listed, to see and undo: marked "Not needed", or left out as an existing client (with a way to onboard anyway)
+        $skipped = DB::all("SELECT k.id, k.title, k.client_id, k.completed_at, k.onboarding_skipped_at, c.name AS client_name, u.name AS skipped_by_name,
+                NOT ($newClient) AS existing $from AND (k.onboarding_skipped_at IS NOT NULL OR NOT ($newClient))
+            ORDER BY k.onboarding_skipped_at IS NULL, k.onboarding_skipped_at DESC, k.completed_at DESC", [$since]);
         // Signed in Align by someone who isn't a client yet (not a client that was deleted): one click makes them one
         $leads = DB::all("SELECT k.id, k.title, k.lead_company, k.signer_name, k.completed_at FROM contracts k
             WHERE k.status = 'completed' AND k.source = 'built' AND k.client_id IS NULL AND k.lead_company IS NOT NULL AND k.completed_at > ?
@@ -60,9 +71,34 @@ final class OnboardingController
             'rows' => $rows,
             'show' => $show,
             'signed' => $signed,
+            'skipped' => $skipped, // 2.35.2
             'leads' => $leads,
             'clients' => ContractController::clients(),
         ]);
+    }
+
+    /**
+     * (2.35.2) "Not needed" on Onboarding → New clients: the signed contract leaves "Signed, ready to onboard" (an existing
+     * client's renewal, say). $undo puts it back. Techs and admins, as the page. Only a completed contract that belongs
+     * to a client is changed; the id is untrusted. Audited.
+     */
+    public static function skip(int $id, bool $undo = false): void
+    {
+        Auth::requireRole('tech');
+        $k = DB::one("SELECT k.id, k.title, c.name AS client_name FROM contracts k JOIN clients c ON c.id = k.client_id WHERE k.id = ? AND k.status = 'completed' AND k.source = 'built'", [$id]);
+        if ($k) {
+            DB::run('UPDATE contracts SET onboarding_skipped_at = ?, onboarding_skipped_by = ? WHERE id = ?', $undo ? [null, null, $id] : [date('Y-m-d H:i:s'), Auth::id(), $id]);
+            Audit::log($undo ? 'onboarding.unskipped' : 'onboarding.skipped', "{$k['client_name']}: {$k['title']}");
+            flash('success', $undo ? "{$k['client_name']} is back in Signed, ready to onboard." : "{$k['client_name']} won't be listed as ready to onboard for this contract. Undo it under Not needed.");
+        }
+        redirect('/onboarding');
+    }
+
+    /** (2.35.2) Puts a contract marked "Not needed" back in "Signed, ready to onboard" (see skip()). */
+    public static function unskip(int $id): void
+    {
+        Auth::requireRole('tech');
+        self::skip($id, true);
     }
 
     /**

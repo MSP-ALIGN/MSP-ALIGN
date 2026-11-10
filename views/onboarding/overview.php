@@ -1,7 +1,8 @@
 <?php
 use Align\Onboarding\Onboarding;
 
-/** Onboarding → New clients. @var array $rows, $signed, $leads, $clients; string $show. Every value is escaped with e(). */
+/** Onboarding → New clients. @var array $rows, $signed, $leads, $clients; array $skipped (2.35.2, "Not needed"); string $show. Every value is escaped with e(). */
+$skipped = $skipped ?? [];
 ?>
 <?= \Align\View::fetch('partials/page_header', [
     'icon' => 'fa-mountain-sun', 'title' => 'New clients',
@@ -24,11 +25,28 @@ use Align\Onboarding\Onboarding;
         <li class="list-group-item d-flex align-items-center">
           <div class="me-auto"><a href="/clients/<?= (int) $s['client_id'] ?>" class="fw-bold"><?= e($s['client_name']) ?></a>
             <div class="small text-muted">Signed <a href="/contracts/<?= (int) $s['id'] ?>"><?= e($s['title']) ?></a> <?= e(rel_time($s['completed_at'])) ?></div></div>
+          <form method="post" action="/contracts/<?= (int) $s['id'] ?>/onboarding/skip" class="me-2"><?= csrf_field() ?><button class="btn btn-sm btn-default" title="An existing client, or one that doesn't need onboarding: take it off this list (you can undo it)">Not needed</button></form>
           <a class="btn btn-sm btn-primary" href="/clients/<?= (int) $s['client_id'] ?>/onboarding">Send the welcome email</a>
         </li>
       <?php endforeach; ?>
     </ul>
   </div>
+<?php endif; ?>
+<?php if ($skipped): // (2.35.2) contracts marked "Not needed" (Undo), and existing clients left out on their own (onboard anyway) ?>
+  <details class="mb-3 small" id="onb-skipped"><summary class="text-muted">Not needed (<?= count($skipped) ?>): signed contracts of existing clients, or ones you took off the list</summary>
+    <ul class="list-group mt-2">
+      <?php foreach ($skipped as $s): ?>
+        <li class="list-group-item d-flex align-items-center py-2">
+          <div class="me-auto"><a href="/clients/<?= (int) $s['client_id'] ?>" class="fw-bold"><?= e($s['client_name']) ?></a>
+            <div class="text-muted"><a href="/contracts/<?= (int) $s['id'] ?>"><?= e($s['title']) ?></a> · <?= $s['onboarding_skipped_at']
+                ? 'marked not needed ' . e(rel_time($s['onboarding_skipped_at'])) . ($s['skipped_by_name'] ? ' by ' . e($s['skipped_by_name']) : '')
+                : 'an existing client (in ' . e(\Align\Branding::name()) . ' ' . \Align\Controllers\OnboardingController::EXISTING_DAYS . '+ days before this contract)' ?></div></div>
+          <?php if ($s['onboarding_skipped_at']): ?><form method="post" action="/contracts/<?= (int) $s['id'] ?>/onboarding/unskip"><?= csrf_field() ?><button class="btn btn-xs btn-default">Undo</button></form>
+          <?php else: ?><a class="btn btn-xs btn-default" href="/clients/<?= (int) $s['client_id'] ?>/onboarding">Onboard anyway</a><?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  </details>
 <?php endif; ?>
 <div class="card">
   <div class="card-header list-toolbar d-flex align-items-center">
