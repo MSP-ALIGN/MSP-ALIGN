@@ -65,7 +65,8 @@ jar = [{"name": c.name, "value": c.value, "url": B} for c in s.cookies]
 with sync_playwright() as p:
     b = p.chromium.launch(); cx = b.new_context(); cx.add_cookies(jar); pg = cx.new_page()
     pg.goto(B + "/portal/documents")
-    vis = lambda: pg.eval_on_selector_all("#portal-docs li", "els => els.filter(e => !e.hidden).map(e => e.textContent.trim().split('\\n')[0].trim())")
+    # (2.36.1) rows that are really on screen, not only marked hidden: .d-flex rows used to stay visible with [hidden]
+    vis = lambda: pg.eval_on_selector_all("#portal-docs li", "els => els.filter(e => e.getClientRects().length > 0).map(e => e.textContent.trim().split('\\n')[0].trim())")
     total = len(vis())
     pg.fill("[data-filter-table=portal-docs]", "password")
     ok([x for x in vis() if "P236" in x] == ["P236 Password policy"], "typing narrows the documents: %s" % vis()[:3])
@@ -76,8 +77,15 @@ with sync_playwright() as p:
     ok(sorted(x for x in vis() if "P236" in x) == ["P236 Acceptable use", "P236 Password policy"] and len(vis()) < total, "a tab narrows the list to its category")
     pg.click("[data-filter-pills=portal-docs] [data-value='']")
     ok(len(vis()) == total, "All shows everything again")
+    # (2.36.1) on every list page, a search that matches nothing leaves no row on screen (whatever the row's classes)
+    for path, target in [("/portal/devices", "portal-devices-table"), ("/portal/contacts", "portal-contacts"), ("/portal/licensing", "portal-licenses"),
+                         ("/portal/vendors", "portal-vendors"), ("/portal/closet", "portal-closet-all"), ("/portal/documents", "portal-docs")]:
+        pg.goto(B + path)
+        pg.fill(f"[data-filter-table={target}]", "zzznothing")
+        left = pg.eval_on_selector_all(f"#{target} tbody tr, #{target} li.list-group-item", "els => els.filter(e => !e.querySelector('.empty-state') && e.getClientRects().length > 0).length")
+        ok(left == 0, f"{path}: nothing matching leaves no row on screen ({left})")
     pg.goto(B + "/portal/licensing")
-    heads = lambda: pg.eval_on_selector_all("#portal-licenses tr.proj-quarter", "els => els.filter(e => !e.hidden).length")
+    heads = lambda: pg.eval_on_selector_all("#portal-licenses tr.proj-quarter", "els => els.filter(e => e.getClientRects().length > 0).length")
     allh = heads()
     first = pg.eval_on_selector("#portal-licenses tbody tr:not(.proj-quarter) td", "e => e.textContent.trim().split(/\\s+/)[0]") if allh else ""
     if first:

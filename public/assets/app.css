@@ -1140,6 +1140,10 @@ textarea.pv-in { resize: none; white-space: normal; }
 
 /* (2.36.0) client portal: search boxes and the Documents category tabs */
 .card-header .card-tools .portal-search { width: 260px; }
+/* (2.36.1) a row or block the live filter (app.js data-filter-table) hides stays hidden when it also has a display
+   utility: Bootstrap's .d-flex is display:flex !important, which beat [hidden], so the portal's Documents and Tickets
+   searches marked rows hidden but still showed them. */
+.list-group-item[hidden], tr[hidden], [data-filter-group][hidden], [data-filter-head][hidden] { display: none !important; }
 .portal-doc-search { width: 240px; }
 .portal-doc-tabs { gap: .25rem; flex-wrap: wrap; }
 .portal-doc-tabs .nav-link { border: 0; background: none; font-size: .9rem; }
