@@ -406,6 +406,8 @@ final class ClientController
             'emailAuth' => \Align\Domains\EmailAuth::stored($id),
             // 2.7.0: Huntress (when the client has a Huntress organization) and security awareness training results
             'huntress' => \Align\Huntress\Clients::forClient($id, $devices),
+            // 2.37.0: DNSFilter (when the client has a DNSFilter organization)
+            'dnsfilter' => \Align\DNSFilter\Clients::forClient($id, $devices),
             // (2.7.2: and the client's Curricula account, when linked, with its summary reports)
             // (2.14.0: and KnowBe4 when it's switched on or the client has a token)
             'sat' => SatController::data($id),
