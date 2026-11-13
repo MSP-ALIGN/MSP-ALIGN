@@ -8,6 +8,7 @@
  *        null when the client has no recent result: its card is shown only then)
  * 2.7.0: ?array $huntress (Huntress\Clients::forClient(), null without a Huntress organization); ?array $sat
  *        (['history', 'checks'] from Sat\Sat, null when Huntress isn't set up and the client has no SAT results)
+ * 2.37.0: ?array $dnsfilter (DNSFilter\Clients::forClient(), null without a DNSFilter organization)
  * 2.7.2: $sat also has source ('upload' or 'api'), curricula (the linked Curricula account or null) and reports
  * 2.14.0: and knowbe4 (the client's KnowBe4 row without its token, or null; with one, curricula is null)
  * Every value from the database or a synced system is escaped (the website is shown as text, never as a link);
@@ -94,6 +95,7 @@ $cid = (int) $client['id'];
       <?php if ($gwssec !== null) echo \Align\View::fetch('gws/_security', ['client' => $client, 'sec' => $gwssec]); ?>
       <?php if ($emailAuth !== null) echo \Align\View::fetch('gws/_email_auth', ['client' => $client, 'ea' => $emailAuth]); ?>
       <?php if ($huntress !== null) echo \Align\View::fetch('huntress/_card', ['client' => $client, 'h' => $huntress]); // 2.7.0 ?>
+      <?php if (!empty($dnsfilter)) echo \Align\View::fetch('dnsfilter/_card', ['client' => $client, 'd' => $dnsfilter]); // 2.37.0 ?>
       <?php if ($sat !== null) echo \Align\View::fetch('sat/_card', ['client' => $client] + $sat); // 2.7.0 ?>
     </div>
   </div>

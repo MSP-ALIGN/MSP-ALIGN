@@ -380,14 +380,14 @@ FEATURES = [
     ("spark", "Optional AI", "Reads vendor invoices into licenses, checks policies against frameworks, drafts missing ones and writes QBR summaries. You check everything first."),
     ("report", "QBRs in one click", "A polished pack that opens with what changed since the last review, then lifecycle, backups, compliance, roadmap and budget."),
     ("portal", "Client portal", "One place for your clients: their plan and approvals, tickets and quotes from ITFlow, documents to read or sign, a bill pay button and spare parts, every list searchable, with two-factor sign-in."),
-    ("pulse", "Security and client health", "Huntress, security awareness training, Microsoft 365 and Google Workspace checked daily, rolled into one health score per client."),
+    ("pulse", "Security and client health", "Huntress, DNSFilter, security awareness training, Microsoft 365 and Google Workspace checked daily, rolled into one health score per client."),
     ("shield", "Compliance and policies", "CIS, NIST CSF, CMMC, PCI DSS, SOC 2, ISO 27001 and more, plus 30 policy templates."),
     ("pen", "Contracts and e-signatures", "Send agreements and documents to sign online, have staff acknowledge policies, countersign and keep the certificate."),
     ("key", "Licensing and renewals", "Every license and contract with its cost and renewal date, so nothing renews unnoticed."),
     ("box", "Tech closet", "Spare parts, loaners and spare computers for each client and each of your offices, checked out to people and kept up to date by your team, and by the client's from the portal."),
     ("plug", "To do and automation", "One list of what's waiting on your team, and a REST API for n8n, Zapier and scripts."),
 ]
-TOOLS = ["ITFlow", "HaloPSA (beta)", "NinjaOne", "Tactical RMM (beta)", "Datto RMM (beta)", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)", "KnowBe4 (beta)",
+TOOLS = ["ITFlow", "HaloPSA (beta)", "NinjaOne", "Tactical RMM (beta)", "Datto RMM (beta)", "Veeam Service Provider Console", "Microsoft 365", "Google Workspace", "Huntress", "Huntress SAT (Curricula)", "DNSFilter", "KnowBe4 (beta)",
          "SMTP", "Dell warranties", "Lenovo warranties", "CSV import", "Claude, OpenAI, Grok, Gemini or Ollama (AI, optional)"]
 TRUST = [
     ("server", "Your server, your data", "Self-hosted on a Debian VM or Docker. No telemetry, no cloud account."),

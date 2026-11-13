@@ -4,7 +4,8 @@ use Align\Reports\Ui;
 /**
  * 2.7.0 Security (client-facing): Huntress coverage and incidents, security awareness training, then every
  * automatic security check that has a result (Microsoft 365, Google Workspace, email authentication, Huntress,
- * training) and Huntress's summary reports.
+ * training) and Huntress's summary reports. 2.37.0: DNSFilter's threats blocked and roaming client coverage (staff choose
+ * whether to share the report; the numbers are the client's own, from DNSFilter's reports, UTC days).
  * @var array $s ReportData::security(); ?string $num
  * Values are counts, fixed labels and text from Huntress or the checks (host names, subjects): escaped here. Report
  * links were checked to be https when synced.
@@ -21,6 +22,15 @@ $fails = count(array_filter($s['checks'], fn($c) => $c[0] === 'fail'));
       <?= Ui::kpi($need ? $ok . '/' . $need : (string) count($h['coverage']['agents']), 'Devices protected by Huntress', $need ? 'workstations and servers' : 'agents', $need && $ok < $need ? 'warn' : 'ok') ?>
       <?= Ui::kpi((string) array_sum($s['incidents90']), 'Incidents in 90 days', $s['incidents90'] ? implode(', ', array_map(fn($k) => (int) $s['incidents90'][$k] . ' ' . $k, array_keys($s['incidents90']))) : 'none reported',
           ($s['incidents90']['critical'] ?? 0) ? 'bad' : (array_sum($s['incidents90']) ? 'warn' : 'ok')) ?>
+    <?php endif; ?>
+    <?php if (($dn = $s['dnsfilter'] ?? null) && !$dn['stale']): $dd = $dn['org']['data']; $dneed = count($dn['coverage']['needed']); // 2.37.0
+      $dok = $dneed - count($dn['coverage']['missing']) - count($dn['coverage']['offline']) - count($dn['coverage']['unfiltered']); ?>
+      <?php if (is_int($dd['threats_90d'] ?? null)): ?>
+        <?= Ui::kpi(number_format($dd['threats_90d']), 'Threats blocked by DNS filtering', 'last 90 days' . (is_int($dd['blocked_90d'] ?? null) ? ' · ' . number_format($dd['blocked_90d']) . ' requests blocked in all' : ''), 'ok') ?>
+      <?php endif; ?>
+      <?php if ($dneed): ?>
+        <?= Ui::kpi($dok . '/' . $dneed, 'Computers with DNS filtering', 'workstations and laptops', $dok < $dneed ? 'warn' : 'ok') ?>
+      <?php endif; ?>
     <?php endif; ?>
     <?php if ($t = $s['training']): $p = $pct($t['completed'], $t['learners']); ?>
       <?= Ui::kpi($p . '%', 'Training completed', (int) $t['completed'] . ' of ' . (int) $t['learners'] . ' people', $p >= \Align\Sat\Sat::trainingPass() ? 'ok' : 'warn') ?>

@@ -13,7 +13,7 @@ working RMM, PSA, backup or security connector from a template, with its mock AP
 | RMM (any number) | NinjaOne, Tactical RMM (beta), Datto RMM (beta) | `devices.rmm_provider`, `rmm_device_id`, `rmm_org_id`, `rmm_orgs`, `client_links`, `rmm_hardware` (hardware read per device, 2.13.0) |
 | Backup (any number) | Veeam Service Provider Console | `backup_companies`, `backup_jobs`, `backup_workloads`, `backup_m365_orgs`, `backup_m365_objects` (each with `provider`), `client_links` |
 | AI (at most one, optional, 2.29.0) | Claude, OpenAI, Grok, Gemini, Ollama (self-hosted) | `ai_usage` (token counts only), reviews in `ai_documents`, `ai_reviews`, `ai_meeting_actions` |
-| Security and SaaS checks (community connectors, any number) | none yet (template: `src/Templates/Saas`) | `connector_records`, `connector_results` (each with `provider`, 2.22.0), `client_links` |
+| Security and SaaS checks (any number) | DNSFilter (built in, 2.37.0); community connectors from the template `src/Templates/Saas` | `connector_records`, `connector_results` (each with `provider`, 2.22.0), `client_links`; DNSFilter's roaming clients in `dnsfilter_agents` |
 
 ## PSA providers
 
@@ -95,6 +95,15 @@ checks the switches, the test-server rule and the monthly token limit (reserved 
 stop), and records the tokens used. The API key belongs to the provider it was typed for, so switching providers asks
 for the new provider's key. The model is typed as text, so new models work without an update. Claude, OpenAI and
 Gemini are sent PDFs as files; Grok and Ollama get the text Align reads from them.
+
+## Security providers
+
+Huntress has its own tables (`huntress_*`, 2.7.0). Since 2.37.0 **DNSFilter** is built on the security connector
+kit (`Connectors\DNSFilter`, `src/DNSFilter`): its customer organizations are `connector_records` with provider
+`dnsfilter` (with their network counts and request, blocked and threat totals as data), linked to clients through
+`client_links`, and its two checks (`dnsfilter_agents`, `dnsfilter_networks`) are `connector_results`. Roaming
+clients are in `dnsfilter_agents`, matched to RMM devices by host name. It reads `https://api.dnsfilter.com` with
+GET requests only, the key in the `Authorization` header; it was built against DNSFilter's API spec of 2026-11-06.
 
 ## Client links
 

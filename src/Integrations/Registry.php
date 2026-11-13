@@ -27,6 +27,7 @@ final class Registry
         Connectors\Dell::class,
         Connectors\Lenovo::class,
         Connectors\Ai::class, // 2.29.0
+        Connectors\DNSFilter::class, // 2.37.0
     ];
 
     public const CATEGORIES = ['PSA & documentation', 'RMM', 'Backup', 'Microsoft 365', 'Google Workspace', 'Security', 'Email & calendar', 'Warranty', 'AI'];

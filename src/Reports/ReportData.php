@@ -347,7 +347,8 @@ final class ReportData
      * 2.7.0 The QBR's Security section: Huntress (coverage, incidents, summary reports), security awareness training
      * and every automatic security check that has a result (Microsoft 365, Google Workspace, email, Huntress, SAT).
      * Null when the client has none of them. ['huntress' => Huntress\Clients::forClient() or null, 'sat' => uploads,
-     * 'checks' => [label => [status, detail]] (known ones only), 'incidents90' => severity => count in 90 days].
+     * 'checks' => [label => [status, detail]] (known ones only), 'incidents90' => severity => count in 90 days,
+     * 'dnsfilter' (2.37.0) => DNSFilter\Clients::forClient() or null].
      */
     public static function security(int $clientId): ?array
     {
@@ -359,14 +360,15 @@ final class ReportData
                 $checks[$i['label']] = [$i['ok'] ? 'pass' : 'fail', $i['text']];
             }
         }
-        if (!$h && !$checks) {
+        $dns = \Align\DNSFilter\Clients::forClient($clientId, $devices); // 2.37.0
+        if (!$h && !$checks && !$dns) {
             return null;
         }
         $inc = $h ? array_column(DB::all('SELECT severity, COUNT(*) AS n FROM huntress_incidents WHERE org_id = ? AND sent_at >= NOW() - INTERVAL 90 DAY GROUP BY severity',
             [$h['org']['org_id']]), 'n', 'severity') : [];
         // SAT figures from the same source as the checks (2.7.2: Curricula's API, else uploads; 2.14.0: or KnowBe4's)
         [$w, $args] = \Align\Sat\Sat::rows($clientId); // 2.14.0: only the client's current provider's rows (or its uploads)
-        return ['huntress' => $h, 'checks' => $checks, 'incidents90' => $inc,
+        return ['huntress' => $h, 'checks' => $checks, 'incidents90' => $inc, 'dnsfilter' => $dns,
             'training' => DB::one("SELECT * FROM sat_results WHERE $w AND kind = 'training' ORDER BY covers_to DESC, id DESC LIMIT 1", $args),
             'phishing' => DB::one("SELECT SUM(sent) AS sent, SUM(clicked) AS clicked, SUM(reported) AS reported, MAX(covers_to) AS last FROM sat_results
                 WHERE $w AND kind = 'phishing' AND covers_to >= CURDATE() - INTERVAL 12 MONTH HAVING SUM(sent) > 0", $args)];
