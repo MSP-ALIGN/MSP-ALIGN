@@ -107,7 +107,7 @@ poll()
 q("delete from clients where name='Zz Unlinked Contacts'")
 cur = db.cursor(); cur.execute("insert into clients (name, source, is_archived, planning_excluded) values ('Zz Unlinked Contacts','manual',0,0)"); UC = cur.lastrowid
 t = tech.get(B + f"/clients/{UC}/contacts").text
-ok("isn't linked to ITFlow, so contacts added here stay in Align" in t and 'href="/mapping?show=missing"' in t, "unlinked client: the page says contacts stay in Align, with a link to Client mapping")
+ok("isn't linked to ITFlow, so contacts added here stay in Align" in t and re.search(r'href="/clients/\d+/connectors">Check its links', t), "unlinked client: the page says contacts stay in Align, with a link to Client mapping")
 r = post(tech, f"/clients/{UC}/contacts", {"name": "Zz Sync Local"}, f"/clients/{UC}/contacts")
 ok("ITFlow" not in flash(r.text) and q("select source from contacts where name='Zz Sync Local'")[0]["source"] == "manual", "...and a contact added there stays in Align")
 

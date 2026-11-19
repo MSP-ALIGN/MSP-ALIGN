@@ -158,7 +158,7 @@ r = tech.post(B + f"/clients/{C1}/sat/{tr['id']}/delete", data={"_csrf": tok(tec
 ok(q("select 1 from sat_results where id=%s", tr["id"]), "API results can't be deleted through the upload's delete")
 t = text(st.get(B + f"/clients/{C1}/report/qbr").text)
 ok("18 of 20 people" in t, "the QBR uses the Curricula figures")
-ok("Curricula" in st.get(B + "/mapping").text and "Nobody Matches This" in st.get(B + "/mapping").text, "Client mapping has a Curricula column offering the unlinked account")
+ok("Curricula" in st.get(B + "/mapping").text and "Nobody Matches This" in st.get(B + "/mapping?tool=curricula").text, "Client mapping has a Curricula column offering the unlinked account")
 
 # ---- once a day unless forced; Refresh
 requests.get(M + "/mock/curricula-reset"); cset(**{"accounts": [res("accounts", "acc1", name="Different Name In Curricula", status="active", ioOrgId="101", licenses=25),

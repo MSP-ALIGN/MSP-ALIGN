@@ -66,7 +66,7 @@ try:
     # ======== (2) Doesn't need backups
     q("insert into clients (name, source, is_archived, planning_excluded) values ('R226 No Backups Co', 'manual', 0, 0)")
     cid = q("select id from clients where name='R226 No Backups Co'")[0]["id"]
-    m = st.get(B + "/mapping?show=missing").text
+    m = st.get(B + "/mapping?tool=veeam&show=missing").text  # 2.38.0 one tool tab at a time
     ok(f'name="link[veeam][{cid}]"' in m and f'value="{NN}"' in m and "Doesn't need backups" in H.unescape(m), "Client mapping offers Doesn't need backups in the Veeam column; the new client is missing a link")
     ok(not not_needed(cid), "not set yet")
     r = save_map(viewer, cid, NN)
@@ -74,13 +74,13 @@ try:
     r = save_map(tech, cid, NN, show="missing")
     ok(link(cid) == {"external_id": None, "match_method": "not_needed"} and not errs(r.text), f"a tech marks it: {link(cid)} {flash(r.text)[:100]}")
     ok(not_needed(cid), "Backup::notNeeded is true")
-    m = st.get(B + "/mapping").text
+    m = st.get(B + "/mapping?tool=veeam&show=all").text
     sel = m.split(f'name="link[veeam][{cid}]"', 1)[1].split("</select>", 1)[0]
     ok(f'value="{NN}" data-keep="1" selected' in sel and "no backups needed" in m.split(f'name="link[veeam][{cid}]"', 1)[1][:3000], "the mapping page shows it chosen, labelled no backups needed")
     # (the seed has an RMM column too: keep the client unlinked there, so only the backup column decides)
     for p in php('foreach (Align\\Providers\\Providers::linkConnectors() as $k => $c) if ($k !== "veeam") echo $k, " ";').stdout.split():
         q("insert ignore into client_links (client_id, provider, external_id, match_method) values (%s, %s, NULL, 'manual')", cid, p)
-    ok(f'name="link[veeam][{cid}]"' not in st.get(B + "/mapping?show=missing").text, "and it's no longer missing a link")
+    ok(f'name="link[veeam][{cid}]"' not in st.get(B + "/mapping?tool=veeam&show=missing").text, "and it's no longer missing a link")
     r = save_map(tech, cid, NN)
     ok("No changes" in flash(r.text), "saving it again changes nothing: " + flash(r.text)[:60])
     t = st.get(B + "/reports/backups").text

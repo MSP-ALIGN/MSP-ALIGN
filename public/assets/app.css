@@ -199,6 +199,8 @@ html[data-bs-theme=dark] .app-sidebar.sidebar-light .sidebar-client-card { backg
 .nav-tabs { --bs-nav-tabs-border-width: 0; --bs-nav-tabs-border-radius: 0; border-bottom: 1px solid var(--align-card-border); gap: .15rem; }
 .nav-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: .55rem .9rem; color: var(--bs-secondary-color); font-weight: 500; background: transparent; }
 .nav-tabs .nav-link:hover { color: var(--bs-body-color); border-bottom-color: var(--bs-border-color); }
+/* 2.38.0 Client mapping's tool tabs: one row that scrolls sideways on a phone (not up and down, which would clip the active tab's line) */
+.map-tools { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link { color: var(--bs-emphasis-color); background: transparent; border-bottom-color: var(--align-brand); font-weight: 600; box-shadow: none; }
 [data-bs-theme=dark] .nav-tabs .nav-link.active { border-bottom-color: var(--align-link); }
 .card-header .nav-tabs { border-bottom: 0; }

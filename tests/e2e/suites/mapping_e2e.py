@@ -1,4 +1,4 @@
-"""1.31 client mapping: one screen for every linking connector, labels, Missing a link, save (new + legacy fields), guards, shared auto-match."""
+"""1.31 client mapping (2.38.0: one tool tab at a time, ?tool=<key>&show=all|missing): one screen for every linking connector, labels, Missing a link, save (new + legacy fields), guards, shared auto-match."""
 from lib import *
 import re, json, subprocess, html as H
 fails=[]
@@ -16,28 +16,29 @@ q("update client_links set match_method='manual' where client_id=1 and provider=
 q("replace into client_links (client_id, provider, external_id, match_method) values (4,'veeam',NULL,'manual')")
 
 # ---- the page
-t=st.get(B+"/mapping").text
-ok(not errs(t) and 'name="link[ninjaone][' in t and 'name="link[veeam][' in t,"one select per client per linking tool (link[<key>][<id>])")
+NA,VA=B+"/mapping?tool=ninjaone&show=all",B+"/mapping?tool=veeam&show=all"
+tn=st.get(NA).text; tv=st.get(VA).text; t=tn+tv
+ok(not errs(t) and 'name="link[ninjaone][' in tn and 'name="link[veeam][' in tv and 'name="link[veeam][' not in tn,"one select per client in the chosen tool's tab (link[<key>][<id>])")
 nl=q("select count(*) n from client_links l join clients c on c.id=l.client_id where l.provider='ninjaone' and l.external_id is not null and c.is_archived=0 and c.planning_excluded=0")[0]["n"]
 ok(f"<b>{nl}</b> of {len(planned)} clients linked" in t,f"NinjaOne card: {nl} of {len(planned)} clients linked")
 un=q("select o.name from rmm_orgs o left join client_links l on l.provider=o.provider and l.external_id=o.org_id where o.provider='ninjaone' and l.client_id is null")
 ok(all(H.escape(r["name"]) in t for r in un) and f"{len(un)} organizations not linked" in t,"card lists the unlinked organizations")
 ok("Hosted backups</a>" in t and "If one is your own backup server" in t,"backup card points to Hosted backups")
 ok("by name" in t and "by hand" in t and "kept unlinked" in t,"How: by name / by hand / kept unlinked")
-ok(">Devices<" in t and ">Machines<" in t and ">Organization<" in t and ">Company<" in t,"column headings per tool")
+ok(">Devices<" in tn and ">Machines<" in tv and ">Organization in NinjaOne<" in tn and ">Company in Veeam<" in tv,"column headings per tool")
 
 # Missing a link: no link row for some tool that has records; "kept unlinked" is a decision, not missing
-miss=[c for c in planned if any(not q("select 1 from client_links where client_id=%s and provider=%s",c,p) for p in ["ninjaone","veeam"])]
-t=st.get(B+"/mapping?show=missing").text
+miss=[c for c in planned if not q("select 1 from client_links where client_id=%s and provider='ninjaone'",c)]
+t=st.get(B+"/mapping?tool=ninjaone&show=missing").text
 rows=len(re.findall(r'name="link\[ninjaone\]\[(\d+)\]"',t))
-ok(rows==len(miss) and f'Missing a link <span class="badge text-bg-light">{len(miss)}</span>' in t,f"Missing a link shows {len(miss)} clients")
+ok(rows==len(miss) and f'Missing a link <span class="badge text-bg-light">{len(miss)}</span>' in t,f"NinjaOne's Missing a link shows {len(miss)} clients")
 kept=q("select client_id from client_links where provider='veeam' and external_id is null and match_method='manual'")
 if kept:
     k=kept[0]["client_id"]
     ok((k in miss)==bool(not q("select 1 from client_links where client_id=%s and provider='ninjaone'",k)),"a client kept unlinked isn't counted as missing for that tool")
 
 # ---- save with the new field
-def form(page="/mapping"):
+def form(page="/mapping?tool=veeam&show=all"):
     t=st.get(B+page).text; F={"_csrf":re.search(r'name="_csrf" value="([^"]+)"',t).group(1)}
     for name,body in re.findall(r'<select name="(link\[[^\]]+\]\[\d+\])"[^>]*>(.*?)</select>',t,re.S):
         m=re.search(r'<option value="([^"]*)" selected',body); F[name]=H.unescape(m.group(1)) if m else ""
@@ -46,8 +47,8 @@ F=form(); F["link[veeam][2]"]=""
 r=st.post(B+"/mapping",data=F); ok("Saved 1 change" in flash(r.text) and link(2,"veeam")=={"external_id":None,"match_method":"manual"},"link[] unlink saved as kept unlinked")
 F=form(); F["link[veeam][2]"]=C2
 r=st.post(B+"/mapping",data=F); ok("Saved 1 change" in flash(r.text) and link(2,"veeam")=={"external_id":C2,"match_method":"manual"},"link[] relink saved by hand")
-F=form("/mapping?show=missing"); F["show"]="missing"
-r=st.post(B+"/mapping",data=F,allow_redirects=False); ok(r.headers.get("Location","").endswith("/mapping?show=missing"),"saving from Missing a link returns there")
+F=form("/mapping?tool=veeam&show=missing"); F["show"]="missing"; F["tool"]="veeam"
+r=st.post(B+"/mapping",data=F,allow_redirects=False); ok(r.headers.get("Location","").endswith("/mapping?tool=veeam&show=missing"),"saving from a tool's Missing a link returns there")
 # older forms
 for fld,prov,cid,val in [("rmm[ninjaone][2]","ninjaone",2,""),("org[2]","ninjaone",2,"102"),("backup[veeam][2]","veeam",2,""),("veeam[2]","veeam",2,C2)]:
     tok=re.search(r'name="_csrf" value="([^"]+)"',st.get(B+"/mapping").text).group(1)
@@ -65,8 +66,9 @@ tok=re.search(r'name="_csrf" value="([^"]+)"',st.get(B+"/mapping").text).group(1
 r=st.post(B+"/mapping",data={"_csrf":tok,"link[veeam][2][]":"x"}); ok(link(2,"veeam")["external_id"]==C2,"a malformed value leaves the link alone")
 # Missing a link: a record held by a client that isn't on the form is refused, naming that client
 q("insert into clients (name, source, is_archived, planning_excluded) values ('Zz Missing Client','manual',0,0)"); mz=q("select id from clients where name='Zz Missing Client'")[0]["id"]
-F=form("/mapping?show=missing"); F["show"]="missing"; F[f"link[veeam][{mz}]"]=C1
-r=st.post(B+"/mapping",data=F); ok("is already linked to Cedar Ridge Family Dental, Inc." in flash(r.text) and link(1,"veeam")["external_id"]==C1 and "Missing a link" in r.text,"Missing a link: can't quietly take a record from a client that isn't shown")
+F=form("/mapping?tool=veeam&show=missing"); F["show"]="missing"; F[f"link[veeam][{mz}]"]=C1
+F["tool"]="veeam"; r=st.post(B+"/mapping",data=F,allow_redirects=False); ok(r.headers.get("Location","").endswith("/mapping?tool=veeam&show=missing"),"a refused save goes back to the same tool's Missing a link")
+r=st.get(B+r.headers["Location"]); ok("is already linked to Cedar Ridge Family Dental, Inc." in flash(r.text) and link(1,"veeam")["external_id"]==C1 and "Missing a link" in r.text,"Missing a link: can't quietly take a record from a client that isn't shown")
 F=form(); F["link[veeam][1]"]=""; F[f"link[veeam][{mz}]"]=C1
 r=st.post(B+"/mapping",data=F); ok("Saved 2 change" in flash(r.text) and link(mz,"veeam")["external_id"]==C1,"moving a record in one save (other client set to Not linked) works")
 q("delete from client_links where client_id=%s",mz); q("delete from clients where id=%s",mz)
@@ -74,7 +76,7 @@ q("replace into client_links (client_id, provider, external_id, match_method) va
 # guards
 F=form(); F["link[veeam][3]"]=C2
 r=st.post(B+"/mapping",data=F); ok("Each Veeam company can only be linked to one client. Nothing was saved." in flash(r.text) and not q("select 1 from client_links where client_id=3 and provider='veeam' and external_id is not null"),"one record can't go to two clients")
-F=form(); F["link[ninjaone][2]"]="99999"
+F=form("/mapping?tool=ninjaone&show=all"); F["link[ninjaone][2]"]="99999"
 r=st.post(B+"/mapping",data=F); ok("No changes" in flash(r.text) and link(2,"ninjaone")["external_id"]=="102","unknown record id leaves the link alone")
 for bad in [{"link":"x"},{"link[nope][1]":"1"},{"rmm":"x"},{"veeam":"x"},{"link[ninjaone][abc]":"101"}]:
     tok=re.search(r'name="_csrf" value="([^"]+)"',st.get(B+"/mapping").text).group(1)
@@ -85,17 +87,20 @@ ok(link(1,"veeam")["external_id"]==C1,"viewer's post changed nothing")
 ok(q("select count(*) n from audit_log where action='mapping.save' and created_at > now() - interval 10 minute")[0]["n"]>=5,"saves audited")
 # names are escaped
 q("insert into rmm_orgs (provider, org_id, name, synced_at) values ('ninjaone','9901','<img src=x onerror=alert(1)>',now())")
-t=st.get(B+"/mapping").text; ok("<img src=x" not in t and "&lt;img src=x" in t,"record names are escaped")
+t=st.get(NA).text; ok("<img src=x" not in t and "&lt;img src=x" in t,"record names are escaped")
 q("delete from rmm_orgs where org_id='9901'")
 
-# ---- several tools of each kind render (view with made-up connectors)
-out=php('''$p = fn($n, $noun, $recs, $backup) => ["name"=>$n,"noun"=>$noun,"icon"=>"fas fa-cube","count_label"=>$backup?"machines":"devices","configured"=>true,"backup"=>$backup,"connector_name"=>$n,
-  "records"=>$recs,"unlinked"=>array_values(array_filter($recs, fn($r)=>$r["client_id"]===null)),"links"=>[1=>["external_id"=>$recs[0]["id"] ?? null,"match_method"=>"auto"]],"summary"=>[1=>["n"=>3,"html"=>"3"]],"linked"=>1];
+# ---- several tools of each kind render (view with made-up connectors): a tab each, the chosen tool's list only
+render=lambda tool: php('''$p = fn($n, $noun, $recs, $backup) => ["name"=>$n,"noun"=>$noun,"icon"=>"fas fa-cube","count_label"=>$backup?"machines":"devices","configured"=>true,"backup"=>$backup,"connector_name"=>$n,
+  "records"=>$recs,"unlinked"=>array_values(array_filter($recs, fn($r)=>$r["client_id"]===null)),"links"=>[1=>["external_id"=>$recs[0]["id"] ?? null,"match_method"=>"auto"]],"summary"=>[1=>["n"=>3,"html"=>"3"]],"linked"=>1,"missing"=>[]];
 $r = [["id"=>"a","name"=>"Acme","count"=>3,"client_id"=>1],["id"=>"b","name"=>"Beta","count"=>0,"client_id"=>null]];
-echo Align\\View::fetch("mapping/index", ["clients"=>[["id"=>1,"name"=>"Acme","source"=>"psa"]],"total"=>1,"missing"=>0,"show"=>"all","anyBackupCompanies"=>true,
+echo Align\\View::fetch("mapping/index", ["clients"=>[["id"=>1,"name"=>"Acme","source"=>"psa"]],"total"=>1,"show"=>"all","tool"=>"'''+tool+'''","hidden"=>["x"=>"Other <Tool>"],
   "providers"=>["r1"=>$p("RMM One","organization",$r,false),"r2"=>$p("RMM Two","organization",[],false),"b1"=>$p("Backup One","company",$r,true),"b2"=>$p("Backup Two","company",$r,true)]]);''')
-t=out.stdout
-ok(all(f'name="link[{k}][1]"' in t for k in ["r1","b1","b2"]) and 'name="link[r2][1]"' not in t and "Run a sync to load RMM Two organizations" in t and t.count('colspan="3"')==4 and not out.stderr,"two RMMs and two backup products: a column group each"+(" "+out.stderr[:200] if out.stderr else ""))
+o1,o2,o3=render("r1"),render("b2"),render("r2")
+ok(all(f'href="/mapping?tool={k}"' in o1.stdout for k in ["r1","r2","b1","b2"]) and 'name="link[r1][1]"' in o1.stdout and 'name="link[b1][1]"' not in o1.stdout and not o1.stderr,"two RMMs and two backup products: a tab each, only the chosen tool's pickers"+(" "+o1.stderr[:200] if o1.stderr else ""))
+ok('name="link[b2][1]"' in o2.stdout and "Doesn't need backups" in o2.stdout and 'name="link[r1][1]"' not in o2.stdout and not o2.stderr,"a backup product's tab offers Doesn't need backups")
+ok("Run a sync (Integrations → Sync) to load its organizations" in o3.stdout and 'name="link[r2]' not in o3.stdout and not o3.stderr,"a connected tool with nothing synced yet says to run a sync, with no list")
+ok("Other &lt;Tool&gt;" in o1.stdout and "Also links clients when connected" in o1.stdout,"tools that aren't connected are only named (escaped)")
 
 # ---- one shared auto-match (RMM by name; backup by name or the client's RMM organization name)
 q("insert into clients (name, source, is_archived, planning_excluded) values ('Zz Acme Test, LLC','manual',0,0),('Zz Kept Out Inc','manual',0,0),('Zz Twin','manual',0,0)")
