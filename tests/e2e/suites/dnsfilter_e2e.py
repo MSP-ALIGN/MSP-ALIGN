@@ -144,7 +144,7 @@ if True:
 qbr = text(st.get(B + f"/clients/{C1}/report/qbr").text)
 ok("Threats blocked by DNS filtering" in qbr and "270" in qbr and f"{OK}/{N}" in qbr and "Computers with DNS filtering" in qbr, "the QBR's Security section shows threats blocked and coverage")
 ok("DNSFilter roaming client on every workstation and laptop" in qbr, "...and the checks")
-m = st.get(B + "/mapping").text
+m = st.get(B + "/mapping?tool=dnsfilter").text  # 2.38.0 one tool tab at a time
 ok(NAME in m and "Lakeside Test Org" in m and not errs(m), "Client mapping has a DNSFilter column")
 c = st.get(B + f"/clients/{C1}/connectors").text
 ok(NAME in c and not errs(c), "the client's connectors page shows the link")

@@ -17,14 +17,14 @@ $cid = (int) $client['id'];
   </div>
   <div class="card-body p-0"><?= \Align\View::fetch('contacts/_table', ['contacts' => $contacts, 'back' => $back, 'licensesBy' => $licensesBy ?? null, 'devicesBy' => $devicesBy ?? null]) ?></div>
 </div>
-<?php $pn = e(psa_name()); $linked = psa_on() && !empty($client['psa_id']); $mapLink = Auth::can('tech') ? '/mapping?show=missing' : null; ?>
+<?php $pn = e(psa_name()); $linked = psa_on() && !empty($client['psa_id']); $mapLink = Auth::can('tech') ? '/clients/' . (int) $client['id'] . '/connectors' : null; // 2.38.0 its Connectors page (Client mapping has no PSA tab) ?>
 <p class="small text-muted contacts-sync">
   <?php if ($linked && \Align\Contacts\Contacts::canPush($client)): ?>
     <i class="fas fa-arrows-rotate me-1"></i><b>Syncs both ways with <?= $pn ?>.</b> Contacts added, edited<?= \Align\Contacts\Contacts::canPushArchive($client) ? ', archived or restored' : '' ?> here go to <?= $pn ?> straight away, and <?= $pn ?> changes come in every few minutes. The Primary flag and location stay managed in <?= $pn ?>.
   <?php elseif ($linked): ?>
     <i class="fas fa-arrow-down me-1"></i>Contacts come in from <?= $pn ?> every few minutes; ones archived or deleted there are archived here. Two-way sync is off<?= Auth::can('admin') ? ' (<a href="/integrations/' . e(\Align\Providers\Providers::psaKey()) . '">Integrations → ' . $pn . '</a>)' : '' ?>, so contacts added or edited here stay in Align.
   <?php elseif (psa_on()): ?>
-    <i class="fas fa-link-slash me-1"></i>This client isn't linked to <?= $pn ?>, so contacts added here stay in Align.<?= $mapLink ? ' <a href="' . $mapLink . '">Link it in Client mapping</a> to sync them.' : '' ?> You can also <a href="/clients/import?kind=contacts">import a CSV file</a>.
+    <i class="fas fa-link-slash me-1"></i>This client isn't linked to <?= $pn ?>, so contacts added here stay in Align.<?= $mapLink ? ' <a href="' . $mapLink . '">Check its links</a> to sync them.' : '' ?> You can also <a href="/clients/import?kind=contacts">import a CSV file</a>.
   <?php else: ?>
     Add contacts here or <a href="/clients/import?kind=contacts">import a CSV file</a>.
   <?php endif; ?>

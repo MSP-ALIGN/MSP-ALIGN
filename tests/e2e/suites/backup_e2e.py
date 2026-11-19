@@ -43,8 +43,8 @@ ok(q("select 1 from backup_jobs where uid='other:j1'") and q("select 1 from back
 q("delete from backup_jobs where provider='othr'"); q("delete from backup_companies where provider='othr'")
 
 # ---- client mapping: page, save (new field), deliberate unlink, legacy veeam[] field
-t=st.get(B+"/mapping").text
-ok('name="link[veeam][' in t and "Veeam company" in t and not errs(t),"mapping page has a Veeam company column")
+t=st.get(B+"/mapping?tool=veeam&show=all").text  # 2.38.0 one tool tab at a time
+ok('name="link[veeam][' in t and "Company in Veeam" in t and not errs(t),"mapping page has a Veeam company column")
 cids=[int(c["id"]) for c in q("select id from clients where is_archived=0 and planning_excluded=0")]
 def form(prefix):
     F={"_csrf":csrf(st,"/mapping")}

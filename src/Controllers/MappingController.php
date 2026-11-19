@@ -25,52 +25,79 @@ final class MappingController
     /** 2.26.0 The picker value for "Doesn't need backups" (backup products only; never a real record id). */
     public const NOT_NEEDED = '__not_needed';
 
-    /** The mapping screen: one column per linking connector, for every active client in planning. */
+    /**
+     * The mapping screen. 2.38.0 One tool at a time: a tab for each linking connector that is connected or still has
+     * records (a tool that's neither is only named, not given an empty column), each tab with how many clients are
+     * missing a link there, and below it that tool's client list. ?tool= picks the tab (checked against the shown
+     * tools; otherwise the first with a client missing a link, else the first). ?show= is 'missing' or 'all'; without
+     * it a tool that has clients missing a link opens on those, and one with none opens on every client.
+     * Tech or above.
+     */
     public static function index(): void
     {
         Auth::requireRole('tech');
         $clients = DB::all('SELECT id, name, source FROM clients WHERE is_archived = 0 AND planning_excluded = 0 ORDER BY name');
         $ids = array_flip(array_map('intval', array_column($clients, 'id')));
-        // One column per connector that links clients (each RMM, each backup product, ...)
         $providers = [];
+        $hidden = []; // 2.38.0 tools that could link clients but aren't connected and have nothing stored: key => name
         foreach (Providers::linkConnectors() as $key => $c) {
             $records = $c->linkRecords();
+            if (!$records && !$c->configured()) {
+                $hidden[$key] = $c->linkName();
+                continue;
+            }
             $links = ClientLinks::forProvider($key);
             $linked = count(array_filter($links, fn($l, $cid) => $l['external_id'] !== null && isset($ids[$cid]), ARRAY_FILTER_USE_BOTH));
+            $backup = $c instanceof \Align\Integrations\BackupConnector;
             $providers[$key] = [
                 'name' => $c->linkName(),
                 'noun' => $c->linkNoun(),
                 'icon' => $c->icon(),
                 'count_label' => $c->linkCountLabel(),
                 'configured' => $c->configured(),
-                'backup' => $c instanceof \Align\Integrations\BackupConnector,
+                'backup' => $backup,
                 // No PSA: an RMM's organizations can become clients (once each; see ClientLinks::createClientsFromOrgs)
                 'creates' => $c instanceof \Align\Integrations\RmmConnector && !Providers::psaConfigured(),
-                'creatable' => $c instanceof \Align\Integrations\RmmConnector && !Providers::psaConfigured()
-                    ? (int) DB::value('SELECT COUNT(*) FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
-                        WHERE o.provider = ? AND l.client_id IS NULL AND o.client_created_at IS NULL', [$key]) : 0,
+                'creatable' => 0,
                 'connector_name' => $c->name(),
                 'records' => $records,
                 'unlinked' => array_values(array_filter($records, fn($r) => $r['client_id'] === null)),
                 'links' => $links,
-                'summary' => $c->linkClientSummary(),
+                'summary' => [], // filled in below for the tool on screen only
                 'linked' => $linked,
+                // Missing a link here: no link row (a "kept unlinked" choice is a decision, not missing) while the tool
+                // has records to link to. 2.26.0 A client set to not need backups isn't missing one in any backup product.
+                'missing' => $records ? array_values(array_filter($clients, fn($cl) => !isset($links[(int) $cl['id']])
+                    && !($backup && \Align\Backup\Backup::notNeeded($cl)))) : [],
             ];
         }
-        // "Missing a link": a client with no link (and no "kept unlinked" decision) for a provider that has records to link to.
-        // 2.26.0 A client set to not need backups in one backup product isn't missing one in another either.
-        $missing = fn(array $cl) => (bool) array_filter($providers, fn($p) => $p['records'] && !isset($p['links'][(int) $cl['id']])
-            && !($p['backup'] && \Align\Backup\Backup::notNeeded($cl)));
-        $show = query('show', '') === 'missing' ? 'missing' : 'all';
+        $tool = (string) query('tool', '');
+        if (!isset($providers[$tool])) {
+            $tool = (string) (array_key_first(array_filter($providers, fn($p) => $p['missing'])) ?? array_key_first($providers) ?? '');
+        }
+        $p = $providers[$tool] ?? null;
+        if ($p) {
+            // Only the tool on screen needs its per-client counts and (no PSA) how many organizations could become clients
+            $c = Providers::linkConnectors()[$tool];
+            $providers[$tool]['summary'] = $c->linkClientSummary();
+            if ($p['creates']) {
+                $providers[$tool]['creatable'] = (int) DB::value('SELECT COUNT(*) FROM rmm_orgs o LEFT JOIN client_links l ON l.provider = o.provider AND l.external_id = o.org_id
+                    WHERE o.provider = ? AND l.client_id IS NULL AND o.client_created_at IS NULL', [$tool]);
+            }
+        }
+        $show = query('show', '');
+        if ($show !== 'missing' && $show !== 'all') {
+            $show = $p && $p['missing'] ? 'missing' : 'all';
+        }
         View::render('mapping/index', [
             'title' => 'Client mapping',
             'nav' => 'mapping',
-            'clients' => $show === 'missing' ? array_values(array_filter($clients, $missing)) : $clients,
+            'clients' => $p && $show === 'missing' ? $p['missing'] : $clients,
             'total' => count($clients),
-            'missing' => count(array_filter($clients, $missing)),
             'show' => $show,
+            'tool' => $tool,
             'providers' => $providers,
-            'anyBackupCompanies' => (bool) array_filter($providers, fn($p) => $p['backup'] && $p['records']),
+            'hidden' => $hidden,
             'autoCreate' => \Align\Settings::get('rmm_create_clients', '0') === '1',
         ]);
     }
@@ -173,7 +200,7 @@ final class MappingController
             foreach ($picked as $cid => $id) {
                 $h = $holders[$id] ?? null;
                 if ($h && (int) $h['client_id'] !== $cid && !array_key_exists((int) $h['client_id'], $wanted[$key])) {
-                    flash('error', ($names[$id] ?? 'That ' . $c->linkNoun()) . ' is already linked to ' . $h['name'] . '. Set ' . $h['name'] . ' to Not linked first (under All clients). Nothing was saved.');
+                    flash('error', ($names[$id] ?? 'That ' . $c->linkNoun()) . ' is already linked to ' . $h['name'] . '. Set ' . $h['name'] . ' to Not linked first (under All clients for ' . $c->linkName() . '). Nothing was saved.');
                     redirect(self::backTo());
                 }
             }
@@ -217,17 +244,28 @@ final class MappingController
 
     /**
      * 2.16.0 Where Save goes back to: a client's Connectors page when the form came from there (one client's links,
-     * matched against a fixed pattern, never followed as posted), else Client mapping (with its tab).
+     * matched against a fixed pattern, never followed as posted), else Client mapping (with its tool tab and list).
      */
     private static function backTo(): string
     {
         return preg_match('#^/clients/\d+/connectors\z#', post('back')) ? post('back') . '#links' : '/mapping' . self::showQuery();
     }
 
-    /** "?show=missing" when the form was posted from the Missing a link tab (a fixed value, never the posted text). */
+    /**
+     * The tool tab and list the form was posted from (2.38.0 ?tool=<key>&show=missing|all): the tool only when it's a
+     * linking connector's key and show only as one of its two fixed values, so nothing posted is echoed as given.
+     */
     private static function showQuery(): string
     {
-        return post('show') === 'missing' ? '?show=missing' : '';
+        $tool = post('tool');
+        $q = [];
+        if (isset(Providers::linkConnectors()[$tool])) {
+            $q['tool'] = $tool;
+        }
+        if (post('show') === 'missing' || post('show') === 'all') {
+            $q['show'] = post('show');
+        }
+        return $q ? '?' . http_build_query($q) : '';
     }
 
     /**

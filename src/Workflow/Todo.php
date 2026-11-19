@@ -78,7 +78,7 @@ final class Todo
                     $out[] = ['key' => "mapping-$k", 'category' => 'integrations', 'icon' => 'fa-link', 'tone' => 'warning',
                         'title' => $plural($n, 'client', 'clients') . ' not linked to ' . $c->name(),
                         'detail' => 'Link each one on Client mapping, or set it to Not linked if it has nothing there.',
-                        'link' => '/mapping?show=missing', 'action' => 'Client mapping', 'count' => $n];
+                        'link' => '/mapping?tool=' . rawurlencode($k) . '&show=missing', 'action' => 'Client mapping', 'count' => $n]; // 2.38.0 that tool's tab
                 }
             }
             if (\Align\Backup\Backup::enabled() && ($n = \Align\Backup\Backup::hostedUnmatched())) {

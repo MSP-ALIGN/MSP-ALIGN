@@ -353,6 +353,14 @@ const fillOptions = (ev) => {
 };
 ['mousedown', 'focusin', 'keydown', 'touchstart'].forEach((t) => document.addEventListener(t, fillOptions, true));
 
+// 2.38.0 A row of tabs that scrolls sideways (<ul data-scroll-active>): bring the active one into view on load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-scroll-active]').forEach((row) => {
+    const on = row.querySelector('.nav-link.active');
+    if (on && row.scrollWidth > row.clientWidth) row.scrollLeft += on.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - on.offsetWidth) / 2;
+  });
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   // Live table filter: <input data-filter-table="table-id">. 2.36.0: a row can carry more words to match in data-search
   // (a full user name, say); heading rows (.proj-quarter, [data-filter-head]) stay while a row under them matches;

@@ -112,7 +112,7 @@ ok(not q("select 1 from client_links where provider='huntress' and external_id='
 ok(not q("select 1 from huntress_incidents where incident_id in (4)") and q("select count(*) n from huntress_incidents")[0]["n"] == 4, "drafts aren't kept")
 ok("SECRET BODY" not in json.dumps(q("select * from huntress_incidents"), default=str) and "secret.person" not in json.dumps(q("select * from huntress_orgs"), default=str), "incident bodies and identity names aren't stored")
 ok(q("select url from huntress_reports where report_id=71")[0]["url"] is None, "a report link that isn't https is dropped")
-t = st.get(B + "/mapping").text
+t = st.get(B + "/mapping?tool=huntress").text  # 2.38.0 one tool tab at a time
 ok("Huntress" in t and "Unmatched Org Name" in t, "Client mapping has a Huntress column offering the unlinked organizations")
 
 # ---- the checks
