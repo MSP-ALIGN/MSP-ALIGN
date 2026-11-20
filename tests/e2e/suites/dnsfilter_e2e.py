@@ -52,7 +52,7 @@ cleanup()
 t = st.get(B + "/integrations").text
 ok(NAME in t and not errs(t), "the Integrations page lists DNSFilter")
 p = st.get(B + f"/integrations/{KEY}").text
-ok(f'name="{KEY}_api_key"' in p and f'name="{KEY}_offline_days"' in p and "Read Only" in p and "API Keys" in p and not errs(p), "its page asks for the key and the offline days, with setup steps")
+ok(f'name="{KEY}_api_key"' in p and f'name="{KEY}_offline_days"' in p and f'name="{KEY}_roaming_on"' in p and "Read Only" in p and "API Keys" in p and not errs(p), "its page asks for the key and the offline days, with setup steps")
 ok(tech.get(B + f"/integrations/{KEY}", allow_redirects=False).status_code in (302, 403), "techs can't open it")
 labels = phpj("echo json_encode(Align\\Health\\SecurityChecks::labels());")
 ok(isinstance(labels, dict) and {f"{KEY}_agents", f"{KEY}_networks"} <= set(labels) and labels[f"{KEY}_agents"].startswith(NAME), "its two checks are among Align's automatic checks")
@@ -86,7 +86,7 @@ OK = N - 5 - 1 - 1
 
 # ---- set up through the page
 F = form(st, f"/integrations/{KEY}", f'action="/integrations/{KEY}"')
-st.post(B + f"/integrations/{KEY}", data={**F, f"{KEY}_api_key": f"{KEY}-key", f"{KEY}_offline_days": "7"})
+st.post(B + f"/integrations/{KEY}", data={**F, f"{KEY}_api_key": f"{KEY}-key", f"{KEY}_offline_days": "7", f"{KEY}_roaming_on": "all"})  # (2.40.1) this suite counts desktops too
 setting(f"{KEY}_api_base", M + f"/{KEY}")  # test override (allow_insecure_integrations only)
 ok(q("select is_secret from settings where name=%s", KEY + "_api_key")[0]["is_secret"] == 1 and f"{KEY}-key" not in st.get(B + f"/integrations/{KEY}").text,
    "the key is stored as a secret and isn't shown again")
@@ -111,7 +111,7 @@ ok(d1["networks"] == 2 and d1["networks_policy"] == 2, "networks: the deleted on
 ok((d1["requests_30d"], d1["blocked_30d"], d1["threats_30d"], d1["threats_90d"], d1["network_requests_7d"]) == (30000, 1500, 90, 270, 4200),
    "daily totals add up (30 / 90 days, network traffic in 7 days), values for other organizations, non-days and negatives left out: %s" % d1)
 a1 = result("101", "agents")
-ok(a1["status"] == "fail" and a1["detail"].startswith(f"{OK} of {N} workstations and laptops filtered; 5 without one (") and "1 not synced in 7 days" in a1["detail"] and "1 not filtering" in a1["detail"],
+ok(a1["status"] == "fail" and a1["detail"].startswith(f"{OK} of {N} desktops and laptops filtered; 5 without one (") and "1 not synced in 7 days" in a1["detail"] and "1 not filtering" in a1["detail"],
    "roaming clients: missing, uninstalled, offline and bypassed ones fail the check: " + a1["detail"])
 n1 = result("101", "networks")
 ok(n1["status"] == "pass" and n1["detail"] == "2 networks with a filtering policy; 4,200 requests filtered in the last 7 days.", "networks with a policy and traffic pass: " + n1["detail"])
@@ -143,7 +143,7 @@ if True:
     ok('id="dnsfilter"' in v and f"/clients/{C1}/connectors#security" not in v.split('id="dnsfilter"')[1][:2000], "viewers see the card without the Manage link")
 qbr = text(st.get(B + f"/clients/{C1}/report/qbr").text)
 ok("Threats blocked by DNS filtering" in qbr and "270" in qbr and f"{OK}/{N}" in qbr and "Computers with DNS filtering" in qbr, "the QBR's Security section shows threats blocked and coverage")
-ok("DNSFilter roaming client on every workstation and laptop" in qbr, "...and the checks")
+ok("DNSFilter roaming clients on the computers that need them" in qbr and "desktops and laptops" in qbr, "...and the checks")
 m = st.get(B + "/mapping?tool=dnsfilter").text  # 2.38.0 one tool tab at a time
 ok(NAME in m and "Lakeside Test Org" in m and not errs(m), "Client mapping has a DNSFilter column")
 c = st.get(B + f"/clients/{C1}/connectors").text

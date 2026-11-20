@@ -29,7 +29,7 @@ $fails = count(array_filter($s['checks'], fn($c) => $c[0] === 'fail'));
         <?= Ui::kpi(number_format($dd['threats_90d']), 'Threats blocked by DNS filtering', 'last 90 days' . (is_int($dd['blocked_90d'] ?? null) ? ' · ' . number_format($dd['blocked_90d']) . ' requests blocked in all' : ''), 'ok') ?>
       <?php endif; ?>
       <?php if ($dneed): ?>
-        <?= Ui::kpi($dok . '/' . $dneed, 'Computers with DNS filtering', 'workstations and laptops', $dok < $dneed ? 'warn' : 'ok') ?>
+        <?= Ui::kpi($dok . '/' . $dneed, 'Computers with DNS filtering', \Align\DNSFilter\Clients::scopeWords(), /* (2.40.1) */ $dok < $dneed ? 'warn' : 'ok') ?>
       <?php endif; ?>
     <?php endif; ?>
     <?php if ($t = $s['training']): $p = $pct($t['completed'], $t['learners']); ?>
