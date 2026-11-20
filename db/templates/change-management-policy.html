@@ -36,11 +36,11 @@
 </ul>
 The assessment includes the security impact of the change (for example whether it opens ports, changes access or disables a control).</li>
 <li><strong>Plan:</strong> the ticket documents implementation steps, the planned date and time, expected downtime, user communication, testing steps and a <strong>backout plan</strong> describing how to return to the prior state and how long it takes. For medium and high changes, a current backup or snapshot must be confirmed before starting.</li>
-<li><strong>Approval:</strong> low changes are approved by the {{company_name}} service lead; medium changes also by the {{client_name}} system owner; high changes also by the security lead or executive sponsor. Approval is recorded in the ticket (email approval replies are attached).</li>
+<li><strong>Approval:</strong> low changes are approved by the {{company_name}} service lead; medium changes also by the {{client_name}} system owner; high changes also by the security lead or executive sponsor. Approval is recorded in the ticket (email approval replies are attached). The person who implements a change does not approve their own change; a change may be rejected or deferred, and that decision is also recorded.</li>
 <li><strong>Testing:</strong> where practical, the change is tested in a test environment, on a pilot device or group, or by reviewing the vendor's release notes and known issues. High changes should have a documented test result before production.</li>
 <li><strong>Communication:</strong> users affected by downtime are notified at least [2 business days] in advance for planned changes, including what to expect and who to contact.</li>
 <li><strong>Implementation:</strong> performed during the approved window (normally [after hours / weekends]). If the change fails or causes problems beyond agreed limits, the backout plan is executed.</li>
-<li><strong>Verification:</strong> the implementer confirms the change works and that key business functions are operating, and the system owner confirms where appropriate.</li>
+<li><strong>Verification:</strong> the implementer confirms the change works and that key business functions are operating, and the system owner confirms where appropriate. After a significant change (for example a new server, firewall replacement, new internet-facing service or network redesign), {{company_name}} confirms that security controls are still in place (logging, EDR, MFA, backups, encryption, and any PCI DSS requirements affected) and runs internal and external vulnerability scans of the affected systems.</li>
 <li><strong>Documentation:</strong> the ticket is updated with what was actually done, and network diagrams, configuration records, the asset inventory and IT documentation (for example in {{company_name}}'s documentation platform) are updated within 5 business days.</li>
 <li><strong>Close:</strong> the ticket is closed with the outcome: successful, successful with issues, backed out, or failed.</li>
 </ol>
@@ -62,20 +62,35 @@ The assessment includes the security impact of the change (for example whether i
 <h2>8. Security configuration baselines</h2>
 <p>{{company_name}} maintains documented secure configuration baselines for workstations, servers, network devices and the cloud tenant. Changes that deviate from a baseline require normal change approval and are recorded as exceptions. Configuration drift detected by monitoring tools is investigated and corrected or approved.</p>
 
-<h2>9. Restrictions on who may make changes</h2>
+<h2>9. Ports, services and least functionality</h2>
+<ul>
+<li>Systems are configured to provide only the functions the business needs. Unneeded services, applications, protocols, ports, file shares and features are removed or disabled when a system is built and checked at each baseline review.</li>
+<li>Firewalls deny network traffic by default and allow only traffic with an approved business need. Inbound traffic from the internet reaches only approved public-facing services: [list, e.g. website, VPN/ZTNA, email gateway, none].</li>
+<li>{{company_name}} keeps a list of the services, protocols and ports allowed through the firewall and between network segments, with the business reason and approver for each. Firewall rules are reviewed at least every [6/12] months and unused rules are removed.</li>
+<li>Remote Desktop (RDP), SSH, SMB and device management interfaces are never exposed directly to the internet.</li>
+<li>Insecure protocols (for example Telnet, FTP, SMBv1, unencrypted HTTP management, SNMP v1/v2c, legacy email authentication and SMTP AUTH) are disabled. Where one must stay in use for a documented reason (for example a scanner that sends email), the exception is approved, limited to the specific device or mailbox, and protected with extra controls.</li>
+<li>Network equipment is managed securely: current supported firmware, management only from the internal management network or {{company_name}}'s tools, and configuration backups kept after each change.</li>
+<li>Where {{client_name}} hosts a web page that takes card payments, every script on that page is listed with its purpose, authorized before it is added, and checked so unauthorized changes are detected.</li>
+</ul>
+
+<h2>10. Business and organizational changes</h2>
+<p>Significant changes to the business (for example a new office, merger or acquisition, a new type of regulated data such as PHI, CUI or card payments, a new major cloud service, or a change in IT provider) are reported to {{company_name}} and assessed for their effect on security risks and on these policies before or as they happen. The results are recorded in the risk register and the affected policies are updated.</p>
+
+<h2>11. Restrictions on who may make changes</h2>
 <ul>
 <li>Only authorized {{company_name}} staff, approved vendors and designated {{client_name}} administrators may make changes to in-scope systems.</li>
 <li>Vendors making changes to line-of-business applications must coordinate through {{company_name}} and open or reference a change ticket.</li>
-<li>Unauthorized changes discovered through monitoring are treated as potential security incidents.</li>
+<li>Where practical, changes are prepared and tested by one person and reviewed or approved by another before they reach production, and test environments are kept separate from production.</li>
+<li>Unauthorized changes discovered through monitoring or change detection tools are treated as potential security incidents.</li>
 </ul>
 
-<h2>10. Exceptions</h2>
+<h2>12. Exceptions</h2>
 <p>Exceptions to this process require approval from the security lead and are documented in the change ticket.</p>
 
-<h2>11. Enforcement</h2>
+<h2>13. Enforcement</h2>
 <p>Making unauthorized changes to production systems, or bypassing the change process, may result in removal of administrative access and disciplinary action. Vendor violations may be addressed under their contract.</p>
 
-<h2>12. Related documents</h2>
+<h2>14. Related documents</h2>
 <ul>
 <li>Vulnerability &amp; Patch Management Policy</li>
 <li>Asset Management Policy</li>
@@ -83,8 +98,8 @@ The assessment includes the security impact of the change (for example whether i
 <li>Backup &amp; Recovery Policy</li>
 <li>{{company_name}} standard change catalog</li>
 </ul>
-<p>Supports: CMMC CM.L2-3.4.1, CM.L2-3.4.2, CM.L2-3.4.3, CM.L2-3.4.4, CM.L2-3.4.5 · CIS 4.1 · HIPAA 164.308(a)(8) · NIST CSF ID.RA-07, PR.PS-01 · PCI DSS 6.5.1, 6.5.2 · FTC Safeguards Rule 314.4(c)(7)</p>
+<p>Supports: CMMC CM.L2-3.4.1-CM.L2-3.4.7, MA.L2-3.7.1, SC.L2-3.13.6 · CIS 4.1, 4.8, 12.3 · HIPAA 164.308(a)(8) · ISO 27001 Clause 6.3, Clause 8.1, A.8.20, A.8.32 · NIST CSF ID.RA-07, PR.PS-01 · PCI DSS 1.2.2, 1.2.5, 1.2.6, 1.4.2, 2.2.4, 2.2.5, 6.4.3, 6.5.1, 6.5.2, 6.5.4, 11.3.1.3, 11.3.2.1 · SOC 2 CC3.4, CC8.1 · FTC Safeguards Rule 314.4(c)(7) · CCPA/CPRA 7123(c)(5)(E), 7123(c)(11)</p>
 
-<h2>13. Review and approval</h2>
+<h2>15. Review and approval</h2>
 <p>This policy is reviewed at least annually.</p>
 <p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

@@ -10,6 +10,7 @@ $auto = fn(string $name, ?string $cur) => '<select name="' . $name . '" class="f
     . '</select>';
 ?>
 <div class="small"><a href="/frameworks">Frameworks</a> /</div>
+<?= \Align\View::fetch('compliance/_corrections', ['corrections' => $corrections ?? [], 'action' => '/frameworks/' . (int) $fw['id'] . '/corrections']) /* 2.38.3 */ ?>
 <form method="post" action="/frameworks/<?= (int) $fw['id'] ?>" data-post-changed data-unsaved
   data-confirm-rules="<?= e(json_encode([
       ['count' => '[name$="[delete]"]:checked', 'title' => 'Delete {n} controls?', 'danger' => true, 'ok' => 'Delete and save',

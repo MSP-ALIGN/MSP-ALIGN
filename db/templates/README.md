@@ -2,8 +2,8 @@
 
 Each `<slug>.html` file is one template body. `db/templates/manifest.php` lists name, category and
 description. `db/migrations/025_frameworks_v2.php` inserts templates whose slug doesn't exist yet.
-`acceptable-use.html`, `incident-response.html` and `wisp-ftc.html` are the current bodies of the three
-templates first added by migration 007 (they aren't in the manifest because 007 inserts them).
+`acceptable-use.html`, `incident-response.html`, `wisp-ftc.html` and (2.38.1) `retention-disposal.html` are the
+current bodies of the templates first added by migration 007 (they aren't in the manifest because 007 inserts them).
 
 Changing a built-in template: existing installs keep the body they already have. Add a migration (see
 `074_template_updates.php`) that updates a row only while it still holds a previous built-in body,
@@ -24,8 +24,10 @@ Rules for the HTML
 - Things the client/tech must fill in go in square brackets: [name, phone], [date], [system name].
 - Numbered sections (<h2>1. Purpose</h2>, 2. Scope, 3. Roles…), plain professional English, specific
   and practical for a small or mid-sized business supported by a managed service provider
-  ({{company_name}}). Include a "Review and approval" section at the end
-  (approved by [name, title], date, next review date).
+  ({{company_name}}). Include a "Review and approval" section at the end (2.38.1: exactly one paragraph,
+  `<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>`;
+  a named official such as "Security Official" may replace "Approved by"). Align finds this block when the document
+  is sent for signature and fills in each signer's name, signature and date (src/Docs/SignBlock.php).
 - Reference the relevant framework controls where helpful (e.g. "Supports CMMC AC.L2-3.1.1,
   HIPAA 164.308(a)(4)"). Don't claim the document alone makes anyone compliant.
 - Length: a real, usable document (typically 600–2,000 words). SSP and HIPAA risk analysis can be longer.

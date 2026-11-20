@@ -12,6 +12,7 @@
 <li>Subcontractors of a business associate that handle PHI are also business associates; the business associate must obtain a BAA from them.</li>
 <li><strong>Usually not business associates:</strong> "mere conduits" that only transport data without routine access (e.g. the U.S. Postal Service, internet service providers); workforce members; other providers receiving PHI for treatment; janitorial staff with only incidental exposure.</li>
 <li>If in doubt, treat the vendor as a business associate and ask counsel.</li>
+<li><strong>If {{client_name}} is itself a business associate</strong> (for example a billing company or IT provider to healthcare organizations): it signs a BAA with each covered entity it serves, and must get a BAA from each of its own subcontractors that handle that PHI (164.308(b)(2)). List those covered entities here: [names, BAA dates, breach reporting timeframe each requires].</li>
 </ul>
 
 <h2>3. Required BAA content checklist (164.504(e), 164.314(a))</h2>
@@ -31,12 +32,12 @@
 <li>[ ] At termination, requires return or destruction of all PHI (with no copies retained), or, if infeasible, extends the contract's protections and limits further uses and disclosures to the purposes that make return or destruction infeasible.</li>
 <li>[ ] Authorizes {{client_name}} to terminate the contract if the business associate violates a material term.</li>
 </ol>
-<p><strong>Recommended additional terms</strong> (not required by HIPAA, negotiate as appropriate): minimum necessary use; encryption standards; cooperation and cost responsibility for breach notification; indemnification; cyber insurance requirements; right to audit or receive a SOC 2 report; data location (e.g. U.S. only); offboarding timelines; 42 CFR Part 2 terms if substance use disorder treatment records are involved.</p>
+<p><strong>Recommended additional terms</strong> (not required by HIPAA, negotiate as appropriate): a clear definition of which security incidents must be reported (for example, unsuccessful attempts such as blocked scans need only be reported in summary); a written description of the vendor's safeguards, verified at least annually (OCR has proposed making a yearly written verification a requirement — check the status of the Security Rule update at each review); minimum necessary use; encryption standards; cooperation and cost responsibility for breach notification; indemnification; cyber insurance requirements; right to audit or receive a SOC 2 report; data location (e.g. U.S. only); offboarding timelines; 42 CFR Part 2 terms if substance use disorder treatment records are involved.</p>
 
 <h2>4. Business associate inventory</h2>
-<p>List every vendor with access to PHI. Copy the entry for each vendor. Common categories are pre-filled — delete those that don't apply.</p>
+<p>List every vendor with access to PHI. Copy the entry for each vendor. Common categories are pre-filled — delete those that don't apply. Record the same fields for every vendor as shown in the first entry. <strong>Risk tier:</strong> High = holds or can reach large amounts of ePHI or the systems that store it (e.g. EHR, IT provider, cloud storage and backup); Medium = limited ePHI or limited access; Low = occasional, small amounts.</p>
 <ul>
-<li><strong>EHR / practice management:</strong> [vendor]<br>Service and PHI involved: [clinical and billing records] · BAA signed: [Y/N, date] · BAA location: [link/file] · Breach reporting timeframe: [days] · Subcontractor BAAs confirmed: [Y/N] · Last reviewed: [date] · Owner: [name]</li>
+<li><strong>EHR / practice management:</strong> [vendor]<br>Service and PHI involved: [clinical and billing records] · BAA signed: [Y/N, date] · BAA location: [link/file] · Breach reporting timeframe: [days] · Subcontractor BAAs confirmed: [Y/N] · Risk tier: [High / Medium / Low] · Security review: [SOC 2 report / questionnaire / none, date] · Remote access to our systems: [none / named accounts with MFA, logged] · Last reviewed: [date] · Owner: [name]</li>
 <li><strong>IT / managed service provider:</strong> {{company_name}}<br>Service and PHI involved: [support, monitoring and administration of systems containing ePHI] · BAA signed: [Y/N, date] · BAA location: [link/file] · Breach reporting timeframe: [days] · Subcontractor BAAs confirmed: [RMM, backup, EDR, documentation platforms — Y/N] · Last reviewed: [date]</li>
 <li><strong>Email and productivity:</strong> [e.g. Microsoft 365 / Google Workspace]<br>BAA signed: [Y/N — often accepted through the vendor's online terms; record how] · Last reviewed: [date]</li>
 <li><strong>Cloud file storage / backup:</strong> [vendor]<br>BAA signed: [Y/N, date] · Last reviewed: [date]</li>
@@ -56,7 +57,8 @@
 <li>Obtain and review the BAA against the checklist in section 3; involve counsel for non-standard terms.</li>
 <li>Review the vendor's security (questionnaire, SOC 2 report or equivalent) with help from {{company_name}}.</li>
 <li>Sign the BAA, store it at [location], and add the vendor to the inventory.</li>
-<li>Grant only the minimum access needed.</li>
+<li>Grant only the minimum access needed. Remote access by the vendor to {{client_name}}'s systems uses named accounts with MFA, is enabled only when needed where practical, and is logged.</li>
+<li>Assign a risk tier and record the BAA's breach reporting timeframe in the inventory and in the Incident Response Plan contacts.</li>
 </ol>
 
 <h2>6. Offboarding a vendor</h2>
@@ -65,16 +67,17 @@
 <li>Obtain written confirmation that PHI has been returned or destroyed, or document why that is infeasible.</li>
 <li>Mark the vendor inactive in the inventory and keep the BAA and termination records.</li>
 </ol>
+<p><strong>If a business associate breaks the agreement:</strong> if {{client_name}} learns of a pattern of activity or practice by a business associate that materially breaches its BAA, it takes reasonable steps to have the breach cured or the violation ended, and if those steps fail, terminates the contract where feasible (164.504(e)(1)(ii)). Decisions are recorded at [location].</p>
 
 <h2>7. Review cadence and retention</h2>
 <ul>
 <li>The inventory is reviewed at least <strong>annually</strong> during the HIPAA risk analysis, and whenever a new system or vendor is introduced.</li>
+<li>High-tier vendors' security (SOC 2 report, questionnaire or written verification of safeguards) is reviewed at least annually; Medium and Low tiers every [2 / 3] years or when the service changes. Vendor breaches and service changes are tracked as risks in the risk analysis.</li>
 <li>BAAs are re-reviewed when renewed, when the services change, or when HIPAA rules change.</li>
 <li>BAAs and this inventory are retained for at least six years from the date created or last in effect (164.316(b)(2), 164.530(j)).</li>
 <li>Last full review: [date] · Reviewed by: [name]</li>
 </ul>
+<p>Supports: HIPAA 164.308(b)(1)–(2), 164.314(a), 164.502(e), 164.504(e), 164.316(b)(2) · NIST CSF GV.SC-04, GV.SC-05, GV.SC-06, GV.SC-07, GV.SC-10 · CIS 15.1–15.4 · SOC 2 CC9.2, P6.4, P6.5 · Cyber insurance: vendor remote access controlled and logged</p>
 
 <h2>8. Review and approval</h2>
-<p>Privacy Official: [name, title] · Signature: ______________________ · Date: [date]</p>
-<p>Security Official: [name, title] · Date: [date]</p>
-<p>Next review date: [date]</p>
+<p>Privacy Official: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Reviewed with Security Official: [name, title]<br>Next review date: [date]</p>

@@ -289,7 +289,7 @@ final class ReportData
         $open = DB::all("SELECT c.ref, c.title, f.name AS framework, s.status, s.owner, s.due_date
             FROM client_control_status s JOIN compliance_controls c ON c.id = s.control_id JOIN compliance_frameworks f ON f.id = c.framework_id
             JOIN client_frameworks cf ON cf.framework_id = f.id AND cf.client_id = s.client_id
-            WHERE s.client_id = ? AND s.status IN ('not_met','partial') ORDER BY s.due_date IS NULL, s.due_date, f.name, c.sort LIMIT 25", [$clientId]);
+            WHERE s.client_id = ? AND s.status IN ('not_met','partial') ORDER BY s.due_date IS NULL, s.due_date, f.name, c.sort, c.id LIMIT 25", [$clientId]);
         $avg = $fws ? (int) round(array_sum(array_map(fn($f) => $f['score']['score'], $fws)) / count($fws)) : null;
         return ['frameworks' => $fws, 'open' => $open, 'avg' => $avg];
     }

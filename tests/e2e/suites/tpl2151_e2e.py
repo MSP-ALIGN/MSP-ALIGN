@@ -45,7 +45,7 @@ for s, m in [("Artificial intelligence (AI) tools", "an AI section"), ("[approve
              ("isn't used to train", "business accounts only"), ("is responsible for checking it", "people check AI output"),
              ("without telling everyone in the meeting first", "meeting recorders"), ("deepfake", "deepfakes are reported"),
              ("Security Awareness Training Policy", "cross-reference to AI training"), ("shadow IT", "unapproved cloud apps"),
-             ("single sign-on", "single sign-on"), ("<h2>12. Enforcement</h2>", "an Enforcement section"), ("Review and approval", "review and approval"),
+             ("single sign-on", "single sign-on"), ("<h2>13. Enforcement and sanctions</h2>", "an Enforcement section (13 since 2.38.1)"), ("Review and approval", "review and approval"),
              ("Acknowledgment", "a signed acknowledgment")]:
     ok(s in aup, "AUP: " + m)
 for s, m in [("Event:</strong>", "defines event"), ("Breach:</strong>", "defines breach"), ("Incident Handler", "an MSP Incident Handler"),

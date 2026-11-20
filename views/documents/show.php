@@ -93,6 +93,10 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
       </div>
 
       <?= \Align\View::fetch('documents/_links_once', ['once' => $linksOnce ?? null]) /* (2.34.0) "Create link only" */ ?>
+<?php if (!empty($related) && $client): /* 2.38.1 the documents this one relies on; (2.38.2) required, then supporting */ ?><?= \Align\View::fetch('documents/_related', ['client' => $client, 'rows' => $related,
+    'heading' => 'Documents this one relies on', 'intro' => 'The documents its framework requires alongside this one. The supporting ones below are optional: this document can cover those topics itself.',
+    'none' => 'Optional documents that cover topics this one relies on. Add the ones you want as separate documents.',
+    'canEdit' => $canEdit, 'ai' => $canEdit && \Align\Ai\Ai::usable('drafts'), 'review' => $canEdit ? \Align\Docs\Related::reviewFor((int) $client['id']) : 0]) ?><?php endif; ?>
 <?php if ($doc['client_id']): /* 2.34.0 */ ?><?= \Align\View::fetch('documents/_signatures', ['doc' => $doc, 'canEdit' => $canEdit, 'signatures' => $signatures, 'signContacts' => $signContacts, 'resign' => $resign, 'me' => \Align\Auth::user()]) ?><?php endif; ?>
 <?php if ($doc['client_id']): /* 2.34.0 staff acknowledgments */ ?><?= \Align\View::fetch('documents/_acknowledgments', ['doc' => $doc, 'canEdit' => $canEdit, 'acks' => $acks, 'ackAgain' => $ackAgain, 'contacts' => $signContacts, 'controls' => $ackControls]) ?><?php endif; ?>
 

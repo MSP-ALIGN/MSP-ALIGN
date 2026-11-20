@@ -83,8 +83,11 @@ final class PdfRender
      * Untrusted: $html is a document body saved through Docs\Html::clean (or HTML the caller built with every value
      * escaped); it's read the same way as a contract's text block (htmlBlock: libxml without the network, nothing
      * fetched, images left out), so it can't run or load anything. Titles and footers are plain text.
+     * 2.38.1 $sign (Docs\Signing::source, sending for signature): ['block' => Docs\SignBlock::find() or null,
+     * 'people' => see signBlocks()]: the approval block prints with blanks for each signer (or is added at the end),
+     * and $slots gets where they are.
      */
-    public static function document(string $title, string $subtitle, string $html, string $footer): string
+    public static function document(string $title, string $subtitle, string $html, string $footer, ?array $sign = null, ?array &$slots = null): string
     {
         $r = new self(self::plain($title, $footer), true);
         $r->newPage();
@@ -93,9 +96,131 @@ final class PdfRender
             $r->paragraph([['t' => $subtitle, 'color' => self::GRAY]], $r->size * 0.9);
         }
         $r->y += $r->size * 0.6;
-        $r->htmlBlock($html);
+        $slots = [];
+        if ($sign !== null && $sign['people']) {
+            // 2.38.1 sent for signature: the approval block (Docs\SignBlock) prints with a blank for each signer
+            $b = $sign['block'];
+            $r->htmlBlock($b ? $b['before'] : $html);
+            if (!$b) {
+                $r->y += $r->size * 0.5;
+                $r->need($r->size * 1.6 + $r->size * 1.7 * 2 + 42 + $r->size); // the heading stays with the first block
+                $r->paragraph([['t' => 'Approval', 'b' => true]], $r->size * 1.25, 'left', 0, 1.25);
+                $r->y += $r->size * 0.25;
+            }
+            $slots = $r->signBlocks($sign['people'], $b);
+            if ($b) {
+                $r->htmlBlock($b['after']);
+            }
+        } else {
+            $r->htmlBlock($html);
+        }
         $r->decorate($r->pdf->pageCount());
         return $r->pdf->output();
+    }
+
+    /**
+     * 2.38.1 The approval block once per signer ($people: [['who' => 0, 1, … or 'counter', 'label' => ?string], …]):
+     * "<label>:" with a line for the name and title, "Signature:" with a box, and "<date label>:" with a line, all
+     * blank; the block's other lines ("Next review date: …") follow the first one. $b is Docs\SignBlock::find()'s
+     * result, or null for a block added at the end ("Signed by"). Each block stays on one page. Returns where the
+     * blanks are, for Docs\Signing to stamp into: [{who, page (0-based), name: [x, y, w], sig: [x, top, w, h],
+     * date: [x, y, w]}], in points from the page's top left (y is a baseline).
+     * Labels and lines are plain text from the document (untrusted), printed through Pdf::text.
+     */
+    private function signBlocks(array $people, ?array $b): array
+    {
+        $s = $this->size;
+        $font = $this->font();
+        $dateLabel = ($b['date'] ?? 'Date') . ':';
+        $slots = [];
+        // the first signer takes the block's own label (an official's title); the others are "Approved by"
+        $labels = array_map(fn($p, $i) => (string) ($p['label'] ?? ($i === 0 ? ($b['label'] ?? 'Signed by') : ($b ? 'Approved by' : 'Signed by'))) . ':', array_values($people), array_keys(array_values($people)));
+        // one label column for every block, so the lines line up
+        $lw = min(160, max(Pdf::width($dateLabel, $font, $s), Pdf::width('Signature:', $font, $s), ...array_map(fn($l) => Pdf::width($l, $font, $s), $labels)) + 10);
+        foreach (array_values($people) as $i => $p) {
+            $label = $labels[$i];
+            $boxH = 34;
+            $extra = 0.0;
+            foreach ($i === 0 && $b ? $b['extra'] : [] as $line) { // wrapped lines measured, so the block stays on one page
+                $extra += $this->measure([['t' => (string) $line]], $s, $this->w, 1.38);
+            }
+            $this->need($s * 1.7 * 2 + $boxH + 8 + $extra + $s);
+            $page = $this->pdf->pageCount() - 1;
+            $x = $this->ml + $lw;
+            $w = min(260, $this->w - $lw);
+            // name and title
+            $base = $this->y + $s * 0.95;
+            $this->pdf->text($this->ml, $base, $this->fit($label, $font, $s, $lw - 6), $font, $s, self::TEXT);
+            $this->pdf->line($x, $base + 3, $x + $w, $base + 3, 0.5, self::GRAY);
+            $name = [$x + 2, $base, $w - 4];
+            $this->y += $s * 1.7;
+            // signature box
+            $top = $this->y;
+            $this->pdf->text($this->ml, $top + $boxH - 3, 'Signature:', $font, $s, self::TEXT);
+            $this->pdf->line($x, $top + $boxH, $x + $w, $top + $boxH, 0.6, self::TEXT);
+            $sig = [$x, $top, $w, $boxH];
+            $this->y += $boxH + 8;
+            // date
+            $base = $this->y + $s * 0.95;
+            $this->pdf->text($this->ml, $base, $this->fit($dateLabel, $font, $s, $lw - 6), $font, $s, self::TEXT);
+            $this->pdf->line($x, $base + 3, $x + min(150, $w), $base + 3, 0.5, self::GRAY);
+            $date = [$x + 2, $base, min(150, $w) - 4];
+            $this->y += $s * 1.7;
+            if ($i === 0 && $b) {
+                foreach ($b['extra'] as $line) {
+                    $this->paragraph([['t' => (string) $line]], $s, 'left', 0, 1.38);
+                }
+            }
+            $this->y += $s * 0.8;
+            $slots[] = ['who' => $p['who'], 'page' => $page, 'name' => $name, 'sig' => $sig, 'date' => $date];
+        }
+        return $slots;
+    }
+
+    /**
+     * 2.38.1 Stamps one signer into the blanks signBlocks() left (on the page $pdf has selected): "name, title" on the
+     * name line, the signature in its box (the drawn picture, or the typed one in a script font), the signing date on
+     * the date line. $slot is a stored sign_slots entry (numbers from Align's own render, clamped to the page);
+     * $sig is the stored signature (Contracts::signature output plus name, title, at: untrusted text from the signer,
+     * printed through Pdf::text; a drawn picture is checked again by Pdf::addImage).
+     */
+    public static function stampSlot(Pdf $pdf, array $slot, array $sig): void
+    {
+        $num = fn($v) => max(0.0, min(2000.0, (float) $v));
+        [$nx, $ny, $nw] = array_map($num, array_pad((array) ($slot['name'] ?? []), 3, 0));
+        [$sx, $st, $sw, $sh] = array_map($num, array_pad((array) ($slot['sig'] ?? []), 4, 0));
+        [$dx, $dy, $dw] = array_map($num, array_pad((array) ($slot['date'] ?? []), 3, 0));
+        $fit = function (string $t, string $font, float $size, float $w): string {
+            if (Pdf::width($t, $font, $size) <= $w) {
+                return $t;
+            }
+            while (mb_strlen($t) > 1 && Pdf::width($t . '…', $font, $size) > $w) {
+                $t = mb_substr($t, 0, -1);
+            }
+            return $t . '…';
+        };
+        $ink = [0.07, 0.09, 0.12];
+        $who = trim((string) ($sig['name'] ?? '') . (($sig['title'] ?? '') !== '' ? ', ' . $sig['title'] : ''));
+        if ($nw > 0) {
+            $pdf->text($nx, $ny, $fit($who, 'Helvetica', 10, $nw), 'Helvetica', 10, $ink);
+        }
+        if ($sw > 0 && $sh > 0) {
+            if (($sig['kind'] ?? '') === 'drawn' && ($img = $pdf->addImage((string) base64_decode((string) ($sig['png'] ?? '')))) !== null) {
+                [$iw, $ih] = $pdf->imageSize($img);
+                $h = $sh - 4;
+                $w = $iw / max(1, $ih) * $h;
+                if ($w > $sw) {
+                    $w = $sw;
+                    $h = $ih / max(1, $iw) * $w;
+                }
+                $pdf->image($img, $sx + 2, $st + ($sh - $h) / 2, $w, $h);
+            } else {
+                $pdf->text($sx + 4, $st + $sh * 0.72, $fit((string) ($sig['text'] ?? $sig['name'] ?? ''), 'Times-BoldItalic', 20, $sw - 8), 'Times-BoldItalic', 20, [0.08, 0.14, 0.42]);
+            }
+        }
+        if ($dw > 0 && !empty($sig['at'])) {
+            $pdf->text($dx, $dy, $fit(Fmt::date((string) $sig['at']), 'Helvetica', 10, $dw), 'Helvetica', 10, $ink);
+        }
     }
 
     /**
@@ -110,7 +235,8 @@ final class PdfRender
      */
     public static function signingCertificateInto(Pdf $pdf, array $cert): void
     {
-        $r = new self(self::plain((string) $cert['title'], '', (string) $cert['ref'], (int) ($cert['pages'] ?? 0)), true, $pdf);
+        // 2.38.1 pages of the document already in $pdf (stamped) are numbered by it, not by the offset
+        $r = new self(self::plain((string) $cert['title'], '', (string) $cert['ref'], max(0, (int) ($cert['pages'] ?? 0) - $pdf->pageCount())), true, $pdf);
         $from = $pdf->pageCount();
         $r->signingCertificate($cert);
         $r->decorate($from, $from);
@@ -176,6 +302,9 @@ final class PdfRender
         $this->certRow('Completed', $dt($c['completed']));
         $this->certRow('Fingerprint (SHA-256)', (string) $c['hash']);
         $this->certRow('', 'The fingerprint is the SHA-256 of the PDF that was sent to sign (the pages before this certificate). Any change to those pages gives a different fingerprint.');
+        if (!empty($c['stamped'])) { // 2.38.1
+            $this->certRow('', 'The names, signatures and dates in the document\'s approval block were added when it was signed, as an update after the PDF that was sent: its bytes, and so the fingerprint, are unchanged.');
+        }
         foreach ($c['signers'] as $sg) {
             $sig = $sg['sig'];
             $this->certSection($sg['label'] . ': ' . $sig['name'], $s, 150);

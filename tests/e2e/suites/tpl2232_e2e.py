@@ -46,7 +46,7 @@ ok("network and Wi-Fi" in row("information-security-policy")["description"] and 
 
 # ---- what the templates say
 isp = body("information-security-policy")
-ok("<h2>9. Network and wireless security</h2>" in isp and "<h2>15. Review and approval</h2>" in isp and "(section 9)" in isp, "ISP: a network and wireless section, later sections renumbered")
+ok("<h2>9. Network and wireless security</h2>" in isp and "<h2>19. Review and approval</h2>" in isp and "(section 9)" in isp, "ISP: a network and wireless section, later sections renumbered")
 ok("section 7, Data classification" in body("data-classification-policy") and "<h2>7. Data classification</h2>" in isp
    and "<h2>5. Risk management</h2>" in isp and "section 5, Risk management" in body("risk-management-policy"), "ISP: the sections other policies point to keep their numbers")
 ok(all(x in isp for x in ["current Wi-Fi Protected Access standard", "WPA3", "WEP", "WPS", "only if it can be done securely", "guest Wi-Fi is not offered",

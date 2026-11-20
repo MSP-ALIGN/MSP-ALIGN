@@ -1,22 +1,33 @@
 <h1>Written Information Security Program</h1>
 <p><strong>{{client_name}}</strong><br>Effective date: {{today}} · Version 1.0<br>Prepared with assistance from {{company_name}}</p>
 <h2>1. Purpose and scope</h2>
-<p>This Written Information Security Program (WISP) describes the administrative, technical and physical safeguards {{client_name}} uses to protect customer information, as required by the FTC Safeguards Rule (16 CFR Part 314). It applies to all employees, contractors and service providers who access customer information, in any format, on any system or device.</p>
-<p><em>Customer information</em> means any record containing nonpublic personal information about a customer, whether in paper, electronic or other form, that is handled or maintained by or on behalf of {{client_name}}.</p>
+<p>This Written Information Security Program (WISP) describes the administrative, technical and physical safeguards {{client_name}} uses to protect customer information, as required by the FTC Standards for Safeguarding Customer Information (the "Safeguards Rule", 16 CFR Part 314, as amended in 2021 and 2023). It applies to all employees, contractors and service providers who access customer information, in any format, on any system or device.</p>
+<p><em>Customer information</em> means any record containing nonpublic personal information about a customer, whether in paper, electronic or other form, that is handled or maintained by or on behalf of {{client_name}} or its affiliates.</p>
+<p>The program is designed to: keep customer information secure and confidential; protect it against reasonably foreseeable threats to its security or integrity; and protect it against unauthorized access or use that could result in substantial harm or inconvenience to a customer (16 CFR 314.3(b)).</p>
+<p>This WISP is the top-level program document. The details sit in the supporting documents named in each section and listed in section 11. Having this document does not by itself make {{client_name}} compliant with the Safeguards Rule; the safeguards it describes must be in place and working.</p>
+<p>Approximate number of consumers whose information {{client_name}} maintains: <strong>[number]</strong>. <em>[If fewer than 5,000 consumers: 16 CFR 314.6 exempts {{client_name}} from the written risk assessment, penetration testing and vulnerability assessment, written incident response plan and annual written report requirements (314.4(b)(1), (d)(2), (h) and (i)); {{client_name}} keeps those elements anyway as good practice unless this note says otherwise. Delete this note if it doesn't apply.]</em></p>
 <h2>2. Qualified Individual</h2>
-<p>{{client_name}} designates <strong>[name, title]</strong> as the Qualified Individual responsible for overseeing, implementing and enforcing this program. Where {{company_name}} performs information security functions as a service provider, {{client_name}} retains responsibility for compliance and the Qualified Individual oversees {{company_name}}'s work.</p>
+<p>{{client_name}} designates <strong>[name, title]</strong> as the Qualified Individual responsible for overseeing, implementing and enforcing this program (314.4(a)). The Qualified Individual may be an employee of {{client_name}}, of an affiliate or of a service provider.</p>
+<p>Where the Qualified Individual is employed by {{company_name}} or another service provider or affiliate, {{client_name}}: retains responsibility for compliance with the Safeguards Rule; designates <strong>[name, title]</strong>, a senior member of its own staff, to direct and oversee the Qualified Individual; and requires the service provider or affiliate to maintain an information security program that protects {{client_name}} as the Safeguards Rule requires. <em>[Delete this paragraph if the Qualified Individual is a {{client_name}} employee.]</em></p>
 <p>Primary contact: {{client_contact}} · {{client_contact_email}} · {{client_phone}}</p>
 <h2>3. Risk assessment</h2>
-<p>{{client_name}} maintains a written risk assessment that identifies reasonably foreseeable internal and external risks to the security, confidentiality and integrity of customer information, evaluates the sufficiency of existing safeguards, and describes how identified risks will be mitigated or accepted. The risk assessment is reviewed at least annually and whenever there is a material change to operations or systems.</p>
+<p>{{client_name}} maintains a written risk assessment that identifies reasonably foreseeable internal and external risks to the security, confidentiality and integrity of customer information that could result in its unauthorized disclosure, misuse, alteration, destruction or other compromise, and assesses the sufficiency of the safeguards in place to control those risks (314.4(b)). The written risk assessment includes:</p>
+<ul>
+<li>Criteria for evaluating and categorizing identified security risks and threats (the likelihood, impact and rating scales in the Security Risk Assessment Report).</li>
+<li>Criteria for assessing the confidentiality, integrity and availability of {{client_name}}'s information systems and customer information, including the adequacy of existing controls.</li>
+<li>Requirements describing how identified risks will be mitigated or accepted, and how the program will address them, as set out in the Risk Management Policy.</li>
+</ul>
+<p>Additional risk assessments are performed periodically, at least annually, and whenever there is a material change to operations, systems or business arrangements, to re-examine the risks and whether the existing safeguards are still sufficient (314.4(b)(2)). Results are recorded in the Security Risk Assessment Report and the risk register.</p>
 <ul>
 <li>Last risk assessment completed: <strong>[date]</strong></li>
 <li>Next scheduled review: <strong>[date]</strong></li>
 </ul>
 <h2>4. Safeguards</h2>
+<p>{{client_name}} designs and implements safeguards to control the risks identified in the risk assessment (314.4(c)), including the following.</p>
 <h3>4.1 Access control</h3>
-<p>Access to customer information is limited to authorized users who need it to perform their duties. Each user has a unique account. Access is reviewed at least <strong>[quarterly]</strong> and removed promptly when a person leaves or changes roles.</p>
+<p>Technical and, where appropriate, physical access controls are implemented and periodically reviewed to authenticate users and permit access only to authorized users, and to limit each authorized user's access to only the customer information needed to perform their duties (314.4(c)(1)). Each user has a unique account. Access is reviewed at least <strong>[quarterly]</strong> and removed promptly when a person leaves or changes roles. Details are in the Access Control Policy.</p>
 <h3>4.2 Inventory and where customer information lives</h3>
-<p>{{client_name}} maintains an inventory of the data, devices, systems and facilities that store or process customer information, managed according to their importance and risk. The device inventory is maintained by {{company_name}}. Check each place below and record where customer information is kept:</p>
+<p>{{client_name}} identifies and manages the data, personnel, devices, systems and facilities that enable it to achieve its business purposes, according to their importance to business objectives and its risk strategy (314.4(c)(2)). The hardware and software inventory is maintained by {{company_name}}; the list of personnel with access to customer information is kept by <strong>[name, title]</strong>. Check each place below and record where customer information is kept:</p>
 <ul>
 <li>☐ File servers and shared drives: [locations]</li>
 <li>☐ Desktops and laptops (including local downloads folders)</li>
@@ -27,19 +38,25 @@
 <li>☐ Cloud email and file storage: [services]</li>
 <li>☐ Line-of-business applications and databases: [systems]</li>
 <li>☐ Backups, local and cloud</li>
+<li>☐ Systems run by service providers on {{client_name}}'s behalf: [providers and systems]</li>
 </ul>
 <h3>4.3 Encryption</h3>
-<p>Customer information is encrypted in transit over external networks and at rest on laptops, servers, backups and removable media. When customer information is sent as an encrypted or password-protected file, the password is sent by a different channel than the file (for example by phone or text message), as described in the Encryption Policy.</p>
+<p>Customer information is encrypted in transit over external networks and at rest on laptops, servers, backups and removable media (314.4(c)(3)). When customer information is sent as an encrypted or password-protected file, the password is sent by a different channel than the file (for example by phone or text message). Where encryption of a particular system or data set is not feasible, the Qualified Individual may approve effective alternative compensating controls in writing and reviews them at least annually. Current approved exceptions: <strong>[none / list each system, the compensating controls and the approval date]</strong>. Details are in the Encryption Policy.</p>
 <h3>4.4 Multi-factor authentication</h3>
-<p>Multi-factor authentication is required for anyone accessing any information system that contains or connects to customer information, including email, remote access, line-of-business and accounting software, and cloud services.</p>
+<p>Multi-factor authentication is required for any individual accessing any information system that contains or connects to customer information, including email, remote access, line-of-business and accounting software, cloud services and administrative accounts (314.4(c)(5)). An exception is allowed only where the Qualified Individual has approved in writing the use of reasonably equivalent or more secure access controls. Current approved exceptions: <strong>[none / list each system, the alternative control and the approval date]</strong>. Details are in the Access Control Policy and the Password &amp; Multi-Factor Authentication Policy.</p>
 <h3>4.5 Application security</h3>
-<p>Software used to process customer information is kept supported and patched. Third-party applications are evaluated for security before adoption. <em>[State whether any applications are developed in-house.]</em></p>
+<p>{{client_name}} adopts secure development practices for any applications it develops in-house to transmit, access or store customer information [or: does not develop its own applications], and evaluates, assesses or tests the security of externally developed applications it uses for that purpose before adopting them and when they change materially (314.4(c)(4)). That software is also kept supported and patched.</p>
+<ul>
+<li><strong>Externally developed applications</strong> (commercial software and cloud services) are evaluated, assessed or tested for security before adoption and at renewal, as described in the Vendor &amp; Third-Party Risk Management Policy.</li>
+<li><strong>In-house developed applications:</strong> {{client_name}} <strong>[does not develop its own applications that handle customer information / develops these applications that handle customer information: list them]</strong>. Any such application follows secure development practices (security requirements, code review, testing before release, no secrets in code, separate test and production data) and the review, signing and change control in the Client-Built Software Policy.</li>
+</ul>
 <h3>4.6 Data retention and disposal</h3>
-<p>Customer information is securely disposed of no later than two years after it was last used to provide a product or service, unless it is needed for business operations or retention is required by law. The retention policy is reviewed at least annually. Paper records are shredded; electronic media are wiped or physically destroyed.</p>
+<p>Customer information is securely disposed of no later than two years after the last date it was used to provide a product or service to the customer it relates to, unless it is necessary for business operations or another legitimate business purpose, retention is required by law or regulation, or targeted disposal is not reasonably feasible because of the way the information is maintained (314.4(c)(6)(i)). Paper records are cross-cut shredded; electronic media are wiped or physically destroyed, and a certificate of destruction is kept when a vendor does the work.</p>
+<p>The data retention policy is reviewed at least <strong>[annually]</strong> to minimize the unnecessary retention of data (314.4(c)(6)(ii)). Retention periods and disposal methods are in the Data Retention &amp; Disposal Policy.</p>
 <h3>4.7 Change management</h3>
-<p>Changes to systems that store or process customer information are planned, approved, documented and tested before implementation.</p>
+<p>Changes to systems that store or process customer information are planned, assessed for security impact, approved, documented and tested before implementation (314.4(c)(7)). Details are in the Change Management Policy.</p>
 <h3>4.8 Monitoring and logging</h3>
-<p>User activity on systems containing customer information is logged and monitored to detect unauthorized access or use. Endpoints are protected with managed endpoint detection and response. Event logs on systems holding customer information are reviewed at least every <strong>[90 days]</strong>, in addition to automated alerting, and the review is recorded.</p>
+<p>Policies, procedures and controls are in place to monitor and log the activity of authorized users and to detect unauthorized access to, use of, or tampering with customer information by those users (314.4(c)(8)). Endpoints are protected with managed endpoint detection and response. Event logs on systems holding customer information are retained for at least <strong>[1 year]</strong> and reviewed at least every <strong>[90 days]</strong>, in addition to automated alerting, and the review is recorded. Details are in the Logging &amp; Monitoring Policy.</p>
 <h3>4.9 Physical safeguards</h3>
 <ul>
 <li><strong>Clean desk:</strong> customer information on paper or screens is never left unattended. Paper records are put away and locked at the end of the day, and screens lock when people step away.</li>
@@ -47,33 +64,88 @@
 <li>Rooms and cabinets holding customer information or servers are locked, with keys or access codes limited to the people who need them.</li>
 </ul>
 <h2>5. Testing and monitoring</h2>
-<p>The effectiveness of safeguards is tested or monitored regularly through <strong>[continuous monitoring / annual penetration testing and vulnerability scans at least every six months]</strong>, and after any material change.</p>
-<h2>6. Training and personnel</h2>
-<p>All personnel complete security awareness training at onboarding and at least annually, including phishing awareness, password and MFA practices, and how to report incidents. Information security is managed by qualified personnel or service providers who maintain current knowledge of threats.</p>
+<p>The effectiveness of the safeguards' key controls, systems and procedures is regularly tested or monitored (314.4(d)(1)), using <strong>[continuous monitoring / annual penetration testing and vulnerability assessments at least every six months]</strong>:</p>
 <ul>
-<li>Every employee signs to confirm they received and read this WISP, at hire and whenever it changes significantly. Signed acknowledgments are kept by the Qualified Individual.</li>
+<li><strong>Continuous monitoring</strong> means monitoring of information systems that lets {{client_name}} detect, on an ongoing basis, changes that may create vulnerabilities. <em>[Describe the tools and coverage, or delete if periodic testing is used.]</em></li>
+<li><strong>Without effective continuous monitoring:</strong> penetration testing at least once a year, scoped from the risks identified in the risk assessment; and vulnerability assessments, including systemic scans or reviews designed to identify publicly known security vulnerabilities, at least every six months (314.4(d)(2)).</li>
+<li>Additional testing is done whenever there are material changes to operations or business arrangements, or circumstances {{client_name}} knows or has reason to know may have a material impact on the program.</li>
+</ul>
+<ul>
+<li>Last penetration test: <strong>[date, tester]</strong></li>
+<li>Last vulnerability assessment: <strong>[date]</strong></li>
+<li>Next testing due: <strong>[date]</strong></li>
+</ul>
+<p>Findings are rated and fixed under the Vulnerability &amp; Patch Management Policy and tracked in the risk register.</p>
+<h2>6. Training and personnel</h2>
+<ul>
+<li>All personnel complete security awareness training at onboarding and at least annually, including phishing awareness, password and MFA practices, and how to report incidents. The training is updated as necessary to reflect the risks found by the risk assessment (314.4(e)(1)). Details are in the Security Awareness Training Policy.</li>
+<li>The program is managed by qualified information security personnel, employed by {{client_name}} or by a service provider such as {{company_name}}, sufficient to manage the risks and to perform or oversee the program (314.4(e)(2)).</li>
+<li>Information security personnel receive security updates and training sufficient to address relevant risks (314.4(e)(3)), and {{client_name}} verifies at least annually that key security personnel keep their knowledge of changing threats and countermeasures current, for example through certifications, continuing education or written confirmation from {{company_name}} (314.4(e)(4)).</li>
+<li>Every employee signs to confirm they received and read this WISP, at hire and whenever it changes significantly (section 10). Signed acknowledgments are kept by the Qualified Individual.</li>
 <li>Employees who handle especially sensitive accounts or records, as decided by the Qualified Individual, also sign a confidentiality or non-disclosure agreement.</li>
 <li>When someone leaves, their access is removed and company devices, keys and records are returned on or before their last day.</li>
 </ul>
 <h2>7. Service providers</h2>
-<p>Service providers with access to customer information are selected for their ability to protect it, are contractually required to maintain appropriate safeguards, and are assessed periodically. Current providers:</p>
+<p>{{client_name}} oversees its service providers (314.4(f)) by:</p>
 <ul>
-<li>{{company_name}} — managed IT and security services</li>
-<li>[Line-of-business or accounting software provider]</li>
-<li>[Cloud email and file storage provider]</li>
-<li>[Backup provider]</li>
+<li>Taking reasonable steps to select and retain service providers capable of maintaining appropriate safeguards for the customer information they access (314.4(f)(1)).</li>
+<li>Requiring service providers by contract to implement and maintain such safeguards (314.4(f)(2)).</li>
+<li>Periodically assessing service providers, at least <strong>[annually]</strong> for those with access to customer information, based on the risk they present and the continued adequacy of their safeguards (314.4(f)(3)).</li>
+</ul>
+<p>Details are in the Vendor &amp; Third-Party Risk Management Policy. Current providers with access to customer information:</p>
+<ul>
+<li>{{company_name}}: managed IT and security services. Contract safeguards in place: [yes / no]. Last assessed: [date]</li>
+<li>[Line-of-business or accounting software provider]. Contract safeguards in place: [yes / no]. Last assessed: [date]</li>
+<li>[Cloud email and file storage provider]. Contract safeguards in place: [yes / no]. Last assessed: [date]</li>
+<li>[Backup provider]. Contract safeguards in place: [yes / no]. Last assessed: [date]</li>
+<li>[Other provider, e.g. payroll, shredding, records storage]. Contract safeguards in place: [yes / no]. Last assessed: [date]</li>
 </ul>
 <h2>8. Incident response</h2>
-<p>{{client_name}} maintains a written Incident Response Plan that defines goals, internal processes, roles and decision authority, internal and external communications, remediation, documentation and post-incident review. Suspected incidents are reported immediately to the Qualified Individual and to {{company_name}} at {{company_emergency_phone}}.</p>
+<p>{{client_name}} maintains a written Incident Response Plan designed to promptly respond to, and recover from, any security event materially affecting the confidentiality, integrity or availability of customer information in its control (314.4(h)). The plan addresses:</p>
+<ol>
+<li>The goals of the plan.</li>
+<li>The internal processes for responding to a security event.</li>
+<li>Clear roles, responsibilities and levels of decision-making authority.</li>
+<li>External and internal communications and information sharing.</li>
+<li>Requirements for fixing any identified weaknesses in information systems and associated controls.</li>
+<li>Documentation and reporting of security events and the related response activities.</li>
+<li>Evaluation and revision of the plan, as necessary, after a security event.</li>
+</ol>
+<p>Suspected incidents are reported immediately to the Qualified Individual and to {{company_name}} at {{company_emergency_phone}}.</p>
 <p>During an incident, the Service Manager named in the Incident Response Plan (or <strong>[name, title]</strong>) is the only person who speaks for {{client_name}} to the media, law enforcement, customers and other businesses. Other staff refer those questions to that person. This doesn't limit reporting an incident to the Qualified Individual, {{company_name}}, the cyber insurer or legal counsel.</p>
-<p>If a notification event involves the unencrypted information of 500 or more consumers, the FTC will be notified within 30 days of discovery, in addition to any notifications required by state law.</p>
+<h3>8.1 Notifying the FTC</h3>
+<p>A <em>notification event</em> is the acquisition of unencrypted customer information without the authorization of the individual to whom it relates. Unauthorized acquisition is presumed whenever there is unauthorized access, unless {{client_name}} has reliable evidence that it did not happen or could not reasonably have happened. Encrypted customer information counts as unencrypted if the encryption key was also accessed.</p>
+<p>If a notification event involves the information of at least 500 consumers, the Qualified Individual, or <strong>[name, title]</strong>, notifies the FTC as soon as possible and no later than 30 days after discovery, using the electronic form on the FTC's website (314.4(j)). The notice includes: {{client_name}}'s name and contact information; a description of the types of information involved; the date or date range of the event, if it can be determined; the number of consumers affected or potentially affected; a general description of the event; and whether a law enforcement official has given {{client_name}} a written determination that notifying the public would impede a criminal investigation or damage national security, with a way for the FTC to contact that official. A discovery is treated as made on the first day the event is known to anyone at {{client_name}} other than the person who committed it. FTC notice is in addition to any notices required by state breach notification laws, contracts or the cyber insurer.</p>
 <h2>9. Annual report</h2>
-<p>The Qualified Individual reports in writing at least annually to <strong>[owner / board / senior officer]</strong> on the overall status of the program, compliance with the Safeguards Rule, and material matters including risk assessment results, risk decisions, testing results, security events and recommended changes.</p>
+<p>The Qualified Individual reports in writing, regularly and at least annually, to <strong>[the board of directors / equivalent governing body / if there is no board, the senior officer responsible for the program: name, title]</strong> (314.4(i)). The report covers:</p>
+<ul>
+<li>The overall status of the program and {{client_name}}'s compliance with the Safeguards Rule.</li>
+<li>Material matters related to the program, such as the risk assessment, risk management and control decisions, service provider arrangements, results of testing, security events or violations and management's responses, and recommendations for changes to the program.</li>
+</ul>
+<ul>
+<li>Last annual report delivered: <strong>[date]</strong></li>
+<li>Next annual report due: <strong>[date]</strong></li>
+</ul>
 <h2>10. Program review</h2>
-<p>This WISP is reviewed and updated at least annually and whenever there are material changes to business operations, systems, or the results of testing and risk assessments.</p>
-<h2>Approval</h2>
-<p>Approved by: ______________________________ &nbsp; Title: ________________ &nbsp; Date: __________</p>
-<p>Qualified Individual: ______________________________ &nbsp; Date: __________</p>
-<h2>Employee acknowledgment</h2>
+<p>The Qualified Individual evaluates and adjusts this program at least annually and in light of: the results of testing and monitoring (section 5); any material changes to operations or business arrangements; the results of risk assessments (section 3); or any other circumstances {{client_name}} knows or has reason to know may have a material impact on the program (314.4(g)). Changes are recorded in the version number and effective date at the top of this document.</p>
+<h2>11. Related documents</h2>
+<ul>
+<li>Security Risk Assessment Report and Risk Management Policy (section 3)</li>
+<li>Access Control Policy and Password &amp; Multi-Factor Authentication Policy (sections 4.1 and 4.4)</li>
+<li>Encryption Policy (section 4.3)</li>
+<li>Client-Built Software Policy (section 4.5)</li>
+<li>Data Retention &amp; Disposal Policy (section 4.6)</li>
+<li>Change Management Policy (section 4.7)</li>
+<li>Logging &amp; Monitoring Policy (section 4.8)</li>
+<li>Vulnerability &amp; Patch Management Policy (section 5)</li>
+<li>Security Awareness Training Policy (section 6)</li>
+<li>Vendor &amp; Third-Party Risk Management Policy (sections 4.5 and 7)</li>
+<li>Incident Response Plan (section 8)</li>
+</ul>
+<p>Supports: FTC Safeguards Rule 16 CFR 314.4(a) through (j)</p>
+<h2>12. Employee acknowledgment</h2>
 <p>I have received and read this Written Information Security Program and agree to follow it.</p>
 <p>Name: ______________________ &nbsp; Signature: ______________________ &nbsp; Date: __________</p>
+<h2>13. Review and approval</h2>
+<p>This program is reviewed and approved by the Qualified Individual at least annually and after any material change (section 10). Where the Qualified Individual works for a service provider, the senior staff member named in section 2 also signs. The Qualified Individual's annual written report goes to the board or senior officer named in section 9 (314.4(i)).</p>
+<p>Approved by (Qualified Individual): [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

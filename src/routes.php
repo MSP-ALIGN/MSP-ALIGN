@@ -93,6 +93,7 @@ $r->post('/clients/{id}/ai-reviews/{rid}/step', [\Align\Controllers\AiReviewCont
 $r->post('/clients/{id}/ai-reviews/{rid}/draft', [\Align\Controllers\AiDraftController::class, 'fromReview']);
 $r->get('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'form']);
 $r->post('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'update']);
+$r->post('/clients/{id}/ai-drafts/template/{tid}', [\Align\Controllers\AiDraftController::class, 'fromTemplate']); // 2.38.1 related-documents checklist
 // 2.31.0 the QBR executive summary (written with AI or by hand; the staff QBR pack prints it, never the portal's)
 $r->get('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summary']);
 $r->post('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summarySave']);
@@ -233,6 +234,7 @@ $r->get('/documents/templates', [DocumentController::class, 'templates']);
 $r->post('/documents/templates', [DocumentController::class, 'templateCreate']);
 $r->get('/documents/templates/{id}', [DocumentController::class, 'templateShow']);
 $r->post('/documents/templates/{id}', [DocumentController::class, 'templateSave']);
+$r->post('/documents/templates/{id}/corrections/{cid}', [\Align\Controllers\CorrectionController::class, 'template']); // 2.38.3
 $r->get('/documents/{id}', [DocumentController::class, 'show']);
 $r->post('/documents/{id}/save', [DocumentController::class, 'save']);
 $r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
@@ -406,6 +408,7 @@ $r->get('/frameworks', [ComplianceController::class, 'frameworks']);
 $r->post('/frameworks', [ComplianceController::class, 'frameworkCreate']);
 $r->get('/frameworks/{id}', [ComplianceController::class, 'frameworkShow']);
 $r->post('/frameworks/{id}', [ComplianceController::class, 'frameworkSave']);
+$r->post('/frameworks/{id}/corrections/{cid}', [\Align\Controllers\CorrectionController::class, 'framework']); // 2.38.3
 
 // Integrations
 $r->get('/mapping', [MappingController::class, 'index']);

@@ -20,15 +20,19 @@
 <ul>
 <li><strong>Least privilege:</strong> users receive the minimum access needed to perform their duties. Access to Confidential and Restricted information requires a documented business need.</li>
 <li><strong>Role-based access:</strong> access is granted through security groups tied to job roles (for example Accounting, Operations, Management) rather than assigned to individuals one at a time. {{company_name}} maintains a role matrix listing each role's groups, applications and permission levels.</li>
-<li><strong>Need to know:</strong> Restricted data (PHI, CUI, payment card data, SSNs, payroll) is limited to named individuals approved by the data owner.</li>
+<li><strong>Need to know:</strong> Restricted data (PHI, CUI, payment card data, SSNs, payroll) is limited to named individuals approved by the data owner. Full card numbers are masked on screen except for people with a documented need to see them, and direct database queries against stored card data are limited to [named administrators].</li>
 <li><strong>Separation of duties:</strong> where practical, no single person can both create and approve a payment, vendor record or payroll change. Where the business is too small to separate duties, compensating controls such as owner review of bank activity are used.</li>
 <li><strong>Default deny:</strong> access not explicitly granted is denied. New shared folders, SharePoint sites and Teams inherit restrictive permissions and are not shared with "Everyone" or anonymous links.</li>
+<li><strong>Centralized identity:</strong> accounts are managed in one directory, [Microsoft Entra ID / Google Workspace / Active Directory], and applications are connected to it through single sign-on (SSO) wherever the application supports it, so that disabling one account removes access everywhere. {{company_name}} keeps a list of the systems that authenticate users (the directory, SSO-connected applications, and any application with its own separate logins) and the applications that still have separate logins: [list applications with separate logins].</li>
+<li><strong>Network access:</strong> Wi-Fi, VPN and network device administration authenticate against the central directory (for example RADIUS or SSO) where the equipment supports it, rather than shared local logins.</li>
 </ul>
 
 <h2>5. Account provisioning</h2>
 <ul>
 <li>All access requests are submitted by a manager through {{company_name}}'s ticketing system ([portal or email]) and include the user's name, role, start date and any access beyond the standard role.</li>
-<li>Each person receives a unique user ID. Accounts are created only after the request is approved by the manager and, for non-standard access, by the data owner.</li>
+<li>Each person receives a unique user ID. Accounts are created only after the request is approved by the manager and, for non-standard access, by the data owner. User IDs are not reused for a different person for at least [2 years / never].</li>
+<li><strong>Workforce clearance:</strong> before access to Restricted data is granted, the manager confirms that the person's role requires it and that any required background check, confidentiality agreement and security awareness training is complete. Staff who work with Restricted data but do not have access themselves are supervised by someone who does.</li>
+<li><strong>Identity verification:</strong> {{company_name}} verifies the identity of a person before issuing an account, a password reset or a new MFA method (for example a call back to a known phone number or confirmation from the manager), and never on the strength of an email or text request alone.</li>
 <li>New accounts are created with a temporary password that must be changed at first sign-in, and MFA registration is required before access to company data.</li>
 <li>Contractor and vendor accounts are created with an expiration date no longer than the contract term or 90 days, whichever is shorter, and are renewed only on request.</li>
 <li>Role changes are processed <strong>[within 5 business days / on the effective date of the change]</strong> (use the second where a contract or parent organization requires prompt revocation); access that is no longer needed for the new role is removed at the same time as new access is added.</li>
@@ -39,15 +43,18 @@
 <li>Managers or HR notify {{company_name}} of every departure as early as possible and no later than the user's last working day.</li>
 <li>Access is disabled <strong>[within 24 hours of departure / at departure, no later than the end of the last working day]</strong>, and <strong>immediately</strong> (before or during the termination meeting) for involuntary terminations or where there is elevated risk.</li>
 <li>Offboarding includes: disabling the account and blocking sign-in; revoking active sessions and tokens; removing MFA methods; removing the user from groups and shared mailboxes; wiping or retiring company data on mobile devices; changing any shared or known credentials the person had (door codes, alarm codes, vendor portals, Wi-Fi keys); retrieving company equipment; and transferring mailbox and OneDrive data to the manager as directed.</li>
-<li>Disabled accounts are retained for [30/90] days for data recovery and then deleted or converted, unless a legal hold applies.</li>
+<li>Where cardholder data is in scope, access for departed users is revoked immediately, not within 24 hours (PCI DSS 8.2.5). Building access cards, keys and alarm codes are collected or changed on the same day.</li>
+<li>Disabled accounts are retained for [30/90] days for data recovery and then deleted or converted to a shared mailbox with sign-in blocked, unless a legal hold applies.</li>
 <li>{{company_name}} records completion of each offboarding step in the ticket.</li>
 </ul>
 
 <h2>7. Access reviews</h2>
 <ul>
+<li>{{company_name}} maintains an inventory of all user, administrator, service and vendor accounts with each account's owner, department, start date and status, and reconciles it against the employee list at each review.</li>
 <li><strong>Quarterly:</strong> {{company_name}} provides each data owner with a list of users, group memberships and privileged roles for their systems. Owners confirm or remove access within 10 business days. Results are recorded and kept for at least 3 years (6 years where HIPAA applies).</li>
 <li>Privileged and administrative accounts, vendor accounts and access to Restricted data are included in every quarterly review.</li>
 <li>Accounts with no sign-in activity for 45 days are disabled unless documented as an exception (for example seasonal staff).</li>
+<li>Guest (external) users in Microsoft 365 or Google Workspace are included in every review; guest access expires after [30/60/90] days unless renewed by the internal sponsor, and guests have limited directory access.</li>
 <li>Any access found without a valid approval is removed immediately and the cause is recorded.</li>
 </ul>
 
@@ -55,16 +62,21 @@
 <ul>
 <li>Administrators use a separate privileged account (for example <em>adm-jsmith</em>) for administrative tasks, and a standard account for email, web browsing and daily work. Privileged accounts do not have mailboxes and are not used to browse the internet.</li>
 <li>Everyday user accounts do not have local administrator rights on workstations. Software installation and elevation are handled by {{company_name}} or through an approved privilege elevation tool.</li>
-<li>Global administrator (or equivalent) roles are limited to no more than [4] accounts, including at least one break-glass account.</li>
-<li>Privileged accounts require phishing-resistant MFA and, where licensing allows, just-in-time activation (for example Entra Privileged Identity Management).</li>
-<li><strong>Break-glass accounts:</strong> {{client_name}} keeps [1–2] emergency cloud administrator accounts excluded from conditional access policies that could lock everyone out. Their credentials are stored securely (sealed or in a restricted password manager vault), every sign-in generates an alert, and they are tested at least every 6 months.</li>
+<li>Cloud administrator accounts are cloud-only (not synchronized from on-premises Active Directory) so that a compromise of the local network does not hand over the cloud tenant.</li>
+<li>Global administrator (or equivalent) roles are held by at least 2 and no more than [4] accounts, including the break-glass accounts. Day-to-day administration uses the least-privileged role that does the job (for example User, Helpdesk or Exchange administrator) rather than Global administrator.</li>
+<li>Privileged accounts require phishing-resistant MFA and, where licensing allows, just-in-time activation (for example Entra Privileged Identity Management) so that highly privileged roles are eligible rather than permanently assigned.</li>
+<li>Administrator sessions have a limited sign-in frequency of [4/8/12] hours, and browser sessions for administrators are not kept signed in.</li>
+<li>Privileged accounts are inventoried, reviewed quarterly and removed as soon as the role no longer needs them. Only privileged accounts may change audit log settings or use system utilities that can override security controls.</li>
+<li><strong>Local administrator accounts:</strong> built-in local administrator accounts on workstations and servers have unique, randomly generated passwords managed by Windows LAPS (or an equivalent tool) and rotated automatically.</li>
+<li><strong>Default accounts:</strong> default and vendor-supplied accounts (for example on firewalls, printers, Wi-Fi equipment and applications) are disabled, renamed or given a unique strong password before the device or application goes into use. Test accounts and test data are removed before a system goes live.</li>
+<li><strong>Break-glass accounts (emergency access):</strong> {{client_name}} keeps 2 emergency cloud administrator accounts that are cloud-only and excluded from conditional access policies that could lock everyone out. Their credentials are stored securely (sealed or in a restricted password manager vault), every sign-in generates an alert, and they are tested at least every 6 months. The emergency access procedure, including who may use these accounts and how access to Restricted data is obtained if normal sign-in is unavailable, is: [describe procedure or reference the BCDR plan].</li>
 </ul>
 
 <h2>9. Service accounts</h2>
 <ul>
 <li>Service accounts (used by applications, scanners, backup tools and integrations) are listed in an inventory with their owner, purpose, systems accessed and date last reviewed.</li>
 <li>Service accounts are granted only the permissions the service needs, are denied interactive sign-in where possible, and use long random passwords (at least 25 characters) or managed identities, certificates or managed service accounts.</li>
-<li>Service account credentials are stored in the password manager, rotated when someone with knowledge of them leaves, and reviewed quarterly.</li>
+<li>Service account credentials are stored in the password manager, rotated when someone with knowledge of them leaves and at least every [12] months (or on a schedule set by risk), and reviewed quarterly.</li>
 </ul>
 
 <h2>10. Shared and generic accounts</h2>
@@ -78,15 +90,33 @@
 <ul>
 <li>Vendors receive named accounts, MFA, and access only to the systems they support. Vendor remote access is enabled only when needed and disabled afterwards, or routed through {{company_name}}'s controlled remote support tools.</li>
 <li>{{company_name}} technicians use individual named accounts with MFA; {{company_name}} maintains its own access review for technicians who leave its employment.</li>
+<li>{{company_name}} uses credentials unique to {{client_name}}; the same password or account is never shared across {{company_name}}'s customers.</li>
+<li>Remote execution of administrative commands (for example through the remote management tool) is limited to authorized {{company_name}} technicians and logged.</li>
 </ul>
 
-<h2>12. Exceptions</h2>
+<h2>12. Session lock and timeouts</h2>
+<ul>
+<li>Workstations and laptops lock after <strong>[10/15] minutes</strong> of inactivity (15 minutes at most where cardholder data is in scope) with a screen that hides what was displayed, and require the user's password, PIN or biometric to unlock.</li>
+<li>Mobile devices lock after [2/5] minutes of inactivity.</li>
+<li>Users lock their screen (Windows key + L) whenever they leave their device, and keep desks clear of Confidential and Restricted papers when away (clear desk and clear screen).</li>
+<li>Applications that hold Restricted data (for example the practice management, EHR or accounting system) log the user off after [15/30] minutes of inactivity where the application supports it.</li>
+<li>Remote access and VPN sessions disconnect after [30/60] minutes of inactivity and require re-authentication at least every [12/24] hours.</li>
+</ul>
+
+<h2>13. Guest access and third-party applications</h2>
+<ul>
+<li>Sharing files with people outside {{client_name}} uses named guest access or links to specific people. "Anyone" links are [disabled / allowed only for Public information and expire within 30 days].</li>
+<li>Guest access to Teams, Microsoft 365 Groups or shared drives is limited to [approved domains / owners' invitations] and reviewed as part of the quarterly access review.</li>
+<li>Users cannot grant third-party applications access to company data on their own; requests go through an administrator consent workflow approved by {{company_name}}.</li>
+</ul>
+
+<h2>14. Exceptions</h2>
 <p>Exceptions require a written request to the security lead with the business reason, compensating controls and an end date, approved by the executive sponsor and recorded in the risk register. Exceptions are reviewed at least annually.</p>
 
-<h2>13. Enforcement</h2>
-<p>Attempting to access information without authorization, sharing credentials, or using another person's account may result in disciplinary action up to and including termination. Unauthorized access may also violate law, including California Penal Code 502.</p>
+<h2>15. Enforcement</h2>
+<p>Attempting to access information without authorization, sharing credentials, or using another person's account may result in disciplinary action up to and including termination. Unauthorized access may also violate federal and state computer crime laws ([applicable state law, for example California Penal Code 502]).</p>
 
-<h2>14. Related documents</h2>
+<h2>16. Related documents</h2>
 <ul>
 <li>Information Security Policy</li>
 <li>Password &amp; Multi-Factor Authentication Policy</li>
@@ -94,8 +124,8 @@
 <li>Logging &amp; Monitoring Policy</li>
 <li>Role access matrix and onboarding/offboarding checklists (maintained by {{company_name}})</li>
 </ul>
-<p>Supports: CMMC AC.L2-3.1.1, AC.L2-3.1.2, AC.L2-3.1.5, AC.L2-3.1.6, AC.L2-3.1.7, PS.L2-3.9.2 · CIS 5.1, 5.3, 5.4, 5.5, 6.1, 6.2, 6.8 · HIPAA 164.308(a)(3), 164.308(a)(4), 164.312(a)(1), 164.312(a)(2)(i) · NIST CSF PR.AA-01, PR.AA-05 · PCI DSS 7.2.1, 7.2.2, 7.2.4, 7.2.5, 8.2.1, 8.2.2, 8.2.6</p>
+<p>Supports: CMMC AC.L1-b.1.i, AC.L1-b.1.ii, IA.L1-b.1.v, AC.L2-3.1.1, AC.L2-3.1.2, AC.L2-3.1.4, AC.L2-3.1.5, AC.L2-3.1.6, AC.L2-3.1.7, AC.L2-3.1.10, AC.L2-3.1.11, AC.L2-3.1.15, IA.L2-3.5.1, IA.L2-3.5.5, IA.L2-3.5.6, IA.L2-3.5.9, SC.L2-3.13.3, PS.L2-3.9.2 · CIS 3.3, 4.3, 4.7, 5.1, 5.3, 5.4, 5.5, 5.6, 6.1, 6.2, 6.6, 6.7, 6.8, 12.5 · HIPAA 164.308(a)(3)(ii)(A)-(C), 164.308(a)(4)(ii)(B)-(C), 164.312(a)(1), 164.312(a)(2)(i)-(iii) · ISO 27001 A.5.3, A.5.15, A.5.16, A.5.18, A.6.5, A.7.7, A.8.2, A.8.3, A.8.18 · NIST CSF PR.AA-01, PR.AA-02, PR.AA-05 · PCI DSS 7.2.1-7.2.6, 7.3.1-7.3.3, 8.2.1-8.2.6, 8.2.8, 8.6.1, 8.6.3 · SOC 2 CC6.1, CC6.2, CC6.3 · FTC Safeguards 314.4(c)(1)</p>
 
-<h2>15. Review and approval</h2>
+<h2>17. Review and approval</h2>
 <p>This policy is reviewed at least annually and after significant changes to systems or organization.</p>
 <p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

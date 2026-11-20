@@ -20,7 +20,7 @@
 <h2>4. Business impact analysis</h2>
 <p>For each critical business function and system, {{client_name}} defines the <strong>Recovery Time Objective (RTO)</strong> (how long the business can operate without it) and the <strong>Recovery Point Objective (RPO)</strong> (how much data, measured in time, the business can afford to lose). Backup frequency and recovery methods must meet these targets. Review and adjust the examples below.</p>
 <ul>
-<li><strong>Email and Microsoft 365 / Google Workspace</strong> — Owner: [name]. RTO: 4 hours. RPO: 0 (cloud-hosted; third-party backup RPO 12 hours). Workaround: phones and mobile apps; notify customers of alternate contact.</li>
+<li><strong>Email and Microsoft 365 / Google Workspace</strong> — Owner: [name]. RTO: [4] hours. RPO: 0 (cloud-hosted; third-party backup RPO [12] hours). Workaround: phones and mobile apps; notify customers of alternate contact.</li>
 <li><strong>[Line-of-business application, e.g. practice management, EHR, ERP]</strong> — Owner: [name]. Hosting: [on-premises server / vendor cloud]. RTO: [8] hours. RPO: [1] hour. Workaround: [paper forms, read-only reports printed weekly].</li>
 <li><strong>Accounting and payroll ([system])</strong> — Owner: [name]. RTO: [2 business days]; payroll must run by [date/time each cycle]. RPO: [24] hours. Workaround: [payroll provider manual run / prior-period repeat].</li>
 <li><strong>File server / SharePoint document storage</strong> — Owner: [name]. RTO: [24] hours. RPO: [4] hours.</li>
@@ -31,6 +31,13 @@
 <li><strong>[Other critical system]</strong> — Owner: [name]. RTO: [ ]. RPO: [ ].</li>
 </ul>
 <p>Maximum tolerable downtime for the business as a whole before serious financial, legal or reputational harm: [e.g. 3 business days].</p>
+<p><strong>Recovery priority order:</strong> when several systems are down, they are restored in this order unless the continuity lead decides otherwise: [1. internet and identity (sign-in, MFA); 2. line-of-business application; 3. email; 4. file storage; 5. other systems].</p>
+<p><strong>Sensitive data in critical systems:</strong> systems above that hold regulated or sensitive information ([e.g. patient records (ePHI), payment card data, CUI, employee records]) are marked as such, so that recovery steps keep that information protected and any data loss is assessed under the Incident Response Plan. Supports HIPAA 164.308(a)(7)(ii)(E).</p>
+<p><strong>Key dependencies and suppliers:</strong> the outside services the critical systems depend on, and what each supplier commits to for its own recovery, are listed here and reviewed at each annual test:</p>
+<ul>
+<li>[Supplier, service, which systems in this section depend on it, support number, its recovery commitment or status page, e.g. "Hosted EHR vendor, practice management, 1-800-XXX-XXXX, restores within 24 hours per contract"]</li>
+<li>[Supplier, service, dependent systems, support number, recovery commitment]</li>
+</ul>
 
 <h2>5. Emergency contacts</h2>
 <ul>
@@ -121,7 +128,13 @@
 <ul>
 <li>A system is backed up, and the backup verified, before it is moved, repaired or replaced, including during an emergency relocation.</li>
 </ul>
-<h3>8.5 Testing</h3>
+<h3>8.5 Keeping information secure during a disruption</h3>
+<ul>
+<li>Security controls stay on during an emergency: MFA, endpoint protection, encryption and access permissions are not switched off to speed up recovery unless the continuity lead approves a specific, time-limited exception with {{company_name}}, and the exception is logged and reversed afterwards.</li>
+<li>Staff use company devices and approved cloud services when working from alternate locations. Personal devices or personal email are not used for Confidential or Restricted information unless the continuity lead approves it for the emergency: [allowed / not allowed].</li>
+<li>Temporary systems, accounts and file shares created during recovery are recorded in the decision log and removed or brought under normal management when the emergency ends.</li>
+</ul>
+<h3>8.6 Testing</h3>
 <ul>
 <li>Emergency mode procedures are tested at least once a year, alongside the annual test in section 12, for example by working a short period on paper forms and forwarded phones.</li>
 </ul>
@@ -132,7 +145,7 @@
 <li><strong>Customers:</strong> the communications lead notifies affected customers when an outage will noticeably affect service, using pre-approved message templates ([location]). Messages about security incidents are reviewed by legal counsel first.</li>
 <li><strong>Vendors and partners:</strong> notified as needed to reschedule deliveries or obtain support.</li>
 <li><strong>Media and social media:</strong> only the executive sponsor or designee speaks publicly.</li>
-<li>Out-of-band communications (personal mobile phones, a pre-created group text or [Signal group]) are used if company email or Teams may be compromised.</li>
+<li>Out-of-band communications (personal mobile phones, a pre-created group text or [secure messaging app group]) are used if company email or Teams may be compromised.</li>
 </ul>
 
 <h2>10. Alternate work locations</h2>
@@ -140,13 +153,15 @@
 <li><strong>Primary alternate:</strong> staff work from home using company laptops, VPN/ZTNA and cloud services. Staff without laptops: [plan, e.g. spare laptops kept at [location], or loaner devices from {{company_name}}].</li>
 <li><strong>Secondary alternate site:</strong> [address or arrangement, e.g. another branch, shared office space, owner's home].</li>
 <li>Critical paper records and supplies needed for continuity are kept at [location].</li>
+<li><strong>Facility access during recovery:</strong> keys, alarm codes and access cards for the office and any alternate site are held by [names]. During recovery, {{company_name}} staff and approved vendors restoring systems or data are let in by [name or role], and their visits are logged. Supports HIPAA 164.310(a)(2)(i).</li>
 </ul>
 
 <h2>11. Return to normal operations</h2>
 <ul>
 <li>Systems are returned to production only after {{company_name}} verifies they are clean and working, and business owners confirm data is correct.</li>
-<li>The continuity lead declares the end of the disaster and notifies staff and customers.</li>
-<li>A lessons-learned review is held within 2 weeks, and this plan is updated.</li>
+<li>Information recorded on paper or in temporary systems during downtime is entered into the restored systems and checked, then the paper is kept or destroyed as described in section 8.1.</li>
+<li>The continuity lead declares the end of the disaster and notifies staff and customers when these criteria are met: [all critical systems in section 4 are restored and verified; downtime records are entered; {{company_name}} confirms no sign of reinfection or repeat access; temporary access and workarounds are removed]. The date and time are recorded in the decision log.</li>
+<li>A lessons-learned review is held within 2 weeks, and this plan is updated. Each corrective action has an owner and a target date and is tracked until it is closed.</li>
 </ul>
 
 <h2>12. Testing and maintenance</h2>
@@ -154,6 +169,9 @@
 <li>This plan is tested <strong>at least annually</strong> through a tabletop exercise covering at least one scenario from section 7, facilitated by {{company_name}}, together with a test of the emergency mode procedures in section 8. Results, issues found and corrective actions are documented.</li>
 <li>Backup restore tests are performed quarterly per the Backup &amp; Recovery Policy, and a full failover or recovery test of at least one critical system is performed annually to confirm RTO and RPO can be met.</li>
 <li>Contact lists are verified quarterly. The plan is updated after organizational or system changes and after any activation.</li>
+<li>Critical suppliers from section 4 are invited to take part in tests where their service is involved, and their recovery commitments are checked at the annual review.</li>
+<li>At the annual review, {{company_name}} also checks that capacity is still adequate for recovery: backup and cloud recovery storage, spare or replacement hardware, licenses for the alternate setup, and internet bandwidth at the alternate locations.</li>
+<li>The current plan is kept at [locations, e.g. printed copy at the office and at the continuity lead's home, password manager, {{company_name}}'s documentation]. Earlier versions, test results and activation records are kept for at least [6] years (HIPAA requires six years for covered entities and business associates).</li>
 </ul>
 
 <h2>13. Related documents</h2>
@@ -164,7 +182,7 @@
 <li>Vendor &amp; Third-Party Risk Management Policy</li>
 <li>Data Classification &amp; Handling Policy</li>
 </ul>
-<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 17.4 · HIPAA 164.308(a)(7)(i), 164.308(a)(7)(ii)(A)–(E), 164.310(a)(2)(i), 164.310(d)(2)(iv), 164.312(a)(2)(ii) · NIST CSF ID.IM-04, PR.IR-03, RC.RP-01, RC.CO-03 · PCI DSS 12.10.1</p>
+<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 11.5, 17.4 · HIPAA 164.308(a)(7)(i), 164.308(a)(7)(ii)(A)–(E), 164.310(a)(2)(i), 164.310(d)(2)(iv), 164.312(a)(2)(ii), 164.316(b)(2) · NIST CSF GV.OC-04, GV.OC-05, ID.IM-02, ID.IM-04, PR.IR-03, PR.IR-04, RC.RP-01 to RC.RP-06, RC.CO-03 · ISO 27001 A.5.29, A.5.30, A.8.14 · SOC 2 A1.2, A1.3, CC7.5, CC9.1 · PCI DSS 12.10.1 · CCPA 11 CCR 7123(c)(18)</p>
 
 <h2>14. Review and approval</h2>
 <p>This plan is reviewed at least annually, after every test, and after any activation.</p>

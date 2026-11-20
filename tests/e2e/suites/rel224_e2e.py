@@ -198,8 +198,8 @@ ph = set(re.findall(r"\{\{\s*([a-z_]+)\s*\}\}", body))
 ok(tags <= allowed and ph <= known, f"editor-safe tags {sorted(tags - allowed)} and known placeholders {sorted(ph - known)}")
 ok(not re.search(r"(?i)huntress|claude|chatgpt|copilot", body), "no MSP, vendor or AI product names")
 ok(not re.search(r"<li>(?:(?!</li>).)*<(?:ul|ol)>", body, re.S) and body.count("<li>") == body.count("</li>"), "no lists inside list items, balanced")
-ok(all(x in body for x in ["<h2>4. Intake</h2>", "<h2>5. Review checklist</h2>", "Data flow:", "<h2>6. Packaging, signing and deployment</h2>", "[a code-signing certificate issued to {{client_name}}",
-                           "<h2>7. Updates and change control</h2>", "Developer leaves:", "Supports:", "Review and approval"]), "intake, review, signing choice, change control, retirement, mappings and sign-off")
+ok(all(x in body for x in ["<h2>5. Intake</h2>", "<h2>6. Review checklist</h2>", "Data flow:", "<h2>7. Packaging, signing and deployment</h2>", "[a code-signing certificate issued to {{client_name}}",
+                           "<h2>8. Updates and change control</h2>", "Developer leaves:", "Supports:", "Review and approval"]), "intake, review, signing choice, change control, retirement, mappings and sign-off")
 tid = t[0]["id"]
 r = st.post(B + "/documents", data={"_csrf": csrf(st, "/clients/1/documents"), "client_id": "1", "template_id": str(tid)})
 did = int(r.url.rstrip("/").split("/")[-1])

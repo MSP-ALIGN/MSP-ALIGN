@@ -232,8 +232,11 @@ final class Signing
      * way signing will (PdfStamp::inspect), so one it can't add the certificate to is refused now, and (2.34.0 review)
      * so is one with fillable fields, comments, scripts or attachments (FLAT), which the signed copy would leave out.
      * Throws InvalidArgumentException with a sentence for the person; RuntimeException when keeping a file fails.
+     * 2.38.1 $people (create(): who signs, in order, then the countersigner): a written document's approval block
+     * (Docs\SignBlock, or one added at the end) prints with a blank for each of them, and 'slots' says where they are
+     * (stamped by complete()). Without $people (acknowledgments) or for an uploaded PDF, 'slots' is empty.
      */
-    public static function source(array $doc): array
+    public static function source(array $doc, ?array $people = null): array
     {
         if ($p = self::problem($doc)) {
             throw new \InvalidArgumentException($p);
@@ -254,9 +257,11 @@ final class Signing
             return ['file' => $doc['file_name'], 'name' => (string) $doc['file_orig'], 'hash' => hash('sha256', $bytes), 'pages' => $pages];
         }
         $client = $doc['client_name'] ?? DB::value('SELECT name FROM clients WHERE id = ?', [$doc['client_id']]);
+        $sign = $people ? ['block' => SignBlock::find((string) $doc['body_html'], $doc['review_due'] ?? null), 'people' => $people] : null;
+        $slots = [];
         $bytes = PdfRender::document((string) $doc['title'], trim($client . ' · Version ' . (int) $doc['version'] . ' · ' . Fmt::date(time(), 'long'), ' ·'),
-            (string) $doc['body_html'], 'Confidential — prepared for ' . $client);
-        return self::keep($bytes, (string) $doc['title']);
+            (string) $doc['body_html'], 'Confidential — prepared for ' . $client, $sign, $slots);
+        return self::keep($bytes, (string) $doc['title']) + ['slots' => $slots];
     }
 
     /** Keeps PDF bytes Align made as a file in the documents folder: source()'s array. */
@@ -303,7 +308,12 @@ final class Signing
         if (!$linkOnly && !Mail::ready()) {
             throw new \InvalidArgumentException('Email isn\'t set up (Integrations → Email), so the signing links can\'t be sent.');
         }
-        $source ??= self::source($doc);
+        // 2.38.1 each signer (in order) and the countersigner get a blank in the document's approval block
+        $people = array_map(fn($i) => ['who' => $i, 'label' => null], array_keys(array_values($signers)));
+        if (!empty($opt['countersign'])) {
+            $people[] = ['who' => 'counter', 'label' => 'Countersigned by'];
+        }
+        $source ??= self::source($doc, $people);
         $days = max(1, min(self::MAX_DAYS, (int) ($opt['days'] ?? self::DEFAULT_DAYS)));
         $u = Auth::user();
         $tokens = [];
@@ -311,7 +321,7 @@ final class Signing
             $id = (int) DB::insert('doc_sign_requests', [
                 'document_id' => $doc['id'], 'client_id' => $doc['client_id'], 'title' => mb_substr((string) $doc['title'], 0, 255),
                 'doc_version' => (int) $doc['version'], 'doc_content_hash' => self::contentHash($doc),
-                'source_file' => $source['file'], 'source_name' => mb_substr($source['name'], 0, 190), 'source_hash' => $source['hash'], 'source_pages' => (int) $source['pages'],
+                'source_file' => $source['file'], 'source_name' => mb_substr($source['name'], 0, 190), 'source_hash' => $source['hash'], 'source_pages' => (int) $source['pages'], 'sign_slots' => !empty($source['slots']) ? json_encode($source['slots']) : null,
                 'verify_code' => !empty($opt['verify_code']) ? 1 : 0, 'countersign' => !empty($opt['countersign']) ? 1 : 0,
                 'resign_on_change' => !empty($opt['resign']) ? 1 : 0, 'link_days' => $days,
                 'message' => mb_substr(str_replace("\r", '', trim((string) ($opt['message'] ?? ''))), 0, 4000) ?: null,
@@ -745,7 +755,14 @@ final class Signing
                 return false;
             }
             $cert = self::certificate($r);
-            $pdf = PdfStamp::append($src, fn($p) => PdfRender::signingCertificateInto($p, $cert));
+            $stamps = self::stamps($r);
+            $pdf = $stamps
+                ? PdfStamp::appendStamped($src, function ($p, int $page) use ($stamps) { // 2.38.1 the approval block filled in
+                    foreach ($stamps[$page] ?? [] as [$slot, $sig]) {
+                        PdfRender::stampSlot($p, $slot, $sig);
+                    }
+                }, fn($p) => PdfRender::signingCertificateInto($p, $cert + ['stamped' => true]))
+                : PdfStamp::append($src, fn($p) => PdfRender::signingCertificateInto($p, $cert));
             $f = Files::adopt($pdf, self::fileName($r['title'], ' (signed)'), 'pdf');
             if (!$f) {
                 throw new \RuntimeException('Could not keep the signed PDF.');
@@ -795,6 +812,33 @@ final class Signing
         error_log('[msp-align] document signature #' . $r['id'] . ': the PDF that was sent changed on the server; no signed copy made');
         Audit::log('document.sign_source_changed', '#' . $r['document_id'] . ' ' . $r['title'] . ': the PDF that was sent changed on the server; no signed copy made');
         self::notifyStaff($r, 'source_changed', 'Everyone signed "' . $r['title'] . '", but the document\'s file changed on the server after it was sent, so Align didn\'t make the signed copy. The signatures are saved; send it again.', 'Open the document');
+    }
+
+    /**
+     * 2.38.1 What to stamp into the approval block of a request's PDF: [page => [[slot, signature], …]], from
+     * sign_slots (where Align printed the blanks when it sent it) and the signatures: a slot's who is the signer's
+     * position (sort order, as sent) or 'counter' for the countersignature. Slots without a signature (a signer who
+     * didn't sign, no countersignature) stay blank. Empty for requests without slots (uploaded PDFs, before 2.38.1).
+     */
+    private static function stamps(array $r): array
+    {
+        $slots = json_decode((string) ($r['sign_slots'] ?? ''), true);
+        if (!is_array($slots) || !$slots) {
+            return [];
+        }
+        $signers = array_values(self::signers((int) $r['id']));
+        $out = [];
+        foreach ($slots as $slot) {
+            if (!is_array($slot) || !isset($slot['who'], $slot['page'])) {
+                continue;
+            }
+            $sig = $slot['who'] === 'counter' ? ($r['countersign_sig'] ?? null)
+                : (($signers[(int) $slot['who']]['status'] ?? '') === 'signed' ? ($signers[(int) $slot['who']]['sig'] ?? null) : null);
+            if (is_array($sig)) {
+                $out[(int) $slot['page']][] = [$slot, $sig];
+            }
+        }
+        return $out;
     }
 
     /** The certificate's data for PdfRender::signingCertificateInto (plain text; the PDF writer escapes it). */

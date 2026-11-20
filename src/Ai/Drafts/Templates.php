@@ -47,7 +47,8 @@ final class Templates
         'cmmc-ssp' => ['tags' => [], 'frameworks' => ['cmmc-l2']],
         'cmmc-poam' => ['tags' => [], 'frameworks' => ['cmmc-l2']],
         'cmmc-l1-affirmation' => ['tags' => [], 'frameworks' => ['cmmc-l1']],
-        'cui-handling-policy' => ['tags' => ['media_*', 'data_inventory', 'data_dlp'], 'frameworks' => ['cmmc-l1', 'cmmc-l2']],
+        // (2.38.3) Level 2 only: Level 1 covers FCI, not CUI (32 CFR 170.15, FAR 52.204-21)
+        'cui-handling-policy' => ['tags' => ['media_*', 'data_inventory', 'data_dlp'], 'frameworks' => ['cmmc-l2']],
         'hipaa-risk-analysis' => ['tags' => ['gov_risk_*'], 'frameworks' => ['hipaa-security']],
         'hipaa-breach-notification' => ['tags' => ['ir_*'], 'frameworks' => ['hipaa-security']],
         'hipaa-baa-checklist' => ['tags' => ['vendor_*'], 'frameworks' => ['hipaa-security']],

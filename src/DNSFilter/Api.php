@@ -30,6 +30,9 @@ use Align\Settings;
  */
 final class Api
 {
+    /** 2.38.1 Every organization's networks when DNSFilter answered with all of them (networks()): org id => rows. */
+    private ?array $allNetworks = null;
+
     /** Items asked for per page (DNSFilter's largest). */
     public const PAGE = 100;
     /** Pages read before giving up, so a server that ignores page[number] can't keep the sync reading for ever. */
@@ -183,31 +186,53 @@ final class Api
 
     /**
      * One organization's networks (sites), without deleted ones: [['id', 'name', 'policy' (has a filtering policy, a
-     * scheduled policy or policies: DNSFilter's "protected")]]. Throws when a network says it belongs to another
-     * organization.
+     * scheduled policy or policies: DNSFilter's "protected")]].
+     * 2.38.1 With an MSP user that can see every organization, /v1/networks/msp answers with the networks of all of
+     * them whatever organization_id says, each naming its organization (relationships.organization). Only this
+     * organization's are kept (another's is never filed under it); when the answer covered other organizations, it is
+     * kept for this sync, so each organization isn't asked for (and paged through) again. A network that names no
+     * organization is kept only when the answer named none at all (the filter was applied).
+     * Untrusted: everything DNSFilter answers; ids are checked by orgId()/SaasStore::id, names cleaned.
      */
     public function networks(string $orgId): array
     {
-        $out = [];
+        if ($this->allNetworks !== null && array_key_exists($orgId, $this->allNetworks)) {
+            return $this->allNetworks[$orgId];
+        }
+        $by = [];
+        $anon = [];
         foreach ($this->all('/v1/networks/msp', ['organization_id' => $orgId, 'force_truncate_ips' => 'true'], 'networks') as $n) {
             $a = is_array($n['attributes'] ?? null) ? $n['attributes'] : [];
             $id = SaasStore::id($n['id'] ?? null);
             if ($id === null || !empty($a['deleted_at'])) {
                 continue;
             }
-            // A network of another organization means the filter wasn't applied: never file it under this one
-            $owner = $n['relationships']['organization']['data']['id'] ?? null;
-            if ($owner !== null && self::orgId($owner) !== $orgId) {
-                throw new \RuntimeException('DNSFilter answered with networks of another organization. Nothing was changed.');
-            }
             // Filtered by a policy, a scheduled policy or a set of policies
             $rel = is_array($n['relationships'] ?? null) ? $n['relationships'] : [];
             $has = fn($r) => is_array($r) && SaasStore::id($r['id'] ?? null) !== null;
             $policy = $has($rel['policy']['data'] ?? null) || $has($rel['scheduled_policy']['data'] ?? null)
                 || (is_array($rel['policies']['data'] ?? null) && array_filter($rel['policies']['data'], $has));
-            $out[$id] = ['id' => $id, 'name' => Clean::text($a['name'] ?? null, 255), 'policy' => $policy];
+            $row = ['id' => $id, 'name' => Clean::text($a['name'] ?? null, 255), 'policy' => $policy];
+            $owner = self::orgId($rel['organization']['data']['id'] ?? null);
+            if ($owner === null) {
+                $anon[$id] = $row;
+            } else {
+                $by[$owner][$id] = $row;
+            }
         }
-        return array_values($out);
+        if ($by && $anon) {
+            // some say whose they are and some don't: the ones that don't can't be filed under anyone
+            throw new \RuntimeException('DNSFilter answered with networks that don\'t say which organization they belong to. Nothing was changed.');
+        }
+        if (!$by) {
+            return array_values($anon);
+        }
+        if (array_keys($by) !== [$orgId]) {
+            // the answer covered other organizations: keep it for this sync (an organization with none has none)
+            $this->allNetworks = array_map('array_values', $by);
+            return array_values($by[$orgId] ?? []);
+        }
+        return array_values($by[$orgId]);
     }
 
     /**

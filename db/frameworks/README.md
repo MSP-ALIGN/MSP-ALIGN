@@ -4,6 +4,11 @@ Each `*.php` file here returns one framework as a PHP array. `db/migrations/025_
 loads them; a framework is only inserted if its slug doesn't exist yet (so edits made in the app
 are never overwritten). Controls are summaries for tracking an assessment, not the official text.
 
+**Corrections after release (2.38.3).** These files keep the text a framework was first released with. A later fix
+goes in `db/corrections/<version>.php` and a migration applies it with `Align\Compliance\Corrections`: a field still
+holding the shipped text is corrected, a field an MSP edited is kept and offered to an admin on the framework page,
+and missing controls are added. Don't edit a released control here; add a correction instead (old and new text).
+
 ```php
 <?php
 return [
@@ -22,7 +27,8 @@ Rules
 - `guidance`: plain English, 1–3 sentences: what "met" looks like and the evidence to collect
   (screenshots, policy, report, config export…). May be null.
 - Copyrighted standards (PCI DSS, ISO/IEC 27001, AICPA SOC 2 criteria, CIS Controls): **paraphrase**
-  titles and guidance in your own words; keep the official reference numbers. NIST, FAR, HIPAA and
+  titles and guidance in your own words; keep the official reference numbers. ISO/IEC 27001 Annex A short control
+  names (e.g. "Information backup") are cited as references, as the framework description says. NIST, FAR, HIPAA and
   state regulations are public domain and can be quoted.
 - `auto_check` (optional) links a control to live device data: `os_supported` (devices on a supported OS),
   `hw_lifecycle` (hardware within lifecycle), `warranty` (servers/network gear under warranty),

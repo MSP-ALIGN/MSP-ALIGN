@@ -1,9 +1,9 @@
 <?php
 /**
  * 2.30.0 Update a client document with AI: keep its structure and wording, or move it onto one of Align's templates
- * (the best match preselected), using the facts of one of the client's compliance reviews (or none). The result is
- * always a new draft document; this one stays as it is.
- * @var array $client, $doc, $templates (Templates::all), $reviews (id => row); ?int $best; int $pick, $remaining;
+ * (the best match preselected), using the facts of one of the client's compliance reviews (or none). 2.38.1 Where it
+ * goes ($target, Draft::target): this Draft page, its existing Draft copy, or a new draft (null).
+ * @var array $client, $doc; ?array $target; $templates (Templates::all), $reviews (id => row); ?int $best; int $pick, $remaining;
  *      bool $usable, $readable; ?string $why
  * Security: titles, template names and people's names are escaped; the form posts with a CSRF token. Template and
  * review ids are checked again by the controller (a review must be this client's).
@@ -21,7 +21,13 @@ $did = (int) $doc['id'];
   <div class="col-lg-8">
     <div class="card">
       <div class="card-body">
-        <p class="small text-muted">AI writes an updated copy of <b><?= e($doc['title']) ?></b> as a new draft document. This document isn't changed. AI uses only what the document, the review's facts and Align's details about <?= e($client['name']) ?> say, and marks anything it doesn't know as <b>[To confirm: …]</b>. Check every part before you set the draft Active.</p>
+        <?php /* 2.38.1 where the update goes */ if ($target && (int) $target['id'] === $did): ?>
+          <p class="small text-muted">AI updates this draft as a new version. The text before stays in its history, where Restore puts it back. AI uses
+        <?php elseif ($target): ?>
+          <p class="small text-muted">AI updates the draft copy <a href="/documents/<?= (int) $target['id'] ?>"><?= e($target['title']) ?></a> as a new version (the text before stays in its history). <b><?= e($doc['title']) ?></b> itself isn't changed. AI uses
+        <?php else: ?>
+          <p class="small text-muted">AI writes an updated copy of <b><?= e($doc['title']) ?></b> as a new draft document; the next update goes into that copy while it is a Draft. This document isn't changed. AI uses
+        <?php endif; ?> only what the document, the review's facts and Align's details about <?= e($client['name']) ?> say, and marks anything it doesn't know as <b>[To confirm: …]</b>. Check every part before you set the draft Active.</p>
         <?php if (!$usable): ?>
           <div class="alert alert-secondary py-2 mb-0"><i class="fas fa-circle-info me-1"></i><?= e($why ?? 'AI isn\'t available.') ?></div>
         <?php elseif (!$readable): ?>
@@ -56,7 +62,7 @@ $did = (int) $doc['id'];
             </select>
             <div class="form-text mb-3">What an AI compliance review read in <?= e($client['name']) ?>'s documents. <a href="/clients/<?= $cid ?>/ai-reviews">Review documents with AI</a> to get newer facts.</div>
             <p class="small text-muted"><?= e(number_format($remaining)) ?> tokens left this month. A long document can use 20,000 or more and take a few minutes.</p>
-            <button class="btn btn-primary" data-ai-submit><i class="fas fa-wand-magic-sparkles me-1"></i>Write the draft</button>
+            <button class="btn btn-primary" data-ai-submit><i class="fas fa-wand-magic-sparkles me-1"></i><?= $target ? 'Update the draft' : 'Write the draft' ?></button>
             <a class="btn btn-default ms-1" href="/documents/<?= $did ?>">Cancel</a>
             <span class="small text-muted ms-2 d-none" data-ai-wait><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Writing… this can take a few minutes.</span>
           </form>

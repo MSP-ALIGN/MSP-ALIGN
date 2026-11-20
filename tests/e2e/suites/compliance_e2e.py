@@ -1,6 +1,6 @@
 from lib import *
 from playwright.sync_api import sync_playwright
-EXPECT={"cmmc-l1":15,"cmmc-l2":110,"nist-csf-2":106,"cis-v81-ig2":130,"pci-dss-4":253,"soc2-tsc":61,"iso-27001-2022":118,"ccpa-cpra":60,"m365-baseline":57}
+EXPECT={"cmmc-l1":15,"cmmc-l2":110,"nist-csf-2":106,"cis-v81-ig2":130,"pci-dss-4":260,"soc2-tsc":61,"iso-27001-2022":118,"ccpa-cpra":61,"m365-baseline":58}
 fw={r["slug"]:r for r in q("select f.id, f.slug, f.name, count(c.id) n from compliance_frameworks f left join compliance_controls c on c.framework_id=f.id group by f.id")}
 for s,n in EXPECT.items(): ok(s in fw and fw[s]["n"]==n, f"{s}: {fw.get(s,{}).get('n')} controls")
 ok(q("select count(*) n from compliance_controls c join compliance_frameworks f on f.id=c.framework_id where f.is_builtin=1 and c.tags is null")[0]["n"]<=2,"built-in controls are tagged")

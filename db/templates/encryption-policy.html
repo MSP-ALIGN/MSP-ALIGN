@@ -2,7 +2,7 @@
 <p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
 
 <h2>1. Purpose</h2>
-<p>This policy defines when and how {{client_name}} uses encryption to protect information stored on devices and in the cloud and sent over networks, and how encryption keys and recovery keys are managed. Encryption means a lost laptop or intercepted message does not become a data breach; under California Civil Code 1798.82 and HIPAA, properly encrypted data whose key was not also compromised generally does not trigger breach notification.</p>
+<p>This policy defines when and how {{client_name}} uses encryption to protect information stored on devices and in the cloud and sent over networks, and how encryption keys and recovery keys are managed. Encryption means a lost laptop or intercepted message does not become a data breach; under HIPAA, the FTC Safeguards Rule and most state breach notification laws (for example California Civil Code 1798.82), properly encrypted data whose key was not also compromised generally does not trigger breach notification.</p>
 
 <h2>2. Scope</h2>
 <p>This policy applies to all {{client_name}} information classified Internal, Confidential or Restricted; all company-owned workstations, laptops, servers, mobile devices and removable media; cloud services storing company data; backups; and all network connections carrying company data. It applies to workforce members, {{company_name}} and vendors handling company data.</p>
@@ -19,10 +19,11 @@
 <li><strong>Workstations and laptops:</strong> all company Windows devices use BitLocker with TPM and AES-256 (XTS-AES 256 preferred); all company Macs use FileVault. Encryption is enabled before a device is issued. {{company_name}} reports encryption status monthly and remediates unencrypted devices within 5 business days.</li>
 <li><strong>Servers:</strong> physical and virtual servers holding Confidential or Restricted data use volume encryption (BitLocker, LUKS, or hypervisor/SAN encryption). Servers in the office are also physically secured in a locked room or rack.</li>
 <li><strong>Mobile devices:</strong> device encryption is required per the Mobile Device &amp; BYOD Policy.</li>
-<li><strong>Removable media:</strong> USB drives and external disks holding company data must be encrypted (BitLocker To Go or hardware-encrypted drives). Unencrypted removable media is blocked or set to read-only by endpoint policy where practical. Restricted data may not be copied to removable media without security lead approval.</li>
+<li><strong>Removable media:</strong> USB drives and external disks holding company data must be encrypted (BitLocker To Go or hardware-encrypted drives). Unencrypted removable media is blocked or set to read-only by endpoint policy where practical. Restricted data may not be copied to removable media without security lead approval. Media carrying CUI or other Restricted data outside the office (including by courier or mail) must be encrypted for the whole trip.</li>
 <li><strong>Cloud storage:</strong> only services that encrypt data at rest by default (such as Microsoft 365, Google Workspace, approved SaaS) may be used. For Restricted data, {{client_name}} confirms the provider's encryption and key management in its vendor review.</li>
 <li><strong>Backups:</strong> all backups, local and offsite, are encrypted with AES-256. Backup encryption passwords or keys are stored separately from the backups.</li>
-<li><strong>Databases and applications:</strong> line-of-business applications storing SSNs, payment card numbers or PHI should use field- or database-level encryption where supported. Payment card numbers are never stored unless required; if stored, PCI DSS 3.5.1 applies.</li>
+<li><strong>Databases and applications:</strong> line-of-business applications storing SSNs, payment card numbers or PHI should use field- or database-level encryption where supported. Payment card numbers are never stored unless required; if stored, they are made unreadable by tokenization, truncation, keyed cryptographic hashes or strong encryption (PCI DSS 3.5.1). Disk or volume encryption alone is not enough for stored card numbers except on removable media, and where disk encryption is used its unlock is managed separately from operating system logins. Sensitive authentication data (full track data, card verification codes, PINs) is never stored after a payment is authorized.</li>
+<li><strong>Systems holding Restricted data:</strong> [list systems that store PHI, CUI, cardholder data or customer financial information and how each is encrypted at rest].</li>
 <li><strong>Passwords:</strong> stored only in the approved password manager or as salted hashes, never in plain text.</li>
 </ul>
 
@@ -32,6 +33,9 @@
 <li>Remote access uses VPN/ZTNA or gateways with strong encryption per the Remote Access Policy.</li>
 <li>Wireless networks use WPA2-Enterprise or WPA3; guest Wi-Fi is isolated from the business network. WEP and WPA (TKIP) are prohibited.</li>
 <li>Administrative protocols use encrypted versions (SSH, HTTPS, SFTP, RDP with TLS). Telnet, FTP and unencrypted HTTP management are prohibited.</li>
+<li>Connections that carry company data use valid certificates from trusted certificate authorities, so that users and systems can confirm they are talking to the real server. Certificate warnings are never clicked through.</li>
+<li>Encryption in transit also protects integrity: protocols used (TLS, IPsec, SSH) detect any change to data in transit, and files with Restricted data that are exchanged with partners are sent through channels that confirm they arrived unaltered.</li>
+<li>Payment terminals and point-of-sale systems use current secure protocols; any terminal still using SSL or early TLS is replaced or documented with a risk mitigation plan.</li>
 <li>Email between mail servers uses opportunistic TLS; {{company_name}} configures enforced TLS with key partners (banks, law firms, business associates) where supported, and MTA-STS where practical.</li>
 </ul>
 
@@ -40,11 +44,11 @@
 <li>Confidential and Restricted information sent outside {{client_name}} must be encrypted using [Microsoft Purview Message Encryption / "Encrypt" button / secure portal] or shared through approved secure file sharing with access limited to named recipients and an expiration date.</li>
 <li>Users trigger encryption by [clicking Encrypt / including "[secure]" in the subject line]. Data loss prevention rules may automatically encrypt or block messages containing SSNs, card numbers or other Restricted data.</li>
 <li>Password-protected ZIP or Office files are acceptable only when the password is sent through a different channel (for example by phone), and only if the approved method is not available to the recipient.</li>
-<li>Restricted data must never be sent by SMS, personal email or consumer file-sharing services.</li>
+<li>Restricted data must never be sent by SMS, personal email or consumer file-sharing services. Full payment card numbers are never sent by email, chat or text; if a card number must be sent, it is sent only through an encrypted channel approved by the security lead.</li>
 </ul>
 
 <h2>7. FIPS-validated cryptography</h2>
-<p>Where {{client_name}} handles Controlled Unclassified Information (CUI), or where a contract or regulation requires it, encryption protecting that data must use modules validated under <strong>FIPS 140-2 or FIPS 140-3</strong>. This includes enabling FIPS mode where required, using BitLocker and Windows cryptographic modules in their validated configuration, selecting VPN appliances and cloud services (for example Microsoft 365 GCC High where required) with validated modules, and keeping records of the certificate numbers of the modules relied on. {{company_name}} documents these in the System Security Plan.</p>
+<p>Where {{client_name}} handles Controlled Unclassified Information (CUI), or where a contract or regulation requires it, encryption protecting that data must use modules validated by NIST's Cryptographic Module Validation Program, under <strong>FIPS 140-3</strong> for new purchases. NIST moved the remaining FIPS 140-2 certificates to its Historical list on September 21, 2026: a FIPS 140-2 module already in use is recorded in the System Security Plan with its certificate number and a plan to replace it. This includes enabling FIPS mode where required, using BitLocker and Windows cryptographic modules in their validated configuration, selecting VPN appliances and cloud services (for example Microsoft 365 GCC High where required) with validated modules, and keeping records of the certificate numbers of the modules relied on. {{company_name}} documents these in the System Security Plan.</p>
 
 <h2>8. Approved algorithms</h2>
 <ul>
@@ -54,11 +58,15 @@
 <li><strong>Password hashing:</strong> bcrypt, scrypt, Argon2 or PBKDF2 with a high work factor.</li>
 <li><strong>Prohibited:</strong> DES, 3DES, RC4, MD5, SHA-1 signatures, SSL, TLS 1.0/1.1, and any custom or proprietary "encryption."</li>
 </ul>
-<p>{{company_name}} monitors guidance on post-quantum cryptography and will update this list as vendors adopt NIST-standardized algorithms.</p>
+<p>{{company_name}} keeps a list of the protocols and cipher suites in use on systems that handle Restricted data (firewall VPN, web servers, remote access, payment systems) and reviews it at least annually to confirm none are weak or deprecated. {{company_name}} monitors guidance on post-quantum cryptography and will update this list as vendors adopt NIST-standardized algorithms.</p>
 
 <h2>9. Key and recovery key management</h2>
 <ul>
-<li>BitLocker recovery keys are escrowed automatically to Entra ID / Intune or Active Directory, and FileVault recovery keys to the MDM. {{company_name}} also records recovery key escrow status in the RMM. Devices without an escrowed key are treated as non-compliant.</li>
+<li>BitLocker recovery keys are escrowed automatically to Entra ID / Intune or Active Directory, and FileVault recovery keys to the MDM. {{company_name}} also records recovery key escrow status in the RMM. Devices without an escrowed key are treated as non-compliant. Standard users cannot read their own device's recovery key in self-service.</li>
+<li><strong>Key lifecycle:</strong> keys are generated by the encryption product or a trusted key vault using a secure random source, never chosen by a person. Keys are distributed only over encrypted channels to the people or systems that need them, stored only in encrypted form (the password manager, key vault, TPM or hardware security module), and kept in as few places as possible.</li>
+<li><strong>Key inventory:</strong> {{company_name}} keeps an inventory of encryption keys and certificates that protect Restricted data (what each protects, where it is stored, its custodian, creation and expiry date). Key custodians: [names, roles]. Custodians acknowledge their responsibilities in writing.</li>
+<li><strong>Cryptoperiods:</strong> keys that protect cardholder data or other Restricted data are changed at the end of their defined lifetime: [1 year / 2 years / per the vendor's recommendation].</li>
+<li>Where a key must ever be handled manually in clear text, it is split between two people so that no one person knows the whole key (split knowledge and dual control). Only authorized custodians can replace keys, and any unexpected key or certificate change is investigated.</li>
 <li>Recovery keys are released only to authorized {{company_name}} technicians or the security lead after verifying the requester's identity, and each release is recorded in a ticket. Keys revealed to a user are rotated after use where supported.</li>
 <li>Backup encryption keys, certificate private keys and other secrets are stored in the password manager or a key vault with access limited to named administrators, with a sealed offline copy of critical keys (for example backup encryption keys) kept at [location] for disaster recovery.</li>
 <li>TLS certificates are obtained from trusted certificate authorities, tracked in an inventory with expiration dates, and renewed before expiry (automated where possible).</li>
@@ -67,7 +75,7 @@
 </ul>
 
 <h2>10. Exceptions</h2>
-<p>Devices or systems that cannot be encrypted (for example certain medical or lab equipment) must be documented with compensating controls such as physical security, network isolation and no storage of Restricted data, approved by the security lead and reviewed at least annually.</p>
+<p>Devices or systems that cannot be encrypted (for example certain medical or lab equipment) must be documented with compensating controls such as physical security, network isolation and no storage of Restricted data, approved by the security lead and reviewed at least annually. Where the FTC Safeguards Rule applies, any customer information that cannot be encrypted in transit over external networks or at rest must be protected by compensating controls reviewed and approved by the Qualified Individual. Where HIPAA applies, a decision not to encrypt ePHI is documented with the reason and the equivalent safeguard used. Current exceptions: [system, reason, compensating control, approval date].</p>
 
 <h2>11. Enforcement</h2>
 <p>Disabling encryption, sending Restricted data unencrypted, or storing encryption keys insecurely may result in disciplinary action up to and including termination.</p>
@@ -80,7 +88,7 @@
 <li>Backup &amp; Recovery Policy</li>
 <li>Asset Management Policy</li>
 </ul>
-<p>Supports: CMMC SC.L2-3.13.8, SC.L2-3.13.10, SC.L2-3.13.11, SC.L2-3.13.16, MP.L2-3.8.6, AC.L2-3.1.19 · CIS 3.6, 3.10, 3.11 · HIPAA 164.312(a)(2)(iv), 164.312(e)(1), 164.312(e)(2)(ii) · NIST CSF PR.DS-01, PR.DS-02 · PCI DSS 3.5.1, 3.6.1, 3.7.1, 4.2.1</p>
+<p>Supports: CMMC SC.L2-3.13.8, SC.L2-3.13.10, SC.L2-3.13.11, SC.L2-3.13.15, SC.L2-3.13.16, MP.L2-3.8.6, MP.L2-3.8.9, AC.L2-3.1.13, AC.L2-3.1.17, AC.L2-3.1.19, IA.L2-3.5.10 · CIS 3.6, 3.9, 3.10, 3.11, 11.3, 12.6 · HIPAA 164.312(a)(2)(iv), 164.312(e)(1), 164.312(e)(2)(i), 164.312(e)(2)(ii) · ISO 27001 A.5.14, A.8.24 · NIST CSF PR.DS-01, PR.DS-02 · PCI DSS 2.2.7, 3.3.2, 3.5.1, 3.6.1, 3.7.1-3.7.8, 4.2.1, 4.2.1.1, 4.2.2, 8.3.2, 12.3.3 · SOC 2 C1.1, CC6.1, CC6.7 · FTC Safeguards 314.4(c)(3) · CCPA/CPRA 7123(c)(2)</p>
 
 <h2>13. Review and approval</h2>
 <p>This policy is reviewed at least annually and when cryptographic standards or contract requirements change.</p>

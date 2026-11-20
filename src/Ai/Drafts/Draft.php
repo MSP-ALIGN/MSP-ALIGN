@@ -17,8 +17,10 @@ use Align\Docs\Files;
 use Align\Docs\Html;
 
 /**
- * 2.30.0 AI drafting: one AI request (feature 'drafts') writes a client document, saved as a NEW draft page (never
- * over an existing one). Three ways:
+ * 2.30.0 AI drafting: one AI request (feature 'drafts') writes a client document as a draft page. 2.38.1 A draft
+ * from a review is always a new page; an update of a Draft page goes into that page as a new version, and an update
+ * of an Active page or an uploaded file goes into the one Draft copy written from it (a new copy only when there is
+ * none), so an Active document or a file is never written over. Three ways:
  *  - template: an Align template, filled with the client's details (Documents::fill), completed with the facts of a
  *    compliance review;
  *  - move: the same, using an existing client document's content as well (its content moved onto the template);
@@ -42,6 +44,9 @@ final class Draft
 
     /** Fewest characters of text a usable draft has. */
     private const MIN_TEXT = 200;
+
+    /** 2.38.1 AI's "What changed" heading and list at the very top of a page (anchored; one lazy part, no nesting). */
+    private const WHAT_CHANGED = '#^\s*<h2[^>]*>\s*What changed\s*</h2>\s*<(ul|ol)\b[^>]*>(.*?)</\1>#is';
 
     /** The modes for updating an existing document: key => label. */
     public const MODES = ['refresh' => 'Keep its structure and wording', 'move' => 'Move it onto Align\'s template'];
@@ -158,7 +163,12 @@ TXT;
         $name = Reader::cleanName((string) $doc['title']);
         $parts = [];
         if ($doc['kind'] !== 'file') {
-            $html = preg_replace_callback('#<(/?)h([1-6])\b[^>]*>#i', fn($m) => $m[1] === '/' ? '</p>' : '<p>' . str_repeat('#', min(4, (int) $m[2])) . ' ', (string) $doc['body_html']) ?? '';
+            // 2.38.1 a "What changed" list from an earlier AI update is left out, so updates don't stack them
+            $body = (string) $doc['body_html'];
+            if (preg_match(self::WHAT_CHANGED, $body) && self::fromAi($doc)) {
+                $body = preg_replace(self::WHAT_CHANGED, '', $body) ?? $body;
+            }
+            $html = preg_replace_callback('#<(/?)h([1-6])\b[^>]*>#i', fn($m) => $m[1] === '/' ? '</p>' : '<p>' . str_repeat('#', min(4, (int) $m[2])) . ' ', $body) ?? '';
             $parts[] = ['type' => 'page', 'text' => mb_substr(Eml::htmlToText($html), 0, Reader::MAX_TEXT), 'bytes' => null, 'pages' => 0];
         } else {
             $path = Files::path((string) $doc['file_name']);
@@ -235,17 +245,104 @@ TXT;
     }
 
     /**
-     * Saves a draft as a new page for $client (status draft, not in the portal, review due in a year), with a history
-     * entry and the audit entries ('ai.draft' and 'document.create'). $body is already clean (check()). Returns its id.
+     * 2.38.1 The draft page an update of $doc goes into: $doc itself when it is a Draft page, else the newest Draft
+     * page copy AI wrote from it (documents.ai_source_id), else null (a new copy). An Active page or an uploaded file
+     * is never written over. Read before AI is asked, so AI reads what it updates; put() looks again under a lock.
+     * $doc is a row the caller found with the client id from the URL (AiDraftController::doc); the copy is looked up
+     * with that same client id, so another client's document that names the same source is never used.
      */
-    public static function save(array $client, string $name, string $category, string $body, ?int $templateId, string $note): int
+    public static function target(array $doc): ?array
     {
+        if (($doc['kind'] ?? 'page') === 'page' && $doc['status'] === 'draft') {
+            return $doc;
+        }
+        return DB::one("SELECT * FROM documents WHERE client_id = ? AND ai_source_id = ? AND kind = 'page' AND status = 'draft' ORDER BY id DESC LIMIT 1",
+            [(int) $doc['client_id'], (int) $doc['id']]) ?: null;
+    }
+
+    /**
+     * 2.38.1 Saves an update of $source. $body is AI's answer, untrusted but already cleaned (check()); $client comes
+     * from ClientController::load and $source was found with its id. In one transaction, with the source row locked
+     * (so two updates at once can't both add a copy), the target is found again:
+     *  - the draft target() finds, when it is still a Draft page at $readVersion (the version AI read): a new version
+     *    (the text before is saved in the history first, so Restore puts it back);
+     *  - else one new Draft copy linked to $source: when there is no draft yet, when the target was set Active or
+     *    archived while AI was writing (never written over), or when someone edited it meanwhile (their edits stay;
+     *    'changed' tells the caller).
+     * A source deleted or archived while AI was writing gets nothing: AiException, nothing saved. $templateId: the
+     * template it was moved onto (null: unchanged; a new copy keeps the source's). $note: what the history and audit
+     * say (plain text, escaped where shown). $name/$category: a new copy's title and category.
+     * Returns [document id, 'updated' (into $source itself) | 'copy' (its existing copy) | 'new' | 'changed'].
+     */
+    public static function put(array $client, array $source, string $body, ?int $templateId, string $note, string $name, string $category, ?int $readVersion): array
+    {
+        $cid = (int) $client['id'];
+        $sid = (int) $source['id'];
+        return DB::transaction(function () use ($client, $cid, $sid, $body, $templateId, $note, $name, $category, $readVersion) {
+            $src = DB::one('SELECT * FROM documents WHERE id = ? AND client_id = ? FOR UPDATE', [$sid, $cid]);
+            if (!$src || $src['status'] === 'archived') {
+                throw new AiException('That document was deleted or archived while AI was writing. Nothing was saved.');
+            }
+            $t = self::target($src);
+            if ($t && (int) $t['id'] !== $sid) {
+                $t = DB::one("SELECT * FROM documents WHERE id = ? AND client_id = ? AND kind = 'page' AND status = 'draft' FOR UPDATE", [(int) $t['id'], $cid]) ?: null;
+            }
+            $changed = $t && $readVersion !== null && (int) $t['version'] !== $readVersion;
+            if (!$t || $changed) {
+                $tpl = $templateId ?? ($src['template_id'] !== null ? (int) $src['template_id'] : null);
+                return [self::save($client, $name, $category, $body, $tpl, $note, $sid), $changed ? 'changed' : 'new'];
+            }
+            $id = (int) $t['id'];
+            Documents::snapshot($t, 'manual', 'Before AI update');
+            DB::run('UPDATE documents SET body_html = ?, template_id = COALESCE(?, template_id), version = version + 1, updated_by = ?, updated_at = NOW() WHERE id = ?',
+                [$body, $templateId, Auth::id(), $id]);
+            $fresh = Documents::load($id);
+            Documents::snapshot($fresh, 'manual', $note);
+            Audit::log('ai.draft', "{$client['name']}: #$id {$t['title']} ($note)");
+            Audit::log('document.version', "#$id v{$fresh['version']} (AI update)");
+            return [$id, $id === $sid ? 'updated' : 'copy'];
+        });
+    }
+
+    /**
+     * 2.38.1 A short history note from an update: $prefix, then the items of the "What changed" list AI puts at the
+     * top of $body (AI's answer: untrusted, already cleaned). The note is plain text (tags taken off, entities read),
+     * at most 255 characters, and escaped wherever it is shown. Just $prefix when there is no list.
+     */
+    public static function changeNote(string $prefix, string $body): string
+    {
+        if (!preg_match(self::WHAT_CHANGED, $body, $m)) {
+            return $prefix;
+        }
+        $items = array_filter(array_map(fn($li) => trim(html_entity_decode(strip_tags($li), ENT_QUOTES | ENT_HTML5, 'UTF-8')), preg_split('#</li>#i', $m[2]) ?: []));
+        return $items ? mb_substr($prefix . ': ' . implode('; ', $items), 0, 255) : $prefix;
+    }
+
+    /**
+     * 2.38.1 Whether $doc's text came from AI (an AI copy, or an AI update in its history), so a "What changed" list
+     * at its top is AI's and is left out when it is sent again. A document people wrote that starts with its own
+     * "What changed" section keeps it.
+     */
+    private static function fromAi(array $doc): bool
+    {
+        return !empty($doc['ai_source_id']) || (bool) DB::value("SELECT 1 FROM document_versions WHERE document_id = ? AND (note LIKE 'AI update%' OR note LIKE 'AI: %' OR note LIKE 'AI draft%') LIMIT 1", [(int) $doc['id']]);
+    }
+
+    /**
+     * Saves a draft as a new page for $client (status draft, not in the portal, review due in a year), with a history
+     * entry and the audit entries ('ai.draft' and 'document.create'). $body is already clean (check()). 2.38.1
+     * $sourceId: the document an update was written from (documents.ai_source_id; null for a draft from a review).
+     * A title that already ends in "(AI draft …)" doesn't get a second one. Returns its id.
+     */
+    public static function save(array $client, string $name, string $category, string $body, ?int $templateId, string $note, ?int $sourceId = null): int
+    {
+        $name = preg_replace('/\s*\(AI draft [^()]*\)\s*$/u', '', $name) ?? $name; // 2.38.1
         $title = Extract::line($name, 200) . ' (AI draft ' . \Align\Fmt::date(date('Y-m-d')) . ')';
         $category = isset(Documents::CATEGORIES[$category]) ? $category : 'policy';
-        $id = DB::transaction(function () use ($client, $title, $category, $body, $templateId, $note) {
+        $id = DB::transaction(function () use ($client, $title, $category, $body, $templateId, $note, $sourceId) {
             $id = DB::insert('documents', [
                 'client_id' => (int) $client['id'], 'title' => $title, 'category' => $category, 'kind' => 'page', 'status' => 'draft', 'body_html' => $body,
-                'template_id' => $templateId, 'portal_shared' => 0, 'review_due' => date('Y-m-d', strtotime('+1 year')),
+                'template_id' => $templateId, 'ai_source_id' => $sourceId, 'portal_shared' => 0, 'review_due' => date('Y-m-d', strtotime('+1 year')),
                 'created_by' => Auth::id(), 'updated_by' => Auth::id(),
             ]);
             Documents::snapshot(Documents::load($id), 'created', $note);

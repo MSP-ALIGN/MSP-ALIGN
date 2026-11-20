@@ -9,14 +9,15 @@
 <h2>2. CMMC rules for POA&amp;Ms (Level 2)</h2>
 <p>Under 32 CFR 170.21, an organization may receive a <strong>Conditional</strong> Level 2 status with open POA&amp;M items only if all of the following are true at the time of the assessment:</p>
 <ul>
-<li><strong>Minimum score:</strong> the assessment score divided by the total number of Level 2 requirements is at least 0.8 — that is, at least <strong>88 of 110</strong> requirements are met.</li>
-<li><strong>Only 1-point requirements:</strong> no requirement on the POA&amp;M has a point value greater than 1 under the DoD Assessment Methodology.</li>
+<li><strong>Minimum score:</strong> the assessment score divided by the total number of Level 2 requirements is at least 0.8, so the score must be at least <strong>88</strong> (of 110). The threshold is a score, not a count of requirements met: SC.L2-3.13.11 partly met costs 3 points, so the score and the number of requirements met can differ.</li>
+<li><strong>Only 1-point requirements:</strong> no requirement on the POA&amp;M has a point value greater than 1 under the DoD Assessment Methodology. Apart from the SC.L2-3.13.11 exception below, every 3- and 5-point requirement must be fully met at the assessment, including IA.L2-3.5.3 (multifactor authentication) even though it can earn partial credit in the score.</li>
 <li><strong>Encryption exception:</strong> SC.L2-3.13.11 (FIPS-validated cryptography) may be on the POA&amp;M if encryption is employed but is not FIPS-validated (which scores as 3 points rather than 5).</li>
 <li><strong>Requirements that can never be on a POA&amp;M:</strong> AC.L2-3.1.20 (external connections), AC.L2-3.1.22 (control public information), CA.L2-3.12.4 (System Security Plan), PE.L2-3.10.3 (escort visitors), PE.L2-3.10.4 (physical access logs) and PE.L2-3.10.5 (manage physical access devices).</li>
-<li><strong>180-day closeout:</strong> all POA&amp;M items must be closed and confirmed by a POA&amp;M closeout assessment within 180 days of the Conditional CMMC Status Date. If not, the Conditional status expires. For a Level 2 (C3PAO) assessment, the closeout is performed by a C3PAO; for Level 2 (Self), the organization performs and records it in SPRS.</li>
+<li><strong>180-day closeout:</strong> all POA&amp;M items must be closed and confirmed by a POA&amp;M closeout assessment within 180 days of the Conditional CMMC Status Date. If not, the Conditional status expires and the organization no longer holds the CMMC status its contracts require. For a Level 2 (C3PAO) assessment, the closeout is performed by a C3PAO; for Level 2 (Self), the organization performs it and records the result in SPRS. When closeout succeeds the status becomes Final, valid for three years from the Conditional CMMC Status Date.</li>
 <li><strong>Affirmation:</strong> the Affirming Official submits an affirmation in SPRS upon Conditional status, upon Final status after closeout, and annually thereafter.</li>
 </ul>
 <p>A POA&amp;M is not permitted for CMMC Level 1; all 15 Level 1 requirements must be met.</p>
+<p><strong>DoD Assessment Methodology (Basic) without CMMC:</strong> for contracts that include DFARS 252.204-7019/-7020 but no CMMC requirement, the NIST SP 800-171 Basic assessment score posted in SPRS includes the date by which all requirements will be implemented. That date should match the latest scheduled completion date in this POA&amp;M.</p>
 <p><strong>Operational plan of action:</strong> separate from this POA&amp;M, an operational plan of action may be used to document temporary deficiencies that arise after a requirement was implemented (for example, a failed control discovered during operation) and how they will be restored. Record those in section 5 so they are not confused with assessment POA&amp;M items.</p>
 
 <h2>3. Roles</h2>
@@ -28,8 +29,9 @@
 
 <h2>4. Summary</h2>
 <ul>
-<li><strong>Current SPRS score:</strong> [score] of 110 · <strong>Date:</strong> [date]</li>
+<li><strong>Current SPRS score:</strong> [score] of 110 · <strong>Date:</strong> [date] · <strong>Requirements met:</strong> [number] of 110 (Conditional status needs a score of at least 88)</li>
 <li><strong>Open items:</strong> [number] · <strong>Items eligible for Conditional status:</strong> [yes / no — explain]</li>
+<li><strong>Date all requirements will be implemented (as posted in SPRS):</strong> [date]</li>
 <li><strong>Conditional CMMC Status Date:</strong> [date] · <strong>180-day closeout deadline:</strong> [date]</li>
 <li><strong>Last POA&amp;M review:</strong> [date] · <strong>Next review:</strong> [date]</li>
 </ul>
@@ -41,6 +43,8 @@
 <ul>
 <li><strong>POA&amp;M ID:</strong> [POAM-YYYY-##]</li>
 <li><strong>Requirement:</strong> [CMMC ID and NIST 800-171 number, e.g. AC.L2-3.1.10] · <strong>Point value:</strong> [1 / 3 / 5]</li>
+<li><strong>Assessment objectives not met (NIST SP 800-171A):</strong> [e.g. 3.1.10[b], 3.1.10[c]]</li>
+<li><strong>Eligible for a CMMC POA&amp;M:</strong> [Yes — 1 point and not on the excluded list / Yes — SC.L2-3.13.11 encryption exception / No — must be met before the assessment]</li>
 <li><strong>Date identified / source:</strong> [date] · [self-assessment / C3PAO assessment / vulnerability scan / incident]</li>
 <li><strong>Weakness / deficiency:</strong> [what is missing or not working, and where]</li>
 <li><strong>Risk / impact:</strong> [Low / Moderate / High] — [how the weakness could lead to unauthorized disclosure of CUI]</li>
@@ -63,7 +67,9 @@
 <h3>Example item 1 (example — replace or delete)</h3>
 <ul>
 <li><strong>POA&amp;M ID:</strong> POAM-{{year}}-01 <em>(example)</em></li>
-<li><strong>Requirement:</strong> AC.L2-3.1.10 — Use session lock with pattern-hiding displays after a period of inactivity · <strong>Point value:</strong> 1</li>
+<li><strong>Requirement:</strong> AC.L2-3.1.10 — Use session lock with pattern-hiding displays to prevent access and viewing of data after a period of inactivity · <strong>Point value:</strong> 1</li>
+<li><strong>Assessment objectives not met (NIST SP 800-171A):</strong> 3.1.10[b], 3.1.10[c] on three workstations</li>
+<li><strong>Eligible for a CMMC POA&amp;M:</strong> Yes — 1 point and not on the excluded list</li>
 <li><strong>Date identified / source:</strong> [date] · internal self-assessment</li>
 <li><strong>Weakness / deficiency:</strong> Screen lock is enforced by policy on office workstations, but three shop-floor CUI workstations are excluded from the policy and do not lock.</li>
 <li><strong>Risk / impact:</strong> Low — an unattended unlocked workstation could expose CUI drawings to people in the shop area without access authorization.</li>
@@ -86,7 +92,9 @@
 <h3>Example item 2 (example — replace or delete)</h3>
 <ul>
 <li><strong>POA&amp;M ID:</strong> POAM-{{year}}-02 <em>(example)</em></li>
-<li><strong>Requirement:</strong> SC.L2-3.13.11 — Employ FIPS-validated cryptography when used to protect the confidentiality of CUI · <strong>Point value:</strong> 3 (encryption employed but not FIPS-validated; eligible for POA&amp;M under the 3.13.11 exception)</li>
+<li><strong>Requirement:</strong> SC.L2-3.13.11 — Employ FIPS-validated cryptography when used to protect the confidentiality of CUI · <strong>Point value:</strong> 3 (encryption employed but not FIPS-validated)</li>
+<li><strong>Assessment objectives not met (NIST SP 800-171A):</strong> 3.13.11[a] for the backup appliance</li>
+<li><strong>Eligible for a CMMC POA&amp;M:</strong> Yes — SC.L2-3.13.11 encryption exception</li>
 <li><strong>Date identified / source:</strong> [date] · pre-assessment gap review</li>
 <li><strong>Weakness / deficiency:</strong> The on-premises backup appliance encrypts CUI backups with AES-256, but the vendor's cryptographic module does not have a current FIPS 140-2/140-3 validation certificate.</li>
 <li><strong>Risk / impact:</strong> Moderate — backups are encrypted, but the implementation has not been independently validated, so assurance that CUI is protected is reduced.</li>
@@ -108,6 +116,7 @@
 </ul>
 
 <h2>6. Operational plan of action (temporary deficiencies)</h2>
+<p>A temporary deficiency is a requirement that was implemented but has since failed or lapsed (32 CFR 170.4). It is recorded here with how and when it will be restored, and does not by itself make the requirement not met if it is being corrected under this plan.</p>
 <ul>
 <li>[ID] · [requirement] · [date the deficiency was found] · [cause] · [restoration steps and target date] · [responsible] · [date restored]</li>
 </ul>
@@ -116,6 +125,5 @@
 <p>The POA&amp;M owner reviews this document with {{company_name}} at least monthly while items are open, and at least quarterly otherwise. Each review updates status, dates and the SPRS score, and escalates any item that will miss its milestone or the 180-day closeout deadline to the system owner.</p>
 
 <h2>8. Review and approval</h2>
-<p>Approved by: [name, title] · Signature: ______________________ · Date: [date]</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>
 <p>POA&amp;M owner: [name, title] · Date: [date]</p>
-<p>Next review date: [date]</p>

@@ -25,6 +25,8 @@
 <li>Contract start and renewal dates; whether a BAA, DPA or security addendum is in place</li>
 <li>Date of last security review and next review due</li>
 <li>Vendor security and breach notification contact</li>
+<li>Which security and compliance responsibilities the vendor carries and which stay with {{client_name}} (for example who manages MFA, backups or patching for the service)</li>
+<li>Where privacy laws such as the California CCPA apply: whether the vendor is a service provider, contractor or third party, and the categories of personal information disclosed to it</li>
 </ul>
 <p>The inventory is reviewed at least annually and whenever a vendor is added or removed. New vendors are added before they receive data or access.</p>
 
@@ -73,11 +75,15 @@
 <li>Service levels for availability and support, and business continuity commitments</li>
 <li>Cyber liability insurance with minimum limits of [$ amount]</li>
 <li>Compliance with applicable laws, including CCPA/CPRA service provider terms</li>
+<li>Notice to {{client_name}} before the vendor adds or changes subprocessors that will handle {{client_name}} data, or changes how or where the data is processed</li>
+<li>Cooperation in {{client_name}}'s incident response, including named contacts and access to relevant logs</li>
+<li>A clear statement of which security responsibilities belong to the vendor and which to {{client_name}}</li>
+<li>For outsourced software development: secure development practices, testing before delivery, and {{client_name}}'s ownership of or access to the source code</li>
 </ul>
 <h3>7.1 Business associate and data processing agreements</h3>
 <ul>
 <li>Where {{client_name}} is a HIPAA covered entity or business associate, a signed <strong>Business Associate Agreement (BAA)</strong> is required before any vendor creates, receives, maintains or transmits PHI (HIPAA 164.308(b)(1) and 164.314(a)).</li>
-<li>Where personal information of California residents or other jurisdictions is processed, a <strong>Data Processing Agreement (DPA)</strong> or service provider addendum is in place.</li>
+<li>Where personal information of California residents or other jurisdictions is processed, a <strong>Data Processing Agreement (DPA)</strong> or service provider addendum is in place. For CCPA service providers and contractors it: limits use to the specified business purposes; prohibits selling or sharing the information or combining it with other data except as the law allows; requires the vendor to comply with the CCPA and give the same level of privacy protection; lets {{client_name}} take reasonable steps to make sure the information is used properly and to stop unauthorized use; and requires the vendor to tell {{client_name}} if it can no longer meet its obligations. Contracts with third parties to which personal information is sold or shared contain the terms the CCPA regulations require.</li>
 <li>Where CUI is involved, the vendor must meet DFARS 252.204-7012 requirements and the appropriate CMMC level, and cloud services must be FedRAMP Moderate or equivalent.</li>
 <li>Where cardholder data is involved, the vendor's PCI DSS responsibilities are documented and its Attestation of Compliance is obtained annually.</li>
 </ul>
@@ -89,6 +95,7 @@
 <li><strong>Tier 3</strong> vendors are reviewed when the relationship changes.</li>
 <li>Vendors are re-reviewed immediately when they report a breach, are acquired, change how they handle data, or when {{client_name}} expands the data shared.</li>
 <li>{{company_name}} monitors vendor remote access and integrations as part of routine monitoring, and alerts on unusual activity.</li>
+<li>Service performance, outages and changes the vendor announces (new features, subprocessors, data locations, end-of-life dates) are reviewed by the business owner, and significant changes trigger a re-review.</li>
 </ul>
 
 <h2>9. Vendor access to systems</h2>
@@ -96,10 +103,18 @@
 <li>Vendors receive named accounts with MFA and least-privilege access, per the Access Control Policy.</li>
 <li>Remote access follows the Remote Access Policy: enabled only when needed and through {{company_name}}-controlled methods.</li>
 <li>Third-party integrations (OAuth apps, API keys) connected to Microsoft 365 or other systems require approval and are reviewed quarterly.</li>
+<li>Vendor remote sessions are logged, and the logs show who connected, when and to which system. Always-on vendor remote access is not allowed unless the security lead approves it in writing.</li>
+<li>Vendor or maintenance staff working on site without authorized system access are escorted and supervised while they work on company equipment.</li>
+</ul>
+<h3>9.1 Buying hardware and software</h3>
+<ul>
+<li>Hardware and software are bought from the manufacturer, authorized resellers or {{company_name}}, not from unknown marketplace sellers, and downloads come only from the publisher's official source.</li>
+<li>{{company_name}} checks that new devices and software are genuine and unmodified (for example sealed packaging, valid digital signatures and serial numbers that match) before they are put into use.</li>
+<li>Cloud services are checked before use for the security settings {{client_name}} needs (MFA, single sign-on, audit logs, data export), as part of due diligence.</li>
 </ul>
 
 <h2>10. Vendor incidents</h2>
-<p>When a vendor reports a security incident affecting {{client_name}} data, the security lead activates the Incident Response Plan, obtains details from the vendor, determines whether {{client_name}} has notification obligations, and decides whether to continue the relationship.</p>
+<p>Critical (Tier 1) vendors' incident contacts are listed in the Incident Response Plan, and their role in an incident is agreed in advance and included in incident exercises where practical. When a vendor reports a security incident affecting {{client_name}} data, the security lead activates the Incident Response Plan, obtains details from the vendor, determines whether {{client_name}} has notification obligations, and decides whether to continue the relationship. Disclosures of personal information to vendors outside what the contract allows are recorded and handled as incidents.</p>
 
 <h2>11. Offboarding vendors</h2>
 <ul>
@@ -124,7 +139,7 @@
 <li>Incident Response Plan</li>
 <li>Vendor inventory and questionnaire template</li>
 </ul>
-<p>Supports: CMMC AC.L2-3.1.20, CA.L2-3.12.4 (plus DFARS 252.204-7012 flow-down) · CIS 15.1, 15.2, 15.3, 15.4, 15.5, 15.7 · HIPAA 164.308(b)(1), 164.314(a) · NIST CSF GV.SC-04, GV.SC-05, GV.SC-06, GV.SC-07, GV.SC-10 · PCI DSS 12.8.1, 12.8.2, 12.8.3, 12.8.4, 12.8.5 · FTC Safeguards Rule 314.4(f)</p>
+<p>Supports: CMMC AC.L2-3.1.20, CA.L2-3.12.4, MA.L2-3.7.6 (plus DFARS 252.204-7012 flow-down) · CIS 15.1 through 15.7 · HIPAA 164.308(b)(1), 164.314(a) · ISO 27001 A.5.19, A.5.20, A.5.21, A.5.22, A.5.23, A.8.30 · NIST CSF GV.SC-01 through GV.SC-10, ID.AM-04, ID.RA-09, ID.RA-10, DE.CM-06, RS.MA-01 · PCI DSS 8.2.7, 12.8.1, 12.8.2, 12.8.3, 12.8.4, 12.8.5 · SOC 2 CC9.2, P6.1, P6.4, P6.5 · FTC Safeguards Rule 314.4(f) · CCPA 1798.100(d), regulations 7051, 7053, 7123(c)(15) · Cyber insurance: vendor remote access controlled and logged</p>
 
 <h2>15. Review and approval</h2>
 <p>This policy is reviewed at least annually.</p>
