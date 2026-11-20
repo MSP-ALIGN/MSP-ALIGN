@@ -226,16 +226,66 @@ final class Ai
                 : 'This request could use up to ' . number_format($reserve) . ' tokens, more than the ' . number_format(max(0, $limit - $used)) . ' left this month. Try a smaller one, or an admin can raise the limit under Integrations → AI.', true);
         }
 
+        // (2.40.2) The provider can take a minute: let go of the session lock meanwhile, so the user's other tabs
+        // keep working (PHP holds a session's file locked until the request ends), and take it back afterwards
+        $released = self::releaseSession();
         try {
             $r = $provider->ask($model, $system, $user, $maxOutput, $pdfs);
         } catch (\Throwable $e) {
+            self::resumeSession($released);
             $msg = $e instanceof AiException ? $e->getMessage() : $provider->name() . ' failed: ' . safe_error($e);
             DB::update('ai_usage', ['status' => 'error', 'error' => mb_substr($msg, 0, 300), 'finished_at' => date('Y-m-d H:i:s')], ['id' => $id]);
             throw $e instanceof AiException ? $e : new AiException($msg);
         }
+        self::resumeSession($released);
         DB::update('ai_usage', ['status' => 'ok', 'input_tokens' => $r['input'], 'output_tokens' => $r['output'], 'finished_at' => date('Y-m-d H:i:s')], ['id' => $id]);
         self::warnings($month);
         return ['text' => (string) $r['text'], 'input' => (int) $r['input'], 'output' => (int) $r['output'], 'truncated' => (bool) ($r['truncated'] ?? false)];
+    }
+
+    /**
+     * (2.40.2) Closes the web request's session (saving what was written so far) so other requests with the same
+     * session cookie aren't held waiting on its lock while the AI provider answers. True when it closed one; the
+     * command line and requests without an open session are left alone.
+     *
+     * Security assumptions: the caller is already authorised (Auth ran before ask()); the signed-in user stays cached
+     * in Auth for the rest of the request, so nothing re-checks the session while it's closed.
+     */
+    private static function releaseSession(): bool
+    {
+        if (PHP_SAPI === 'cli' || session_status() !== PHP_SESSION_ACTIVE) {
+            return false;
+        }
+        session_write_close();
+        return true;
+    }
+
+    /**
+     * (2.40.2) Reopens the session releaseSession() closed (same name, settings and id, which PHP keeps for the
+     * request), so what the caller writes next (flash messages, pending choices) is saved.
+     *
+     * No cookie is sent: the id is the one the browser already has. If another tab ended or replaced the session
+     * meanwhile (signed out, changed the password or 2FA, "sign out everywhere"), strict mode would start a new,
+     * empty session under a new id; sending that cookie would overwrite the other tab's fresh one and sign the user
+     * out everywhere. So in that case the new session is dropped unsaved and the caller's flash message is lost.
+     * Nothing to do when $released is false, or when output has already started (the session can't be reopened).
+     */
+    private static function resumeSession(bool $released): void
+    {
+        if (!$released || session_status() === PHP_SESSION_ACTIVE || headers_sent()) {
+            return;
+        }
+        $id = session_id();
+        $cookies = (string) ini_get('session.use_cookies');
+        ini_set('session.use_cookies', '0');
+        try {
+            session_start();
+        } finally {
+            ini_set('session.use_cookies', $cookies);
+        }
+        if (session_id() !== $id) {
+            session_abort(); // the old session is gone: keep no orphan session and send no cookie
+        }
     }
 
     /** After a request in $month: the 80% email, once a month (and the limit email when this one used the last tokens). */
