@@ -1,6 +1,7 @@
 <?php
 /**
- * A client's compliance summary. @var array $client, $assigned (frameworks with score and gaps), $available, $indicators.
+ * A client's compliance summary. @var array $client, $assigned (frameworks with score and gaps), $available, $indicators;
+ * (2.40.0) $tasks (Compliance\Tasks::forClient), $waitingAnswers (client answers to review), $docs (for marking a task done).
  * The add-framework form shows for techs only; so does 2.30.0's "Review documents with AI" (when AI is usable for it).
  */
 use Align\Auth;
@@ -13,6 +14,9 @@ $cid = (int) $client['id'];
 <?php if (Auth::can('tech') && \Align\Ai\Ai::usable('compliance')): /* 2.30.0 */ ?>
   <div class="d-flex justify-content-end mb-2"><a class="btn btn-sm btn-default" href="/clients/<?= $cid ?>/ai-reviews"><i class="fas fa-wand-magic-sparkles me-1"></i>Review documents with AI</a></div>
 <?php endif; ?>
+<?php if (!empty($waitingAnswers)): /* 2.40.0 */ ?>
+  <div class="alert alert-warning py-2"><i class="fas fa-inbox me-1"></i><?= (int) $waitingAnswers ?> <?= $waitingAnswers === 1 ? 'answer' : 'answers' ?> from the client <?= $waitingAnswers === 1 ? 'is' : 'are' ?> waiting for you: open the framework's guided setup, step 5.</div>
+<?php endif; ?>
 <div class="row">
   <div class="col-lg-8">
     <?php foreach ($assigned as $fw): $s = $fw['score']; ?>
@@ -20,6 +24,8 @@ $cid = (int) $client['id'];
         <div class="card-header py-2">
           <h3 class="card-title mt-2"><i class="fas fa-fw fa-clipboard-check me-2"></i><?= e($fw['name']) ?></h3>
           <div class="card-tools">
+            <?php $su = \Align\Compliance\Setup::get($cid, (int) $fw['id']); /* 2.40.0 */ ?>
+            <a href="/clients/<?= $cid ?>/compliance/<?= (int) $fw['id'] ?>/setup" class="btn btn-sm btn-default"><i class="fas fa-route me-1"></i><?= !$su ? 'Guided setup' : ($su['finished_at'] ? 'Setup' : 'Continue setup (' . (int) $su['step'] . '/' . count(\Align\Compliance\Setup::STEPS) . ')') ?></a>
             <a href="/clients/<?= $cid ?>/compliance/<?= (int) $fw['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-list-check me-1"></i>Open checklist</a>
           </div>
         </div>
@@ -75,6 +81,7 @@ $cid = (int) $client['id'];
   </div>
 
   <div class="col-lg-4">
+    <?= \Align\View::fetch('compliance/_tasks', ['client' => $client, 'tasks' => $tasks ?? [], 'docs' => $docs ?? []]) /* 2.40.0 */ ?>
     <div class="card card-dark">
       <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-robot me-2"></i>From device data</h3></div>
       <ul class="list-group list-group-flush">

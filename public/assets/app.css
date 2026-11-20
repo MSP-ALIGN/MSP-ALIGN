@@ -1168,3 +1168,8 @@ textarea.pv-in { resize: none; white-space: normal; }
 @media (max-width: 767.98px) {
   .card-header .card-tools .portal-search, .portal-doc-search { width: 100%; }
 }
+/* 2.40.0 Guided compliance setup: the step list (views/compliance/setup) */
+.setup-steps .setup-step-n { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--bs-border-color); font-size: .8rem; font-weight: 600; flex: none; }
+.setup-steps .setup-step-n.done { background: var(--bs-success); border-color: var(--bs-success); color: #fff; }
+.setup-steps .list-group-item.active .setup-step-n { border-color: #fff; }
+.setup-q .btn-group .btn { min-width: 4.5rem; }

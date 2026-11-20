@@ -126,7 +126,7 @@ foreach ($plan['backlog'] as $it) {
               <details class="rm-item rm-auto border-warning">
                 <summary><i class="fas fa-fw fa-clipboard-check text-warning me-1"></i><b><?= count($q['compliance']) ?> compliance item<?= count($q['compliance']) > 1 ? 's' : '' ?> due</b></summary>
                 <ul class="list-unstyled small mb-0 mt-1 ms-4">
-                  <?php foreach ($q['compliance'] as $c): ?><li><a href="/clients/<?= $cid ?>/compliance/<?= (int) $c['framework_id'] ?>?filter=open"><?= e($c['ref']) ?></a> <?= e($c['title']) ?> <span class="text-muted"><?= e(fmt_date($c['due_date'])) ?><?= $c['owner'] ? ' · ' . e($c['owner']) : '' ?></span></li><?php endforeach; ?>
+                  <?php foreach ($q['compliance'] as $c): ?><li><a href="<?= e($c['link'] ?? '/clients/' . $cid . '/compliance/' . (int) $c['framework_id'] . '?filter=open') /* (2.40.0) recurring tasks link to the compliance page */ ?>"><?= e($c['ref']) ?></a> <?= e($c['title']) ?> <span class="text-muted"><?= e(fmt_date($c['due_date'])) ?><?= $c['owner'] ? ' · ' . e($c['owner']) : '' ?></span></li><?php endforeach; ?>
                 </ul>
               </details>
             <?php endif; ?>

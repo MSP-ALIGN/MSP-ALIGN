@@ -253,6 +253,21 @@ final class PortalController
     // ---- Pages --------------------------------------------------------------------------------
 
     /** Home: a summary of each section this user may see (each part checks its own permission). */
+    /**
+     * 2.40.0 Opens one of the signed-in portal user's compliance question links (their client, their email, still
+     * open): the token is decrypted here, on click, never put on a page, and the user is redirected to it.
+     */
+    public static function answers(int $id): void
+    {
+        $pu = PortalAuth::require();
+        $t = \Align\Compliance\ClientQuestions::portalToken($pu, $id);
+        if ($t === null) {
+            flash('error', 'Those questions are no longer open.');
+            redirect('/portal');
+        }
+        redirect('/portal/answers/' . $t);
+    }
+
     public static function home(): void
     {
         $pu = PortalAuth::require();
@@ -302,6 +317,7 @@ final class PortalController
         }
         $data['signWaiting'] = \Align\Docs\Signing::waitingFor($pu); // 2.34.0: whatever section permissions say, it's addressed to them
         $data['ackWaiting'] = \Align\Docs\Acknowledging::waitingFor($pu); // (2.34.0) the same for acknowledgments
+        $data['questionsWaiting'] = \Align\Compliance\ClientQuestions::forPortalUser($pu); // (2.40.0) compliance questions sent to this user's address
         self::render('home', $data + ['title' => 'Home', 'nav' => 'home'], $pu);
     }
 

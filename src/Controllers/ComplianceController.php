@@ -104,6 +104,9 @@ final class ComplianceController
             'assigned' => $assigned,
             'available' => $available,
             'indicators' => Compliance::indicators((new Lifecycle())->devices($id)),
+            'tasks' => \Align\Compliance\Tasks::forClient($id, true), // 2.40.0 recurring compliance tasks (switched-off ones last)
+            'waitingAnswers' => count(\Align\Compliance\ClientQuestions::waiting($id)),
+            'docs' => Auth::can('tech') ? \Align\Docs\Documents::forClient($id) : [],
         ]);
     }
 
@@ -124,8 +127,9 @@ final class ComplianceController
             $id, $fw['id'], date('Y-m-d', strtotime('+1 year')),
         ]);
         Audit::log('compliance.assign', "{$fw['name']} → {$client['name']}");
-        flash('success', "{$fw['name']} added. Work through the checklist to score it.");
-        redirect("/clients/$id/compliance/{$fw['id']}");
+        // 2.40.0 the guided setup opens first; the checklist stays one click away
+        flash('success', "{$fw['name']} added. The guided setup below walks you through it step by step, or open the checklist to answer it directly.");
+        redirect("/clients/$id/compliance/{$fw['id']}/setup");
     }
 
     /** Removes a framework from the client (tech). The answers are kept, so adding it back restores them. */
