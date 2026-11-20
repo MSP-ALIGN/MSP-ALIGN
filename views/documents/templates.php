@@ -14,7 +14,7 @@
           <?php foreach ($templates as $t): [$cl, $ci, $cc] = Documents::category($t['category']); ?>
             <tr>
               <td class="text-break"><i class="fas fa-fw <?= $ci ?> text-<?= $cc ?> me-1"></i><a href="/documents/templates/<?= (int) $t['id'] ?>" class="fw-bold"><?= e($t['name']) ?></a>
-                <?= $t['is_builtin'] ? '<span class="badge text-bg-light border ms-1">built-in</span>' : '' ?>
+                <?= $t['is_builtin'] ? '<span class="badge text-bg-light border ms-1">built-in</span>' : '' ?><?= !empty($pending[(int) $t['id']]) ? '<a href="/documents/templates/' . (int) $t['id'] . '" class="badge text-bg-warning ms-1" data-pending>Update to review</a>' : '' /* 2.38.3 */ ?>
                 <div class="small text-muted ms-4"><?= e($t['description'] ?? '') ?></div></td>
               <td class="small"><?= e($cl) ?></td>
               <td class="text-end d-none d-sm-table-cell"><?= (int) $t['used'] ?></td>

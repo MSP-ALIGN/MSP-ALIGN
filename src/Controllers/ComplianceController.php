@@ -90,7 +90,7 @@ final class ComplianceController
             $fw['score'] = Compliance::score($id, (int) $fw['id']);
             $fw['gaps'] = DB::all("SELECT c.ref, c.title, s.status, s.owner, s.due_date FROM compliance_controls c
                 JOIN client_control_status s ON s.control_id = c.id AND s.client_id = ?
-                WHERE c.framework_id = ? AND s.status IN ('not_met','partial') ORDER BY s.status = 'not_met' DESC, c.sort LIMIT 8", [$id, $fw['id']]);
+                WHERE c.framework_id = ? AND s.status IN ('not_met','partial') ORDER BY s.status = 'not_met' DESC, c.sort, c.id LIMIT 8", [$id, $fw['id']]);
         }
         unset($fw);
         $ids = array_column($assigned, 'id');
@@ -317,6 +317,7 @@ final class ComplianceController
             'frameworks' => DB::all('SELECT f.*, (SELECT COUNT(*) FROM compliance_controls c WHERE c.framework_id = f.id) AS controls,
                 (SELECT COUNT(*) FROM client_frameworks cf WHERE cf.framework_id = f.id) AS clients
                 FROM compliance_frameworks f ORDER BY f.is_active DESC, f.name'),
+            'pending' => \Align\Compliance\Corrections::counts()['framework'], // 2.38.3
         ]);
     }
 
@@ -361,6 +362,7 @@ final class ComplianceController
             'controls' => DB::all('SELECT * FROM compliance_controls WHERE framework_id = ? ORDER BY sort, id', [$id]),
             'allTags' => Compliance::allTags(),
             'inUse' => (int) DB::value('SELECT COUNT(*) FROM client_frameworks WHERE framework_id = ?', [$id]),
+            'corrections' => \Align\Compliance\Corrections::forFramework($id), // 2.38.3 updates not applied over the MSP's edits
         ]);
     }
 

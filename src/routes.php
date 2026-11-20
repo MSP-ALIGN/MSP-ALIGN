@@ -234,6 +234,7 @@ $r->get('/documents/templates', [DocumentController::class, 'templates']);
 $r->post('/documents/templates', [DocumentController::class, 'templateCreate']);
 $r->get('/documents/templates/{id}', [DocumentController::class, 'templateShow']);
 $r->post('/documents/templates/{id}', [DocumentController::class, 'templateSave']);
+$r->post('/documents/templates/{id}/corrections/{cid}', [\Align\Controllers\CorrectionController::class, 'template']); // 2.38.3
 $r->get('/documents/{id}', [DocumentController::class, 'show']);
 $r->post('/documents/{id}/save', [DocumentController::class, 'save']);
 $r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
@@ -407,6 +408,7 @@ $r->get('/frameworks', [ComplianceController::class, 'frameworks']);
 $r->post('/frameworks', [ComplianceController::class, 'frameworkCreate']);
 $r->get('/frameworks/{id}', [ComplianceController::class, 'frameworkShow']);
 $r->post('/frameworks/{id}', [ComplianceController::class, 'frameworkSave']);
+$r->post('/frameworks/{id}/corrections/{cid}', [\Align\Controllers\CorrectionController::class, 'framework']); // 2.38.3
 
 // Integrations
 $r->get('/mapping', [MappingController::class, 'index']);

@@ -1,6 +1,7 @@
 <?php
 /**
- * Framework list and the new-framework form (admin). @var array $frameworks.
+ * Framework list and the new-framework form (admin). @var array $frameworks; array $pending (2.38.3: framework id =>
+ * corrections to review).
  */
 ?>
 <nav class="small mb-1"><a href="/libraries"><i class="fas fa-arrow-left me-1"></i>Libraries</a></nav><?php /* (2.36.0) a library: the way back to the others */ ?>
@@ -17,7 +18,7 @@
       <?php foreach ($frameworks as $f): ?>
         <tr>
           <td class="text-break"><a href="/frameworks/<?= (int) $f['id'] ?>" class="fw-bold"><?= e($f['name']) ?></a>
-            <?= $f['is_builtin'] ? '<span class="badge text-bg-light border ms-1">built-in</span>' : '' ?>
+            <?= $f['is_builtin'] ? '<span class="badge text-bg-light border ms-1">built-in</span>' : '' ?><?= !empty($pending[(int) $f['id']]) ? '<a href="/frameworks/' . (int) $f['id'] . '" class="badge text-bg-warning ms-1" data-pending>' . (int) $pending[(int) $f['id']] . ' update' . ($pending[(int) $f['id']] == 1 ? '' : 's') . ' to review</a>' : '' /* 2.38.3 */ ?>
             <div class="small text-muted text-truncate-2"><?= e($f['description'] ?? '') ?></div></td>
           <td class="text-end"><?= (int) $f['controls'] ?></td>
           <td class="text-end d-none d-sm-table-cell"><?= (int) $f['clients'] ?></td>

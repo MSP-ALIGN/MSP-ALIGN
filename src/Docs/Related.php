@@ -25,6 +25,10 @@ use Align\DB;
  * uses its framework's list (PROGRAM_OF); a program document with no framework (the Information Security Policy)
  * has only supporting documents.
  *
+ * 2.38.3 accuracy review: HIPAA adds audit controls and disposal (standards with their own policies), PCI DSS adds
+ * 3.2.1 retention and disposal, CIS IG1 no longer calls a vendor policy required (15.1 is an inventory; the policy is
+ * 15.2, IG2), CSF cites ID.IM-04 for the plan, and the notes for ISO 27001, CCPA and CIS 4.1 are complete.
+ *
  * Security assumptions: read-only. The client id comes from a record the caller already loaded (and checked access
  * to); every query is scoped to it. Template names and document titles are returned as stored and escaped by the view.
  */
@@ -42,7 +46,7 @@ final class Related
         'cmmc-ssp' => ['cui-handling-policy', 'cmmc-poam', 'risk-assessment-report', 'access-control-policy', 'password-mfa-policy', 'remote-access-policy',
             'mobile-byod-policy', 'encryption-policy', 'asset-management-policy', 'change-management-policy', 'logging-monitoring-policy',
             'vulnerability-patch-policy', 'security-awareness-policy', 'incident-response', 'backup-recovery-policy', 'retention-disposal'],
-        'cmmc-l1-affirmation' => ['access-control-policy', 'password-mfa-policy', 'asset-management-policy', 'vulnerability-patch-policy', 'retention-disposal',
+        'cmmc-l1-affirmation' => ['information-security-policy', 'access-control-policy', 'password-mfa-policy', 'asset-management-policy', 'vulnerability-patch-policy', 'retention-disposal',
             'acceptable-use'],
         'hipaa-risk-analysis' => ['risk-management-policy', 'hipaa-baa-checklist', 'hipaa-breach-notification', 'incident-response', 'access-control-policy',
             'password-mfa-policy', 'encryption-policy', 'security-awareness-policy', 'logging-monitoring-policy', 'backup-recovery-policy', 'bcdr-plan',
@@ -71,15 +75,17 @@ final class Related
             'incident-response' => '164.308(a)(6) security incident procedures',
             'bcdr-plan' => '164.308(a)(7) contingency plan',
             'backup-recovery-policy' => '164.308(a)(7)(ii)(A) data backup plan',
-            'access-control-policy' => '164.312(a) access control',
-            'hipaa-baa-checklist' => '164.308(b), 164.314 business associate agreements',
+            'access-control-policy' => '164.308(a)(3)-(4), 164.312(a) workforce access and access control',
+            'logging-monitoring-policy' => '164.312(b) audit controls; 164.308(a)(1)(ii)(D) activity review',
+            'retention-disposal' => '164.310(d)(2)(i)-(ii) disposal and media re-use',
+            'hipaa-baa-checklist' => '164.308(b), 164.314(a) business associate contracts',
             'hipaa-breach-notification' => '164.400-414 breach notification',
         ],
         'cmmc-l1' => [
             'cmmc-l1-affirmation' => 'Yearly self-assessment and affirmation (32 CFR 170.15, 170.22)',
         ],
         'cmmc-l2' => [
-            'cmmc-ssp' => 'NIST SP 800-171 3.12.4 system security plan',
+            'cmmc-ssp' => 'NIST SP 800-171 3.12.4 system security plan; its section 8 records the SPRS score and the 32 CFR 170.22 affirmations',
             'cmmc-poam' => '3.12.2 plan of action',
             'incident-response' => '3.6.1-3.6.3 incident handling',
         ],
@@ -91,6 +97,7 @@ final class Related
             'risk-assessment-report' => '12.3.1 targeted risk analyses (one per requirement that asks for it)',
             'security-awareness-policy' => '12.6',
             'vendor-risk-policy' => '12.8 service providers',
+            'retention-disposal' => '3.2.1 data retention and disposal; 9.4.6-9.4.7 media destruction',
             'incident-response' => '12.10',
         ],
         'iso-27001-2022' => [
@@ -110,7 +117,7 @@ final class Related
         'nist-csf-2' => [
             'information-security-policy' => 'GV.PO-01',
             'risk-management-policy' => 'GV.RM',
-            'incident-response' => 'RS.MA',
+            'incident-response' => 'ID.IM-04 plans; RS.MA-01 carried out',
         ],
         'cis-v8-ig1' => [
             'asset-management-policy' => 'Safeguards 1.1, 2.1',
@@ -120,18 +127,17 @@ final class Related
             'logging-monitoring-policy' => '8.1',
             'backup-recovery-policy' => '11.1',
             'security-awareness-policy' => '14.1',
-            'vendor-risk-policy' => '15.1',
             'incident-response' => '17.1-17.3',
         ],
         'cis-v81-ig2' => [
             'asset-management-policy' => 'Safeguards 1.1, 2.1',
             'data-classification-policy' => '3.1, 3.2, 3.7',
             'access-control-policy' => '5.1, 6.1, 6.2',
-            'vulnerability-patch-policy' => '7.1, 7.2',
+            'vulnerability-patch-policy' => '7.1, 7.2; 18.1 penetration testing program',
             'logging-monitoring-policy' => '8.1',
             'backup-recovery-policy' => '11.1',
             'security-awareness-policy' => '14.1',
-            'vendor-risk-policy' => '15.1, 15.2',
+            'vendor-risk-policy' => '15.2 (15.1 is the provider inventory)',
             'incident-response' => '17.1-17.8',
         ],
         'cyber-insurance' => [
@@ -155,7 +161,10 @@ final class Related
     public const FRAMEWORK_NOTE = [
         'hipaa-security' => 'HIPAA 164.316 also asks for written policies and procedures for every standard you put in place; the supporting documents below can be those.',
         'pci-dss-4' => 'Requirements 1 to 11 each also ask for documented policies and procedures (x.1.1); the supporting documents below can be those.',
-        'iso-27001-2022' => 'ISO 27001 also asks for documented scope (4.3), a Statement of Applicability (6.1.3 d), objectives (6.2), internal audit (9.2) and management review (9.3) results.',
+        'iso-27001-2022' => 'ISO 27001 also asks for documented scope (4.3), a Statement of Applicability and risk treatment plan (6.1.3), objectives (6.2), evidence of competence (7.2), monitoring and measurement results (9.1), the internal audit programme and results (9.2), management review results (9.3) and nonconformities with corrective actions (10.2).',
+        'ccpa-cpra' => 'The CPPA regulations in effect since January 1, 2026 also require, for businesses that meet their thresholds, written risk assessments (11 CCR 7150-7157; for processing already under way, by December 31, 2027) and yearly cybersecurity audits (7120-7124; first certifications due April 1, 2028, 2029 or 2030 by revenue). The Security Risk Assessment Report is not a CCPA risk assessment.',
+        'cis-v8-ig1' => 'Safeguard 4.1 also asks for a documented secure configuration process; the change management and information security policies can hold it.',
+        'cis-v81-ig2' => 'Safeguard 4.1 also asks for a documented secure configuration process; the change management and information security policies can hold it.',
         'nist-csf-2' => 'CSF 2.0 is voluntary: these are the documents its outcomes point to.',
     ];
 

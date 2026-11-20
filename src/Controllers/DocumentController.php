@@ -164,7 +164,7 @@ final class DocumentController
                 LEFT JOIN users u ON u.id = v.saved_by WHERE v.document_id = ? ORDER BY v.id DESC LIMIT 50', [$id]),
             'evidence' => DB::all('SELECT c.ref, c.title, f.name AS framework, f.id AS framework_id, s.status FROM client_control_status s
                 JOIN compliance_controls c ON c.id = s.control_id JOIN compliance_frameworks f ON f.id = c.framework_id
-                WHERE s.document_id = ? ORDER BY f.name, c.sort', [$id]),
+                WHERE s.document_id = ? ORDER BY f.name, c.sort, c.id', [$id]),
             'editor' => !$file,
             'pdfJs' => $file && $doc['file_type'] === 'pdf',
             'related' => self::related($doc), // 2.38.1
@@ -646,6 +646,7 @@ final class DocumentController
             'nav' => 'documents',
             'templates' => DB::all('SELECT t.*, (SELECT COUNT(*) FROM documents d WHERE d.template_id = t.id) AS used FROM document_templates t ORDER BY t.is_builtin DESC, t.name'),
             'placeholders' => array_keys(Documents::placeholders(null)),
+            'pending' => \Align\Compliance\Corrections::counts()['template'], // 2.38.3
         ]);
     }
 
@@ -679,6 +680,7 @@ final class DocumentController
             't' => $t,
             'placeholders' => array_keys(Documents::placeholders(null)),
             'editor' => true,
+            'corrections' => \Align\Compliance\Corrections::forTemplate($id), // 2.38.3
         ]);
     }
 
