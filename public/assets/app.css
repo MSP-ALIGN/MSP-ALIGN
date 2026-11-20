@@ -504,6 +504,21 @@ a.rm-item:hover { text-decoration: none; background: var(--bs-tertiary-bg); colo
 .presence-dot { width: 26px; height: 26px; border-radius: 50%; background: #6c757d; color: #fff; font-size: .7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-left: -6px; border: 2px solid var(--bs-body-bg); }
 .presence-dot.is-editing { background: #28a745; box-shadow: 0 0 0 2px rgba(40,167,69,.35); }
 .doc-history a { color: inherit; }
+/* 2.39.0 Blanks to fill and the outline beside the editor (documents/show, docs.js) */
+.doc-guide-tabs .nav-link { font-size: .85rem; color: var(--bs-body-color); }
+.doc-guide-tabs .nav-link.active { color: #fff; }
+.doc-guide-list { max-height: 55vh; overflow-y: auto; padding: .25rem 0 .5rem; }
+.doc-guide-head { font-weight: 600; padding: .5rem 1rem .15rem; color: var(--bs-secondary-color); text-transform: none; border-top: 1px solid var(--bs-border-color); }
+.doc-guide-head:first-child { border-top: 0; }
+.doc-blank { padding: .3rem 1rem; }
+.doc-blank-ctx { color: inherit; text-decoration: none; display: block; overflow-wrap: anywhere; }
+.doc-blank-ctx:hover mark { text-decoration: underline; }
+.doc-blank-ctx mark { padding: 0 .15rem; border-radius: .2rem; }
+.doc-outline-item { display: block; padding: .25rem 1rem; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.doc-outline-item:hover { background: var(--bs-tertiary-bg); }
+.doc-outline-item.level-1 { font-weight: 600; }
+.doc-outline-item.level-2 { padding-left: 1.75rem; }
+.doc-outline-item.level-3 { padding-left: 2.5rem; color: var(--bs-secondary-color); }
 .doc-excerpt { max-width: 560px; }
 .template-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .5rem; }
 .tpl-option { display: flex; gap: .5rem; border: 1px solid var(--bs-border-color); border-radius: 6px; padding: .5rem .6rem; cursor: pointer; font-weight: 400; margin: 0; }
@@ -1153,3 +1168,8 @@ textarea.pv-in { resize: none; white-space: normal; }
 @media (max-width: 767.98px) {
   .card-header .card-tools .portal-search, .portal-doc-search { width: 100%; }
 }
+/* 2.40.0 Guided compliance setup: the step list (views/compliance/setup) */
+.setup-steps .setup-step-n { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--bs-border-color); font-size: .8rem; font-weight: 600; flex: none; }
+.setup-steps .setup-step-n.done { background: var(--bs-success); border-color: var(--bs-success); color: #fff; }
+.setup-steps .list-group-item.active .setup-step-n { border-color: #fff; }
+.setup-q .btn-group .btn { min-width: 4.5rem; }

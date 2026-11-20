@@ -75,6 +75,34 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
     </div>
 
     <div class="col-xl-3">
+      <?php /* 2.39.0 Blanks left to fill and the section outline: docs.js reads them from the editor (no server data
+         but whether the client has details to fill with) and keeps them current as the document changes */ ?>
+      <div class="card card-dark doc-guide" id="doc-guide" data-client="<?= (int) ($doc['client_id'] ?? 0) ?>" data-facts="<?= (int) ($factCount ?? 0) ?>">
+        <div class="card-header py-2 d-flex align-items-center">
+          <ul class="nav nav-pills nav-sm doc-guide-tabs" role="tablist">
+            <li class="nav-item"><button type="button" class="nav-link active py-1 px-2" data-bs-toggle="pill" data-bs-target="#doc-guide-blanks" role="tab" aria-selected="true"><i class="fas fa-pen-to-square me-1"></i>Blanks <span class="badge text-bg-warning ms-1" id="doc-blank-count">0</span></button></li>
+            <li class="nav-item"><button type="button" class="nav-link py-1 px-2" data-bs-toggle="pill" data-bs-target="#doc-guide-outline" role="tab" aria-selected="false"><i class="fas fa-list-ul me-1"></i>Outline</button></li>
+          </ul>
+        </div>
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="doc-guide-blanks" role="tabpanel">
+            <?php if ($canEdit && $doc['client_id']): ?>
+              <div class="px-3 pt-2 small">
+                <?php if (($factCount ?? 0) > 0): ?>
+                  <button type="button" class="btn btn-xs btn-default" id="doc-fill-facts"><i class="fas fa-id-badge me-1"></i>Fill from client details</button>
+                <?php else: ?>
+                  <a href="/clients/<?= (int) $doc['client_id'] ?>/documents#doc-facts"><i class="fas fa-id-badge me-1"></i>Add client details</a> <span class="text-muted">to fill the security lead and other roles in every document.</span>
+                <?php endif; ?>
+              </div>
+            <?php endif; ?>
+            <div class="doc-guide-list small" id="doc-blanks" aria-live="polite"></div>
+          </div>
+          <div class="tab-pane fade" id="doc-guide-outline" role="tabpanel">
+            <div class="doc-guide-list small" id="doc-outline"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card card-dark">
         <div class="card-header py-2"><h3 class="card-title mt-1"><i class="fas fa-fw fa-circle-info me-2"></i>Details</h3></div>
         <div class="card-body small">

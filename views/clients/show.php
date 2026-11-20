@@ -76,6 +76,9 @@ $cid = (int) $client['id'];
             <div class="d-flex"><a href="/clients/<?= $cid ?>/compliance/<?= (int) $fw['id'] ?>" class="fw-bold me-auto"><?= e($fw['name']) ?></a>
               <span class="small text-muted"><?= $s['met'] ?> met · <?= $s['partial'] ?> partial · <?= $s['not_met'] ?> not met · <?= $s['assessed'] ?>% assessed</span></div>
             <div class="progress progress-sm mt-1"><div class="progress-bar bg-<?= $s['tone'] ?>" style="width: <?= $s['score'] ?>%"><?= $s['score'] ?>%</div></div>
+            <?php $su = \Align\Compliance\Setup::get($cid, (int) $fw['id']); /* 2.40.0 guided setup not finished yet */ if (!$su || !$su['finished_at']): ?>
+              <a class="small" href="/clients/<?= $cid ?>/compliance/<?= (int) $fw['id'] ?>/setup"><i class="fas fa-route me-1"></i><?= $su ? 'Continue setup (step ' . (int) $su['step'] . ' of ' . count(\Align\Compliance\Setup::STEPS) . ')' : 'Start guided setup' ?></a>
+            <?php endif; ?>
           </div>
         <?php endforeach; ?>
         <?php if (!$frameworks): ?><p class="text-muted mb-2">No frameworks assigned yet.</p><?php endif; ?>

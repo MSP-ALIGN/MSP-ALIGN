@@ -181,6 +181,10 @@ $r->get('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'checklis
 $r->post('/clients/{id}/compliance/{fw}', [ComplianceController::class, 'save']);
 $r->post('/clients/{id}/compliance/{fw}/remove', [ComplianceController::class, 'unassign']);
 $r->get('/clients/{id}/compliance/{fw}/export', [ComplianceController::class, 'export']);
+$r->get('/clients/{id}/compliance/{fw}/setup', [\Align\Controllers\ComplianceSetupController::class, 'show']); // 2.40.0 guided setup
+$r->post('/clients/{id}/compliance/{fw}/setup/{action:str}', [\Align\Controllers\ComplianceSetupController::class, 'action']);
+$r->post('/clients/{id}/compliance-tasks/{tid}/done', [\Align\Controllers\ComplianceSetupController::class, 'taskDone']); // 2.40.0 recurring tasks
+$r->post('/clients/{id}/compliance-tasks/{tid}', [\Align\Controllers\ComplianceSetupController::class, 'taskSave']);
 $r->get('/clients/{id}/evidence', [\Align\Controllers\EvidenceController::class, 'client']); // 2.18.0 evidence check (Phase 4 gate)
 $r->post('/clients/{id}/evidence', [\Align\Controllers\EvidenceController::class, 'save']);
 
@@ -237,6 +241,7 @@ $r->post('/documents/templates/{id}', [DocumentController::class, 'templateSave'
 $r->post('/documents/templates/{id}/corrections/{cid}', [\Align\Controllers\CorrectionController::class, 'template']); // 2.38.3
 $r->get('/documents/{id}', [DocumentController::class, 'show']);
 $r->post('/documents/{id}/save', [DocumentController::class, 'save']);
+$r->post('/documents/{id}/facts', [\Align\Controllers\DocumentFactsController::class, 'fill']); // 2.39.0 Fill from client details
 $r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
 $r->get('/documents/{id}/content', [DocumentController::class, 'content']);
 $r->get('/documents/{id}/print', [DocumentController::class, 'print']);
@@ -272,6 +277,8 @@ $r->get('/documents/{id}/acknowledgments/{rid}/pdf', [$DA, 'pdf']);
 $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
 $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
+$r->post('/clients/{id}/document-facts', [\Align\Controllers\DocumentFactsController::class, 'save']); // 2.39.0 client details for documents
+$r->post('/clients/{id}/document-facts/drafts', [\Align\Controllers\DocumentFactsController::class, 'drafts']);
 
 // Onboarding → Contracts (2.2)
 $K = \Align\Controllers\ContractController::class;
@@ -557,6 +564,9 @@ $r->get('/portal/docsign/{token:str}/pdf', [$DSG, 'pdf']);
 $r->get('/portal/signatures/{id}', [PortalController::class, 'signature']);
 // Acknowledgment page (private link from the email; no sign-in) (2.34.0)
 $DAK = \Align\Controllers\DocAckController::class;
+$r->get('/portal/answers-open/{id}', [PortalController::class, 'answers']); // 2.40.0 a portal user's own question link
+$r->get('/portal/answers/{token:str}', [\Align\Controllers\ClientAnswerController::class, 'show']); // 2.40.0 compliance questions for the client
+$r->post('/portal/answers/{token:str}', [\Align\Controllers\ClientAnswerController::class, 'save']);
 $r->get('/portal/docack/{token:str}', [$DAK, 'show']);
 $r->post('/portal/docack/{token:str}', [$DAK, 'acknowledge']);
 $r->get('/portal/docack/{token:str}/file', [$DAK, 'file']);

@@ -112,6 +112,31 @@ final class Todo
             } catch (\Throwable) {
                 $subs = [];
             }
+            // 2.40.0 recurring compliance tasks due within 30 days or overdue, and client answers waiting for review
+            try {
+                $byClient = [];
+                foreach (\Align\Compliance\Tasks::dueAll() as $t) {
+                    $byClient[$t['client_id']]['name'] = $t['client_name'];
+                    $byClient[$t['client_id']]['tasks'][] = $t;
+                }
+                foreach ($byClient as $cid => $b) {
+                    $n = count($b['tasks']);
+                    $over = count(array_filter($b['tasks'], fn($t) => $t['state'] === 'overdue'));
+                    $out[] = ['key' => "ctask-$cid", 'category' => 'clients', 'icon' => 'fa-rotate', 'tone' => $over ? 'danger' : 'warning',
+                        'title' => $plural($n, 'compliance task', 'compliance tasks') . ($over ? ' overdue' : ' due soon') . " for {$b['name']}",
+                        'detail' => implode(', ', array_map(fn($t) => $t['label'], array_slice($b['tasks'], 0, 4))) . ($n > 4 ? ', …' : '') . '. Mark each done with a note or document.',
+                        'link' => '/clients/' . (int) $cid . '/compliance#compliance-tasks', 'action' => 'Open', 'count' => $n];
+                }
+                foreach (\Align\Compliance\ClientQuestions::waitingAll() as $w) {
+                    $n = (int) $w['n'];
+                    $out[] = ['key' => "canswer-{$w['client_id']}", 'category' => 'clients', 'icon' => 'fa-inbox', 'tone' => 'info',
+                        'title' => $plural($n, 'compliance answer', 'compliance answers') . " from {$w['client_name']}",
+                        'detail' => 'The client answered questions from a guided setup. Accept or decline each before it counts.',
+                        'link' => '/clients/' . (int) $w['client_id'] . '/compliance', 'action' => 'Review', 'count' => $n];
+                }
+            } catch (\Throwable) {
+                // before the 2.40.0 migration has run
+            }
             foreach ($subs as $s) {
                 $n = (int) $s['n'];
                 $what = $s['kind'] === 'license' ? $plural($n, 'suggested license', 'suggested licenses') : $plural($n, 'suggested budget item', 'suggested budget items');

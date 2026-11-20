@@ -96,6 +96,7 @@ $open = array_values(array_filter(array_slice($acks, 0, 5), fn($r) => $r['status
       <div class="modal-header bg-dark"><h5 class="modal-title" id="modal-send-ack-title"><i class="fas fa-user-check me-2"></i>Ask staff to acknowledge</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <?php if ($problem): ?><div class="alert alert-warning py-2"><?= e($problem) ?></div><?php endif; ?>
+        <?= \Align\View::fetch('documents/_blank_warning', ['doc' => $doc]) /* 2.39.0 */ ?>
         <p class="small text-muted mb-2"><?= $doc['kind'] === 'file' ? 'The PDF is sent as it is.' : 'The document is sent as a PDF, the way it prints now (version ' . (int) $doc['version'] . ').' ?> Each person gets their own private link by email. They read it and tick <b>I have read and agree to this policy</b> with their name: no signature or code.</p>
         <?= \Align\View::fetch('documents/_ack_fields', ['p' => 'ak', 'contacts' => $contacts, 'controls' => $controls, 'full' => true]) ?>
       </div>

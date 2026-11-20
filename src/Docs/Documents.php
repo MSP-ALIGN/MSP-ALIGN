@@ -87,16 +87,21 @@ final class Documents
     }
 
     /**
-     * Replaces {{placeholders}} in template HTML with the client's details, HTML-escaped.
+     * Replaces {{placeholders}} in template HTML with the client's details, HTML-escaped, and (2.39.0) fills the
+     * "[name, title]" blanks the client's document facts answer (Docs\Facts, for a saved client with an id).
      * Escaping covers text and quoted attributes only (a value can still land in an href), so the result must go
      * through Html::clean before it is stored.
      */
     public static function fill(string $html, ?array $client): string
     {
         $vals = self::placeholders($client);
-        return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/', function ($m) use ($vals) {
+        $html = preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/', function ($m) use ($vals) {
             return isset($vals[$m[1]]) ? htmlspecialchars($vals[$m[1]], ENT_QUOTES, 'UTF-8') : $m[0];
         }, $html) ?? $html;
+        if (!empty($client['id'])) {
+            $html = Facts::apply($html, Facts::forClient((int) $client['id']))[0];
+        }
+        return $html;
     }
 
     /**

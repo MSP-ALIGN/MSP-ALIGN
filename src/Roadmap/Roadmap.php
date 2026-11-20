@@ -122,6 +122,20 @@ final class Roadmap
             }
         }
 
+        // 2.40.0 Recurring compliance tasks (Compliance\Tasks): the next time each is due, in the same lane; 'link' goes to
+        // the client's compliance page, where it is marked done
+        try {
+            foreach (DB::all('SELECT * FROM compliance_tasks WHERE client_id = ? AND active = 1', [$clientId]) as $t) {
+                if (($i = Plan::indexFor($t['next_due'])) !== null) {
+                    $d = \Align\Compliance\Tasks::describe($t);
+                    $quarters[$i]['compliance'][] = ['ref' => $d['label'], 'title' => 'Recurring task', 'status' => 'task', 'owner' => null, 'due_date' => $t['next_due'],
+                        'framework' => null, 'framework_id' => 0, 'link' => "/clients/$clientId/compliance#compliance-tasks", 'overdue' => $t['next_due'] < $curStart];
+                }
+            }
+        } catch (\Throwable) {
+            // before the 2.40.0 migration has run
+        }
+
         // Planned (custom) items
         $backlog = [];
         $prio = array_flip(array_keys(self::PRIORITIES));

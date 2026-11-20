@@ -21,6 +21,7 @@ $vcio = $provider['vcio'] ?? null;
 
 <?= \Align\View::fetch('portal/_signatures', ['signWaiting' => $signWaiting ?? []]) /* 2.34.0 */ ?>
 <?= \Align\View::fetch('portal/_acknowledgments', ['ackWaiting' => $ackWaiting ?? []]) /* 2.34.0 */ ?>
+<?= \Align\View::fetch('portal/_questions', ['questionsWaiting' => $questionsWaiting ?? []]) /* 2.40.0 */ ?>
 
 <?php if ($pending): ?>
   <div class="card card-outline card-warning">

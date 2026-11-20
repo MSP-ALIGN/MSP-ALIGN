@@ -89,6 +89,7 @@ $countersignOpen = array_values(array_filter($signatures, fn($r) => $r['status']
     <form method="post" action="/documents/<?= $id ?>/signatures"><?= csrf_field() ?>
       <div class="modal-header bg-dark"><h5 class="modal-title" id="modal-send-sign-title"><i class="fas fa-pen-nib me-2"></i>Send for signature</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
+        <?= \Align\View::fetch('documents/_blank_warning', ['doc' => $doc]) /* 2.39.0 */ ?>
         <?= \Align\View::fetch('documents/_sign_fields', ['contacts' => $signContacts, 'what' => $doc['kind'] === 'file' ? 'The PDF is sent as it is.' : 'The document is sent as a PDF, the way it prints now (version ' . (int) $doc['version'] . ').']) ?>
       </div>
       <div class="modal-footer"><?php $mr = \Align\Mail\Mail::ready(); /* (2.34.0) "Create link only" works without email */ ?>

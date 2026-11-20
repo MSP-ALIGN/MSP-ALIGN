@@ -40,6 +40,8 @@ $show = function (array $c) use ($filter) {
     <div class="btn-group btn-group-sm">
       <?php foreach ($filters as $k => $l): ?><a class="btn <?= $filter === $k ? 'btn-primary' : 'btn-default' ?>" href="?filter=<?= $k ?>"><?= $l ?></a><?php endforeach; ?>
     </div>
+    <?php $su = \Align\Compliance\Setup::get($cid, $fid); /* 2.40.0 */ ?>
+    <a class="btn btn-sm <?= $su && $su['finished_at'] ? 'btn-default' : 'btn-outline-primary' ?>" href="/clients/<?= $cid ?>/compliance/<?= $fid ?>/setup"><i class="fas fa-route me-1"></i><?= !$su ? 'Guided setup' : ($su['finished_at'] ? 'Setup' : 'Continue setup') ?></a>
     <div class="btn-group btn-group-sm">
       <a class="btn btn-default" href="/clients/<?= $cid ?>/compliance/<?= $fid ?>/export"><i class="fas fa-file-csv me-1"></i>CSV</a>
       <a class="btn btn-default" href="/clients/<?= $cid ?>/report/compliance/<?= $fid ?>" target="_blank" rel="noopener"><i class="fas fa-print me-1"></i>Print report</a>

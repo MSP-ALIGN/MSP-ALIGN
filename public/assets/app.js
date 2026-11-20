@@ -2144,3 +2144,16 @@ document.addEventListener('change', (ev) => {
   retry.addEventListener('click', run);
   run();
 })();
+
+// (2.40.0) Guided compliance setup: "Use this answer" picks the answer given in another framework for the same topic
+// (views/compliance/setup). Only ticks a radio in the same question; saving the form applies it.
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-use-answer]');
+  if (!b) return;
+  const box = b.closest('[data-topic]');
+  const r = box && Array.from(box.querySelectorAll('input[type=radio]')).find((x) => x.value === b.dataset.useAnswer);
+  if (!r) return;
+  r.checked = true;
+  b.textContent = 'Picked: save to apply';
+  b.disabled = true;
+});
