@@ -23,6 +23,12 @@ MariaDB client tools, `age`, `openssl`, `git`, and Python 3 with `requests`, `py
 (`python3 -m playwright install chromium`) and `openapi-spec-validator`. GitHub Actions runs the
 same thing on Debian 13 (`.github/workflows/tests.yml`); read it for an exact package list.
 
+No PHP 8.4 on your machine (Ubuntu 24.04 has 8.3)? With Docker, `tests/docker/e2e.sh` runs the same
+suites in a container with those packages: `tests/docker/e2e.sh` for everything, `tests/docker/e2e.sh
+mapping_e2e` for some (`KEEP` and `GROUP` work the same), `tests/docker/e2e.sh stop` to remove it. Its
+logs go to `LOGS` instead of `ALIGN_TEST_WORK`. The script's header lists its settings (another base image
+such as `ubuntu:25.10`, an HTTPS proxy). The packages follow the GitHub job's list, with Playwright pinned.
+
 Each suite's output is kept in `/tmp/msp-align-tests/<suite>.log` (set `ALIGN_TEST_WORK` to use
 another folder).
 
