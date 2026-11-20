@@ -7,7 +7,8 @@ current sources and corrected through db/corrections/2.38.3.php (migration 102, 
   update or keep theirs; answers are limited to that page's framework or template, and only admins can answer;
 - running the corrections again changes nothing;
 - the CUI handling policy is no longer offered for CMMC Level 1, and the HIPAA, PCI and CIS required-document lists
-  follow the corrected mappings.
+  follow the corrected mappings;
+- the CCPA cybersecurity audit components use the adopted §7123(c)(1)-(18) numbering.
 Everything is made up."""
 import json
 from lib import *
@@ -50,6 +51,15 @@ def checks(label, Q):
     ok(one("cmmc-l2", "RA.L2-3.11.1").get("title", "").endswith("transmission of CUI.") and "Phase 2 began Nov 10, 2026" in
        Q("select description d from compliance_frameworks where slug = 'cmmc-l1'")[0]["d"], f"{label}: CMMC wording and dates corrected")
     ok(one("ccpa-cpra", "1798.120(c)") and one("msp-baseline", "MSB-28") and one("cyber-insurance", "CI-20"), f"{label}: the CCPA, MSP baseline and insurance additions are there")
+    # The adopted CCPA regulations number the audit components §7123(c)(1)-(18), in the draft's order; the Huntress and
+    # training checks migration 063 linked by the draft refs stay on the same controls
+    c7123 = [r["ref"] for r in Q("select c.ref from compliance_controls c join compliance_frameworks f on f.id = c.framework_id where f.slug = 'ccpa-cpra' and c.ref like '§7123%%' order by c.sort")]
+    oldcites = Q("select count(*) n from document_templates where body_html like '%%7123(b)%%'")[0]["n"]
+    ok(c7123 == [f"§7123(c)({i})" for i in range(1, 19)] and one("ccpa-cpra", "§7123(c)(9)").get("title") == "Antivirus and antimalware protections" and one("ccpa-cpra", "§7123(c)(9)").get("auto_check") == "huntress_agents"
+       and "change management" in one("ccpa-cpra", "§7123(c)(5)").get("title", "")
+       and one("ccpa-cpra", "§7123(c)(13)").get("auto_check") == "sat_training" and oldcites == 0
+       and "7123(c)(5)(E)" in Q("select body_html b from document_templates where slug = 'change-management-policy'")[0]["b"],
+       f"{label}: CCPA audit components use the adopted §7123(c) numbering, in templates too ({c7123[:2]}…, {oldcites} old citations)")
     hra = Q("select body_html b from document_templates where slug = 'hipaa-risk-analysis'")[0]["b"]
     wisp = Q("select body_html b from document_templates where slug = 'wisp-ftc'")[0]["b"]
     ok(hra.count("Signature:") == 1 and "does not require this analysis to be signed" in hra and "evaluates, assesses or tests the security of externally developed applications" in wisp
@@ -61,9 +71,9 @@ SAVED = q("select * from client_frameworks where client_id = %s", C)  # put back
 
 try:
     # ---- a fresh install and the main seed end with the corrected content
-    # huntress_e2e runs migration 063 again on this database after 102 cleared M365-DEV-03's check, so 063 links it to
-    # huntress_agents; a real upgrade runs 063 before 102. Undo that test-only link first.
-    q("update compliance_controls c join compliance_frameworks f on f.id = c.framework_id set c.auto_check = null where f.slug = 'm365-baseline' and c.ref = 'M365-DEV-03' and c.auto_check = 'huntress_agents'")
+    # huntress_e2e runs migration 063 again on this database after 102 cleared the checks of M365-DEV-03 and CI-7, so
+    # 063 links them to huntress_agents again; a real upgrade runs 063 once, before 102. Undo those test-only links first.
+    q("update compliance_controls c join compliance_frameworks f on f.id = c.framework_id set c.auto_check = null where c.auto_check = 'huntress_agents' and ((f.slug = 'm365-baseline' and c.ref = 'M365-DEV-03') or (f.slug = 'cyber-insurance' and c.ref = 'CI-7'))")
     checks("main install", q)
     res = apply_again()
     ok(res.get("applied") == 0 and res.get("pending") == 0 and res.get("missing") == 0 and res.get("already", 0) > 200, f"running the corrections again changes nothing: {res}")
