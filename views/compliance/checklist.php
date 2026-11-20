@@ -58,9 +58,11 @@ $show = function (array $c) use ($filter) {
   </div>
 <?php endif; ?>
 
-<?php /* 2.38.1 the documents this framework needs, with where the client stands on each */ ?>
+<?php /* 2.38.1 the documents this framework needs, with where the client stands on each; (2.38.2) required, then supporting */ ?>
 <?= \Align\View::fetch('documents/_related', ['client' => $client, 'rows' => $related ?? [], 'heading' => 'Documents for ' . $fw['name'],
-    'intro' => 'The documents this framework expects: its own first, then the policies that cover the most of its controls. Create or finish the missing ones; each one you make Active can be linked as evidence below.',
+    'word' => \Align\Docs\Related::word((string) $fw['slug']), 'note' => \Align\Docs\Related::FRAMEWORK_NOTE[(string) $fw['slug']] ?? null,
+    'intro' => (\Align\Docs\Related::word((string) $fw['slug']) === 'expected' ? 'The written documents usually expected for this framework' : 'The written documents this framework calls for that Align has templates for') . ', with where it asks for each. Supporting documents are optional: policies that cover some of its controls and can be linked as evidence below.',
+    'none' => 'This framework checks settings and practices rather than asking for written documents. These optional policies cover some of its controls and can be linked as evidence below.',
     'canEdit' => $canEdit, 'ai' => $canEdit && \Align\Ai\Ai::usable('drafts'), 'review' => $canEdit ? \Align\Docs\Related::reviewFor($cid) : 0]) ?>
 
 <form method="post" action="/clients/<?= $cid ?>/compliance/<?= $fid ?>" id="checklist-form" data-post-changed data-unsaved
