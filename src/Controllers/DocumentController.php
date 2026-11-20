@@ -107,6 +107,8 @@ final class DocumentController
             'status' => query('status'),
             'contracts' => Auth::can('tech') ? \Align\Contracts\Contracts::forClient($id) : [],
             'contractTemplates' => Auth::can('tech') ? \Align\Contracts\Template::all(true) : [],
+            'facts' => \Align\Docs\Facts::forClient($id), // 2.39.0 client details for documents
+            'factsPending' => Auth::can('tech') ? DocumentFactsController::pending($id) : null,
         ]);
     }
 
@@ -168,6 +170,7 @@ final class DocumentController
             'editor' => !$file,
             'pdfJs' => $file && $doc['file_type'] === 'pdf',
             'related' => self::related($doc), // 2.38.1
+            'factCount' => $doc['client_id'] ? count(\Align\Docs\Facts::forClient((int) $doc['client_id'])) : 0, // 2.39.0
         ] + self::signatureVars($doc));
     }
 

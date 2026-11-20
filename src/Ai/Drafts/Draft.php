@@ -21,7 +21,8 @@ use Align\Docs\Html;
  * from a review is always a new page; an update of a Draft page goes into that page as a new version, and an update
  * of an Active page or an uploaded file goes into the one Draft copy written from it (a new copy only when there is
  * none), so an Active document or a file is never written over. Three ways:
- *  - template: an Align template, filled with the client's details (Documents::fill), completed with the facts of a
+ *  - template: an Align template, filled with the client's details (Documents::fill; since 2.39.0 also the names a
+ *    tech entered as the client's document details, Docs\Facts, so staff-typed text is inside it), completed with the facts of a
  *    compliance review;
  *  - move: the same, using an existing client document's content as well (its content moved onto the template);
  *  - refresh: an existing client document kept in its own structure and wording, brought up to date with the facts,

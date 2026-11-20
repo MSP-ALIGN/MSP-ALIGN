@@ -203,7 +203,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   quill.on('text-change', (delta, old, source) => { if (source === 'user') schedule(); });
   fields.title.addEventListener('input', () => schedule());
-  ['category', 'status', 'review_due'].forEach((k) => fields[k].addEventListener('change', () => schedule(200)));
+  ['category', 'review_due'].forEach((k) => fields[k].addEventListener('change', () => schedule(200)));
+  // (2.39.0) Making a document Active with blanks left asks first. While the dialog is open the select shows the
+  // old status again, so a save that runs meanwhile (autosave, Ctrl+S) can't send Active before the answer.
+  let statusWas = fields.status.value;
+  let asking = false;
+  fields.status.addEventListener('change', async () => {
+    if (asking) { fields.status.value = statusWas; return; } // arrow keys fire a change each: one dialog
+    const to = fields.status.value;
+    const n = to === 'active' && guide ? scanCount() : 0;
+    if (n && typeof alignConfirm === 'function') {
+      fields.status.value = statusWas;
+      asking = true;
+      const ok = await alignConfirm({ title: 'Make it Active with ' + n + (n === 1 ? ' blank' : ' blanks') + ' left to fill?',
+        text: 'Active documents show in the client portal when shared, and can be sent for signature. The Blanks list shows what’s left.', ok: 'Make Active', danger: false });
+      asking = false;
+      if (!ok) return;
+      fields.status.value = to;
+    }
+    statusWas = fields.status.value;
+    schedule(200);
+  });
 
   // Ctrl/Cmd+S saves immediately
   document.addEventListener('keydown', (e) => {
@@ -232,10 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const sel = quill.getSelection();
     setHtml(j.body);
+    renderGuide(); // (2.39.0) a silent load fires no text-change
     if (sel) quill.setSelection(Math.min(sel.index, quill.getLength() - 1), 0, 'silent');
     fields.title.value = j.title;
     fields.category.value = j.category;
     fields.status.value = j.status;
+    statusWas = j.status; // (2.39.0) the status the Active question goes back to
     fields.review_due.value = j.review_due || '';
     version = j.version;
     $('doc-version-label').textContent = version;
@@ -247,6 +269,184 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('doc-load-theirs').addEventListener('click', () => loadLatest());
   $('doc-keep-mine').addEventListener('click', () => { save({ force: true }); });
+
+  // ---- (2.39.0) Blanks to fill and the section outline -------------------------------
+  // A blank is a bracketed prompt the templates leave, like "[name, title]" or "[date]": 1-120 characters with no
+  // bracket or line break inside, except a plain number ("[1]" is a citation). Same rule as Docs\Blanks::PATTERN, so
+  // the panel and the server's warnings count the same. Everything here is built from the editor's own text and
+  // put on the page with textContent; filling a blank is an ordinary edit (undoable, autosaved like typing).
+  const guide = $('doc-guide');
+  const BLANK = /\[[^[\]\r\n]{1,120}\]/g;
+  const INLINE = ['bold', 'italic', 'underline', 'strike', 'color', 'background', 'link', 'code', 'script', 'size', 'font'];
+  let blanks = [];
+  /** The headings (h1-h3) and blanks in the editor now: {heads: [{index, level, text}], blanks: [{index, text, head, before}]}. */
+  const scan = () => {
+    const heads = [];
+    quill.getLines().forEach((line) => {
+      const level = line.formats().header;
+      if (level && level <= 3) {
+        const index = quill.getIndex(line);
+        heads.push({ index, level, text: quill.getText(index, line.length() - 1).trim() || '(untitled section)' });
+      }
+    });
+    const text = quill.getText();
+    const found = [];
+    let m;
+    BLANK.lastIndex = 0;
+    while ((m = BLANK.exec(text)) !== null) {
+      if (/^\[\d+\]$/.test(m[0])) continue;
+      const lineStart = text.lastIndexOf('\n', m.index - 1) + 1;
+      let head = -1;
+      heads.forEach((h, i) => { if (h.index <= m.index) head = i; });
+      found.push({ index: m.index, text: m[0], head, before: text.slice(Math.max(lineStart, m.index - 60), m.index) });
+    }
+    return { heads, blanks: found };
+  };
+  /** Selects text in the editor and brings it into view. */
+  const goTo = (index, length) => {
+    quill.setSelection(index, length, 'user');
+    const b = quill.getBounds(index, length);
+    if (b) window.scrollTo({ top: quill.root.getBoundingClientRect().top + window.scrollY + b.top - 120, behavior: 'smooth' });
+  };
+  /**
+   * Puts value in place of the blank found at index (only if that blank is still there), keeping its inline
+   * formatting (bold and so on), as a user edit so it autosaves and can be undone.
+   */
+  const fillBlank = (b, value) => {
+    if (!canEdit || !value.trim() || quill.getText(b.index, b.text.length) !== b.text) return false;
+    const fmt = quill.getFormat(b.index, b.text.length);
+    const keep = {};
+    INLINE.forEach((k) => { if (fmt[k] !== undefined) keep[k] = fmt[k]; });
+    quill.deleteText(b.index, b.text.length, 'user');
+    quill.insertText(b.index, value.trim(), keep, 'user');
+    return true;
+  };
+  /** Redraws both lists and the count. focusAt: the position in the list whose input should get the focus. */
+  const renderGuide = (focusAt = null) => {
+    if (!guide) return;
+    const { heads, blanks: found } = scan();
+    blanks = found;
+    $('doc-blank-count').textContent = String(found.length);
+    $('doc-blank-count').className = 'badge ms-1 ' + (found.length ? 'text-bg-warning' : 'text-bg-success');
+    // The warnings in the Send for signature and acknowledgment dialogs (documents/_blank_warning)
+    document.querySelectorAll('[data-blank-warning]').forEach((w) => {
+      w.hidden = !found.length;
+      w.querySelector('[data-blank-n]').textContent = String(found.length);
+      w.querySelector('[data-blank-word]').textContent = found.length === 1 ? 'blank' : 'blanks';
+    });
+    const list = $('doc-blanks');
+    list.replaceChildren();
+    if (!found.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted px-3 py-2 mb-0';
+      p.textContent = 'No blanks left to fill.';
+      list.appendChild(p);
+    }
+    let lastHead = null;
+    found.forEach((b, i) => {
+      if (b.head !== lastHead) {
+        lastHead = b.head;
+        const h = document.createElement('div');
+        h.className = 'doc-guide-head';
+        h.textContent = b.head >= 0 ? heads[b.head].text : 'Start of the document';
+        list.appendChild(h);
+      }
+      const row = document.createElement('div');
+      row.className = 'doc-blank';
+      row.dataset.blank = b.text;
+      const ctx = document.createElement('a');
+      ctx.href = '#';
+      ctx.className = 'doc-blank-ctx';
+      ctx.title = 'Show it in the document';
+      ctx.append(document.createTextNode((b.before.length >= 60 ? '…' : '') + b.before));
+      const mark = document.createElement('mark');
+      mark.textContent = b.text;
+      ctx.appendChild(mark);
+      ctx.addEventListener('click', (e) => { e.preventDefault(); goTo(b.index, b.text.length); });
+      row.appendChild(ctx);
+      if (canEdit) {
+        const form = document.createElement('form');
+        form.className = 'input-group input-group-sm mt-1';
+        const input = document.createElement('input');
+        input.className = 'form-control';
+        input.placeholder = b.text.slice(1, -1);
+        input.setAttribute('aria-label', 'Fill ' + b.text);
+        input.maxLength = 500;
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-default';
+        btn.textContent = 'Fill';
+        form.append(input, btn);
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const filled = fillBlank(blanks[i] && blanks[i].index === b.index ? blanks[i] : b, input.value);
+          clearTimeout(guideTimer); // the fill's text-change would redraw again and take the focus away
+          renderGuide(filled ? i : null);
+        });
+        row.appendChild(form);
+        if (focusAt === i) setTimeout(() => input.focus(), 0);
+      }
+      list.appendChild(row);
+    });
+    // The outline: each heading, indented by level, with the blanks left under it
+    const out = $('doc-outline');
+    out.replaceChildren();
+    if (!heads.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted px-3 py-2 mb-0';
+      p.textContent = 'No headings yet. Headings (Heading 1-3 in the toolbar) show here.';
+      out.appendChild(p);
+    }
+    heads.forEach((h, i) => {
+      const a = document.createElement('a');
+      a.href = '#';
+      a.className = 'doc-outline-item level-' + h.level;
+      a.textContent = h.text;
+      const n = found.filter((b) => b.head === i).length;
+      if (n) {
+        const badge = document.createElement('span');
+        badge.className = 'badge text-bg-warning ms-1';
+        badge.textContent = String(n);
+        badge.title = n + (n === 1 ? ' blank' : ' blanks') + ' to fill';
+        a.appendChild(badge);
+      }
+      a.addEventListener('click', (e) => { e.preventDefault(); goTo(h.index, 0); });
+      out.appendChild(a);
+    });
+  };
+  /** Blanks left in the editor now. */
+  const scanCount = () => scan().blanks.length;
+  let guideTimer = null;
+  if (guide) {
+    quill.on('text-change', () => { clearTimeout(guideTimer); guideTimer = setTimeout(() => renderGuide(), 400); });
+    renderGuide();
+  }
+
+  // Fill from client details: saves what's typed first, then the server fills the blanks the client's details answer
+  // on that version and the editor loads the result
+  const fillFacts = $('doc-fill-facts');
+  if (fillFacts) fillFacts.addEventListener('click', async () => {
+    fillFacts.disabled = true;
+    try {
+      clearTimeout(timer);
+      if (dirty || saving) await save();
+      for (let i = 0; saving && i < 50; i++) await new Promise((r) => setTimeout(r, 100));
+      if (dirty || conflictVersion !== null) { setState('Save your changes first', 'text-warning'); return; }
+      const { status, json } = await post('/documents/' + id + '/facts', { base_version: String(version) });
+      if (status === 409) { showConflict(json); return; }
+      if (!json.ok) throw new Error(json.error || 'Not filled');
+      if (json.filled) {
+        // loadLatest(true) never replaces typing done while the fill ran: it shows the conflict bar instead
+        if (!(await loadLatest(true))) return;
+        setState('Filled ' + json.filled + (json.filled === 1 ? ' blank' : ' blanks') + ' from client details', 'text-success');
+      } else {
+        setState(json.no_facts ? 'No client details yet' : 'No blanks here match the client details', 'text-muted');
+      }
+    } catch (e) {
+      setState('Couldn’t fill from client details', 'text-danger');
+    } finally {
+      fillFacts.disabled = false;
+    }
+  });
 
   // ---- Presence + live refresh ---------------------------------------------------
   const presence = $('doc-presence');

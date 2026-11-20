@@ -16,6 +16,40 @@ require __DIR__ . '/../partials/client_header.php';
     <?php $showClient = false; require __DIR__ . '/_table.php'; ?>
   </div>
 </div>
+<?php /* 2.39.0 Client details for documents (Docs\Facts): entered once, they fill the matching [name, title] blanks */
+$canFacts = Auth::can('tech'); ?>
+<div class="card card-dark" id="doc-facts">
+  <div class="card-header py-2">
+    <h2 class="card-title mt-2 h3"><i class="fas fa-fw fa-id-badge me-2"></i>Client details for documents <span class="badge text-bg-light ms-1"><?= count($facts) ?> of <?= count(\Align\Docs\Facts::FIELDS) ?></span></h2>
+  </div>
+  <div class="card-body">
+    <?php if ($factsPending): /* a fact changed and Draft documents still name the old value */ ?>
+      <div class="alert alert-info" data-facts-pending>
+        <p class="mb-2"><b><?= count($factsPending['drafts']) ?> draft <?= count($factsPending['drafts']) === 1 ? 'document still names' : 'documents still name' ?> the old details</b>
+          (<?= e(implode(', ', array_map(fn($c, $k) => \Align\Docs\Facts::FIELDS[$k][0] . ': ' . $c[0] . ' → ' . $c[1], $factsPending['changes'], array_keys($factsPending['changes'])))) ?>):
+          <?= e(implode(', ', array_map(fn($d) => $d['title'], $factsPending['drafts']))) ?>.</p>
+        <p class="small mb-2">Active and archived documents are never changed: they may have been approved or signed as they are. Make a new version of those when you're ready.</p>
+        <form method="post" action="/clients/<?= (int) $client['id'] ?>/document-facts/drafts" class="d-inline"><?= csrf_field() ?><input type="hidden" name="update" value="1"><button class="btn btn-sm btn-primary">Update the drafts</button></form>
+        <form method="post" action="/clients/<?= (int) $client['id'] ?>/document-facts/drafts" class="d-inline ms-1"><?= csrf_field() ?><button class="btn btn-sm btn-light">Leave them</button></form>
+      </div>
+    <?php endif; ?>
+    <p class="small text-muted">Who fills these roles at <?= e($client['name']) ?>. New documents made from a template fill the matching <code>[name, title]</code> blanks with them, and <b>Fill from client details</b> in a document does the same for one already made. Approval and signature lines are left for the signers.</p>
+    <form method="post" action="/clients/<?= (int) $client['id'] ?>/document-facts">
+      <?= csrf_field() ?>
+      <div class="row g-3">
+        <?php foreach (\Align\Docs\Facts::FIELDS as $k => [$label, $help]): ?>
+          <div class="col-md-6 col-xl-4">
+            <label class="form-label mb-1" for="fact-<?= e($k) ?>"><?= e($label) ?></label>
+            <input class="form-control form-control-sm" id="fact-<?= e($k) ?>" name="facts[<?= e($k) ?>]" value="<?= e($facts[$k] ?? '') ?>" maxlength="<?= \Align\Docs\Facts::MAX ?>"
+              placeholder="Name, title" <?= $canFacts ? '' : 'readonly' ?>>
+            <div class="form-text"><?= e($help) ?></div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <?php if ($canFacts): ?><button class="btn btn-sm btn-primary mt-3"><i class="fas fa-check me-1"></i>Save details</button><?php endif; ?>
+    </form>
+  </div>
+</div>
 <?php if (Auth::can('tech')): ?>
 <?= \Align\View::fetch('documents/_new_modal', ['templates' => $templates, 'presetClient' => (int) $client['id']]) ?>
 <?= \Align\View::fetch('documents/_upload_modal', ['presetClient' => (int) $client['id']]) // 2.20.0 ?>

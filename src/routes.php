@@ -237,6 +237,7 @@ $r->post('/documents/templates/{id}', [DocumentController::class, 'templateSave'
 $r->post('/documents/templates/{id}/corrections/{cid}', [\Align\Controllers\CorrectionController::class, 'template']); // 2.38.3
 $r->get('/documents/{id}', [DocumentController::class, 'show']);
 $r->post('/documents/{id}/save', [DocumentController::class, 'save']);
+$r->post('/documents/{id}/facts', [\Align\Controllers\DocumentFactsController::class, 'fill']); // 2.39.0 Fill from client details
 $r->post('/documents/{id}/presence', [DocumentController::class, 'presence']);
 $r->get('/documents/{id}/content', [DocumentController::class, 'content']);
 $r->get('/documents/{id}/print', [DocumentController::class, 'print']);
@@ -272,6 +273,8 @@ $r->get('/documents/{id}/acknowledgments/{rid}/pdf', [$DA, 'pdf']);
 $r->get('/documents/{id}/versions/{vid}', [DocumentController::class, 'version']);
 $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, 'restore']);
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
+$r->post('/clients/{id}/document-facts', [\Align\Controllers\DocumentFactsController::class, 'save']); // 2.39.0 client details for documents
+$r->post('/clients/{id}/document-facts/drafts', [\Align\Controllers\DocumentFactsController::class, 'drafts']);
 
 // Onboarding → Contracts (2.2)
 $K = \Align\Controllers\ContractController::class;
