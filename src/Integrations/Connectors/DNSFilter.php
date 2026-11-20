@@ -18,7 +18,7 @@ use Align\Providers\ClientLinks;
  * 2.37.0 DNSFilter (DNS security and content filtering), read only: its customer organizations are linked to clients
  * on Client mapping (matching names link on every sync), and the hourly sync reads each organization's roaming
  * clients and networks and its daily request, blocked and threat totals. Two automatic checks come from them (see
- * DNSFilter\Clients): a roaming client on every RMM workstation and laptop, and office networks filtered. The client
+ * DNSFilter\Clients): a roaming client on every RMM laptop (or desktop and laptop, a setting since 2.40.1), and office networks filtered. The client
  * overview has a DNSFilter card and the QBR's Security section shows threats blocked (staff side only; nothing in the
  * client portal). Organizations, their numbers and the networks check's results are kept by Integrations\SaasStore;
  * roaming clients in dnsfilter_agents (migration 098).
@@ -40,7 +40,7 @@ final class DNSFilter extends Connector implements LinksClients, SyncsData, Prov
     /** Group on the Integrations page. */
     public function category(): string { return 'Security'; }
     /** One line: what it brings into Align. */
-    public function summary(): string { return 'DNSFilter roaming clients against each client\'s RMM workstations and laptops, office networks, and requests and threats blocked for the QBR.'; }
+    public function summary(): string { return 'DNSFilter roaming clients against each client\'s RMM laptops (or all computers), office networks, and requests and threats blocked for the QBR.'; }
 
     /** Set up when the API key is saved. */
     public function configured(): bool
@@ -57,11 +57,13 @@ final class DNSFilter extends Connector implements LinksClients, SyncsData, Prov
             . '<li>The checks appear with the other automatic checks: pick them in compliance controls and alignment standards. Each client\'s overview gets a DNSFilter card, and the QBR\'s Security section shows threats blocked.</li></ol>';
     }
 
-    /** API key (secret) and how long a roaming client may go without syncing. */
+    /** API key (secret), which computers need a roaming client (2.40.1) and how long a roaming client may go without syncing. */
     public function fields(): array
     {
         return [
             ['name' => 'dnsfilter_api_key', 'label' => 'API key', 'type' => 'secret'],
+            // (2.40.1) Which computers need a roaming client; desktops in the office are usually covered by the network
+            ['name' => 'dnsfilter_roaming_on', 'label' => 'Roaming client needed on', 'type' => 'select', 'options' => \Align\DNSFilter\Clients::ROAMING_ON, 'default' => 'laptops'],
             ['name' => 'dnsfilter_offline_days', 'label' => 'Count a roaming client as offline after', 'type' => 'number', 'min' => 1, 'max' => 90, 'suffix' => 'days', 'default' => '7'],
         ];
     }

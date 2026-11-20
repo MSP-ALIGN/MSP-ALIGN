@@ -17,6 +17,7 @@
  *    provider's own field: Claude stop_reason max_tokens, OpenAI/Grok finish_reason length, Gemini finishReason
  *    MAX_TOKENS, Ollama done_reason length), then goes back to false. A queued answer can also be
  *    {"text": "...", "truncated": true} to cut off just that one.
+ *  - "delay" (2.40.2): seconds (0-10) to wait before each provider answer, for a slow AI request.
  * Every request is recorded (provider, path, the auth header's name and value, the body). Control: POST /mock/ai
  * (merge into the state), GET /mock/ai-state, /mock/ai-reset.
  */
@@ -75,6 +76,9 @@ if ($provider === 'ollama' ? !in_array($key, ['', 'key-ollama'], true) : $key !=
     http_response_code(401);
     $json(['error' => ['message' => 'Invalid API key']]);
     return true;
+}
+if (($wait = (int) ($state['delay'] ?? 0)) > 0) { // 2.40.2 a slow answer (a failure too)
+    sleep(min(10, $wait));
 }
 if ((int) $state['fail'] > 0) {
     http_response_code((int) $state['fail']);

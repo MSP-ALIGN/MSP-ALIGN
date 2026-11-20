@@ -12,11 +12,13 @@ use Align\Settings;
 
 /**
  * 2.37.0 What DNSFilter says about one client (through its linked DNSFilter organization): roaming client coverage
- * against the client's RMM workstations and laptops, its networks, and its request and threat totals, plus the two
+ * against the client's RMM laptops (or desktops and laptops, 2.40.1), its networks, and its request and threat totals, plus the two
  * automatic checks worked out from them (CHECKS), which Connectors\DNSFilter gives to compliance controls, alignment
  * standards, the health score, reports and the evidence check.
  *
- * Coverage: the client's desktops and laptops that the RMM still sees (in use, not retired or stale) should each have
+ * Coverage (2.40.1: which computers count is a setting, roamingOn(); laptops only by default, since office desktops
+ * are usually covered by the office network's DHCP pointing at DNSFilter's servers): the client's laptops (or desktops
+ * and laptops) that the RMM still sees (in use, not retired or stale) should each have
  * a roaming client that is installed, synced with DNSFilter within offlineDays() (a setting) and filtering (state not
  * unprotected or bypassed). A device matches a roaming client by host name, without the domain (Huntress\Clients's
  * rule), from the RMM's system name or display name to the roaming client's host name or friendly name. Servers are
@@ -33,12 +35,19 @@ final class Clients
 
     /** The checks: key => label. */
     public const CHECKS = [
-        'dnsfilter_agents' => 'DNSFilter roaming client on every workstation and laptop',
+        'dnsfilter_agents' => 'DNSFilter roaming clients on the computers that need them', // (2.40.1) the check's detail names the computers roamingOn() counts
         'dnsfilter_networks' => 'Office networks filtered by DNSFilter',
     ];
 
-    /** Device classes that should run a roaming client. */
-    private const NEEDS_AGENT = ['desktop', 'laptop'];
+    /** (2.40.1) Setting dnsfilter_roaming_on: which computers should run a roaming client, value => label. */
+    public const ROAMING_ON = [
+        'laptops' => 'Laptops only (office desktops use the filtered office network)',
+        'all' => 'Desktops and laptops',
+    ];
+    /** (2.40.1) Device classes that should run a roaming client, per ROAMING_ON value. */
+    private const NEEDS_AGENT = ['laptops' => ['laptop'], 'all' => ['desktop', 'laptop']];
+    /** (2.40.1) Computer classes whose roaming clients are expected even when they aren't required (not "unmatched"). */
+    private const COMPUTERS = ['desktop', 'laptop'];
     /** Roaming client statuses and states that mean it's no longer on the computer, or is being removed. */
     private const GONE = ['uninstalled', 'uninstalled_from_client', 'disabled', 'uninstall_queued', 'uninstalling', 'pending_uninstall'];
     /** States that mean the roaming client isn't filtering. */
@@ -56,6 +65,22 @@ final class Clients
     public static function offlineDays(): int
     {
         return max(1, min(90, Settings::int('dnsfilter_offline_days', 7)));
+    }
+
+    /**
+     * (2.40.1) Which computers should run a roaming client: 'laptops' (the default) or 'all'. The stored setting is
+     * an admin's choice but is checked against ROAMING_ON, so anything else falls back to the default.
+     */
+    public static function roamingOn(): string
+    {
+        $v = (string) Settings::get('dnsfilter_roaming_on', 'laptops');
+        return isset(self::ROAMING_ON[$v]) ? $v : 'laptops';
+    }
+
+    /** (2.40.1) The computers the roaming client check counts, in words: "laptops" or "desktops and laptops". */
+    public static function scopeWords(): string
+    {
+        return self::roamingOn() === 'all' ? 'desktops and laptops' : 'laptops';
     }
 
     /** The client's linked DNSFilter organization (SaasStore record: id, name, data, synced_at), or null. */
@@ -93,15 +118,24 @@ final class Clients
         }
         $devices ??= (new Lifecycle())->devices($clientId);
         $cut = time() - self::offlineDays() * 86400;
+        $needs = self::NEEDS_AGENT[self::roamingOn()];
         $needed = $missing = $offline = $unfiltered = $used = [];
         foreach ($devices as $d) {
             if (Lifecycle::notInUse($d) || !empty($d['retired_at']) || ($d['source'] ?? '') !== 'rmm' || !empty($d['stale'])
-                || !in_array($d['device_class'] ?? '', self::NEEDS_AGENT, true)) {
+                || !in_array($d['device_class'] ?? '', self::COMPUTERS, true)) {
+                continue;
+            }
+            $a = (($k = Hosts::hostKey($d['system_name'] ?? null)) ? ($byHost[$k] ?? null) : null)
+                ?? (($k = Hosts::hostKey($d['display_name'] ?? null)) ? ($byHost[$k] ?? null) : null);
+            if (!in_array($d['device_class'], $needs, true)) {
+                // (2.40.1) A desktop with a roaming client while only laptops are required: matched, so it isn't
+                // listed as unmatched, but it doesn't count for or against the check
+                if ($a) {
+                    $used[$a['agent_id']] = true;
+                }
                 continue;
             }
             $needed[] = $d;
-            $a = (($k = Hosts::hostKey($d['system_name'] ?? null)) ? ($byHost[$k] ?? null) : null)
-                ?? (($k = Hosts::hostKey($d['display_name'] ?? null)) ? ($byHost[$k] ?? null) : null);
             $row = ['name' => $d['name'] ?? ($d['display_name'] ?: $d['system_name']), 'id' => (int) $d['id'], 'last' => $a['last_sync'] ?? null, 'state' => $a['agent_state'] ?? null];
             if (!$a) {
                 $missing[] = $row;
@@ -123,8 +157,9 @@ final class Clients
     {
         $need = count($cov['needed']);
         if (!$need) {
-            return ['unknown', 'No workstations or laptops from the RMM to compare with.'];
+            return ['unknown', 'No ' . self::scopeWords() . ' from the RMM to compare with.'];
         }
+        $what = self::scopeWords();
         $names = fn(array $rows) => implode(', ', array_slice(array_column($rows, 'name'), 0, 3)) . (count($rows) > 3 ? ' and ' . (count($rows) - 3) . ' more' : '');
         $bad = [];
         if ($cov['missing']) {
@@ -137,8 +172,8 @@ final class Clients
             $bad[] = count($cov['unfiltered']) . ' not filtering (' . $names($cov['unfiltered']) . ')';
         }
         $ok = $need - count($cov['missing']) - count($cov['offline']) - count($cov['unfiltered']);
-        return $bad ? ['fail', "$ok of $need workstations and laptops filtered; " . implode('; ', $bad) . '.']
-            : ['pass', "All $need workstations and laptops have a roaming client that is filtering."];
+        return $bad ? ['fail', "$ok of $need $what filtered; " . implode('; ', $bad) . '.']
+            : ['pass', "All $need $what have a roaming client that is filtering."];
     }
 
     /** The networks check from an organization record's data: [status, detail]. A number missing makes it unknown. */
