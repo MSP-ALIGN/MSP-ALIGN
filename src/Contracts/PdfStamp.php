@@ -367,6 +367,67 @@ final class PdfStamp
         return $doc->update($objects);
     }
 
+    /**
+     * 2.38.1 append() that also draws onto the existing pages: $stamp(Pdf $pdf, int $page) draws on page $page (as
+     * shown, top left; the Pdf has one page per existing page, at its size), then $draw adds the new pages. As build()
+     * does for a contract, each stamped page gets the drawing as extra content around the page's own, isolated from
+     * its graphics state, and everything goes in one incremental update: the original bytes stay exactly as they
+     * were, so their SHA-256 still matches what was sent. Annotations, scripts, actions and forms are left out as in
+     * append(). Returns the new bytes; throws when the PDF can't be read.
+     * Untrusted: $bytes is a PDF Align made (or an uploaded one); PdfDoc reads it under its own limits.
+     */
+    public static function appendStamped(string $bytes, callable $stamp, callable $draw): string
+    {
+        $doc = new PdfDoc($bytes);
+        $pages = $doc->pages();
+        if (!$pages) {
+            throw new \RuntimeException('The PDF has no pages.');
+        }
+        $shown = fn(array $p) => $p['rotate'] % 180 ? [$p['h'], $p['w']] : [$p['w'], $p['h']];
+        [$cw, $ch] = $shown($pages[0]);
+        if ($cw < 300 || $ch < 300 || $cw > 1300 || $ch > 1300) {
+            [$cw, $ch] = [612.0, 792.0];
+        }
+        $pdf = new Pdf($cw, $ch);
+        $pdf->prefix = 'AlignS' . bin2hex(random_bytes(4)); // never clashes with names already in the file
+        foreach ($pages as $i => $p) {
+            [$w, $h] = $shown($p);
+            $pdf->addPage($w, $h);
+            $stamp($pdf, $i);
+        }
+        $first = count($pages);
+        $draw($pdf);
+        $shared = $pdf->exportShared($doc->nextNumber());
+        $objects = $shared['objects'];
+        $next = $shared['next'];
+        $fonts = array_map(fn($n) => new PdfRef($n), $shared['fonts']);
+        $images = array_map(fn($n) => new PdfRef($n), $shared['images']);
+        foreach ($pages as $i => $p) {
+            $d = $p['dict']->d;
+            $changed = self::safeAnnots($doc, $d) || isset($p['dict']->d['Annots']);
+            $content = $pdf->pageContent($i);
+            if (trim($content) !== '') {
+                [$open, $close] = self::isolate($doc, $p['dict']);
+                $objects[$o = $next++] = Pdf::streamBody($open);
+                $objects[$n = $next++] = Pdf::streamBody($close . 'q ' . implode(' ', array_map(fn($v) => PdfDoc::ser((float) $v), self::toPage($p))) . " cm\n" . $content . "\nQ\n");
+                $orig = $doc->resolve($d['Contents'] ?? null);
+                $d['Contents'] = [new PdfRef($o), ...(is_array($orig) ? $orig : (isset($d['Contents']) ? [$d['Contents']] : [])), new PdfRef($n)];
+                $d['Resources'] = self::resources($doc, $p['resources'], $fonts, $images);
+                $changed = true;
+            }
+            if ($changed) {
+                $objects[$p['ref']->num] = PdfDoc::ser(new PdfDict($d));
+            }
+        }
+        if ($pdf->pageCount() > $first) {
+            self::appendPages($doc, $pdf, $first, $objects, $next, $fonts, $images);
+        }
+        if (($cat = self::safeCatalog($doc)) !== null) {
+            $objects[$doc->rootRef()->num] = $cat;
+        }
+        return $doc->update($objects);
+    }
+
     /** From the page as shown (top-left, rotation applied) to the page's own coordinates: the cm matrix. */
     private static function toPage(array $p): array
     {

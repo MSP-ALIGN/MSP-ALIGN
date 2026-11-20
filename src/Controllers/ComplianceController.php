@@ -180,6 +180,7 @@ final class ComplianceController
             'filter' => query('filter'),
             'docs' => \Align\Docs\Documents::forClient($id),
             'crosswalk' => self::withAlignment($id, Compliance::crosswalk($id, $fw, $controls), $controls),
+            'related' => \Align\Docs\Related::status($id, \Align\Docs\Related::forFramework((string) $f['slug'])), // 2.38.1
         ]);
     }
 

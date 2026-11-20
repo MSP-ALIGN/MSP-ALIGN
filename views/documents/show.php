@@ -93,6 +93,9 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
       </div>
 
       <?= \Align\View::fetch('documents/_links_once', ['once' => $linksOnce ?? null]) /* (2.34.0) "Create link only" */ ?>
+<?php if (!empty($related) && $client): /* 2.38.1 the documents this one relies on */ ?><?= \Align\View::fetch('documents/_related', ['client' => $client, 'rows' => $related,
+    'heading' => 'Documents this one relies on', 'intro' => 'This document points to these for the details. Create or finish the missing ones so the whole program is in place.',
+    'canEdit' => $canEdit, 'ai' => $canEdit && \Align\Ai\Ai::usable('drafts'), 'review' => $canEdit ? \Align\Docs\Related::reviewFor((int) $client['id']) : 0]) ?><?php endif; ?>
 <?php if ($doc['client_id']): /* 2.34.0 */ ?><?= \Align\View::fetch('documents/_signatures', ['doc' => $doc, 'canEdit' => $canEdit, 'signatures' => $signatures, 'signContacts' => $signContacts, 'resign' => $resign, 'me' => \Align\Auth::user()]) ?><?php endif; ?>
 <?php if ($doc['client_id']): /* 2.34.0 staff acknowledgments */ ?><?= \Align\View::fetch('documents/_acknowledgments', ['doc' => $doc, 'canEdit' => $canEdit, 'acks' => $acks, 'ackAgain' => $ackAgain, 'contacts' => $signContacts, 'controls' => $ackControls]) ?><?php endif; ?>
 

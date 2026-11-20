@@ -1,7 +1,8 @@
 """2.30.0 AI drafting (step 2): a finished compliance review's Draft documents section suggests Align templates that
 cover its gaps and drafts one for the client with the review's facts (one request, feature 'drafts'); a client
-document (a page or a file) can be updated with AI, keeping its structure or moved onto a template. Every draft is a
-new document (Draft, not in the portal); the source is never changed; AI's HTML only goes in after Html::clean.
+document (a page or a file) can be updated with AI, keeping its structure or moved onto a template. A draft is a
+Draft, not in the portal; an Active source is never changed (2.38.1: its next update goes into the same draft copy,
+see fix2381_e2e); AI's HTML only goes in after Html::clean.
 Techs and admins; AI and the drafts switch must be on. The provider mock is tests/mock-ai.php; everything is made up."""
 import json
 from lib import *
@@ -172,7 +173,7 @@ try:
        and "<script" not in d["body_html"] and "javascript:" not in d["body_html"], "the new draft keeps the structure, cleaned")
     o = q("select * from documents where id = %s", DOC["id"])[0]
     ok(o["body_html"] == BODY and o["version"] == DOC["version"] and o["status"] == "active" and o["title"] == "Backup Policy", "the original is unchanged")
-    ok(q("select 1 from audit_log where action = 'ai.draft' and detail like %s", f"%AI update of #{DOC['id']}%"), "audited")
+    ok(q("select 1 from audit_log where action = 'ai.draft' and detail like %s", f"%#{d['id']} Backup Policy (AI draft %AI update (review #{RID}): Backups now run nightly%"), "audited")
 
     # ======== update a page: move it onto a chosen template (not the preselected one)
     mock(queue=["<html><body>" + MFA["body_html"] + "<p>From the old policy: weekly USB backups.</p></body></html>"])
@@ -180,11 +181,12 @@ try:
     new = drafts()
     c = calls()[-1]
     text = request_text(c)
-    ok(len(new) == 3 and "<<<TEMPLATE " in text and "Password &amp; Multi-Factor" in text.split("<<<TEMPLATE ")[1] and re.search(r"<<<DOCUMENT 1 [0-9a-f]{16}: Backup Policy>>>", text),
+    ok(len(new) == 2 and "<<<TEMPLATE " in text and "Password &amp; Multi-Factor" in text.split("<<<TEMPLATE ")[1] and re.search(r"<<<DOCUMENT 1 [0-9a-f]{16}: Backup Policy \(AI draft [^>]*>>>", text),
        "the chosen template and the old document are both sent")
     d = new[-1]
-    ok(d["title"].startswith("Password & Multi-Factor Authentication Policy (AI draft ") and d["template_id"] == MFA["id"] and d["category"] == MFA["category"]
-       and "weekly USB backups" in d["body_html"] and "<body" not in d["body_html"], "saved on that template: " + d["title"])
+    # 2.38.1 the Active original's draft copy from the update above is reused: moved onto the template in place
+    ok(d["title"].startswith("Backup Policy (AI draft ") and d["template_id"] == MFA["id"] and "weekly USB backups" in d["body_html"]
+       and "<body" not in d["body_html"] and "AI updated the draft copy" in flash(r.text), "moved onto that template in its draft copy: " + d["title"])
     ok(q("select body_html from documents where id = %s", DOC["id"])[0]["body_html"] == BODY, "the original is still unchanged")
 
     # ======== a PDF file document as the source (sent as a PDF), no facts

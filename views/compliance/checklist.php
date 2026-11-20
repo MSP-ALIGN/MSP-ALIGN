@@ -58,6 +58,11 @@ $show = function (array $c) use ($filter) {
   </div>
 <?php endif; ?>
 
+<?php /* 2.38.1 the documents this framework needs, with where the client stands on each */ ?>
+<?= \Align\View::fetch('documents/_related', ['client' => $client, 'rows' => $related ?? [], 'heading' => 'Documents for ' . $fw['name'],
+    'intro' => 'The documents this framework expects: its own first, then the policies that cover the most of its controls. Create or finish the missing ones; each one you make Active can be linked as evidence below.',
+    'canEdit' => $canEdit, 'ai' => $canEdit && \Align\Ai\Ai::usable('drafts'), 'review' => $canEdit ? \Align\Docs\Related::reviewFor($cid) : 0]) ?>
+
 <form method="post" action="/clients/<?= $cid ?>/compliance/<?= $fid ?>" id="checklist-form" data-post-changed data-unsaved
   data-confirm-rules="<?= e(json_encode([['count' => '[data-row][data-dirty]', 'min' => 10, 'title' => 'Save {n} changed answers?', 'text' => 'Every answer you changed or filled in on this page is saved for this client.', 'ok' => 'Save']])) ?>">
   <?= csrf_field() ?>

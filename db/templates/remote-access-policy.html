@@ -27,10 +27,13 @@
 
 <h2>5. Security requirements for remote access</h2>
 <ul>
-<li><strong>MFA on every remote connection.</strong> No remote access method that grants access to internal networks or systems may rely on a password alone.</li>
+<li><strong>MFA on every remote connection.</strong> No remote access method that grants access to internal networks or systems may rely on a password alone. This includes remote maintenance and support sessions by {{company_name}} and vendors.</li>
+<li><strong>Managed access points:</strong> all remote access to internal systems passes through a small number of managed access points ([firewall VPN / ZTNA service / remote desktop gateway]) that authenticate users against the central directory and log every connection. No other inbound path is allowed.</li>
 <li><strong>No exposed RDP or management interfaces.</strong> Remote Desktop Protocol (TCP 3389), SSH, SMB, database ports and firewall, NAS, camera or printer management pages must never be directly reachable from the internet. {{company_name}} verifies this with external scans at least quarterly.</li>
 <li><strong>Encryption:</strong> remote connections use TLS 1.2 or higher, or IPsec/WireGuard using approved algorithms per the Encryption Policy.</li>
-<li><strong>Device requirements:</strong> remote access to internal networks is allowed only from company-managed devices, or from personal devices through published applications/virtual desktops that do not allow data to be saved locally. Devices must have a supported operating system, current patches, active endpoint protection and full-disk encryption.</li>
+<li><strong>Device requirements:</strong> remote access to internal networks is allowed only from company-managed devices, or from personal devices through published applications/virtual desktops that do not allow data to be saved locally. Devices must have a supported operating system, current patches, active endpoint protection and full-disk encryption. Where the VPN/ZTNA or conditional access supports it, the device's health (managed, encrypted, patched, EDR running) is checked before each connection and non-compliant devices are refused.</li>
+<li><strong>External and personal systems:</strong> company information is not processed or stored on systems {{client_name}} does not manage (home computers, personal cloud storage, a relative's device, hotel business center PCs) except through the approved methods above. Connections from external systems are limited to [published applications / web access with no download / none].</li>
+<li><strong>Cardholder data:</strong> where cardholder data is in scope, remote users cannot copy, move, print or save card numbers to local drives or removable media unless explicitly authorized for a documented business need.</li>
 <li><strong>Split tunneling:</strong> [allowed for internet traffic / disabled] as configured by {{company_name}}. Where CUI or cardholder data is accessed, split tunneling is disabled unless the device is otherwise protected, consistent with CMMC SC.L2-3.13.7.</li>
 <li><strong>Geographic and risk restrictions:</strong> sign-ins from countries where {{client_name}} does not operate are blocked by conditional access unless a travel exception is requested in advance. High-risk sign-ins are blocked or require re-authentication.</li>
 <li><strong>Remote access firewall rules</strong> limit VPN users to the specific servers and ports needed for their role.</li>
@@ -42,6 +45,7 @@
 <li>Remote desktop sessions disconnect after 15 minutes idle and log off disconnected sessions after [2] hours.</li>
 <li>Administrative sessions to firewalls, servers and cloud consoles time out after 15 minutes idle.</li>
 <li>Remote workstations lock after 15 minutes of inactivity.</li>
+<li>When a session ends, times out or is disconnected, the network connection is terminated; sessions are not left open for later reuse.</li>
 </ul>
 
 <h2>7. Remote support tools</h2>
@@ -50,7 +54,9 @@
 <li>Technician access to remote support tools requires individual named accounts and phishing-resistant MFA; technician sessions are logged with who connected, to which device, and when.</li>
 <li>Attended sessions on user workstations notify the user that a session is active.</li>
 <li>Users must never install a remote access tool or allow a remote session at the request of an unsolicited caller, pop-up or email. Legitimate {{company_name}} technicians will identify themselves and can be verified by calling {{company_phone}}.</li>
-<li><strong>Vendors</strong> who support line-of-business systems connect through a {{company_name}}-controlled method, receive access only when a session is scheduled or requested, and have access disabled when the session ends. Always-on vendor access requires security lead approval and is reviewed quarterly.</li>
+<li><strong>Vendors</strong> who support line-of-business systems connect through a {{company_name}}-controlled method, receive access only when a session is scheduled or requested, and have access disabled when the session ends. Always-on vendor access requires security lead approval and is reviewed quarterly. Vendor sessions are logged (who, when, which system, what was done where the tool records it) and the logs are reviewed by {{company_name}}. Approved vendors with remote access: [vendor, system supported, access method].</li>
+<li>{{company_name}} uses credentials and remote support access unique to {{client_name}}; they are not shared with {{company_name}}'s other customers.</li>
+<li>Running administrative commands or scripts remotely, or changing security settings remotely, is limited to authorized {{company_name}} technicians and approved administrators, and is logged.</li>
 </ul>
 
 <h2>8. Home networks and public Wi-Fi</h2>
@@ -60,12 +66,14 @@
 <li>On public Wi-Fi (hotels, coffee shops, airports), users must connect to the VPN/ZTNA before accessing company resources, or use a mobile hotspot. Never accept certificate warnings or install software prompted by a captive portal.</li>
 <li>Screens must not be visible to others in public places when working with Confidential or Restricted information; use a privacy screen where practical.</li>
 <li>Printing Confidential or Restricted information at home or in public locations is not allowed unless approved; any printed material must be secured and shredded.</li>
+<li><strong>Alternate work sites:</strong> where CUI, PHI or cardholder data is handled at home or another alternate site, the same safeguards apply as in the office: the device is locked when unattended, others in the household cannot use it or see the screen, paper records are kept in a locked drawer, and calls about Restricted information are not taken where they can be overheard.</li>
 </ul>
 
 <h2>9. Monitoring and review</h2>
 <ul>
 <li>Remote access connections, failures and administrative actions are logged and forwarded to centralized monitoring per the Logging &amp; Monitoring Policy.</li>
-<li>{{company_name}} reviews the list of users with VPN/ZTNA access and vendor remote access quarterly as part of the access review.</li>
+<li>{{company_name}} monitors remote sessions for unusual activity (for example connections at odd hours, from new countries, or many failed attempts) and can end a session or disable an account immediately.</li>
+<li>{{company_name}} reviews the list of users with VPN/ZTNA access and vendor remote access quarterly as part of the access review. Users approved for remote access: [all staff / named roles: list].</li>
 <li>Remote access for departing users is disabled as part of offboarding within 24 hours.</li>
 </ul>
 
@@ -83,7 +91,7 @@
 <li>Encryption Policy</li>
 <li>Logging &amp; Monitoring Policy</li>
 </ul>
-<p>Supports: CMMC AC.L2-3.1.12, AC.L2-3.1.13, AC.L2-3.1.14, AC.L2-3.1.15, AC.L2-3.1.11, MA.L2-3.7.5 · CIS 4.3, 6.4, 12.7 · HIPAA 164.312(a)(2)(iii), 164.312(e)(1) · NIST CSF PR.AA-03, PR.IR-01 · PCI DSS 8.2.8, 8.4.3, 8.2.7</p>
+<p>Supports: CMMC AC.L1-b.1.iii, AC.L2-3.1.11, AC.L2-3.1.12, AC.L2-3.1.13, AC.L2-3.1.14, AC.L2-3.1.15, AC.L2-3.1.20, IA.L2-3.5.3, MA.L2-3.7.2, MA.L2-3.7.5, PE.L2-3.10.6, SC.L2-3.13.7, SC.L2-3.13.9 · CIS 4.3, 6.4, 12.7, 13.5 · HIPAA 164.312(a)(2)(iii), 164.312(d), 164.312(e)(1) · ISO 27001 A.6.7 · NIST CSF PR.AA-03, PR.IR-01, DE.CM-06 · PCI DSS 3.4.2, 8.2.3, 8.2.7, 8.2.8, 8.4.2, 8.4.3 · SOC 2 CC6.6 · FTC Safeguards 314.4(c)(5)</p>
 
 <h2>13. Review and approval</h2>
 <p>This policy is reviewed at least annually and whenever remote access technologies change.</p>

@@ -93,8 +93,10 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   The source document must be the client's own and the review the client's own (both looked up with the client's id
   from the URL). The source document and the review's facts go to the AI provider between random-boundary markers
   with the never-follow-instructions rule. AI's answer is stored only after the same HTML allowlist as the editor (no
-  scripts, event attributes or javascript: links) and is refused when little text is left. Every draft is a new
-  document (a Draft, not shared in the portal); nothing existing is changed. Audited.
+  scripts, event attributes or javascript: links) and is refused when little text is left. A draft is a Draft,
+  not shared in the portal. 2.38.1: an update of a Draft page is saved into it as a new version (the text before is
+  kept in its history); an Active document or an uploaded file is never changed (its update goes into one Draft copy),
+  and a draft edited while AI was writing is not replaced (AI's version becomes a new draft). Audited.
 - AI QBR summaries and meeting prep (2.31.0, techs and admins): AI is sent a digest of the client built from
   numbers and short labels (scores, counts, totals, product and project names, dates), never contacts' names,
   email addresses, phone numbers, device names or serial numbers. Titles staff type (projects, renewals, budget lines) are sent as
@@ -154,6 +156,11 @@ IDs. Keep that kind of information out of notes, meeting notes and documents.
   page content can't clip or move them, and the certificate pages. Annotations other than plain links, forms,
   document scripts, automatic actions and attached files are left out of the update, so they can't cover the
   signatures or run in a reader. In the browser the pages are drawn with PDF.js (no scripts, no forms, no eval).
+- **Client documents signed in Align (2.38.1).** A written document's approval block is printed with a blank for each
+  signer; the signed copy is the PDF that was sent, byte for byte, with an incremental update that writes each
+  signer's name, signature and date into those blanks (the same isolated drawing as above) and adds the certificate,
+  so the fingerprint of the PDF that was sent still matches. Where the blanks are is decided by Align when it prints
+  the PDF; the numbers are stored with the request and kept within the page when stamped.
 - **Audited before release.** Five reviewers read every file of 2.2.0 against the same six areas as the 1.45 audit,
   and an independent review checked the fixes. Found and fixed before release: a signed contract could be moved to
   another client, signed details could follow later changes to the client or Settings, the signing link was written

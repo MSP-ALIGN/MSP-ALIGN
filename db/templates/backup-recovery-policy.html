@@ -34,7 +34,10 @@
 <li><strong>Other SaaS applications:</strong> critical SaaS data ([CRM, accounting]) is exported or backed up where the vendor allows, or the vendor's backup and recovery capabilities are confirmed during vendor review.</li>
 <li><strong>Configurations:</strong> firewall, switch and wireless configurations are backed up after each change and at least monthly; cloud tenant configuration (conditional access, Intune policies) is documented or exported.</li>
 <li><strong>Workstations:</strong> not routinely backed up; users' Desktop, Documents and Pictures folders are redirected to OneDrive (Known Folder Move). Workstations with required local data ([exceptions]) receive endpoint backup.</li>
+<li><strong>Before equipment is moved, repaired or replaced:</strong> a retrievable, exact copy of the data on it is made and verified before the move, including servers, NAS devices and workstations with local data.</li>
 </ul>
+<p>For systems holding regulated information ([e.g. ePHI, payment card data, CUI, customer financial information]), backups are retrievable exact copies of that information, protected as carefully as the original (HIPAA 164.308(a)(7)(ii)(A)).</p>
+<p><strong>Backup inventory:</strong> the list of protected systems, with the backup tool, schedule, local and offsite destination and retention for each, is kept at [location, e.g. {{company_name}}'s documentation system] and reviewed [quarterly]. Current setup: servers backed up by [backup tool] to [local appliance / storage] and [offsite or cloud destination, region]; Microsoft 365 / Google Workspace backed up by [cloud backup tool] to [destination, region].</p>
 
 <h2>6. Backup frequency</h2>
 <p>Frequency is set to meet each system's recovery point objective (RPO) in the Business Continuity &amp; Disaster Recovery Plan. Minimums:</p>
@@ -53,15 +56,18 @@
 <li><strong>Microsoft 365 / SaaS backups:</strong> [unlimited / 7 years / 1 year] retention.</li>
 <li>Retention must meet legal, regulatory and contractual requirements identified in the Data Retention &amp; Disposal Policy (for example HIPAA documentation, IRS records, and client contracts), but backups should not be kept longer than needed.</li>
 <li>Backups of departed users' mailboxes and OneDrive are retained for [period] after departure.</li>
+<li>Backups that pass their retention period are deleted automatically by the backup tool. Backup media and appliances that are retired are wiped or destroyed under the Data Retention &amp; Disposal Policy, and {{company_name}} keeps a record or certificate of destruction.</li>
+<li>Information deleted because its retention period ended, or at a person's request (for example under a privacy law), may remain in backups until those backups expire. Such backups are not used for anything except recovery, and if one is restored the deletion is applied again before the data goes back into use.</li>
 </ul>
 
 <h2>8. Protection of backups</h2>
 <ul>
 <li><strong>Immutability:</strong> at least one copy is immutable for at least [14–30] days (for example cloud object-lock storage or a backup vendor's immutable cloud tier), so ransomware or a compromised administrator account cannot delete it.</li>
 <li><strong>Encryption:</strong> all backups are encrypted in transit and at rest with AES-256. Encryption keys and passphrases are stored in the password manager and in a sealed offline copy at [location], separately from the backups.</li>
-<li><strong>Access control:</strong> backup consoles use separate administrator accounts that are not joined to the production domain where possible, require phishing-resistant MFA, and are limited to named {{company_name}} staff. Deletion of backups or changes to retention require a second person or a delay where supported.</li>
+<li><strong>Access control:</strong> backup consoles use separate administrator accounts that are not joined to the production domain where possible, require phishing-resistant MFA, and are limited to named {{company_name}} staff. Deletion of backups or changes to retention require a second person or a delay where supported, and generate an alert to {{company_name}}.</li>
 <li><strong>Isolation:</strong> backup storage is on a separate network segment or credentials from production; backup shares are not mapped as drive letters on servers or workstations.</li>
 <li><strong>Physical security:</strong> on-premises backup appliances are in a locked location. Any removable backup media is encrypted and transported and stored securely.</li>
+<li><strong>Offsite location review:</strong> the security of each offsite or offline backup location (cloud storage provider, data center or physical storage site) is reviewed at least annually. Providers that store backups of regulated information sign the agreements that information requires ([e.g. a business associate agreement for ePHI]).</li>
 </ul>
 
 <h2>9. Monitoring</h2>
@@ -74,22 +80,19 @@
 
 <h2>10. Restore testing</h2>
 <ul>
-<li>Restore tests are performed at least <strong>quarterly</strong>. Each quarter includes at minimum:
-<ul>
-<li>A file-level restore from a server or file share backup.</li>
-<li>A restore of a mailbox item or OneDrive/SharePoint file from the Microsoft 365 backup.</li>
-<li>On a rotating basis, a full system or virtual machine boot test of a critical server, including confirmation that the application opens and data is current.</li>
-</ul>
-</li>
+<li>Restore tests are performed at least <strong>quarterly</strong>. Each quarter includes at minimum the three tests below.</li>
+<li><strong>Quarterly test 1:</strong> a file-level restore from a server or file share backup.</li>
+<li><strong>Quarterly test 2:</strong> a restore of a mailbox item or OneDrive/SharePoint file from the Microsoft 365 / Google Workspace backup.</li>
+<li><strong>Quarterly test 3:</strong> on a rotating basis, a full system or virtual machine boot test of a critical server, including confirmation that the application opens and data is current.</li>
 <li>At least <strong>annually</strong>, a restore from the offsite/immutable copy is tested, and a recovery of the most critical system is timed to confirm the RTO can be met.</li>
-<li>Test results are documented: date, system, backup date used, what was restored, time taken, success or failure, issues found and corrective actions. Results are kept for at least [3] years and reviewed at quarterly business reviews.</li>
+<li>Test results are documented: date, system, backup date used, what was restored, time taken, success or failure, issues found and corrective actions. Results are kept for at least [3] years (six years where HIPAA applies) and reviewed at quarterly business reviews.</li>
 <li>Failed tests are treated as a high-priority issue and re-tested after correction within 30 days.</li>
 </ul>
 
 <h2>11. Restore requests</h2>
 <ul>
 <li>Users request restores through {{company_name}}'s support channels ({{company_phone}}, {{company_email}}). Restores of another user's data or of Restricted data require manager or data owner approval.</li>
-<li>Restores during a security incident follow the Incident Response Plan, including verifying the backup is from before the compromise.</li>
+<li>Restores during a security incident follow the Incident Response Plan, including verifying the backup is from before the compromise and checking it for malware before it is used. Restored systems are scanned and checked before they are reconnected to the network.</li>
 </ul>
 
 <h2>12. Exceptions</h2>
@@ -106,7 +109,7 @@
 <li>Change Management Policy</li>
 <li>Incident Response Plan</li>
 </ul>
-<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 11.2, 11.3, 11.4, 11.5 · HIPAA 164.308(a)(7)(ii)(A), 164.308(a)(7)(ii)(B), 164.308(a)(7)(ii)(D), 164.310(d)(2)(iv) · NIST CSF PR.DS-11, RC.RP-03 · PCI DSS 9.4.1, 12.10.1</p>
+<p>Supports: CMMC MP.L2-3.8.9 · CIS 11.1, 11.2, 11.3, 11.4, 11.5 · HIPAA 164.308(a)(7)(ii)(A), 164.308(a)(7)(ii)(B), 164.308(a)(7)(ii)(D), 164.310(d)(2)(iv) · NIST CSF PR.DS-11, RC.RP-03, RC.RP-05 · ISO 27001 A.8.13 · SOC 2 A1.2, A1.3, PI1.5 · PCI DSS 9.4.1.1, 9.4.1.2, 12.10.1 · CCPA 11 CCR 7123(b)(2)(R) · Cyber insurance: encrypted, isolated backups and an annual restore test · Microsoft 365 baseline: third-party backup, restores tested at least twice a year</p>
 
 <h2>15. Review and approval</h2>
 <p>This policy is reviewed at least annually and after any failed recovery.</p>

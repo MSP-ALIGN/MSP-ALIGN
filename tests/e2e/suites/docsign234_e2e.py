@@ -228,7 +228,7 @@ try:
     pt = pdf_text(d.content)
     ok(d.status_code == 200 and d.content.startswith(SRC) and hashlib.sha256(d.content).hexdigest() == R["signed_hash"], "the signed copy is the PDF that was sent with pages added after it")
     ok("Signatures and certificate" in pt and "Avery Lane" in pt and "Blake Moss" in pt and "Countersigned by: Tess Tech" in pt and R["source_hash"] in pt
-       and "entered the one-time code emailed" in pt and "client portal" in pt and "IP address" in pt and re.search(r"Page 2 of [23]\b", pt), "the certificate: signers, how each was identified, IPs, the fingerprint")
+       and "entered the one-time code emailed" in pt and "client portal" in pt and "IP address" in pt and re.search(r"Page 2 of [234]\b", pt), "the certificate: signers, how each was identified, IPs, the fingerprint")
     ok("Completed" in tech.get(B + f"/documents/{P}").text and "Signed PDF" in tech.get(B + f"/documents/{P}").text, "the document page shows Completed and the signed PDF")
     ok(len(mails_to("avery@docsign.example", "Signed: ")) == 1 and len(mails_to("blake@docsign.example", "Signed: ")) == 1, "each signer is emailed the signed copy")
     t = sa.get(LA).text

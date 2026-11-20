@@ -1,6 +1,6 @@
 <h1>Security Risk Assessment Report</h1>
 <p><strong>{{client_name}}</strong> · Assessment date {{today}} · Prepared with {{company_name}}</p>
-<p><strong>Prepared by:</strong> {{vcio_name}}, {{company_name}}<br><strong>Client contact:</strong> {{client_contact}} ({{client_contact_email}})<br><strong>Assessment period:</strong> [start date] to [end date]<br><strong>Classification:</strong> Confidential — contains details of security weaknesses. Distribute only to authorized management.</p>
+<p><strong>Prepared by:</strong> {{vcio_name}}, {{company_name}}<br><strong>Assessment team:</strong> [names and roles of everyone who took part, from {{client_name}} and {{company_name}}]<br><strong>Client contact:</strong> {{client_contact}} ({{client_contact_email}})<br><strong>Assessment period:</strong> [start date] to [end date]<br><strong>Classification:</strong> Confidential — contains details of security weaknesses. Distribute only to authorized management.</p>
 
 <h2>1. Executive summary</h2>
 <p>[Two or three paragraphs in plain language for owners and leadership. Summarize why the assessment was done, the overall risk posture, the most important findings, and what decisions are needed.]</p>
@@ -20,15 +20,18 @@
 </ul>
 
 <h2>2. Purpose</h2>
-<p>This assessment identifies reasonably foreseeable threats to the confidentiality, integrity and availability of {{client_name}}'s information and systems, evaluates the likelihood and impact of those threats given current safeguards, and recommends actions to reduce risk to a level management accepts. It supports {{client_name}}'s Information Security Policy and applicable requirements such as the HIPAA risk analysis (164.308(a)(1)(ii)(A)), the FTC Safeguards Rule risk assessment (314.4(b)), CMMC RA.L2-3.11.1 and PCI DSS targeted risk analysis. This report reflects conditions at the time of assessment and does not by itself establish compliance with any regulation.</p>
+<p>This assessment identifies reasonably foreseeable threats to the confidentiality, integrity and availability of {{client_name}}'s information and systems, evaluates the likelihood and impact of those threats given current safeguards, and recommends actions to reduce risk to a level management accepts. It supports {{client_name}}'s Information Security Policy and applicable requirements such as the HIPAA risk analysis (164.308(a)(1)(ii)(A)), the FTC Safeguards Rule risk assessment (314.4(b)), CMMC RA.L2-3.11.1 and PCI DSS targeted risk analysis. It also documents the criteria used to evaluate and categorize risks and threats (section 6), the criteria used to assess the confidentiality, integrity and availability of information systems and data, including the adequacy of existing controls (sections 4 and 7), and how each risk will be mitigated or accepted (section 8), as 16 CFR 314.4(b)(1) requires. This report reflects conditions at the time of assessment and does not by itself establish compliance with any regulation.</p>
 
 <h2>3. Scope</h2>
 <ul>
+<li><strong>Business context:</strong> [what {{client_name}} does, its critical services and processes, how long it can operate without its key systems, and the customers, regulators, insurers and partners whose requirements shape its security]</li>
 <li><strong>Locations:</strong> [addresses]</li>
 <li><strong>Users and devices:</strong> [#] users, [#] workstations/laptops, [#] servers, [#] mobile devices</li>
 <li><strong>Systems in scope:</strong> [Microsoft 365 tenant, Active Directory, line-of-business applications, firewall, wireless, backup systems, phone system, key SaaS applications]</li>
 <li><strong>Data types:</strong> [customer PII, PHI, payment card data, CUI, employee records, financial records]</li>
-<li><strong>Applicable requirements:</strong> [HIPAA, FTC Safeguards Rule, PCI DSS, CMMC Level [1/2], cyber insurance requirements, California CCPA/CPRA and Civil Code 1798.81.5]</li>
+<li><strong>Applicable requirements:</strong> [HIPAA, FTC Safeguards Rule, PCI DSS, CMMC Level 1 or 2, ISO 27001, SOC 2, cyber insurance requirements, California CCPA/CPRA and Civil Code 1798.81.5, contract requirements]</li>
+<li><strong>Significant changes since the last assessment:</strong> [new or retired systems, vendors, locations, services, staffing changes, mergers, incidents; or "first assessment"]</li>
+<li><strong>Processing that needs a separate privacy risk assessment</strong> (California CCPA regulations, where they apply): [none / list processing such as selling or sharing personal information, processing sensitive personal information, or automated decision-making for significant decisions]</li>
 <li><strong>Out of scope:</strong> [e.g. personal devices, vendor-hosted infrastructure beyond configuration review, physical penetration testing]</li>
 </ul>
 
@@ -37,10 +40,11 @@
 <ol>
 <li><strong>Information gathering:</strong> interviews with [names/roles]; review of existing policies and documentation; review of {{company_name}} RMM, EDR, backup and ticketing data.</li>
 <li><strong>Technical review:</strong> [internal and external vulnerability scans, Microsoft 365 secure configuration review (Secure Score / CIS benchmark), firewall rule review, Active Directory review, backup verification, email security (SPF/DKIM/DMARC)].</li>
-<li><strong>Control assessment:</strong> current safeguards compared against [CIS Controls v8 Implementation Group [1/2] / NIST CSF 2.0 / NIST SP 800-171 / HIPAA Security Rule].</li>
+<li><strong>Control assessment:</strong> current safeguards compared against [CIS Controls v8.1 Implementation Group 1 or 2 / NIST CSF 2.0 / NIST SP 800-171 / HIPAA Security Rule / FTC Safeguards Rule / ISO 27001 Annex A], noting for each whether it is in place, partly in place or missing, and how well it works.</li>
 <li><strong>Risk analysis:</strong> each threat and vulnerability pair is rated for likelihood and impact using the scales in section 6.</li>
 <li><strong>Recommendations and treatment:</strong> recommendations are prioritized and reviewed with management, who record a treatment decision for each risk.</li>
 </ol>
+<p>The same rating scales and method are used at each assessment so results can be compared year to year. <strong>[PCI DSS only:]</strong> targeted risk analyses for requirements where {{client_name}} sets how often a task is done (PCI DSS 12.3.1) are listed here with the frequency chosen and the reason: [requirement, frequency, reason / not applicable].</p>
 
 <h2>5. Asset, threat and vulnerability identification</h2>
 <h3>5.1 Critical assets</h3>
@@ -96,6 +100,7 @@
 <ul>
 <li><strong>Risk rating:</strong> [Critical / High / Medium / Low] (Likelihood: [ ]; Impact: [ ])</li>
 <li><strong>Description:</strong> [What was found, where, and evidence.]</li>
+<li><strong>Existing controls:</strong> [Controls already in place for this risk and how well they work.]</li>
 <li><strong>Threat and business impact:</strong> [What could happen and how it would affect the business.]</li>
 <li><strong>Recommendation:</strong> [Specific action to reduce risk.]</li>
 <li><strong>Estimated cost/effort:</strong> [e.g. included in managed services / one-time project $X / license $X per month]</li>
@@ -103,11 +108,13 @@
 <li><strong>Target date:</strong> [date]</li>
 <li><strong>Related controls:</strong> [e.g. CIS 6.5, CMMC IA.L2-3.5.3, HIPAA 164.312(d)]</li>
 <li><strong>Treatment decision:</strong> [Mitigate / Accept / Transfer / Avoid]</li>
+<li><strong>Residual risk after treatment:</strong> [Critical / High / Medium / Low]</li>
 </ul>
 <h3>Finding [R-002]: [Short title]</h3>
 <ul>
 <li><strong>Risk rating:</strong> [ ]</li>
 <li><strong>Description:</strong> [ ]</li>
+<li><strong>Existing controls:</strong> [ ]</li>
 <li><strong>Threat and business impact:</strong> [ ]</li>
 <li><strong>Recommendation:</strong> [ ]</li>
 <li><strong>Estimated cost/effort:</strong> [ ]</li>
@@ -115,6 +122,7 @@
 <li><strong>Target date:</strong> [ ]</li>
 <li><strong>Related controls:</strong> [ ]</li>
 <li><strong>Treatment decision:</strong> [ ]</li>
+<li><strong>Residual risk after treatment:</strong> [ ]</li>
 </ul>
 <p>[Copy the block above for each additional finding.]</p>
 
@@ -155,10 +163,9 @@
 <li>Vulnerability scan and Microsoft 365 configuration reports ([dates])</li>
 <li>Previous risk assessment ([date])</li>
 </ul>
-<p>Supports: CMMC RA.L2-3.11.1, CA.L2-3.12.1, CA.L2-3.12.2 · CIS 7.1 · HIPAA 164.308(a)(1)(ii)(A), 164.308(a)(1)(ii)(B), 164.308(a)(8) · NIST CSF ID.RA-03, ID.RA-04, ID.RA-05, ID.RA-06, GV.RM-06 · PCI DSS 12.3.1</p>
+<p>Supports: CMMC RA.L2-3.11.1, CA.L2-3.12.1, CA.L2-3.12.2 · CIS 7.1 · HIPAA 164.308(a)(1)(ii)(A), 164.308(a)(1)(ii)(B), 164.308(a)(8) · FTC Safeguards Rule 314.4(b) · ISO 27001 clauses 4.1, 6.1.2, 8.2 · NIST CSF ID.RA-03, ID.RA-04, ID.RA-05, ID.RA-06, GV.RM-06, GV.SC-03 · PCI DSS 12.3.1 · SOC 2 CC3.1, CC3.2, CC3.3, CC3.4 · CCPA regulations 7150, 7152</p>
 
 <h2>12. Review and approval</h2>
 <p>By signing, management confirms it has reviewed this report, understands the risks identified, and approves the treatment decisions recorded in section 8.</p>
-<p>Reviewed and approved by: [name, title]<br>Signature: ______________________<br>Date: [date]</p>
+<p>Reviewed and approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date (next assessment due): [date]</p>
 <p>Prepared by: {{vcio_name}}, {{company_name}}<br>Signature: ______________________<br>Date: [date]</p>
-<p>Next assessment due: [date]</p>

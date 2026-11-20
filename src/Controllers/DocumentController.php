@@ -167,7 +167,21 @@ final class DocumentController
                 WHERE s.document_id = ? ORDER BY f.name, c.sort', [$id]),
             'editor' => !$file,
             'pdfJs' => $file && $doc['file_type'] === 'pdf',
+            'related' => self::related($doc), // 2.38.1
         ] + self::signatureVars($doc));
+    }
+
+    /**
+     * 2.38.1 The related-documents checklist for a client's program document (Docs\Related::DEPENDS, by the template
+     * it was made from): the documents it relies on and where the client stands on each. [] for any other document.
+     */
+    private static function related(array $doc): array
+    {
+        if (!$doc['client_id'] || !$doc['template_id']) {
+            return [];
+        }
+        $slug = DB::value('SELECT slug FROM document_templates WHERE id = ?', [(int) $doc['template_id']]);
+        return \Align\Docs\Related::status((int) $doc['client_id'], \Align\Docs\Related::forTemplate(is_string($slug) ? $slug : null));
     }
 
     /**

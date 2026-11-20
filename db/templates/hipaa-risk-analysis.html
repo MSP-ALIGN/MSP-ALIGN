@@ -28,6 +28,7 @@
 <li>Determine the level of risk from likelihood and impact.</li>
 <li>Document findings in the risk register and plan remediation.</li>
 </ol>
+<p>In choosing security measures, the analysis takes into account {{client_name}}'s size, complexity and capabilities; its technical infrastructure, hardware and software; the cost of security measures; and the probability and criticality of potential risks to ePHI (164.306(b)(2)).</p>
 <p>Information sources: interviews with [roles], review of policies, {{company_name}} asset inventory and RMM data, vulnerability scan results dated [date], Microsoft 365/EHR audit log review, walk-through of the facility on [date], and business associate documentation.</p>
 
 <h2>4. Data collection — ePHI inventory</h2>
@@ -43,6 +44,7 @@
 <li><strong>System / asset:</strong> [Phone system / voicemail / e-fax]</li>
 <li><strong>System / asset:</strong> [Billing company, clearinghouse, patient reminder service, telehealth platform]</li>
 <li><strong>Paper-to-electronic points:</strong> [scanning stations, fax-to-email]</li>
+<li><strong>Network and data flow diagram:</strong> [location of the current diagram showing where ePHI is stored and how it moves between systems, the internet and business associates; date last updated]</li>
 </ul>
 
 <h2>5. Threats and vulnerabilities</h2>
@@ -58,10 +60,25 @@
 <h2>6. Current security measures</h2>
 <p>Summarize the safeguards currently in place (Security Rule references in parentheses), noting any gaps:</p>
 <ul>
-<li><strong>Administrative:</strong> security official designated (164.308(a)(2)); workforce training (164.308(a)(5)) — last completed [date]; access authorization and termination procedures (164.308(a)(3)–(4)); incident procedures (164.308(a)(6)); contingency plan and backups (164.308(a)(7)); BAAs (164.308(b)).</li>
-<li><strong>Physical:</strong> facility access controls (164.310(a)); workstation use and security (164.310(b)–(c)); device and media disposal and re-use (164.310(d)).</li>
-<li><strong>Technical:</strong> unique user IDs and automatic logoff (164.312(a)); audit controls (164.312(b)); integrity controls (164.312(c)); authentication, including MFA (164.312(d)); transmission security and encryption (164.312(e)).</li>
+<li><strong>Administrative:</strong> security official designated (164.308(a)(2)); risk management and sanction policy (164.308(a)(1)(ii)(B)–(C)); information system activity review — audit logs, access reports and security incident tracking reviewed [how often] (164.308(a)(1)(ii)(D)); workforce authorization, clearance and termination procedures (164.308(a)(3)); access authorization, establishment and modification (164.308(a)(4)); workforce training, security reminders, protection from malicious software, log-in monitoring and password management (164.308(a)(5)) — training last completed [date]; incident procedures (164.308(a)(6)); contingency plan — data backup, disaster recovery, emergency mode operation, testing and applications and data criticality analysis (164.308(a)(7)); periodic technical and non-technical evaluation (164.308(a)(8)) — last completed [date]; BAAs (164.308(b)).</li>
+<li><strong>Physical:</strong> facility access controls — contingency operations, facility security plan, access control and validation, maintenance records (164.310(a)); workstation use and security (164.310(b)–(c)); device and media disposal, re-use, accountability and backup before moving equipment (164.310(d)).</li>
+<li><strong>Technical:</strong> unique user IDs, emergency access procedure, automatic logoff and encryption at rest (164.312(a)); audit controls (164.312(b)); integrity controls (164.312(c)); authentication, including MFA (164.312(d)); transmission security — integrity controls and encryption (164.312(e)).</li>
+<li><strong>Organizational, policies and documentation:</strong> business associate contracts with the required terms (164.314(a)); written security policies and procedures, kept for six years, available to those who use them and reviewed periodically (164.316).</li>
 <li><strong>Managed by {{company_name}}:</strong> [EDR, patching, firewall, backup monitoring, MFA, email filtering, disk encryption, security awareness platform].</li>
+<li><strong>Recognized security practices:</strong> [e.g. NIST Cybersecurity Framework, the HHS 405(d) Health Industry Cybersecurity Practices (HICP), or none] in place since [date]. HHS considers recognized security practices that have been in place for the previous 12 months when it decides fines and audit outcomes (HITECH Act section 13412), so keep evidence of them.</li>
+</ul>
+<h3>6.1 Addressable implementation specifications</h3>
+<p>"Addressable" does not mean optional. For each addressable specification, {{client_name}} documents whether it is implemented, whether an equivalent alternative measure is used instead, or why neither is reasonable and appropriate (164.306(d)(3)). Record one decision per line:</p>
+<ul>
+<li><strong>Workforce supervision, clearance and termination (164.308(a)(3)(ii)(A)–(C)):</strong> [Implemented / Alternative: ___ / Not reasonable and appropriate because ___]</li>
+<li><strong>Access authorization and access establishment and modification (164.308(a)(4)(ii)(B)–(C)):</strong> [Implemented / Alternative / Not reasonable and appropriate — reason]</li>
+<li><strong>Security reminders, malicious software, log-in monitoring, password management (164.308(a)(5)(ii)(A)–(D)):</strong> [decision for each]</li>
+<li><strong>Contingency plan testing and revision; applications and data criticality analysis (164.308(a)(7)(ii)(D)–(E)):</strong> [decision for each]</li>
+<li><strong>Facility contingency operations, facility security plan, access control and validation, maintenance records (164.310(a)(2)(i)–(iv)):</strong> [decision for each]</li>
+<li><strong>Hardware and media accountability; data backup and storage before moving equipment (164.310(d)(2)(iii)–(iv)):</strong> [decision for each]</li>
+<li><strong>Automatic logoff; encryption and decryption of ePHI at rest (164.312(a)(2)(iii)–(iv)):</strong> [decision for each — if encryption at rest is not used anywhere, the reason and the equivalent measure must be documented]</li>
+<li><strong>Mechanism to authenticate ePHI (164.312(c)(2)):</strong> [decision]</li>
+<li><strong>Transmission integrity controls and encryption (164.312(e)(2)(i)–(ii)):</strong> [decision for each]</li>
 </ul>
 
 <h2>7. Likelihood and impact scales</h2>
@@ -119,9 +136,9 @@
 <ul>
 <li>Last analysis: [date] · Next scheduled review: [date]</li>
 </ul>
+<p>Supports: HIPAA 164.308(a)(1)(ii)(A), 164.308(a)(1)(ii)(B), 164.308(a)(8), 164.306(d)(3), 164.316(b) · NIST CSF ID.RA-03 to ID.RA-06, GV.RM-06 · NIST SP 800-30 risk assessment steps</p>
 
 <h2>13. Review and approval</h2>
-<p>Security Official: [name, title] · Signature: ______________________ · Date: [date]</p>
+<p>This risk analysis and the risk management plan are approved by the Security Official and the practice owner or administrator.</p>
+<p>Security Official: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Prepared with assistance from: {{company_name}}<br>Next review date: [date]</p>
 <p>Practice owner / administrator: [name, title] · Signature: ______________________ · Date: [date]</p>
-<p>Prepared with assistance from: {{company_name}} · Date: [date]</p>
-<p>Next review date: [date]</p>

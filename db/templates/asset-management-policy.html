@@ -17,25 +17,34 @@
 
 <h2>4. Hardware inventory</h2>
 <ul>
-<li>Every hardware asset is recorded in the inventory before it is put into use. Records include: asset tag or serial number, make and model, device name, assigned user or location, asset owner, purchase date, warranty expiration, operating system, data classification of data stored, encryption status, and status (in use, in storage, retired).</li>
-<li>Workstations and servers are discovered and tracked automatically by the {{company_name}} RMM agent. Network, printer and IoT devices are recorded manually and confirmed by network scans.</li>
+<li>Every hardware asset is recorded in the inventory before it is put into use. Records include: asset tag or serial number, make and model, device name, network address where static, assigned user or location, asset owner, purchase date, warranty expiration, operating system, data classification of data stored, criticality to the business ([high/medium/low]), encryption status, and status (in use, in storage, retired).</li>
+<li>Workstations and servers are discovered and tracked automatically by the {{company_name}} RMM agent. Network, printer and IoT devices are recorded manually and confirmed by an active network discovery scan run at least [weekly / monthly] and by DHCP logs. Managed devices that have not checked in to the RMM for [30] days are investigated.</li>
 <li>{{company_name}} reconciles the inventory at least <strong>monthly</strong> against RMM, endpoint protection, MDM and directory data. Unknown devices discovered on the network are investigated within 2 business days and either enrolled, moved to the guest network, or removed.</li>
 <li>A full physical inventory check is completed at least <strong>annually</strong>.</li>
+<li><strong>Network diagrams:</strong> {{company_name}} maintains current network architecture and data flow diagrams showing internet connections, firewalls, network segments, wireless networks, servers and cloud services, and where Restricted data is stored and flows. They are updated after significant changes and reviewed at least annually.</li>
+<li><strong>Wireless access points:</strong> authorized wireless access points are listed with their location and business purpose. Where cardholder data is in scope, {{company_name}} checks for unauthorized (rogue) access points at least quarterly.</li>
+<li><strong>Payment devices:</strong> where {{client_name}} takes card payments in person, a list of payment terminals (make, model, location, serial number) is kept, and terminals are inspected periodically for tampering or substitution.</li>
+<li><strong>Removable media with Restricted data:</strong> any backup tapes, drives or other media holding cardholder data or other Restricted data are logged (what, where, who has it) and the log is checked at least annually.</li>
+<li>The firewall at each site is a business-class device with current firmware and an active vendor support subscription.</li>
 </ul>
 
 <h2>5. Software and cloud service inventory</h2>
 <ul>
-<li>{{company_name}} maintains a list of installed software from RMM data, and a list of SaaS and cloud subscriptions including owner, number of licenses, data stored, admin contacts and renewal date.</li>
+<li>{{company_name}} maintains a list of installed software from RMM data (updated automatically at least [weekly]), and a list of SaaS and cloud subscriptions including owner, number of licenses, data stored, admin contacts and renewal date.</li>
+<li>Third-party applications connected to the company's Microsoft 365 or Google Workspace tenant (and apps added to Teams or shared drives) are approved by an administrator and listed with the data they can reach; users cannot grant such apps access themselves.</li>
+<li>Where {{client_name}} has custom or client-built software, an inventory of that software and the third-party components and libraries it uses is kept, as described in the Client-Built Software Policy.</li>
 <li>{{client_name}} maintains an <strong>approved software list</strong>. Only software on the list may be installed. Users request new software through {{company_name}}; requests are reviewed for security, licensing and vendor risk, and approved by the security lead or asset owner.</li>
 <li>Unapproved or unlicensed software discovered on company devices is removed within 14 days unless an exception is approved.</li>
-<li>Software must be a version supported by its vendor with security updates. Unsupported software is handled under the Vulnerability &amp; Patch Management Policy.</li>
-<li>Where practical, application control or allow-listing prevents unapproved executables from running.</li>
+<li>Software must be a version supported by its vendor with security updates. Unsupported software is handled under the Vulnerability &amp; Patch Management Policy. {{company_name}} reviews all hardware and software in use at least annually for vendor support and announced end-of-life dates.</li>
+<li>Only legally licensed software is used, in line with its license terms.</li>
+<li>Application control or allow-listing prevents unapproved executables [and scripts and libraries] from running: [in place on all devices / in place on servers only / planned]. At a minimum, known unwanted software is blocked (deny by exception) and user-installed software is monitored through the RMM.</li>
 <li>Users do not have local administrator rights and cannot install software themselves.</li>
+<li>Utility programs that can override system or security controls (for example registry editors used remotely, password recovery tools, disk editors, scripting tools run as administrator) are restricted to {{company_name}} technicians and authorized administrators.</li>
 </ul>
 
 <h2>6. Asset lifecycle</h2>
 <ul>
-<li><strong>Procurement:</strong> IT equipment is purchased through or in consultation with {{company_name}} to ensure it meets business-class standards (for example TPM 2.0, supported OS, business warranty). Consumer-grade network equipment is not used for business networks.</li>
+<li><strong>Procurement:</strong> IT equipment is purchased through or in consultation with {{company_name}} to ensure it meets business-class standards (for example TPM 2.0, supported OS, business warranty). Consumer-grade network equipment is not used for business networks. Hardware and software are bought only from the manufacturer or authorized resellers, and software is downloaded only from the vendor's official site or app store, so that counterfeit or tampered products are avoided.</li>
 <li><strong>Deployment:</strong> devices are configured to the security baseline, encrypted, enrolled in RMM/MDM, and recorded in the inventory before being issued. Users sign for laptops and mobile devices.</li>
 <li><strong>Maintenance:</strong> assets are kept under warranty or a support contract while in production. Servers and network equipment critical to operations should have next-business-day or better hardware support.</li>
 <li><strong>Replacement targets:</strong>
@@ -51,15 +60,25 @@
 <li><strong>Reassignment:</strong> before a device is reassigned to another user, it is wiped and re-imaged or reset, unless the device is being transferred with its data by manager direction.</li>
 </ul>
 
-<h2>7. Physical security and custody</h2>
+<h2>7. Browsers, email clients and web filtering</h2>
+<ul>
+<li>Only fully supported web browsers and email clients are used ([e.g. Microsoft Edge, Google Chrome, Mozilla Firefox; Outlook or the Gmail web app]), kept on the latest version through automatic updates. Old or unsupported browsers are removed.</li>
+<li>Browser settings are managed centrally by {{company_name}}. Browser extensions and add-ons are limited to an approved list ([list or "managed by {{company_name}}"]); all others are blocked.</li>
+<li>Mobile code (for example macros, scripts and browser plug-ins) is controlled: macros in Office files from the internet are blocked, and legacy plug-ins such as Flash and Java applets are not allowed.</li>
+<li>A DNS or web filter blocks access to known malicious, phishing and newly registered domains and to categories {{client_name}} has decided to block ([e.g. adult content, gambling, file-sharing]), on and off the office network.</li>
+<li>Links in email and collaboration apps are checked when clicked (for example Safe Links or an equivalent feature in the email security tool), and users cannot click through to sites found to be malicious.</li>
+</ul>
+
+<h2>8. Physical security and custody</h2>
 <ul>
 <li>Servers and network equipment are kept in a locked room, closet or rack accessible only to authorized staff and {{company_name}}.</li>
 <li>Laptops must not be left unattended in vehicles or public places. Devices in storage are kept in a locked area.</li>
 <li>Assets may not be removed from company premises unless they are portable devices assigned to the user or removal is approved by the asset owner.</li>
 <li>Returned equipment from departing users is collected on or before the last day of employment and recorded in the inventory.</li>
+<li>Equipment is maintained according to the manufacturer's recommendations by authorized people only. Equipment sent out for repair has its storage removed or encrypted first, or the repair vendor is bound by a confidentiality agreement.</li>
 </ul>
 
-<h2>8. Lost or stolen assets</h2>
+<h2>9. Lost or stolen assets</h2>
 <ul>
 <li>Users report lost or stolen devices to {{company_name}} ({{company_emergency_phone}}) and [security lead name] as soon as possible and within 4 hours of discovery.</li>
 <li>{{company_name}} locks or wipes the device, revokes sessions and credentials associated with it, and records the loss in the inventory.</li>
@@ -67,7 +86,7 @@
 <li>A police report is filed for theft.</li>
 </ul>
 
-<h2>9. Secure disposal and sanitization</h2>
+<h2>10. Secure disposal and sanitization</h2>
 <ul>
 <li>All storage media leaving {{client_name}}'s control, including computers, servers, drives, copiers and printers with hard drives, phones, USB drives and backup media, is sanitized according to <strong>NIST SP 800-88</strong> (Guidelines for Media Sanitization):
 <ul>
@@ -80,21 +99,22 @@
 <li>Disposal is performed by {{company_name}} or a certified e-waste/ITAD vendor (for example e-Stewards or R2 certified). A <strong>certificate of sanitization or destruction</strong> listing the serial numbers of each item is obtained and kept for at least [3/6] years.</li>
 <li>The inventory record is updated to "disposed" with the date, method and certificate reference.</li>
 <li>Electronic waste is disposed of in accordance with applicable state and local e-waste laws; devices may not be placed in regular trash.</li>
+<li>How long data is kept before disposal, and disposal of paper records, is covered by the Data Retention &amp; Disposal Policy.</li>
 </ul>
 
-<h2>10. Licenses and subscriptions</h2>
+<h2>11. Licenses and subscriptions</h2>
 <ul>
 <li>Software licenses and subscriptions are tracked to ensure {{client_name}} is properly licensed and not paying for unused seats. {{company_name}} reviews license counts at least quarterly and at each offboarding.</li>
 <li>Domain names, DNS hosting and critical subscriptions are registered to company accounts (not individual employees' personal accounts), have auto-renew enabled, and have at least two authorized administrators.</li>
 </ul>
 
-<h2>11. Exceptions</h2>
+<h2>12. Exceptions</h2>
 <p>Exceptions (for example keeping a device beyond its replacement target) require security lead approval, documented risk and compensating controls, and are reviewed at least annually.</p>
 
-<h2>12. Enforcement</h2>
+<h2>13. Enforcement</h2>
 <p>Installing unapproved software, removing management agents, failing to return equipment, or disposing of equipment outside this policy may result in disciplinary action and, where applicable, recovery of costs.</p>
 
-<h2>13. Related documents</h2>
+<h2>14. Related documents</h2>
 <ul>
 <li>Vulnerability &amp; Patch Management Policy</li>
 <li>Encryption Policy</li>
@@ -102,8 +122,8 @@
 <li>Data Retention &amp; Disposal Policy</li>
 <li>Vendor &amp; Third-Party Risk Management Policy</li>
 </ul>
-<p>Supports: CMMC CM.L2-3.4.1, CM.L2-3.4.8, CM.L2-3.4.9, MP.L2-3.8.3 · CIS 1.1, 1.2, 2.1, 2.2, 2.3, 3.5 · HIPAA 164.310(d)(1), 164.310(d)(2)(i), 164.310(d)(2)(ii), 164.310(d)(2)(iii) · NIST CSF ID.AM-01, ID.AM-02, ID.AM-08, PR.PS-05 · PCI DSS 9.4.7, 12.5.1</p>
+<p>Supports: CMMC CM.L2-3.4.1, CM.L2-3.4.7, CM.L2-3.4.8, CM.L2-3.4.9, MP.L2-3.8.3, SC.L2-3.13.13 · CIS 1.1-1.4, 2.1-2.6, 3.5, 9.1, 9.3, 9.4, 12.1, 12.4, 16.4 · HIPAA 164.310(d)(1), 164.310(d)(2)(i), 164.310(d)(2)(ii), 164.310(d)(2)(iii) · ISO 27001 A.5.9, A.5.32, A.7.13, A.8.18, A.8.19, A.8.23 · NIST CSF ID.AM-01, ID.AM-02, ID.AM-05, ID.AM-08, ID.RA-09, PR.PS-02, PR.PS-03, PR.PS-05 · PCI DSS 6.3.2, 9.4.5, 9.4.5.1, 9.4.7, 9.5.1.1, 11.2.1, 11.2.2, 12.3.4, 12.5.1 · SOC 2 CC6.8 · FTC Safeguards 314.4(c)(2) · CCPA/CPRA 7123(b)(2)(D)</p>
 
-<h2>14. Review and approval</h2>
+<h2>15. Review and approval</h2>
 <p>This policy is reviewed at least annually.</p>
 <p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

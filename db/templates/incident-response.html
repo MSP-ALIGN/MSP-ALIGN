@@ -50,7 +50,9 @@
 <li>A request to change payment, banking or payroll details, especially an urgent one.</li>
 <li>A suspected deepfake call or video, or sensitive data entered into an unapproved AI tool.</li>
 <li>Email sent to the wrong person, or any other possible exposure of customer or employee information.</li>
-<li>Security alerts from {{company_name}}'s managed detection and response service or other [security tools].</li>
+<li>Security alerts from {{company_name}}'s managed detection and response service or other [security tools], including alerts from intrusion detection, the firewall, file-integrity or change monitoring, payment page change detection and detection of unknown wireless access points where those are in use.</li>
+<li>Payment card numbers, Social Security numbers or other sensitive data found somewhere they should not be, such as an email, a shared folder or a spreadsheet.</li>
+<li>A vendor or business partner telling {{client_name}} about a breach or incident that may involve its data or accounts.</li>
 </ul>
 
 <h2>7. Staff first steps</h2>
@@ -75,7 +77,8 @@
 <ol>
 <li><strong>Validate:</strong> confirm whether the report is a real security incident or a harmless event.</li>
 <li><strong>Gather data:</strong> pull telemetry, alerts and logs from endpoint protection, email, identity, firewall and cloud services, and from {{company_name}}'s managed detection and response service.</li>
-<li><strong>Classify:</strong> assign a severity from section 8, open an incident record and start the incident log.</li>
+<li><strong>Declare and classify:</strong> an event becomes an incident when it meets the definition in section 3 (actual or likely harm, or a policy violation). Assign a severity from section 8, open an incident record and start the incident log.</li>
+<li><strong>Estimate scope:</strong> estimate how many devices, accounts, people and records are affected, and update the estimate as the investigation confirms it.</li>
 <li><strong>Check for regulated data:</strong> decide whether personal information, PHI, card data, CUI or other regulated data could be involved. If so, follow section 11 as well.</li>
 <li><strong>Notify:</strong> tell the Service Manager what is known, the severity and the next steps.</li>
 </ol>
@@ -83,6 +86,7 @@
 <h2>10. Containment, eradication and recovery</h2>
 <p>{{company_name}} works through this checklist, adapting it to the incident. Steps that disrupt the business are agreed with the Service Manager first unless waiting would make the incident worse.</p>
 <ul>
+<li>☐ <strong>Vendors:</strong> involve the vendors whose systems or services are affected ([e.g. line-of-business software vendor, cloud provider, payment processor]) and use their incident contacts and contract terms.</li>
 <li>☐ <strong>Contain:</strong> isolate affected devices through endpoint protection, disable or block affected accounts, revoke active sessions and block malicious senders, domains and IP addresses.</li>
 <li>☐ <strong>Notify the insurer:</strong> with the Service Manager's approval, contact the cyber insurance carrier before engaging outside vendors or rebuilding systems, if the policy requires it.</li>
 <li>☐ <strong>Required reports:</strong> with the Service Manager, make any report a parent organization, funder or contract requires (section 5) within its deadline, even before the investigation is finished. Record when and to whom it was made.</li>
@@ -90,11 +94,22 @@
 <li>☐ <strong>Devices:</strong> clean or reimage affected devices; reimage when in doubt.</li>
 <li>☐ <strong>Persistence:</strong> find and remove anything the attacker left behind, such as new accounts, scheduled tasks, remote access tools or OAuth apps.</li>
 <li>☐ <strong>Patch:</strong> fix the weakness that was exploited, such as a missing update, a misconfiguration or a missing MFA requirement.</li>
-<li>☐ <strong>Restore:</strong> restore data and systems from known-good backups, after confirming the backups are clean; verify before returning them to use.</li>
+<li>☐ <strong>Restore:</strong> restore data and systems from known-good backups, after confirming the backups are clean; verify before returning them to use. Large outages are recovered under the Business Continuity &amp; Disaster Recovery Plan.</li>
+<li>☐ <strong>Reduce harm:</strong> take reasonable steps to limit harm to the people whose information is involved, for example asking a mistaken recipient to delete information and confirm it in writing, or offering credit monitoring when counsel advises it.</li>
 <li>☐ <strong>Watch:</strong> monitor closely for signs of reinfection or repeat access for at least [30 days].</li>
-<li>☐ <strong>Close:</strong> close the incident with documented findings: what happened, how, what was affected, what was done and what will change.</li>
+<li>☐ <strong>Close:</strong> close the incident when affected systems are restored and verified, no sign of the attacker remains, required reports and notifications are made or scheduled, and the Service Manager agrees. Record the findings: what happened, the root cause, what was affected, what was done and what will change.</li>
 </ul>
 <p>The Service Manager is kept informed at each stage: at intake, after containment, when recovery starts and at closure, and at least every [4] hours during a Critical or High incident.</p>
+<h3>Steps for common incidents</h3>
+<ul>
+<li><strong>Compromised email account or business email compromise:</strong> reset the password and revoke sessions, check MFA methods, mailbox rules, forwarding and app consents, search for messages the attacker sent and warn recipients, and check whether any payment or banking change was requested.</li>
+<li><strong>Ransomware:</strong> isolate affected devices, protect the backups, notify the insurer and counsel, and recover under section 7.1 of the Business Continuity &amp; Disaster Recovery Plan.</li>
+<li><strong>Lost or stolen device:</strong> confirm whether the device was encrypted, lock or wipe it remotely, sign it out of company accounts and reset passwords stored on it, and report theft to the police.</li>
+<li><strong>Payment fraud:</strong> call the bank's fraud line immediately to try to stop or recall the payment, report it at ic3.gov, then treat the email account that received or sent the request as possibly compromised.</li>
+<li><strong>Information sent to the wrong person:</strong> try to recall the message, ask the recipient to delete it and confirm in writing, and record what information was involved and for how many people.</li>
+<li><strong>Payment card data:</strong> where card data may be involved, notify the acquiring bank or payment processor and follow the payment brands' incident procedures they point to. Card numbers found where they should not be are secured, the source is found and fixed, and the data is securely deleted.</li>
+<li><strong>Incident at a vendor:</strong> get details of what of {{client_name}}'s data or access was involved, reset any shared credentials or integrations, and decide with the Service Manager whether {{client_name}} has its own reporting duties.</li>
+</ul>
 <h3>Communication plan</h3>
 <ul>
 <li><strong>Inside {{client_name}}:</strong> the Service Manager decides what staff are told and when, through a channel that isn't affected (for example phone or text if email may be compromised). Staff get what they need to keep working safely: what to avoid, what to watch for and who to ask.</li>
@@ -109,17 +124,21 @@
 <li><strong>Determine what was accessed:</strong> {{company_name}} establishes which systems, accounts, files and records were reached, for how long, and whether data left the environment.</li>
 <li><strong>Scope:</strong> identify whose information was involved (customers, patients, employees) and in which states or countries they live, since notification laws depend on residence.</li>
 <li><strong>The client's part:</strong> the Service Manager provides business context, confirms who owns the affected data and what it contains, and approves notifications.</li>
-<li><strong>Notifications:</strong> {{company_name}} guides {{client_name}} through the process; {{client_name}}, with legal counsel, decides on notices to affected individuals, regulators (for example HHS under HIPAA, or the FTC within 30 days for 500 or more consumers under the Safeguards Rule), state attorneys general, the acquiring bank or payment processor for card data, and the DoD within 72 hours for CUI (through DIBNet, under DFARS 252.204-7012), within the required timeframes. Healthcare incidents also follow the HIPAA Breach Notification Procedure.</li>
+<li><strong>Notifications:</strong> {{company_name}} guides {{client_name}} through the process; {{client_name}}, with legal counsel, decides on notices to affected individuals, regulators (for example HHS under HIPAA, or the FTC within 30 days for 500 or more consumers under the Safeguards Rule), state attorneys general, the acquiring bank or payment processor for card data, and the DoD within 72 hours for CUI (through DIBNet, under DFARS 252.204-7012, keeping images of affected systems for at least 90 days), within the required timeframes. Examples of deadlines: HIPAA requires notice to individuals without unreasonable delay and within 60 days of discovery; some state laws are shorter (California, for example, requires notice to residents within 30 calendar days of discovery). Healthcare incidents also follow the HIPAA Breach Notification Procedure.</li>
+<li><strong>Vendors that hold {{client_name}}'s data:</strong> are required by contract to report incidents involving it within [24 / 48 / 72] hours, and their reports are handled under this plan.</li>
+<li><strong>Record of disclosures:</strong> every unauthorized disclosure of personal information is recorded in the incident log, whether or not notification turns out to be required.</li>
 </ul>
 
 <h2>12. Documentation</h2>
 <p>The Incident Handler keeps an incident log with the timeline, actions taken, people involved, systems and data affected, decisions and who made them, and costs. The log and evidence are kept for at least [6 years] or longer if required by law, a contract or a legal hold.</p>
+<p>Evidence is collected so it can be relied on later: {{company_name}} records who collected each item, when and from where, stores copies where they can't be changed (for example read-only storage, with a hash of each file where practical), and limits access to incident records to the people working on the incident.</p>
 
 <h2>13. Post-incident review</h2>
 <p>For every Critical and High incident, and any other incident the Service Manager requests, {{vcio_name}} leads a review within two weeks of closure with the Service Manager and the Incident Handler. The review records what worked, what didn't and the improvements agreed, each with an owner and date, and updates this plan, the risk register and training as needed.</p>
 
 <h2>14. Testing</h2>
 <p>This plan is reviewed and tested at least annually through a tabletop exercise facilitated by {{company_name}}, using a realistic scenario such as ransomware or a compromised mailbox. The exercise includes the communication plan and any required incident reports (section 5). Results and corrective actions are documented. Last exercise: [date]. Next exercise: [date].</p>
+<p>The Service Manager, the alternate and {{company_name}}'s incident handlers are trained on this plan when they take on the role and at least [annually]. All staff learn how to recognize and report incidents (sections 6 and 7) in security awareness training. The plan is updated after exercises, after incidents and when threats, systems or legal requirements change.</p>
 
 <h2>15. Related documents</h2>
 <ul>
@@ -130,7 +149,7 @@
 <li>Logging &amp; Monitoring Policy</li>
 <li>HIPAA Breach Notification Procedure (healthcare)</li>
 </ul>
-<p>Supports: CMMC IR.L2-3.6.1, IR.L2-3.6.2, IR.L2-3.6.3 · CIS 17.1–17.6 · HIPAA 164.308(a)(6) · FTC Safeguards Rule 314.4(h) · NIST CSF RS.MA-01, RS.MA-03, RS.CO-02, RC.RP-01 · PCI DSS 12.10.1</p>
+<p>Supports: CMMC IR.L2-3.6.1, IR.L2-3.6.2, IR.L2-3.6.3 · CIS 14.6, 17.1–17.8 · HIPAA 164.308(a)(6)(ii) · FTC Safeguards Rule 314.4(h), 314.4(j) · NIST CSF DE.AE-08, RS.MA-01 to RS.MA-05, RS.AN-03, RS.AN-06 to RS.AN-08, RS.CO-02, RS.CO-03, RS.MI-01, RS.MI-02, RC.RP-01, RC.RP-06, GV.SC-08 · ISO 27001 A.5.5, A.5.24–A.5.28, A.6.8 · SOC 2 CC7.3, CC7.4, CC7.5, P6.3 · PCI DSS 12.10.1–12.10.7 · CCPA 11 CCR 7123(b)(2)(Q), Civil Code 1798.82</p>
 
 <h2>16. Review and approval</h2>
 <p>This plan is reviewed at least annually, after every tabletop exercise and after every Critical or High incident.</p>

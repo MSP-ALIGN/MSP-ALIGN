@@ -28,7 +28,8 @@
 <ul>
 <li>Restricted documents and email are labeled "Restricted" in the header, footer, subject line or sensitivity label. Confidential documents are labeled where practical.</li>
 <li>Unlabeled information is classified by its content. When unsure, treat it as Confidential until the data owner decides.</li>
-<li>{{company_name}} can apply labels and data loss prevention automatically, for example with Microsoft Purview sensitivity labels in Microsoft 365: [labels in use, or "not yet in use"].</li>
+<li>{{company_name}} can apply labels and data loss prevention automatically, for example with Microsoft Purview sensitivity labels in Microsoft 365 (at least Public, Internal and Confidential, published to all users): [labels in use, or "not yet in use"].</li>
+<li>Removable media and paper holding CUI are marked with the required CUI markings and any distribution limits, as set out in the CUI Handling Policy. Media holding cardholder data is labeled with its classification.</li>
 </ul>
 
 <h2>6. Handling rules</h2>
@@ -90,16 +91,66 @@
 <li>[e.g. student records under FERPA, attorney-client privileged material, consumer financial information under the FTC Safeguards Rule: add the rules that apply.]</li>
 </ul>
 
-<h2>8. Misclassified or mishandled information</h2>
+<h2>8. Data inventory and data flows</h2>
+<p>{{client_name}} keeps an inventory of the types of Confidential and Restricted information it holds, maintained by the security lead with {{company_name}} and reviewed at least annually and when a new system, vendor or type of data is added. For each type of information the inventory records:</p>
+<ul>
+<li><strong>Data type and classification:</strong> [e.g. customer records, Confidential].</li>
+<li><strong>Systems and locations</strong> where it is stored or processed, including cloud services and paper files: [systems].</li>
+<li><strong>Data owner</strong> and who has access: [name or role; groups].</li>
+<li><strong>Criticality</strong> to the business, used to set backup and recovery priorities: [high/medium/low].</li>
+<li><strong>Vendors, service providers and third parties</strong> it is shared with or sold to, and why: [vendors].</li>
+<li><strong>Retention period</strong> from the Data Retention &amp; Disposal Policy: [period].</li>
+<li><strong>Legal basis or reason it is collected</strong>, and whether it is sensitive personal information or processing that needs a privacy risk assessment under the CCPA/CPRA or other privacy law: [yes/no, notes].</li>
+</ul>
+<p>{{company_name}} maintains diagrams of how Restricted data moves between systems, vendors and networks (data flow diagrams), and a network diagram of the systems that store or connect to it. Where card payments are taken, these diagrams cover every connection to the cardholder data environment, and the PCI DSS scope is confirmed at least annually and after significant changes. Where CUI is held, the boundary is described in the System Security Plan. Systems that hold Restricted data are kept separate from other systems (for example separate network segments, SharePoint sites or permission groups) where practical.</p>
+<p>The inventory also helps {{client_name}} answer requests from people who ask what personal information is held about them and who it was shared with, where a privacy law gives them that right.</p>
+
+<h2>9. Collecting and using only what is needed</h2>
+<ul>
+<li>{{client_name}} collects, uses, keeps and shares personal information only as reasonably necessary for the purpose it was collected for, as described in its privacy notice, and does not use it for unrelated purposes without notice or consent.</li>
+<li>Sensitive personal information (for example health, financial account, government ID or precise location data) is collected only where needed, with consent where the law requires it.</li>
+<li>Personal information is kept accurate and up to date, and records no longer needed are disposed of under the Data Retention &amp; Disposal Policy.</li>
+<li>Real Restricted data (including live card numbers) is not used for testing, training or development. Test systems use made-up or masked data. Where Restricted data must be displayed, only the parts needed for the task are shown (for example the last four digits of an SSN or card number).</li>
+</ul>
+
+<h2>10. Data loss prevention and sharing controls</h2>
+<ul>
+<li>Data loss prevention (DLP) rules detect and [warn / block / encrypt] Restricted data such as SSNs, card numbers, bank account numbers and health information in email, file sharing, chat and cloud storage: [DLP in use, or "not yet in use"].</li>
+<li>Automatic forwarding of email to outside domains is blocked; exceptions require security lead approval.</li>
+<li>External sharing from SharePoint, OneDrive or shared drives is limited to authenticated guests; "Anyone" links are [disabled / limited to Public information and expire within 30 days]. The default sharing link is "Specific people" with view-only permission, and OneDrive is no more open than SharePoint.</li>
+<li>Calendar and contact details are not shared with all external domains.</li>
+<li>File sync to computers is limited to managed devices; unmanaged devices get browser-only access.</li>
+<li>Information moves between systems, people and vendors only by approved methods and as authorized by the data owner; CUI flows only within the authorized boundary.</li>
+<li>DLP alerts are reviewed by {{company_name}} or the security lead, and confirmed leaks are handled under the Incident Response Plan.</li>
+</ul>
+
+<h2>11. Media protection</h2>
+<ul>
+<li><strong>Physical control:</strong> paper records and digital media (USB drives, external disks, backup media, CDs) containing Confidential or Restricted data are kept in locked drawers, cabinets or rooms, and access is limited to authorized people. Offline backup media is stored in a secure location that is reviewed at least annually.</li>
+<li><strong>Removable media use:</strong> the use of USB storage and other removable media is [blocked / read-only / allowed only for approved encrypted devices] on company computers. Restricted data is copied to removable media only with security lead approval, and only to encrypted media.</li>
+<li><strong>Unknown devices:</strong> USB drives or other storage devices without an identifiable owner (for example found in the parking lot or received unexpectedly) are never connected; hand them to {{company_name}}.</li>
+<li><strong>Malware checks:</strong> autorun and autoplay are turned off for removable media, and the EDR tool scans removable media automatically when it is connected, including media with vendors' diagnostic or update programs before it is used.</li>
+<li><strong>External systems:</strong> company portable storage devices are not connected to computers {{client_name}} does not manage (home, hotel or customer computers) without approval.</li>
+<li><strong>Transport:</strong> media with Restricted data leaving the office is approved by management, encrypted, sent by secure courier or other trackable method, and logged (what, who, when, where to) so it can be accounted for until it is received or returned.</li>
+<li><strong>Accountability:</strong> media holding Restricted data is recorded in the asset inventory with who has it, and the record is checked at least annually. Disposal follows the Data Retention &amp; Disposal Policy.</li>
+</ul>
+
+<h2>12. Publicly accessible information</h2>
+<ul>
+<li>Only [named people or roles] may post information to the public website, social media or other publicly accessible systems.</li>
+<li>Content is reviewed before posting to make sure it contains no Confidential, Restricted or CUI information, and anything posted in error is removed promptly and reported to the security lead.</li>
+</ul>
+
+<h2>13. Misclassified or mishandled information</h2>
 <p>If you find information that seems to be classified too low, or handled in a way this policy doesn't allow, tell the data owner or security lead. If Confidential or Restricted information may have reached the wrong person, report it right away as a security incident under the Incident Response Plan.</p>
 
-<h2>9. Exceptions</h2>
+<h2>14. Exceptions</h2>
 <p>Exceptions must be requested in writing to the security lead, with the business reason, the risk and compensating controls. They are approved by management, recorded in the risk register and reviewed at least annually.</p>
 
-<h2>10. Enforcement</h2>
+<h2>15. Enforcement</h2>
 <p>Violations of this policy may result in loss of access and disciplinary action, up to and including termination of employment or contract.</p>
 
-<h2>11. Related documents</h2>
+<h2>16. Related documents</h2>
 <ul>
 <li>Information Security Policy (section 7, Data classification)</li>
 <li>Acceptable Use Policy</li>
@@ -109,8 +160,8 @@
 <li>Incident Response Plan</li>
 <li>CUI Handling Policy, HIPAA Breach Notification Procedure (where they apply)</li>
 </ul>
-<p>Supports: CMMC MP.L2-3.8.1, MP.L2-3.8.4, AC.L2-3.1.3 · CIS 3.1, 3.2, 3.7, 3.12 · HIPAA 164.308(a)(4), 164.312(e)(1) · NIST CSF ID.AM-07, PR.DS-01, PR.DS-02 · PCI DSS 3.2.1, 9.4.2</p>
+<p>Supports: CMMC AC.L1-b.1.iv, AC.L2-3.1.3, AC.L2-3.1.21, AC.L2-3.1.22, MA.L2-3.7.4, MP.L2-3.8.1, MP.L2-3.8.2, MP.L2-3.8.4, MP.L2-3.8.5, MP.L2-3.8.7, MP.L2-3.8.8 · CIS 3.1, 3.2, 3.7, 3.8, 3.12, 10.3, 10.4 · HIPAA 164.308(a)(4), 164.308(a)(7)(ii)(E), 164.310(d)(2)(iii), 164.312(e)(1) · ISO 27001 A.5.9, A.5.12, A.5.13, A.5.14, A.5.34, A.7.10, A.8.11, A.8.12, A.8.33 · NIST CSF ID.AM-03, ID.AM-05, ID.AM-07, PR.DS-01, PR.DS-02, PR.DS-10 · PCI DSS 1.2.3, 1.2.4, 3.2.1, 3.4.1, 5.3.3, 6.5.5, 9.4.1-9.4.5, 12.5.2 · SOC 2 C1.1, CC6.7, P3.1, P4.1, P7.1 · FTC Safeguards 314.4(c)(2) · CCPA/CPRA 1798.100(d), 7002, 7123(b)(2)(D)</p>
 
-<h2>12. Review and approval</h2>
+<h2>17. Review and approval</h2>
 <p>This policy and the classification of key information are reviewed at least annually by the security lead and data owners with {{vcio_name}} of {{company_name}}.</p>
 <p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>

@@ -93,6 +93,7 @@ $r->post('/clients/{id}/ai-reviews/{rid}/step', [\Align\Controllers\AiReviewCont
 $r->post('/clients/{id}/ai-reviews/{rid}/draft', [\Align\Controllers\AiDraftController::class, 'fromReview']);
 $r->get('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'form']);
 $r->post('/clients/{id}/ai-drafts/{did}', [\Align\Controllers\AiDraftController::class, 'update']);
+$r->post('/clients/{id}/ai-drafts/template/{tid}', [\Align\Controllers\AiDraftController::class, 'fromTemplate']); // 2.38.1 related-documents checklist
 // 2.31.0 the QBR executive summary (written with AI or by hand; the staff QBR pack prints it, never the portal's)
 $r->get('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summary']);
 $r->post('/clients/{id}/qbr-summary', [\Align\Controllers\AiMeetingController::class, 'summarySave']);

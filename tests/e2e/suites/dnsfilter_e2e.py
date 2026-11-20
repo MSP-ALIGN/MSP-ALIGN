@@ -189,13 +189,22 @@ recs = records()
 ok(recs == 3, "organization 103 is back once DNSFilter lists it again")
 for mode, why in [("html", "JSON"), ("noitems", "list of organizations"), ("empty", "returned no organizations"), ("down", "couldn't be read"),
                   ("loop", "same page of organizations twice"), ("fallback", "same roaming client for two organizations"),
-                  ("netfallback", "networks of another organization")]:
+                  ("netanon", "don't say which organization")]:
     mock({"mode": mode, "agents": {"101": agents}})
     sync_now()
     err = " ".join(str(v) for v in mine(last_run()).values())
     ok("ERROR" in err and why in err and records() == recs and result("101", "agents") is not None
        and q("select count(*) n from dnsfilter_agents")[0]["n"] == before and q("select 1 from client_links where provider=%s and external_id='101'", KEY),
        f"a {mode} answer is an error and removes nothing: " + err[:160])
+# 2.38.1 an MSP user that sees every organization gets all their networks: each organization keeps only its own
+for mode in ["netall", "netfallback"]:
+    mock({"mode": mode, "agents": {"101": agents}})
+    sync_now()
+    err = " ".join(str(v) for v in mine(last_run()).values())
+    nets = {r["record_id"]: json.loads(r["data"]).get("networks") for r in q("select record_id, data from connector_records where provider=%s", KEY)}
+    ok("ERROR" not in err and nets.get("101") == 2 and nets.get("103") == 2 and nets.get("102") == 0, f"{mode}: each organization gets only its own networks {nets}: " + err[:120])
+mock({"agents": {"101": agents}})
+sync_now()
 q("update connector_records set synced_at = now() - interval 30 hour where provider=%s", KEY)
 q("update connector_results set synced_at = now() - interval 30 hour where provider=%s", KEY)
 ind = phpj(f"echo json_encode(Align\\Health\\SecurityChecks::indicators({C1}));")

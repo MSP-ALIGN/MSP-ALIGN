@@ -13,7 +13,7 @@
  *       ?organization_ids=1,2&from=Y-m-d&to=Y-m-d&show_individual_organizations=true&bucket_size=1day[&type=blocked]
  *   POST /mock/dnsfilter-set {"mode": "html"|"noitems"|"empty"|"down"|"loop"|"forbidden_report" (every report
  *     refused)|"forbidden_one" (reports refused when organization 103 is asked for)|"fallback" (roaming clients ignore
- *     organization_ids and are always the first organization's)|"netfallback" (networks of 102 answered with 101's)|
+ *     organization_ids and are always the first organization's)|"netfallback" (networks of 102 answered with 101's)|"netall" (2.38.1: every organization's networks, each naming its own)|"netanon" (some naming none)|
  *     "cap50" (pages hold at most 50, whatever is asked), "agents": {org id: [
  *     roaming client attributes + "id"]}, "drop": [org ids], "nopolicy": true (org 101's second network loses its
  *     policy), "many": true (120 more roaming clients for org 102, so its list takes two pages), "quiet": true (no
@@ -134,15 +134,20 @@ if ($api === '/v1/networks/msp') {
     if ($mode === 'netfallback' && $org === '102') {
         $org = '101'; // answers as if organization_id were ignored
     }
-    $net = fn(string $id, string $name, ?string $policy, ?string $deleted = null, ?string $scheduled = null) => ['id' => $id, 'type' => 'networks',
+    $net = fn(string $owner, string $id, string $name, ?string $policy, ?string $deleted = null, ?string $scheduled = null) => ['id' => $id, 'type' => 'networks',
         'attributes' => ['name' => $name, 'physical_address' => null, 'deleted_at' => $deleted, 'secret_key' => 'not-for-align'],
-        'relationships' => ['organization' => ['data' => ['id' => $org, 'type' => 'organizations']], 'policy' => ['data' => $policy ? ['id' => $policy, 'type' => 'policies'] : null],
+        'relationships' => ['organization' => ['data' => ['id' => $owner, 'type' => 'organizations']], 'policy' => ['data' => $policy ? ['id' => $policy, 'type' => 'policies'] : null],
             'scheduled_policy' => ['data' => $scheduled ? ['id' => $scheduled, 'type' => 'scheduled_policies'] : null]]];
-    $nets = match ($org) {
-        '101' => [$net('n-1', 'Main office', '55'), $net('n-2', 'Branch office', empty($t['nopolicy']) ? '55' : null), $net('n-3', 'Old office', null, '2026-01-02')],
-        '103' => [$net('n-9', 'Lakeside HQ', null), $net('n-10', 'Lakeside shop', null, null, '77')], // the shop: a scheduled policy only
-        default => [],
-    };
+    $all = [
+        '101' => [$net('101', 'n-1', 'Main office', '55'), $net('101', 'n-2', 'Branch office', empty($t['nopolicy']) ? '55' : null), $net('101', 'n-3', 'Old office', null, '2026-01-02')],
+        '103' => [$net('103', 'n-9', 'Lakeside HQ', null), $net('103', 'n-10', 'Lakeside shop', null, null, '77')], // the shop: a scheduled policy only
+    ];
+    // 2.38.1 "netall": an MSP user that sees every organization gets all of their networks, whatever organization_id says
+    $nets = $mode === 'netall' ? array_merge(...array_values($all)) : ($all[$org] ?? []);
+    if ($mode === 'netanon') { // some networks don't say whose they are
+        $nets = array_merge(...array_values($all));
+        unset($nets[0]['relationships']['organization']);
+    }
     $page($nets, ['included' => []]);
     return true;
 }

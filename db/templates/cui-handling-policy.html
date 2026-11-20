@@ -1,9 +1,9 @@
 <h1>Controlled Unclassified Information (CUI) Handling Policy</h1>
 <p><strong>{{client_name}}</strong> · Effective {{today}} · Maintained with {{company_name}}</p>
-<p><em>This policy summarizes requirements from 32 CFR Part 2002, DoD Instruction 5200.48, DFARS 252.204-7012 and NIST SP 800-171. Contract-specific instructions from the government or prime contractor take precedence. Review and tailor it to your contracts and systems; it is not legal advice.</em></p>
+<p><em>This policy summarizes requirements from 32 CFR Part 2002, DoD Instruction 5200.48, DFARS 252.204-7012, FAR 52.204-21, NIST SP 800-171 Revision 2 and the CMMC program rule (32 CFR Part 170). Contract-specific instructions from the government or prime contractor take precedence. Review and tailor it to your contracts and systems; it is not legal advice.</em></p>
 
 <h2>1. Purpose</h2>
-<p>This policy tells everyone at {{client_name}} how to recognize, mark, store, share, transmit and destroy Controlled Unclassified Information (CUI) received from or created for the Department of Defense (DoD) and prime contractors, and how to report problems. It supports the System Security Plan and CMMC Level 2 requirements including AC.L2-3.1.3, MP.L2-3.8.1–3.8.9, SC.L2-3.13.8, SC.L2-3.13.11, PE.L2-3.10.6 and IR.L2-3.6.2.</p>
+<p>This policy tells everyone at {{client_name}} how to recognize, mark, store, share, transmit and destroy Controlled Unclassified Information (CUI) received from or created for the Department of Defense (DoD) and prime contractors, and how to report problems. It supports the System Security Plan and CMMC Level 2 requirements including AC.L2-3.1.3, AC.L2-3.1.21, AC.L2-3.1.22, MA.L2-3.7.3, MP.L2-3.8.1–3.8.9, SC.L2-3.13.8, SC.L2-3.13.11, SC.L2-3.13.16, PE.L2-3.10.6 and IR.L2-3.6.2, and CMMC Level 1 requirements AC.L1-b.1.iv and MP.L1-b.1.vii for Federal Contract Information (FCI).</p>
 
 <h2>2. Scope</h2>
 <p>This policy applies to all employees, contractors, temporary staff and service providers (including {{company_name}}) who may access CUI in any form — electronic files, email, drawings, printouts, removable media or conversation — at any location.</p>
@@ -23,12 +23,13 @@
 <li>Common categories for manufacturers and suppliers: Controlled Technical Information (CTI), export-controlled information (ITAR/EAR), and procurement or proprietary information. [List categories identified in your contracts.]</li>
 <li>Treat as potential CUI anything marked CUI, CONTROLLED, or with legacy markings such as FOUO or distribution statements B–F, and any information the contract, statement of work or DFARS 252.204-7012 identifies as covered defense information.</li>
 <li>If you are unsure whether something is CUI, handle it as CUI and ask the CUI program manager.</li>
+<li><strong>Federal Contract Information (FCI)</strong> — non-public information provided by or generated for the government under a contract — is not necessarily CUI, but must still be protected under FAR 52.204-21 (CMMC Level 1): keep it on company systems, limit access to authorized people, never post it publicly, and sanitize media that held it before disposal or reuse.</li>
 </ul>
 
 <h2>5. Marking CUI</h2>
 <ul>
-<li><strong>Banner marking:</strong> the top (and, per DoD practice, the bottom) of each page shows the banner, e.g. <strong>CUI</strong> for CUI Basic, or <strong>CUI//SP-CTI</strong> for a CUI Specified category, with any limited dissemination control added (e.g. <strong>CUI//SP-CTI//NOFORN</strong> or <strong>//FED ONLY</strong>) as directed by the originator.</li>
-<li><strong>Designation indicator block (DoD):</strong> the first page identifies "Controlled by:" (organization), "CUI Category:", "Distribution/Dissemination Control:" and "POC:".</li>
+<li><strong>Banner marking:</strong> the top and bottom of each page show the banner (DoD Instruction 5200.48), e.g. <strong>CUI</strong> for CUI Basic, or <strong>CUI//SP-[category]</strong> for a CUI Specified category such as export-controlled information (<strong>CUI//SP-EXPT</strong>), with any limited dissemination control added (e.g. <strong>CUI//NOFORN</strong> or <strong>CUI//FEDCON</strong>) as directed by the originator. Copy the originator's banner exactly; check the category against the DoD CUI Registry.</li>
+<li><strong>Designation indicator block (DoD):</strong> the first page identifies "Controlled by:" (the DoD component and office), "CUI Category:", "Distribution/Dissemination Control:" (limited dissemination control or distribution statement) and "POC:" (name and phone or email).</li>
 <li><strong>Technical documents:</strong> keep the originator's distribution statement (e.g. "Distribution Statement D") and export-control warning.</li>
 <li><strong>Documents we create</strong> that contain CUI received from DoD or the prime must carry the same markings as the source.</li>
 <li><strong>Electronic files and email:</strong> include the banner at the top of the message or document; use a file-name prefix of [e.g. "CUI_"] and sensitivity labels in [Microsoft Purview] where configured.</li>
@@ -43,7 +44,11 @@
 <li>[e.g. CUI enclave workstations (asset tags ###–###)]</li>
 <li>[e.g. CAD/CAM server "name"]</li>
 </ul>
-<p>CUI must never be stored in personal email, personal cloud storage, commercial (non-government) Microsoft 365 or Google tenants, file-sharing sites, messaging apps, or on personal devices unless those systems are listed above. Any cloud service that stores, processes or transmits CUI must meet the FedRAMP Moderate baseline or equivalent (DFARS 252.204-7012(b)(2)(ii)(D)).</p>
+<p>CUI must never be stored in personal email, personal cloud storage, any email, cloud or collaboration tenant not listed above, file-sharing sites, messaging apps, public AI services, or on personal devices unless those systems are listed above. Any cloud service that stores, processes or transmits CUI must meet the FedRAMP Moderate baseline or equivalent (DFARS 252.204-7012(b)(2)(ii)(D)).</p>
+<ul>
+<li>Backups that contain CUI are encrypted and kept only at [backup location(s) and provider], with access limited to [named administrators] (MP.L2-3.8.9). CUI stored on drives, laptops and servers is encrypted at rest with FIPS-validated cryptography (SC.L2-3.13.16, SC.L2-3.13.11).</li>
+<li>A CUI inventory records each contract, the CUI categories received and the systems where that CUI is kept: [location of the CUI inventory, owner, review frequency].</li>
+</ul>
 
 <h2>7. Access and need-to-know</h2>
 <ul>
@@ -51,12 +56,14 @@
 <li>Export-controlled CUI (ITAR/EAR) may be accessed only by persons authorized under export rules (e.g. U.S. persons, unless a license applies). [Name the export control officer.]</li>
 <li>Access is reviewed at least [quarterly] and removed the same day a person leaves or no longer needs it.</li>
 <li>Do not discuss CUI in public places or where people without need-to-know can overhear.</li>
+<li>CUI and FCI are never posted on publicly accessible systems (company website, social media, public forums, public code or file repositories). Only [names or roles] may post to public systems, and content is reviewed before posting and checked [frequency] so that any CUI found is removed (AC.L2-3.1.22, AC.L1-b.1.iv).</li>
 </ul>
 
 <h2>8. Transmission</h2>
 <ul>
 <li>CUI sent electronically must be encrypted in transit using <strong>FIPS-validated cryptography</strong> (SC.L2-3.13.8, SC.L2-3.13.11). Approved methods: [e.g. GCC High email with encryption, DoD SAFE, prime contractor's portal, approved secure file transfer].</li>
 <li>Verify the recipient is authorized and has need-to-know before sending. Double-check email addresses.</li>
+<li>CUI flows only between approved systems and approved recipients (AC.L2-3.1.3). {{company_name}} configures [data loss prevention rules, sensitivity labels, blocked external sharing, or "no automated controls; manual review"] to stop CUI from leaving the approved systems; alerts go to [name or role].</li>
 <li>Do not fax CUI unless the recipient is waiting at the machine or the fax is secure; do not send CUI by text message.</li>
 <li>Physical shipment: use opaque envelopes or packaging with no CUI markings on the outside, a trackable carrier, and an inner marked envelope.</li>
 </ul>
@@ -81,14 +88,17 @@
 <ul>
 <li>Only company-managed mobile devices enrolled in [MDM solution] may access CUI, and CUI on mobile devices must be encrypted (AC.L2-3.1.18, AC.L2-3.1.19).</li>
 <li>Removable media (USB drives, external disks, SD cards) are blocked by default. Exceptions require approval, company-owned encrypted media with an identified owner, and logging (MP.L2-3.8.7, MP.L2-3.8.8).</li>
-<li>Do not connect unknown or personal USB devices to company systems.</li>
+<li>Do not connect unknown or personal USB devices to company systems, and do not use company portable storage on external systems (such as home or customer computers) unless approved (AC.L2-3.1.21).</li>
+<li>Digital media carrying CUI outside controlled areas is encrypted with FIPS-validated cryptography, kept in the carrier's possession or sent by trackable courier, and logged out and back in: [media log location] (MP.L2-3.8.5, MP.L2-3.8.6).</li>
 <li>Lost or stolen devices or media must be reported immediately (section 13).</li>
 </ul>
 
 <h2>12. Destruction and sanitization</h2>
 <ul>
-<li>Paper CUI is destroyed using a cross-cut shredder meeting NIST SP 800-88 / NSA requirements [model] or a shredding vendor that provides a certificate of destruction; do not place CUI in regular trash or recycling.</li>
+<li>Paper CUI is destroyed so it is unreadable and cannot be reconstructed (32 CFR 2002.14), using a cross-cut shredder that produces particles no larger than 1 mm x 5 mm (NSA/CSS Evaluated Products List) [model] or a shredding vendor that provides a certificate of destruction; do not place CUI in regular trash or recycling.</li>
 <li>Electronic media (drives, laptops, phones, copiers and printers with storage) are sanitized or destroyed according to <strong>NIST SP 800-88</strong> (clear, purge or destroy) before disposal, reuse or return (MP.L2-3.8.3). {{company_name}} records the device, method, date and person performing sanitization.</li>
+<li>Equipment sent off site for repair or warranty (including copiers, printers and drives) has its storage sanitized first, or the storage is removed and kept on site (MA.L2-3.7.3).</li>
+<li>At the end of a contract, return or destroy CUI as the contract or the originator directs, and keep only what the contract or law requires: [retention period or "per contract"].</li>
 <li>Keep certificates of destruction for at least [3] years.</li>
 </ul>
 
@@ -98,6 +108,7 @@
 <li>Under DFARS 252.204-7012(c), a cyber incident affecting covered defense information or the contractor's ability to perform operationally critical support must be <strong>reported to DoD within 72 hours of discovery</strong> through the DIBNet portal (dibnet.dod.mil). Reporting requires a DoD-approved medium assurance certificate: [certificate holder name, expiration date].</li>
 <li>Preserve and protect images of affected systems and relevant monitoring data for at least 90 days from the report so DoD can request them; submit any malicious software discovered to the DoD Cyber Crime Center (DC3) as instructed.</li>
 <li>Notify the prime contractor as required by the subcontract. Follow the Incident Response Plan for containment and recovery.</li>
+<li>Incidents that are not cyber incidents (for example lost paper, a misdirected email or a conversation overheard) are still reported internally, recorded, and reported to the contracting officer or prime contractor as the contract requires (DoD Instruction 5200.48).</li>
 </ul>
 
 <h2>14. Training</h2>
@@ -108,5 +119,4 @@
 
 <h2>16. Review and approval</h2>
 <p>This policy is reviewed at least annually and when contracts, CUI categories or systems change.</p>
-<p>Approved by: [name, title] · Signature: ______________________ · Date: [date]</p>
-<p>Next review date: [date]</p>
+<p>Approved by: [name, title]<br>Signature: ______________________<br>Date approved: [date]<br>Next review date: [date]</p>
