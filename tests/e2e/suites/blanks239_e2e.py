@@ -9,6 +9,8 @@
 - the editor lists the blanks left (with a count, grouped by section) and the outline; filling one from the panel
   is an ordinary autosaved edit; making a document Active with blanks left asks first; the signature and
   acknowledgment dialogs warn while blanks remain.
+2.41.0: the details are part of the client's Answers for documents (forms241_e2e); templates name them with fields,
+so documents made earlier with "[name, title]" blanks are made here from a template body as it was before 2.41.0.
 Everything is made up."""
 from playwright.sync_api import sync_playwright
 from lib import *
@@ -25,6 +27,13 @@ def blanks(h):
     """Blanks in a body, counted like Docs\\Blanks (text only, not a plain number)."""
     t = H.unescape(re.sub(r"<[^>]+>", "\n", h))
     return len([b for b in re.findall(r"\[[^\[\]\r\n]{1,120}\]", t) if not re.fullmatch(r"\[\d+\]", b)])
+def text(h): return H.unescape(re.sub(r"<[^>]+>", "", h))
+def legacy_doc(slug):
+    """(2.41.0) A document as made before named fields: the template's fields written back as "[name, title]" blanks."""
+    t = tpl(slug)
+    h = re.sub(r"\{\{field:[a-z_]+\}\}", "[name, title]", t["body_html"])
+    q("insert into documents (client_id, title, category, status, body_html, template_id, version) values (%s, %s, %s, 'draft', %s, %s, 1)", C, t["name"], t["category"], h, t["id"])
+    return q("select max(id) as id from documents where client_id = %s", C)[0]["id"]
 def new_doc(slug):
     r = tech.post(B + "/documents", data={"_csrf": csrf(tech, f"/clients/{C}/documents"), "client_id": str(C), "template_id": str(tpl(slug)["id"])})
     return int(r.url.rstrip("/").split("/")[-1])
@@ -44,16 +53,17 @@ try:
     ok(q("select count(*) n from information_schema.tables where table_schema = database() and table_name = 'client_document_facts'")[0]["n"] == 1, "migration 103 adds client_document_facts")
 
     # ---- a document made before there are any details keeps its blanks
-    E = new_doc("encryption-policy")
+    E = legacy_doc("encryption-policy")
     ok("Security lead ([name, title])" in body(E), "without client details the security lead blank stays")
     t = tech.get(B + f"/documents/{E}").text
     ok(not errs(t) and 'id="doc-guide"' in t and "Add client details" in t and 'id="doc-fill-facts"' not in t, "the editor has the Blanks / Outline card and links to the client details")
 
     # ---- the client details card
     t = tech.get(B + f"/clients/{C}/documents").text
-    ok(not errs(t) and 'id="doc-facts"' in t and 'name="facts[security_lead]"' in t and "Save details" in t, "the Documents page has the client details card")
-    tv = viewer.get(B + f"/clients/{C}/documents").text
-    ok('name="facts[security_lead]"' in tv and "Save details" not in tv and "readonly" in tv, "viewers see the details read-only")
+    ok(not errs(t) and 'id="doc-facts"' in t and f"/clients/{C}/document-answers" in t, "the Documents page has the details card (2.41.0: Answers for documents, with the form)")
+    t = tech.get(B + f"/clients/{C}/document-answers").text
+    tv = viewer.get(B + f"/clients/{C}/document-answers").text
+    ok('name="answers[security_lead]"' in t and 'name="go"' in t and 'name="answers[security_lead]"' in tv and 'name="go"' not in tv and "readonly" in tv, "viewers see the details read-only")
     r = viewer.post(B + f"/clients/{C}/document-facts", data={"_csrf": csrf(viewer, f"/clients/{C}/documents"), "facts[security_lead]": "Nope"}, allow_redirects=False)
     ok(r.status_code in (302, 403) and not q("select 1 from client_document_facts where client_id = %s", C), "a viewer can't save them")
 
@@ -69,7 +79,8 @@ try:
     # ---- a new document from a template uses them; approval lines stay blank
     I = new_doc("information-security-policy")
     h = body(I)
-    ok("Security lead (Dana Whitfield, Office Manager)" in h and "Executive sponsor (Morgan Ellery, Managing Partner)" in h, "a new document fills the security lead and executive sponsor")
+    ok("Security lead (Dana Whitfield, Office Manager)" in text(h) and "Executive sponsor (Morgan Ellery, Managing Partner)" in text(h) and 'data-field="security_lead"' in h,
+       "a new document fills the security lead and executive sponsor (2.41.0: as marked values)")
     ok("Approved by: [name, title]" in h, "the approval line is left for the signers")
 
     # ---- Fill from client details, on the editor's version
@@ -170,7 +181,7 @@ try:
         # Fill from client details in the editor
         Z = None
         q("delete from client_document_facts where client_id = %s and fact = 'security_lead'", C)
-        Z = new_doc("password-mfa-policy")
+        Z = legacy_doc("password-mfa-policy")
         facts(security_lead="Lee Marsh, Office Lead")
         pg.goto(B + f"/documents/{Z}"); pg.wait_for_selector("#doc-editor .ql-editor"); pg.wait_for_timeout(800)
         n1 = int(pg.inner_text("#doc-blank-count"))

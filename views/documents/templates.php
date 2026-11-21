@@ -32,6 +32,8 @@
       <div class="card-body small">
         <p>Filled in automatically when a document is created from a template:</p>
         <?php foreach ($placeholders as $p): ?><code class="d-inline-block mb-1 me-1">{{<?= e($p) ?>}}</code><?php endforeach; ?>
+        <p class="mt-2 mb-1">Form fields (2.41.0), answered once per client on its document form:</p>
+        <?php foreach (\Align\Docs\Fields::FIELDS as $k => [$label]): ?><code class="d-inline-block mb-1 me-1" title="<?= e($label) ?>">{{field:<?= e($k) ?>}}</code><?php endforeach; ?>
         <p class="mt-2 mb-0 text-muted">Text in [brackets] is left for the person writing the document to fill in.</p>
       </div>
     </div>

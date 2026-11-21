@@ -9,9 +9,9 @@
 
 <h2>3. Roles and responsibilities</h2>
 <ul>
-<li><strong>Security lead ([name, title]):</strong> owns this policy, receives escalations and decides on business actions during incidents.</li>
+<li><strong>Security lead ({{field:security_lead}}):</strong> owns this policy, receives escalations and decides on business actions during incidents.</li>
 <li><strong>{{company_name}}:</strong> configures logging, operates or contracts the centralized log platform and the managed detection and response (MDR) / security operations center (SOC) service, triages alerts, and reports monthly.</li>
-<li><strong>MDR/SOC provider ([provider name]):</strong> monitors security telemetry 24/7, investigates alerts, takes approved containment actions and escalates to {{company_name}}.</li>
+<li><strong>MDR/SOC provider ({{field:mdr_provider}}):</strong> monitors security telemetry 24/7, investigates alerts, takes approved containment actions and escalates to {{company_name}}.</li>
 <li><strong>System owners:</strong> ensure line-of-business applications have audit logging enabled and tell {{company_name}} about new systems that should be logged.</li>
 </ul>
 
@@ -32,7 +32,7 @@
 
 <h2>5. Centralized collection</h2>
 <ul>
-<li>Logs from the sources in section 2 are forwarded to a centralized log platform or SIEM ([platform name]) managed by {{company_name}} or its MDR partner, so logs survive the loss or compromise of the original system.</li>
+<li>Logs from the sources in section 2 are forwarded to a centralized log platform or SIEM ({{field:log_platform}}) managed by {{company_name}} or its MDR partner, so logs survive the loss or compromise of the original system.</li>
 <li>{{company_name}} maintains a list of log sources and confirms at least monthly that each source is still sending logs. A log source that stops reporting for more than 24 hours generates an alert.</li>
 <li>Logs must not contain passwords, full payment card numbers or other secrets. Applications are configured to mask such data.</li>
 <li>Logs are sent to the central platform promptly (near real time where supported), and log storage is sized for the retention in section 7 with an alert before it fills up.</li>
@@ -42,7 +42,7 @@
 
 <h2>6. Time synchronization</h2>
 <ul>
-<li>All systems synchronize time to an authoritative source: domain controllers to [pool.ntp.org / time.nist.gov / firewall]; domain members to domain controllers; cloud services use provider time.</li>
+<li>All systems synchronize time to an authoritative source: domain controllers to {{field:time_source}}; domain members to domain controllers; cloud services use provider time.</li>
 <li>Time drift greater than 5 minutes is corrected, and log timestamps include time zone or use UTC so events can be correlated accurately.</li>
 <li>Only administrators can change time settings or time sources, and changes to them are logged.</li>
 </ul>

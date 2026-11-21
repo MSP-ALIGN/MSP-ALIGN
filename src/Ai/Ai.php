@@ -280,11 +280,15 @@ final class Ai
         ini_set('session.use_cookies', '0');
         try {
             session_start();
+            if (session_id() !== $id) {
+                session_abort(); // the old session is gone: keep no orphan session and send no cookie
+            }
         } finally {
-            ini_set('session.use_cookies', $cookies);
-        }
-        if (session_id() !== $id) {
-            session_abort(); // the old session is gone: keep no orphan session and send no cookie
+            // (2.41.0) Session settings can't change while a session is active (PHP warned on every AI call). The
+            // reopened session keeps the browser's id, so it never needs a cookie for the rest of this request.
+            if (session_status() !== PHP_SESSION_ACTIVE) {
+                ini_set('session.use_cookies', $cookies);
+            }
         }
     }
 

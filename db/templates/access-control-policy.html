@@ -9,7 +9,7 @@
 
 <h2>3. Roles and responsibilities</h2>
 <ul>
-<li><strong>Security lead ([name, title]):</strong> owns this policy, coordinates access reviews and approves exceptions.</li>
+<li><strong>Security lead ({{field:security_lead}}):</strong> owns this policy, coordinates access reviews and approves exceptions.</li>
 <li><strong>Data and system owners:</strong> the manager responsible for each application or data set. Approves who may access it and at what level, and certifies access during reviews.</li>
 <li><strong>Managers / HR:</strong> submit requests for new hires, role changes and departures, and notify {{company_name}} of terminations before or at the time they occur.</li>
 <li><strong>{{company_name}}:</strong> provisions and removes access on approved requests, maintains role groups, manages privileged accounts, and produces account reports for reviews.</li>
@@ -41,7 +41,7 @@
 <h2>6. Deprovisioning (offboarding)</h2>
 <ul>
 <li>Managers or HR notify {{company_name}} of every departure as early as possible and no later than the user's last working day.</li>
-<li>Access is disabled <strong>[within 24 hours of departure / at departure, no later than the end of the last working day]</strong>, and <strong>immediately</strong> (before or during the termination meeting) for involuntary terminations or where there is elevated risk.</li>
+<li>Access is disabled <strong>{{field:offboarding}}</strong>, and <strong>immediately</strong> (before or during the termination meeting) for involuntary terminations or where there is elevated risk.</li>
 <li>Offboarding includes: disabling the account and blocking sign-in; revoking active sessions and tokens; removing MFA methods; removing the user from groups and shared mailboxes; wiping or retiring company data on mobile devices; changing any shared or known credentials the person had (door codes, alarm codes, vendor portals, Wi-Fi keys); retrieving company equipment; and transferring mailbox and OneDrive data to the manager as directed.</li>
 <li>Where cardholder data is in scope, access for departed users is revoked immediately, not within 24 hours (PCI DSS 8.2.5). Building access cards, keys and alarm codes are collected or changed on the same day.</li>
 <li>Disabled accounts are retained for [30/90] days for data recovery and then deleted or converted to a shared mailbox with sign-in blocked, unless a legal hold applies.</li>

@@ -10,10 +10,10 @@
 <ul>
 <li><strong>System name:</strong> [system name, e.g. "{{client_name}} CUI Enclave"]</li>
 <li><strong>Organization:</strong> {{client_name}} · {{client_address}}</li>
-<li><strong>CAGE code(s):</strong> [CAGE code] · <strong>UEI:</strong> [UEI]</li>
+<li><strong>CAGE code(s):</strong> {{field:cage_code}} · <strong>UEI:</strong> [UEI]</li>
 <li><strong>System owner:</strong> [name, title, phone, email]</li>
-<li><strong>Senior official / Affirming Official:</strong> [name, title]</li>
-<li><strong>Security officer / CMMC lead:</strong> [name, title]</li>
+<li><strong>Senior official / Affirming Official:</strong> {{field:affirming_official}}</li>
+<li><strong>Security officer / CMMC lead:</strong> {{field:security_lead}}</li>
 <li><strong>Primary contact:</strong> {{client_contact}} · {{client_contact_email}} · {{client_phone}}</li>
 <li><strong>Managed service provider:</strong> {{company_name}} · {{company_phone}} · {{company_email}} · vCIO: {{vcio_name}}</li>
 <li><strong>Applicable contracts / subcontracts:</strong> [contract numbers, prime contractor, clauses included: FAR 52.204-21, DFARS 252.204-7012 / -7019 / -7020 / -7021 / -7025]</li>
@@ -63,9 +63,9 @@
 
 <h2>5. Roles and responsibilities</h2>
 <ul>
-<li><strong>Senior official / Affirming Official</strong> ([name, title]): accountable for the program and for affirmations submitted in SPRS.</li>
-<li><strong>System owner</strong> ([name]): approves this SSP, accepts risk, approves access and changes.</li>
-<li><strong>Security officer / CMMC lead</strong> ([name]): maintains the SSP and POA&amp;M, coordinates assessments, tracks training.</li>
+<li><strong>Senior official / Affirming Official</strong> ({{field:affirming_official}}): accountable for the program and for affirmations submitted in SPRS.</li>
+<li><strong>System owner</strong> ({{field:system_owner}}): approves this SSP, accepts risk, approves access and changes.</li>
+<li><strong>Security officer / CMMC lead</strong> ({{field:security_lead}}): maintains the SSP and POA&amp;M, coordinates assessments, tracks training.</li>
 <li><strong>{{company_name}} (External Service Provider)</strong>: [administers identity, endpoints, firewall, patching, backups and monitoring as defined in the customer responsibility matrix].</li>
 <li><strong>Users</strong>: follow the CUI Handling Policy and Acceptable Use Policy, complete training, report incidents.</li>
 <li><strong>Human resources / office manager</strong> ([name]): screening, onboarding and offboarding notifications.</li>

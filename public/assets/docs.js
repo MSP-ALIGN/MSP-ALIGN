@@ -19,9 +19,53 @@ const alignQuillFormats = ['header', 'bold', 'italic', 'underline', 'strike', 'c
  * started from (409 = someone saved meanwhile: shown, never overwritten without Keep mine), and polls presence.
  * Read-only for viewers (data-can-edit="0"); the server checks the role again on every save.
  */
+/**
+ * (2.41.0) A marked field value (Docs\Fields): <span class="doc-field" data-field="key" data-value="…">. Quill drops
+ * markup it has no format for, so without this the marks would be lost on the first save. The format's value is
+ * {key, value}: the field key and the text the value was filled with (the server compares it with the text to tell
+ * an untouched value from one someone edited). Typing inside a value keeps the mark, so the edit shows as an edit.
+ */
+const alignRegisterField = () => {
+  if (!window.Quill || window.alignFieldRegistered) return;
+  const Inline = Quill.import('blots/inline');
+  class FieldBlot extends Inline {
+    static create(v) {
+      const node = super.create();
+      const key = v && typeof v === 'object' ? String(v.key || '') : '';
+      if (/^[a-z_]{1,40}$/.test(key)) node.setAttribute('data-field', key);
+      node.setAttribute('data-value', v && typeof v === 'object' ? String(v.value || '') : '');
+      return node;
+    }
+
+    static formats(node) {
+      return { key: node.getAttribute('data-field') || '', value: node.getAttribute('data-value') || '' };
+    }
+
+    // (2.41.0 review) Parchment merges neighbouring inline blots only when their format values are the same object,
+    // never true for {key, value}: bold then un-bold inside a value would leave it in pieces, which the server reads
+    // as edited by hand. Join a neighbour that is the same field filled with the same value.
+    optimize(context) {
+      super.optimize(context);
+      const next = this.next;
+      if (next instanceof FieldBlot && next.prev === this
+        && next.domNode.getAttribute('data-field') === this.domNode.getAttribute('data-field')
+        && next.domNode.getAttribute('data-value') === this.domNode.getAttribute('data-value')) {
+        next.moveChildren(this);
+        next.remove();
+      }
+    }
+  }
+  FieldBlot.blotName = 'docfield';
+  FieldBlot.tagName = 'SPAN';
+  FieldBlot.className = 'doc-field';
+  Quill.register(FieldBlot, true);
+  window.alignFieldRegistered = true;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const host = document.getElementById('doc-editor');
   if (!host || !window.Quill) return;
+  alignRegisterField();
 
   const app = document.getElementById('doc-app');
   const isTemplate = host.dataset.mode === 'template';
@@ -31,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     theme: 'snow',
     readOnly: !canEdit,
     placeholder: canEdit ? 'Start writing…' : '',
-    formats: alignQuillFormats,
+    formats: alignQuillFormats.concat(['docfield']), // (2.41.0) marked field values
     modules: {
       toolbar: canEdit ? [
         [{ header: [1, 2, 3, false] }],
@@ -317,6 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const fmt = quill.getFormat(b.index, b.text.length);
     const keep = {};
     INLINE.forEach((k) => { if (fmt[k] !== undefined) keep[k] = fmt[k]; });
+    // (2.41.0 review) a form field's blank keeps its mark: the typed text then counts as edited in the document
+    if (fmt.docfield && typeof fmt.docfield === 'object') keep.docfield = fmt.docfield;
     quill.deleteText(b.index, b.text.length, 'user');
     quill.insertText(b.index, value.trim(), keep, 'user');
     return true;

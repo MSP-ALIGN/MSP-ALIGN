@@ -21,6 +21,11 @@ Rules for the HTML
   {{company_email}}, {{company_website}}, {{today}}, {{year}}.
   {{company_emergency_phone}} is the MSP's 24/7 security line (Settings → General); when it's blank it
   falls back to {{company_phone}}. Use it wherever someone must reach the MSP about an incident.
+- (2.41.0) Answers shared by many documents are named form fields: `{{field:key}}`, with the keys listed in
+  `src/Docs/Fields.php` (security_lead, legal_counsel, cyber_insurance, backup_tool, training_platform, ...).
+  Each client answers them once on its document form, values from its connections fill in until someone types an
+  answer, and documents carry the value marked so a changed answer updates its drafts. Add a field to the registry
+  before using a new key (an unknown key stays as written). Never put a field in an approval block.
 - Things the client/tech must fill in go in square brackets: [name, phone], [date], [system name].
 - Numbered sections (<h2>1. Purpose</h2>, 2. Scope, 3. Roles…), plain professional English, specific
   and practical for a small or mid-sized business supported by a managed service provider

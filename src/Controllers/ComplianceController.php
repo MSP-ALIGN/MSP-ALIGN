@@ -123,9 +123,13 @@ final class ComplianceController
             flash('error', "{$fw['name']} is inactive, so it can't be added to more clients.");
             redirect("/clients/$id/compliance");
         }
-        DB::run('INSERT IGNORE INTO client_frameworks (client_id, framework_id, next_review) VALUES (?, ?, ?)', [
+        $added = DB::run('INSERT IGNORE INTO client_frameworks (client_id, framework_id, next_review) VALUES (?, ?, ?)', [
             $id, $fw['id'], date('Y-m-d', strtotime('+1 year')),
-        ]);
+        ])->rowCount() > 0;
+        if ($added) {
+            // (2.40.3 review) the client's scope answers apply to a framework added (or added again) after they were given
+            \Align\Compliance\Setup::applyScope($id, $fw);
+        }
         Audit::log('compliance.assign', "{$fw['name']} → {$client['name']}");
         // 2.40.0 the guided setup opens first; the checklist stays one click away
         flash('success', "{$fw['name']} added. The guided setup below walks you through it step by step, or open the checklist to answer it directly.");

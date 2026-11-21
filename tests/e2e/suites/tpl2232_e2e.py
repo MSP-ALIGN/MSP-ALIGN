@@ -70,7 +70,9 @@ ok(all(x in ir for x in ["<h3>Communication plan</h3>", "Inside {{client_name}}:
    and "<h2>11. Incidents that may involve sensitive data</h2>" in ir and "<h2>14. Testing</h2>" in ir and "tabletop" in ir and "includes the communication plan and any required incident reports" in ir,
    "IRP: an internal and external communication plan; section numbers and annual testing unchanged")
 ac = text(body("access-control-policy"))
-ok("[within 5 business days / on the effective date of the change]" in ac and "[within 24 hours of departure / at departure, no later than the end of the last working day]" in ac
+# (2.41.0) the departure choice is the form field "offboarding" (Docs\Fields), with the same two options
+ok("[within 5 business days / on the effective date of the change]" in ac and "{{field:offboarding}}" in ac
+   and "at departure, no later than the end of the last working day" in php("echo implode('|', Align\\Docs\\Fields::FIELDS['offboarding'][4]);").stdout
    and "immediately" in ac, "Access Control: removal on the day of a departure or role change as a choice")
 
 # ---- every changed template: editor-safe tags, known placeholders, generic wording
