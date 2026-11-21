@@ -66,7 +66,7 @@ final class Fields
         'security_email' => ['Security contact email', 'Where vulnerability and security reports are sent.', 'email', 'contacts', [], 150],
         // The organization and its data
         'data_types' => ['Sensitive data it holds', 'The regulated or sensitive information the client keeps, e.g. patient records (ePHI), payment card data, CUI, employee records.', 'long', 'organization', [], 500],
-        'endpoints' => ['Endpoints', 'How many workstations, laptops, servers and phones. Filled from the RMM when the client is linked.', 'long', 'organization', [], 250],
+        'endpoints' => ['Endpoints', 'How many desktops, laptops, servers and virtual machines are in use. Filled from the client\'s devices in Align (RMM and PSA).', 'long', 'organization', [], 250],
         'lob_apps' => ['Line-of-business apps', 'The main business applications staff use (practice management, accounting, ERP).', 'long', 'organization', [], 250],
         'cage_code' => ['CAGE code', 'CMMC: the CAGE code(s) the assessment covers.', 'text', 'organization', [], 60],
         // Systems and tools
@@ -128,8 +128,27 @@ final class Fields
     /**
      * What Align already knows for the client from its connections: key => [value, where it came from]. Only names
      * and counts Align stores; a connector not set up, or a client not linked to it, gives nothing.
+     *
+     * (2.41.1 review) Kept for the rest of the request (the Documents overview asks once per document, and counting
+     * devices reads the client's whole device list): it reads only connection and device data, never the stored
+     * answers, so a save in the same request still compares against the right values. forgetAuto() clears it.
      */
     public static function auto(int $clientId): array
+    {
+        return self::$autoCache[$clientId] ??= self::readAuto($clientId);
+    }
+
+    /** @var array<int, array> auto() results by client id, for this request */
+    private static array $autoCache = [];
+
+    /** Forgets auto() results (for long command-line runs, or after a sync changed connections or devices). */
+    public static function forgetAuto(): void
+    {
+        self::$autoCache = [];
+    }
+
+    /** What auto() returns, read from the database (see auto()). */
+    private static function readAuto(int $clientId): array
     {
         $out = [];
         // Email platform: the client's own Microsoft 365 or Google Workspace connection
@@ -167,15 +186,25 @@ final class Fields
         if (\Align\Providers\Providers::psaConfigured()) {
             $out['ticketing_system'] = [\Align\Providers\Providers::psaName(), 'PSA connector'];
         }
-        // Endpoints: the client's devices Align tracks, by kind
+        // Endpoints: the client's devices Align tracks, by kind. (2.41.1) Read through Lifecycle::devices(), the same
+        // list as the client's Devices page: RMM devices linked through the client's RMM organization (client_id is
+        // empty on those, so counting devices.client_id alone missed most of them), the type an admin set, and
+        // devices out of use (retired, excluded, spare) left out. A device that stopped checking in still counts (it is still
+        // the client's until it is retired or removed). Virtual machines are counted on their own.
         $kinds = ['desktop' => ['desktop', 'desktops'], 'laptop' => ['laptop', 'laptops'], 'server' => ['server', 'servers']];
-        $counts = DB::all("SELECT device_class, COUNT(*) AS n FROM devices WHERE client_id = ? AND removed_at IS NULL AND device_class IN ('desktop','laptop','server') GROUP BY device_class", [$clientId]);
+        $n = ['desktop' => 0, 'laptop' => 0, 'server' => 0, 'virtual' => 0];
+        foreach ((new \Align\Lifecycle\Lifecycle())->devices($clientId) as $d) {
+            if (\Align\Lifecycle\Lifecycle::notInUse($d) || !empty($d['retired_at'])
+                || !isset($kinds[$d['device_class'] ?? ''])) {
+                continue;
+            }
+            $n[$d['is_virtual'] ? 'virtual' : $d['device_class']]++;
+        }
+        $kinds['virtual'] = ['virtual machine', 'virtual machines'];
         $parts = [];
         foreach ($kinds as $k => [$one, $many]) {
-            foreach ($counts as $r) {
-                if ($r['device_class'] === $k && (int) $r['n'] > 0) {
-                    $parts[] = (int) $r['n'] . ' ' . ((int) $r['n'] === 1 ? $one : $many);
-                }
+            if ($n[$k] > 0) {
+                $parts[] = $n[$k] . ' ' . ($n[$k] === 1 ? $one : $many);
             }
         }
         if ($parts) {
