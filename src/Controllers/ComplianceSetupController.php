@@ -50,6 +50,24 @@ final class ComplianceSetupController
         return "/clients/$id/compliance/$fw/setup?step=$step" . ($page > 0 ? "&page=$page" : '');
     }
 
+    /**
+     * (2.40.3) The setup steps already complete from the client's data, whatever filled them in: 1 Scope when every
+     * scope question for this framework has an answer, 5 Questions when no item is Not assessed. Read-only.
+     */
+    private static function complete(int $id, int $fw, string $slug): array
+    {
+        $done = [];
+        $scope = Setup::scopeFor($slug);
+        $answers = Setup::scopeAnswers($id);
+        if ($scope && !array_diff(array_keys($scope), array_keys($answers))) {
+            $done[1] = true;
+        }
+        if (Setup::questionsDone($id, $fw)) {
+            $done[5] = true;
+        }
+        return $done;
+    }
+
     /** One step of the setup. Opening it starts the setup for techs and admins (viewers only read). */
     public static function show(int $id, int $fw): void
     {
@@ -62,7 +80,9 @@ final class ComplianceSetupController
         Audit::access('compliance', "{$client['name']} / {$f['name']} setup step $step");
         $vars = ['title' => $client['name'] . ' · ' . $f['name'] . ' setup', 'nav' => 'clients', 'client' => $client, 'clientNav' => 'compliance',
             'fw' => $f, 'link' => $link, 'setup' => Setup::get($id, $fw), 'step' => $step, 'canEdit' => Auth::can('tech'),
-            'score' => Compliance::score($id, $fw), 'waiting' => ClientQuestions::waiting($id, $fw)];
+            'score' => Compliance::score($id, $fw), 'waiting' => ClientQuestions::waiting($id, $fw),
+            // (2.40.3) Steps whose work is already done, however it was done, tick even if never clicked through
+            'complete' => self::complete($id, $fw, (string) $f['slug'])];
         switch ($step) {
             case 1:
                 $vars['scope'] = Setup::scopeFor((string) $f['slug']);
@@ -82,8 +102,7 @@ final class ComplianceSetupController
                 $pages = max(1, (int) ceil(count($groups) / Setup::PER_PAGE));
                 $page = max(1, min($pages, (int) (query('page') ?: 1)));
                 $vars += ['groups' => array_slice($groups, ($page - 1) * Setup::PER_PAGE, Setup::PER_PAGE), 'page' => $page, 'pages' => $pages,
-                    'total' => count($groups), 'answered' => count(array_filter($groups, fn($g) => $g['status'] !== 'not_assessed' && $g['status'] !== 'mixed'
-                        || ($g['status'] === 'mixed' && !in_array('not_assessed', array_column($g['controls'], 'status'), true)))),
+                    'total' => count($groups), 'answered' => count(array_filter($groups, fn($g) => $g['answered'])), // (2.40.3)
                     'contacts' => \Align\Docs\Signing::contacts($id), 'requests' => ClientQuestions::forClient($id, $fw),
                     'asked' => self::askedTopics($id, $fw)];
                 break;
@@ -132,7 +151,15 @@ final class ComplianceSetupController
                 $answers = is_array($_POST['a'] ?? null) ? $_POST['a'] : [];
                 $notes = is_array($_POST['n'] ?? null) ? $_POST['n'] : [];
                 $changed = 0;
+                // (2.40.3) The page opens with each topic's recorded answer picked (sent back as was[key]): a topic
+                // sent back as it was shown, with no note, is left alone, so a save never writes back an answer that
+                // changed elsewhere since the page opened (another tab, the checklist, an accepted client answer)
+                $was = is_array($_POST['was'] ?? null) ? $_POST['was'] : [];
                 foreach ($answers as $key => $a) {
+                    $note = is_string($notes[$key] ?? null) ? trim($notes[$key]) : '';
+                    if (is_string($a) && $note === '' && $a === ($was[$key] ?? null)) {
+                        continue;
+                    }
                     if (is_string($key) && is_string($a) && $a !== '') {
                         $changed += Setup::answer($id, $fw, $key, $a, is_string($notes[$key] ?? null) ? $notes[$key] : '');
                     }

@@ -249,7 +249,8 @@ final class Setup
      * The Questions step: the framework's controls grouped by their first tag, in checklist order, each group with
      * its topic question, its controls (id, ref, title, status), a summary status, and the client's answers to the
      * same topic in its other assigned frameworks ('elsewhere': [[framework, status, n], …]). Untagged controls
-     * form one group per control, asked with the control's own title.
+     * form one group per control, asked with the control's own title. (2.40.3) 'status' leaves out Not applicable
+     * items when others are answered, and 'answered' is true when no item is Not assessed.
      */
     public static function groups(int $clientId, int $fwId): array
     {
@@ -281,6 +282,9 @@ final class Setup
             }
             foreach ($seen as $tag => $byFw) {
                 foreach ($byFw as $name => $counts) {
+                    if (count($counts) > 1) {
+                        unset($counts['na']); // (2.40.3 review) as the topic's own status: Not applicable items left out
+                    }
                     arsort($counts);
                     $groups[$tag]['elsewhere'][] = ['framework' => $name, 'status' => array_key_first($counts), 'counts' => $counts,
                         'agree' => count($counts) === 1];
@@ -288,9 +292,26 @@ final class Setup
             }
         }
         foreach ($groups as &$g) {
-            $g['status'] = self::summary(array_column($g['controls'], 'status'));
+            $all = array_column($g['controls'], 'status');
+            // (2.40.3) Not applicable items don't make a topic "mixed": the topic shows the answer its other items
+            // share (all Not applicable: Not applicable), and it counts as answered when none is Not assessed, however
+            // it was answered (the checklist, the setup, an automatic check or the client)
+            $applicable = array_values(array_filter($all, fn($s) => $s !== 'na'));
+            $g['status'] = self::summary($applicable ?: $all);
+            $g['answered'] = !in_array('not_assessed', $all, true);
         }
+        unset($g);
         return array_values($groups);
+    }
+
+    /**
+     * (2.40.3) Whether every question of the framework is answered (no item Not assessed), however the answers were
+     * given: the Questions step then shows as done even if it was never clicked through.
+     */
+    public static function questionsDone(int $clientId, int $fwId): bool
+    {
+        return (int) DB::value("SELECT COUNT(*) FROM compliance_controls c LEFT JOIN client_control_status s ON s.control_id = c.id AND s.client_id = ?
+            WHERE c.framework_id = ? AND COALESCE(s.status, 'not_assessed') = 'not_assessed'", [$clientId, $fwId]) === 0;
     }
 
     /** One status for a group of answers: the status when they all agree, otherwise 'mixed'. */
@@ -302,8 +323,8 @@ final class Setup
 
     /**
      * Answers one topic for the framework: every control in the group gets the status of $answer (ANSWERS), except
-     * controls a scope answer marked Not applicable when the answer isn't Not applicable itself (scope wins until
-     * it changes). A dated line with the answer and $note is added under each control's earlier note (the newest
+     * controls already Not applicable when the answer isn't Not applicable itself ((2.40.3) by a scope answer or by
+     * hand: change those on the checklist). A dated line with the answer and $note is added under each control's earlier note (the newest
      * 5000 characters are kept). Returns the controls changed.
      * The topic key must be one of groups()' keys (a tag, or control-<id> of this framework).
      */
@@ -326,9 +347,11 @@ final class Setup
         $note = mb_substr(trim($note), 0, 1000);
         $n = 0;
         foreach ($group['controls'] as $c) {
-            $scoped = $c['status'] === 'na' && is_string($c['notes']) && str_starts_with($c['notes'], 'Not applicable (scope:');
+            // (2.40.3 review) An item already Not applicable (by a scope answer or by hand) keeps that status unless the
+            // topic is answered Not applicable: the topic's status leaves those items out, so its answer is about the rest
+            $keepNa = $c['status'] === 'na' && $status !== 'na';
             $old = trim((string) $c['notes']);
-            if (($scoped && $status !== 'na') || ($c['status'] === $status && ($note === '' || str_contains($old, $note)))) {
+            if ($keepNa || ($c['status'] === $status && ($note === '' || str_contains($old, $note)))) {
                 continue;
             }
             $row = ['client_id' => $clientId, 'control_id' => $c['id'], 'status' => $status, 'updated_by' => Auth::id()];
