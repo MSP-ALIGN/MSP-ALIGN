@@ -40,7 +40,8 @@ $badge = function (string $s) use ($st): string {
     <div class="list-group setup-steps" aria-label="Setup steps">
       <?php foreach (Setup::STEPS as $n => [$label, $icon]): ?>
         <a href="<?= e("$base?step=$n") ?>" class="list-group-item list-group-item-action d-flex align-items-center<?= $n === $step ? ' active' : '' ?>" <?= $n === $step ? 'aria-current="step"' : '' ?>>
-          <span class="setup-step-n me-2 <?= $n < $reached || !empty($setup['finished_at']) ? 'done' : '' ?>"><?= $n < $reached || !empty($setup['finished_at']) ? '<i class="fas fa-check"></i>' : $n ?></span>
+          <?php $isDone = $n < $reached || !empty($setup['finished_at']) || !empty($complete[$n]); /* (2.40.3) or already complete from the client's data */ ?>
+          <span class="setup-step-n me-2 <?= $isDone ? 'done' : '' ?>"><?= $isDone ? '<i class="fas fa-check"></i>' : $n ?></span>
           <span class="me-auto"><?= e($label) ?></span><i class="fas <?= e($icon) ?> opacity-50"></i>
         </a>
       <?php endforeach; ?>
@@ -139,9 +140,12 @@ $badge = function (string $s) use ($st): string {
             <?php endforeach; ?>
             <?php if ($canEdit): ?>
               <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <?php /* (2.40.3 review) the answer shown when the page opened: saving applies only answers changed since */ ?>
+                <input type="hidden" name="was[<?= e($key) ?>]" value="<?= e($fromStatus[$g['status']] ?? '') ?>">
                 <div class="btn-group btn-group-sm" role="group" aria-label="Answer">
                   <?php foreach (Setup::ANSWERS as $v => [$l]): ?>
-                    <input type="radio" class="btn-check" name="a[<?= e($key) ?>]" value="<?= e($v) ?>" id="a-<?= e($key) ?>-<?= e($v) ?>">
+                    <?php /* (2.40.3) the answer already recorded is picked; saving it unchanged changes nothing */ ?>
+                    <input type="radio" class="btn-check" name="a[<?= e($key) ?>]" value="<?= e($v) ?>" id="a-<?= e($key) ?>-<?= e($v) ?>"<?= ($fromStatus[$g['status']] ?? null) === $v ? ' checked' : '' ?>>
                     <label class="btn btn-outline-secondary" for="a-<?= e($key) ?>-<?= e($v) ?>"><?= e($l) ?></label>
                   <?php endforeach; ?>
                 </div>
