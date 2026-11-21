@@ -13,7 +13,7 @@
 <li><strong>Change requester:</strong> anyone asking for a change; describes what is needed and why.</li>
 <li><strong>Change implementer:</strong> usually a {{company_name}} technician or vendor; plans, tests, implements and documents the change.</li>
 <li><strong>Change approver(s):</strong> for normal changes, the {{company_name}} service lead or {{vcio_name}} plus the {{client_name}} business owner of the affected system ([name, title]). For high-risk changes, the security lead or executive sponsor also approves.</li>
-<li><strong>Security lead ([name, title]):</strong> owns this policy on the client side, approves high-risk and security-related changes, and reviews emergency changes after the fact.</li>
+<li><strong>Security lead ({{field:security_lead}}):</strong> owns this policy on the client side, approves high-risk and security-related changes, and reviews emergency changes after the fact.</li>
 <li><strong>{{company_name}}:</strong> maintains the change process in its ticketing system and keeps the change record.</li>
 </ul>
 
@@ -27,7 +27,7 @@
 
 <h2>5. Change process for normal changes</h2>
 <ol>
-<li><strong>Request:</strong> a change ticket is opened in {{company_name}}'s ticketing system ([system name]) describing what will change, why, systems and users affected, and requested timing.</li>
+<li><strong>Request:</strong> a change ticket is opened in {{company_name}}'s ticketing system ({{field:ticketing_system}}) describing what will change, why, systems and users affected, and requested timing.</li>
 <li><strong>Risk assessment:</strong> the implementer rates the change:
 <ul>
 <li><strong>Low:</strong> affects a single system or few users, easily reversed, no security impact.</li>

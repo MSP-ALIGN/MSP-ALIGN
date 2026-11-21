@@ -88,7 +88,8 @@ final class Documents
 
     /**
      * Replaces {{placeholders}} in template HTML with the client's details, HTML-escaped, and (2.39.0) fills the
-     * "[name, title]" blanks the client's document facts answer (Docs\Facts, for a saved client with an id).
+     * "[name, title]" blanks the client's document facts answer (Docs\Facts, for a saved client with an id), and
+     * (2.41.0) puts the client's answers in the {{field:key}} places (Docs\Fields::render).
      * Escaping covers text and quoted attributes only (a value can still land in an href), so the result must go
      * through Html::clean before it is stored.
      */
@@ -98,6 +99,8 @@ final class Documents
         $html = preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/', function ($m) use ($vals) {
             return isset($vals[$m[1]]) ? htmlspecialchars($vals[$m[1]], ENT_QUOTES, 'UTF-8') : $m[0];
         }, $html) ?? $html;
+        // 2.41.0 Named fields ({{field:key}}): the client's answers as marked values (Docs\Fields); a blank without a client
+        $html = Fields::render($html, !empty($client['id']) ? Fields::shown((int) $client['id']) : []);
         if (!empty($client['id'])) {
             $html = Facts::apply($html, Facts::forClient((int) $client['id']))[0];
         }

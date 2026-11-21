@@ -9,7 +9,7 @@
 
 <h2>3. Roles and responsibilities</h2>
 <ul>
-<li><strong>Security lead ([name, title]):</strong> owns this policy, approves retention periods and reviews restore test results.</li>
+<li><strong>Security lead ({{field:security_lead}}):</strong> owns this policy, approves retention periods and reviews restore test results.</li>
 <li><strong>Data and system owners:</strong> identify what data must be backed up and confirm recovery objectives (RTO/RPO) in the Business Continuity &amp; Disaster Recovery Plan.</li>
 <li><strong>{{company_name}}:</strong> designs, operates and monitors backup systems, responds to backup failures, performs restore tests and restores data on request.</li>
 <li><strong>Users:</strong> save company data in approved locations (OneDrive, SharePoint, file server, line-of-business apps) that are backed up, not only on local desktops or USB drives.</li>
@@ -36,8 +36,8 @@
 <li><strong>Workstations:</strong> not routinely backed up; users' Desktop, Documents and Pictures folders are redirected to OneDrive (Known Folder Move). Workstations with required local data ([exceptions]) receive endpoint backup.</li>
 <li><strong>Before equipment is moved, repaired or replaced:</strong> a retrievable, exact copy of the data on it is made and verified before the move, including servers, NAS devices and workstations with local data.</li>
 </ul>
-<p>For systems holding regulated information ([e.g. ePHI, payment card data, CUI, customer financial information]), backups are retrievable exact copies of that information, protected as carefully as the original (HIPAA 164.308(a)(7)(ii)(A)).</p>
-<p><strong>Backup inventory:</strong> the list of protected systems, with the backup tool, schedule, local and offsite destination and retention for each, is kept at [location, e.g. {{company_name}}'s documentation system] and reviewed [quarterly]. Current setup: servers backed up by [backup tool] to [local appliance / storage] and [offsite or cloud destination, region]; Microsoft 365 / Google Workspace backed up by [cloud backup tool] to [destination, region].</p>
+<p>For systems holding regulated information ({{field:data_types}}), backups are retrievable exact copies of that information, protected as carefully as the original (HIPAA 164.308(a)(7)(ii)(A)).</p>
+<p><strong>Backup inventory:</strong> the list of protected systems, with the backup tool, schedule, local and offsite destination and retention for each, is kept at [location, e.g. {{company_name}}'s documentation system] and reviewed [quarterly]. Current setup: servers backed up by {{field:backup_tool}} to [local appliance / storage] and {{field:backup_offsite}}; Microsoft 365 / Google Workspace backed up by [cloud backup tool] to [destination, region].</p>
 
 <h2>6. Backup frequency</h2>
 <p>Frequency is set to meet each system's recovery point objective (RPO) in the Business Continuity &amp; Disaster Recovery Plan. Minimums:</p>

@@ -168,6 +168,10 @@ function docsEnv(o = {}) {
     on(t, f) { this.handlers[t] = f; }
     type() { this.html += '<p>typed</p>'; this.handlers['text-change']({}, {}, 'user'); }
   }
+  // (2.41.0) docs.js registers the docfield blot: the stub needs Quill.import / Quill.register like the real one
+  Quill.registered = [];
+  Quill.import = () => class { static create() { return { setAttribute() {} }; } optimize() {} };
+  Quill.register = (b) => { Quill.registered.push(b.blotName); };
   const env = makeEnv({ ids, onFetch: o.onFetch, extra: { Quill } });
   env.ids = ids; env.quills = quills;
   env.load('docs.js');

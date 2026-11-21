@@ -95,10 +95,21 @@ final class Html
             $value = trim($attr->value);
             switch (true) {
                 case $name === 'class':
-                    $classes = array_filter(preg_split('/\s+/', $value) ?: [], fn($c) => preg_match('/^ql-(align|indent|direction|size|font)-[a-z0-9-]{1,20}$|^ql-ui$/', $c) === 1);
+                    $classes = array_filter(preg_split('/\s+/', $value) ?: [], fn($c) => preg_match('/^ql-(align|indent|direction|size|font)-[a-z0-9-]{1,20}$|^ql-ui$/', $c) === 1
+                        || ($c === 'doc-field' && $tag === 'span')); // 2.41.0 a marked field value (Docs\Fields)
                     if ($classes) {
                         $keep['class'] = implode(' ', $classes);
                     }
+                    break;
+                // 2.41.0 A marked field value (Docs\Fields): the field's key, and the plain text it was filled with
+                // (an attribute only: never shown as HTML, escaped by libxml when written out)
+                case $name === 'data-field' && $tag === 'span':
+                    if (preg_match('/^[a-z_]{1,40}$/', $value)) {
+                        $keep['data-field'] = $value;
+                    }
+                    break;
+                case $name === 'data-value' && $tag === 'span':
+                    $keep['data-value'] = mb_substr(preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $attr->value) ?? '', 0, 1000);
                     break;
                 case $name === 'data-list' && $tag === 'li':
                     if (in_array($value, ['bullet', 'ordered', 'checked', 'unchecked'], true)) {

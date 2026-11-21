@@ -105,7 +105,7 @@ $badge = function (string $s) use ($st): string {
             <li class="mb-1"><i class="fas fa-fw <?= isset($facts[$k]) ? 'fa-circle-check text-success' : 'fa-circle text-muted opacity-50' ?> me-1"></i><b><?= e($label) ?>:</b> <?= isset($facts[$k]) ? e($facts[$k]) : '<span class="text-muted">not set</span>' ?></li>
           <?php endforeach; ?>
         </ul>
-        <a class="btn btn-default" href="/clients/<?= $id ?>/documents#doc-facts"><i class="fas fa-id-badge me-1"></i>Edit client details</a>
+        <a class="btn btn-default" href="/clients/<?= $id ?>/document-answers"><i class="fas fa-list-check me-1"></i>Answers for documents</a> <?php /* 2.41.0 the client's document form */ ?>
         <a class="btn btn-primary ms-1" href="<?= e("$base?step=4") ?>">Continue <i class="fas fa-arrow-right ms-1"></i></a>
       </div>
     </div>

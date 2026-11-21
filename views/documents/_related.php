@@ -37,6 +37,8 @@ $row = function (array $r) use ($cid, $canEdit, $ai, $review): void {
           </div>
           <?php if ($canEdit && $r['state'] === 'missing'): ?>
             <div class="d-flex flex-wrap gap-1">
+              <?php /* 2.41.0 the template's form: answer its questions, then make the draft */ ?>
+              <a class="btn btn-sm btn-primary" href="/clients/<?= $cid ?>/document-answers?template=<?= (int) $r['id'] ?>"><i class="fas fa-list-check me-1"></i>Fill the form</a>
               <form method="post" action="/documents" class="d-inline">
                 <?= csrf_field() ?><input type="hidden" name="client_id" value="<?= $cid ?>"><input type="hidden" name="template_id" value="<?= (int) $r['id'] ?>">
                 <button class="btn btn-sm btn-default"><i class="fas fa-plus me-1"></i>Create from template</button>

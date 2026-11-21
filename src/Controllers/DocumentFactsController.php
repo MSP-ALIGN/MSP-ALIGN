@@ -53,6 +53,20 @@ final class DocumentFactsController
             redirect($back);
         }
         Audit::log('document.facts', $client['name'] . ': ' . implode(', ', array_map(fn($k) => Facts::FIELDS[$k][0], array_keys($changes))));
+        \Align\Docs\Fields::updateDrafts($id); // 2.41.0 marked values in Draft pages follow the answers (before the offer, so it lists only plain text)
+        self::offer($id, $changes);
+        flash('success', 'Client details saved. New documents made from a template use them; in a document, use Fill from client details for the blanks they answer.');
+        redirect($back);
+    }
+
+    /**
+     * Remembers changes of the people facts (key => [old, new]; other keys ignored) so the client's Documents page
+     * offers to put them into Draft pages that still name the old value as plain text (written before 2.41.0's
+     * marked values). Shared with the 2.41.0 document form.
+     */
+    public static function offer(int $id, array $changes): void
+    {
+        $changes = array_intersect_key($changes, Facts::FIELDS);
         // (2.39.0 review) A→B then B→C before answering offers A→C: drafts may still say A. B is left as the editor's
         // own text in that case (rare: the offer was open and not taken).
         $pending = is_array($_SESSION[self::PENDING][$id] ?? null) ? $_SESSION[self::PENDING][$id] : [];
@@ -66,8 +80,6 @@ final class DocumentFactsController
         if ($replaced && Facts::draftsFor($id, $replaced)) {
             $_SESSION[self::PENDING][$id] = $replaced;
         }
-        flash('success', 'Client details saved. New documents made from a template use them; in a document, use Fill from client details for the blanks they answer.');
-        redirect($back);
     }
 
     /** The changes waiting for an answer on the client's Documents page, with the drafts they'd update; null for none. */

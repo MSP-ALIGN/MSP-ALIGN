@@ -109,6 +109,9 @@ final class DocumentController
             'contractTemplates' => Auth::can('tech') ? \Align\Contracts\Template::all(true) : [],
             'facts' => \Align\Docs\Facts::forClient($id), // 2.39.0 client details for documents
             'factsPending' => Auth::can('tech') ? DocumentFactsController::pending($id) : null,
+            'overview' => \Align\Docs\Overview::forClient($id), // 2.41.0 required documents across the client's frameworks
+            'answerValues' => \Align\Docs\Fields::values($id), // 2.41.0 answers for documents
+            'owners' => Auth::can('tech') ? \Align\Docs\Overview::owners() : [],
         ]);
     }
 
@@ -124,8 +127,23 @@ final class DocumentController
         $tpl = (int) post('template_id') ? DB::one('SELECT * FROM document_templates WHERE id = ?', [(int) post('template_id')]) : null;
         $category = isset(Documents::CATEGORIES[post('category')]) ? post('category') : ($tpl['category'] ?? 'policy');
         $title = mb_substr(post('title'), 0, 255) ?: ($tpl ? $tpl['name'] : 'Untitled document');
+        $id = self::make($client, $tpl, $title, $category, $tpl ? 'Created from template: ' . $tpl['name'] : 'Created');
+        redirect("/documents/$id");
+    }
+
+    /**
+     * 2.41.0 Saves a new Draft page for $client (null: an MSP document) from template $tpl filled with the client's
+     * details and answers (Documents::fill, cleaned), or blank without a template, with a history entry ($note, plain
+     * text) and the audit entry. $client comes from ClientController::load, $tpl is a document_templates row. Shared
+     * by New document and the document form. Returns the new document's id.
+     */
+    public static function make(?array $client, ?array $tpl, string $title, string $category, string $note): int
+    {
+        $clientId = $client ? (int) $client['id'] : null;
+        $title = mb_substr($title, 0, 255);
+        $category = isset(Documents::CATEGORIES[$category]) ? $category : 'policy';
         $body = $tpl ? Html::clean(Documents::fill((string) $tpl['body_html'], $client)) : '';
-        $id = DB::transaction(function () use ($clientId, $title, $category, $body, $tpl) {
+        $id = DB::transaction(function () use ($clientId, $title, $category, $body, $tpl, $note) {
             $id = DB::insert('documents', [
                 'client_id' => $clientId,
                 'title' => $title,
@@ -137,11 +155,11 @@ final class DocumentController
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
             ]);
-            Documents::snapshot(Documents::load($id), 'created', $tpl ? 'Created from template: ' . $tpl['name'] : 'Created');
+            Documents::snapshot(Documents::load($id), 'created', $note);
             return $id;
         });
         Audit::log('document.create', ($client ? $client['name'] . ': ' : '') . $title);
-        redirect("/documents/$id");
+        return $id;
     }
 
     /** The editor (read-only for viewers). Any signed-in staff user; the view is audited. */
@@ -171,7 +189,25 @@ final class DocumentController
             'pdfJs' => $file && $doc['file_type'] === 'pdf',
             'related' => self::related($doc), // 2.38.1
             'factCount' => $doc['client_id'] ? count(\Align\Docs\Facts::forClient((int) $doc['client_id'])) : 0, // 2.39.0
-        ] + self::signatureVars($doc));
+        ] + self::signatureVars($doc) + self::formVars($doc));
+    }
+
+    /**
+     * 2.41.0 The document form's state for the editor: the field keys the page uses ('fieldKeys'), the answers that
+     * changed since it was filled ('stale', for an Active or Draft page: Fields::stale) and whether it can be rebuilt
+     * with the form ('rebuildable': made from a template that now has named fields, and none of its own).
+     */
+    private static function formVars(array $doc): array
+    {
+        if ($doc['kind'] !== 'page' || !$doc['client_id']) {
+            return ['fieldKeys' => [], 'stale' => [], 'rebuildable' => false];
+        }
+        $body = (string) $doc['body_html'];
+        $keys = \Align\Docs\Fields::keysIn($body);
+        $stale = $keys && $doc['status'] !== 'archived' ? \Align\Docs\Fields::staleFor($body, (int) $doc['client_id']) : [];
+        $rebuildable = !$keys && $doc['template_id'] && $doc['status'] !== 'archived'
+            && \Align\Docs\Fields::keysIn((string) DB::value('SELECT body_html FROM document_templates WHERE id = ?', [(int) $doc['template_id']]));
+        return ['fieldKeys' => $keys, 'stale' => $stale, 'rebuildable' => (bool) $rebuildable];
     }
 
     /**

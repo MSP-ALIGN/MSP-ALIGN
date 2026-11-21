@@ -1173,3 +1173,8 @@ textarea.pv-in { resize: none; white-space: normal; }
 .setup-steps .setup-step-n.done { background: var(--bs-success); border-color: var(--bs-success); color: #fff; }
 .setup-steps .list-group-item.active .setup-step-n { border-color: #fff; }
 .setup-q .btn-group .btn { min-width: 4.5rem; }
+
+/* (2.41.0) Marked field values in the editor (Docs\Fields): a light tint shows where answers from the form sit */
+.doc-editor .ql-editor .doc-field { background: rgba(13, 110, 253, .08); border-bottom: 1px dotted rgba(13, 110, 253, .5); border-radius: 2px; }
+[data-bs-theme="dark"] .doc-editor .ql-editor .doc-field { background: rgba(110, 168, 254, .14); border-bottom-color: rgba(110, 168, 254, .6); }
+.doc-tabs .nav-link { padding: .3rem .8rem; }

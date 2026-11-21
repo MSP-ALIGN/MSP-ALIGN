@@ -45,11 +45,32 @@ $kindLabel = ['auto' => 'Autosave', 'manual' => 'Saved version', 'restore' => 'R
     <button type="button" class="btn btn-sm btn-default ms-2" id="doc-keep-mine">Keep mine (overwrite)</button>
   </div>
   <div class="alert alert-danger d-none" id="doc-error" role="alert"></div>
+  <?php if ($client && $stale): /* 2.41.0 answers changed since this page was filled (untouched values only) */ ?>
+    <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" data-update-available>
+      <i class="fas fa-arrows-rotate"></i>
+      <span class="me-auto"><b><?= $doc['status'] === 'active' ? 'Update available' : 'Answers changed' ?>:</b>
+        <?= e(implode('; ', array_map(fn($k, $c) => \Align\Docs\Fields::FIELDS[$k][0] . ': ' . $c[0] . ' → ' . $c[1], array_keys($stale), $stale))) ?>.
+        <?= $doc['status'] === 'active' ? '<span class="small">This Active document stays as it was approved; the update goes into a draft.</span>' : '' ?></span>
+      <?php if ($canEdit): ?><form method="post" action="/documents/<?= $id ?>/fields"><?= csrf_field() ?><button class="btn btn-sm btn-warning"><?= $doc['status'] === 'active' ? 'Make a draft with the update' : 'Update this draft' ?></button></form><?php endif; ?>
+    </div>
+  <?php endif; ?>
+  <?php if ($client && $rebuildable && $canEdit): /* 2.41.0 made before its template had named fields */ ?>
+    <div class="alert alert-info d-flex flex-wrap align-items-center gap-2" data-rebuild>
+      <i class="fas fa-list-check"></i><span class="me-auto">This document was made before its template had a form. <b>Rebuild with form</b> makes a new draft from the template with the client's answers; this one is kept as it is.</span>
+      <a class="btn btn-sm btn-primary" href="/clients/<?= (int) $client['id'] ?>/document-answers?rebuild=<?= $id ?>">Rebuild with form</a>
+    </div>
+  <?php endif; ?>
 
   <div class="row">
     <div class="col-xl-9">
       <div class="card doc-card">
         <div class="card-body pb-0">
+          <?php if ($client && $fieldKeys): /* 2.41.0 the Form tab beside the editor: this document's answers */ ?>
+            <ul class="nav nav-tabs mb-2 doc-tabs">
+              <li class="nav-item"><span class="nav-link active" aria-current="page"><i class="fas fa-pen me-1"></i>Editor</span></li>
+              <li class="nav-item"><a class="nav-link" href="/clients/<?= (int) $client['id'] ?>/document-answers?doc=<?= $id ?>" data-form-tab><i class="fas fa-list-check me-1"></i>Form <span class="badge text-bg-light"><?= count($fieldKeys) ?></span></a></li>
+            </ul>
+          <?php endif; ?>
           <input class="form-control doc-title" id="doc-title" value="<?= e($doc['title']) ?>" maxlength="255" aria-label="Title" <?= $canEdit ? '' : 'readonly' ?>>
           <div class="row g-2 doc-meta mt-2">
             <div class="col-sm-4 mb-2">

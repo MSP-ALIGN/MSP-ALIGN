@@ -9,7 +9,7 @@
 
 <h2>3. Roles and responsibilities</h2>
 <ul>
-<li><strong>Security lead ([name, title]):</strong> owns this policy, approves BYOD participation and exceptions.</li>
+<li><strong>Security lead ({{field:security_lead}}):</strong> owns this policy, approves BYOD participation and exceptions.</li>
 <li><strong>{{company_name}}:</strong> administers mobile device management (MDM) and app protection ([e.g. Microsoft Intune]), enforces the requirements in this policy, performs remote wipes when required, and supports enrollment.</li>
 <li><strong>Device users:</strong> enroll devices as required, keep them updated and secured, and report loss or theft immediately.</li>
 </ul>
@@ -33,7 +33,7 @@
 <li><strong>Laptops on untrusted networks:</strong> company laptops that connect to home, hotel or public networks and also to internal networks keep a host firewall and the EDR tool running at all times, and users cannot turn them off.</li>
 <li><strong>Remote wipe capability:</strong> company devices can be fully wiped; personal devices can have company apps and data selectively wiped.</li>
 <li><strong>App sources:</strong> apps are installed only from official app stores (Apple App Store, Google Play). Sideloading apps from other sources is not permitted on devices with company data.</li>
-<li><strong>Approved apps:</strong> company data is accessed only through approved apps such as Outlook, Teams, OneDrive, SharePoint and [line-of-business apps]. Native mail apps are blocked for company email where app protection is used.</li>
+<li><strong>Approved apps:</strong> company data is accessed only through approved apps such as Outlook, Teams, OneDrive, SharePoint and {{field:lob_apps}}. Native mail apps are blocked for company email where app protection is used.</li>
 <li><strong>Threat protection:</strong> company-owned devices run mobile threat defense ([product]) where licensed.</li>
 </ul>
 
@@ -49,7 +49,7 @@
 
 <h2>7. Lost or stolen devices</h2>
 <ul>
-<li>Users must report a lost or stolen device containing company data to {{company_name}} at {{company_emergency_phone}} and to [security lead name] <strong>as soon as possible and within 4 hours</strong> of noticing it missing, including nights and weekends.</li>
+<li>Users must report a lost or stolen device containing company data to {{company_name}} at {{company_emergency_phone}} and to {{field:security_lead}} <strong>as soon as possible and within 4 hours</strong> of noticing it missing, including nights and weekends.</li>
 <li>{{company_name}} will attempt to locate the device (company-owned only), lock it, revoke the user's sessions and tokens, and wipe company data. Company-owned devices not recovered within [24] hours are fully wiped.</li>
 <li>The loss is recorded as a security incident. If the device may have contained unencrypted Restricted data, the Incident Response Plan is followed to assess notification obligations.</li>
 <li>Theft should also be reported to police; users provide the report number if available.</li>

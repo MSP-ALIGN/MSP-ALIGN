@@ -279,6 +279,15 @@ $r->post('/documents/{id}/versions/{vid}/restore', [DocumentController::class, '
 $r->get('/clients/{id}/documents', [DocumentController::class, 'clientIndex']);
 $r->post('/clients/{id}/document-facts', [\Align\Controllers\DocumentFactsController::class, 'save']); // 2.39.0 client details for documents
 $r->post('/clients/{id}/document-facts/drafts', [\Align\Controllers\DocumentFactsController::class, 'drafts']);
+// 2.41.0 form-based documents: the client's answers, the form per template, and the Documents overview's actions
+$DF = \Align\Controllers\DocumentFormController::class;
+$r->get('/clients/{id}/document-answers', [$DF, 'form']);
+$r->post('/clients/{id}/document-answers', [$DF, 'save']);
+$r->post('/clients/{id}/document-answers/suggest', [$DF, 'suggest']);
+$r->post('/clients/{id}/document-answers/dismiss', [$DF, 'dismiss']);
+$r->post('/documents/{id}/fields', [$DF, 'update']);
+$r->post('/documents/{id}/reviewed', [$DF, 'reviewed']);
+$r->post('/documents/{id}/owner', [$DF, 'owner']);
 
 // Onboarding → Contracts (2.2)
 $K = \Align\Controllers\ContractController::class;

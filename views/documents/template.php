@@ -25,6 +25,9 @@
         <div class="card-body small">
           <p>Click to insert at the cursor:</p>
           <?php foreach ($placeholders as $p): ?><button type="button" class="btn btn-xs btn-outline-secondary mb-1 me-1" data-insert="{{<?= e($p) ?>}}">{{<?= e($p) ?>}}</button><?php endforeach; ?>
+          <?php /* 2.41.0 named fields: answered once per client on its document form (Docs\Fields) */ ?>
+          <p class="mt-3 mb-1"><b>Form fields</b>: each client answers these once on its document form; they update in its drafts when an answer changes.</p>
+          <?php foreach (\Align\Docs\Fields::FIELDS as $k => [$label]): ?><button type="button" class="btn btn-xs btn-outline-primary mb-1 me-1" data-insert="{{field:<?= e($k) ?>}}" title="<?= e($label) ?>">{{field:<?= e($k) ?>}}</button><?php endforeach; ?>
         </div>
       </div>
       <button class="btn btn-primary w-100" name="action" value="save"><i class="fas fa-check me-1"></i>Save template</button>

@@ -32,7 +32,7 @@
 </ul>
 <p>Maximum tolerable downtime for the business as a whole before serious financial, legal or reputational harm: [e.g. 3 business days].</p>
 <p><strong>Recovery priority order:</strong> when several systems are down, they are restored in this order unless the continuity lead decides otherwise: [1. internet and identity (sign-in, MFA); 2. line-of-business application; 3. email; 4. file storage; 5. other systems].</p>
-<p><strong>Sensitive data in critical systems:</strong> systems above that hold regulated or sensitive information ([e.g. patient records (ePHI), payment card data, CUI, employee records]) are marked as such, so that recovery steps keep that information protected and any data loss is assessed under the Incident Response Plan. Supports HIPAA 164.308(a)(7)(ii)(E).</p>
+<p><strong>Sensitive data in critical systems:</strong> systems above that hold regulated or sensitive information ({{field:data_types}}) are marked as such, so that recovery steps keep that information protected and any data loss is assessed under the Incident Response Plan. Supports HIPAA 164.308(a)(7)(ii)(E).</p>
 <p><strong>Key dependencies and suppliers:</strong> the outside services the critical systems depend on, and what each supplier commits to for its own recovery, are listed here and reviewed at each annual test:</p>
 <ul>
 <li>[Supplier, service, which systems in this section depend on it, support number, its recovery commitment or status page, e.g. "Hosted EHR vendor, practice management, 1-800-XXX-XXXX, restores within 24 hours per contract"]</li>
@@ -44,12 +44,12 @@
 <li><strong>{{company_name}} (IT / MSP):</strong> {{company_phone}}, {{company_email}}; after-hours emergency: {{company_emergency_phone}}</li>
 <li><strong>Owner / executive sponsor:</strong> [name, mobile, personal email]</li>
 <li><strong>Continuity lead and alternate:</strong> [names, mobiles]</li>
-<li><strong>Cyber insurance carrier and breach hotline:</strong> [carrier, policy number, 24/7 hotline] — call before engaging outside incident response firms for a security incident</li>
-<li><strong>Legal counsel / breach coach:</strong> [name, firm, phone]</li>
+<li><strong>Cyber insurance carrier and breach hotline:</strong> {{field:cyber_insurance}} — call before engaging outside incident response firms for a security incident</li>
+<li><strong>Legal counsel / breach coach:</strong> {{field:legal_counsel}}</li>
 <li><strong>Internet service provider(s):</strong> [ISP, account number, support number]</li>
 <li><strong>Phone / VoIP provider:</strong> [provider, account number, support number]</li>
 <li><strong>Line-of-business software vendor:</strong> [vendor, support number, customer ID]</li>
-<li><strong>Bank (fraud line):</strong> [bank, phone]</li>
+<li><strong>Bank (fraud line):</strong> {{field:bank_fraud}}</li>
 <li><strong>Landlord / building management:</strong> [name, phone]</li>
 <li><strong>Utilities:</strong> [electric, gas, water emergency numbers]</li>
 <li><strong>Local emergency services:</strong> 911; non-emergency police [number]; FBI IC3 (ic3.gov) for cybercrime</li>
